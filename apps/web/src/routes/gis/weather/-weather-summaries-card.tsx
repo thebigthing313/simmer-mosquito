@@ -76,30 +76,11 @@ export function WeatherSummariesCard({
 		<Card variant="surface">
 			<CardHeader className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
 				<CardTitle>Recent Summaries</CardTitle>
-				<WriteOnly minimum="manager">
-					<div className="flex items-center gap-2">
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id: stationId }} to="/gis/weather/$id/import">
-								<ImportIcon aria-hidden="true" />
-								Import
-							</Link>
-						</Button>
-						{/* Recording a reading needs an active station; the server refuses it
-						    on an inactive one, so the button says so rather than the save. */}
-						<Button
-							disabled={!isStationActive}
-							onClick={() => setEditing({ summary: null })}
-							size="sm"
-							title={
-								isStationActive ? undefined : 'Reactivate this station to record new readings.'
-							}
-							type="button"
-						>
-							<AddIcon aria-hidden="true" />
-							Record
-						</Button>
-					</div>
-				</WriteOnly>
+				<SummaryActions
+					isStationActive={isStationActive}
+					onRecord={() => setEditing({ summary: null })}
+					stationId={stationId}
+				/>
 			</CardHeader>
 			<CardContent padding="compact">
 				{removeError === null ? null : (
@@ -122,68 +103,11 @@ export function WeatherSummariesCard({
 						title="No Summaries"
 					/>
 				) : (
-					<div className="overflow-x-auto rounded-md border border-border/40">
-						<Table>
-							<TableHeader>
-								<TableRow className="hover:bg-transparent">
-									<TableHead>Period</TableHead>
-									<TableHead className="text-right">Temp (°F)</TableHead>
-									<TableHead className="text-right">Precip (in)</TableHead>
-									<TableHead className="text-right">Humidity (%)</TableHead>
-									<TableHead className="text-right">Wind (mph)</TableHead>
-									<TableHead className="w-[5.5rem]" />
-								</TableRow>
-							</TableHeader>
-							<TableBody>
-								{summaries.map((summary) => (
-									<TableRow key={summary.id}>
-										<TableCell className="font-medium text-foreground">
-											{summaryPeriodLabel(summary)}
-										</TableCell>
-										<TableCell className="text-right tabular-nums">
-											{formatRange(summary.temperatureMinF, summary.temperatureMaxF, '')}
-										</TableCell>
-										<TableCell className="text-right tabular-nums">
-											{formatMeasure(summary.precipitationInches, '')}
-										</TableCell>
-										<TableCell className="text-right tabular-nums">
-											{formatRange(summary.relativeHumidityMin, summary.relativeHumidityMax, '')}
-										</TableCell>
-										<TableCell className="text-right tabular-nums">
-											{formatRange(summary.windSpeedMinMph, summary.windSpeedMaxMph, '')}
-										</TableCell>
-										<TableCell className="text-right">
-											<WriteOnly minimum="manager">
-												<div className="flex justify-end gap-0.5">
-													<Button
-														aria-label={`Edit the summary for ${summaryPeriodLabel(summary)}`}
-														onClick={() => setEditing({ summary })}
-														size="icon-sm"
-														type="button"
-														variant="ghost"
-													>
-														<EditIcon aria-hidden="true" />
-													</Button>
-													{/* A summary delete is a hard delete with nothing behind
-													    it — no soft-delete column, no blockers to check — so
-													    there is no impact card to show first. */}
-													<Button
-														aria-label={`Delete the summary for ${summaryPeriodLabel(summary)}`}
-														onClick={() => void remove(summary.id)}
-														size="icon-sm"
-														type="button"
-														variant="ghost"
-													>
-														<DeleteIcon aria-hidden="true" />
-													</Button>
-												</div>
-											</WriteOnly>
-										</TableCell>
-									</TableRow>
-								))}
-							</TableBody>
-						</Table>
-					</div>
+					<SummariesTable
+						onEdit={(summary) => setEditing({ summary })}
+						onRemove={remove}
+						summaries={summaries}
+					/>
 				)}
 			</CardContent>
 
@@ -195,6 +119,124 @@ export function WeatherSummariesCard({
 				/>
 			)}
 		</Card>
+	);
+}
+
+/** Import a file, or record one reading by hand. */
+function SummaryActions({
+	stationId,
+	isStationActive,
+	onRecord,
+}: {
+	readonly stationId: string;
+	readonly isStationActive: boolean;
+	readonly onRecord: () => void;
+}) {
+	return (
+		<WriteOnly minimum="manager">
+			<div className="flex items-center gap-2">
+				<Button asChild size="sm" variant="outline">
+					<Link params={{ id: stationId }} to="/gis/weather/$id/import">
+						<ImportIcon aria-hidden="true" />
+						Import
+					</Link>
+				</Button>
+				{/* Recording a reading needs an active station; the server refuses it on
+				    an inactive one, so the button says so rather than the save. */}
+				<Button
+					disabled={!isStationActive}
+					onClick={onRecord}
+					size="sm"
+					title={isStationActive ? undefined : 'Reactivate this station to record new readings.'}
+					type="button"
+				>
+					<AddIcon aria-hidden="true" />
+					Record
+				</Button>
+			</div>
+		</WriteOnly>
+	);
+}
+
+/**
+ * The readings themselves.
+ *
+ * Its own component so the card above it is the three states — loading, empty,
+ * loaded — and nothing else, which is the shape every record surface in the app
+ * has.
+ */
+function SummariesTable({
+	summaries,
+	onEdit,
+	onRemove,
+}: {
+	readonly summaries: readonly WeatherSummaryListing[];
+	readonly onEdit: (summary: WeatherSummaryListing) => void;
+	readonly onRemove: (summaryId: string) => void;
+}) {
+	return (
+		<div className="overflow-x-auto rounded-md border border-border/40">
+			<Table>
+				<TableHeader>
+					<TableRow className="hover:bg-transparent">
+						<TableHead>Period</TableHead>
+						<TableHead className="text-right">Temp (°F)</TableHead>
+						<TableHead className="text-right">Precip (in)</TableHead>
+						<TableHead className="text-right">Humidity (%)</TableHead>
+						<TableHead className="text-right">Wind (mph)</TableHead>
+						<TableHead className="w-[5.5rem]" />
+					</TableRow>
+				</TableHeader>
+				<TableBody>
+					{summaries.map((summary) => (
+						<TableRow key={summary.id}>
+							<TableCell className="font-medium text-foreground">
+								{summaryPeriodLabel(summary)}
+							</TableCell>
+							<TableCell className="text-right tabular-nums">
+								{formatRange(summary.temperatureMinF, summary.temperatureMaxF, '')}
+							</TableCell>
+							<TableCell className="text-right tabular-nums">
+								{formatMeasure(summary.precipitationInches, '')}
+							</TableCell>
+							<TableCell className="text-right tabular-nums">
+								{formatRange(summary.relativeHumidityMin, summary.relativeHumidityMax, '')}
+							</TableCell>
+							<TableCell className="text-right tabular-nums">
+								{formatRange(summary.windSpeedMinMph, summary.windSpeedMaxMph, '')}
+							</TableCell>
+							<TableCell className="text-right">
+								<WriteOnly minimum="manager">
+									<div className="flex justify-end gap-0.5">
+										<Button
+											aria-label={`Edit the summary for ${summaryPeriodLabel(summary)}`}
+											onClick={() => onEdit(summary)}
+											size="icon-sm"
+											type="button"
+											variant="ghost"
+										>
+											<EditIcon aria-hidden="true" />
+										</Button>
+										{/* A summary delete is a hard delete with nothing behind it — no
+										    soft-delete column, no blockers to check — so there is no
+										    impact card to show first. */}
+										<Button
+											aria-label={`Delete the summary for ${summaryPeriodLabel(summary)}`}
+											onClick={() => onRemove(summary.id)}
+											size="icon-sm"
+											type="button"
+											variant="ghost"
+										>
+											<DeleteIcon aria-hidden="true" />
+										</Button>
+									</div>
+								</WriteOnly>
+							</TableCell>
+						</TableRow>
+					))}
+				</TableBody>
+			</Table>
+		</div>
 	);
 }
 

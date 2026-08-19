@@ -25,10 +25,15 @@ import { RecordUnavailable } from '../../../components/record';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { isBelowRole } from '../../../lib/write-access';
-import { commitWeatherImport, type WeatherImportResult } from './-import-commit';
+import {
+	commitWeatherImport,
+	type WeatherImportResult,
+	type WeatherImportRow,
+} from './-import-commit';
 import {
 	IMPORT_FILE_ACCEPT,
 	MAX_IMPORT_ROWS,
+	type ParsedSummaryRow,
 	type ParseResult,
 	parseWeatherFile,
 } from './-import-parse';
@@ -111,23 +116,7 @@ function ImportWeatherPage({ station }: { readonly station: WeatherStation }) {
 		setError(null);
 		setIsBusy(true);
 		try {
-			// The ids are minted here, one per line, and the server honours them for
-			// the rows it inserts and ignores them for the rows it updates — an
-			// existing bucket keeps its own id, because anything already pointing at
-			// it has to keep resolving.
-			const rows = parsed.rows.map((row) => ({
-				clientRowId: String(row.line),
-				weatherSummaryId: newRecordId(),
-				startDate: row.startDate,
-				endDate: row.endDate,
-				temperatureMinF: row.temperatureMinF,
-				temperatureMaxF: row.temperatureMaxF,
-				precipitationInches: row.precipitationInches,
-				relativeHumidityMin: row.relativeHumidityMin,
-				relativeHumidityMax: row.relativeHumidityMax,
-				windSpeedMinMph: row.windSpeedMinMph,
-				windSpeedMaxMph: row.windSpeedMaxMph,
-			}));
+			const rows = submittableRows(parsed.rows);
 
 			// Sent with neither acknowledgement. Whether this file overwrites anything
 			// is the server's to answer, and it answers by refusing once and naming
@@ -214,6 +203,32 @@ function ImportWeatherPage({ station }: { readonly station: WeatherStation }) {
 	);
 }
 
+/**
+ * The parsed lines, as the commit takes them.
+ *
+ * The ids are minted here, one per line. The server honours them for the rows it
+ * inserts and ignores them for the rows it updates — an existing bucket keeps its
+ * own id, because anything already pointing at it has to keep resolving.
+ *
+ * `clientRowId` is the spreadsheet line number, so a per-row failure comes back
+ * naming something the user can find in their own file.
+ */
+function submittableRows(rows: readonly ParsedSummaryRow[]): readonly WeatherImportRow[] {
+	return rows.map((row) => ({
+		clientRowId: String(row.line),
+		weatherSummaryId: newRecordId(),
+		startDate: row.startDate,
+		endDate: row.endDate,
+		temperatureMinF: row.temperatureMinF,
+		temperatureMaxF: row.temperatureMaxF,
+		precipitationInches: row.precipitationInches,
+		relativeHumidityMin: row.relativeHumidityMin,
+		relativeHumidityMax: row.relativeHumidityMax,
+		windSpeedMinMph: row.windSpeedMinMph,
+		windSpeedMaxMph: row.windSpeedMaxMph,
+	}));
+}
+
 function ParsedFileCard({
 	parsed,
 	fileName,
@@ -265,24 +280,40 @@ function ParsedFileCard({
 					</p>
 				)}
 
-				{parsed.rejected.length === 0 ? null : (
-					<div className="grid gap-1 rounded-md border border-border/40 bg-muted/30 p-3">
-						{/* Named individually rather than counted, because "line 84 has no
-						    readings" is something a person can go and fix. */}
-						{parsed.rejected.slice(0, 10).map((entry) => (
-							<p className="m-0 text-muted-foreground text-xs" key={entry.line}>
-								Line {entry.line}: {entry.reason}
-							</p>
-						))}
-						{parsed.rejected.length > 10 ? (
-							<p className="m-0 text-muted-foreground text-xs">
-								…and {(parsed.rejected.length - 10).toLocaleString()} more.
-							</p>
-						) : null}
-					</div>
-				)}
+				<SkippedLines rejected={parsed.rejected} />
 			</CardContent>
 		</Card>
+	);
+}
+
+/**
+ * The lines that will not be sent, named individually.
+ *
+ * "3 rows were skipped" is a dead end; "line 84 has no readings" is something a
+ * person can open their own file and fix. Ten is enough to see the pattern
+ * without turning the review into the failure list.
+ */
+function SkippedLines({
+	rejected,
+}: {
+	readonly rejected: readonly { readonly line: number; readonly reason: string }[];
+}) {
+	if (rejected.length === 0) {
+		return null;
+	}
+	return (
+		<div className="grid gap-1 rounded-md border border-border/40 bg-muted/30 p-3">
+			{rejected.slice(0, 10).map((entry) => (
+				<p className="m-0 text-muted-foreground text-xs" key={entry.line}>
+					Line {entry.line}: {entry.reason}
+				</p>
+			))}
+			{rejected.length > 10 ? (
+				<p className="m-0 text-muted-foreground text-xs">
+					…and {(rejected.length - 10).toLocaleString()} more.
+				</p>
+			) : null}
+		</div>
 	);
 }
 

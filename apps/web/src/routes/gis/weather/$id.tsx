@@ -76,52 +76,11 @@ function WeatherStationContent({ station }: { readonly station: WeatherStation }
 
 	return (
 		<>
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="grid gap-1.5">
-					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						<WeatherIcon aria-hidden="true" className="size-3.5" />
-						Weather station
-					</span>
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-						{station.name}
-					</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{weatherSourceTypeLabel(station.sourceType)}
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<StationStatusBadge isActive={station.isActive} />
-					{isOwned ? (
-						<WriteOnly minimum="manager">
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: station.id }} to="/gis/weather/$id/edit">
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-					) : null}
-				</div>
-			</div>
-
+			<StationHeader isOwned={isOwned} station={station} />
 			<div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
 				<WeatherSummariesCard isStationActive={station.isActive} stationId={station.id} />
 				<div className="grid content-start gap-5">
-					<Card variant="surface">
-						<CardHeader className="px-4 py-4">
-							<CardTitle>Details</CardTitle>
-						</CardHeader>
-						<CardContent className="grid gap-2.5" padding="compact">
-							<DetailRow label="Type">{weatherSourceTypeLabel(station.sourceType)}</DetailRow>
-							<DetailRow label="Code">
-								{station.sourceCode ?? <span className="text-muted-foreground">Not set</span>}
-							</DetailRow>
-							<DetailRow label="Provider">
-								{station.providerSourceId ?? <span className="text-muted-foreground">Not set</span>}
-							</DetailRow>
-							<DetailRow label="Status">{station.isActive ? 'Active' : 'Inactive'}</DetailRow>
-						</CardContent>
-					</Card>
+					<StationDetailsCard station={station} />
 					{isOwned ? (
 						<WriteOnly minimum="manager">
 							<StationLifecycleCard station={station} />
@@ -130,6 +89,64 @@ function WeatherStationContent({ station }: { readonly station: WeatherStation }
 				</div>
 			</div>
 		</>
+	);
+}
+
+function StationHeader({
+	station,
+	isOwned,
+}: {
+	readonly station: WeatherStation;
+	readonly isOwned: boolean;
+}) {
+	return (
+		<div className="flex flex-wrap items-start justify-between gap-3">
+			<div className="grid gap-1.5">
+				<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
+					<WeatherIcon aria-hidden="true" className="size-3.5" />
+					Weather station
+				</span>
+				<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
+					{station.name}
+				</h1>
+				<p className="m-0 text-[0.95rem] text-muted-foreground">
+					{weatherSourceTypeLabel(station.sourceType)}
+				</p>
+			</div>
+			<div className="flex items-center gap-2">
+				<StationStatusBadge isActive={station.isActive} />
+				{isOwned ? (
+					<WriteOnly minimum="manager">
+						<Button asChild size="sm" variant="outline">
+							<Link params={{ id: station.id }} to="/gis/weather/$id/edit">
+								<EditIcon aria-hidden="true" />
+								Edit
+							</Link>
+						</Button>
+					</WriteOnly>
+				) : null}
+			</div>
+		</div>
+	);
+}
+
+function StationDetailsCard({ station }: { readonly station: WeatherStation }) {
+	return (
+		<Card variant="surface">
+			<CardHeader className="px-4 py-4">
+				<CardTitle>Details</CardTitle>
+			</CardHeader>
+			<CardContent className="grid gap-2.5" padding="compact">
+				<DetailRow label="Type">{weatherSourceTypeLabel(station.sourceType)}</DetailRow>
+				<DetailRow label="Code">
+					{station.sourceCode ?? <span className="text-muted-foreground">Not set</span>}
+				</DetailRow>
+				<DetailRow label="Provider">
+					{station.providerSourceId ?? <span className="text-muted-foreground">Not set</span>}
+				</DetailRow>
+				<DetailRow label="Status">{station.isActive ? 'Active' : 'Inactive'}</DetailRow>
+			</CardContent>
+		</Card>
 	);
 }
 

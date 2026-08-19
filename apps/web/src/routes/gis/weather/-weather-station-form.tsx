@@ -202,42 +202,69 @@ export function WeatherStationFormPage({
 					</form.AppField>
 				</div>
 
-				<section
-					aria-labelledby="station-geometry-label"
-					className={cn(
-						'grid gap-3 rounded-md border bg-muted/30 p-4',
-						geometryError === null ? 'border-border/50' : 'border-destructive/60',
-					)}
-				>
-					<div className="grid gap-0.5">
-						<span
-							className="font-semibold text-foreground text-sm leading-none"
-							id="station-geometry-label"
-						>
-							Station location
-						</span>
-						<span className="text-muted-foreground text-xs">
-							Place the station where it stands.
-						</span>
-					</div>
-
-					<GeometryControl
-						allowedTypes={POINT_DRAW_TYPES}
-						controller={draw}
-						geometry={geometry}
-						geometryType="Point"
-						label="Location"
-						onClear={clearGeometry}
-						onDraw={startDraw}
-						required
-					/>
-
-					{geometryError === null ? null : (
-						<p className="m-0 text-destructive text-sm">{geometryError}</p>
-					)}
-				</section>
+				<LocationSection
+					controller={draw}
+					error={geometryError}
+					geometry={geometry}
+					onClear={clearGeometry}
+					onDraw={startDraw}
+				/>
 			</RecordFormPage>
 		</form.AppForm>
+	);
+}
+
+/**
+ * Where the station stands.
+ *
+ * Point-only, by the domain's rule, and stated on the map rather than typed:
+ * a station is a thermometer on a post, and the coordinates it stores are the
+ * ones somebody placed.
+ */
+function LocationSection({
+	geometry,
+	controller,
+	error,
+	onDraw,
+	onClear,
+}: {
+	readonly geometry: DrawGeometry | null;
+	readonly controller: ReturnType<typeof useMapDraw>;
+	readonly error: string | null;
+	readonly onDraw: () => void;
+	readonly onClear: () => void;
+}) {
+	return (
+		<section
+			aria-labelledby="station-geometry-label"
+			className={cn(
+				'grid gap-3 rounded-md border bg-muted/30 p-4',
+				error === null ? 'border-border/50' : 'border-destructive/60',
+			)}
+		>
+			<div className="grid gap-0.5">
+				<span
+					className="font-semibold text-foreground text-sm leading-none"
+					id="station-geometry-label"
+				>
+					Station location
+				</span>
+				<span className="text-muted-foreground text-xs">Place the station where it stands.</span>
+			</div>
+
+			<GeometryControl
+				allowedTypes={POINT_DRAW_TYPES}
+				controller={controller}
+				geometry={geometry}
+				geometryType="Point"
+				label="Location"
+				onClear={onClear}
+				onDraw={onDraw}
+				required
+			/>
+
+			{error === null ? null : <p className="m-0 text-destructive text-sm">{error}</p>}
+		</section>
 	);
 }
 
