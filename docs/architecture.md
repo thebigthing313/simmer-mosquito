@@ -303,6 +303,11 @@ when query, sync, lifecycle, or indexing pressure proves it useful.
 This is an intentional departure from RLS-driven schemas that require
 `organization_id` everywhere.
 
+Do not add a generic `sites` table. Location lives on the concrete domain
+entities that own it: traps, habitats, addresses, route items, service requests,
+requested control actions, mission items. A shared site model needs a workflow
+that proves it is worth the indirection.
+
 ## Audit And Provenance
 
 Keep three concepts separate:
@@ -331,25 +336,29 @@ server query builder. `kysely-codegen` should generate database table types from
 the migrated database once the schema grows beyond the initial hand-written
 slice.
 
+These legacy tables from the old system are deliberately absent until a
+workflow needs them: `deleted_data`, `roles`, `tag_groups`, `species_groups`,
+`species_group_species`, and the contact-level notification preference join
+tables.
+
 Domain/app types may be richer than DB row types. Explicit mappers translate
 between DB/sync rows and domain aggregates or commands. Do this at workflow and
 aggregate boundaries, not as a giant generic translation framework.
 
 ## Local Development
 
-Local infrastructure runs in Docker Compose:
-
-- Postgres with PostGIS.
-- ElectricSQL later.
+Postgres and Electric come from the Railway `staging` environment. There is no
+local Docker Postgres. `.env` and `apps/server/.env` point `DATABASE_URL`,
+`ELECTRIC_URL`, and `ELECTRIC_SECRET` at staging. See `docs/deployment.md` for
+the full setup.
 
 Apps run as local pnpm/Nx processes:
 
 - `pnpm dev:server`
 - `pnpm dev:admin`
 - `pnpm dev:web`
-- future mobile Expo commands
-
-Daily development should not require Railway local tooling.
+- `pnpm dev:preview`
+- `pnpm dev:caddy` for the local reverse proxy
 
 ## Testing
 

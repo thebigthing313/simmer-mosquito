@@ -95,4 +95,3 @@ nothing CI does touches a database anyone else is using.
 - `docs/domain-command-contract.md`: shared command, validation, offline, and
   module-shape rules.
 - `docs/*-domain.md`: domain-specific command vocabulary and exceptions.
-- `docs/plan.md`: current boundary, next slice, and deferred work.
