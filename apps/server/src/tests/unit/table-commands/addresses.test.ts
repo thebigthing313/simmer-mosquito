@@ -16,7 +16,6 @@ import type { AgencyCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import { addressTableCommands } from '../../../table-commands/addresses.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
-import { unimplementedCommandRoutes } from '../../../unimplemented-commands.js';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const ACTOR = '22222222-2222-4222-8222-222222222222';
@@ -135,19 +134,12 @@ describe('addresses', () => {
 		expect(cleared.payload).toMatchObject({ changes: { addressLine2: null } });
 	});
 
-	// The stubs for both of these are gone, because the commands now have writers.
-	it('no longer leaves a stub for the location update it implements', () => {
+	// Both of these answered 501 from `unimplemented-commands.ts` until they had
+	// writers. That module is gone — the stub list reached zero — so what is left
+	// to assert is that the map offers them.
+	it('names the location update and the merge, which used to have no writer', () => {
 		expect(addresses.intents).toHaveProperty('foundation.updateAddressLocation');
-		expect(unimplementedCommandRoutes.map((route) => route.command)).not.toContain(
-			'foundation.updateAddressLocation',
-		);
-	});
-
-	it('offers the merge, against the address that survives', () => {
 		expect(addresses.intents).toHaveProperty('foundation.mergeAddresses');
-		expect(unimplementedCommandRoutes.map((route) => route.command)).not.toContain(
-			'foundation.mergeAddresses',
-		);
 	});
 
 	it('reads the target from the path and the sources from the body', () => {

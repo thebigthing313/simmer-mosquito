@@ -17,6 +17,7 @@ export * from './domains/map-extent.js';
 export * from './domains/map-region-filter.js';
 export * from './domains/map-tile.js';
 export * from './domains/mission-dispatch-map.js';
+export * from './domains/mission-notification-generation.js';
 export * from './domains/org-owned-writes.js';
 export * from './domains/profile-activity.js';
 export * from './domains/record-deletion.js';

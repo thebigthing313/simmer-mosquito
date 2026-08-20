@@ -429,8 +429,12 @@ None of these exists, and none is added in this pass:
 ## Deferred
 
 The 32 `publicEngagement.*` command endpoints are built, in
-`apps/server/src/table-commands/contacts.ts` and `notifications.ts`. Still
-deferred:
+`apps/server/src/table-commands/contacts.ts` and `notifications.ts`.
+`generateMissionNotifications` is the exception to that pair: it derives rows
+rather than translating one, so it has its own route in
+`apps/server/src/public-engagement-records-commands/mission-notification-generation.ts`.
+
+Still deferred:
 
 - Public-facing portal intake, with its anti-spam and consent flows.
 - Public engagement imports and metadata-writing admin workflows.
