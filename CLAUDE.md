@@ -164,3 +164,20 @@ Pure domain builders validate context-free rules (required fields, enums, ranges
 - **UI and styling**: compose `packages/ui-web` shadcn primitives before writing custom JSX; promote reused patterns into `ui-web` as `cva` variants. Style with Tailwind semantic tokens and shadcn variants, and keep route-level `className` to layout. Import icons from `@simmer-mosquito/ui-web/icons/registry`, not `lucide-react` directly. Keep durable raw values in `packages/design-tokens`. App CSS is reserved for globals, token exposure, vendor and browser selectors, and cases Tailwind can't express. See `AGENTS.md` and `DESIGN.md` for the full rules.
 - **Formatting and lint**: Biome (`pnpm check`). Tabs (width 2), LF, single quotes, semicolons, trailing commas, 100-col. Generated files (`routeTree.gen.ts`, `packages/ui-web/src/components/ui`, `dist`) are excluded.
 - **Location-bearing commands** carry a domain *location source* (explicit GeoJSON or an allowed same-org locatable record), never raw DB geometry columns. The server stores and snapshots geometry inside the authorized transaction. See per-domain docs for allowed source flows.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as GitHub issues on `thebigthing313/simmer-mosquito`, driven by the
+`gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical triage roles use their own names as label strings, over the
+`bug` and `enhancement` categories. See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one root `CONTEXT.md` and one `docs/adr/`, covering every app
+and package. See `docs/agents/domain.md`.
