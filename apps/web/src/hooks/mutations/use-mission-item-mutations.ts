@@ -59,7 +59,7 @@ export interface MissionItemMutations {
 	readonly addFromRequest: (input: {
 		readonly missionId: string;
 		readonly request: RequestStopSeed;
-		/** Where it lands until the server renumbers — the list's current last, plus one. */
+		/** The list's current last, plus one, which is what the server's append writes. */
 		readonly position: number;
 	}) => Promise<void>;
 	readonly addAtGeometry: (input: {

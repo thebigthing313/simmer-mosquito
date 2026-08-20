@@ -45,7 +45,7 @@ export interface AssignmentItemMutations {
 	readonly addStop: (input: {
 		readonly assignmentId: string;
 		readonly target: AssignmentStopTarget;
-		/** Where it lands until the server renumbers — the list's current last, plus one. */
+		/** The list's current last, plus one, which is what the server's append writes. */
 		readonly position: number;
 	}) => Promise<void>;
 	/** What a crew needs between this stop and the next. Empty clears it. */

@@ -45,11 +45,16 @@ export {
 // Ordering helpers
 // ===========================================================================
 
-export type OrderedItemTable = 'route_items' | 'assignment_items';
-
+/**
+ * Renumber a parent's items 0…n-1 in the order `reorder` puts them.
+ *
+ * Only the moves call this. They take an id list, so moving N items writes N
+ * rows whatever the numbering is. Adds compute a single fractional position
+ * instead; see `ordered-items.ts`.
+ */
 export async function reindexItems(
 	trx: FieldWorkTransaction,
-	table: OrderedItemTable,
+	table: 'route_items' | 'assignment_items',
 	parentColumn: 'route_id' | 'assignment_id',
 	parentId: string,
 	organizationId: string,
@@ -74,27 +79,6 @@ export async function reindexItems(
 			.where('organization_id', '=', organizationId)
 			.execute();
 	}
-}
-
-export function applyPlacement(
-	orderedIds: readonly string[],
-	movingIds: readonly string[],
-	kind: 'start' | 'end' | 'before' | 'after',
-	refId: string | null,
-): readonly string[] {
-	const moving = movingIds.filter((id) => orderedIds.includes(id));
-	const remaining = orderedIds.filter((id) => !moving.includes(id));
-	if (kind === 'start') {
-		return [...moving, ...remaining];
-	}
-	if (kind === 'before' || kind === 'after') {
-		const refIndex = refId === null ? -1 : remaining.indexOf(refId);
-		if (refIndex !== -1) {
-			const insertAt = kind === 'before' ? refIndex : refIndex + 1;
-			return [...remaining.slice(0, insertAt), ...moving, ...remaining.slice(insertAt)];
-		}
-	}
-	return [...remaining, ...moving];
 }
 
 export function routePlacementRef(placement: RouteItemPlacement): string | null {

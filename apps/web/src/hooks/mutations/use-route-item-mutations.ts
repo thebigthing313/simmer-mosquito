@@ -12,9 +12,9 @@
  *
  * ## `position` on a new stop
  *
- * The server appends and renumbers, so the value written here only decides where
- * the row sits between the click and the round trip. It is the caller's current
- * last position plus one, which is where the server will put it.
+ * The add carries no placement, so the server appends: it writes one row at the
+ * list's current maximum plus one and leaves every sibling alone. The caller
+ * passes its own last position plus one, which is the same number.
  */
 
 import { type RouteItem as RouteItemRow, settleWrite } from '@simmer-mosquito/sync';
@@ -34,7 +34,7 @@ export interface RouteItemMutations {
 	readonly addStop: (input: {
 		readonly routeId: string;
 		readonly target: RouteStopTarget;
-		/** Where it lands until the server renumbers — the list's current last, plus one. */
+		/** The list's current last, plus one, which is what the server's append writes. */
 		readonly position: number;
 	}) => Promise<void>;
 	/** What a crew needs between this stop and the next. Empty clears it. */

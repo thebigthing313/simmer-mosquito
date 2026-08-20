@@ -19,7 +19,8 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
 import { insertLifecycleComment } from '../lifecycle-comment.js';
-import { applyPlacement, missionPlacementRef, reindexMissionItems } from './mission-items.js';
+import { applyPlacement } from '../ordered-items.js';
+import { missionPlacementRef, reindexMissionItems } from './mission-items.js';
 import {
 	assertMissionTransition,
 	checkCancelMission,

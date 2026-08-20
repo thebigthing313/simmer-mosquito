@@ -10,8 +10,8 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
+import { nextItemPosition } from '../ordered-items.js';
 import {
-	applyPlacement,
 	type CommandContext,
 	commandEndpoint,
 	type FieldWorkDb,
@@ -19,7 +19,6 @@ import {
 	type RouteItemRow,
 	type RouteOptions,
 	readTarget,
-	reindexItems,
 	routeItemReturnColumns,
 	routePlacementRef,
 	runCommands,
@@ -100,6 +99,16 @@ export async function writeRouteItemCommand(
 ): Promise<RouteItemRow | null> {
 	switch (command.type) {
 		case 'fieldWork.addRouteItem': {
+			const position = await nextItemPosition(
+				trx,
+				'route_items',
+				'route_id',
+				command.payload.routeId,
+				command.payload.organizationId,
+				command.payload.routeItemId,
+				command.payload.placement.kind,
+				routePlacementRef(command.payload.placement),
+			);
 			await trx
 				.insertInto('route_items')
 				.values({
@@ -108,27 +117,12 @@ export async function writeRouteItemCommand(
 					route_id: command.payload.routeId,
 					entity_type: toDbEntityType(command.payload.target.type),
 					entity_id: command.payload.target.id,
-					position: 0,
+					position,
 					directions_to_next_item: command.payload.directionsToNextItem,
 					created_by_profile_id: command.payload.actorProfileId,
 					updated_by_profile_id: command.payload.actorProfileId,
 				})
 				.execute();
-			await reindexItems(
-				trx,
-				'route_items',
-				'route_id',
-				command.payload.routeId,
-				command.payload.organizationId,
-				command.payload.actorProfileId,
-				(ids) =>
-					applyPlacement(
-						ids,
-						[command.payload.routeItemId],
-						command.payload.placement.kind,
-						routePlacementRef(command.payload.placement),
-					),
-			);
 			return loadRouteItem(trx, command.payload.routeItemId, command.payload.organizationId);
 		}
 		case 'fieldWork.updateRouteItem':
