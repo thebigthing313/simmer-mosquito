@@ -10,8 +10,8 @@
  *
  * Which types each table accepts is not the same list, and that is the second
  * thing here. `readEntityTarget` casts rather than narrows, on purpose: a
- * comment goes on seventeen kinds of record, a Tag on six, a crew line on the
- * six kinds of field work. Narrowing at the reader would be a second copy of
+ * Comment goes on seventeen kinds of record, a Tag on six, and an Additional
+ * Personnel row on the six kinds of field work. Narrowing at the reader would be a second copy of
  * three lists, so the domain's own check is what refuses a target, and these
  * pin that it does.
  *
@@ -33,7 +33,7 @@ const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const ACTOR = '22222222-2222-4222-8222-222222222222';
 const COMMENT = '33333333-3333-4333-8333-333333333333';
 const TAG_ITEM = '44444444-4444-4444-8444-444444444444';
-const CREW_LINE = '55555555-5555-4555-8555-555555555555';
+const ADDITIONAL_PERSONNEL = '55555555-5555-4555-8555-555555555555';
 const TAG = '66666666-6666-4666-8666-666666666666';
 const SERVICE_REQUEST = '77777777-7777-4777-8777-777777777777';
 const SOURCE_REDUCTION = '88888888-8888-4888-8888-888888888888';
@@ -73,7 +73,7 @@ function build<TCommand extends WritableCommand>(
 }
 
 describe('comments intent map', () => {
-	it('reads a note off column names, target included', () => {
+	it('reads a Comment off column names, target included', () => {
 		const command = build(comments, 'fieldWork.addComment', COMMENT, {
 			entity_type: 'source_reduction',
 			entity_id: SOURCE_REDUCTION,
@@ -104,9 +104,10 @@ describe('comments intent map', () => {
 		).toThrow(DomainValidationError);
 	});
 
-	it('dates a note now when the body carried no time', () => {
-		// `commented_at` is when the note was left rather than when the row was
-		// written, so a comment keyed in after the fact carries its own.
+	it('carries no moment when the body sent no time', () => {
+		// `commented_at` is when the Comment was left rather than when the row was
+		// written, so one keyed in after the fact carries its own and one left now
+		// carries none, which the writer stamps.
 		const command = build(comments, 'fieldWork.addComment', COMMENT, {
 			entity_type: 'habitat',
 			entity_id: HABITAT,
@@ -137,8 +138,8 @@ describe('comments intent map', () => {
 	});
 
 	it('lets one payload be both a correction and a pin', () => {
-		// `intents` is a list, so a save that fixes the text and pins the note names
-		// two commands over one body. Only `updateComment` reads a field, so neither
+		// `intents` is a list, so a save that fixes the text and pins the Comment
+		// names two commands over one body. Only `updateComment` reads a field, so neither
 		// can take the other's by mistake.
 		const body = { comment_text: 'Corrected: ditch drains to the north' };
 		const updated = build(comments, 'fieldWork.updateComment', COMMENT, body);
@@ -244,26 +245,31 @@ describe('tag items intent map', () => {
 });
 
 describe('additional personnel intent map', () => {
-	it('reads a crew line off column names', () => {
-		const command = build(additionalPersonnel, 'fieldWork.addAdditionalPersonnel', CREW_LINE, {
-			entity_type: 'source_reduction',
-			entity_id: SOURCE_REDUCTION,
-			personnel_profile_id: PROFILE,
-		});
+	it('reads an Additional Personnel row off column names', () => {
+		const command = build(
+			additionalPersonnel,
+			'fieldWork.addAdditionalPersonnel',
+			ADDITIONAL_PERSONNEL,
+			{
+				entity_type: 'source_reduction',
+				entity_id: SOURCE_REDUCTION,
+				personnel_profile_id: PROFILE,
+			},
+		);
 
 		expect(command.type).toBe('fieldWork.addAdditionalPersonnel');
 		expect(command.payload).toMatchObject({
-			additionalPersonnelId: CREW_LINE,
+			additionalPersonnelId: ADDITIONAL_PERSONNEL,
 			target: { type: 'sourceReduction', id: SOURCE_REDUCTION },
 			personnelProfileId: PROFILE,
 		});
 	});
 
-	it('refuses a crew line on a record nobody works', () => {
+	it('refuses an Additional Personnel row on a record nobody works', () => {
 		// The crew is attached to field work. A Habitat is a place, not a record of
 		// somebody having been there.
 		expect(() =>
-			build(additionalPersonnel, 'fieldWork.addAdditionalPersonnel', CREW_LINE, {
+			build(additionalPersonnel, 'fieldWork.addAdditionalPersonnel', ADDITIONAL_PERSONNEL, {
 				entity_type: 'habitat',
 				entity_id: HABITAT,
 				personnel_profile_id: PROFILE,
@@ -271,9 +277,9 @@ describe('additional personnel intent map', () => {
 		).toThrow(DomainValidationError);
 	});
 
-	it('refuses a crew line naming nobody', () => {
+	it('refuses an Additional Personnel row naming nobody', () => {
 		expect(() =>
-			build(additionalPersonnel, 'fieldWork.addAdditionalPersonnel', CREW_LINE, {
+			build(additionalPersonnel, 'fieldWork.addAdditionalPersonnel', ADDITIONAL_PERSONNEL, {
 				entity_type: 'collection',
 				entity_id: COLLECTION,
 				personnelProfileId: PROFILE,
@@ -282,15 +288,20 @@ describe('additional personnel intent map', () => {
 	});
 
 	it('removes by the link row id alone', () => {
-		const command = build(additionalPersonnel, 'fieldWork.removeAdditionalPersonnel', CREW_LINE, {
-			entity_type: 'collection',
-			entity_id: COLLECTION,
-		});
+		const command = build(
+			additionalPersonnel,
+			'fieldWork.removeAdditionalPersonnel',
+			ADDITIONAL_PERSONNEL,
+			{
+				entity_type: 'collection',
+				entity_id: COLLECTION,
+			},
+		);
 
 		expect(command.payload).toEqual({
 			organizationId: ORGANIZATION,
 			actorProfileId: ACTOR,
-			additionalPersonnelId: CREW_LINE,
+			additionalPersonnelId: ADDITIONAL_PERSONNEL,
 		});
 	});
 

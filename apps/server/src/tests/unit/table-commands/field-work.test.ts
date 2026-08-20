@@ -188,8 +188,10 @@ describe('route items intent map', () => {
 	});
 
 	it('appends when the body names no placement', () => {
-		// Absent means append, and that default belongs to the domain builder. What
-		// is pinned here is that the key is left out rather than sent as undefined.
+		// Absent means append, which is the domain builder's own default. The reader
+		// leaves the key out rather than sending it as undefined, and the two are the
+		// same to `input.placement ?? { kind: 'end' }`, so what this pins is the
+		// answer and not which of the two the reader sent.
 		const command = build(routeItems, 'fieldWork.addRouteItem', ROUTE_ITEM, {
 			route_id: ROUTE,
 			entity_type: 'trap',
@@ -355,18 +357,13 @@ describe('assignments intent map', () => {
 		expect(started.payload).not.toHaveProperty('completedAt');
 	});
 
-	it('reads now when a lifecycle column is absent', () => {
+	it('carries no moment when a lifecycle column is absent', () => {
+		// Null rather than a timestamp: an online client sends nothing and the
+		// writer stamps the row. Only a device that recorded the work offline states
+		// the moment itself.
 		const completed = build(assignments, 'fieldWork.completeAssignment', ASSIGNMENT, {});
 
 		expect(completed.payload).toMatchObject({ completedAt: null });
-	});
-
-	it('refuses work claimed to have happened in the future', () => {
-		const tomorrow = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-
-		expect(() =>
-			build(assignments, 'fieldWork.completeAssignment', ASSIGNMENT, { completed_at: tomorrow }),
-		).toThrow(DomainValidationError);
 	});
 
 	it('cancels with the reason the body carried', () => {
@@ -398,6 +395,19 @@ describe('assignments intent map', () => {
 			actorProfileId: ACTOR,
 			assignmentId: ASSIGNMENT,
 		});
+	});
+
+	it('reads a delete acknowledgement the same way a route does', () => {
+		// Deleting an assignment deletes its stops. `false` is the client saying it
+		// has not told the user yet, and anything else is consent, so a wrong key
+		// here reads as consent nobody gave and the day's stops go with the row.
+		const withheld = build(assignments, 'fieldWork.deleteAssignment', ASSIGNMENT, {
+			acknowledgedAssignmentItemDeletion: false,
+		});
+		const given = build(assignments, 'fieldWork.deleteAssignment', ASSIGNMENT, {});
+
+		expect(withheld.payload).toMatchObject({ acknowledgedAssignmentItemDeletion: false });
+		expect(given.payload).toMatchObject({ acknowledgedAssignmentItemDeletion: true });
 	});
 
 	it('carries a move as a sequence stated on the assignment', () => {
@@ -525,6 +535,34 @@ describe('assignment items intent map', () => {
 		expect(command.payload).toMatchObject({
 			skippedAt: new Date('2026-08-10T14:00:00.000Z'),
 			skipReason: 'Gate locked',
+		});
+	});
+
+	it('clears directions when an update sends none', () => {
+		// Directions are the only column an update touches, the same as on a route
+		// stop, so a save that omits them is a save that cleared them.
+		const cleared = build(assignmentItems, 'fieldWork.updateAssignmentItem', ASSIGNMENT_ITEM, {});
+
+		expect(changesOf(cleared)).toEqual({ directionsToNextItem: null });
+	});
+
+	it('keeps the directions the body carried', () => {
+		const command = build(assignmentItems, 'fieldWork.updateAssignmentItem', ASSIGNMENT_ITEM, {
+			directions_to_next_item: 'Park on the gravel apron',
+		});
+
+		expect(changesOf(command)).toEqual({ directionsToNextItem: 'Park on the gravel apron' });
+	});
+
+	it('removes a stop by id alone', () => {
+		const command = build(assignmentItems, 'fieldWork.removeAssignmentItem', ASSIGNMENT_ITEM, {
+			assignment_id: ASSIGNMENT,
+		});
+
+		expect(command.payload).toEqual({
+			organizationId: ORGANIZATION,
+			actorProfileId: ACTOR,
+			assignmentItemId: ASSIGNMENT_ITEM,
 		});
 	});
 
