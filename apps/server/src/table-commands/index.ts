@@ -76,6 +76,7 @@ import { tagTableCommands } from './tags.js';
 import { genusTableCommands, speciesTableCommands } from './taxonomy.js';
 import { trapTableCommands } from './traps.js';
 import { unitTableCommands } from './units.js';
+import { weatherStationTableCommands, weatherSummaryTableCommands } from './weather.js';
 
 /**
  * Every table on the surface, as data.
@@ -129,6 +130,11 @@ export function tableCommandSpecs(
 		regionTableCommands(db),
 		organizationSpeciesTableCommands(db),
 		addressTableCommands(db),
+		// The stations an agency reads weather at, and the buckets it records.
+		// The spreadsheet import is not here: it is station-scoped and answers
+		// per-row results, so it has its own route in `weather-commands/import.ts`.
+		weatherStationTableCommands(db),
+		weatherSummaryTableCommands(db),
 		// The crew every record type attaches — see `additional-personnel.ts`.
 		additionalPersonnelTableCommands(db),
 		commentTableCommands(db),

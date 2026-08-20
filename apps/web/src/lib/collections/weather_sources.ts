@@ -14,9 +14,10 @@ import { getServerUrl } from '../../auth';
  * `eager`: The stations an agency reads from. A short list the weather screens draw
  * from.
  *
- * Read-only here. Declaring it leaves the collection with no
- * `onInsert`/`onUpdate`/`onDelete` at all, so a write is refused before it
- * travels.
+ * Writable: the six `weather.*` station commands land on
+ * `/commands/weather_sources`. The role floor is manager, enforced on the server
+ * and mirrored in the route guards, a collector or viewer never reaches a form
+ * that writes here.
  *
  * The type is written here rather than inferred because a `Collection<…>`
  * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
@@ -26,7 +27,7 @@ export const weather_sources: Collection<WeatherSource, string | number> =
 	createWeatherSourcesCollection({
 		serverUrl: getServerUrl(),
 		syncMode: 'eager',
-		mutations: false,
+		mutations: true,
 	});
 
 /**

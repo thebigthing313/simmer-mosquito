@@ -17,7 +17,7 @@
  * absent on purpose: those are always bugs and the server never takes a flag for
  * them (`docs/field-work-support-domain.md`, `docs/mission-dispatch-domain.md`).
  */
-const ACKNOWLEDGEABLE_REFUSALS = {
+export const STOP_ACKNOWLEDGEABLE_REFUSALS = {
 	assignment_item_already_completed: 'acknowledgedCompletedItemAdditionalRecord',
 	assignment_item_target_mismatch: 'acknowledgedTargetMismatch',
 	mission_item_already_completed: 'acknowledgedCompletedItemAdditionalAction',
@@ -25,7 +25,7 @@ const ACKNOWLEDGEABLE_REFUSALS = {
 	mission_geometry_not_covered: 'acknowledgedMissionGeometryNotCovered',
 } as const satisfies Readonly<Record<string, string>>;
 
-export type AcknowledgeableRefusal = keyof typeof ACKNOWLEDGEABLE_REFUSALS;
+export type AcknowledgeableRefusal = keyof typeof STOP_ACKNOWLEDGEABLE_REFUSALS;
 
 /**
  * The flags to send with a write, keyed exactly as the endpoint reads them.
@@ -34,27 +34,34 @@ export type AcknowledgeableRefusal = keyof typeof ACKNOWLEDGEABLE_REFUSALS;
  * on an explicit `true`.
  */
 export type StopAcknowledgements = Partial<
-	Record<(typeof ACKNOWLEDGEABLE_REFUSALS)[AcknowledgeableRefusal], true>
+	Record<(typeof STOP_ACKNOWLEDGEABLE_REFUSALS)[AcknowledgeableRefusal], true>
 >;
 
-/** The refusal code a failed write carried, if it is one a flag can answer. */
-export function acknowledgeableRefusalOf(error: unknown): AcknowledgeableRefusal | null {
+/**
+ * The acknowledgement flag that answers a failed write, if the refusal is one a
+ * flag can answer.
+ *
+ * `refusals` is the map to judge against, because the two families of
+ * acknowledgeable write are refused over different things, see
+ * `useAcknowledgedWrite`.
+ */
+export function acknowledgeableRefusalOf<TRefusals extends Readonly<Record<string, string>>>(
+	error: unknown,
+	refusals: TRefusals,
+): TRefusals[keyof TRefusals] | null {
 	const body = (error as { readonly body?: unknown } | null)?.body;
 	if (typeof body !== 'object' || body === null) {
 		return null;
 	}
 	const code = (body as { readonly error?: unknown }).error;
-	return typeof code === 'string' && code in ACKNOWLEDGEABLE_REFUSALS
-		? (code as AcknowledgeableRefusal)
-		: null;
-}
-
-/** The same write, now answering the question it was refused over. */
-export function withAcknowledgement(
-	acknowledgements: StopAcknowledgements,
-	refusal: AcknowledgeableRefusal,
-): StopAcknowledgements {
-	return { ...acknowledgements, [ACKNOWLEDGEABLE_REFUSALS[refusal]]: true };
+	// Generic over the map so a caller keeps the literal union of its own flags
+	// rather than a bare `string`. A misspelled flag then fails to compile where it
+	// is declared, instead of becoming a question the user answers and the server
+	// never hears.
+	if (typeof code !== 'string' || !Object.hasOwn(refusals, code)) {
+		return null;
+	}
+	return refusals[code as keyof TRefusals];
 }
 
 /**
@@ -73,7 +80,7 @@ export function readAcknowledgements(metadata: unknown): StopAcknowledgements {
 		return {};
 	}
 	const flags: Record<string, true> = {};
-	for (const flag of Object.values(ACKNOWLEDGEABLE_REFUSALS)) {
+	for (const flag of Object.values(STOP_ACKNOWLEDGEABLE_REFUSALS)) {
 		if ((value as Record<string, unknown>)[flag] === true) {
 			flags[flag] = true;
 		}

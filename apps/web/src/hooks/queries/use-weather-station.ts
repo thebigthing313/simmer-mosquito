@@ -29,6 +29,8 @@ export interface WeatherStation {
 	readonly latitude: number;
 	readonly longitude: number;
 	readonly geometryKind: string;
+	/** Agency-specific notes. Round-tripped by the edit form. */
+	readonly metadata: unknown;
 }
 
 export function useWeatherStation(stationId: string | null): {
@@ -53,6 +55,7 @@ export function useWeatherStation(stationId: string | null): {
 						latitude: source.lat,
 						longitude: source.lng,
 						geometryKind: source.geom_type,
+						metadata: source.metadata,
 					})),
 		},
 		[stationId],

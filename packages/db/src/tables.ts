@@ -1010,6 +1010,7 @@ export interface WeatherSourcesTable {
 	source_code: string | null;
 	provider_source_id: string | null;
 	is_active: BooleanWithDefault;
+	metadata: JsonColumn;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;

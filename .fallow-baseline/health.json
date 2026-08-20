@@ -1160,6 +1160,11 @@
         "count": 1
       }
     },
+    "apps/web/src/routes/gis/weather/$id_.import.tsx": {
+      "crap_moderate": {
+        "count": 3
+      }
+    },
     "apps/web/src/routes/gis/weather/-weather-display.ts": {
       "crap_high": {
         "count": 1
@@ -1168,7 +1173,25 @@
         "count": 1
       }
     },
+    "apps/web/src/routes/gis/weather/-weather-station-form.tsx": {
+      "complexity_moderate": {
+        "count": 1
+      }
+    },
     "apps/web/src/routes/gis/weather/-weather-station-map-card.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/routes/gis/weather/-weather-summaries-card.tsx": {
+      "crap_moderate": {
+        "count": 1
+      }
+    },
+    "apps/web/src/routes/gis/weather/-weather-summary-dialog.tsx": {
+      "complexity_moderate": {
+        "count": 1
+      },
       "crap_moderate": {
         "count": 1
       }

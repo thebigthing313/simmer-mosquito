@@ -81,6 +81,7 @@ import { Route as LarvalSurveillanceHabitatsStatsRouteImport } from './routes/la
 import { Route as LarvalSurveillanceHabitatsCreateRouteImport } from './routes/larval-surveillance/habitats/create'
 import { Route as LarvalSurveillanceHabitatsIdRouteImport } from './routes/larval-surveillance/habitats/$id'
 import { Route as GisWeatherStatsRouteImport } from './routes/gis/weather/stats'
+import { Route as GisWeatherCreateRouteImport } from './routes/gis/weather/create'
 import { Route as GisWeatherIdRouteImport } from './routes/gis/weather/$id'
 import { Route as GisRegionsImportRouteImport } from './routes/gis/regions/import'
 import { Route as GisRegionsCreateRouteImport } from './routes/gis/regions/create'
@@ -121,6 +122,8 @@ import { Route as OperationsAssignmentsIdEditRouteImport } from './routes/operat
 import { Route as LarvalSurveillanceInspectionsIdEditRouteImport } from './routes/larval-surveillance/inspections/$id_.edit'
 import { Route as LarvalSurveillanceHabitatsRoutesIdRouteImport } from './routes/larval-surveillance/habitats/routes/$id'
 import { Route as LarvalSurveillanceHabitatsIdEditRouteImport } from './routes/larval-surveillance/habitats/$id_.edit'
+import { Route as GisWeatherIdImportRouteImport } from './routes/gis/weather/$id_.import'
+import { Route as GisWeatherIdEditRouteImport } from './routes/gis/weather/$id_.edit'
 import { Route as GisRegionsIdEditRouteImport } from './routes/gis/regions/$id_.edit'
 import { Route as GisAddressesIdEditRouteImport } from './routes/gis/addresses/$id_.edit'
 import { Route as ControlOperationsSourceReductionIdEditRouteImport } from './routes/control-operations/source-reduction/$id_.edit'
@@ -536,6 +539,11 @@ const GisWeatherStatsRoute = GisWeatherStatsRouteImport.update({
   path: '/gis/weather/stats',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GisWeatherCreateRoute = GisWeatherCreateRouteImport.update({
+  id: '/gis/weather/create',
+  path: '/gis/weather/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GisWeatherIdRoute = GisWeatherIdRouteImport.update({
   id: '/gis/weather/$id',
   path: '/gis/weather/$id',
@@ -769,6 +777,16 @@ const LarvalSurveillanceHabitatsIdEditRoute =
     path: '/larval-surveillance/habitats/$id/edit',
     getParentRoute: () => rootRouteImport,
   } as any)
+const GisWeatherIdImportRoute = GisWeatherIdImportRouteImport.update({
+  id: '/gis/weather/$id_/import',
+  path: '/gis/weather/$id/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GisWeatherIdEditRoute = GisWeatherIdEditRouteImport.update({
+  id: '/gis/weather/$id_/edit',
+  path: '/gis/weather/$id/edit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GisRegionsIdEditRoute = GisRegionsIdEditRouteImport.update({
   id: '/gis/regions/$id_/edit',
   path: '/gis/regions/$id/edit',
@@ -888,6 +906,7 @@ export interface FileRoutesByFullPath {
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
   '/gis/weather/$id': typeof GisWeatherIdRoute
+  '/gis/weather/create': typeof GisWeatherCreateRoute
   '/gis/weather/stats': typeof GisWeatherStatsRoute
   '/larval-surveillance/habitats/$id': typeof LarvalSurveillanceHabitatsIdRoute
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
@@ -937,6 +956,8 @@ export interface FileRoutesByFullPath {
   '/control-operations/source-reduction/$id/edit': typeof ControlOperationsSourceReductionIdEditRoute
   '/gis/addresses/$id/edit': typeof GisAddressesIdEditRoute
   '/gis/regions/$id/edit': typeof GisRegionsIdEditRoute
+  '/gis/weather/$id/edit': typeof GisWeatherIdEditRoute
+  '/gis/weather/$id/import': typeof GisWeatherIdImportRoute
   '/larval-surveillance/habitats/$id/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
   '/larval-surveillance/inspections/$id/edit': typeof LarvalSurveillanceInspectionsIdEditRoute
@@ -1011,6 +1032,7 @@ export interface FileRoutesByTo {
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
   '/gis/weather/$id': typeof GisWeatherIdRoute
+  '/gis/weather/create': typeof GisWeatherCreateRoute
   '/gis/weather/stats': typeof GisWeatherStatsRoute
   '/larval-surveillance/habitats/$id': typeof LarvalSurveillanceHabitatsIdRoute
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
@@ -1060,6 +1082,8 @@ export interface FileRoutesByTo {
   '/control-operations/source-reduction/$id/edit': typeof ControlOperationsSourceReductionIdEditRoute
   '/gis/addresses/$id/edit': typeof GisAddressesIdEditRoute
   '/gis/regions/$id/edit': typeof GisRegionsIdEditRoute
+  '/gis/weather/$id/edit': typeof GisWeatherIdEditRoute
+  '/gis/weather/$id/import': typeof GisWeatherIdImportRoute
   '/larval-surveillance/habitats/$id/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
   '/larval-surveillance/inspections/$id/edit': typeof LarvalSurveillanceInspectionsIdEditRoute
@@ -1136,6 +1160,7 @@ export interface FileRoutesById {
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
   '/gis/weather/$id': typeof GisWeatherIdRoute
+  '/gis/weather/create': typeof GisWeatherCreateRoute
   '/gis/weather/stats': typeof GisWeatherStatsRoute
   '/larval-surveillance/habitats/$id': typeof LarvalSurveillanceHabitatsIdRoute
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
@@ -1185,6 +1210,8 @@ export interface FileRoutesById {
   '/control-operations/source-reduction/$id_/edit': typeof ControlOperationsSourceReductionIdEditRoute
   '/gis/addresses/$id_/edit': typeof GisAddressesIdEditRoute
   '/gis/regions/$id_/edit': typeof GisRegionsIdEditRoute
+  '/gis/weather/$id_/edit': typeof GisWeatherIdEditRoute
+  '/gis/weather/$id_/import': typeof GisWeatherIdImportRoute
   '/larval-surveillance/habitats/$id_/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
   '/larval-surveillance/inspections/$id_/edit': typeof LarvalSurveillanceInspectionsIdEditRoute
@@ -1262,6 +1289,7 @@ export interface FileRouteTypes {
     | '/gis/regions/create'
     | '/gis/regions/import'
     | '/gis/weather/$id'
+    | '/gis/weather/create'
     | '/gis/weather/stats'
     | '/larval-surveillance/habitats/$id'
     | '/larval-surveillance/habitats/create'
@@ -1311,6 +1339,8 @@ export interface FileRouteTypes {
     | '/control-operations/source-reduction/$id/edit'
     | '/gis/addresses/$id/edit'
     | '/gis/regions/$id/edit'
+    | '/gis/weather/$id/edit'
+    | '/gis/weather/$id/import'
     | '/larval-surveillance/habitats/$id/edit'
     | '/larval-surveillance/habitats/routes/$id'
     | '/larval-surveillance/inspections/$id/edit'
@@ -1385,6 +1415,7 @@ export interface FileRouteTypes {
     | '/gis/regions/create'
     | '/gis/regions/import'
     | '/gis/weather/$id'
+    | '/gis/weather/create'
     | '/gis/weather/stats'
     | '/larval-surveillance/habitats/$id'
     | '/larval-surveillance/habitats/create'
@@ -1434,6 +1465,8 @@ export interface FileRouteTypes {
     | '/control-operations/source-reduction/$id/edit'
     | '/gis/addresses/$id/edit'
     | '/gis/regions/$id/edit'
+    | '/gis/weather/$id/edit'
+    | '/gis/weather/$id/import'
     | '/larval-surveillance/habitats/$id/edit'
     | '/larval-surveillance/habitats/routes/$id'
     | '/larval-surveillance/inspections/$id/edit'
@@ -1509,6 +1542,7 @@ export interface FileRouteTypes {
     | '/gis/regions/create'
     | '/gis/regions/import'
     | '/gis/weather/$id'
+    | '/gis/weather/create'
     | '/gis/weather/stats'
     | '/larval-surveillance/habitats/$id'
     | '/larval-surveillance/habitats/create'
@@ -1558,6 +1592,8 @@ export interface FileRouteTypes {
     | '/control-operations/source-reduction/$id_/edit'
     | '/gis/addresses/$id_/edit'
     | '/gis/regions/$id_/edit'
+    | '/gis/weather/$id_/edit'
+    | '/gis/weather/$id_/import'
     | '/larval-surveillance/habitats/$id_/edit'
     | '/larval-surveillance/habitats/routes/$id'
     | '/larval-surveillance/inspections/$id_/edit'
@@ -1625,6 +1661,7 @@ export interface RootRouteChildren {
   GisRegionsCreateRoute: typeof GisRegionsCreateRoute
   GisRegionsImportRoute: typeof GisRegionsImportRoute
   GisWeatherIdRoute: typeof GisWeatherIdRoute
+  GisWeatherCreateRoute: typeof GisWeatherCreateRoute
   GisWeatherStatsRoute: typeof GisWeatherStatsRoute
   LarvalSurveillanceHabitatsIdRoute: typeof LarvalSurveillanceHabitatsIdRoute
   LarvalSurveillanceHabitatsCreateRoute: typeof LarvalSurveillanceHabitatsCreateRoute
@@ -1674,6 +1711,8 @@ export interface RootRouteChildren {
   ControlOperationsSourceReductionIdEditRoute: typeof ControlOperationsSourceReductionIdEditRoute
   GisAddressesIdEditRoute: typeof GisAddressesIdEditRoute
   GisRegionsIdEditRoute: typeof GisRegionsIdEditRoute
+  GisWeatherIdEditRoute: typeof GisWeatherIdEditRoute
+  GisWeatherIdImportRoute: typeof GisWeatherIdImportRoute
   LarvalSurveillanceHabitatsIdEditRoute: typeof LarvalSurveillanceHabitatsIdEditRoute
   LarvalSurveillanceHabitatsRoutesIdRoute: typeof LarvalSurveillanceHabitatsRoutesIdRoute
   LarvalSurveillanceInspectionsIdEditRoute: typeof LarvalSurveillanceInspectionsIdEditRoute
@@ -2196,6 +2235,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GisWeatherStatsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gis/weather/create': {
+      id: '/gis/weather/create'
+      path: '/gis/weather/create'
+      fullPath: '/gis/weather/create'
+      preLoaderRoute: typeof GisWeatherCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gis/weather/$id': {
       id: '/gis/weather/$id'
       path: '/gis/weather/$id'
@@ -2476,6 +2522,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LarvalSurveillanceHabitatsIdEditRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gis/weather/$id_/import': {
+      id: '/gis/weather/$id_/import'
+      path: '/gis/weather/$id/import'
+      fullPath: '/gis/weather/$id/import'
+      preLoaderRoute: typeof GisWeatherIdImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gis/weather/$id_/edit': {
+      id: '/gis/weather/$id_/edit'
+      path: '/gis/weather/$id/edit'
+      fullPath: '/gis/weather/$id/edit'
+      preLoaderRoute: typeof GisWeatherIdEditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gis/regions/$id_/edit': {
       id: '/gis/regions/$id_/edit'
       path: '/gis/regions/$id/edit'
@@ -2650,6 +2710,7 @@ const rootRouteChildren: RootRouteChildren = {
   GisRegionsCreateRoute: GisRegionsCreateRoute,
   GisRegionsImportRoute: GisRegionsImportRoute,
   GisWeatherIdRoute: GisWeatherIdRoute,
+  GisWeatherCreateRoute: GisWeatherCreateRoute,
   GisWeatherStatsRoute: GisWeatherStatsRoute,
   LarvalSurveillanceHabitatsIdRoute: LarvalSurveillanceHabitatsIdRoute,
   LarvalSurveillanceHabitatsCreateRoute: LarvalSurveillanceHabitatsCreateRoute,
@@ -2712,6 +2773,8 @@ const rootRouteChildren: RootRouteChildren = {
     ControlOperationsSourceReductionIdEditRoute,
   GisAddressesIdEditRoute: GisAddressesIdEditRoute,
   GisRegionsIdEditRoute: GisRegionsIdEditRoute,
+  GisWeatherIdEditRoute: GisWeatherIdEditRoute,
+  GisWeatherIdImportRoute: GisWeatherIdImportRoute,
   LarvalSurveillanceHabitatsIdEditRoute: LarvalSurveillanceHabitatsIdEditRoute,
   LarvalSurveillanceHabitatsRoutesIdRoute:
     LarvalSurveillanceHabitatsRoutesIdRoute,

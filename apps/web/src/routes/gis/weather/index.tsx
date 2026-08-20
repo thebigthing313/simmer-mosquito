@@ -1,5 +1,6 @@
 import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
 	EmptyDescription,
@@ -15,6 +16,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
+import { WriteOnly } from '../../../components/write-only';
 import type { WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { useWeatherStations } from '../../../hooks/queries/use-weather-stations';
 import {
@@ -41,6 +43,7 @@ export const Route = createFileRoute('/gis/weather/')({
 });
 
 const WeatherIcon = iconRegistry.domains.weather.icon;
+const AddIcon = iconRegistry.actions.add.icon;
 
 /** A station whose synced centroid is usable as a map coordinate. */
 interface PlottedStation {
@@ -141,13 +144,23 @@ function WeatherStationsRoute() {
 		>
 			<div className="flex h-full min-h-0 flex-col">
 				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
-							Weather Stations
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm">
-							Stations feeding the agency's surveillance and control records.
-						</p>
+					<div className="flex flex-wrap items-start justify-between gap-2">
+						<div className="grid gap-1">
+							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
+								Weather Stations
+							</h1>
+							<p className="m-0 text-muted-foreground text-sm">
+								Stations feeding the agency's surveillance and control records.
+							</p>
+						</div>
+						<WriteOnly minimum="manager">
+							<Button asChild size="sm">
+								<Link to="/gis/weather/create">
+									<AddIcon aria-hidden="true" />
+									Add Station
+								</Link>
+							</Button>
+						</WriteOnly>
 					</div>
 					<div className="relative">
 						<SearchIcon
@@ -243,7 +256,7 @@ function StationsEmpty({ hasFilter }: { readonly hasFilter: boolean }) {
 					<EmptyDescription>
 						{hasFilter
 							? 'Try a different name or code.'
-							: "Stations appear here once they're connected for your agency."}
+							: 'Add a station to start recording readings against it.'}
 					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>

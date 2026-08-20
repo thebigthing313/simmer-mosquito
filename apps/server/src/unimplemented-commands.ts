@@ -1,11 +1,10 @@
 /**
  * Routes for the commands the domain declares and nothing writes yet.
  *
- * Thirteen of the 274 names in the vocabulary have no handler: two merges,
- * mission notification generation, and every `weather.*` write. Until now that
- * was invisible — a client naming one of them got a 404 from Hono, which is the
- * same answer it gets for a typo, so an unbuilt feature and a misspelled path
- * were indistinguishable.
+ * Three of the 274 names in the vocabulary have no handler: two merges, and
+ * mission notification generation. Until now that was invisible, a client
+ * naming one of them got a 404 from Hono, which is the same answer it gets for a
+ * typo, so an unbuilt feature and a misspelled path were indistinguishable.
  *
  * These routes exist to answer differently. Each one is registered, authorized
  * like any other command endpoint, and then refuses with `501` and the command
@@ -22,6 +21,13 @@
  * saying "no endpoint writes it yet" would now be false. An entry leaves this
  * list the moment its command has a writer.
  *
+ * All ten `weather.*` writes have left too. They were the reason this file was
+ * mostly weather, and they went in one piece rather than one at a time:
+ * `AgencyCommandType` had left the whole domain out while nothing wrote one, so
+ * the first writer had to bring a permission for all ten with it. Nine are
+ * `/commands/weather_sources` and `/commands/weather_summaries`; the import has
+ * its own route, for the reason `weather-commands/import.ts` gives.
+ *
  * The paths are the obvious reading of the existing conventions, not a decision.
  * Sub-paths for lifecycle transitions (`/deactivate`, `/location`) follow what
  * `/adult-surveillance/collections/:id/collect` and
@@ -29,8 +35,8 @@
  * of these is the moment to settle its path, not before.
  *
  * The implementation work is tracked in
- * https://github.com/thebigthing313/simmer-mosquito/issues/163, which lists all
- * twenty and what each one needs.
+ * https://github.com/thebigthing313/simmer-mosquito/issues/163, which lists what
+ * each remaining one needs.
  */
 
 import type { DomainCommandType } from '@simmer-mosquito/domain';
@@ -72,52 +78,6 @@ export const unimplementedCommandRoutes: readonly UnimplementedRoute[] = [
 		verb: 'post',
 		path: '/public-engagement/missions/:missionId/notifications',
 		command: 'publicEngagement.generateMissionNotifications',
-	},
-
-	// Weather stations.
-	{ verb: 'post', path: '/weather/stations', command: 'weather.createWeatherStation' },
-	{
-		verb: 'patch',
-		path: '/weather/stations/:weatherStationId',
-		command: 'weather.updateWeatherStationDetails',
-	},
-	{
-		verb: 'post',
-		path: '/weather/stations/:weatherStationId/location',
-		command: 'weather.updateWeatherStationLocation',
-	},
-	{
-		verb: 'post',
-		path: '/weather/stations/:weatherStationId/deactivate',
-		command: 'weather.deactivateWeatherStation',
-	},
-	{
-		verb: 'post',
-		path: '/weather/stations/:weatherStationId/reactivate',
-		command: 'weather.reactivateWeatherStation',
-	},
-	{
-		verb: 'delete',
-		path: '/weather/stations/:weatherStationId',
-		command: 'weather.deleteWeatherStation',
-	},
-
-	// Weather summaries.
-	{ verb: 'post', path: '/weather/summaries', command: 'weather.createWeatherSummary' },
-	{
-		verb: 'patch',
-		path: '/weather/summaries/:weatherSummaryId',
-		command: 'weather.updateWeatherSummary',
-	},
-	{
-		verb: 'delete',
-		path: '/weather/summaries/:weatherSummaryId',
-		command: 'weather.deleteWeatherSummary',
-	},
-	{
-		verb: 'post',
-		path: '/weather/summary-imports/commit',
-		command: 'weather.commitWeatherSummaryImport',
 	},
 ];
 
