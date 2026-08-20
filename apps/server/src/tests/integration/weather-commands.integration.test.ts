@@ -74,14 +74,16 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 			expect(station).toMatchObject({
 				id: stationId,
-				organizationId,
-				stationName: 'North Gauge',
-				stationCode: 'NG-1',
+				organization_id: organizationId,
+				// The columns are `source_*`; the domain calls the record a Weather
+				// Station and the schema calls it a source.
+				source_name: 'North Gauge',
+				source_code: 'NG-1',
 				// v1 agency stations are always their own source; `nws` is plumbing no
 				// command writes.
-				sourceType: 'organization',
-				providerSourceId: null,
-				isActive: true,
+				source_type: 'organization',
+				provider_source_id: null,
+				is_active: true,
 			});
 			// The generated columns are what a collection actually carries, so the
 			// point has to survive as coordinates and not only as `geom`.
@@ -144,7 +146,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 			// Uniqueness is per organization. Two districts either side of a county
 			// line both having a "North Gauge" is ordinary.
-			expect(second).toMatchObject({ organizationId: theirs.organizationId });
+			expect(second).toMatchObject({ organization_id: theirs.organizationId });
 		});
 	});
 
@@ -231,7 +233,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 			// Nothing to rewrite, so nothing to confirm. The acknowledgement is about
 			// history, not about the edit.
-			expect(station).toMatchObject({ stationName: 'Renamed' });
+			expect(station).toMatchObject({ source_name: 'Renamed' });
 		});
 	});
 
@@ -383,11 +385,11 @@ describeDbIntegration('weather commands against Postgres', () => {
 			);
 
 			expect(summary).toMatchObject({
-				weatherStationId: stationId,
+				weather_source_id: stationId,
 				// `shape-scopes.ts` reads this table as `organization-or-global`, so a
 				// null here would sync one agency's rain to every agency.
-				organizationId,
-				precipitationInches: 1.25,
+				organization_id: organizationId,
+				precipitation_inches: 1.25,
 			});
 		});
 	});
@@ -491,7 +493,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 				}),
 			);
 
-			expect(summary).toMatchObject({ precipitationInches: 2.5 });
+			expect(summary).toMatchObject({ precipitation_inches: 2.5 });
 		});
 	});
 
@@ -520,9 +522,9 @@ describeDbIntegration('weather commands against Postgres', () => {
 			// The seed carries precipitation and a temperature pair. The patch names
 			// one field, so the others must survive untouched.
 			expect(summary).toMatchObject({
-				precipitationInches: null,
-				temperatureMinF: 54,
-				temperatureMaxF: 78,
+				precipitation_inches: null,
+				temperature_min_f: 54,
+				temperature_max_f: 78,
 			});
 		});
 	});
