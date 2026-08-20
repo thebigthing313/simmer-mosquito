@@ -18,4 +18,24 @@ Edit the right-hand column to match whatever vocabulary you actually use.
 
 The two category roles map to GitHub's own defaults, already in the repo:
 `bug` and `enhancement`. A triaged issue carries one category label and one
-state label from the table above.
+state label from the table above. The one exception is `external` below, which
+replaces both.
+
+## `external`
+
+Not a triage state. `external` marks an issue whose resolution is in somebody
+else's repository, so no state role applies and neither category does either:
+nothing here is broken and nothing here is scheduled.
+
+An issue carries it when the finding is real but the fix is upstream. It stays
+open as a reminder to build a reproduction and, if the reproduction holds, to
+report it. #161 is the worked example: a TanStack package cannot serialize a
+Temporal value into a pushed-down where clause, this repo works around it by
+staying on native `Date`, and the upstream half is unwritten.
+
+Leave `external` out of the "what needs attention" sweep. An issue waiting on a
+reproduction nobody has scheduled is not work in progress, and surfacing it every
+pass trains the sweep to be ignored.
+
+An `external` issue that turns out to need a change here too gets the ordinary
+category and state labels alongside it.
