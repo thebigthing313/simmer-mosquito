@@ -19,7 +19,6 @@ import {
 	commandActor,
 	readDate,
 	readNumberOrNull,
-	readStringArray,
 	runCommands,
 	writeCommands,
 } from '../command-write.js';
@@ -38,7 +37,6 @@ export {
 	localDateColumn,
 	readDate,
 	readNumberOrNull,
-	readStringArray,
 	runCommands,
 	softDelete,
 	updateRow,

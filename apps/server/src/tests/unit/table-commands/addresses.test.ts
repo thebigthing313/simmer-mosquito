@@ -162,6 +162,23 @@ describe('addresses', () => {
 		});
 	});
 
+	it('refuses a source list with a malformed entry rather than merging the rest', () => {
+		// `readStringArray` used to filter non-strings out, so this body folded one
+		// address away and answered as though it had folded two. A merge has no
+		// undo, so the entry is kept as an empty string and the domain refuses it by
+		// index.
+		expect(() =>
+			build(
+				addresses,
+				'foundation.mergeAddresses',
+				request({
+					sourceAddressIds: [SOURCE, 42],
+					acknowledgedMergeConsolidatesHistory: true,
+				}),
+			),
+		).toThrow(DomainValidationError);
+	});
+
 	it('refuses a merge the caller withheld the acknowledgement on', () => {
 		// `acknowledged` reads a withheld flag as `false` and an absent one as
 		// confirmed, which is the convention every intent map shares. So the case

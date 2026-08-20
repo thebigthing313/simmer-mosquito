@@ -49,7 +49,6 @@ describeDbIntegration('mission notification generation', () => {
 				.execute(async (trx) => generateMissionNotifications(trx, generateInput(world)));
 
 			expect(result.notificationTypeActive).toBe(true);
-			expect(result.unitsMissing).toEqual([]);
 			expect(
 				result.created
 					.map((row) => ({ channel: row.channel, destination: row.destination }))
@@ -135,10 +134,19 @@ describeDbIntegration('mission notification generation', () => {
 		});
 	});
 
-	it('reports a unit it was given no conversion for, rather than guessing', async () => {
+	/**
+	 * The buffer unit is the difference between telling somebody and not.
+	 *
+	 * This used to fall through `coalesce(distance * metres, 0)` to a zero
+	 * catchment, so a registration 91 m from a stop with a 1-mile buffer was
+	 * silently not notified and the command reported success. The registration
+	 * here is well inside its buffer and well outside exact geometry, so it is
+	 * exactly the row the old behaviour dropped.
+	 */
+	it('refuses rather than shrink a buffer it cannot convert', async () => {
 		await withTestDb(async ({ db }) => {
 			const world = await seedWorld(db, 'mn_unpriced');
-			await createMissionItem(db, world, -90.49);
+			await createMissionItem(db, world, -90.499);
 			const registration = await createRegistration(db, world, {
 				longitude: -90.5,
 				bufferDistance: 1,
@@ -147,19 +155,50 @@ describeDbIntegration('mission notification generation', () => {
 			});
 			await subscribe(db, world, registration);
 
-			const result = await db.transaction().execute(async (trx) =>
-				generateMissionNotifications(trx, {
-					...generateInput(world),
-					// The mile is deliberately absent.
-					unitMetres: [{ unitId: world.meterUnitId, metresPerUnit: 1 }],
-				}),
-			);
+			await expect(
+				db.transaction().execute(async (trx) =>
+					generateMissionNotifications(trx, {
+						...generateInput(world),
+						// The mile is deliberately absent.
+						unitMetres: [{ unitId: world.meterUnitId, metresPerUnit: 1 }],
+					}),
+				),
+			).rejects.toMatchObject({
+				reason: 'buffer_unit_not_convertible',
+				// Names the unit to fix, not the uuid holding it.
+				unitCodes: ['mile'],
+			});
 
-			// No catchment, so nobody is eligible — but the caller is told which unit
-			// it could not price, so "nobody was nearby" is not the answer it takes
-			// away.
+			// And nothing was written on the way to the refusal.
+			const written = await db
+				.selectFrom('mission_notifications')
+				.select(['id'])
+				.where('mission_id', '=', world.missionId)
+				.execute();
+			expect(written).toEqual([]);
+		});
+	});
+
+	it('ignores an unconvertible unit on a registration with no distance', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedWorld(db, 'mn_unpriced_null');
+			await createMissionItem(db, world, -90.499);
+			// `buffer_distance` and `buffer_unit_id` are written together or cleared
+			// together, so this is the shape a registration with no catchment has.
+			// There is no distance to lose, so there is nothing to refuse over.
+			const registration = await createRegistration(db, world, {
+				longitude: -90.5,
+				bufferDistance: null,
+				unitId: null,
+				contactId: await createContact(db, world, { email: 'sam@example.test' }),
+			});
+			await subscribe(db, world, registration);
+
+			const result = await db
+				.transaction()
+				.execute(async (trx) => generateMissionNotifications(trx, generateInput(world)));
+
 			expect(result.created).toEqual([]);
-			expect(result.unitsMissing).toEqual([world.mileUnitId]);
 		});
 	});
 

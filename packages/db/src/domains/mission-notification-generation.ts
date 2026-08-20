@@ -48,12 +48,10 @@ export interface GenerateMissionNotificationsInput {
 	readonly organizationId: string;
 	readonly actorProfileId: string | null;
 	/**
-	 * Every distance unit the agency's registrations could name, in metres.
+	 * Every distance unit the agency's registrations name, in metres.
 	 *
-	 * A registration whose unit is missing from this list gets no catchment
-	 * rather than a wrong one — see `GenerateMissionNotificationsResult.unitsMissing`,
-	 * which is how that surfaces instead of quietly shrinking somebody's buffer to
-	 * nothing.
+	 * A unit missing from this list is a refusal, not a default. See
+	 * `requireConvertibleBufferUnits`.
 	 */
 	readonly unitMetres: readonly UnitMetres[];
 }
@@ -81,13 +79,6 @@ export interface GenerateMissionNotificationsResult {
 	readonly notificationTypeActive: boolean;
 	/** Rows written now. A regeneration that changed nothing answers empty. */
 	readonly created: readonly GeneratedMissionNotification[];
-	/**
-	 * Unit ids some registration uses that the caller could not price in metres.
-	 *
-	 * Those registrations were matched with no catchment at all, so this is the
-	 * difference between "nobody was near it" and "we could not tell".
-	 */
-	readonly unitsMissing: readonly string[];
 }
 
 export type MissionNotificationRefusalReason =
@@ -95,7 +86,8 @@ export type MissionNotificationRefusalReason =
 	| 'mission_completed'
 	| 'mission_cancelled'
 	| 'mission_has_no_items'
-	| 'mission_has_no_notification_type';
+	| 'mission_has_no_notification_type'
+	| 'buffer_unit_not_convertible';
 
 /**
  * Thrown when the mission is not one notifications can be generated for.
@@ -108,12 +100,26 @@ export type MissionNotificationRefusalReason =
 export class MissionNotificationRefusedError extends Error {
 	readonly reason: MissionNotificationRefusalReason;
 	readonly missionId: string;
+	/**
+	 * The unit codes behind a `buffer_unit_not_convertible` refusal, and empty
+	 * for every other reason.
+	 *
+	 * Codes rather than ids, because the thing to fix is a unit somebody chose,
+	 * and 'gallon' says which one where a uuid does not.
+	 */
+	readonly unitCodes: readonly string[];
 
-	constructor(reason: MissionNotificationRefusalReason, missionId: string, message: string) {
+	constructor(
+		reason: MissionNotificationRefusalReason,
+		missionId: string,
+		message: string,
+		unitCodes: readonly string[] = [],
+	) {
 		super(message);
 		this.name = 'MissionNotificationRefusedError';
 		this.reason = reason;
 		this.missionId = missionId;
+		this.unitCodes = unitCodes;
 	}
 }
 
@@ -218,24 +224,58 @@ async function readMission(
 	};
 }
 
-/** Registrations whose unit nothing priced, so their catchment was zero. */
-async function readUnpricedUnits(
+/**
+ * Refuse while any registration's catchment cannot be worked out.
+ *
+ * `buffer_distance` in a unit nothing can price used to fall through
+ * `coalesce(distance * metres, 0)` to a zero catchment, which matches only a
+ * registration standing exactly on a stop. So a person who asked to be told
+ * before spraying within 500 of their house was quietly not told, and the
+ * command reported success. In this domain that is the wrong direction to fail
+ * in, and nothing about the answer showed it had happened.
+ *
+ * Nothing constrains `buffer_unit_id` to a distance unit either: the domain
+ * checks it is a uuid and that it arrives with a distance, so a volume unit
+ * picked from a list reaches here intact.
+ *
+ * The refusal is agency-wide rather than scoped to this mission, and that is
+ * deliberate even though it blocks every mission until somebody fixes the unit.
+ * Scoping it would mean deciding which registrations are near enough to matter,
+ * which is the question the missing catchment is what stops us answering.
+ */
+async function requireConvertibleBufferUnits(
 	trx: Transaction<SimmerDatabase>,
 	input: GenerateMissionNotificationsInput,
-): Promise<readonly string[]> {
+): Promise<void> {
 	const priced = input.unitMetres.map((unit) => unit.unitId);
 	let query = trx
-		.selectFrom('notification_registrations')
-		.select(['buffer_unit_id'])
+		.selectFrom('notification_registrations as r')
+		.innerJoin('units as u', 'u.id', 'r.buffer_unit_id')
+		.select(['u.code as code'])
 		.distinct()
-		.where('organization_id', '=', input.organizationId)
-		.where('deleted_at', 'is', null)
-		.where('buffer_unit_id', 'is not', null);
+		.where('r.organization_id', '=', input.organizationId)
+		.where('r.deleted_at', 'is', null)
+		// A registration with no distance has no catchment to lose, whatever its
+		// unit column says.
+		.where('r.buffer_distance', 'is not', null);
 	if (priced.length > 0) {
-		query = query.where('buffer_unit_id', 'not in', priced);
+		query = query.where('u.id', 'not in', priced);
 	}
+
 	const rows = await query.execute();
-	return rows.map((row) => row.buffer_unit_id).filter((id): id is string => id !== null);
+	if (rows.length === 0) {
+		return;
+	}
+
+	const codes = rows.map((row) => row.code).sort();
+	throw new MissionNotificationRefusedError(
+		'buffer_unit_not_convertible',
+		input.missionId,
+		codes.length === 1
+			? `A notification registration measures its buffer in ${codes[0]}, which cannot be converted to a distance.`
+			: `Some notification registrations measure their buffer in units that cannot be converted to a distance: ${codes.join(', ')}.`,
+		codes,
+	);
 }
 
 /**
@@ -269,13 +309,12 @@ export async function generateMissionNotifications(
 	input: GenerateMissionNotificationsInput,
 ): Promise<GenerateMissionNotificationsResult> {
 	const { notificationTypeId, notificationTypeActive } = await readMission(trx, input);
-	const unitsMissing = await readUnpricedUnits(trx, input);
+	await requireConvertibleBufferUnits(trx, input);
 
 	const empty = {
 		missionId: input.missionId,
 		notificationTypeId,
 		notificationTypeActive,
-		unitsMissing,
 	} as const;
 
 	// A retired type has no eligible subscribers by definition, and running the
@@ -343,6 +382,9 @@ export async function generateMissionNotifications(
 				where mi.mission_id = ${input.missionId}
 					and mi.organization_id = ${input.organizationId}
 					and mi.deleted_at is null
+					-- The zero is the domain's "null buffer means exact geometry", and
+					-- only that: requireConvertibleBufferUnits has already refused the
+					-- case where a real distance would have collapsed into it.
 					and st_dwithin(
 						r.geom::geography,
 						mi.geom::geography,

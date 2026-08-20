@@ -22,7 +22,11 @@
  * domains while raising it.
  */
 
-import { RecordDeleteBlockedError, RecordMergeRefusedError } from '@simmer-mosquito/db';
+import {
+	MissionNotificationRefusedError,
+	RecordDeleteBlockedError,
+	RecordMergeRefusedError,
+} from '@simmer-mosquito/db';
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import type { Context } from 'hono';
 import type { AuthContext } from './auth-context.js';
@@ -47,9 +51,6 @@ export type CommandContext = Context<{ Variables: AuthVariables }>;
  * refuses to remove. `reason` is set where the client can act on the
  * distinction; the four surveillance domains never set it.
  *
- * `merge_refused` is the third, raised by `applyRecordMerge` when the rows a
- * merge names are not a set that can be merged.
- *
  * `409` is the global catalogs' case. An agency delete that other rows block is
  * decided before the delete runs, by `applyRecordDeletion`, and arrives as
  * `RecordDeleteBlockedError`; the taxonomy has no such registry and no
@@ -66,7 +67,15 @@ export class CommandError extends Error {
 }
 
 /**
- * Turn the two refusals a command endpoint can raise into responses.
+ * Turn the refusals a command endpoint can raise into responses.
+ *
+ * Four of them. `CommandError` carries its own status; the other three are
+ * domain refusals raised from inside `packages/db`, each with a registry or a
+ * lifecycle behind it that the handler has no way to restate.
+ *
+ * They are all here rather than caught per route on purpose. A refusal handled
+ * in the module that raises it escapes as a 500 the moment another module reaches
+ * that code, which is the argument `CommandError` above makes at length.
  *
  * Anything else rethrows: an error nobody declared is a bug, and a 500 with a
  * stack is more useful than a 400 that hides it.
@@ -79,14 +88,28 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 		return context.json(deleteBlockedBody(error), 409);
 	}
 	// A merge names rows the caller has to have seen to name, so a refusal is
-	// either that one of them is gone — 404, the same answer as a row of another
-	// agency — or that the survivor is retired, which is a state the caller can
-	// fix, so 409. `reason` is the discriminator, and is what the form maps to a
-	// message about the right field.
+	// either that one of them is gone, which is a 404 and the same answer as a row
+	// of another agency, or that the survivor is retired, which is a state the
+	// caller can fix, so 409. `reason` is the discriminator, and is what the form
+	// maps to a message about the right field.
 	if (error instanceof RecordMergeRefusedError) {
 		return context.json(
 			{ error: 'merge_refused', reason: error.reason, message: error.message },
 			error.reason === 'target_inactive' ? 409 : 404,
+		);
+	}
+	// Same split for generation: a mission the caller cannot see is a 404, and
+	// every other reason is a state somebody can act on. `unitCodes` is empty
+	// except on `buffer_unit_not_convertible`, where it names the units to fix.
+	if (error instanceof MissionNotificationRefusedError) {
+		return context.json(
+			{
+				error: 'mission_notifications_refused',
+				reason: error.reason,
+				message: error.message,
+				unitCodes: error.unitCodes,
+			},
+			error.reason === 'mission_not_found' ? 404 : 409,
 		);
 	}
 	throw error;

@@ -364,6 +364,21 @@ export function mergeableRecordLabel(recordType: MergeableRecordType): string {
 // SQL
 // ---------------------------------------------------------------------------
 
+/**
+ * How many rows an update touched.
+ *
+ * Read off the driver rather than from `returning id`, because the ids are not
+ * wanted. A big address merge moves every trap, habitat, inspection and service
+ * request that named the retired addresses, and returning them would ship that
+ * whole set back to count the length of it.
+ *
+ * `numAffectedRows` is a `bigint`, and these counts are small enough to be
+ * numbers by the time anyone reads one.
+ */
+function rowsAffected(result: { readonly numAffectedRows?: bigint }): number {
+	return Number(result.numAffectedRows ?? 0n);
+}
+
 /** Who touched the row and when, on every write a merge makes. */
 function auditUpdate(actorProfileId: string | null) {
 	return sql`updated_by_profile_id = ${actorProfileId}, updated_at = now()`;
@@ -398,7 +413,7 @@ async function dedupeSupportRows(
 	input: MergeInput,
 ): Promise<number> {
 	const partition = sql.join(dedupeBy.map((column) => sql.ref(column)));
-	const result = await sql<{ readonly id: string }>`
+	const result = await sql`
 		update ${sql.table(rule.table)}
 		set deleted_at = now(),
 			deleted_by_profile_id = ${input.actorProfileId},
@@ -417,9 +432,8 @@ async function dedupeSupportRows(
 			) as ranked
 			where ranked.rank > 1
 		)
-		returning id
 	`.execute(trx);
-	return result.rows.length;
+	return rowsAffected(result);
 }
 
 /** Point one referencing table's rows at the target. */
@@ -439,18 +453,17 @@ async function applyRule(
 			? sql`${sql.ref(scope.column)} = ${input.targetId}, ${auditUpdate(input.actorProfileId)}`
 			: sql`entity_id = ${input.targetId}, ${auditUpdate(input.actorProfileId)}`;
 
-	const result = await sql<{ readonly id: string }>`
+	const result = await sql`
 		update ${sql.table(rule.table)}
 		set ${set}
 		where ${sourceMatch(scope, input.sourceIds)}
 			and organization_id = ${input.organizationId}
 			and deleted_at is null
-		returning id
 	`.execute(trx);
 
 	return {
 		key: rule.key,
-		moved: result.rows.length,
+		moved: rowsAffected(result),
 		deduped,
 		singular: rule.singular,
 		plural: rule.plural,

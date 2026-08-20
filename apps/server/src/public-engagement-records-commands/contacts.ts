@@ -20,7 +20,6 @@ import {
 	type PublicEngagementTransaction,
 	type RouteOptions,
 	readContactDetails,
-	readStringArray,
 	runCommands,
 	type SafeContact,
 	softDelete,
@@ -31,6 +30,17 @@ import {
 // ===========================================================================
 // Contacts
 // ===========================================================================
+
+/*
+ * `POST /public-engagement/contacts/merge` used to be here and is gone.
+ *
+ * It hard-coded `acknowledgedContactMerge: true`, so the one guard on an
+ * irreversible command could not be withheld by any caller. Nothing called it:
+ * `PATCH /commands/contacts/{target}` with the `publicEngagement.mergeContacts`
+ * intent is the route, and it reads the acknowledgement from the body like every
+ * other one. A second door to a destructive command with the lock removed is
+ * worth deleting rather than leaving for somebody to find.
+ */
 
 export function registerContactRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -47,21 +57,6 @@ export function registerContactRoutes(
 					...readContactDetails(payload),
 				}),
 			run: (context, commands) => runContactCommands(context, options.db, commands, 201),
-		}),
-	);
-
-	app.post(
-		'/public-engagement/contacts/merge',
-		options.authContextMiddleware,
-		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
-				mergeContactsCommand({
-					...ctx,
-					targetContactId: readText(payload.targetContactId) ?? '',
-					sourceContactIds: readStringArray(payload.sourceContactIds),
-					acknowledgedContactMerge: true,
-				}),
-			run: (context, commands) => runContactCommands(context, options.db, commands),
 		}),
 	);
 

@@ -39,11 +39,11 @@ import {
 	updateHabitatLocationCommand,
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
-import { type CommandDb, readStringArray } from '../command-write.js';
+import type { CommandDb } from '../command-write.js';
 import { writeHabitatCommand } from '../larval-surveillance-commands/habitats.js';
 import type { SafeHabitat } from '../larval-surveillance-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
-import { acknowledged } from './shared.js';
+import { acknowledged, readIdList } from './shared.js';
 
 export function habitatTableCommands(
 	db: CommandDb,
@@ -140,7 +140,7 @@ export function habitatTableCommands(
 				mergeHabitatsCommand({
 					...agency,
 					targetHabitatId: id,
-					sourceHabitatIds: readStringArray(payload.sourceHabitatIds),
+					sourceHabitatIds: readIdList(payload.sourceHabitatIds),
 					acknowledgedMergeConsolidatesHistory: acknowledged(
 						payload.acknowledgedMergeConsolidatesHistory,
 					),

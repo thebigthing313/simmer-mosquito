@@ -51,11 +51,11 @@ import {
 	updateAddressLocationCommand,
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
-import { type CommandDb, readStringArray } from '../command-write.js';
+import type { CommandDb } from '../command-write.js';
 import { writeAddressCommand } from '../foundation-commands/addresses.js';
 import { toAddressResponse } from '../foundation-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
-import { acknowledged } from './shared.js';
+import { acknowledged, readIdList } from './shared.js';
 
 type AddressResponse = ReturnType<typeof toAddressResponse>;
 
@@ -133,7 +133,7 @@ export function addressTableCommands(
 				mergeAddressesCommand({
 					...agency,
 					targetAddressId: id,
-					sourceAddressIds: readStringArray(payload.sourceAddressIds),
+					sourceAddressIds: readIdList(payload.sourceAddressIds),
 					acknowledgedMergeConsolidatesHistory: acknowledged(
 						payload.acknowledgedMergeConsolidatesHistory,
 					),

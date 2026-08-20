@@ -26,21 +26,19 @@
  *
  * A registration's catchment is a number and a unit id. The factor that turns
  * that into metres lives in `packages/domain`, keyed by unit code, because the
- * `units` table deliberately carries no factor — and `packages/db` cannot import
+ * `units` table deliberately carries no factor, and `packages/db` cannot import
  * the domain. So this is the layer that can see both: it reads the unit codes
  * the agency's registrations actually use, prices them through
  * `convertUnitAmount`, and hands the result down.
  *
- * A unit the conversion table does not know is reported, not guessed. Those
- * registrations match with no catchment at all, and `units_missing` in the
- * response is what turns "nobody was nearby" into "we could not tell for these",
- * which is the difference between a quiet mission and a missed notification.
+ * A unit the conversion table cannot price is a refusal, raised in
+ * `packages/db`. See `requireConvertibleBufferUnits` for why that is better than
+ * matching those registrations with no catchment.
  */
 
 import {
 	type GenerateMissionNotificationsResult,
 	generateMissionNotifications,
-	MissionNotificationRefusedError,
 	readRegistrationBufferUnits,
 	type UnitMetres,
 } from '@simmer-mosquito/db';
@@ -54,7 +52,7 @@ import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { agencyCommandContext, handleCommandError, readJsonObject } from '../command-endpoint.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
-import { commandActor, writeCommands } from '../command-write.js';
+import { type CommandTransaction, commandActor, writeCommands } from '../command-write.js';
 import type { RouteOptions } from './shared.js';
 
 export function registerMissionNotificationGenerationRoute(
@@ -114,25 +112,17 @@ export function registerMissionNotificationGenerationRoute(
 						});
 					},
 				);
-				return context.json(
-					{ ...responseBody(written.row), txid: written.txid },
-					written.row === null ? 404 : 200,
-				);
-			} catch (error) {
-				// A refusal names the mission's state, which is something the operator
-				// can act on — reschedule, reopen, add a stop — so it comes back as a
-				// 409 with the reason rather than a bare failure. A mission they cannot
-				// see is a 404, the same answer as one that never existed.
-				if (error instanceof MissionNotificationRefusedError) {
-					return context.json(
-						{
-							error: 'mission_notifications_refused',
-							reason: error.reason,
-							message: error.message,
-						},
-						error.reason === 'mission_not_found' ? 404 : 409,
-					);
+				// `writeCommands` types its row `TSafe | null` because most writers
+				// answer null for a row the caller cannot see. This one never does: a
+				// mission they cannot see throws `mission_not_found`, which
+				// `handleCommandError` answers as the 404. So this is a guard, not a
+				// second encoding of that status, and reaching it is a bug worth a
+				// stack rather than a tidy 404 that hides it.
+				if (written.row === null) {
+					throw new Error('Mission notification generation returned no result.');
 				}
+				return context.json({ ...responseBody(written.row), txid: written.txid });
+			} catch (error) {
 				return handleCommandError(context, error);
 			}
 		},
@@ -144,11 +134,11 @@ export function registerMissionNotificationGenerationRoute(
  *
  * Reads the codes actually in use rather than the whole unit catalog, then
  * prices each one. A code the conversion table does not carry, or one that is
- * not a distance at all, is left out — the generation reports it rather than
- * substituting a number.
+ * not a distance at all, is left out, and the generation refuses when a
+ * registration with a real distance was relying on it.
  */
 async function resolveBufferUnits(
-	trx: Parameters<typeof readRegistrationBufferUnits>[0],
+	trx: CommandTransaction,
 	organizationId: string,
 ): Promise<readonly UnitMetres[]> {
 	const units = await readRegistrationBufferUnits(trx, organizationId);
@@ -163,10 +153,7 @@ async function resolveBufferUnits(
 }
 
 /** The result as the client reads it: column-shaped keys, like every other write. */
-function responseBody(result: GenerateMissionNotificationsResult | null) {
-	if (result === null) {
-		return { error: 'mission_not_found' };
-	}
+function responseBody(result: GenerateMissionNotificationsResult) {
 	return {
 		mission_id: result.missionId,
 		notification_type_id: result.notificationTypeId,
@@ -178,7 +165,6 @@ function responseBody(result: GenerateMissionNotificationsResult | null) {
 			channel: row.channel,
 			destination: row.destination,
 		})),
-		units_missing: result.unitsMissing,
 	};
 }
 

@@ -231,6 +231,67 @@ describeDbIntegration('record merge policy', () => {
 		});
 	});
 
+	/**
+	 * The regression this engine was written for.
+	 *
+	 * `publicEngagement.mergeContacts` shipped as the soft deletes alone. It
+	 * retired the source contacts and re-pointed nothing, so every service request
+	 * and notification registration that named one was left pointing at a row that
+	 * resolves nowhere: no error, no constraint, the contact simply gone from every
+	 * surface that filters `deleted_at`.
+	 *
+	 * The `mission_notifications` half is the other direction. Those rows record
+	 * who was told about a mission and how they were reached, so a merge leaves
+	 * them exactly as they were sent.
+	 */
+	it('re-points a contact’s requests and registrations, and never its sent notifications', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'contact_merge');
+			const target = await createContact(db, org, 'Sam Rivera');
+			const source = await createContact(db, org, 'S. Rivera');
+			const addressId = await createAddress(db, org, 'Depot');
+			const requestId = await createServiceRequest(db, org, source, addressId);
+			const registrationId = await createNotificationRegistration(db, org, source);
+			const notificationId = await createMissionNotification(db, org, source, registrationId);
+			await createComment(db, org, 'contact', source);
+
+			await db.transaction().execute(async (trx) => {
+				await applyRecordMerge(trx, {
+					recordType: 'contact',
+					targetId: target,
+					sourceIds: [source],
+					organizationId: org,
+					actorProfileId: null,
+				});
+			});
+
+			const request = await db
+				.selectFrom('service_requests')
+				.select(['contact_id'])
+				.where('id', '=', requestId)
+				.executeTakeFirstOrThrow();
+			expect(request.contact_id).toBe(target);
+
+			const registration = await db
+				.selectFrom('notification_registrations')
+				.select(['contact_id'])
+				.where('id', '=', registrationId)
+				.executeTakeFirstOrThrow();
+			expect(registration.contact_id).toBe(target);
+
+			expect(await liveCommentCount(db, 'contact', source)).toBe(0);
+			expect(await liveCommentCount(db, 'contact', target)).toBe(1);
+
+			// Still the contact it was sent to.
+			const notification = await db
+				.selectFrom('mission_notifications')
+				.select(['contact_id'])
+				.where('id', '=', notificationId)
+				.executeTakeFirstOrThrow();
+			expect(notification.contact_id).toBe(source);
+		});
+	});
+
 	it('refuses a source that belongs to another agency, without saying so', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'merge_owner');
@@ -469,6 +530,92 @@ async function createRouteItem(
 			entity_id: habitatId,
 			position,
 			directions_to_next_item: directions,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createContact(db: Db, organizationId: string, contactName: string): Promise<string> {
+	const row = await db
+		.insertInto('contacts')
+		.values({ organization_id: organizationId, contact_name: contactName })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createServiceRequest(
+	db: Db,
+	organizationId: string,
+	contactId: string,
+	addressId: string,
+): Promise<string> {
+	const row = await db
+		.insertInto('service_requests')
+		.values({
+			organization_id: organizationId,
+			contact_id: contactId,
+			address_id: addressId,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+			request_date: sql`date '2026-08-01'`,
+			intake_type: 'phone',
+			details: 'Standing water behind the depot.',
+			metadata: null,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createNotificationRegistration(
+	db: Db,
+	organizationId: string,
+	contactId: string,
+): Promise<string> {
+	const row = await db
+		.insertInto('notification_registrations')
+		.values({
+			organization_id: organizationId,
+			contact_id: contactId,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createMissionNotification(
+	db: Db,
+	organizationId: string,
+	contactId: string,
+	registrationId: string,
+): Promise<string> {
+	const notificationType = await db
+		.insertInto('notification_types')
+		.values({ organization_id: organizationId, name: 'Adulticiding' })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const mission = await db
+		.insertInto('missions')
+		.values({
+			organization_id: organizationId,
+			control_type: 'application',
+			scheduled_start_at: sql`now() + interval '1 day'`,
+			notification_type_id: notificationType.id,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const row = await db
+		.insertInto('mission_notifications')
+		.values({
+			organization_id: organizationId,
+			mission_id: mission.id,
+			notification_registration_id: registrationId,
+			contact_id: contactId,
+			notification_type_id: notificationType.id,
+			channel: 'email',
+			destination: 'sam@example.test',
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();
