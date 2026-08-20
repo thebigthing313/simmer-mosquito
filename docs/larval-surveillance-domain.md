@@ -224,8 +224,14 @@ Server validation enforces:
 - target is active and non-deleted;
 - sources are non-deleted and not the target;
 - sources may be active or inactive;
-- geometry, address, and habitat type differences are allowed with strong
-  acknowledgement.
+- geometry, address, and habitat type differences are allowed.
+
+The acknowledgement covering those differences is the one the command already
+carries, `acknowledgedMergeConsolidatesHistory`. There is no second flag and no
+conditional check: a merge says two records are the same place, so the fields
+that differ are the point of it rather than a special case, and a second
+confirmation nobody could answer differently would only teach people to click
+through both.
 
 Merge preserves the target habitat as authoritative. It does not blend source
 fields into the target:
