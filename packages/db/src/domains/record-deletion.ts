@@ -49,13 +49,14 @@ export type DeletableRecordType =
  * they must run before the children themselves are soft-deleted; `orderRules`
  * guarantees that.
  */
-type ReferenceScope =
+export type ReferenceScope =
 	| { readonly kind: 'direct'; readonly column: string }
 	| { readonly kind: 'polymorphic'; readonly entityType: string }
 	| { readonly kind: 'childColumn'; readonly child: ChildSet; readonly column: string }
 	| { readonly kind: 'childPolymorphic'; readonly child: ChildSet; readonly entityType: string };
 
-interface ChildSet {
+/** A record's children, for a rule that reaches a generation below it. */
+export interface ChildSet {
 	readonly table: string;
 	readonly column: string;
 }
@@ -68,7 +69,7 @@ interface ChildSet {
  * them alongside the record. `detach` keeps the row and clears its link, which
  * is how surveillance deletes avoid taking control history with them.
  */
-type ReferenceEffect = 'block' | 'cascade' | 'detach';
+export type ReferenceEffect = 'block' | 'cascade' | 'detach';
 
 interface ReferenceRule {
 	/** Stable id for this consequence, so the UI can key and test it. */
@@ -801,6 +802,26 @@ export function deletableRecordTypes(): readonly DeletableRecordType[] {
 /** The domain noun for the record itself, for confirmation copy. */
 export function deletableRecordLabel(recordType: DeletableRecordType): string {
 	return DELETABLE_RECORDS[recordType].singular;
+}
+
+/**
+ * The registry as data, without the SQL or the copy.
+ *
+ * `record-merge.ts` holds a second policy over the same referencing tables, and
+ * the two have to cover the same ground: a table that gains an `address_id` is a
+ * gap in both. Exporting the scopes lets a test compare them, which is cheaper
+ * than trusting two hand-written lists to stay in step.
+ */
+export function deleteReferenceScopes(recordType: DeletableRecordType): readonly {
+	readonly table: string;
+	readonly effect: ReferenceEffect;
+	readonly scope: ReferenceScope;
+}[] {
+	return DELETABLE_RECORDS[recordType].rules.map((rule) => ({
+		table: rule.table,
+		effect: rule.effect,
+		scope: rule.scope,
+	}));
 }
 
 // ---------------------------------------------------------------------------

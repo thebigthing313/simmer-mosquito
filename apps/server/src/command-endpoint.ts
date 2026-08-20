@@ -22,7 +22,7 @@
  * domains while raising it.
  */
 
-import { RecordDeleteBlockedError } from '@simmer-mosquito/db';
+import { RecordDeleteBlockedError, RecordMergeRefusedError } from '@simmer-mosquito/db';
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import type { Context } from 'hono';
 import type { AuthContext } from './auth-context.js';
@@ -46,6 +46,9 @@ export type CommandContext = Context<{ Variables: AuthVariables }>;
  * one that is not theirs to see, and `409` for a row the database itself
  * refuses to remove. `reason` is set where the client can act on the
  * distinction; the four surveillance domains never set it.
+ *
+ * `merge_refused` is the third, raised by `applyRecordMerge` when the rows a
+ * merge names are not a set that can be merged.
  *
  * `409` is the global catalogs' case. An agency delete that other rows block is
  * decided before the delete runs, by `applyRecordDeletion`, and arrives as
@@ -74,6 +77,17 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 	}
 	if (error instanceof RecordDeleteBlockedError) {
 		return context.json(deleteBlockedBody(error), 409);
+	}
+	// A merge names rows the caller has to have seen to name, so a refusal is
+	// either that one of them is gone — 404, the same answer as a row of another
+	// agency — or that the survivor is retired, which is a state the caller can
+	// fix, so 409. `reason` is the discriminator, and is what the form maps to a
+	// message about the right field.
+	if (error instanceof RecordMergeRefusedError) {
+		return context.json(
+			{ error: 'merge_refused', reason: error.reason, message: error.message },
+			error.reason === 'target_inactive' ? 409 : 404,
+		);
 	}
 	throw error;
 }

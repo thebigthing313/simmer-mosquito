@@ -36,13 +36,15 @@ describe('unimplemented command routes', () => {
 	it('refuses with 501 and names the command it would have run', async () => {
 		const app = stubbedApp();
 
-		const response = await app.request('/foundation/addresses/merge', { method: 'POST' });
+		const response = await app.request('/public-engagement/missions/some-id/notifications', {
+			method: 'POST',
+		});
 
 		expect(response.status).toBe(501);
 		expect(await response.json()).toEqual({
 			error: 'command_not_implemented',
-			reason: expect.stringContaining('foundation.mergeAddresses'),
-			command: 'foundation.mergeAddresses',
+			reason: expect.stringContaining('publicEngagement.generateMissionNotifications'),
+			command: 'publicEngagement.generateMissionNotifications',
 		});
 	});
 
@@ -52,7 +54,7 @@ describe('unimplemented command routes', () => {
 		// one whose payload is wrong.
 		const app = stubbedApp();
 
-		const response = await app.request('/foundation/addresses/merge', {
+		const response = await app.request('/public-engagement/missions/some-id/notifications', {
 			method: 'POST',
 			headers: { 'content-type': 'application/json' },
 			body: 'not json at all',
@@ -78,7 +80,9 @@ describe('unimplemented command routes', () => {
 		// claiming more of the routing table than they were given.
 		const app = stubbedApp();
 
-		const response = await app.request('/foundation/addresses/merge', { method: 'GET' });
+		const response = await app.request('/public-engagement/missions/some-id/notifications', {
+			method: 'GET',
+		});
 
 		expect(response.status).toBe(404);
 	});

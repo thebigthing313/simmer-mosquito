@@ -246,9 +246,13 @@ Merge re-points source references to the target:
   actions
 - direct habitat comments
 - direct habitat tags
-- direct habitat additional personnel
 - route items targeting source habitats
 - assignment items targeting source habitats
+
+Additional personnel were on this list and are not. They hang off the six work
+records in `ADDITIONAL_PERSONNEL_TARGET_TYPES` — inspections, collections,
+applications, source reductions, outreach and biocontrol actions — and a habitat
+is not one of them, so there has never been a row to move.
 
 Inspection snapshot fields do not change. Cross-domain records' own
 feature/address/date fields do not change.

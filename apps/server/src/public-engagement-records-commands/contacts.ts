@@ -1,4 +1,4 @@
-import { applyRecordDeletion } from '@simmer-mosquito/db';
+import { applyRecordDeletion, applyRecordMerge } from '@simmer-mosquito/db';
 import {
 	createContactCommand,
 	deleteContactCommand,
@@ -203,6 +203,22 @@ export async function writeContactCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'publicEngagement.mergeContacts': {
+			// This used to be the soft deletes alone. That retired the source contacts
+			// and left every service request and notification registration pointing at
+			// a row that no longer resolves anywhere — no error, no constraint, the
+			// contact simply gone from every surface that filters `deleted_at`.
+			//
+			// `applyRecordMerge` is the re-pointing, and it runs first: each rule finds
+			// its rows by the source contact id, and a source already deleted is not
+			// one of them. `mission_notifications` is deliberately not among the rules
+			// — those rows snapshot who was told and how they were reached.
+			await applyRecordMerge(trx, {
+				recordType: 'contact',
+				targetId: command.payload.targetContactId,
+				sourceIds: command.payload.sourceContactIds,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			for (const sourceId of command.payload.sourceContactIds) {
 				await softDelete(
 					trx,

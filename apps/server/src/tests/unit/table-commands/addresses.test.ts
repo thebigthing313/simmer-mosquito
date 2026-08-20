@@ -21,6 +21,7 @@ import { unimplementedCommandRoutes } from '../../../unimplemented-commands.js';
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const ACTOR = '22222222-2222-4222-8222-222222222222';
 const ROW = '33333333-3333-4333-8333-333333333333';
+const SOURCE = '44444444-4444-4444-8444-444444444444';
 
 const PIN = { type: 'Point', coordinates: [-121.49, 38.58] };
 
@@ -134,25 +135,55 @@ describe('addresses', () => {
 		expect(cleared.payload).toMatchObject({ changes: { addressLine2: null } });
 	});
 
-	/*
-	 * A merge repoints every row that names the addresses being retired, across
-	 * four domains, and nothing writes that yet (#163). Offering it here would be
-	 * a route that accepts a merge and writes half of it, so the map does not —
-	 * and the 501 stub that says so has to still be standing, which is the half a
-	 * reader would not think to check.
-	 */
-	it('does not offer a merge, and leaves the stub that says why', () => {
-		expect(addresses.intents).not.toHaveProperty('foundation.mergeAddresses');
-		expect(unimplementedCommandRoutes.map((route) => route.command)).toContain(
-			'foundation.mergeAddresses',
-		);
-	});
-
-	// The stub for this one is gone, because the command now has a writer.
+	// The stubs for both of these are gone, because the commands now have writers.
 	it('no longer leaves a stub for the location update it implements', () => {
 		expect(addresses.intents).toHaveProperty('foundation.updateAddressLocation');
 		expect(unimplementedCommandRoutes.map((route) => route.command)).not.toContain(
 			'foundation.updateAddressLocation',
 		);
+	});
+
+	it('offers the merge, against the address that survives', () => {
+		expect(addresses.intents).toHaveProperty('foundation.mergeAddresses');
+		expect(unimplementedCommandRoutes.map((route) => route.command)).not.toContain(
+			'foundation.mergeAddresses',
+		);
+	});
+
+	it('reads the target from the path and the sources from the body', () => {
+		// The asymmetry is the thing to keep: there is no column for "addresses
+		// being folded into this one", so the id in the path is the survivor and the
+		// list in the body is what is being retired. Swapping them would retire the
+		// address the user was looking at.
+		const command = build(
+			addresses,
+			'foundation.mergeAddresses',
+			request({
+				sourceAddressIds: [SOURCE],
+				acknowledgedMergeConsolidatesHistory: true,
+			}),
+		);
+
+		expect(command.payload).toMatchObject({
+			targetAddressId: ROW,
+			sourceAddressIds: [SOURCE],
+		});
+	});
+
+	it('refuses a merge the caller withheld the acknowledgement on', () => {
+		// `acknowledged` reads a withheld flag as `false` and an absent one as
+		// confirmed, which is the convention every intent map shares. So the case
+		// worth pinning is the explicit `false`: a client that knows about the
+		// acknowledgement and has not got it yet.
+		expect(() =>
+			build(
+				addresses,
+				'foundation.mergeAddresses',
+				request({
+					sourceAddressIds: [SOURCE],
+					acknowledgedMergeConsolidatesHistory: false,
+				}),
+			),
+		).toThrow(DomainValidationError);
 	});
 });

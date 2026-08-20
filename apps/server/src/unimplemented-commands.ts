@@ -1,10 +1,10 @@
 /**
  * Routes for the commands the domain declares and nothing writes yet.
  *
- * Three of the 274 names in the vocabulary have no handler: two merges, and
- * mission notification generation. Until now that was invisible, a client
- * naming one of them got a 404 from Hono, which is the same answer it gets for a
- * typo, so an unbuilt feature and a misspelled path were indistinguishable.
+ * One of the 274 names in the vocabulary has no handler: mission notification
+ * generation. Until now that was invisible, a client naming it got a 404 from
+ * Hono, which is the same answer it gets for a typo, so an unbuilt feature and a
+ * misspelled path were indistinguishable.
  *
  * These routes exist to answer differently. Each one is registered, authorized
  * like any other command endpoint, and then refuses with `501` and the command
@@ -20,6 +20,13 @@
  * build and write those commands behind the operator middleware, so a stub
  * saying "no endpoint writes it yet" would now be false. An entry leaves this
  * list the moment its command has a writer.
+ *
+ * Both merges have left. `foundation.mergeAddresses` and
+ * `larvalSurveillance.mergeHabitats` are intents on `/commands/addresses` and
+ * `/commands/habitats`, against the row that survives — a merge answers with the
+ * target, so it is a PATCH on the target rather than a route of its own.
+ * `applyRecordMerge` in `packages/db` re-points the referencing rows, driven by
+ * the registry that also decides what blocks a delete.
  *
  * All ten `weather.*` writes have left too. They were the reason this file was
  * mostly weather, and they went in one piece rather than one at a time:
@@ -63,17 +70,6 @@ interface UnimplementedRoute {
  * would never be reached.
  */
 export const unimplementedCommandRoutes: readonly UnimplementedRoute[] = [
-	// A merge has no route at all. `foundation.updateAddressLocation` was stubbed
-	// here beside it and is not any more: `/commands/addresses` names it, and
-	// `writeAddressCommand` writes it.
-	{ verb: 'post', path: '/foundation/addresses/merge', command: 'foundation.mergeAddresses' },
-
-	{
-		verb: 'post',
-		path: '/larval-surveillance/habitats/merge',
-		command: 'larvalSurveillance.mergeHabitats',
-	},
-
 	{
 		verb: 'post',
 		path: '/public-engagement/missions/:missionId/notifications',

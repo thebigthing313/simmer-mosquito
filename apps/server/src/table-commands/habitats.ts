@@ -1,7 +1,7 @@
 /**
  * The `habitats` table, as commands.
  *
- * The ten commands the habitat writer already handles, each reachable by name
+ * The eleven commands the habitat writer handles, each reachable by name
  * through `/commands/habitats`. Nothing about how a habitat is written changes:
  * `writeHabitatCommand` and its response shape are imported from the existing
  * module. What changes is the choosing.
@@ -31,6 +31,7 @@ import {
 	deleteHabitatCommand,
 	type LarvalSurveillanceCommand,
 	markHabitatInaccessibleCommand,
+	mergeHabitatsCommand,
 	reactivateHabitatCommand,
 	retireHabitatCommand,
 	updateHabitatConfigurationCommand,
@@ -38,7 +39,7 @@ import {
 	updateHabitatLocationCommand,
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
-import type { CommandDb } from '../command-write.js';
+import { type CommandDb, readStringArray } from '../command-write.js';
 import { writeHabitatCommand } from '../larval-surveillance-commands/habitats.js';
 import type { SafeHabitat } from '../larval-surveillance-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
@@ -131,6 +132,19 @@ export function habitatTableCommands(
 
 			'larvalSurveillance.reactivateHabitat': ({ agency, id }) =>
 				reactivateHabitatCommand({ ...agency, habitatId: id }),
+
+			// The row this write names is the *target* — the habitat that survives —
+			// and the sources come from the body. Same shape as `mergeAddresses` and
+			// `mergeContacts`.
+			'larvalSurveillance.mergeHabitats': ({ payload, agency, id }) =>
+				mergeHabitatsCommand({
+					...agency,
+					targetHabitatId: id,
+					sourceHabitatIds: readStringArray(payload.sourceHabitatIds),
+					acknowledgedMergeConsolidatesHistory: acknowledged(
+						payload.acknowledgedMergeConsolidatesHistory,
+					),
+				}),
 
 			'larvalSurveillance.deleteHabitat': ({ payload, agency, id }) =>
 				deleteHabitatCommand({

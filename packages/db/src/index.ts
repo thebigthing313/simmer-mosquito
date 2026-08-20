@@ -20,6 +20,7 @@ export * from './domains/mission-dispatch-map.js';
 export * from './domains/org-owned-writes.js';
 export * from './domains/profile-activity.js';
 export * from './domains/record-deletion.js';
+export * from './domains/record-merge.js';
 export * from './domains/service-request-nearby.js';
 export * from './tables.js';
 

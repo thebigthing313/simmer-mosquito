@@ -1,4 +1,4 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, applyRecordMerge, sql } from '@simmer-mosquito/db';
 import {
 	clearHabitatInaccessibleCommand,
 	createHabitatCommand,
@@ -332,6 +332,47 @@ export async function writeHabitatCommand(
 				is_active: true,
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
+		case 'larvalSurveillance.mergeHabitats': {
+			// Re-point first, retire second: every rule finds its rows by the source
+			// habitat id, and a source already soft-deleted is not one of them.
+			//
+			// The route and assignment stops are the part worth knowing about. Two
+			// habitats on one route are two stops; merged, they are one place, and
+			// `applyRecordMerge` keeps the *target's* existing stop so the crew's
+			// position and directions to the next stop survive, retiring the source's.
+			await applyRecordMerge(trx, {
+				recordType: 'habitat',
+				targetId: command.payload.targetHabitatId,
+				sourceIds: command.payload.sourceHabitatIds,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
+			for (const sourceId of command.payload.sourceHabitatIds) {
+				await trx
+					.updateTable('habitats')
+					.set({
+						deleted_at: sql`now()`,
+						deleted_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+						updated_at: sql`now()`,
+					})
+					.where('id', '=', sourceId)
+					.where('organization_id', '=', command.payload.organizationId)
+					.where('deleted_at', 'is', null)
+					.execute();
+			}
+			// The survivor, unchanged: a merge picks which habitat is authoritative
+			// and does not blend the retired ones' name, geometry, address or type
+			// into it.
+			const row = await trx
+				.selectFrom('habitats')
+				.select(habitatReturnColumns)
+				.where('id', '=', command.payload.targetHabitatId)
+				.where('organization_id', '=', command.payload.organizationId)
+				.where('deleted_at', 'is', null)
+				.executeTakeFirst();
+			return row === undefined ? null : toSafeHabitat(row);
+		}
 		case 'larvalSurveillance.deleteHabitat': {
 			await applyRecordDeletion(trx, {
 				recordType: 'habitat',
