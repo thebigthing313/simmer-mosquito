@@ -2,7 +2,7 @@
 /**
  * Asserts that the workspace's build graphs agree.
  *
- * Which project depends on which one is declared twice, and the two
+ * Which project depends on which one is declared in two places, and the two
  * declarations are read by different commands:
  *
  * | Command                     | Ordering source                      | Who runs it    |
@@ -10,9 +10,10 @@
  * | `pnpm build`, `pnpm typecheck` | Nx, from package.json dependencies | CI, developers |
  * | `pnpm --filter <app> build` | `tsc -b`, from tsconfig `references` | every deploy   |
  *
- * A third declaration, the root solution file, names which projects a root
- * `tsc -b` builds at all. It is checked separately, against the workspace
- * rather than against a dependency list; see `rootSolutionFailures`.
+ * A third place, the root solution file, declares something else: which
+ * projects a root `tsc -b` builds at all, rather than what order they build
+ * in. It is checked against the workspace rather than against a dependency
+ * list; see `rootSolutionFailures`.
  *
  * Nothing keeps them in step. When they disagree, Nx orders the build correctly
  * from the package.json dependency, every gate is green, and then the deploy —
@@ -218,6 +219,11 @@ function declaredDependencies(project, projectsByName) {
  *
  * A reference path may name either the project directory or its tsconfig file;
  * both normalise to the directory, which is what identifies the project.
+ *
+ * Reads `project.path` and `project.tsconfig` and nothing else, which is what
+ * lets `rootSolutionFailures` pass a two-field stand-in for the root solution
+ * rather than a record from `readProjects`. Reach for another field and that
+ * caller starts handing you `undefined`; give it a real record first.
  */
 function referencedProjects(project, projectsByPath) {
 	const referenced = new Set();
@@ -243,7 +249,7 @@ function referencedProjects(project, projectsByPath) {
  * The root `tsconfig.json` is a third copy of the graph, and the only one no
  * command reads: a solution file whose `references` are the whole of what
  * `tsc -b` at the workspace root builds. Nothing extends it, no script runs it,
- * so an incomplete one is invisible — a root build exits 0 having compiled a
+ * so an incomplete one is invisible. A root build exits 0 having compiled a
  * smaller workspace than the person running it believes. It named 8 of 12
  * projects for months and reached 10, because `apps/web` pulls `sync` and
  * `ui-web` in transitively. `apps/admin` and `apps/preview` are leaves, so
