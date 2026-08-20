@@ -64,16 +64,16 @@ import { readNullableText, readNumber, readText } from '../command-payload.js';
 import { type CommandDb, readDate } from '../command-write.js';
 import {
 	type NotificationTypeCommand,
-	type SafeNotificationType,
+	type NotificationTypeRow,
 	writeNotificationTypeCommand,
 } from '../public-engagement-commands.js';
 import { writeMissionNotificationCommand } from '../public-engagement-records-commands/mission-notifications.js';
 import { writeRegistrationTypeCommand } from '../public-engagement-records-commands/notification-registration-types.js';
 import { writeRegistrationCommand } from '../public-engagement-records-commands/notification-registrations.js';
 import type {
-	SafeMissionNotification,
-	SafeRegistration,
-	SafeRegistrationType,
+	MissionNotificationRow,
+	RegistrationRow,
+	RegistrationTypeRow,
 } from '../public-engagement-records-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
@@ -84,7 +84,7 @@ function flag(value: unknown): boolean {
 
 export function notificationTypeTableCommands(
 	db: CommandDb,
-): TableCommands<NotificationTypeCommand, SafeNotificationType> {
+): TableCommands<NotificationTypeCommand, NotificationTypeRow> {
 	return {
 		table: 'notification_types',
 		run: {
@@ -137,7 +137,7 @@ export function notificationTypeTableCommands(
 
 export function notificationRegistrationTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, SafeRegistration> {
+): TableCommands<PublicEngagementCommand, RegistrationRow> {
 	return {
 		table: 'notification_registrations',
 		run: {
@@ -219,7 +219,7 @@ export function notificationRegistrationTableCommands(
 
 export function notificationRegistrationTypeTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, SafeRegistrationType> {
+): TableCommands<PublicEngagementCommand, RegistrationTypeRow> {
 	return {
 		table: 'notification_registration_types',
 		run: {
@@ -251,7 +251,7 @@ export function notificationRegistrationTypeTableCommands(
 
 export function missionNotificationTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, SafeMissionNotification> {
+): TableCommands<PublicEngagementCommand, MissionNotificationRow> {
 	// All four say when the status moved, and nothing else.
 	const statusChange = (payload: Record<string, unknown>) => {
 		const statusChangedAt = readDate(payload.status_changed_at);

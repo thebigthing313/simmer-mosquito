@@ -45,10 +45,9 @@ import {
 	assertAcknowledged,
 	assertFresh,
 	loadStation,
-	type SafeWeatherStation,
 	type StationState,
 	stationHasSummaries,
-	toSafeWeatherStation,
+	type WeatherStationRow,
 	type WeatherTransaction,
 	weatherStationReturnColumns,
 } from './shared.js';
@@ -78,7 +77,7 @@ const DUPLICATE_STATION = {
 export async function writeWeatherStationCommand(
 	trx: WeatherTransaction,
 	command: WeatherCommand,
-): Promise<SafeWeatherStation | null> {
+): Promise<WeatherStationRow | null> {
 	switch (command.type) {
 		case 'weather.createWeatherStation':
 			return createStation(trx, command.payload);
@@ -124,7 +123,7 @@ type DeletePayload = Extract<
 async function createStation(
 	trx: WeatherTransaction,
 	payload: CreatePayload,
-): Promise<SafeWeatherStation> {
+): Promise<WeatherStationRow> {
 	const row = await refusableWrite(
 		() =>
 			trx
@@ -147,13 +146,13 @@ async function createStation(
 				.executeTakeFirstOrThrow(),
 		{ duplicate: DUPLICATE_STATION },
 	);
-	return toSafeWeatherStation(row);
+	return row;
 }
 
 async function updateStationDetails(
 	trx: WeatherTransaction,
 	payload: DetailsPayload,
-): Promise<SafeWeatherStation | null> {
+): Promise<WeatherStationRow | null> {
 	const station = await requireStation(trx, payload);
 	if (station === null) {
 		return null;
@@ -194,7 +193,7 @@ async function updateStationDetails(
 async function moveStation(
 	trx: WeatherTransaction,
 	payload: LocationPayload,
-): Promise<SafeWeatherStation | null> {
+): Promise<WeatherStationRow | null> {
 	const station = await requireStation(trx, payload);
 	if (station === null) {
 		return null;
@@ -216,7 +215,7 @@ async function setStationActive(
 	trx: WeatherTransaction,
 	payload: LifecyclePayload,
 	isActive: boolean,
-): Promise<SafeWeatherStation | null> {
+): Promise<WeatherStationRow | null> {
 	const station = await requireStation(trx, payload);
 	if (station === null) {
 		return null;
@@ -230,7 +229,7 @@ async function setStationActive(
 async function deleteStation(
 	trx: WeatherTransaction,
 	payload: DeletePayload,
-): Promise<SafeWeatherStation | null> {
+): Promise<WeatherStationRow | null> {
 	const station = await requireStation(trx, payload);
 	if (station === null) {
 		return null;
@@ -259,7 +258,7 @@ async function deleteStation(
 		.where('deleted_at', 'is', null)
 		.returning(weatherStationReturnColumns)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeWeatherStation(row);
+	return row ?? null;
 }
 
 /**
@@ -292,7 +291,7 @@ async function updateStation(
 	organizationId: string,
 	set: Record<string, unknown>,
 	refusals: { readonly duplicate?: { readonly error: string; readonly reason: string } } = {},
-): Promise<SafeWeatherStation | null> {
+): Promise<WeatherStationRow | null> {
 	const row = await refusableWrite(
 		() =>
 			trx
@@ -305,5 +304,5 @@ async function updateStation(
 				.executeTakeFirst(),
 		refusals,
 	);
-	return row === undefined ? null : toSafeWeatherStation(row);
+	return row ?? null;
 }

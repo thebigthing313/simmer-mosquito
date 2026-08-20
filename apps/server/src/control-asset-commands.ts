@@ -1,4 +1,4 @@
-import { sql } from '@simmer-mosquito/db';
+import { type SelectedRow, sql } from '@simmer-mosquito/db';
 import {
 	type CreateEquipmentCommand,
 	type CreateVehicleCommand,
@@ -52,16 +52,9 @@ export type ControlAssetCommand =
 	| ReactivateEquipmentCommand
 	| DeleteEquipmentCommand;
 
-interface SafeControlAsset {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly name: string;
-	readonly serialNumber: string | null;
-	readonly metadata: unknown | null;
-	readonly isActive: boolean;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
+type ControlAssetRow =
+	| SelectedRow<'vehicles', typeof vehicleReturnColumns>
+	| SelectedRow<'equipment', typeof equipmentReturnColumns>;
 
 export function registerControlAssetCommandRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -88,8 +81,7 @@ export function registerControlAssetCommandRoutes(
 			context,
 			{
 				db: options.db,
-				write: async (trx, command) =>
-					toControlAssetResponse(await writeControlAssetCommand(trx, command)),
+				write: async (trx, command) => await writeControlAssetCommand(trx, command),
 				notFound: 'control_asset_not_found',
 				key: 'asset',
 			},
@@ -146,7 +138,7 @@ function requiredKind(value: string): ControlAssetKind {
 export async function writeControlAssetCommand(
 	db: ControlAssetTransaction,
 	command: ControlAssetCommand,
-): Promise<SafeControlAsset | null> {
+): Promise<ControlAssetRow | null> {
 	switch (command.type) {
 		case 'controlOperations.createVehicle':
 			return createVehicle(db, {
@@ -243,7 +235,7 @@ interface ControlAssetLifecycleInput {
 async function createVehicle(
 	db: ControlAssetTransaction,
 	input: ControlAssetWriteInput,
-): Promise<SafeControlAsset> {
+): Promise<ControlAssetRow> {
 	const row = await db
 		.insertInto('vehicles')
 		.values({
@@ -258,13 +250,13 @@ async function createVehicle(
 		.returning(vehicleReturnColumns)
 		.executeTakeFirstOrThrow();
 
-	return toSafeVehicle(row);
+	return row;
 }
 
 async function createEquipment(
 	db: ControlAssetTransaction,
 	input: ControlAssetWriteInput,
-): Promise<SafeControlAsset> {
+): Promise<ControlAssetRow> {
 	const row = await db
 		.insertInto('equipment')
 		.values({
@@ -280,14 +272,14 @@ async function createEquipment(
 		.returning(equipmentReturnColumns)
 		.executeTakeFirstOrThrow();
 
-	return toSafeEquipment(row);
+	return row;
 }
 
 async function updateVehicle(
 	db: ControlAssetTransaction,
 	vehicleId: string,
 	input: ControlAssetUpdateInput,
-): Promise<SafeControlAsset | null> {
+): Promise<ControlAssetRow | null> {
 	const row = await db
 		.updateTable('vehicles')
 		.set({
@@ -302,14 +294,14 @@ async function updateVehicle(
 		.returning(vehicleReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeVehicle(row);
+	return row ?? null;
 }
 
 async function updateEquipment(
 	db: ControlAssetTransaction,
 	equipmentId: string,
 	input: ControlAssetUpdateInput,
-): Promise<SafeControlAsset | null> {
+): Promise<ControlAssetRow | null> {
 	const row = await db
 		.updateTable('equipment')
 		.set({
@@ -325,14 +317,14 @@ async function updateEquipment(
 		.returning(equipmentReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeEquipment(row);
+	return row ?? null;
 }
 
 async function setVehicleActive(
 	db: ControlAssetTransaction,
 	vehicleId: string,
 	input: ControlAssetLifecycleInput & { readonly isActive: boolean },
-): Promise<SafeControlAsset | null> {
+): Promise<ControlAssetRow | null> {
 	const row = await db
 		.updateTable('vehicles')
 		.set({
@@ -346,14 +338,14 @@ async function setVehicleActive(
 		.returning(vehicleReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeVehicle(row);
+	return row ?? null;
 }
 
 async function setEquipmentActive(
 	db: ControlAssetTransaction,
 	equipmentId: string,
 	input: ControlAssetLifecycleInput & { readonly isActive: boolean },
-): Promise<SafeControlAsset | null> {
+): Promise<ControlAssetRow | null> {
 	const row = await db
 		.updateTable('equipment')
 		.set({
@@ -367,14 +359,14 @@ async function setEquipmentActive(
 		.returning(equipmentReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeEquipment(row);
+	return row ?? null;
 }
 
 async function deleteVehicle(
 	db: ControlAssetTransaction,
 	vehicleId: string,
 	input: ControlAssetLifecycleInput,
-): Promise<SafeControlAsset | null> {
+): Promise<ControlAssetRow | null> {
 	const row = await db
 		.updateTable('vehicles')
 		.set({
@@ -389,14 +381,14 @@ async function deleteVehicle(
 		.returning(vehicleReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeVehicle(row);
+	return row ?? null;
 }
 
 async function deleteEquipment(
 	db: ControlAssetTransaction,
 	equipmentId: string,
 	input: ControlAssetLifecycleInput,
-): Promise<SafeControlAsset | null> {
+): Promise<ControlAssetRow | null> {
 	const row = await db
 		.updateTable('equipment')
 		.set({
@@ -411,7 +403,7 @@ async function deleteEquipment(
 		.returning(equipmentReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeEquipment(row);
+	return row ?? null;
 }
 
 function buildCreateCommand(
@@ -599,63 +591,3 @@ const equipmentReturnColumns = [
 	'created_at',
 	'updated_at',
 ] as const;
-
-function toSafeVehicle(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly vehicle_name: string;
-	readonly metadata: unknown | null;
-	readonly is_active: boolean;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeControlAsset {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		name: row.vehicle_name,
-		serialNumber: null,
-		metadata: row.metadata,
-		isActive: row.is_active,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
-
-function toSafeEquipment(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly equipment_name: string;
-	readonly serial_number: string | null;
-	readonly metadata: unknown | null;
-	readonly is_active: boolean;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeControlAsset {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		name: row.equipment_name,
-		serialNumber: row.serial_number,
-		metadata: row.metadata,
-		isActive: row.is_active,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
-
-export function toControlAssetResponse(row: SafeControlAsset | null) {
-	if (row === null) {
-		return null;
-	}
-
-	return {
-		id: row.id,
-		organizationId: row.organizationId,
-		name: row.name,
-		serialNumber: row.serialNumber,
-		metadata: row.metadata,
-		isActive: row.isActive,
-		createdAt: row.createdAt,
-		updatedAt: row.updatedAt,
-	};
-}

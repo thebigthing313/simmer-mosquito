@@ -27,12 +27,12 @@ import {
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { writeOrganizationSpeciesCommand } from '../foundation-geography-commands/organization-species.js';
-import type { SafeOrganizationSpecies } from '../foundation-geography-commands/shared.js';
+import type { OrganizationSpeciesRow } from '../foundation-geography-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 
 export function organizationSpeciesTableCommands(
 	db: CommandDb,
-): TableCommands<FoundationCommand, SafeOrganizationSpecies> {
+): TableCommands<FoundationCommand, OrganizationSpeciesRow> {
 	return {
 		table: 'organization_species',
 		run: {

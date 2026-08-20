@@ -8,6 +8,7 @@ import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
+	type AdditionalPersonnelRow,
 	additionalPersonnelReturnColumns,
 	type CommandContext,
 	commandEndpoint,
@@ -16,9 +17,7 @@ import {
 	type RouteOptions,
 	readTarget,
 	runCommands,
-	type SafeAdditionalPersonnel,
 	softDelete,
-	toSafeAdditionalPersonnel,
 } from './shared.js';
 
 // ===========================================================================
@@ -82,7 +81,7 @@ async function runAdditionalPersonnelCommands(
 export async function writeAdditionalPersonnelCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeAdditionalPersonnel | null> {
+): Promise<AdditionalPersonnelRow | null> {
 	switch (command.type) {
 		case 'fieldWork.addAdditionalPersonnel': {
 			const row = await trx
@@ -98,7 +97,7 @@ export async function writeAdditionalPersonnelCommand(
 				})
 				.returning(additionalPersonnelReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeAdditionalPersonnel(row);
+			return row;
 		}
 		case 'fieldWork.removeAdditionalPersonnel':
 			return softDelete(
@@ -108,7 +107,6 @@ export async function writeAdditionalPersonnelCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				additionalPersonnelReturnColumns,
-				toSafeAdditionalPersonnel,
 			);
 		default:
 			throw new Error(`Unsupported additional personnel command: ${command.type}`);

@@ -94,12 +94,12 @@ describe('org-owned writes', () => {
 		[
 			'updateRow',
 			async (trx: Transaction<SimmerDatabase>) =>
-				updateRow(trx, 'regions', rowId, organizationId, { name: 'x' }, ['id'], (row) => row),
+				updateRow(trx, 'regions', rowId, organizationId, { name: 'x' }, ['id']),
 		],
 		[
 			'softDelete',
 			async (trx: Transaction<SimmerDatabase>) =>
-				softDelete(trx, 'regions', rowId, organizationId, actorProfileId, ['id'], (row) => row),
+				softDelete(trx, 'regions', rowId, organizationId, actorProfileId, ['id']),
 		],
 		[
 			'loadGeojson',
@@ -123,7 +123,7 @@ describe('org-owned writes', () => {
 		await db
 			.transaction()
 			.execute(async (trx) =>
-				softDelete(trx, 'regions', rowId, organizationId, actorProfileId, ['id'], (row) => row),
+				softDelete(trx, 'regions', rowId, organizationId, actorProfileId, ['id']),
 			);
 
 		const sql = normalize(lastStatement(queries));
@@ -138,7 +138,7 @@ describe('org-owned writes', () => {
 		await db
 			.transaction()
 			.execute(async (trx) =>
-				updateRow(trx, 'regions', rowId, organizationId, { name: 'x' }, ['id'], (row) => row),
+				updateRow(trx, 'regions', rowId, organizationId, { name: 'x' }, ['id']),
 			);
 
 		expect(normalize(lastStatement(queries))).toContain('"updated_at" = now()');
@@ -153,12 +153,12 @@ describe('org-owned writes', () => {
 		const updated = await db
 			.transaction()
 			.execute(async (trx) =>
-				updateRow(trx, 'regions', rowId, organizationId, { name: 'x' }, ['id'], (row) => row),
+				updateRow(trx, 'regions', rowId, organizationId, { name: 'x' }, ['id']),
 			);
 		const deleted = await db
 			.transaction()
 			.execute(async (trx) =>
-				softDelete(trx, 'regions', rowId, organizationId, actorProfileId, ['id'], (row) => row),
+				softDelete(trx, 'regions', rowId, organizationId, actorProfileId, ['id']),
 			);
 		const geojson = await db
 			.transaction()

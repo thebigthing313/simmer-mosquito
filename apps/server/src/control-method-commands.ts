@@ -1,4 +1,4 @@
-import { type SafeOrgLookup, sql } from '@simmer-mosquito/db';
+import { type SelectedRow, sql } from '@simmer-mosquito/db';
 import {
 	type CreateApplicationMethodCommand,
 	type CreateBiocontrolMethodCommand,
@@ -120,8 +120,7 @@ export function registerControlMethodCommandRoutes(
 			context,
 			{
 				db: options.db,
-				write: async (trx, command) =>
-					toControlMethodResponse(await writeControlMethodCommand(trx, command)),
+				write: async (trx, command) => await writeControlMethodCommand(trx, command),
 				notFound: 'control_method_not_found',
 				key: 'method',
 			},
@@ -178,7 +177,7 @@ function requiredKind(value: string): ControlMethodKind {
 export async function writeControlMethodCommand(
 	db: ControlMethodTransaction,
 	command: ControlMethodCommand,
-): Promise<SafeOrgLookup | null> {
+): Promise<ControlMethodRow | null> {
 	switch (command.type) {
 		case 'controlOperations.createApplicationMethod':
 			return createControlMethod(db, 'application_methods', {
@@ -341,6 +340,24 @@ export async function writeControlMethodCommand(
 	}
 }
 
+/**
+ * What a control method answers with.
+ *
+ * The four method tables carry the same columns, so one list and one row type
+ * serve all of them.
+ */
+const controlMethodReturnColumns = [
+	'id',
+	'organization_id',
+	'name',
+	'custom_schema',
+	'is_active',
+	'created_at',
+	'updated_at',
+] as const;
+
+type ControlMethodRow = SelectedRow<'application_methods', typeof controlMethodReturnColumns>;
+
 type ControlMethodTableName =
 	| 'application_methods'
 	| 'source_reduction_methods'
@@ -372,7 +389,7 @@ async function createControlMethod(
 	db: ControlMethodTransaction,
 	table: ControlMethodTableName,
 	input: ControlMethodWriteInput,
-): Promise<SafeOrgLookup> {
+): Promise<ControlMethodRow> {
 	const row = await db
 		.insertInto(table)
 		.values({
@@ -384,18 +401,10 @@ async function createControlMethod(
 			created_by_profile_id: input.actorProfileId,
 			updated_by_profile_id: input.actorProfileId,
 		})
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'custom_schema',
-			'is_active',
-			'created_at',
-			'updated_at',
-		])
+		.returning(controlMethodReturnColumns)
 		.executeTakeFirstOrThrow();
 
-	return toSafeControlMethod(row);
+	return row;
 }
 
 async function updateControlMethod(
@@ -403,7 +412,7 @@ async function updateControlMethod(
 	table: ControlMethodTableName,
 	methodId: string,
 	input: ControlMethodUpdateInput,
-): Promise<SafeOrgLookup | null> {
+): Promise<ControlMethodRow | null> {
 	const row = await db
 		.updateTable(table)
 		.set({
@@ -415,18 +424,10 @@ async function updateControlMethod(
 		.where('id', '=', methodId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'custom_schema',
-			'is_active',
-			'created_at',
-			'updated_at',
-		])
+		.returning(controlMethodReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeControlMethod(row);
+	return row ?? null;
 }
 
 async function setControlMethodActive(
@@ -434,7 +435,7 @@ async function setControlMethodActive(
 	table: ControlMethodTableName,
 	methodId: string,
 	input: ControlMethodLifecycleInput & { readonly isActive: boolean },
-): Promise<SafeOrgLookup | null> {
+): Promise<ControlMethodRow | null> {
 	const row = await db
 		.updateTable(table)
 		.set({
@@ -445,18 +446,10 @@ async function setControlMethodActive(
 		.where('id', '=', methodId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'custom_schema',
-			'is_active',
-			'created_at',
-			'updated_at',
-		])
+		.returning(controlMethodReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeControlMethod(row);
+	return row ?? null;
 }
 
 async function deleteControlMethod(
@@ -464,7 +457,7 @@ async function deleteControlMethod(
 	table: ControlMethodTableName,
 	methodId: string,
 	input: ControlMethodLifecycleInput,
-): Promise<SafeOrgLookup | null> {
+): Promise<ControlMethodRow | null> {
 	const row = await db
 		.updateTable(table)
 		.set({
@@ -476,18 +469,10 @@ async function deleteControlMethod(
 		.where('id', '=', methodId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'custom_schema',
-			'is_active',
-			'created_at',
-			'updated_at',
-		])
+		.returning(controlMethodReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeControlMethod(row);
+	return row ?? null;
 }
 
 function buildCreateCommand(
@@ -709,44 +694,4 @@ function readOptionalJson(value: unknown): unknown | null {
 
 function invalidPayload(reason: string): PayloadResult<never> {
 	return { ok: false, reason };
-}
-
-function toSafeControlMethod(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly name: string;
-	readonly custom_schema: unknown | null;
-	readonly is_active: boolean;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeOrgLookup {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		name: row.name,
-		description: null,
-		customSchema: row.custom_schema,
-		actionThreshold: null,
-		isActive: row.is_active,
-		createdByProfileId: null,
-		updatedByProfileId: null,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
-
-export function toControlMethodResponse(row: SafeOrgLookup | null) {
-	if (row === null) {
-		return null;
-	}
-
-	return {
-		id: row.id,
-		organizationId: row.organizationId,
-		name: row.name,
-		customSchema: row.customSchema,
-		isActive: row.isActive,
-		createdAt: row.createdAt,
-		updatedAt: row.updatedAt,
-	};
 }

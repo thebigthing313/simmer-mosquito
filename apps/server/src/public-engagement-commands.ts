@@ -1,6 +1,7 @@
 import {
 	type Kysely,
 	type MutationWriteResult,
+	type SelectedRow,
 	type SimmerDatabase,
 	sql,
 	type Transaction,
@@ -42,15 +43,10 @@ export type NotificationTypeCommand =
 	| ReactivateNotificationTypeCommand
 	| DeleteNotificationTypeCommand;
 
-export interface SafeNotificationType {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly name: string;
-	readonly description: string | null;
-	readonly isActive: boolean;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
+export type NotificationTypeRow = SelectedRow<
+	'notification_types',
+	typeof notificationTypeReturnColumns
+>;
 
 export function registerPublicEngagementCommandRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -68,8 +64,7 @@ export function registerPublicEngagementCommandRoutes(
 			context,
 			{
 				db: options.db,
-				write: async (trx, command) =>
-					toNotificationTypeResponse(await writeNotificationTypeCommand(trx, command)),
+				write: async (trx, command) => await writeNotificationTypeCommand(trx, command),
 				notFound: 'notification_type_not_found',
 				key: 'notificationType',
 			},
@@ -122,7 +117,7 @@ export function registerPublicEngagementCommandRoutes(
 export async function writeNotificationTypeCommand(
 	db: PublicEngagementTransaction,
 	command: NotificationTypeCommand,
-): Promise<SafeNotificationType | null> {
+): Promise<NotificationTypeRow | null> {
 	switch (command.type) {
 		case 'publicEngagement.createNotificationType':
 			return createNotificationType(db, {
@@ -183,7 +178,7 @@ interface NotificationTypeLifecycleInput {
 async function createNotificationType(
 	db: PublicEngagementTransaction,
 	input: NotificationTypeWriteInput,
-): Promise<SafeNotificationType> {
+): Promise<NotificationTypeRow> {
 	const row = await db
 		.insertInto('notification_types')
 		.values({
@@ -198,14 +193,14 @@ async function createNotificationType(
 		.returning(notificationTypeReturnColumns)
 		.executeTakeFirstOrThrow();
 
-	return toSafeNotificationType(row);
+	return row;
 }
 
 async function updateNotificationType(
 	db: PublicEngagementTransaction,
 	notificationTypeId: string,
 	input: NotificationTypeUpdateInput,
-): Promise<SafeNotificationType | null> {
+): Promise<NotificationTypeRow | null> {
 	const row = await db
 		.updateTable('notification_types')
 		.set({
@@ -220,14 +215,14 @@ async function updateNotificationType(
 		.returning(notificationTypeReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeNotificationType(row);
+	return row ?? null;
 }
 
 async function setNotificationTypeActive(
 	db: PublicEngagementTransaction,
 	notificationTypeId: string,
 	input: NotificationTypeLifecycleInput & { readonly isActive: boolean },
-): Promise<SafeNotificationType | null> {
+): Promise<NotificationTypeRow | null> {
 	const row = await db
 		.updateTable('notification_types')
 		.set({
@@ -241,14 +236,14 @@ async function setNotificationTypeActive(
 		.returning(notificationTypeReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeNotificationType(row);
+	return row ?? null;
 }
 
 async function deleteNotificationType(
 	db: PublicEngagementTransaction,
 	notificationTypeId: string,
 	input: NotificationTypeLifecycleInput,
-): Promise<SafeNotificationType | null> {
+): Promise<NotificationTypeRow | null> {
 	const row = await db
 		.updateTable('notification_types')
 		.set({
@@ -263,7 +258,7 @@ async function deleteNotificationType(
 		.returning(notificationTypeReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeNotificationType(row);
+	return row ?? null;
 }
 
 function buildUpdateCommands(
@@ -365,39 +360,3 @@ const notificationTypeReturnColumns = [
 	'created_at',
 	'updated_at',
 ] as const;
-
-function toSafeNotificationType(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly name: string;
-	readonly description: string | null;
-	readonly is_active: boolean;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeNotificationType {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		name: row.name,
-		description: row.description,
-		isActive: row.is_active,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
-
-function toNotificationTypeResponse(row: SafeNotificationType | null) {
-	if (row === null) {
-		return null;
-	}
-
-	return {
-		id: row.id,
-		organizationId: row.organizationId,
-		name: row.name,
-		description: row.description,
-		isActive: row.isActive,
-		createdAt: row.createdAt,
-		updatedAt: row.updatedAt,
-	};
-}

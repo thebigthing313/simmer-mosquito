@@ -26,9 +26,9 @@ import {
 } from '@simmer-mosquito/domain';
 import { writeCollectionSpeciesCommand } from '../adult-surveillance-commands/collection-species-counts.js';
 import {
+	type CollectionSpeciesRow,
 	readSpeciesSex,
 	readSpeciesStatus,
-	type SafeCollectionSpecies,
 } from '../adult-surveillance-commands/shared.js';
 import { readNullableText, readNumber, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
@@ -36,7 +36,7 @@ import type { TableCommands } from './dispatch.js';
 
 export function collectionSpeciesTableCommands(
 	db: CommandDb,
-): TableCommands<AdultSurveillanceCommand, SafeCollectionSpecies> {
+): TableCommands<AdultSurveillanceCommand, CollectionSpeciesRow> {
 	return {
 		table: 'collection_species',
 		run: {

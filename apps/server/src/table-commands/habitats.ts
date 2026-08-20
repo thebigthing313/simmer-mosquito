@@ -41,13 +41,13 @@ import {
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { writeHabitatCommand } from '../larval-surveillance-commands/habitats.js';
-import type { SafeHabitat } from '../larval-surveillance-commands/shared.js';
+import type { HabitatRow } from '../larval-surveillance-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, readIdList } from './shared.js';
 
 export function habitatTableCommands(
 	db: CommandDb,
-): TableCommands<LarvalSurveillanceCommand, SafeHabitat> {
+): TableCommands<LarvalSurveillanceCommand, HabitatRow> {
 	return {
 		table: 'habitats',
 		run: { db, write: writeHabitatCommand, notFound: 'habitat_not_found', key: 'habitat' },

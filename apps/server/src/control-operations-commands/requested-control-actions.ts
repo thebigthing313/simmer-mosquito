@@ -26,15 +26,14 @@ import {
 	invalidUpdate,
 	locationContextColumns,
 	locationContextInput,
+	type RequestedControlActionRow,
 	type RouteOptions,
 	readControlActionContext,
 	readDate,
 	requestedControlActionReturnColumns,
 	resolveGeom,
 	runCommands,
-	type SafeRequestedControlAction,
 	softDelete,
-	toSafeRequestedControlAction,
 	updateActionRow,
 } from './shared.js';
 
@@ -209,7 +208,7 @@ async function runRequestedControlActionCommands(
 export async function writeRequestedControlActionCommand(
 	trx: ControlOperationsTransaction,
 	command: ControlOperationsCommand,
-): Promise<SafeRequestedControlAction | null> {
+): Promise<RequestedControlActionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.requestControlAction': {
 			const ids = contextIds(command.payload.context);
@@ -239,7 +238,7 @@ export async function writeRequestedControlActionCommand(
 				})
 				.returning(requestedControlActionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeRequestedControlAction(row);
+			return row;
 		}
 		case 'controlOperations.updateRequestedControlActionDetails': {
 			const changes = command.payload.changes;
@@ -263,7 +262,6 @@ export async function writeRequestedControlActionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				requestedControlActionReturnColumns,
-				toSafeRequestedControlAction,
 			);
 		}
 		case 'controlOperations.updateRequestedControlActionLocationAndContext':
@@ -282,7 +280,6 @@ export async function writeRequestedControlActionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				requestedControlActionReturnColumns,
-				toSafeRequestedControlAction,
 			);
 		case 'controlOperations.resolveRequestedControlAction':
 			return updateActionRow(
@@ -297,7 +294,6 @@ export async function writeRequestedControlActionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				requestedControlActionReturnColumns,
-				toSafeRequestedControlAction,
 			);
 		case 'controlOperations.reopenRequestedControlAction':
 			return updateActionRow(
@@ -311,7 +307,6 @@ export async function writeRequestedControlActionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				requestedControlActionReturnColumns,
-				toSafeRequestedControlAction,
 			);
 		case 'controlOperations.deleteRequestedControlAction':
 			await applyRecordDeletion(trx, {
@@ -327,7 +322,6 @@ export async function writeRequestedControlActionCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				requestedControlActionReturnColumns,
-				toSafeRequestedControlAction,
 			);
 		default:
 			throw new Error(`Unsupported requested control action command: ${command.type}`);

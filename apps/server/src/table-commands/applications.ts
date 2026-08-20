@@ -67,10 +67,7 @@ import {
 	type ApplicationCommand,
 	writeApplicationCommand,
 } from '../control-operations-commands/chemical-applications.js';
-import type {
-	SafeApplication,
-	SafeApplicationBatch,
-} from '../control-operations-commands/shared.js';
+import type { ApplicationBatchRow, ApplicationRow } from '../control-operations-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, drawnGeometry } from './shared.js';
 
@@ -143,7 +140,7 @@ function applicationFields(payload: Record<string, unknown>) {
 
 export function applicationTableCommands(
 	db: CommandDb,
-): TableCommands<ApplicationCommand, SafeApplication> {
+): TableCommands<ApplicationCommand, ApplicationRow> {
 	return {
 		table: 'applications',
 		run: {
@@ -246,7 +243,7 @@ export function applicationTableCommands(
 
 export function applicationBatchTableCommands(
 	db: CommandDb,
-): TableCommands<ControlOperationsCommand, SafeApplicationBatch> {
+): TableCommands<ControlOperationsCommand, ApplicationBatchRow> {
 	return {
 		table: 'application_batches',
 		run: {

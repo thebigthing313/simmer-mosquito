@@ -37,11 +37,11 @@ import {
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { writeCommentCommand } from '../field-work-commands/comments.js';
-import { readDate, type SafeComment } from '../field-work-commands/shared.js';
+import { type CommentRow, readDate } from '../field-work-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 
-export function commentTableCommands(db: CommandDb): TableCommands<FieldWorkCommand, SafeComment> {
+export function commentTableCommands(db: CommandDb): TableCommands<FieldWorkCommand, CommentRow> {
 	return {
 		table: 'comments',
 		run: {

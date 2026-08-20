@@ -12,12 +12,11 @@ import {
 	commandEndpoint,
 	type FoundationDb,
 	type FoundationTransaction,
+	type RegionFolderRow,
 	type RouteOptions,
 	regionFolderReturnColumns,
 	runCommands,
-	type SafeRegionFolder,
 	softDelete,
-	toSafeRegionFolder,
 	updateRow,
 } from './shared.js';
 
@@ -100,7 +99,7 @@ async function runRegionFolderCommands(
 export async function writeRegionFolderCommand(
 	trx: FoundationTransaction,
 	command: FoundationCommand,
-): Promise<SafeRegionFolder | null> {
+): Promise<RegionFolderRow | null> {
 	switch (command.type) {
 		case 'foundation.createRegionFolder': {
 			const row = await trx
@@ -115,7 +114,7 @@ export async function writeRegionFolderCommand(
 				})
 				.returning(regionFolderReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeRegionFolder(row);
+			return row;
 		}
 		case 'foundation.updateRegionFolder':
 			return updateRow(
@@ -131,7 +130,6 @@ export async function writeRegionFolderCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				regionFolderReturnColumns,
-				toSafeRegionFolder,
 			);
 		case 'foundation.deleteRegionFolder':
 			return softDelete(
@@ -141,7 +139,6 @@ export async function writeRegionFolderCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				regionFolderReturnColumns,
-				toSafeRegionFolder,
 			);
 		default:
 			throw new Error(`Unsupported region folder command: ${command.type}`);

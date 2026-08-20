@@ -26,12 +26,12 @@ import {
 import { readNullableText, readNumber, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { writeSampleSpeciesCommand } from '../larval-surveillance-commands/sample-species-counts.js';
-import type { SafeSampleSpecies } from '../larval-surveillance-commands/shared.js';
+import type { SampleSpeciesRow } from '../larval-surveillance-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 
 export function sampleSpeciesTableCommands(
 	db: CommandDb,
-): TableCommands<LarvalSurveillanceCommand, SafeSampleSpecies> {
+): TableCommands<LarvalSurveillanceCommand, SampleSpeciesRow> {
 	return {
 		table: 'sample_species',
 		run: {

@@ -77,9 +77,9 @@ import {
 	writeSourceReductionCommand,
 } from '../control-operations-commands/performed-actions.js';
 import type {
-	SafeBiocontrolAction,
-	SafeOutreachAction,
-	SafeSourceReduction,
+	BiocontrolActionRow,
+	OutreachActionRow,
+	SourceReductionRow,
 } from '../control-operations-commands/shared.js';
 import type { IntentRequest, TableCommands } from './dispatch.js';
 import { acknowledged, drawnGeometry } from './shared.js';
@@ -168,7 +168,7 @@ function sharedFieldChanges(payload: Record<string, unknown>) {
 
 export function sourceReductionTableCommands(
 	db: CommandDb,
-): TableCommands<ActionCommand, SafeSourceReduction> {
+): TableCommands<ActionCommand, SourceReductionRow> {
 	return {
 		table: 'source_reductions',
 		run: {
@@ -247,7 +247,7 @@ export function sourceReductionTableCommands(
 
 export function outreachActionTableCommands(
 	db: CommandDb,
-): TableCommands<ActionCommand, SafeOutreachAction> {
+): TableCommands<ActionCommand, OutreachActionRow> {
 	return {
 		table: 'outreach_actions',
 		run: {
@@ -322,7 +322,7 @@ export function outreachActionTableCommands(
 
 export function biocontrolActionTableCommands(
 	db: CommandDb,
-): TableCommands<ActionCommand, SafeBiocontrolAction> {
+): TableCommands<ActionCommand, BiocontrolActionRow> {
 	return {
 		table: 'biocontrol_actions',
 		run: {

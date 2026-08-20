@@ -40,16 +40,14 @@ import {
 	updateTrapConfigurationCommand,
 	updateTrapDetailsCommand,
 } from '@simmer-mosquito/domain';
-import type { SafeTrap } from '../adult-surveillance-commands/shared.js';
+import type { TrapRow } from '../adult-surveillance-commands/shared.js';
 import { writeTrapCommand } from '../adult-surveillance-commands/traps.js';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
-export function trapTableCommands(
-	db: CommandDb,
-): TableCommands<AdultSurveillanceCommand, SafeTrap> {
+export function trapTableCommands(db: CommandDb): TableCommands<AdultSurveillanceCommand, TrapRow> {
 	return {
 		table: 'traps',
 		run: { db, write: writeTrapCommand, notFound: 'trap_not_found', key: 'trap' },

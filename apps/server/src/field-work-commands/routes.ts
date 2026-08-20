@@ -17,14 +17,13 @@ import {
 	type FieldWorkDb,
 	type FieldWorkTransaction,
 	type RouteOptions,
+	type RouteRow,
 	readStringArray,
 	reindexItems,
 	routePlacementRef,
 	routeReturnColumns,
 	runCommands,
-	type SafeRoute,
 	softDelete,
-	toSafeRoute,
 	updateRow,
 } from './shared.js';
 
@@ -113,7 +112,7 @@ async function runRouteCommands(
 export async function writeRouteCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeRoute | null> {
+): Promise<RouteRow | null> {
 	switch (command.type) {
 		case 'fieldWork.createRoute': {
 			const row = await trx
@@ -128,7 +127,7 @@ export async function writeRouteCommand(
 				})
 				.returning(routeReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeRoute(row);
+			return row;
 		}
 		case 'fieldWork.updateRouteDetails':
 			return updateRow(
@@ -143,7 +142,6 @@ export async function writeRouteCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				routeReturnColumns,
-				toSafeRoute,
 			);
 		case 'fieldWork.deleteRoute':
 			await applyRecordDeletion(trx, {
@@ -159,7 +157,6 @@ export async function writeRouteCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				routeReturnColumns,
-				toSafeRoute,
 			);
 		case 'fieldWork.moveRouteItems': {
 			await reindexItems(
@@ -188,7 +185,7 @@ async function loadRoute(
 	trx: FieldWorkTransaction,
 	routeId: string,
 	organizationId: string,
-): Promise<SafeRoute | null> {
+): Promise<RouteRow | null> {
 	const row = await trx
 		.selectFrom('routes')
 		.select(routeReturnColumns)
@@ -196,5 +193,5 @@ async function loadRoute(
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeRoute(row);
+	return row ?? null;
 }

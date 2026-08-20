@@ -74,7 +74,7 @@ import { isRecord, readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate, readStringArray } from '../command-write.js';
 import { writeMissionCommand } from '../mission-dispatch-commands/missions.js';
-import type { SafeMission } from '../mission-dispatch-commands/shared.js';
+import type { MissionRow } from '../mission-dispatch-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
@@ -115,7 +115,7 @@ function missionInitialItems(payload: Record<string, unknown>): readonly Mission
 
 export function missionTableCommands(
 	db: CommandDb,
-): TableCommands<MissionDispatchCommand, SafeMission> {
+): TableCommands<MissionDispatchCommand, MissionRow> {
 	return {
 		table: 'missions',
 		run: { db, write: writeMissionCommand, notFound: 'mission_not_found', key: 'mission' },

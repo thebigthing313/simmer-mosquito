@@ -23,6 +23,7 @@ import {
 	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
+	type HabitatRow,
 	type HabitatUpdateColumns,
 	habitatReturnColumns,
 	type InvalidCommandBody,
@@ -31,8 +32,6 @@ import {
 	type LarvalSurveillanceTransaction,
 	resolveLocationGeom,
 	runCommands,
-	type SafeHabitat,
-	toSafeHabitat,
 	updateRow,
 } from './shared.js';
 
@@ -220,7 +219,7 @@ async function runHabitatCommands(
 export async function writeHabitatCommand(
 	trx: LarvalSurveillanceTransaction,
 	command: LarvalSurveillanceCommand,
-): Promise<SafeHabitat | null> {
+): Promise<HabitatRow | null> {
 	switch (command.type) {
 		case 'larvalSurveillance.createHabitat': {
 			const row = await trx
@@ -245,7 +244,7 @@ export async function writeHabitatCommand(
 				})
 				.returning(habitatReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeHabitat(row);
+			return row;
 		}
 		case 'larvalSurveillance.createHabitatFromInspection': {
 			const snapshot = await loadInspectionSnapshot(
@@ -278,7 +277,7 @@ export async function writeHabitatCommand(
 				.where('organization_id', '=', command.payload.organizationId)
 				.where('deleted_at', 'is', null)
 				.execute();
-			return toSafeHabitat(habitat);
+			return habitat;
 		}
 		case 'larvalSurveillance.updateHabitatDetails':
 			return updateHabitat(trx, command.payload.habitatId, command.payload.organizationId, {
@@ -355,7 +354,6 @@ export async function writeHabitatCommand(
 					command.payload.organizationId,
 					command.payload.actorProfileId,
 					habitatReturnColumns,
-					toSafeHabitat,
 				);
 			}
 			// The survivor, unchanged: a merge picks which habitat is authoritative
@@ -368,7 +366,7 @@ export async function writeHabitatCommand(
 				.where('organization_id', '=', command.payload.organizationId)
 				.where('deleted_at', 'is', null)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeHabitat(row);
+			return row ?? null;
 		}
 		case 'larvalSurveillance.deleteHabitat': {
 			await applyRecordDeletion(trx, {
@@ -390,7 +388,7 @@ export async function writeHabitatCommand(
 				.where('deleted_at', 'is', null)
 				.returning(habitatReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeHabitat(row);
+			return row ?? null;
 		}
 		default:
 			throw new Error(`Unsupported habitat command: ${command.type}`);
@@ -402,16 +400,8 @@ async function updateHabitat(
 	habitatId: string,
 	organizationId: string,
 	set: HabitatUpdateColumns,
-): Promise<SafeHabitat | null> {
-	return updateRow(
-		trx,
-		'habitats',
-		habitatId,
-		organizationId,
-		set,
-		habitatReturnColumns,
-		toSafeHabitat,
-	);
+): Promise<HabitatRow | null> {
+	return updateRow(trx, 'habitats', habitatId, organizationId, set, habitatReturnColumns);
 }
 
 async function loadInspectionSnapshot(

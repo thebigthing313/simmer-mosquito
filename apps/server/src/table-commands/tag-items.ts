@@ -25,12 +25,12 @@ import {
 } from '@simmer-mosquito/domain';
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import type { SafeTagItem } from '../field-work-commands/shared.js';
+import type { TagItemRow } from '../field-work-commands/shared.js';
 import { writeTagItemCommand } from '../field-work-commands/tag-items.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 
-export function tagItemTableCommands(db: CommandDb): TableCommands<FieldWorkCommand, SafeTagItem> {
+export function tagItemTableCommands(db: CommandDb): TableCommands<FieldWorkCommand, TagItemRow> {
 	return {
 		table: 'tag_items',
 		run: {

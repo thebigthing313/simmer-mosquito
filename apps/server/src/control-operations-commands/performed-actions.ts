@@ -38,6 +38,7 @@ import {
 } from '../mission-dispatch-commands/mission-execution.js';
 import {
 	type AgencyContext,
+	type BiocontrolActionRow,
 	biocontrolActionReturnColumns,
 	type CommandContext,
 	type CommandsResult,
@@ -51,19 +52,15 @@ import {
 	localDateColumn,
 	locationContextColumns,
 	locationContextInput,
+	type OutreachActionRow,
 	outreachActionReturnColumns,
 	type RouteOptions,
 	readControlActionContext,
 	resolveGeom,
 	runCommands,
-	type SafeBiocontrolAction,
-	type SafeOutreachAction,
-	type SafeSourceReduction,
+	type SourceReductionRow,
 	softDelete,
 	sourceReductionReturnColumns,
-	toSafeBiocontrolAction,
-	toSafeOutreachAction,
-	toSafeSourceReduction,
 	updateActionRow,
 } from './shared.js';
 
@@ -85,7 +82,7 @@ export type ActionCommand =
 	| RecordOutreachActionForMissionItemCommand
 	| RecordBiocontrolActionForMissionItemCommand;
 
-interface ActionConfig<TSafe> {
+interface ActionConfig<TRow> {
 	readonly noun: string;
 	readonly basePath: string;
 	readonly notFoundError: string;
@@ -100,14 +97,14 @@ interface ActionConfig<TSafe> {
 	readonly write: (
 		trx: ControlOperationsTransaction,
 		command: ActionCommand,
-	) => Promise<TSafe | null>;
+	) => Promise<TRow | null>;
 	readonly responseKey: string;
 }
 
-export function registerActionRoutes<TSafe>(
+export function registerActionRoutes<TRow>(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
-	config: ActionConfig<TSafe>,
+	config: ActionConfig<TRow>,
 ): void {
 	app.post(
 		config.basePath,
@@ -144,10 +141,10 @@ export function registerActionRoutes<TSafe>(
  * write tail, which is what `ActionConfig` is for. The tail itself is no longer
  * theirs — this generalized out of here and now serves all 28 endpoints.
  */
-async function runActionCommands<TSafe>(
+async function runActionCommands<TRow>(
 	context: CommandContext,
 	db: ControlOperationsDb,
-	config: ActionConfig<TSafe>,
+	config: ActionConfig<TRow>,
 	commands: readonly ActionCommand[],
 	createdStatus?: 201,
 ) {
@@ -161,7 +158,7 @@ async function runActionCommands<TSafe>(
 
 // --- Source reductions ---
 
-export const sourceReductionConfig: ActionConfig<SafeSourceReduction> = {
+export const sourceReductionConfig: ActionConfig<SourceReductionRow> = {
 	noun: 'source reduction',
 	basePath: '/control-operations/source-reductions',
 	notFoundError: 'source_reduction_not_found',
@@ -270,7 +267,7 @@ export const sourceReductionConfig: ActionConfig<SafeSourceReduction> = {
 async function writeMissionSourceReduction(
 	trx: ControlOperationsTransaction,
 	payload: RecordSourceReductionForMissionItemCommand['payload'],
-): Promise<SafeSourceReduction | null> {
+): Promise<SourceReductionRow | null> {
 	const stop = await beginMissionExecution(trx, payload, 'sourceReduction');
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
@@ -297,13 +294,13 @@ async function writeMissionSourceReduction(
 		.executeTakeFirstOrThrow();
 	await assertMissionGeometryCovered(trx, payload, payload.sourceReductionId, 'source_reductions');
 	await finishMissionExecution(trx, payload, stop);
-	return toSafeSourceReduction(row);
+	return row;
 }
 
 async function writeMissionOutreachAction(
 	trx: ControlOperationsTransaction,
 	payload: RecordOutreachActionForMissionItemCommand['payload'],
-): Promise<SafeOutreachAction | null> {
+): Promise<OutreachActionRow | null> {
 	const stop = await beginMissionExecution(trx, payload, 'outreach');
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
@@ -329,13 +326,13 @@ async function writeMissionOutreachAction(
 		.executeTakeFirstOrThrow();
 	await assertMissionGeometryCovered(trx, payload, payload.outreachActionId, 'outreach_actions');
 	await finishMissionExecution(trx, payload, stop);
-	return toSafeOutreachAction(row);
+	return row;
 }
 
 async function writeMissionBiocontrolAction(
 	trx: ControlOperationsTransaction,
 	payload: RecordBiocontrolActionForMissionItemCommand['payload'],
-): Promise<SafeBiocontrolAction | null> {
+): Promise<BiocontrolActionRow | null> {
 	const stop = await beginMissionExecution(trx, payload, 'biocontrol');
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
@@ -367,13 +364,13 @@ async function writeMissionBiocontrolAction(
 		'biocontrol_actions',
 	);
 	await finishMissionExecution(trx, payload, stop);
-	return toSafeBiocontrolAction(row);
+	return row;
 }
 
 export async function writeSourceReductionCommand(
 	trx: ControlOperationsTransaction,
 	command: ActionCommand,
-): Promise<SafeSourceReduction | null> {
+): Promise<SourceReductionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordSourceReduction': {
 			const ids = contextIds(command.payload.context);
@@ -402,7 +399,7 @@ export async function writeSourceReductionCommand(
 				})
 				.returning(sourceReductionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeSourceReduction(row);
+			return row;
 		}
 		case 'missionDispatch.recordSourceReductionForMissionItem':
 			return writeMissionSourceReduction(trx, command.payload);
@@ -433,7 +430,6 @@ export async function writeSourceReductionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				sourceReductionReturnColumns,
-				toSafeSourceReduction,
 			);
 		}
 		case 'controlOperations.updateSourceReductionLocationAndContext':
@@ -452,7 +448,6 @@ export async function writeSourceReductionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				sourceReductionReturnColumns,
-				toSafeSourceReduction,
 			);
 		case 'controlOperations.deleteSourceReduction':
 			await applyRecordDeletion(trx, {
@@ -468,7 +463,6 @@ export async function writeSourceReductionCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				sourceReductionReturnColumns,
-				toSafeSourceReduction,
 			);
 		default:
 			throw new Error(`Unsupported source reduction command: ${command.type}`);
@@ -477,7 +471,7 @@ export async function writeSourceReductionCommand(
 
 // --- Outreach actions ---
 
-export const outreachActionConfig: ActionConfig<SafeOutreachAction> = {
+export const outreachActionConfig: ActionConfig<OutreachActionRow> = {
 	noun: 'outreach action',
 	basePath: '/control-operations/outreach-actions',
 	notFoundError: 'outreach_action_not_found',
@@ -584,7 +578,7 @@ export const outreachActionConfig: ActionConfig<SafeOutreachAction> = {
 export async function writeOutreachActionCommand(
 	trx: ControlOperationsTransaction,
 	command: ActionCommand,
-): Promise<SafeOutreachAction | null> {
+): Promise<OutreachActionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordOutreachAction': {
 			const ids = contextIds(command.payload.context);
@@ -612,7 +606,7 @@ export async function writeOutreachActionCommand(
 				})
 				.returning(outreachActionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeOutreachAction(row);
+			return row;
 		}
 		case 'missionDispatch.recordOutreachActionForMissionItem':
 			return writeMissionOutreachAction(trx, command.payload);
@@ -641,7 +635,6 @@ export async function writeOutreachActionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				outreachActionReturnColumns,
-				toSafeOutreachAction,
 			);
 		}
 		case 'controlOperations.updateOutreachActionLocationAndContext':
@@ -660,7 +653,6 @@ export async function writeOutreachActionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				outreachActionReturnColumns,
-				toSafeOutreachAction,
 			);
 		case 'controlOperations.deleteOutreachAction':
 			await applyRecordDeletion(trx, {
@@ -676,7 +668,6 @@ export async function writeOutreachActionCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				outreachActionReturnColumns,
-				toSafeOutreachAction,
 			);
 		default:
 			throw new Error(`Unsupported outreach action command: ${command.type}`);
@@ -685,7 +676,7 @@ export async function writeOutreachActionCommand(
 
 // --- Biocontrol actions ---
 
-export const biocontrolActionConfig: ActionConfig<SafeBiocontrolAction> = {
+export const biocontrolActionConfig: ActionConfig<BiocontrolActionRow> = {
 	noun: 'biocontrol action',
 	basePath: '/control-operations/biocontrol-actions',
 	notFoundError: 'biocontrol_action_not_found',
@@ -794,7 +785,7 @@ export const biocontrolActionConfig: ActionConfig<SafeBiocontrolAction> = {
 export async function writeBiocontrolActionCommand(
 	trx: ControlOperationsTransaction,
 	command: ActionCommand,
-): Promise<SafeBiocontrolAction | null> {
+): Promise<BiocontrolActionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordBiocontrolAction': {
 			const ids = contextIds(command.payload.context);
@@ -823,7 +814,7 @@ export async function writeBiocontrolActionCommand(
 				})
 				.returning(biocontrolActionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeBiocontrolAction(row);
+			return row;
 		}
 		case 'missionDispatch.recordBiocontrolActionForMissionItem':
 			return writeMissionBiocontrolAction(trx, command.payload);
@@ -850,7 +841,6 @@ export async function writeBiocontrolActionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				biocontrolActionReturnColumns,
-				toSafeBiocontrolAction,
 			);
 		}
 		case 'controlOperations.updateBiocontrolActionLocationAndContext':
@@ -869,7 +859,6 @@ export async function writeBiocontrolActionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				biocontrolActionReturnColumns,
-				toSafeBiocontrolAction,
 			);
 		case 'controlOperations.deleteBiocontrolAction':
 			await applyRecordDeletion(trx, {
@@ -885,7 +874,6 @@ export async function writeBiocontrolActionCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				biocontrolActionReturnColumns,
-				toSafeBiocontrolAction,
 			);
 		default:
 			throw new Error(`Unsupported biocontrol action command: ${command.type}`);

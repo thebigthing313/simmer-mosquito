@@ -37,6 +37,7 @@ import {
 	type AdultSurveillanceTransaction,
 	agencyCommandContext,
 	type CollectionInsertInput,
+	type CollectionRow,
 	type CollectionTimingColumns,
 	type CollectionUpdateColumns,
 	type CommandContext,
@@ -55,8 +56,6 @@ import {
 	readDate,
 	resolveLocationGeom,
 	runCommands,
-	type SafeCollection,
-	toSafeCollection,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -381,7 +380,7 @@ async function runCollectionCommands(
 export async function writeCollectionCommand(
 	trx: AdultSurveillanceTransaction,
 	command: CollectionCommand,
-): Promise<SafeCollection | null> {
+): Promise<CollectionRow | null> {
 	switch (command.type) {
 		case 'adultSurveillance.setTrapCollection': {
 			const snapshot = await loadTrapSnapshot(
@@ -612,7 +611,7 @@ async function finishExecution(
 async function setTrapCollectionForStop(
 	trx: AdultSurveillanceTransaction,
 	payload: SetTrapCollectionForAssignmentItemCommand['payload'],
-): Promise<SafeCollection | null> {
+): Promise<CollectionRow | null> {
 	const stop = await beginExecution(
 		trx,
 		payload.assignmentItemId,
@@ -646,7 +645,7 @@ async function setTrapCollectionForStop(
 async function recordCollectedTrapCollectionForStop(
 	trx: AdultSurveillanceTransaction,
 	payload: RecordCollectedTrapCollectionForAssignmentItemCommand['payload'],
-): Promise<SafeCollection | null> {
+): Promise<CollectionRow | null> {
 	const stop = await beginExecution(
 		trx,
 		payload.assignmentItemId,
@@ -683,7 +682,7 @@ async function recordCollectedTrapCollectionForStop(
 async function collectTrapCollectionForStop(
 	trx: AdultSurveillanceTransaction,
 	payload: CollectTrapCollectionForAssignmentItemCommand['payload'],
-): Promise<SafeCollection | null> {
+): Promise<CollectionRow | null> {
 	// The collection already exists — it was set on an earlier visit — so the
 	// target check is against the trap that row already names, not a snapshot.
 	const existing = await trx
@@ -718,7 +717,7 @@ async function collectTrapCollectionForStop(
 async function insertCollection(
 	trx: AdultSurveillanceTransaction,
 	input: CollectionInsertInput,
-): Promise<SafeCollection> {
+): Promise<CollectionRow> {
 	const row = await trx
 		.insertInto('collections')
 		.values({
@@ -741,7 +740,7 @@ async function insertCollection(
 		})
 		.returning(collectionReturnColumns)
 		.executeTakeFirstOrThrow();
-	return toSafeCollection(row);
+	return row;
 }
 
 async function updateCollection(
@@ -749,7 +748,7 @@ async function updateCollection(
 	collectionId: string,
 	organizationId: string,
 	set: CollectionUpdateColumns,
-): Promise<SafeCollection | null> {
+): Promise<CollectionRow | null> {
 	const row = await trx
 		.updateTable('collections')
 		.set({ ...set, updated_at: sql`now()` })
@@ -758,7 +757,7 @@ async function updateCollection(
 		.where('deleted_at', 'is', null)
 		.returning(collectionReturnColumns)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeCollection(row);
+	return row ?? null;
 }
 
 /**
@@ -772,7 +771,7 @@ async function softDeleteCollection(
 	collectionId: string,
 	organizationId: string,
 	actorProfileId: string,
-): Promise<SafeCollection | null> {
+): Promise<CollectionRow | null> {
 	await applyRecordDeletion(trx, {
 		recordType: 'collection',
 		recordId: collectionId,
@@ -792,7 +791,7 @@ async function softDeleteCollection(
 		.where('deleted_at', 'is', null)
 		.returning(collectionReturnColumns)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeCollection(row);
+	return row ?? null;
 }
 
 function timingColumns(timing: CollectionTiming): CollectionTimingColumns {

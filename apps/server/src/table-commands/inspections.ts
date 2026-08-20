@@ -43,7 +43,7 @@ import {
 	type InspectionCommand,
 	writeInspectionCommand,
 } from '../larval-surveillance-commands/inspections.js';
-import { readDensity, type SafeInspection } from '../larval-surveillance-commands/shared.js';
+import { type InspectionRow, readDensity } from '../larval-surveillance-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
@@ -80,7 +80,7 @@ function inspectionPolicy(authContext: AuthContext): ResolvedLarvalInspectionEnt
 
 export function inspectionTableCommands(
 	db: CommandDb,
-): TableCommands<InspectionCommand, SafeInspection> {
+): TableCommands<InspectionCommand, InspectionRow> {
 	return {
 		table: 'inspections',
 		run: { db, write: writeInspectionCommand, notFound: 'inspection_not_found', key: 'inspection' },

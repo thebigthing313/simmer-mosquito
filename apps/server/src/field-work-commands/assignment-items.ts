@@ -18,6 +18,7 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
 import { assertItemProgress } from './assignment-lifecycle.js';
 import {
+	type AssignmentItemRow,
 	agencyCommandContext,
 	applyPlacement,
 	assignmentItemReturnColumns,
@@ -35,9 +36,7 @@ import {
 	readTarget,
 	reindexItems,
 	runCommands,
-	type SafeAssignmentItem,
 	softDelete,
-	toSafeAssignmentItem,
 	updateRow,
 } from './shared.js';
 
@@ -173,7 +172,7 @@ async function runAssignmentItemCommands(
 export async function writeAssignmentItemCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeAssignmentItem | null> {
+): Promise<AssignmentItemRow | null> {
 	switch (command.type) {
 		case 'fieldWork.addAssignmentItem': {
 			await trx
@@ -224,7 +223,6 @@ export async function writeAssignmentItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentItemReturnColumns,
-				toSafeAssignmentItem,
 			);
 		case 'fieldWork.completeAssignmentItem':
 			await assertItemProgress(
@@ -249,7 +247,6 @@ export async function writeAssignmentItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentItemReturnColumns,
-				toSafeAssignmentItem,
 			);
 		case 'fieldWork.reopenAssignmentItem':
 			await assertItemProgress(
@@ -272,7 +269,6 @@ export async function writeAssignmentItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentItemReturnColumns,
-				toSafeAssignmentItem,
 			);
 		case 'fieldWork.skipAssignmentItem':
 			await assertItemProgress(
@@ -296,7 +292,6 @@ export async function writeAssignmentItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentItemReturnColumns,
-				toSafeAssignmentItem,
 			);
 		case 'fieldWork.unskipAssignmentItem':
 			await assertItemProgress(
@@ -318,7 +313,6 @@ export async function writeAssignmentItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentItemReturnColumns,
-				toSafeAssignmentItem,
 			);
 		case 'fieldWork.removeAssignmentItem':
 			return softDelete(
@@ -328,7 +322,6 @@ export async function writeAssignmentItemCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				assignmentItemReturnColumns,
-				toSafeAssignmentItem,
 			);
 		default:
 			throw new Error(`Unsupported assignment item command: ${command.type}`);
@@ -339,7 +332,7 @@ async function loadAssignmentItem(
 	trx: FieldWorkTransaction,
 	assignmentItemId: string,
 	organizationId: string,
-): Promise<SafeAssignmentItem | null> {
+): Promise<AssignmentItemRow | null> {
 	const row = await trx
 		.selectFrom('assignment_items')
 		.select(assignmentItemReturnColumns)
@@ -347,5 +340,5 @@ async function loadAssignmentItem(
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeAssignmentItem(row);
+	return row ?? null;
 }

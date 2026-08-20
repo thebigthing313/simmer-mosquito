@@ -38,15 +38,14 @@ import {
 	localDateColumn,
 	type MissionDispatchDb,
 	type MissionDispatchTransaction,
+	type MissionRow,
 	missionReturnColumns,
 	type RouteOptions,
 	readDate,
 	readLifecycleTransition,
 	resolveInitialItemGeom,
 	runCommands,
-	type SafeMission,
 	softDelete,
-	toSafeMission,
 	updateRow,
 } from './shared.js';
 
@@ -249,7 +248,7 @@ async function runMissionCommands(
 export async function writeMissionCommand(
 	trx: MissionDispatchTransaction,
 	command: MissionDispatchCommand,
-): Promise<SafeMission | null> {
+): Promise<MissionRow | null> {
 	switch (command.type) {
 		case 'missionDispatch.createMission': {
 			const row = await trx
@@ -290,7 +289,7 @@ export async function writeMissionCommand(
 				});
 				position += 1;
 			}
-			return toSafeMission(row);
+			return row;
 		}
 		case 'missionDispatch.updateMissionDetails':
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
@@ -458,7 +457,6 @@ export async function writeMissionCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				missionReturnColumns,
-				toSafeMission,
 			);
 		/**
 		 * Reordering the stops, which is a command on the mission.
@@ -495,7 +493,7 @@ async function loadMission(
 	trx: MissionDispatchTransaction,
 	missionId: string,
 	organizationId: string,
-): Promise<SafeMission | null> {
+): Promise<MissionRow | null> {
 	const row = await trx
 		.selectFrom('missions')
 		.select(missionReturnColumns)
@@ -503,7 +501,7 @@ async function loadMission(
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeMission(row);
+	return row ?? null;
 }
 
 async function updateMission(
@@ -511,14 +509,6 @@ async function updateMission(
 	missionId: string,
 	organizationId: string,
 	set: Record<string, unknown>,
-): Promise<SafeMission | null> {
-	return updateRow(
-		trx,
-		'missions',
-		missionId,
-		organizationId,
-		set,
-		missionReturnColumns,
-		toSafeMission,
-	);
+): Promise<MissionRow | null> {
+	return updateRow(trx, 'missions', missionId, organizationId, set, missionReturnColumns);
 }

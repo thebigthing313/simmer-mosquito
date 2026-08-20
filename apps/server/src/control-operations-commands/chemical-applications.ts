@@ -27,6 +27,7 @@ import {
 } from '../mission-dispatch-commands/mission-execution.js';
 import {
 	type AgencyContext,
+	type ApplicationRow,
 	type ApplicationUpdateColumns,
 	agencyCommandContext,
 	applicationReturnColumns,
@@ -47,9 +48,7 @@ import {
 	readControlActionContext,
 	resolveGeom,
 	runCommands,
-	type SafeApplication,
 	softDelete,
-	toSafeApplication,
 } from './shared.js';
 
 // ===========================================================================
@@ -253,7 +252,7 @@ async function runApplicationCommands(
 async function writeMissionApplication(
 	trx: ControlOperationsTransaction,
 	payload: RecordChemicalApplicationForMissionItemCommand['payload'],
-): Promise<SafeApplication | null> {
+): Promise<ApplicationRow | null> {
 	const stop = await beginMissionExecution(trx, payload, 'chemicalApplication');
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
@@ -293,13 +292,13 @@ async function writeMissionApplication(
 	}
 	await assertMissionGeometryCovered(trx, payload, payload.applicationId, 'applications');
 	await finishMissionExecution(trx, payload, stop);
-	return toSafeApplication(row);
+	return row;
 }
 
 export async function writeApplicationCommand(
 	trx: ControlOperationsTransaction,
 	command: ApplicationCommand,
-): Promise<SafeApplication | null> {
+): Promise<ApplicationRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordChemicalApplication': {
 			const ids = contextIds(command.payload.context);
@@ -341,7 +340,7 @@ export async function writeApplicationCommand(
 					actorProfileId: command.payload.actorProfileId,
 				});
 			}
-			return toSafeApplication(row);
+			return row;
 		}
 		case 'missionDispatch.recordChemicalApplicationForMissionItem':
 			return writeMissionApplication(trx, command.payload);
@@ -394,7 +393,6 @@ export async function writeApplicationCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				applicationReturnColumns,
-				toSafeApplication,
 			);
 		default:
 			throw new Error(`Unsupported application command: ${command.type}`);
@@ -406,7 +404,7 @@ async function updateApplication(
 	applicationId: string,
 	organizationId: string,
 	set: ApplicationUpdateColumns,
-): Promise<SafeApplication | null> {
+): Promise<ApplicationRow | null> {
 	const row = await trx
 		.updateTable('applications')
 		.set({ ...set, updated_at: sql`now()` })
@@ -415,5 +413,5 @@ async function updateApplication(
 		.where('deleted_at', 'is', null)
 		.returning(applicationReturnColumns)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeApplication(row);
+	return row ?? null;
 }

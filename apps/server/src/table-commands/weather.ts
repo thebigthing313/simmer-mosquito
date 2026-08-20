@@ -45,7 +45,7 @@ import {
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate } from '../command-write.js';
-import type { SafeWeatherStation, SafeWeatherSummary } from '../weather-commands/shared.js';
+import type { WeatherStationRow, WeatherSummaryRow } from '../weather-commands/shared.js';
 import { writeWeatherStationCommand } from '../weather-commands/stations.js';
 import { writeWeatherSummaryCommand } from '../weather-commands/summaries.js';
 import type { TableCommands } from './dispatch.js';
@@ -53,7 +53,7 @@ import { acknowledged } from './shared.js';
 
 export function weatherStationTableCommands(
 	db: CommandDb,
-): TableCommands<WeatherCommand, SafeWeatherStation> {
+): TableCommands<WeatherCommand, WeatherStationRow> {
 	return {
 		table: 'weather_sources',
 		run: {
@@ -129,7 +129,7 @@ export function weatherStationTableCommands(
 
 export function weatherSummaryTableCommands(
 	db: CommandDb,
-): TableCommands<WeatherCommand, SafeWeatherSummary> {
+): TableCommands<WeatherCommand, WeatherSummaryRow> {
 	return {
 		table: 'weather_summaries',
 		run: {

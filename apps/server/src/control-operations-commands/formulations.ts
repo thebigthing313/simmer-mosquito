@@ -19,14 +19,13 @@ import {
 	type ControlOperationsTransaction,
 	commandEndpoint,
 	createCommand,
+	type FormulationRow,
 	type FormulationUpdateColumns,
 	formulationReturnColumns,
 	invalidUpdate,
 	type RouteOptions,
 	runCommands,
-	type SafeFormulation,
 	softDelete,
-	toSafeFormulation,
 } from './shared.js';
 
 // ===========================================================================
@@ -144,7 +143,7 @@ async function runFormulationCommands(
 export async function writeFormulationCommand(
 	trx: ControlOperationsTransaction,
 	command: ControlOperationsCommand,
-): Promise<SafeFormulation | null> {
+): Promise<FormulationRow | null> {
 	switch (command.type) {
 		case 'controlOperations.createFormulation': {
 			const row = await trx
@@ -162,7 +161,7 @@ export async function writeFormulationCommand(
 				})
 				.returning(formulationReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeFormulation(row);
+			return row;
 		}
 		case 'controlOperations.updateFormulationDetails':
 			return updateFormulation(trx, command.payload.formulationId, command.payload.organizationId, {
@@ -198,7 +197,6 @@ export async function writeFormulationCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				formulationReturnColumns,
-				toSafeFormulation,
 			);
 		default:
 			throw new Error(`Unsupported formulation command: ${command.type}`);
@@ -210,7 +208,7 @@ async function updateFormulation(
 	formulationId: string,
 	organizationId: string,
 	set: FormulationUpdateColumns,
-): Promise<SafeFormulation | null> {
+): Promise<FormulationRow | null> {
 	const row = await trx
 		.updateTable('formulations')
 		.set({ ...set, updated_at: sql`now()` })
@@ -219,5 +217,5 @@ async function updateFormulation(
 		.where('deleted_at', 'is', null)
 		.returning(formulationReturnColumns)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeFormulation(row);
+	return row ?? null;
 }

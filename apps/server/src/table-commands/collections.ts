@@ -57,7 +57,7 @@ import {
 	type CollectionCommand,
 	writeCollectionCommand,
 } from '../adult-surveillance-commands/collections.js';
-import { pendingStartedAt, type SafeCollection } from '../adult-surveillance-commands/shared.js';
+import { type CollectionRow, pendingStartedAt } from '../adult-surveillance-commands/shared.js';
 import {
 	readExecutionOptions,
 	readNullableText,
@@ -151,7 +151,7 @@ function trapOverrides(payload: Record<string, unknown>) {
 
 export function collectionTableCommands(
 	db: CommandDb,
-): TableCommands<CollectionCommand, SafeCollection> {
+): TableCommands<CollectionCommand, CollectionRow> {
 	return {
 		table: 'collections',
 		run: { db, write: writeCollectionCommand, notFound: 'collection_not_found', key: 'collection' },

@@ -15,9 +15,8 @@ import {
 	type LarvalSurveillanceTransaction,
 	localDateColumn,
 	runCommands,
-	type SafeSampleSpecies,
+	type SampleSpeciesRow,
 	sampleSpeciesReturnColumns,
-	toSafeSampleSpecies,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -110,7 +109,7 @@ async function runSampleSpeciesCommands(
 export async function writeSampleSpeciesCommand(
 	trx: LarvalSurveillanceTransaction,
 	command: LarvalSurveillanceCommand,
-): Promise<SafeSampleSpecies | null> {
+): Promise<SampleSpeciesRow | null> {
 	switch (command.type) {
 		case 'larvalSurveillance.addSampleSpeciesCount': {
 			const row = await trx
@@ -128,7 +127,7 @@ export async function writeSampleSpeciesCommand(
 				})
 				.returning(sampleSpeciesReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeSampleSpecies(row);
+			return row;
 		}
 		case 'larvalSurveillance.updateSampleSpeciesCount': {
 			const changes = command.payload.changes;
@@ -151,7 +150,7 @@ export async function writeSampleSpeciesCommand(
 				.where('deleted_at', 'is', null)
 				.returning(sampleSpeciesReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeSampleSpecies(row);
+			return row ?? null;
 		}
 		case 'larvalSurveillance.deleteSampleSpeciesCount': {
 			const row = await trx
@@ -167,7 +166,7 @@ export async function writeSampleSpeciesCommand(
 				.where('deleted_at', 'is', null)
 				.returning(sampleSpeciesReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeSampleSpecies(row);
+			return row ?? null;
 		}
 		default:
 			throw new Error(`Unsupported sample species command: ${command.type}`);

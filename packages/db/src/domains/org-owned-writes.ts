@@ -1,4 +1,4 @@
-import { type RawBuilder, sql, type Transaction } from 'kysely';
+import { type RawBuilder, type Selectable, sql, type Transaction } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../tables.js';
 
@@ -58,6 +58,18 @@ export function localDateColumn(value: string): RawBuilder<Date> {
 }
 
 /**
+ * The shape a returning-column list actually produces.
+ *
+ * Derived from the schema and from the list itself, so the two cannot drift.
+ * Nine command families each kept a hand-written camelCase mirror of their
+ * lists, 34 of them, and a mirror is only correct until somebody edits one end.
+ */
+export type SelectedRow<
+	TTable extends keyof SimmerDatabase,
+	TColumns extends readonly (keyof Selectable<SimmerDatabase[TTable]> & string)[],
+> = Pick<Selectable<SimmerDatabase[TTable]>, TColumns[number]>;
+
+/**
  * Update one row a tenant owns, scoped so it cannot reach another tenant's or a
  * deleted one.
  *
@@ -65,24 +77,26 @@ export function localDateColumn(value: string): RawBuilder<Date> {
  * "not yours" or "not there" is not a distinction this layer can draw, and the
  * caller in `apps/server` is the one that knows it answers 404 either way.
  */
-export async function updateRow<TRow, TSafe>(
+export async function updateRow<
+	TTable extends OrgOwnedTable,
+	const TColumns extends readonly (keyof Selectable<SimmerDatabase[TTable]> & string)[],
+>(
 	trx: Transaction<SimmerDatabase>,
-	table: OrgOwnedTable,
+	table: TTable,
 	id: string,
 	organizationId: string,
 	set: Record<string, unknown>,
-	columns: readonly string[],
-	toSafe: (row: TRow) => TSafe,
-): Promise<TSafe | null> {
+	columns: TColumns,
+): Promise<SelectedRow<TTable, TColumns> | null> {
 	const row = await trx
-		.updateTable(table)
+		.updateTable(table as OrgOwnedTable)
 		.set({ ...set, updated_at: sql`now()` } as never)
 		.where('id', '=', id)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.returning(columns as never)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafe(row as TRow);
+	return row === undefined ? null : (row as unknown as SelectedRow<TTable, TColumns>);
 }
 
 /**
@@ -91,17 +105,19 @@ export async function updateRow<TRow, TSafe>(
  * The same `deleted_at is null` guard as `updateRow` makes this idempotent: a
  * second delete matches nothing and answers `null`.
  */
-export async function softDelete<TRow, TSafe>(
+export async function softDelete<
+	TTable extends OrgOwnedTable,
+	const TColumns extends readonly (keyof Selectable<SimmerDatabase[TTable]> & string)[],
+>(
 	trx: Transaction<SimmerDatabase>,
-	table: OrgOwnedTable,
+	table: TTable,
 	id: string,
 	organizationId: string,
 	actorProfileId: string,
-	columns: readonly string[],
-	toSafe: (row: TRow) => TSafe,
-): Promise<TSafe | null> {
+	columns: TColumns,
+): Promise<SelectedRow<TTable, TColumns> | null> {
 	const row = await trx
-		.updateTable(table)
+		.updateTable(table as OrgOwnedTable)
 		.set({
 			deleted_at: sql`now()`,
 			deleted_by_profile_id: actorProfileId,
@@ -113,7 +129,7 @@ export async function softDelete<TRow, TSafe>(
 		.where('deleted_at', 'is', null)
 		.returning(columns as never)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafe(row as TRow);
+	return row === undefined ? null : (row as unknown as SelectedRow<TTable, TColumns>);
 }
 
 /**

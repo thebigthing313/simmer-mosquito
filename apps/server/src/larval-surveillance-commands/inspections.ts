@@ -23,6 +23,7 @@ import {
 	geojsonToGeom,
 	hasInspectionResultFields,
 	type InspectionResultColumns,
+	type InspectionRow,
 	type InspectionUpdateColumns,
 	inspectionReturnColumns,
 	invalidUpdate,
@@ -35,8 +36,6 @@ import {
 	readInspectionResult,
 	resolveLocationGeom,
 	runCommands,
-	type SafeInspection,
-	toSafeInspection,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -187,7 +186,7 @@ async function runInspectionCommands(
 export async function writeInspectionCommand(
 	trx: LarvalSurveillanceTransaction,
 	command: InspectionCommand,
-): Promise<SafeInspection | null> {
+): Promise<InspectionRow | null> {
 	switch (command.type) {
 		case 'larvalSurveillance.recordHabitatInspection': {
 			const snapshot = await loadHabitatSnapshot(
@@ -212,7 +211,7 @@ export async function writeInspectionCommand(
 				})
 				.returning(inspectionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeInspection(row);
+			return row;
 		}
 		case 'fieldWork.recordHabitatInspectionForAssignmentItem':
 			return recordInspectionForStop(trx, command.payload);
@@ -238,7 +237,7 @@ export async function writeInspectionCommand(
 				})
 				.returning(inspectionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeInspection(row);
+			return row;
 		}
 		case 'larvalSurveillance.updateInspectionFieldDetails':
 			return updateInspection(trx, command.payload.inspectionId, command.payload.organizationId, {
@@ -286,7 +285,7 @@ export async function writeInspectionCommand(
 				.where('deleted_at', 'is', null)
 				.returning(inspectionReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeInspection(row);
+			return row ?? null;
 		}
 		default:
 			throw new Error(`Unsupported inspection command: ${command.type}`);
@@ -301,7 +300,7 @@ export async function writeInspectionCommand(
 async function recordInspectionForStop(
 	trx: LarvalSurveillanceTransaction,
 	payload: RecordHabitatInspectionForAssignmentItemCommand['payload'],
-): Promise<SafeInspection | null> {
+): Promise<InspectionRow | null> {
 	// Locks the assignment, judges the transition, auto-starts if asked, and
 	// tells us which habitat the stop actually names. Throws the refusal
 	// before anything is written.
@@ -350,7 +349,7 @@ async function recordInspectionForStop(
 			payload.completedAt,
 		);
 	}
-	return toSafeInspection(row);
+	return row;
 }
 
 async function updateInspection(
@@ -358,7 +357,7 @@ async function updateInspection(
 	inspectionId: string,
 	organizationId: string,
 	set: InspectionUpdateColumns,
-): Promise<SafeInspection | null> {
+): Promise<InspectionRow | null> {
 	const row = await trx
 		.updateTable('inspections')
 		.set({ ...set, updated_at: sql`now()` })
@@ -367,7 +366,7 @@ async function updateInspection(
 		.where('deleted_at', 'is', null)
 		.returning(inspectionReturnColumns)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeInspection(row);
+	return row ?? null;
 }
 
 function inspectionResultColumns(result: NormalizedInspectionResult): InspectionResultColumns {

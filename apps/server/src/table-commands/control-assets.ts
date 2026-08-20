@@ -32,22 +32,17 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb, RunCommandsConfig } from '../command-write.js';
-import {
-	type ControlAssetCommand,
-	toControlAssetResponse,
-	writeControlAssetCommand,
-} from '../control-asset-commands.js';
+import { type ControlAssetCommand, writeControlAssetCommand } from '../control-asset-commands.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
-type AssetResponse = NonNullable<ReturnType<typeof toControlAssetResponse>>;
+type AssetResponse = NonNullable<Awaited<ReturnType<typeof writeControlAssetCommand>>>;
 
 /** Both tables answer through the same writer, so both share its `run`. */
 function assetRun(db: CommandDb): RunCommandsConfig<ControlAssetCommand, AssetResponse> {
 	return {
 		db,
-		write: async (trx, command) =>
-			toControlAssetResponse(await writeControlAssetCommand(trx, command)),
+		write: async (trx, command) => await writeControlAssetCommand(trx, command),
 		notFound: 'control_asset_not_found',
 		key: 'asset',
 	};

@@ -52,7 +52,7 @@ import {
 import { readNullableText, readText } from '../command-payload.js';
 import { type CommandDb, readDate } from '../command-write.js';
 import { writeRequestedControlActionCommand } from '../control-operations-commands/requested-control-actions.js';
-import type { SafeRequestedControlAction } from '../control-operations-commands/shared.js';
+import type { RequestedControlActionRow } from '../control-operations-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
@@ -62,7 +62,7 @@ function requestContext(payload: Record<string, unknown>): ControlActionContext 
 
 export function requestedControlActionTableCommands(
 	db: CommandDb,
-): TableCommands<ControlOperationsCommand, SafeRequestedControlAction> {
+): TableCommands<ControlOperationsCommand, RequestedControlActionRow> {
 	return {
 		table: 'requested_control_actions',
 		run: {

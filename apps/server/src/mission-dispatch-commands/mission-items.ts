@@ -29,6 +29,7 @@ import {
 	loadOr404,
 	type MissionDispatchDb,
 	type MissionDispatchTransaction,
+	type MissionItemRow,
 	missionItemReturnColumns,
 	type RouteOptions,
 	readDate,
@@ -36,9 +37,7 @@ import {
 	readStringArray,
 	resolveItemGeom,
 	runCommands,
-	type SafeMissionItem,
 	softDelete,
-	toSafeMissionItem,
 	updateRow,
 } from './shared.js';
 
@@ -215,7 +214,7 @@ async function runMissionItemCommands(
 export async function writeMissionItemCommand(
 	trx: MissionDispatchTransaction,
 	command: MissionDispatchCommand,
-): Promise<SafeMissionItem | null> {
+): Promise<MissionItemRow | null> {
 	switch (command.type) {
 		case 'missionDispatch.addMissionItem': {
 			await insertMissionItem(trx, {
@@ -417,7 +416,6 @@ export async function writeMissionItemCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				missionItemReturnColumns,
-				toSafeMissionItem,
 			);
 		case 'missionDispatch.moveMissionItems': {
 			await reindexMissionItems(
@@ -448,7 +446,7 @@ async function updateMissionItemRow(
 	missionItemId: string,
 	organizationId: string,
 	set: Record<string, unknown>,
-): Promise<SafeMissionItem | null> {
+): Promise<MissionItemRow | null> {
 	return updateRow(
 		trx,
 		'mission_items',
@@ -456,7 +454,6 @@ async function updateMissionItemRow(
 		organizationId,
 		set,
 		missionItemReturnColumns,
-		toSafeMissionItem,
 	);
 }
 
@@ -464,7 +461,7 @@ async function loadMissionItem(
 	trx: MissionDispatchTransaction,
 	missionItemId: string,
 	organizationId: string,
-): Promise<SafeMissionItem | null> {
+): Promise<MissionItemRow | null> {
 	const row = await trx
 		.selectFrom('mission_items')
 		.select(missionItemReturnColumns)
@@ -472,7 +469,7 @@ async function loadMissionItem(
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeMissionItem(row);
+	return row ?? null;
 }
 
 /**
