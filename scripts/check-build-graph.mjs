@@ -1,14 +1,19 @@
 #!/usr/bin/env node
 /**
- * Asserts that the workspace's two build graphs agree.
+ * Asserts that the workspace's build graphs agree.
  *
- * Which project depends on which one is declared twice, and the two
+ * Which project depends on which one is declared in two places, and the two
  * declarations are read by different commands:
  *
  * | Command                     | Ordering source                      | Who runs it    |
  * | --------------------------- | ------------------------------------ | -------------- |
  * | `pnpm build`, `pnpm typecheck` | Nx, from package.json dependencies | CI, developers |
  * | `pnpm --filter <app> build` | `tsc -b`, from tsconfig `references` | every deploy   |
+ *
+ * A third place, the root solution file, declares something else: which
+ * projects a root `tsc -b` builds at all, rather than what order they build
+ * in. It is checked against the workspace rather than against a dependency
+ * list; see `rootSolutionFailures`.
  *
  * Nothing keeps them in step. When they disagree, Nx orders the build correctly
  * from the package.json dependency, every gate is green, and then the deploy —
@@ -214,6 +219,11 @@ function declaredDependencies(project, projectsByName) {
  *
  * A reference path may name either the project directory or its tsconfig file;
  * both normalise to the directory, which is what identifies the project.
+ *
+ * Reads `project.path` and `project.tsconfig` and nothing else, which is what
+ * lets `rootSolutionFailures` pass a two-field stand-in for the root solution
+ * rather than a record from `readProjects`. Reach for another field and that
+ * caller starts handing you `undefined`; give it a real record first.
  */
 function referencedProjects(project, projectsByPath) {
 	const referenced = new Set();
@@ -233,6 +243,40 @@ function referencedProjects(project, projectsByPath) {
 	}
 
 	return { referenced, unknown };
+}
+
+/**
+ * The root `tsconfig.json` is a third copy of the graph, and the only one no
+ * command reads: a solution file whose `references` are the whole of what
+ * `tsc -b` at the workspace root builds. Nothing extends it, no script runs it,
+ * so an incomplete one is invisible. A root build exits 0 having compiled a
+ * smaller workspace than the person running it believes. It named 8 of 12
+ * projects for months and reached 10, because `apps/web` pulls `sync` and
+ * `ui-web` in transitively. `apps/admin` and `apps/preview` are leaves, so
+ * nothing ever pulled them in and nothing ever compiled them. That is #178.
+ *
+ * The project list comes from `readProjects`, the same source the per-project
+ * half uses. A second hand-maintained copy of the project set would recreate
+ * the fault.
+ */
+function rootSolutionFailures(projects, projectsByPath) {
+	const root = { path: '.', tsconfig: readJsonc(join(workspaceRoot, 'tsconfig.json')) };
+	const { referenced, unknown } = referencedProjects(root, projectsByPath);
+
+	return [
+		...unknown.map((reference) => ({
+			name: 'tsconfig.json',
+			detail: `references "${reference}", which is not a workspace project.`,
+			fix: 'Point it at a project directory, or drop the entry from tsconfig.json.',
+		})),
+		...projects
+			.filter((project) => !referenced.has(project.name))
+			.map((project) => ({
+				name: 'tsconfig.json',
+				detail: `does not reference ${project.name}, so a root build never compiles it.`,
+				fix: `Add { "path": "./${project.path}" } to "references" in tsconfig.json.`,
+			})),
+	];
 }
 
 /** `../db`, `../../packages/design-tokens` — the path as a tsconfig would write it. */
@@ -284,17 +328,36 @@ for (const project of projects) {
 	}
 }
 
-if (failures.length > 0) {
-	const places = `${failures.length} place${failures.length === 1 ? '' : 's'}`;
-	console.error(`The package.json and tsconfig build graphs disagree in ${places}.`);
-	console.error('Nx orders from the first; every deploy orders from the second.\n');
+const sections = [
+	{
+		failures,
+		heading: 'The package.json and tsconfig build graphs disagree',
+		because: 'Nx orders from the first; every deploy orders from the second.',
+	},
+	{
+		failures: rootSolutionFailures(projects, projectsByPath),
+		heading: 'The root solution and the workspace disagree',
+		because: '`tsc -b` at the root builds what the solution names and nothing else.',
+	},
+];
 
-	for (const failure of failures) {
+let failed = false;
+
+for (const section of sections) {
+	if (section.failures.length === 0) continue;
+	failed = true;
+
+	const count = section.failures.length;
+	console.error(`${section.heading} in ${count} place${count === 1 ? '' : 's'}.`);
+	console.error(`${section.because}\n`);
+
+	for (const failure of section.failures) {
 		console.error(`  ${failure.name} ${failure.detail}`);
 		console.error(`    ${failure.fix}\n`);
 	}
-
-	process.exit(1);
 }
 
+if (failed) process.exit(1);
+
 console.log(`Build graphs agree across ${projects.length} projects.`);
+console.log(`The root solution names all ${projects.length}.`);
