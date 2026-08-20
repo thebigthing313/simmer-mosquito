@@ -149,7 +149,7 @@ A body's keys are two languages, and the case is what tells them apart.
 Service Request, beside `payload.resolutionCommentId`, which becomes a Comment.
 The command that records a Habitat Inspection reads `payload.assignment_item_id`
 beside `payload.completedAt`, which closes the Assignment Item. Spelling
-everything `snake_case` is not available. Of the 279 keys the handlers read, 87
+everything `snake_case` is not available. Of the 277 keys the handlers read, 87
 are `camelCase` and have no column to be named after, and inventing one for each
 would make them look like columns.
 

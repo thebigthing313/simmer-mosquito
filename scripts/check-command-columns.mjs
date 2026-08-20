@@ -41,13 +41,17 @@
  * nothing in the key itself to tell them apart, so single-word keys are out of
  * scope.
  *
- * ## What it cannot see
+ * ## The three forms a read takes
  *
- * Two read forms are matched, `payload.some_column` and `'some_column' in
- * payload`. A column name held in a data table and looked up dynamically is
- * invisible: `weather.ts` pairs its seven metric columns with their domain field
- * names in `METRIC_COLUMNS` and reads `payload[column]`. Those seven are
- * unchecked. Prefer the literal forms in new handlers.
+ * `payload.some_column` and `'some_column' in payload` are the two direct ones.
+ * The third is a column named in a pair table and read back dynamically:
+ * `weather.ts` keeps its seven metric columns beside the domain field each
+ * becomes in `METRIC_COLUMNS`, then reads `payload[column]`. The lookup itself
+ * says nothing a static read can check, so the literal that feeds it is what
+ * gets checked. See `KEY_READS`.
+ *
+ * A column name reaching a handler by any fourth route is unchecked, and the
+ * table count is the only thing that would notice. Prefer the direct forms.
  *
  * ## Keys that name another record's column
  *
@@ -190,10 +194,12 @@ function readModule(file, tableNames) {
 	const functions = topLevelFunctions(lines);
 
 	// A module's own scope is every line outside a function, which is what
-	// `METRIC_COLUMNS` and the like sit in.
-	const outside = lines
-		.filter((line) => !functions.some((fn) => fn.body.includes(`${line}\n`)))
-		.join('\n');
+	// `METRIC_COLUMNS` and the like sit in. Taken by line number rather than by
+	// matching text against the function bodies: a module-scope line whose text
+	// also appears inside a function would drop out of the check silently, and
+	// module scope is the looser of the two, so nothing downstream would notice.
+	const inside = new Set(functions.flatMap((fn) => fn.lineNumbers));
+	const outside = lines.filter((_line, index) => !inside.has(index)).join('\n');
 
 	const declared = tablesIn(outside, tableNames);
 	for (const fn of functions) {
@@ -219,15 +225,17 @@ function topLevelFunctions(lines) {
 	const found = [];
 	let current = null;
 
-	for (const line of lines) {
+	for (const [index, line] of lines.entries()) {
 		if (current === null) {
 			const opened = /^(?:export\s+)?(?:async\s+)?function\s+([A-Za-z0-9_]+)/.exec(line);
 			if (opened !== null) {
-				current = { name: opened[1], body: '', exported: line.startsWith('export ') };
+				const exported = line.startsWith('export ');
+				current = { name: opened[1], body: '', exported, lineNumbers: [index] };
 			}
 			continue;
 		}
 
+		current.lineNumbers.push(index);
 		if (line === '}') {
 			found.push(current);
 			current = null;
@@ -288,26 +296,35 @@ function inheritTables(fn, functions) {
 }
 
 /**
- * The column names a scope reads.
+ * The three forms a scope can name a column in.
  *
- * `payload.some_column` and `'some_column' in payload`, with an optional
- * `request.` in front of either, because `control-methods.ts` takes the whole
- * request rather than destructuring it. Single-word keys are skipped; see the header.
+ * The first two are direct reads: `payload.some_column`, and `'some_column' in
+ * payload`. Either may carry a `request.` in front, because `control-methods.ts`
+ * takes the whole request rather than destructuring it.
+ *
+ * The third is a column named in a pair table and read back through
+ * `payload[column]`, which is how `weather.ts` keeps its seven metrics beside
+ * the domain field each becomes. A dynamic read is invisible on its own, and
+ * those seven are exactly what a migration renaming a column would strip, so the
+ * literal that feeds the lookup is what gets checked instead.
+ *
+ * Single-word keys are skipped; see the header.
  */
+const KEY_READS = [
+	// The lookbehind keeps `'../command-payload.js'` from reading as a key.
+	/(?<![\w-])payload\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)/g,
+	/'([A-Za-z_][A-Za-z0-9_]*)'\s+in\s+(?:[A-Za-z0-9_]+\s*\.\s*)?payload\b/g,
+	/\[\s*'([a-z][a-z0-9_]*)'\s*,/g,
+];
+
 function columnKeysIn(text) {
 	const keys = new Set();
 
-	// The lookbehind keeps `'../command-payload.js'` from reading as a key.
-	for (const [, key] of text.matchAll(/(?<![\w-])payload\s*\.\s*([A-Za-z_][A-Za-z0-9_]*)/g)) {
-		if (isColumnKey(key)) {
-			keys.add(key);
-		}
-	}
-	for (const [, key] of text.matchAll(
-		/'([A-Za-z_][A-Za-z0-9_]*)'\s+in\s+(?:[A-Za-z0-9_]+\s*\.\s*)?payload\b/g,
-	)) {
-		if (isColumnKey(key)) {
-			keys.add(key);
+	for (const pattern of KEY_READS) {
+		for (const [, key] of text.matchAll(pattern)) {
+			if (isColumnKey(key)) {
+				keys.add(key);
+			}
 		}
 	}
 
