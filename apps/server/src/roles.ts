@@ -74,13 +74,15 @@ export function forbidden(reason: string): ForbiddenBody {
  *
  * It said these surfaces *cannot* be commands, because "they land in WorkOS
  * *and* Postgres, and a replayed invitation or role change is a second grant
- * rather than the same one". That is true of exactly one of them.
+ * rather than the same one". That is true of exactly one of the seven.
  * `people.invite` is not replay-safe. `people.changeRole` and
  * `people.endMembership` do span WorkOS but are idempotent. And
  * `organization.updateDetails`, `people.createProfile` and
- * `people.updateProfile` never touch WorkOS at all — they are plain Postgres
- * writes, and `createProfile` already carries a client-minted UUID, which is the
- * exact property the command contract asks for.
+ * `people.updateProfile` never touched WorkOS at all. They were plain Postgres
+ * writes, and `createProfile` already carried a client-minted UUID, which is the
+ * exact property the command contract asks for. Those three are gone from this
+ * table: they are `identity.updateOrganizationDetails`, `identity.createProfile`
+ * and `identity.updateProfile`, with the same floors in `COMMAND_PERMISSIONS`.
  *
  * The reason was reconstruction, and it read as a constraint. It was a boundary
  * decision that nobody had written down, and ADR 0013 is the decision reversed
@@ -106,9 +108,6 @@ export function forbidden(reason: string): ForbiddenBody {
  * handlers with them.
  */
 export type IdentityWriteSurface =
-	| 'organization.updateDetails'
-	| 'people.createProfile'
-	| 'people.updateProfile'
 	| 'people.listMemberships'
 	| 'people.changeRole'
 	| 'people.endMembership'
@@ -120,22 +119,9 @@ interface IdentityFloor {
 }
 
 const IDENTITY_FLOORS: Record<IdentityWriteSurface, IdentityFloor> = {
-	'organization.updateDetails': {
-		minimum: 'admin',
-		refusal: 'Only organization owners and admins can manage details.',
-	},
-
 	// The people floor is admin, not owner: an agency delegates onboarding, and
 	// an office manager adding a seasonal crew is the ordinary case. Handing out
 	// a role is the separate question below.
-	'people.createProfile': {
-		minimum: 'admin',
-		refusal: 'Only organization owners and admins can manage people.',
-	},
-	'people.updateProfile': {
-		minimum: 'admin',
-		refusal: 'Only organization owners and admins can manage people.',
-	},
 	'people.listMemberships': {
 		minimum: 'admin',
 		refusal: 'Only organization owners and admins can manage people.',

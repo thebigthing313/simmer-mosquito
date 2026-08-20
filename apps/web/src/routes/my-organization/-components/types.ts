@@ -3,8 +3,8 @@ import type React from 'react';
 
 // Re-exported rather than re-declared: two identical unions under one name are
 // what `fallow dead-code` calls a duplicate export, and the ladder's names have
-// exactly one home (`lib/write-access.ts`).
-export type { OrgRole } from '../../../lib/write-access';
+// exactly one home (`packages/domain`).
+export type { SimmerRole } from '@simmer-mosquito/domain';
 export type OrganizationSectionId =
 	| 'general'
 	| 'people'

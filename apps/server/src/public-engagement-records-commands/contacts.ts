@@ -12,6 +12,7 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
 import {
 	type CommandContext,
+	type ContactRow,
 	commandEndpoint,
 	contactReturnColumns,
 	insertContact,
@@ -21,9 +22,7 @@ import {
 	type RouteOptions,
 	readContactDetails,
 	runCommands,
-	type SafeContact,
 	softDelete,
-	toSafeContact,
 	updateRow,
 } from './shared.js';
 
@@ -147,7 +146,7 @@ async function runContactCommands(
 export async function writeContactCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
-): Promise<SafeContact | null> {
+): Promise<ContactRow | null> {
 	switch (command.type) {
 		case 'publicEngagement.createContact': {
 			const row = await insertContact(
@@ -222,7 +221,6 @@ export async function writeContactCommand(
 					command.payload.organizationId,
 					command.payload.actorProfileId,
 					contactReturnColumns,
-					toSafeContact,
 				);
 			}
 			return loadContact(trx, command.payload.targetContactId, command.payload.organizationId);
@@ -241,7 +239,6 @@ export async function writeContactCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				contactReturnColumns,
-				toSafeContact,
 			);
 		default:
 			throw new Error(`Unsupported contact command: ${command.type}`);
@@ -253,23 +250,15 @@ async function updateContact(
 	contactId: string,
 	organizationId: string,
 	set: Record<string, unknown>,
-): Promise<SafeContact | null> {
-	return updateRow(
-		trx,
-		'contacts',
-		contactId,
-		organizationId,
-		set,
-		contactReturnColumns,
-		toSafeContact,
-	);
+): Promise<ContactRow | null> {
+	return updateRow(trx, 'contacts', contactId, organizationId, set, contactReturnColumns);
 }
 
 async function loadContact(
 	trx: PublicEngagementTransaction,
 	contactId: string,
 	organizationId: string,
-): Promise<SafeContact | null> {
+): Promise<ContactRow | null> {
 	const row = await trx
 		.selectFrom('contacts')
 		.select(contactReturnColumns)
@@ -277,5 +266,5 @@ async function loadContact(
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeContact(row);
+	return row ?? null;
 }

@@ -59,6 +59,9 @@ importers:
       '@simmer-mosquito/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@simmer-mosquito/domain':
+        specifier: workspace:*
+        version: link:../../packages/domain
       '@simmer-mosquito/mapping':
         specifier: workspace:*
         version: link:../../packages/mapping
@@ -277,6 +280,9 @@ importers:
 
   packages/db:
     dependencies:
+      '@simmer-mosquito/domain':
+        specifier: workspace:*
+        version: link:../domain
       kysely:
         specifier: ^0.28.0
         version: 0.28.17

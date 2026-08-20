@@ -4,10 +4,22 @@ Date: 2026-08-18
 
 ## Status
 
-Accepted, and **not yet built** as of 2026-08-19. All seven identity writes are
-still REST routes with floors in `IDENTITY_FLOORS`
-(`apps/server/src/roles.ts`), and `apps/web` still reaches them through
-`hooks/mutations/rest-writes.ts`. Nothing below describes current code.
+Accepted, and **half built** as of 2026-08-20.
+
+Slices 1 and 2 landed (#168). `SimmerRole` has one declaration, in
+`packages/domain`. The three writes that touch Postgres and nothing else are
+commands: `identity.updateOrganizationDetails`, `identity.createProfile`,
+`identity.updateProfile`, with the floors they had in `IDENTITY_FLOORS`
+carried into `COMMAND_PERMISSIONS` unchanged. `profiles` and `organizations`
+are on the per-table write surface and their collections are back to
+`mutations: true`.
+
+Slice 3 is #186: `people.changeRole`, `people.endMembership` and
+`people.invite`, blocked on whether an invitation can carry a
+client-generated membership id. Those three and `people.listMemberships` are
+still REST routes with floors in `IDENTITY_FLOORS`, reached through
+`hooks/mutations/rest-writes.ts`, so "The three that span WorkOS" below
+still describes work rather than code.
 
 Supersedes the reasoning recorded in `IdentityWriteSurface`
 (`apps/server/src/roles.ts`), which this ADR corrects rather than reverses.
@@ -135,10 +147,13 @@ The rules for a command that spans both:
 tenancy before, and this is a real widening of what that package is for, the
 cost accepted in exchange for one contract.
 
-`SimmerRole` is currently declared in `packages/db`, re-declared in
-`packages/sync/src/rows/index.ts`, and ranked in `apps/server/src/roles.ts`.
-Domain command builders will need it, and a fourth copy is not acceptable, so
-consolidating it is part of the work rather than a follow-up.
+`SimmerRole` was declared in `packages/db`, re-declared in
+`packages/sync/src/rows/index.ts`, and twice more in each frontend under three
+names. Domain command builders need it, so consolidating it was part of the work
+rather than a follow-up: it now lives in `packages/domain/src/roles.ts`, `db`
+re-exports it, and `sync` dropped its copy because sync must not depend on
+domain. The ranking stays in `apps/server/src/roles.ts`, which is where
+authorization is decided.
 
 `rest-writes.ts` and `lib/identity-api.ts` are deleted once the last surface
 moves. `lib/collections/profiles.ts` and `organizations.ts` go back to

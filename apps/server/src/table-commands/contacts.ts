@@ -54,8 +54,8 @@ import { type CommandDb, readDate } from '../command-write.js';
 import { writeContactCommand } from '../public-engagement-records-commands/contacts.js';
 import { writeServiceRequestCommand } from '../public-engagement-records-commands/service-requests.js';
 import type {
-	SafeContact,
-	SafeServiceRequest,
+	ContactRow,
+	ServiceRequestRow,
 } from '../public-engagement-records-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, readIdList } from './shared.js';
@@ -67,7 +67,7 @@ function flag(value: unknown): boolean {
 
 export function contactTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, SafeContact> {
+): TableCommands<PublicEngagementCommand, ContactRow> {
 	return {
 		table: 'contacts',
 		run: { db, write: writeContactCommand, notFound: 'contact_not_found', key: 'contact' },
@@ -138,7 +138,7 @@ export function contactTableCommands(
 
 export function serviceRequestTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, SafeServiceRequest> {
+): TableCommands<PublicEngagementCommand, ServiceRequestRow> {
 	return {
 		table: 'service_requests',
 		run: {

@@ -23,6 +23,7 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {
+		"@simmer-mosquito/domain": "workspace:*",
 		"kysely": "^0.28.0",
 		"pg": "^8.16.0"
 	},

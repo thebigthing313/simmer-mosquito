@@ -54,13 +54,13 @@ import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { writeRegionFolderCommand } from '../foundation-geography-commands/region-folders.js';
 import { writeRegionCommand } from '../foundation-geography-commands/regions.js';
-import type { SafeRegion, SafeRegionFolder } from '../foundation-geography-commands/shared.js';
+import type { RegionFolderRow, RegionRow } from '../foundation-geography-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
 export function regionFolderTableCommands(
 	db: CommandDb,
-): TableCommands<FoundationCommand, SafeRegionFolder> {
+): TableCommands<FoundationCommand, RegionFolderRow> {
 	return {
 		table: 'region_folders',
 		run: {
@@ -100,7 +100,7 @@ export function regionFolderTableCommands(
 	};
 }
 
-export function regionTableCommands(db: CommandDb): TableCommands<FoundationCommand, SafeRegion> {
+export function regionTableCommands(db: CommandDb): TableCommands<FoundationCommand, RegionRow> {
 	return {
 		table: 'regions',
 		run: { db, write: writeRegionCommand, notFound: 'region_not_found', key: 'region' },

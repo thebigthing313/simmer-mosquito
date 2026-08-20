@@ -21,12 +21,11 @@ import {
 	type FoundationTransaction,
 	geojsonToGeom,
 	invalidUpdate,
+	type RegionRow,
 	type RouteOptions,
 	regionReturnColumns,
 	runCommands,
-	type SafeRegion,
 	softDelete,
-	toSafeRegion,
 	updateRow,
 } from './shared.js';
 
@@ -157,7 +156,7 @@ async function runRegionCommands(
 export async function writeRegionCommand(
 	trx: FoundationTransaction,
 	command: FoundationCommand,
-): Promise<SafeRegion | null> {
+): Promise<RegionRow | null> {
 	switch (command.type) {
 		case 'foundation.createRegion': {
 			const row = await trx
@@ -175,7 +174,7 @@ export async function writeRegionCommand(
 				})
 				.returning(regionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeRegion(row);
+			return row;
 		}
 		case 'foundation.updateRegionDetails':
 			return updateRegion(trx, command.payload.regionId, command.payload.organizationId, {
@@ -212,7 +211,6 @@ export async function writeRegionCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				regionReturnColumns,
-				toSafeRegion,
 			);
 		default:
 			throw new Error(`Unsupported region command: ${command.type}`);
@@ -224,14 +222,6 @@ async function updateRegion(
 	regionId: string,
 	organizationId: string,
 	set: Record<string, unknown>,
-): Promise<SafeRegion | null> {
-	return updateRow(
-		trx,
-		'regions',
-		regionId,
-		organizationId,
-		set,
-		regionReturnColumns,
-		toSafeRegion,
-	);
+): Promise<RegionRow | null> {
+	return updateRow(trx, 'regions', regionId, organizationId, set, regionReturnColumns);
 }

@@ -12,6 +12,7 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
 	type CommandContext,
+	type CommentRow,
 	commandEndpoint,
 	commentReturnColumns,
 	type FieldWorkDb,
@@ -21,9 +22,7 @@ import {
 	readDate,
 	readTarget,
 	runCommands,
-	type SafeComment,
 	softDelete,
-	toSafeComment,
 	updateRow,
 } from './shared.js';
 
@@ -109,7 +108,7 @@ async function runCommentCommands(
 export async function writeCommentCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeComment | null> {
+): Promise<CommentRow | null> {
 	switch (command.type) {
 		case 'fieldWork.addComment': {
 			const row = await trx
@@ -130,7 +129,7 @@ export async function writeCommentCommand(
 				})
 				.returning(commentReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeComment(row);
+			return row;
 		}
 		case 'fieldWork.updateComment':
 			return updateRow(
@@ -143,7 +142,6 @@ export async function writeCommentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				commentReturnColumns,
-				toSafeComment,
 			);
 		case 'fieldWork.pinComment':
 			return updateRow(
@@ -156,7 +154,6 @@ export async function writeCommentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				commentReturnColumns,
-				toSafeComment,
 			);
 		case 'fieldWork.unpinComment':
 			return updateRow(
@@ -169,7 +166,6 @@ export async function writeCommentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				commentReturnColumns,
-				toSafeComment,
 			);
 		case 'fieldWork.deleteComment':
 			return softDelete(
@@ -179,7 +175,6 @@ export async function writeCommentCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				commentReturnColumns,
-				toSafeComment,
 			);
 		default:
 			throw new Error(`Unsupported comment command: ${command.type}`);

@@ -1,4 +1,4 @@
-import { geojsonToGeom, localDateColumn, updateRow } from '@simmer-mosquito/db';
+import { geojsonToGeom, localDateColumn, type SelectedRow, updateRow } from '@simmer-mosquito/db';
 import type { CollectionTiming } from '@simmer-mosquito/domain';
 import {
 	agencyCommandContext,
@@ -124,53 +124,7 @@ export const trapReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeTrap {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly collectionMethodId: string;
-	readonly addressId: string | null;
-	readonly collectionLureId: string | null;
-	readonly trapName: string | null;
-	readonly trapCode: string | null;
-	readonly description: string | null;
-	readonly isActive: boolean;
-	readonly createdByProfileId: string | null;
-	readonly updatedByProfileId: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeTrap(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly collection_method_id: string;
-	readonly address_id: string | null;
-	readonly collection_lure_id: string | null;
-	readonly trap_name: string | null;
-	readonly trap_code: string | null;
-	readonly description: string | null;
-	readonly is_active: boolean;
-	readonly created_by_profile_id: string | null;
-	readonly updated_by_profile_id: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeTrap {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		collectionMethodId: row.collection_method_id,
-		addressId: row.address_id,
-		collectionLureId: row.collection_lure_id,
-		trapName: row.trap_name,
-		trapCode: row.trap_code,
-		description: row.description,
-		isActive: row.is_active,
-		createdByProfileId: row.created_by_profile_id,
-		updatedByProfileId: row.updated_by_profile_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type TrapRow = SelectedRow<'traps', typeof trapReturnColumns>;
 
 export const collectionReturnColumns = [
 	'id',
@@ -197,80 +151,7 @@ export const collectionReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeCollection {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly trapId: string | null;
-	readonly collectionMethodId: string;
-	readonly collectionLureId: string | null;
-	readonly addressId: string | null;
-	readonly collectedAt: Date | null;
-	readonly collectedByProfileId: string | null;
-	readonly startedAt: Date | null;
-	readonly setByProfileId: string | null;
-	readonly collectionTimingMode: string;
-	readonly collectionDate: Date | null;
-	readonly durationAmount: number | null;
-	readonly durationUnitId: string | null;
-	readonly hasProblem: boolean;
-	readonly isZeroResult: boolean;
-	readonly hasBycatch: boolean;
-	readonly metadata: unknown | null;
-	readonly createdByProfileId: string | null;
-	readonly updatedByProfileId: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeCollection(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly trap_id: string | null;
-	readonly collection_method_id: string;
-	readonly collection_lure_id: string | null;
-	readonly address_id: string | null;
-	readonly collected_at: Date | null;
-	readonly collected_by_profile_id: string | null;
-	readonly started_at: Date | null;
-	readonly set_by_profile_id: string | null;
-	readonly collection_timing_mode: string;
-	readonly collection_date: Date | null;
-	readonly duration_amount: number | null;
-	readonly duration_unit_id: string | null;
-	readonly has_problem: boolean;
-	readonly is_zero_result: boolean;
-	readonly has_bycatch: boolean;
-	readonly metadata: unknown | null;
-	readonly created_by_profile_id: string | null;
-	readonly updated_by_profile_id: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeCollection {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		trapId: row.trap_id,
-		collectionMethodId: row.collection_method_id,
-		collectionLureId: row.collection_lure_id,
-		addressId: row.address_id,
-		collectedAt: row.collected_at,
-		collectedByProfileId: row.collected_by_profile_id,
-		startedAt: row.started_at,
-		setByProfileId: row.set_by_profile_id,
-		collectionTimingMode: row.collection_timing_mode,
-		collectionDate: row.collection_date,
-		durationAmount: row.duration_amount,
-		durationUnitId: row.duration_unit_id,
-		hasProblem: row.has_problem,
-		isZeroResult: row.is_zero_result,
-		hasBycatch: row.has_bycatch,
-		metadata: row.metadata,
-		createdByProfileId: row.created_by_profile_id,
-		updatedByProfileId: row.updated_by_profile_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type CollectionRow = SelectedRow<'collections', typeof collectionReturnColumns>;
 
 export const collectionSpeciesReturnColumns = [
 	'id',
@@ -288,53 +169,10 @@ export const collectionSpeciesReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeCollectionSpecies {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly collectionId: string;
-	readonly speciesId: string;
-	readonly count: number;
-	readonly sex: string | null;
-	readonly status: string | null;
-	readonly identifiedByProfileId: string | null;
-	readonly identifiedDate: Date;
-	readonly createdByProfileId: string | null;
-	readonly updatedByProfileId: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeCollectionSpecies(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly collection_id: string;
-	readonly species_id: string;
-	readonly count: number;
-	readonly sex: string | null;
-	readonly status: string | null;
-	readonly identified_by_profile_id: string | null;
-	readonly identified_date: Date;
-	readonly created_by_profile_id: string | null;
-	readonly updated_by_profile_id: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeCollectionSpecies {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		collectionId: row.collection_id,
-		speciesId: row.species_id,
-		count: row.count,
-		sex: row.sex,
-		status: row.status,
-		identifiedByProfileId: row.identified_by_profile_id,
-		identifiedDate: row.identified_date,
-		createdByProfileId: row.created_by_profile_id,
-		updatedByProfileId: row.updated_by_profile_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type CollectionSpeciesRow = SelectedRow<
+	'collection_species',
+	typeof collectionSpeciesReturnColumns
+>;
 
 // ---------------------------------------------------------------------------
 // Shared command + request helpers

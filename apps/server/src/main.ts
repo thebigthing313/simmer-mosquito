@@ -51,7 +51,6 @@ import { registerGeocoderRoutes } from './geocoder.js';
 import { registerLarvalSurveillanceCommandRoutes } from './larval-surveillance-commands/index.js';
 import { registerMapTileRoutes } from './map-tiles.js';
 import { registerMissionDispatchCommandRoutes } from './mission-dispatch-commands/index.js';
-import { registerOrganizationCommandRoutes } from './organization-commands.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
 import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
@@ -309,11 +308,6 @@ registerControlAssetCommandRoutes(app, {
 });
 
 registerControlProductCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerOrganizationCommandRoutes(app, {
 	db,
 	authContextMiddleware,
 });

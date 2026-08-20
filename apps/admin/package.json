@@ -13,6 +13,7 @@
 	"dependencies": {
 		"@fontsource/poppins": "^5.2.7",
 		"@simmer-mosquito/auth": "workspace:*",
+		"@simmer-mosquito/domain": "workspace:*",
 		"@simmer-mosquito/mapping": "workspace:*",
 		"@simmer-mosquito/sync": "workspace:*",
 		"@simmer-mosquito/ui-web": "workspace:*",

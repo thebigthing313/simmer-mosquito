@@ -4,10 +4,10 @@ import { createMiddleware } from 'hono/factory';
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables } from '../../auth-middleware.js';
-import { registerOrganizationCommandRoutes } from '../../organization-commands.js';
 import { registerOrganizationSettingsCommandRoutes } from '../../organization-settings-commands.js';
 import { registerProfileCommandRoutes } from '../../profile-commands.js';
 import { canGrantRole, hasAtLeastRole } from '../../roles.js';
+import { registerTableCommandSurface } from '../../table-commands/index.js';
 
 // --- the floors outside the permission map -----------------------------------
 //
@@ -57,16 +57,27 @@ describe('canGrantRole', () => {
 	});
 });
 
+// Since ADR 0013's first slice these are commands, so their floor is the
+// exhaustive `COMMAND_PERMISSIONS` rather than the identity table. Asserted here
+// anyway, through the routes a browser actually posts to: the map being total
+// says a floor exists, not that dispatch consults it before opening the
+// database.
 describe('organization details', () => {
+	const detailsPath = `/commands/organizations/${ORGANIZATION_ID}`;
+	const details = {
+		intents: ['identity.updateOrganizationDetails'],
+		name: 'Coastal MAD',
+	};
+
 	it.each(['manager', 'collector', 'viewer'] as const)('refuses a %s', async (role) => {
-		const response = await patch(role, '/organization/current', { name: 'Coastal MAD' });
+		const response = await patch(role, detailsPath, details);
 
 		expect(response.status).toBe(403);
 		await expect(response.json()).resolves.toMatchObject({ error: 'forbidden' });
 	});
 
 	it.each(['owner', 'admin'] as const)('admits a %s past the floor', async (role) => {
-		const response = await patch(role, '/organization/current', { name: 'Coastal MAD' });
+		const response = await patch(role, detailsPath, details);
 
 		// Past the guard the unusable database throws and Hono answers 500. That
 		// is the assertion: reaching the database is the proof, and a 403 here
@@ -108,9 +119,10 @@ describe('people', () => {
 		'collector',
 		'viewer',
 	] as const)('refuses a %s managing people', async (role) => {
-		const response = await post(role, '/organization/profiles', {
+		const response = await post(role, '/commands/profiles', {
+			intents: ['identity.createProfile'],
 			id: profileId,
-			displayName: 'Dana Field',
+			display_name: 'Dana Field',
 		});
 
 		expect(response.status).toBe(403);
@@ -120,9 +132,10 @@ describe('people', () => {
 	// The floor #121 settled: an agency delegates onboarding rather than routing
 	// every new crew member through one person.
 	it('admits an admin managing people', async () => {
-		const response = await post('admin', '/organization/profiles', {
+		const response = await post('admin', '/commands/profiles', {
+			intents: ['identity.createProfile'],
 			id: profileId,
-			displayName: 'Dana Field',
+			display_name: 'Dana Field',
 		});
 
 		expect(response.status).toBe(500);
@@ -219,7 +232,11 @@ function createApp(role: SimmerRole, db: unknown = unusableDb): Hono<{ Variables
 		},
 	);
 
-	registerOrganizationCommandRoutes(app, { db: unusableDb as never, authContextMiddleware });
+	registerTableCommandSurface(app, {
+		db: unusableDb as never,
+		authContextMiddleware,
+		operatorAuthContextMiddleware: authContextMiddleware,
+	});
 	registerOrganizationSettingsCommandRoutes(app, {
 		db: unusableDb as never,
 		authContextMiddleware,
@@ -309,11 +326,12 @@ function membershipDb(target: { readonly role: SimmerRole; readonly status: stri
 }
 
 const ACTOR_MEMBERSHIP_ID = 'c3d2e1f0-6a5b-4c7d-8e9f-1a2b3c4d5e6f';
+const ORGANIZATION_ID = 'f0dbf1c7-d278-441e-82b4-9292d390ce72';
 
 function authContextFor(role: SimmerRole): AuthContext {
 	return {
 		organization: {
-			id: 'f0dbf1c7-d278-441e-82b4-9292d390ce72',
+			id: ORGANIZATION_ID,
 			workosOrganizationId: 'org_test',
 		},
 		profile: { id: '0105b111-e0be-46b0-b5e9-a87507889b51' },

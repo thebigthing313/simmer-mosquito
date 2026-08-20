@@ -26,7 +26,8 @@
  * the server's own view of the Membership, which is what the caller renders.
  */
 
-import type { AdminMembership, SimmerRole } from '../auth';
+import type { SimmerRole } from '@simmer-mosquito/domain';
+import type { AdminMembership } from '../auth';
 import { commandErrorFrom, readResponseBody } from '../sync/command-error';
 
 export async function inviteOrganizationProfile(

@@ -16,15 +16,14 @@ import {
 	commandEndpoint,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
+	type RouteItemRow,
 	type RouteOptions,
 	readTarget,
 	reindexItems,
 	routeItemReturnColumns,
 	routePlacementRef,
 	runCommands,
-	type SafeRouteItem,
 	softDelete,
-	toSafeRouteItem,
 	updateRow,
 } from './shared.js';
 
@@ -98,7 +97,7 @@ async function runRouteItemCommands(
 export async function writeRouteItemCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeRouteItem | null> {
+): Promise<RouteItemRow | null> {
 	switch (command.type) {
 		case 'fieldWork.addRouteItem': {
 			await trx
@@ -145,7 +144,6 @@ export async function writeRouteItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				routeItemReturnColumns,
-				toSafeRouteItem,
 			);
 		case 'fieldWork.removeRouteItem':
 			return softDelete(
@@ -155,7 +153,6 @@ export async function writeRouteItemCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				routeItemReturnColumns,
-				toSafeRouteItem,
 			);
 		default:
 			throw new Error(`Unsupported route item command: ${command.type}`);
@@ -166,7 +163,7 @@ async function loadRouteItem(
 	trx: FieldWorkTransaction,
 	routeItemId: string,
 	organizationId: string,
-): Promise<SafeRouteItem | null> {
+): Promise<RouteItemRow | null> {
 	const row = await trx
 		.selectFrom('route_items')
 		.select(routeItemReturnColumns)
@@ -174,5 +171,5 @@ async function loadRouteItem(
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeRouteItem(row);
+	return row ?? null;
 }

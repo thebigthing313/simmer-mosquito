@@ -33,13 +33,13 @@ import {
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { writeRouteItemCommand } from '../field-work-commands/route-items.js';
-import type { SafeRouteItem } from '../field-work-commands/shared.js';
+import type { RouteItemRow } from '../field-work-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 
 export function routeItemTableCommands(
 	db: CommandDb,
-): TableCommands<FieldWorkCommand, SafeRouteItem> {
+): TableCommands<FieldWorkCommand, RouteItemRow> {
 	return {
 		table: 'route_items',
 		run: { db, write: writeRouteItemCommand, notFound: 'route_item_not_found', key: 'routeItem' },

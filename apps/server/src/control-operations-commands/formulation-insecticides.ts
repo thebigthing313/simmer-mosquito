@@ -13,12 +13,11 @@ import {
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
 	commandEndpoint,
+	type FormulationInsecticideRow,
 	formulationInsecticideReturnColumns,
 	type RouteOptions,
 	runCommands,
-	type SafeFormulationInsecticide,
 	softDelete,
-	toSafeFormulationInsecticide,
 } from './shared.js';
 
 // ===========================================================================
@@ -104,7 +103,7 @@ async function runFormulationInsecticideCommands(
 export async function writeFormulationInsecticideCommand(
 	trx: ControlOperationsTransaction,
 	command: ControlOperationsCommand,
-): Promise<SafeFormulationInsecticide | null> {
+): Promise<FormulationInsecticideRow | null> {
 	switch (command.type) {
 		case 'controlOperations.addFormulationInsecticide': {
 			const row = await trx
@@ -121,7 +120,7 @@ export async function writeFormulationInsecticideCommand(
 				})
 				.returning(formulationInsecticideReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeFormulationInsecticide(row);
+			return row;
 		}
 		case 'controlOperations.updateFormulationInsecticide': {
 			const row = await trx
@@ -144,7 +143,7 @@ export async function writeFormulationInsecticideCommand(
 				.where('deleted_at', 'is', null)
 				.returning(formulationInsecticideReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeFormulationInsecticide(row);
+			return row ?? null;
 		}
 		case 'controlOperations.removeFormulationInsecticide':
 			return softDelete(
@@ -154,7 +153,6 @@ export async function writeFormulationInsecticideCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				formulationInsecticideReturnColumns,
-				toSafeFormulationInsecticide,
 			);
 		default:
 			throw new Error(`Unsupported formulation insecticide command: ${command.type}`);

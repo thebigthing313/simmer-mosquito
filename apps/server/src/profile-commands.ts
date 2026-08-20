@@ -1,18 +1,14 @@
 import {
 	assertOrganizationProfileCanBeInvited,
-	createHistoricalProfileWithTxid,
 	deactivateOrganizationMembershipWithTxid,
 	listOrganizationMemberships,
 	type MembershipRemovalIssue,
-	type MutationWriteResult,
 	readMembershipRemovalTarget,
 	type SafeOrganizationMembership,
-	type SafeProfile,
 	type SimmerRole,
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
 	updateOrganizationMembershipRoleWithTxid,
-	updateProfileWithTxid,
 	validateMembershipRemoval,
 } from '@simmer-mosquito/db';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
@@ -20,7 +16,7 @@ import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
 import { canGrantRole, denyIdentityWrite, forbidden } from './roles.js';
 
-type ProfileCommandDb = Parameters<typeof createHistoricalProfileWithTxid>[0];
+type ProfileCommandDb = Parameters<typeof listOrganizationMemberships>[0];
 
 export interface ProfileInvitationAuth {
 	sendOrganizationInvitation(input: {
@@ -45,53 +41,6 @@ export function registerProfileCommandRoutes(
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
-	app.post('/organization/profiles', options.authContextMiddleware, async (context) => {
-		const authContext = context.get('authContext');
-		const refusal = denyIdentityWrite(context, 'people.createProfile');
-		if (refusal !== null) {
-			return refusal;
-		}
-
-		const payloadResult = await readProfilePayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const result = await createHistoricalProfileWithTxid(options.db, {
-			id: payloadResult.payload.id,
-			organizationId: authContext.organization.id,
-			displayName: payloadResult.payload.displayName,
-			isActive: payloadResult.payload.isActive,
-		});
-
-		return context.json(toProfileWriteResponse(result), 201);
-	});
-
-	app.patch('/organization/profiles/:profileId', options.authContextMiddleware, async (context) => {
-		const authContext = context.get('authContext');
-		const refusal = denyIdentityWrite(context, 'people.updateProfile');
-		if (refusal !== null) {
-			return refusal;
-		}
-
-		const payloadResult = await readProfilePayload(context.req);
-		if (!payloadResult.ok) {
-			return context.json({ error: 'invalid_payload', reason: payloadResult.reason }, 400);
-		}
-
-		const result = await updateProfileWithTxid(options.db, {
-			id: context.req.param('profileId'),
-			organizationId: authContext.organization.id,
-			displayName: payloadResult.payload.displayName,
-			isActive: payloadResult.payload.isActive,
-		});
-		if (result.row === null) {
-			return context.json({ error: 'profile_not_found' }, 404);
-		}
-
-		return context.json(toProfileWriteResponse(result as MutationWriteResult<SafeProfile>));
-	});
-
 	app.post('/organization/memberships/list', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
 		const refusal = denyIdentityWrite(context, 'people.listMemberships');
@@ -276,22 +225,6 @@ function removalReason(issue: MembershipRemovalIssue): string {
 	}
 }
 
-function toProfileWriteResponse(result: MutationWriteResult<SafeProfile>) {
-	return {
-		profile: {
-			id: result.row.id,
-			organizationId: result.row.organizationId,
-			userId: result.row.userId,
-			displayName: result.row.displayName,
-			email: result.row.email,
-			isActive: result.row.isActive,
-			createdAt: result.row.createdAt,
-			updatedAt: result.row.updatedAt,
-		},
-		txid: result.txid,
-	};
-}
-
 async function validateProfileInviteTarget(
 	context: Context<{ Variables: AuthVariables }>,
 	db: ProfileCommandDb,
@@ -318,12 +251,6 @@ function invitationErrorResponse(context: Context<{ Variables: AuthVariables }>,
 	return null;
 }
 
-interface ProfilePayload {
-	readonly id: string;
-	readonly displayName: string;
-	readonly isActive: boolean;
-}
-
 interface InvitePayload {
 	readonly email: string;
 	readonly role: SimmerRole;
@@ -344,33 +271,6 @@ type PayloadResult<TPayload> =
 			readonly ok: false;
 			readonly reason: string;
 	  };
-
-async function readProfilePayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult<ProfilePayload>> {
-	const raw = await readJsonObject(request);
-	if (!raw.ok) {
-		return raw;
-	}
-
-	const id = readRequiredText(raw.value.id);
-	const displayName = readRequiredText(raw.value.displayName);
-	if (id === null) {
-		return { ok: false, reason: 'id is required.' };
-	}
-	if (displayName === null) {
-		return { ok: false, reason: 'displayName is required.' };
-	}
-
-	return {
-		ok: true,
-		payload: {
-			id,
-			displayName,
-			isActive: raw.value.isActive !== false,
-		},
-	};
-}
 
 async function readInvitePayload(request: {
 	readonly json: () => Promise<unknown>;

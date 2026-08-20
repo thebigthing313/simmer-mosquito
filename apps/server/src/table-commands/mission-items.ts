@@ -61,7 +61,7 @@ import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate } from '../command-write.js';
 import { writeMissionItemCommand } from '../mission-dispatch-commands/mission-items.js';
-import type { SafeMissionItem } from '../mission-dispatch-commands/shared.js';
+import type { MissionItemRow } from '../mission-dispatch-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
@@ -94,7 +94,7 @@ function addAcknowledgements(payload: Record<string, unknown>) {
 
 export function missionItemTableCommands(
 	db: CommandDb,
-): TableCommands<MissionDispatchCommand, SafeMissionItem> {
+): TableCommands<MissionDispatchCommand, MissionItemRow> {
 	return {
 		table: 'mission_items',
 		run: {

@@ -37,11 +37,11 @@ import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readStringArray } from '../command-write.js';
 import { writeRouteCommand } from '../field-work-commands/routes.js';
-import type { SafeRoute } from '../field-work-commands/shared.js';
+import type { RouteRow } from '../field-work-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
-export function routeTableCommands(db: CommandDb): TableCommands<FieldWorkCommand, SafeRoute> {
+export function routeTableCommands(db: CommandDb): TableCommands<FieldWorkCommand, RouteRow> {
 	return {
 		table: 'routes',
 		run: { db, write: writeRouteCommand, notFound: 'route_not_found', key: 'route' },

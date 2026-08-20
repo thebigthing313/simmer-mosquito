@@ -13,12 +13,11 @@ import {
 	commandActor,
 	commandEndpoint,
 	handleCommandError,
+	type MissionNotificationRow,
 	missionNotificationReturnColumns,
 	type PublicEngagementTransaction,
 	type RouteOptions,
 	readDate,
-	type SafeMissionNotification,
-	toSafeMissionNotification,
 	writeCommands,
 } from './shared.js';
 
@@ -75,7 +74,7 @@ export function registerMissionNotificationRoutes(
 export async function writeMissionNotificationCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
-): Promise<SafeMissionNotification | null> {
+): Promise<MissionNotificationRow | null> {
 	const statusByType: Record<string, 'completed' | 'failed' | 'skipped' | 'pending'> = {
 		'publicEngagement.completeMissionNotification': 'completed',
 		'publicEngagement.failMissionNotification': 'failed',
@@ -115,5 +114,5 @@ export async function writeMissionNotificationCommand(
 		.where('deleted_at', 'is', null)
 		.returning(missionNotificationReturnColumns)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeMissionNotification(row);
+	return row ?? null;
 }

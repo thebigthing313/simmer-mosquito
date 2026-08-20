@@ -59,22 +59,22 @@ import type { CommandDb } from '../command-write.js';
 import { writeFormulationInsecticideCommand } from '../control-operations-commands/formulation-insecticides.js';
 import { writeFormulationCommand } from '../control-operations-commands/formulations.js';
 import type {
-	SafeFormulation,
-	SafeFormulationInsecticide,
+	FormulationInsecticideRow,
+	FormulationRow,
 } from '../control-operations-commands/shared.js';
 import {
 	type InsecticideBatchCommand,
 	type InsecticideCommand,
-	toInsecticideBatchResponse,
-	toInsecticideResponse,
 	writeInsecticideBatchCommand,
 	writeInsecticideCommand,
 } from '../control-product-commands.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
-type InsecticideResponse = NonNullable<ReturnType<typeof toInsecticideResponse>>;
-type InsecticideBatchResponse = NonNullable<ReturnType<typeof toInsecticideBatchResponse>>;
+type InsecticideResponse = NonNullable<Awaited<ReturnType<typeof writeInsecticideCommand>>>;
+type InsecticideBatchResponse = NonNullable<
+	Awaited<ReturnType<typeof writeInsecticideBatchCommand>>
+>;
 
 export function insecticideTableCommands(
 	db: CommandDb,
@@ -83,8 +83,7 @@ export function insecticideTableCommands(
 		table: 'insecticides',
 		run: {
 			db,
-			write: async (trx, command) =>
-				toInsecticideResponse(await writeInsecticideCommand(trx, command)),
+			write: async (trx, command) => await writeInsecticideCommand(trx, command),
 			notFound: 'insecticide_not_found',
 			key: 'insecticide',
 		},
@@ -159,8 +158,7 @@ export function insecticideBatchTableCommands(
 		table: 'insecticide_batches',
 		run: {
 			db,
-			write: async (trx, command) =>
-				toInsecticideBatchResponse(await writeInsecticideBatchCommand(trx, command)),
+			write: async (trx, command) => await writeInsecticideBatchCommand(trx, command),
 			notFound: 'insecticide_batch_not_found',
 			key: 'batch',
 		},
@@ -199,7 +197,7 @@ export function insecticideBatchTableCommands(
 
 export function formulationTableCommands(
 	db: CommandDb,
-): TableCommands<ControlOperationsCommand, SafeFormulation> {
+): TableCommands<ControlOperationsCommand, FormulationRow> {
 	return {
 		table: 'formulations',
 		run: {
@@ -259,7 +257,7 @@ export function formulationTableCommands(
 
 export function formulationInsecticideTableCommands(
 	db: CommandDb,
-): TableCommands<ControlOperationsCommand, SafeFormulationInsecticide> {
+): TableCommands<ControlOperationsCommand, FormulationInsecticideRow> {
 	return {
 		table: 'formulation_insecticides',
 		run: {

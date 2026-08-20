@@ -21,6 +21,7 @@ import type {
 	ControlOperationsCommandType,
 	FieldWorkCommandType,
 	FoundationCommandType,
+	IdentityCommandType,
 	LarvalSurveillanceCommandType,
 	MissionDispatchCommandType,
 	OrganizationSettingsCommandType,
@@ -35,6 +36,7 @@ export type AgencyCommandType =
 	| ControlOperationsCommandType
 	| FieldWorkCommandType
 	| FoundationCommandType
+	| IdentityCommandType
 	| LarvalSurveillanceCommandType
 	| MissionDispatchCommandType
 	| OrganizationSettingsCommandType
@@ -722,6 +724,21 @@ const WEATHER_PERMISSIONS: Record<WeatherCommandType, CommandPermission> = {
 };
 
 /**
+ * The three identity writes ADR 0013 folded into the vocabulary.
+ *
+ * The floors are carried across from `IDENTITY_FLOORS` in `roles.ts` unchanged.
+ * That table still holds the four surfaces slice 3 owns; these three left it,
+ * and the difference is that a fourth identity command now cannot be added
+ * without a floor, because this map is exhaustive and that one was a convention
+ * each handler had to remember.
+ */
+const IDENTITY_PERMISSIONS: Record<IdentityCommandType, CommandPermission> = {
+	'identity.updateOrganizationDetails': ADMIN,
+	'identity.createProfile': ADMIN,
+	'identity.updateProfile': ADMIN,
+};
+
+/**
  * Every per-domain map, merged.
  *
  * The merge is what routes a lookup; the per-domain annotations above are what
@@ -732,6 +749,7 @@ const COMMAND_PERMISSIONS: Record<AgencyCommandType, CommandPermission> = {
 	...FIELD_WORK_PERMISSIONS,
 	...MISSION_DISPATCH_PERMISSIONS,
 	...FOUNDATION_PERMISSIONS,
+	...IDENTITY_PERMISSIONS,
 	...LARVAL_SURVEILLANCE_PERMISSIONS,
 	...ADULT_SURVEILLANCE_PERMISSIONS,
 	...CONTROL_OPERATIONS_PERMISSIONS,

@@ -60,14 +60,14 @@ export function commandActor(authContext: AuthContext): CommandActor {
  * The result carries the last row written and the transaction id the client
  * waits on before trusting its optimistic mutation.
  */
-export async function writeCommands<TCommand extends WritableCommand, TSafe>(
+export async function writeCommands<TCommand extends WritableCommand, TRow>(
 	db: CommandDb,
 	actor: CommandActor,
 	commands: readonly TCommand[],
-	write: (trx: CommandTransaction, command: TCommand) => Promise<TSafe | null>,
-): Promise<MutationWriteResult<TSafe | null>> {
+	write: (trx: CommandTransaction, command: TCommand) => Promise<TRow | null>,
+): Promise<MutationWriteResult<TRow | null>> {
 	return db.transaction().execute(async (trx) => {
-		let row: TSafe | null = null;
+		let row: TRow | null = null;
 		for (const command of commands) {
 			await assertCommandOwnership(trx, command, actor);
 			row = await write(trx, command);
@@ -141,9 +141,9 @@ export function nowLocalDate(): string {
  * Three values: which writer commits the batch, what to call the row when there
  * isn't one, and what key to return it under.
  */
-export interface RunCommandsConfig<TCommand extends WritableCommand, TSafe> {
+export interface RunCommandsConfig<TCommand extends WritableCommand, TRow> {
 	readonly db: CommandDb;
-	readonly write: (trx: CommandTransaction, command: TCommand) => Promise<TSafe | null>;
+	readonly write: (trx: CommandTransaction, command: TCommand) => Promise<TRow | null>;
 	/** The 404 body's `error`, e.g. `region_folder_not_found`. */
 	readonly notFound: string;
 	/** The response key the row is returned under, e.g. `regionFolder`. */
@@ -182,11 +182,11 @@ const OPERATOR_ACTOR: CommandActor = { role: 'viewer', profileId: '' };
  * `AuthContext` off the request, and an operator session has none — the global
  * catalogs have no `organization_id` for one to scope.
  */
-export async function runOperatorCommands<TCommand extends WritableCommand, TSafe>(
+export async function runOperatorCommands<TCommand extends WritableCommand, TRow>(
 	context: {
 		readonly json: (body: unknown, status?: number) => Response;
 	},
-	config: RunCommandsConfig<TCommand, TSafe>,
+	config: RunCommandsConfig<TCommand, TRow>,
 	commands: readonly TCommand[],
 	createdStatus?: 201,
 ): Promise<Response> {
@@ -209,9 +209,9 @@ export async function runOperatorCommands<TCommand extends WritableCommand, TSaf
 	}
 }
 
-export async function runCommands<TCommand extends WritableCommand, TSafe>(
+export async function runCommands<TCommand extends WritableCommand, TRow>(
 	context: CommandContext,
-	config: RunCommandsConfig<TCommand, TSafe>,
+	config: RunCommandsConfig<TCommand, TRow>,
 	commands: readonly TCommand[],
 	createdStatus?: 201,
 ): Promise<Response> {

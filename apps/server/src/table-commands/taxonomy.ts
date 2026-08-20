@@ -29,7 +29,7 @@
  * `common_name`, `display_name`.
  */
 
-import { sql } from '@simmer-mosquito/db';
+import { type SelectedRow, sql } from '@simmer-mosquito/db';
 import {
 	createGenusCommand,
 	createSpeciesCommand,
@@ -55,64 +55,14 @@ const SPECIES_COLUMNS = [
 	'updated_at',
 ] as const;
 
-interface SafeGenusRow {
-	readonly id: string;
-	readonly abbreviation: string;
-	readonly name: string;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
+type GenusRow = SelectedRow<'genera', typeof GENUS_COLUMNS>;
 
-interface SafeSpeciesRow {
-	readonly id: string;
-	readonly genusId: string | null;
-	readonly epithet: string;
-	readonly commonName: string | null;
-	readonly displayName: string;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-function toGenus(row: {
-	readonly id: string;
-	readonly abbreviation: string;
-	readonly name: string;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeGenusRow {
-	return {
-		id: row.id,
-		abbreviation: row.abbreviation,
-		name: row.name,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
-
-function toSpecies(row: {
-	readonly id: string;
-	readonly genus_id: string | null;
-	readonly epithet: string;
-	readonly common_name: string | null;
-	readonly display_name: string;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeSpeciesRow {
-	return {
-		id: row.id,
-		genusId: row.genus_id,
-		epithet: row.epithet,
-		commonName: row.common_name,
-		displayName: row.display_name,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+type SpeciesRow = SelectedRow<'species', typeof SPECIES_COLUMNS>;
 
 async function writeGenusCommand(
 	trx: CommandTransaction,
 	command: FoundationCommand,
-): Promise<SafeGenusRow | null> {
+): Promise<GenusRow | null> {
 	switch (command.type) {
 		case 'foundation.createGenus': {
 			const row = await trx
@@ -124,7 +74,7 @@ async function writeGenusCommand(
 				})
 				.returning(GENUS_COLUMNS)
 				.executeTakeFirstOrThrow();
-			return toGenus(row);
+			return row;
 		}
 		case 'foundation.updateGenus': {
 			const changes = command.payload.changes;
@@ -138,7 +88,7 @@ async function writeGenusCommand(
 				.where('id', '=', command.payload.genusId)
 				.returning(GENUS_COLUMNS)
 				.executeTakeFirst();
-			return row === undefined ? null : toGenus(row);
+			return row ?? null;
 		}
 		// A hard delete, unlike every agency table: the taxonomy has no
 		// `deleted_at`, and the foreign keys refuse a genus that still has species.
@@ -157,7 +107,7 @@ async function writeGenusCommand(
 					},
 				},
 			);
-			return row === undefined ? null : toGenus(row);
+			return row ?? null;
 		}
 		default:
 			throw new Error(`Unsupported genus command: ${command.type}`);
@@ -167,7 +117,7 @@ async function writeGenusCommand(
 async function writeSpeciesCommand(
 	trx: CommandTransaction,
 	command: FoundationCommand,
-): Promise<SafeSpeciesRow | null> {
+): Promise<SpeciesRow | null> {
 	switch (command.type) {
 		case 'foundation.createSpecies': {
 			const row = await trx
@@ -181,7 +131,7 @@ async function writeSpeciesCommand(
 				})
 				.returning(SPECIES_COLUMNS)
 				.executeTakeFirstOrThrow();
-			return toSpecies(row);
+			return row;
 		}
 		case 'foundation.updateSpecies': {
 			const changes = command.payload.changes;
@@ -200,7 +150,7 @@ async function writeSpeciesCommand(
 				.where('id', '=', command.payload.speciesId)
 				.returning(SPECIES_COLUMNS)
 				.executeTakeFirst();
-			return row === undefined ? null : toSpecies(row);
+			return row ?? null;
 		}
 		case 'foundation.deleteSpecies': {
 			const row = await refusableWrite(
@@ -218,7 +168,7 @@ async function writeSpeciesCommand(
 					},
 				},
 			);
-			return row === undefined ? null : toSpecies(row);
+			return row ?? null;
 		}
 		default:
 			throw new Error(`Unsupported species command: ${command.type}`);
@@ -227,7 +177,7 @@ async function writeSpeciesCommand(
 
 export function genusTableCommands(
 	db: CommandDb,
-): OperatorTableCommands<FoundationCommand, SafeGenusRow> {
+): OperatorTableCommands<FoundationCommand, GenusRow> {
 	return {
 		table: 'genera',
 		actor: 'operator',
@@ -259,7 +209,7 @@ export function genusTableCommands(
 
 export function speciesTableCommands(
 	db: CommandDb,
-): OperatorTableCommands<FoundationCommand, SafeSpeciesRow> {
+): OperatorTableCommands<FoundationCommand, SpeciesRow> {
 	return {
 		table: 'species',
 		actor: 'operator',

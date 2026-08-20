@@ -41,9 +41,8 @@ import {
 	loadStationSummaries,
 	loadSummary,
 	localDateColumn,
-	type SafeWeatherSummary,
 	type SummaryMetrics,
-	toSafeWeatherSummary,
+	type WeatherSummaryRow,
 	type WeatherTransaction,
 	weatherSummaryReturnColumns,
 } from './shared.js';
@@ -70,7 +69,7 @@ const DUPLICATE_BUCKET = {
 export async function writeWeatherSummaryCommand(
 	trx: WeatherTransaction,
 	command: WeatherCommand,
-): Promise<SafeWeatherSummary | null> {
+): Promise<WeatherSummaryRow | null> {
 	switch (command.type) {
 		case 'weather.createWeatherSummary':
 			return createSummary(trx, command.payload);
@@ -99,7 +98,7 @@ type DeletePayload = Extract<
 async function createSummary(
 	trx: WeatherTransaction,
 	payload: CreatePayload,
-): Promise<SafeWeatherSummary | null> {
+): Promise<WeatherSummaryRow | null> {
 	const station = await loadStation(trx, payload.weatherStationId, payload.organizationId);
 	if (station === undefined) {
 		return null;
@@ -141,13 +140,13 @@ async function createSummary(
 				.executeTakeFirstOrThrow(),
 		{ duplicate: DUPLICATE_BUCKET },
 	);
-	return toSafeWeatherSummary(row);
+	return row;
 }
 
 async function updateSummary(
 	trx: WeatherTransaction,
 	payload: UpdatePayload,
-): Promise<SafeWeatherSummary | null> {
+): Promise<WeatherSummaryRow | null> {
 	const summary = await loadSummary(trx, payload.weatherSummaryId, payload.organizationId);
 	if (summary === undefined) {
 		return null;
@@ -203,13 +202,13 @@ async function updateSummary(
 				.executeTakeFirst(),
 		{ duplicate: DUPLICATE_BUCKET },
 	);
-	return row === undefined ? null : toSafeWeatherSummary(row);
+	return row ?? null;
 }
 
 async function deleteSummary(
 	trx: WeatherTransaction,
 	payload: DeletePayload,
-): Promise<SafeWeatherSummary | null> {
+): Promise<WeatherSummaryRow | null> {
 	const summary = await loadSummary(trx, payload.weatherSummaryId, payload.organizationId);
 	// Not idempotent, by the domain's rule: a second delete finds nothing and
 	// answers 404 rather than pretending to have removed a row again.
@@ -222,7 +221,7 @@ async function deleteSummary(
 		.where('id', '=', summary.id)
 		.returning(weatherSummaryReturnColumns)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeWeatherSummary(row);
+	return row ?? null;
 }
 
 /** The readings a patch produces, stored values standing in for absent keys. */

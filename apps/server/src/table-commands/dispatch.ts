@@ -105,12 +105,12 @@ export type IntentMap<TCommand> = Readonly<
 	Partial<Record<AgencyCommandType, IntentBuilder<TCommand>>>
 >;
 
-export interface TableCommands<TCommand extends WritableCommand, TSafe> {
+export interface TableCommands<TCommand extends WritableCommand, TRow> {
 	/** The Postgres table. Names the routes, and is what the client's collection id is. */
 	readonly table: string;
 	/** Omitted means `'agency'`, which is every table but the global catalogs. */
 	readonly actor?: 'agency';
-	readonly run: RunCommandsConfig<TCommand, TSafe>;
+	readonly run: RunCommandsConfig<TCommand, TRow>;
 	readonly intents: IntentMap<TCommand>;
 }
 
@@ -130,18 +130,18 @@ export interface OperatorIntentRequest {
 	readonly id: string;
 }
 
-export interface OperatorTableCommands<TCommand extends WritableCommand, TSafe> {
+export interface OperatorTableCommands<TCommand extends WritableCommand, TRow> {
 	readonly table: string;
 	readonly actor: 'operator';
-	readonly run: RunCommandsConfig<TCommand, TSafe>;
+	readonly run: RunCommandsConfig<TCommand, TRow>;
 	readonly intents: Readonly<
 		Partial<Record<AgencyCommandType, (request: OperatorIntentRequest) => TCommand>>
 	>;
 }
 
-export type AnyTableCommands<TCommand extends WritableCommand, TSafe> =
-	| TableCommands<TCommand, TSafe>
-	| OperatorTableCommands<TCommand, TSafe>;
+export type AnyTableCommands<TCommand extends WritableCommand, TRow> =
+	| TableCommands<TCommand, TRow>
+	| OperatorTableCommands<TCommand, TRow>;
 
 /** The names a request said it meant, or why the list could not be read. */
 type IntentsResult =
@@ -194,8 +194,8 @@ function withoutIntents(payload: Record<string, unknown>): Record<string, unknow
  * `createdStatus` is 201 on the POST and absent elsewhere, matching what the
  * existing endpoints answer.
  */
-function tableCommandHandler<TCommand extends WritableCommand, TSafe>(
-	spec: TableCommands<TCommand, TSafe>,
+function tableCommandHandler<TCommand extends WritableCommand, TRow>(
+	spec: TableCommands<TCommand, TRow>,
 	idFrom: (context: CommandContext, payload: Record<string, unknown>) => string,
 	createdStatus?: 201,
 ): (context: CommandContext) => Promise<Response> {
@@ -275,10 +275,10 @@ function assertOperatorScoped(spec: {
 	}
 }
 
-function registerOperatorRoutes<TCommand extends WritableCommand, TSafe>(
+function registerOperatorRoutes<TCommand extends WritableCommand, TRow>(
 	app: Hono<{ Variables: AuthVariables }>,
 	operatorAuthContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>,
-	spec: OperatorTableCommands<TCommand, TSafe>,
+	spec: OperatorTableCommands<TCommand, TRow>,
 ): void {
 	assertOperatorScoped(spec);
 	const path = commandPathFor(spec.table);
@@ -358,13 +358,13 @@ function registerOperatorRoutes<TCommand extends WritableCommand, TSafe>(
 	);
 }
 
-export function registerTableCommandRoutes<TCommand extends WritableCommand, TSafe>(
+export function registerTableCommandRoutes<TCommand extends WritableCommand, TRow>(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: {
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 		readonly operatorAuthContextMiddleware?: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
-	spec: AnyTableCommands<TCommand, TSafe>,
+	spec: AnyTableCommands<TCommand, TRow>,
 ): void {
 	if (spec.actor === 'operator') {
 		if (options.operatorAuthContextMiddleware === undefined) {

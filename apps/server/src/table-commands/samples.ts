@@ -34,13 +34,13 @@ import {
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { writeSampleCommand } from '../larval-surveillance-commands/samples.js';
-import type { SafeSample } from '../larval-surveillance-commands/shared.js';
+import type { SampleRow } from '../larval-surveillance-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
 export function sampleTableCommands(
 	db: CommandDb,
-): TableCommands<LarvalSurveillanceCommand, SafeSample> {
+): TableCommands<LarvalSurveillanceCommand, SampleRow> {
 	return {
 		table: 'samples',
 		run: { db, write: writeSampleCommand, notFound: 'sample_not_found', key: 'sample' },

@@ -17,11 +17,13 @@ export type {
 export * from './control-operations/index.js';
 export * from './field-work/index.js';
 export * from './foundation/index.js';
+export * from './identity/index.js';
 export * from './larval-surveillance/index.js';
 export * from './location-intent.js';
 export * from './mission-dispatch/index.js';
 export * from './organization-settings/index.js';
 export * from './profile-activity.js';
 export * from './public-engagement/index.js';
+export * from './roles.js';
 export * from './shared.js';
 export * from './weather/index.js';

@@ -16,10 +16,9 @@ import {
 	type RouteOptions,
 	readTarget,
 	runCommands,
-	type SafeTagItem,
 	softDelete,
+	type TagItemRow,
 	tagItemReturnColumns,
-	toSafeTagItem,
 } from './shared.js';
 
 // ===========================================================================
@@ -74,7 +73,7 @@ async function runTagItemCommands(
 export async function writeTagItemCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeTagItem | null> {
+): Promise<TagItemRow | null> {
 	switch (command.type) {
 		case 'fieldWork.assignTag': {
 			const row = await trx
@@ -90,7 +89,7 @@ export async function writeTagItemCommand(
 				})
 				.returning(tagItemReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeTagItem(row);
+			return row;
 		}
 		case 'fieldWork.unassignTag':
 			return softDelete(
@@ -100,7 +99,6 @@ export async function writeTagItemCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				tagItemReturnColumns,
-				toSafeTagItem,
 			);
 		default:
 			throw new Error(`Unsupported tag item command: ${command.type}`);

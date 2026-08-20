@@ -11,6 +11,7 @@ import { readNullableText, readNumber, readText } from '../command-payload.js';
 import {
 	type AdultSurveillanceDb,
 	type AdultSurveillanceTransaction,
+	type CollectionSpeciesRow,
 	type CommandContext,
 	collectionSpeciesReturnColumns,
 	commandEndpoint,
@@ -18,8 +19,6 @@ import {
 	readSpeciesSex,
 	readSpeciesStatus,
 	runCommands,
-	type SafeCollectionSpecies,
-	toSafeCollectionSpecies,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -114,7 +113,7 @@ async function runCollectionSpeciesCommands(
 export async function writeCollectionSpeciesCommand(
 	trx: AdultSurveillanceTransaction,
 	command: AdultSurveillanceCommand,
-): Promise<SafeCollectionSpecies | null> {
+): Promise<CollectionSpeciesRow | null> {
 	switch (command.type) {
 		case 'adultSurveillance.addCollectionSpeciesCount': {
 			const row = await trx
@@ -134,7 +133,7 @@ export async function writeCollectionSpeciesCommand(
 				})
 				.returning(collectionSpeciesReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeCollectionSpecies(row);
+			return row;
 		}
 		case 'adultSurveillance.updateCollectionSpeciesCount': {
 			const changes = command.payload.changes;
@@ -159,7 +158,7 @@ export async function writeCollectionSpeciesCommand(
 				.where('deleted_at', 'is', null)
 				.returning(collectionSpeciesReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeCollectionSpecies(row);
+			return row ?? null;
 		}
 		case 'adultSurveillance.deleteCollectionSpeciesCount': {
 			const row = await trx
@@ -175,7 +174,7 @@ export async function writeCollectionSpeciesCommand(
 				.where('deleted_at', 'is', null)
 				.returning(collectionSpeciesReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeCollectionSpecies(row);
+			return row ?? null;
 		}
 		default:
 			throw new Error(`Unsupported collection species command: ${command.type}`);

@@ -20,7 +20,6 @@ import { registerGeocoderRoutes } from '../../geocoder.js';
 import { registerLarvalSurveillanceCommandRoutes } from '../../larval-surveillance-commands/index.js';
 import { registerMapTileRoutes } from '../../map-tiles.js';
 import { registerMissionDispatchCommandRoutes } from '../../mission-dispatch-commands/index.js';
-import { registerOrganizationCommandRoutes } from '../../organization-commands.js';
 import { registerOrganizationSettingsCommandRoutes } from '../../organization-settings-commands.js';
 import { registerProfileCommandRoutes } from '../../profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from '../../public-engagement-commands.js';
@@ -184,7 +183,6 @@ function registeredRoutes(): [string, string][] {
 		finalizeSession: (async () => ({ organizationRequired: false })) as never,
 	});
 	registerProfileCommandRoutes(app, { db, auth: {} as never, authContextMiddleware });
-	registerOrganizationCommandRoutes(app, { db, authContextMiddleware });
 	registerOrganizationSettingsCommandRoutes(app, { db, authContextMiddleware });
 	// The `/commands/{table}` surface. Registered here from the day it existed
 	// would have caught its own omission: it had no CORS prefix at all, which is

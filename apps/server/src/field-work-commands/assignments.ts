@@ -24,6 +24,7 @@ import {
 	checkStartAssignment,
 } from './assignment-lifecycle.js';
 import {
+	type AssignmentRow,
 	agencyCommandContext,
 	applyPlacement,
 	assignmentPlacementRef,
@@ -44,9 +45,7 @@ import {
 	readStringArray,
 	reindexItems,
 	runCommands,
-	type SafeAssignment,
 	softDelete,
-	toSafeAssignment,
 	updateRow,
 } from './shared.js';
 
@@ -239,7 +238,7 @@ async function runAssignmentCommands(
 export async function writeAssignmentCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeAssignment | null> {
+): Promise<AssignmentRow | null> {
 	switch (command.type) {
 		case 'fieldWork.createAssignment':
 			return insertAssignment(trx, command.payload);
@@ -294,7 +293,6 @@ export async function writeAssignmentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentReturnColumns,
-				toSafeAssignment,
 			);
 		}
 		case 'fieldWork.startAssignment':
@@ -315,7 +313,6 @@ export async function writeAssignmentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentReturnColumns,
-				toSafeAssignment,
 			);
 		case 'fieldWork.completeAssignment':
 			await assertAssignmentTransition(
@@ -335,7 +332,6 @@ export async function writeAssignmentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentReturnColumns,
-				toSafeAssignment,
 			);
 		case 'fieldWork.cancelAssignment':
 			return updateRow(
@@ -350,7 +346,6 @@ export async function writeAssignmentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentReturnColumns,
-				toSafeAssignment,
 			);
 		case 'fieldWork.reopenAssignment':
 			await assertAssignmentTransition(
@@ -375,7 +370,6 @@ export async function writeAssignmentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentReturnColumns,
-				toSafeAssignment,
 			);
 		case 'fieldWork.deleteAssignment':
 			await applyRecordDeletion(trx, {
@@ -391,7 +385,6 @@ export async function writeAssignmentCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				assignmentReturnColumns,
-				toSafeAssignment,
 			);
 		case 'fieldWork.moveAssignmentItems': {
 			await reindexItems(
@@ -427,7 +420,7 @@ async function insertAssignment(
 		readonly dueAt: Date | null;
 		readonly actorProfileId: string;
 	},
-): Promise<SafeAssignment> {
+): Promise<AssignmentRow> {
 	const row = await trx
 		.insertInto('assignments')
 		.values({
@@ -443,7 +436,7 @@ async function insertAssignment(
 		})
 		.returning(assignmentReturnColumns)
 		.executeTakeFirstOrThrow();
-	return toSafeAssignment(row);
+	return row;
 }
 
 async function copyRouteItemsToAssignment(
@@ -491,7 +484,7 @@ async function loadAssignment(
 	trx: FieldWorkTransaction,
 	assignmentId: string,
 	organizationId: string,
-): Promise<SafeAssignment | null> {
+): Promise<AssignmentRow | null> {
 	const row = await trx
 		.selectFrom('assignments')
 		.select(assignmentReturnColumns)
@@ -499,5 +492,5 @@ async function loadAssignment(
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeAssignment(row);
+	return row ?? null;
 }

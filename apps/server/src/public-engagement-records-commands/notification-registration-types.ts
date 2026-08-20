@@ -12,12 +12,11 @@ import {
 	insertRegistrationType,
 	type PublicEngagementDb,
 	type PublicEngagementTransaction,
+	type RegistrationTypeRow,
 	type RouteOptions,
 	registrationTypeReturnColumns,
 	runCommands,
-	type SafeRegistrationType,
 	softDelete,
-	toSafeRegistrationType,
 } from './shared.js';
 
 // ===========================================================================
@@ -80,7 +79,7 @@ async function runRegistrationTypeCommands(
 export async function writeRegistrationTypeCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
-): Promise<SafeRegistrationType | null> {
+): Promise<RegistrationTypeRow | null> {
 	switch (command.type) {
 		case 'publicEngagement.subscribeNotificationRegistrationType':
 			return insertRegistrationType(
@@ -99,7 +98,6 @@ export async function writeRegistrationTypeCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				registrationTypeReturnColumns,
-				toSafeRegistrationType,
 			);
 		default:
 			throw new Error(`Unsupported registration type command: ${command.type}`);

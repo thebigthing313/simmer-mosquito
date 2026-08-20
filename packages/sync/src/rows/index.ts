@@ -13,12 +13,16 @@
  *
  * ## They also exist in `packages/domain`, and that is the next step
  *
- * `LarvalDensity`, `UnitType` and `SimmerRole` are domain vocabulary, and the
- * domain declares them too. Two declarations of one value set can disagree, and
- * the one that loses is this one — it is the copy nothing validates against. The
- * cleanup is to repoint the consumers at the canonical home and delete this
- * file, which is a change to about fifteen imports across three apps and is
- * deliberately not bundled with the sync-seam work.
+ * `LarvalDensity` and `UnitType` are domain vocabulary, and the domain declares
+ * them too. Two declarations of one value set can disagree, and the one that
+ * loses is this one, the copy nothing validates against. The cleanup is
+ * to repoint the consumers at the canonical home and delete this file, which is
+ * a change to about fifteen imports across three apps.
+ *
+ * `SimmerRole` is already done: ADR 0013 moved it to `packages/domain` and this
+ * file's copy went with it. It cannot come back here, because `packages/sync`
+ * must not depend on `packages/domain`. A transport that knew the domain
+ * vocabulary would be a second place the domain is described.
  */
 
 export type UnitType =
@@ -34,7 +38,6 @@ export type UnitType =
 export type UnitSystem = 'si' | 'imperial' | 'us_customary';
 
 export type MembershipStatus = 'active' | 'inactive' | 'invited';
-export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 
 export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
 

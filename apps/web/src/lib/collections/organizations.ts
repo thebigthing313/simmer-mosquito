@@ -14,15 +14,12 @@ import { getServerUrl } from '../../auth';
  * `eager`: The agency's own record. One row, and the shell reads it before anything
  * else can draw.
  *
- * `mutations: false`, and it is not a claim that this app does not write it. The
- * agency's own record is written by eight named routes: the seven
- * `organizationSettings.*` commands, whose settings are a JSON document rather
- * than columns — which of the seven a write means cannot be read off a column
- * diff — and the agency's details, which is an identity write until ADR 0013
- * folds it in. Declaring no handlers is what makes a stray
- * `organizations.update(...)` a refusal rather than a request to an endpoint that
- * is not there; `hooks/mutations/organization-writes.ts` opens the transaction
- * that is the only way in.
+ * `mutations: true` since ADR 0013's first slice, and that covers exactly one of
+ * the eight things a Profile can change about the agency: its details, which are
+ * columns and travel as `identity.updateOrganizationDetails`. The other seven are
+ * `organizationSettings.*` commands writing a JSON document, so which of the
+ * seven a write means cannot be read off a column diff and each keeps its own
+ * route. `hooks/mutations/organization-writes.ts` is what carries those.
  *
  * The type is written here rather than inferred because a `Collection<…>`
  * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
@@ -32,7 +29,7 @@ export const organizations: Collection<Organization, string | number> =
 	createOrganizationsCollection({
 		serverUrl: getServerUrl(),
 		syncMode: 'eager',
-		mutations: false,
+		mutations: true,
 	});
 
 /**

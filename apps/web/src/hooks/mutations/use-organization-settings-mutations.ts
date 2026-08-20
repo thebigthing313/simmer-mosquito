@@ -2,10 +2,11 @@
  * Configuring the agency.
  *
  * Eight operations, each naming exactly one thing a Profile can change about the
- * agency: the seven `organizationSettings.*` commands, and the agency's details,
- * which is an identity write rather than a command. One call is one route, and
- * the route is the command — see `organization-writes.ts` for why these do not
- * travel through `mutateCollection` like every other table's writes.
+ * agency: the seven `organizationSettings.*` commands, and the agency's details.
+ * The details are columns, so since ADR 0013's first slice they are
+ * `identity.updateOrganizationDetails` through `mutateCollection` like every
+ * other table's writes. The seven are a JSON document and keep their own routes
+ * See `organization-writes.ts` for why.
  *
  * What each operation sends is only its own sub-document. The server merges it
  * into the stored settings, so an admin editing the larval density bands no
@@ -16,10 +17,10 @@
  *
  * The details sheet edits the name, the contact, the mailing address — and the
  * timezone, which is not a column but a setting. So `saveAgencyDetails` sends the
- * details to the identity route and the timezone to its command route, each only
- * if it changed, and hands the `updated_at` the first produced to the second.
- * Without that handoff the second write conflicts with the write the same click
- * just made.
+ * details as a command and the timezone to its settings route, each only if it
+ * changed, and hands the `updated_at` the first produced to the second. Without
+ * that handoff the second write conflicts with the write the same click just
+ * made.
  */
 
 import type {
@@ -32,11 +33,13 @@ import type {
 } from '@simmer-mosquito/domain';
 import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
+import { CommandError, settleWrite } from '@simmer-mosquito/sync';
 import { useLiveQuery } from '@tanstack/react-db';
 import { useCallback, useRef } from 'react';
 import { getServerUrl } from '../../auth';
+import { mutateCollection } from '../../lib/collections/mutate';
 import { organizations } from '../../lib/collections/organizations';
-import { writeOrganization } from './organization-writes';
+import { OrganizationConflictError, writeOrganization } from './organization-writes';
 
 /** The agency's details, as its sheet holds them. The timezone is a setting; the rest are columns. */
 export interface AgencyDetailsFields {
@@ -81,7 +84,7 @@ type SettingsRoute =
 	| 'service-request-context'
 	| 'species-key-bindings';
 
-/** The columns `PATCH /organization/current` writes. */
+/** The columns `identity.updateOrganizationDetails` writes. */
 export interface AgencyDetailsColumns {
 	readonly name: string;
 	readonly mainContactEmail: string | null;
@@ -216,27 +219,44 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 
 			if (plan.details !== null) {
 				const details = plan.details;
-				const committed = await writeOrganization({
-					url: `${getServerUrl()}/organization/current`,
-					body: { ...details, expectedUpdatedAt: expectedUpdatedAt() },
-					apply: () => {
-						organizations.update(organizationId, (draft) => {
-							draft.name = details.name;
-							draft.main_contact_email = details.mainContactEmail;
-							draft.phone_number = details.phoneNumber;
-							draft.mailing_country = details.mailingCountry;
-							draft.mailing_address_line_1 = details.mailingAddressLine1;
-							draft.mailing_address_line_2 = details.mailingAddressLine2;
-							draft.mailing_locality = details.mailingLocality;
-							draft.mailing_region = details.mailingRegion;
-							draft.mailing_postal_code = details.mailingPostalCode;
-						});
-					},
-				});
-
-				if (committed !== null) {
-					lastCommittedAt.current = committed.updatedAt;
+				try {
+					await settleWrite(
+						mutateCollection(organizations, {
+							operation: 'update',
+							intent: 'identity.updateOrganizationDetails',
+							key: organizationId,
+							// All nine, and the library sends only the ones that differ.
+							// `agencyDetailsPlan` decided whether to write at all; the diff
+							// decides what the body says.
+							changes: {
+								name: details.name,
+								main_contact_email: details.mainContactEmail,
+								phone_number: details.phoneNumber,
+								mailing_country: details.mailingCountry,
+								mailing_address_line_1: details.mailingAddressLine1,
+								mailing_address_line_2: details.mailingAddressLine2,
+								mailing_locality: details.mailingLocality,
+								mailing_region: details.mailingRegion,
+								mailing_postal_code: details.mailingPostalCode,
+							},
+							arguments: { expectedUpdatedAt: expectedUpdatedAt() },
+						}),
+					);
+				} catch (error) {
+					// The settings routes raise `OrganizationConflictError` themselves,
+					// inside `organizationRefusalFor`. The command path has no such hook
+					// and every refusal arrives as a `CommandError`, so the one refusal
+					// worth naming is recognized here by the error the server sent.
+					throw error instanceof CommandError && error.body.error === 'organization_conflict'
+						? new OrganizationConflictError()
+						: error;
 				}
+
+				// The stamp the timezone write has to state, read back off the row the
+				// command just streamed in rather than off the closure's copy, which is
+				// the render's and predates the write.
+				lastCommittedAt.current =
+					organizations.get(organizationId)?.updated_at?.toISOString() ?? null;
 			}
 
 			// Second, and only if it moved: `expectedUpdatedAt` now reads the stamp

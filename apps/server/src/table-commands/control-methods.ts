@@ -60,7 +60,6 @@ import type { AgencyCommandType } from '../command-permissions.js';
 import type { CommandDb } from '../command-write.js';
 import {
 	type ControlMethodCommand,
-	toControlMethodResponse,
 	writeControlMethodCommand,
 } from '../control-method-commands.js';
 import type { IntentBuilder, IntentMap, TableCommands } from './dispatch.js';
@@ -105,7 +104,7 @@ interface MethodIntents {
 	readonly remove: AgencyCommandType;
 }
 
-type MethodResponse = ReturnType<typeof toControlMethodResponse>;
+type MethodResponse = Awaited<ReturnType<typeof writeControlMethodCommand>>;
 
 function methodTableCommands(
 	db: CommandDb,
@@ -150,8 +149,7 @@ function methodTableCommands(
 		table,
 		run: {
 			db,
-			write: async (trx, command) =>
-				toControlMethodResponse(await writeControlMethodCommand(trx, command)),
+			write: async (trx, command) => await writeControlMethodCommand(trx, command),
 			notFound: 'control_method_not_found',
 			key: 'method',
 		},

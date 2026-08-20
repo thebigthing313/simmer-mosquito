@@ -19,16 +19,16 @@ import type {
 	DensityRangeFormValues,
 	DensityRangeKey,
 	LarvalDensityDisplayKey,
-	OrgRole,
 	PublicSettingsFormValues,
 	SelectOption,
 	SelectSettingField,
 	SettingField,
+	SimmerRole,
 	TextSettingField,
 	UnitDefaultsFormValues,
 } from './types';
 
-export function formatRole(role: OrgRole): string {
+export function formatRole(role: SimmerRole): string {
 	return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
@@ -457,7 +457,7 @@ export function collectionTimingModeFromFields(
 		: 'exact_timestamps';
 }
 
-export function readRole(auth: AuthMe | null): OrgRole {
+export function readRole(auth: AuthMe | null): SimmerRole {
 	if (auth?.authenticated !== true) {
 		return 'viewer';
 	}

@@ -32,7 +32,7 @@ import {
 	errorMessageForSave,
 	formatMode,
 } from '../helpers';
-import type { OrgRole, SettingField, SetupCatalog, SwitchSettingField } from '../types';
+import type { SettingField, SetupCatalog, SimmerRole, SwitchSettingField } from '../types';
 import { OrgSection } from './org-section';
 import { SectionHeader } from './section-header';
 
@@ -421,7 +421,7 @@ export function PermissionPill({
 	role,
 }: {
 	readonly canManage: boolean;
-	readonly role: OrgRole;
+	readonly role: SimmerRole;
 }) {
 	return (
 		<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">

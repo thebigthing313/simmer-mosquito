@@ -35,7 +35,10 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { type AuthMe, getServerUrl } from '../../../auth';
-import { useProfileMutations } from '../../../hooks/mutations/use-profile-mutations';
+import {
+	profileSavePlan,
+	useProfileMutations,
+} from '../../../hooks/mutations/use-profile-mutations';
 import {
 	type PersonListing,
 	usePeopleDirectory,
@@ -51,7 +54,7 @@ import { errorMessageForSave, formatRole, requiredTextValue, watchWrite } from '
 import { OrgSurface } from './layout/layout';
 import { OrgSection } from './layout/org-section';
 import { SectionHeader } from './layout/section-header';
-import type { OrgRole } from './types';
+import type { SimmerRole } from './types';
 
 export function PeopleSection({
 	auth,
@@ -60,7 +63,7 @@ export function PeopleSection({
 }: {
 	readonly auth: AuthMe | null;
 	readonly canManage: boolean;
-	readonly role: OrgRole;
+	readonly role: SimmerRole;
 }) {
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
@@ -367,7 +370,7 @@ function InviteProfileSheet({
 	const roleOptions = grantableRoles(auth);
 	const [displayName, setDisplayName] = useState('');
 	const [email, setEmail] = useState('');
-	const [role, setRole] = useState<OrgRole>('viewer');
+	const [role, setRole] = useState<SimmerRole>('viewer');
 	const [profileId, setProfileId] = useState('new');
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
@@ -449,7 +452,7 @@ function InviteProfileSheet({
 						</Field>
 						<Field className="gap-1">
 							<FieldLabel>Role</FieldLabel>
-							<Select value={role} onValueChange={(value) => setRole(value as OrgRole)}>
+							<Select value={role} onValueChange={(value) => setRole(value as SimmerRole)}>
 								<SelectTrigger size="sm" className="w-full">
 									<SelectValue />
 								</SelectTrigger>
@@ -497,7 +500,7 @@ function EditProfileSheet({
 	const [open, setOpen] = useState(false);
 	const [displayName, setDisplayName] = useState(person.displayName);
 	const [isActive, setIsActive] = useState(person.isActive);
-	const [role, setRole] = useState<OrgRole>(person.role ?? 'viewer');
+	const [role, setRole] = useState<SimmerRole>(person.role ?? 'viewer');
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 
@@ -518,17 +521,19 @@ function EditProfileSheet({
 		setIsSaving(true);
 		try {
 			const nextDisplayName = requiredTextValue(displayName, 'Display name');
+			const plan = profileSavePlan({ displayName: nextDisplayName, isActive, role }, person);
 			// The role first, and only if it moved: it is a different route with a
 			// different floor (owner, not admin), and a refusal there must not leave
 			// the profile half saved and the sheet closed.
-			if (person.membershipId != null && role !== person.role) {
-				await updateOrganizationMembershipRole(getServerUrl(), person.membershipId, role);
+			if (plan.roleChange !== null && person.membershipId != null) {
+				await updateOrganizationMembershipRole(
+					getServerUrl(),
+					person.membershipId,
+					plan.roleChange,
+				);
 			}
 			updateOpen(false);
-			watchWrite(
-				save(person.profileId, { displayName: nextDisplayName, isActive }),
-				'Unable to save profile.',
-			);
+			watchWrite(save(person.profileId, plan.changes), 'Unable to save profile.');
 		} catch (saveError) {
 			setError(errorMessageForSave(saveError));
 		} finally {
@@ -602,8 +607,8 @@ function RoleField({
 	value,
 }: {
 	readonly editable: boolean;
-	readonly onChange: (role: OrgRole) => void;
-	readonly value: OrgRole;
+	readonly onChange: (role: SimmerRole) => void;
+	readonly value: SimmerRole;
 }) {
 	if (!editable) {
 		return null;
@@ -612,7 +617,7 @@ function RoleField({
 	return (
 		<Field className="gap-1">
 			<FieldLabel>Role</FieldLabel>
-			<Select value={value} onValueChange={(next) => onChange(next as OrgRole)}>
+			<Select value={value} onValueChange={(next) => onChange(next as SimmerRole)}>
 				<SelectTrigger size="sm" className="w-full">
 					<SelectValue />
 				</SelectTrigger>

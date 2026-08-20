@@ -26,7 +26,7 @@
  * agency. Every insert below sets it.
  */
 
-import { localDateColumn, sql } from '@simmer-mosquito/db';
+import { localDateColumn, type SelectedRow, sql } from '@simmer-mosquito/db';
 import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { CommandError } from '../command-endpoint.js';
@@ -68,61 +68,7 @@ export const weatherStationReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeWeatherStation {
-	readonly id: string;
-	readonly organizationId: string | null;
-	readonly lat: number;
-	readonly lng: number;
-	readonly geomType: string;
-	readonly sourceType: 'organization' | 'nws';
-	readonly stationName: string;
-	readonly stationCode: string | null;
-	readonly providerSourceId: string | null;
-	readonly isActive: boolean;
-	readonly metadata: unknown | null;
-	readonly createdByProfileId: string | null;
-	readonly updatedByProfileId: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeWeatherStation(row: {
-	readonly id: string;
-	readonly organization_id: string | null;
-	readonly lat: number;
-	readonly lng: number;
-	readonly geom_type: string;
-	readonly source_type: 'organization' | 'nws';
-	readonly source_name: string;
-	readonly source_code: string | null;
-	readonly provider_source_id: string | null;
-	readonly is_active: boolean;
-	readonly metadata: unknown | null;
-	readonly created_by_profile_id: string | null;
-	readonly updated_by_profile_id: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeWeatherStation {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		lat: row.lat,
-		lng: row.lng,
-		geomType: row.geom_type,
-		sourceType: row.source_type,
-		// The domain says "weather station" and the table says `weather_sources`;
-		// `docs/weather-domain.md` names that gap and keeps the domain's word.
-		stationName: row.source_name,
-		stationCode: row.source_code,
-		providerSourceId: row.provider_source_id,
-		isActive: row.is_active,
-		metadata: row.metadata,
-		createdByProfileId: row.created_by_profile_id,
-		updatedByProfileId: row.updated_by_profile_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type WeatherStationRow = SelectedRow<'weather_sources', typeof weatherStationReturnColumns>;
 
 export const weatherSummaryReturnColumns = [
 	'id',
@@ -143,62 +89,10 @@ export const weatherSummaryReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeWeatherSummary {
-	readonly id: string;
-	readonly organizationId: string | null;
-	readonly weatherStationId: string;
-	readonly startDate: Date;
-	readonly endDate: Date;
-	readonly temperatureMinF: number | null;
-	readonly temperatureMaxF: number | null;
-	readonly precipitationInches: number | null;
-	readonly relativeHumidityMin: number | null;
-	readonly relativeHumidityMax: number | null;
-	readonly windSpeedMinMph: number | null;
-	readonly windSpeedMaxMph: number | null;
-	readonly createdByProfileId: string | null;
-	readonly updatedByProfileId: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeWeatherSummary(row: {
-	readonly id: string;
-	readonly organization_id: string | null;
-	readonly weather_source_id: string;
-	readonly start_date: Date;
-	readonly end_date: Date;
-	readonly temperature_min_f: number | null;
-	readonly temperature_max_f: number | null;
-	readonly precipitation_inches: number | null;
-	readonly relative_humidity_min: number | null;
-	readonly relative_humidity_max: number | null;
-	readonly wind_speed_min_mph: number | null;
-	readonly wind_speed_max_mph: number | null;
-	readonly created_by_profile_id: string | null;
-	readonly updated_by_profile_id: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeWeatherSummary {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		weatherStationId: row.weather_source_id,
-		startDate: row.start_date,
-		endDate: row.end_date,
-		temperatureMinF: row.temperature_min_f,
-		temperatureMaxF: row.temperature_max_f,
-		precipitationInches: row.precipitation_inches,
-		relativeHumidityMin: row.relative_humidity_min,
-		relativeHumidityMax: row.relative_humidity_max,
-		windSpeedMinMph: row.wind_speed_min_mph,
-		windSpeedMaxMph: row.wind_speed_max_mph,
-		createdByProfileId: row.created_by_profile_id,
-		updatedByProfileId: row.updated_by_profile_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type WeatherSummaryRow = SelectedRow<
+	'weather_summaries',
+	typeof weatherSummaryReturnColumns
+>;
 
 // ===========================================================================
 // Scoped reads

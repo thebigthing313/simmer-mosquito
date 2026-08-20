@@ -1,3 +1,4 @@
+import type { SelectedRow } from '@simmer-mosquito/db';
 /**
  * The `units` table, as commands — the third operator table.
  *
@@ -54,35 +55,7 @@ const UNIT_COLUMNS = [
 	'created_at',
 ] as const;
 
-interface SafeUnitRow {
-	readonly id: string;
-	readonly code: string;
-	readonly unitName: string;
-	readonly abbreviation: string;
-	readonly unitType: string;
-	readonly unitSystem: string;
-	readonly createdAt: Date;
-}
-
-function toUnit(row: {
-	readonly id: string;
-	readonly code: string;
-	readonly unit_name: string;
-	readonly abbreviation: string;
-	readonly unit_type: string;
-	readonly unit_system: string;
-	readonly created_at: Date;
-}): SafeUnitRow {
-	return {
-		id: row.id,
-		code: row.code,
-		unitName: row.unit_name,
-		abbreviation: row.abbreviation,
-		unitType: row.unit_type,
-		unitSystem: row.unit_system,
-		createdAt: row.created_at,
-	};
-}
+type UnitRow = SelectedRow<'units', typeof UNIT_COLUMNS>;
 
 /** What a caller is told when one of the three unique indexes refuses. */
 const duplicate = {
@@ -93,7 +66,7 @@ const duplicate = {
 async function writeUnitCommand(
 	trx: CommandTransaction,
 	command: FoundationCommand,
-): Promise<SafeUnitRow | null> {
+): Promise<UnitRow | null> {
 	switch (command.type) {
 		case 'foundation.createUnit': {
 			const row = await refusableWrite(
@@ -112,7 +85,7 @@ async function writeUnitCommand(
 						.executeTakeFirstOrThrow(),
 				{ duplicate },
 			);
-			return toUnit(row);
+			return row;
 		}
 		case 'foundation.updateUnit': {
 			const changes = command.payload.changes;
@@ -132,7 +105,7 @@ async function writeUnitCommand(
 						.executeTakeFirst(),
 				{ duplicate },
 			);
-			return row === undefined ? null : toUnit(row);
+			return row ?? null;
 		}
 		// A hard delete, like the taxonomy: no `deleted_at`, and the foreign keys
 		// refuse a unit an agency still measures in or has set as a default.
@@ -151,7 +124,7 @@ async function writeUnitCommand(
 					},
 				},
 			);
-			return row === undefined ? null : toUnit(row);
+			return row ?? null;
 		}
 		default:
 			throw new Error(`Unsupported unit command: ${command.type}`);
@@ -160,7 +133,7 @@ async function writeUnitCommand(
 
 export function unitTableCommands(
 	db: CommandDb,
-): OperatorTableCommands<FoundationCommand, SafeUnitRow> {
+): OperatorTableCommands<FoundationCommand, UnitRow> {
 	return {
 		table: 'units',
 		actor: 'operator',

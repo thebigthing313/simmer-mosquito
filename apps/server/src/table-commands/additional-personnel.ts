@@ -26,13 +26,13 @@ import {
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { writeAdditionalPersonnelCommand } from '../field-work-commands/additional-personnel.js';
-import type { SafeAdditionalPersonnel } from '../field-work-commands/shared.js';
+import type { AdditionalPersonnelRow } from '../field-work-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 
 export function additionalPersonnelTableCommands(
 	db: CommandDb,
-): TableCommands<FieldWorkCommand, SafeAdditionalPersonnel> {
+): TableCommands<FieldWorkCommand, AdditionalPersonnelRow> {
 	return {
 		table: 'additional_personnel',
 		run: {

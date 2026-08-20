@@ -1,6 +1,6 @@
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import type React from 'react';
-import type { OrgRole } from '../types';
+import type { SimmerRole } from '../types';
 import { PermissionPill } from './layout';
 
 /**
@@ -15,7 +15,7 @@ export function OrganizationWorkspaceShell({
 }: {
 	readonly canManage: boolean;
 	readonly children: React.ReactNode;
-	readonly role: OrgRole;
+	readonly role: SimmerRole;
 }) {
 	return (
 		<div className={pageContainer({ gap: 'compact', padding: 'none' })}>

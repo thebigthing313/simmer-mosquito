@@ -62,7 +62,7 @@ import { isRecord, readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate, readStringArray } from '../command-write.js';
 import { writeAssignmentCommand } from '../field-work-commands/assignments.js';
-import type { SafeAssignment } from '../field-work-commands/shared.js';
+import type { AssignmentRow } from '../field-work-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
@@ -91,7 +91,7 @@ function assignmentItemSources(
 
 export function assignmentTableCommands(
 	db: CommandDb,
-): TableCommands<FieldWorkCommand, SafeAssignment> {
+): TableCommands<FieldWorkCommand, AssignmentRow> {
 	return {
 		table: 'assignments',
 		run: { db, write: writeAssignmentCommand, notFound: 'assignment_not_found', key: 'assignment' },

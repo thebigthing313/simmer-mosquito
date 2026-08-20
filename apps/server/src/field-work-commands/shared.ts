@@ -1,4 +1,4 @@
-import { localDateColumn, softDelete, sql, updateRow } from '@simmer-mosquito/db';
+import { localDateColumn, type SelectedRow, softDelete, sql, updateRow } from '@simmer-mosquito/db';
 import type {
 	AssignmentItemPlacement,
 	FieldWorkCommand,
@@ -168,38 +168,7 @@ export const commentReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeComment {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly entityType: string;
-	readonly entityId: string;
-	readonly commentText: string;
-	readonly isPinned: boolean;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeComment(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly entity_type: string;
-	readonly entity_id: string;
-	readonly comment_text: string;
-	readonly is_pinned: boolean;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeComment {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		entityType: row.entity_type,
-		entityId: row.entity_id,
-		commentText: row.comment_text,
-		isPinned: row.is_pinned,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type CommentRow = SelectedRow<'comments', typeof commentReturnColumns>;
 
 export const tagItemReturnColumns = [
 	'id',
@@ -211,35 +180,7 @@ export const tagItemReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeTagItem {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly tagId: string;
-	readonly entityType: string;
-	readonly entityId: string;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeTagItem(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly tag_id: string;
-	readonly entity_type: string;
-	readonly entity_id: string;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeTagItem {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		tagId: row.tag_id,
-		entityType: row.entity_type,
-		entityId: row.entity_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type TagItemRow = SelectedRow<'tag_items', typeof tagItemReturnColumns>;
 
 export const additionalPersonnelReturnColumns = [
 	'id',
@@ -251,35 +192,10 @@ export const additionalPersonnelReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeAdditionalPersonnel {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly personnelProfileId: string;
-	readonly entityType: string;
-	readonly entityId: string;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeAdditionalPersonnel(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly personnel_profile_id: string;
-	readonly entity_type: string;
-	readonly entity_id: string;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeAdditionalPersonnel {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		personnelProfileId: row.personnel_profile_id,
-		entityType: row.entity_type,
-		entityId: row.entity_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type AdditionalPersonnelRow = SelectedRow<
+	'additional_personnel',
+	typeof additionalPersonnelReturnColumns
+>;
 
 export const routeReturnColumns = [
 	'id',
@@ -290,32 +206,7 @@ export const routeReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeRoute {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly routeName: string;
-	readonly routeType: string;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeRoute(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly route_name: string;
-	readonly route_type: string;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeRoute {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		routeName: row.route_name,
-		routeType: row.route_type,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type RouteRow = SelectedRow<'routes', typeof routeReturnColumns>;
 
 export const routeItemReturnColumns = [
 	'id',
@@ -329,41 +220,7 @@ export const routeItemReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeRouteItem {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly routeId: string;
-	readonly entityType: string;
-	readonly entityId: string;
-	readonly position: number;
-	readonly directionsToNextItem: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeRouteItem(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly route_id: string;
-	readonly entity_type: string;
-	readonly entity_id: string;
-	readonly position: number;
-	readonly directions_to_next_item: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeRouteItem {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		routeId: row.route_id,
-		entityType: row.entity_type,
-		entityId: row.entity_id,
-		position: row.position,
-		directionsToNextItem: row.directions_to_next_item,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type RouteItemRow = SelectedRow<'route_items', typeof routeItemReturnColumns>;
 
 export const assignmentReturnColumns = [
 	'id',
@@ -378,41 +235,7 @@ export const assignmentReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeAssignment {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly assignmentName: string | null;
-	readonly assignedToProfileId: string | null;
-	readonly startedAt: Date | null;
-	readonly completedAt: Date | null;
-	readonly cancelledAt: Date | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeAssignment(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly assignment_name: string | null;
-	readonly assigned_to_profile_id: string | null;
-	readonly started_at: Date | null;
-	readonly completed_at: Date | null;
-	readonly cancelled_at: Date | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeAssignment {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		assignmentName: row.assignment_name,
-		assignedToProfileId: row.assigned_to_profile_id,
-		startedAt: row.started_at,
-		completedAt: row.completed_at,
-		cancelledAt: row.cancelled_at,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type AssignmentRow = SelectedRow<'assignments', typeof assignmentReturnColumns>;
 
 export const assignmentItemReturnColumns = [
 	'id',
@@ -429,44 +252,7 @@ export const assignmentItemReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeAssignmentItem {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly assignmentId: string;
-	readonly entityType: string;
-	readonly entityId: string;
-	readonly position: number;
-	readonly completedAt: Date | null;
-	readonly skippedAt: Date | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeAssignmentItem(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly assignment_id: string;
-	readonly entity_type: string;
-	readonly entity_id: string;
-	readonly position: number;
-	readonly completed_at: Date | null;
-	readonly skipped_at: Date | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeAssignmentItem {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		assignmentId: row.assignment_id,
-		entityType: row.entity_type,
-		entityId: row.entity_id,
-		position: row.position,
-		completedAt: row.completed_at,
-		skippedAt: row.skipped_at,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type AssignmentItemRow = SelectedRow<'assignment_items', typeof assignmentItemReturnColumns>;
 
 // ===========================================================================
 // Shared command + request helpers

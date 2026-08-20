@@ -1,4 +1,5 @@
 import { createAuthClient } from '@simmer-mosquito/auth/browser';
+import type { SimmerRole } from '@simmer-mosquito/domain';
 
 const DEFAULT_SERVER_URL = 'http://localhost:3000';
 
@@ -39,7 +40,8 @@ export function isOperatorRequiredError(error: unknown): boolean {
 	return error instanceof AdminApiError && error.code === 'operator_required';
 }
 
-export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
+/** One declaration, in `packages/domain`; re-exported for this app's call sites. */
+export type { SimmerRole } from '@simmer-mosquito/domain';
 export type MembershipStatus = 'active' | 'inactive' | 'invited';
 export interface AdminAgency {
 	readonly id: string;

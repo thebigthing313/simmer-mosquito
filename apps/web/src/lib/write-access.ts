@@ -1,3 +1,4 @@
+import type { SimmerRole } from '@simmer-mosquito/domain';
 import type { AuthMe } from '../auth';
 
 /**
@@ -14,9 +15,7 @@ import type { AuthMe } from '../auth';
  * called from route `beforeLoad` guards, which run before any component does.
  */
 
-export type OrgRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
-
-const ORG_ROLES: ReadonlySet<string> = new Set<OrgRole>([
+const ORG_ROLES: ReadonlySet<string> = new Set<SimmerRole>([
 	'owner',
 	'admin',
 	'manager',
@@ -30,12 +29,12 @@ const ORG_ROLES: ReadonlySet<string> = new Set<OrgRole>([
  * An unknown, missing, or unauthenticated role resolves to the *least*
  * privileged one, so a failure to read identity denies rather than grants.
  */
-export function readOrgRole(auth: AuthMe | null): OrgRole {
+export function readOrgRole(auth: AuthMe | null): SimmerRole {
 	if (auth?.authenticated !== true) {
 		return 'viewer';
 	}
 	const role = auth.localIdentity.role;
-	return role !== null && ORG_ROLES.has(role) ? (role as OrgRole) : 'viewer';
+	return role !== null && ORG_ROLES.has(role) ? (role as SimmerRole) : 'viewer';
 }
 
 /**
@@ -47,7 +46,7 @@ export function readOrgRole(auth: AuthMe | null): OrgRole {
  * the account is entitled to. Neither is discoverable from the other side, so
  * the ordering is written down twice on purpose and the names match.
  */
-const ROLE_RANK: Record<OrgRole, number> = {
+const ROLE_RANK: Record<SimmerRole, number> = {
 	owner: 4,
 	admin: 3,
 	manager: 2,
@@ -123,7 +122,7 @@ export function canManageRoles(auth: AuthMe | null): boolean {
  * enforces it (`canGrantRole` in `roles.ts`); this keeps the picker from showing
  * a choice that would 403 on send.
  */
-export function grantableRoles(auth: AuthMe | null): readonly OrgRole[] {
+export function grantableRoles(auth: AuthMe | null): readonly SimmerRole[] {
 	const rank = ROLE_RANK[readOrgRole(auth)];
 	return ORG_ROLE_ORDER.filter((role) => ROLE_RANK[role] <= rank);
 }
@@ -149,14 +148,14 @@ export function canRemoveMember(auth: AuthMe | null, membership: MembershipTarge
 
 interface MembershipTarget {
 	readonly id: string;
-	readonly role: OrgRole;
+	readonly role: SimmerRole;
 }
 
 function readMembershipId(auth: AuthMe | null): string | null {
 	return auth?.authenticated === true ? auth.localIdentity.membershipId : null;
 }
 
-const ORG_ROLE_ORDER: readonly OrgRole[] = ['owner', 'admin', 'manager', 'collector', 'viewer'];
+const ORG_ROLE_ORDER: readonly SimmerRole[] = ['owner', 'admin', 'manager', 'collector', 'viewer'];
 
 /**
  * Whether this membership manages the catalogs that are part of running work

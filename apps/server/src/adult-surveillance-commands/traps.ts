@@ -24,9 +24,8 @@ import {
 	invalidUpdate,
 	resolveLocationGeom,
 	runCommands,
-	type SafeTrap,
+	type TrapRow,
 	type TrapUpdateColumns,
-	toSafeTrap,
 	trapReturnColumns,
 	updateRow,
 } from './shared.js';
@@ -181,7 +180,7 @@ async function runTrapCommands(
 export async function writeTrapCommand(
 	trx: AdultSurveillanceTransaction,
 	command: AdultSurveillanceCommand,
-): Promise<SafeTrap | null> {
+): Promise<TrapRow | null> {
 	switch (command.type) {
 		case 'adultSurveillance.createTrap': {
 			const row = await trx
@@ -206,7 +205,7 @@ export async function writeTrapCommand(
 				})
 				.returning(trapReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeTrap(row);
+			return row;
 		}
 		case 'adultSurveillance.updateTrapDetails':
 			return updateTrap(trx, command.payload.trapId, command.payload.organizationId, {
@@ -273,7 +272,7 @@ export async function writeTrapCommand(
 				.where('deleted_at', 'is', null)
 				.returning(trapReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeTrap(row);
+			return row ?? null;
 		}
 		default:
 			throw new Error(`Unsupported trap command: ${command.type}`);
@@ -285,6 +284,6 @@ async function updateTrap(
 	trapId: string,
 	organizationId: string,
 	set: TrapUpdateColumns,
-): Promise<SafeTrap | null> {
-	return updateRow(trx, 'traps', trapId, organizationId, set, trapReturnColumns, toSafeTrap);
+): Promise<TrapRow | null> {
+	return updateRow(trx, 'traps', trapId, organizationId, set, trapReturnColumns);
 }

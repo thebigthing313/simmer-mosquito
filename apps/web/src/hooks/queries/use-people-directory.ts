@@ -20,12 +20,10 @@
  * because the predicates and the sort differ and both push down.
  */
 
+import type { SimmerRole } from '@simmer-mosquito/domain';
 import { eq, isNull, not, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { memberships } from '../../lib/collections/memberships';
 import { profiles } from '../../lib/collections/profiles';
-
-/** A role on the ladder, as `memberships.role` spells it. */
-export type PersonRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 
 /**
  * One person, flat.
@@ -49,7 +47,7 @@ export interface PersonListing {
 	readonly userId: string | null;
 	readonly email: string | null;
 	readonly membershipId: string | null | undefined;
-	readonly role: PersonRole | null | undefined;
+	readonly role: SimmerRole | null | undefined;
 	readonly membershipStatus: string | null | undefined;
 }
 

@@ -113,7 +113,7 @@ export function registerMissionNotificationGenerationRoute(
 						});
 					},
 				);
-				// `writeCommands` types its row `TSafe | null` because most writers
+				// `writeCommands` types its row `TRow | null` because most writers
 				// answer null for a row the caller cannot see. This one never does: a
 				// mission they cannot see throws `mission_not_found`, which
 				// `handleCommandError` answers as the 404. So this is a guard, not a
