@@ -14,7 +14,7 @@ Identity is most of the way there. ADR 0013 decided that profiles, memberships
 and the agency's own details become commands too, and its first slice moved the
 three that touch Postgres and nothing else: `identity.updateOrganizationDetails`,
 `identity.createProfile`, `identity.updateProfile`. Four surfaces are still REST
-with their own floors in `apps/server/src/roles.ts` — `people.listMemberships`,
+with their own floors in `apps/server/src/roles.ts`: `people.listMemberships`,
 which is a read behind a POST and never becomes a command, and the three that
 span WorkOS.
 
@@ -226,7 +226,7 @@ still name what stopped it.
 ## Commands that span two systems
 
 Most commands commit in one Kysely transaction, including the three identity
-commands ADR 0013's first slice moved — they write Postgres and nothing else.
+commands ADR 0013's first slice moved, which write Postgres and nothing else.
 Three others cannot,
 because the grant a session is refreshed against lives in WorkOS rather than in
 Postgres: inviting somebody, changing a role, and ending a membership. ADR 0013

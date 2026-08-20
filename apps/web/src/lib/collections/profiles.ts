@@ -17,7 +17,7 @@ import { getServerUrl } from '../../auth';
  * `mutations: true` since ADR 0013's first slice: `/commands/profiles` exists,
  * and creating or editing a Profile is `identity.createProfile` and
  * `identity.updateProfile` through `mutateCollection` like every other table.
- * Attaching or ending a login is not — an invitation and an offboarding span
+ * Attaching or ending a login is not: an invitation and an offboarding span
  * WorkOS, and they are still REST on `memberships`.
  *
  * The type is written here rather than inferred because a `Collection<…>`

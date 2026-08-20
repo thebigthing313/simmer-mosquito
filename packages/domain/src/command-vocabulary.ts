@@ -45,7 +45,7 @@ import type { WeatherCommandType } from './weather/index.js';
 /**
  * The name of any command in the vocabulary.
  *
- * Type-only, and assembled from the ten domain unions rather than restated — a
+ * Type-only, and assembled from the ten domain unions rather than restated. A
  * hand-written copy would be a tenth list to keep in step, and the one most
  * likely to be forgotten, since nothing fails when a command is missing from it.
  */

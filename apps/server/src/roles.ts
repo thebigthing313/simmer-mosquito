@@ -78,7 +78,7 @@ export function forbidden(reason: string): ForbiddenBody {
  * `people.invite` is not replay-safe. `people.changeRole` and
  * `people.endMembership` do span WorkOS but are idempotent. And
  * `organization.updateDetails`, `people.createProfile` and
- * `people.updateProfile` never touched WorkOS at all — they were plain Postgres
+ * `people.updateProfile` never touched WorkOS at all. They were plain Postgres
  * writes, and `createProfile` already carried a client-minted UUID, which is the
  * exact property the command contract asks for. Those three are gone from this
  * table: they are `identity.updateOrganizationDetails`, `identity.createProfile`

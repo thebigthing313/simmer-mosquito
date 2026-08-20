@@ -18,7 +18,7 @@
  * The People page saves a Profile and a role from one sheet, and they are two
  * writes with two floors: editing a Profile is admin, changing a role is owner.
  * An unchanged save has to fire neither, and the role half is the one that can
- * hurt — a role read wrong off the left join and written back is somebody
+ * hurt: a role read wrong off the left join and written back is somebody
  * silently demoted by a sheet they opened and closed.
  *
  * So the decision is {@link profileSavePlan}, which is pure and tested rather
@@ -50,7 +50,7 @@ export interface ProfileEditValues extends ProfileFields {
 export interface ProfileEditSubject {
 	readonly displayName: string;
 	readonly isActive: boolean;
-	/** Nullish on a historical Profile — the unmatched side of the membership join. */
+	/** Nullish on a historical Profile: the unmatched side of the membership join. */
 	readonly membershipId: string | null | undefined;
 	readonly role: SimmerRole | null | undefined;
 }
@@ -66,7 +66,7 @@ export interface ProfileSavePlan {
  * What one press of Save on the edit sheet means: neither write, one, or both.
  *
  * `membershipId == null` is the historical case, and it answers both questions
- * at once — nobody signs in as them, so there is no role to change whatever the
+ * at once. Nobody signs in as them, so there is no role to change whatever the
  * picker shows. The picker still shows `viewer` for them, which is why comparing
  * the picker to `person.role` alone is not enough: `viewer !== null` is true, and
  * a save would grant a role to a membership that does not exist.

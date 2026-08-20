@@ -53,6 +53,19 @@ const FIXTURES = {
 /** One settings route stands in for all seven: they share a floor. */
 const SETTINGS_TIMEZONE = '/organization-settings/timezone';
 
+/**
+ * The two identity tables on the command surface (ADR 0013, slice 1).
+ *
+ * The agency's own row is addressed by id, and the script does not know which
+ * agency it signed in as. It does not need to: the floor is read before the
+ * handler compares the id, so a fresh UUID refuses at the right place for a
+ * `deny` and lands on a harmless 400 for an `allow`.
+ */
+const PROFILES_PATH = '/commands/profiles';
+function organizationPath(): string {
+	return `/commands/organizations/${uuid()}`;
+}
+
 interface Expectation {
 	readonly what: string;
 	readonly method: 'POST' | 'PATCH' | 'DELETE';
@@ -146,11 +159,12 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 			'performed',
 		),
 
-		// The surfaces that have no commands: settings are checked in middleware
-		// before the body is read, people in the handler. Both floors are admin,
-		// so a collector is refused by either route (#130).
+		// Settings have no commands and are checked in middleware before the body
+		// is read. People are commands since ADR 0013's first slice, so the refusal
+		// comes from `COMMAND_PERMISSIONS` and names the command rather than the
+		// surface. Both floors are admin, so a collector is refused by either (#130).
 		deny('change a setting', 'PATCH', SETTINGS_TIMEZONE, timezone(), 'owners and admins'),
-		deny('add a profile', 'POST', '/organization/profiles', profile(), 'manage people'),
+		deny('add a profile', 'POST', PROFILES_PATH, profile(), 'identity.createProfile'),
 	],
 
 	manager: [
@@ -176,24 +190,35 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 		deny(
 			'edit the agency’s details',
 			'PATCH',
-			'/organization/current',
+			organizationPath(),
 			details(),
-			'manage details',
+			'identity.updateOrganizationDetails',
 		),
-		deny('add a profile', 'POST', '/organization/profiles', profile(), 'manage people'),
+		deny('add a profile', 'POST', PROFILES_PATH, profile(), 'identity.createProfile'),
 	],
 
 	admin: [
 		allow('create a collection method', 'POST', '/foundation/collection-methods', lookup()),
 		allow('create a habitat type', 'POST', '/foundation/habitat-types', lookup()),
 
-		// Deliberately payload-less: `allow` means "not refused", so a 400 for a
-		// malformed body proves the floor let it through. That keeps the check from
-		// writing anything — a real timezone or profile would be a live edit to
-		// whichever agency the fixtures point at.
+		// Deliberately unwritable: `allow` means "not refused", so a 400 for a body
+		// the builder rejects proves the floor let it through. That keeps the check
+		// from writing anything, because a real timezone or profile would be a live
+		// edit to whichever agency the fixtures point at.
+		//
+		// The two command routes still carry `intents`, because dispatch reads the
+		// intent list before it consults the floor and a body without one answers
+		// 400 without ever reaching the check this script is making. The
+		// organization id in the path is a fresh UUID rather than the agency's, so
+		// the handler refuses it as not the signed-in agency, which is the same
+		// harmless 400.
 		allow('reach settings', 'PATCH', SETTINGS_TIMEZONE, {}),
-		allow('reach the agency’s details', 'PATCH', '/organization/current', {}),
-		allow('reach the people surface', 'POST', '/organization/profiles', {}),
+		allow('reach the agency’s details', 'PATCH', organizationPath(), {
+			intents: ['identity.updateOrganizationDetails'],
+		}),
+		allow('reach the people surface', 'POST', PROFILES_PATH, {
+			intents: ['identity.createProfile'],
+		}),
 
 		// The one rung above them, and the reason it exists: a settable role is a
 		// self-promotable one.
@@ -380,10 +405,15 @@ function timezone(): unknown {
 	return { timezone: 'America/New_York' };
 }
 function details(): unknown {
-	return { name: 'Role Ladder Check' };
+	return { intents: ['identity.updateOrganizationDetails'], name: 'Role Ladder Check' };
 }
 function profile(): unknown {
-	return { id: uuid(), displayName: 'Role Ladder Check', isActive: true };
+	return {
+		intents: ['identity.createProfile'],
+		id: uuid(),
+		display_name: 'Role Ladder Check',
+		is_active: true,
+	};
 }
 function lookup(): unknown {
 	return { id: uuid(), name: `Role ladder ${Date.now()}` };

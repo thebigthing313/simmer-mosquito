@@ -137,7 +137,7 @@ export function tableCommandSpecs(
 		organizationSpeciesTableCommands(db),
 		addressTableCommands(db),
 		// The agency's own row and its people. Identity, and commands since ADR
-		// 0013 — the four that span WorkOS are still REST.
+		// 0013. The four that span WorkOS are still REST.
 		organizationTableCommands(db),
 		profileTableCommands(db),
 		// The stations an agency reads weather at, and the buckets it records.

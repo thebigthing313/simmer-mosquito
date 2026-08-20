@@ -6,7 +6,7 @@
  * The details are columns, so since ADR 0013's first slice they are
  * `identity.updateOrganizationDetails` through `mutateCollection` like every
  * other table's writes. The seven are a JSON document and keep their own routes
- * — see `organization-writes.ts` for why.
+ * See `organization-writes.ts` for why.
  *
  * What each operation sends is only its own sub-document. The server merges it
  * into the stored settings, so an admin editing the larval density bands no
@@ -148,20 +148,6 @@ export function agencyDetailsPlan(
 	};
 }
 
-/**
- * A 409 from the details command, as the error the sheet knows how to show.
- *
- * The settings routes raise `OrganizationConflictError` themselves, inside
- * `organizationRefusalFor`. The command path has no such hook — every refusal
- * arrives as a `CommandError` — so the one refusal worth naming is recognized
- * here by the error the server sends.
- */
-function asConflict(error: unknown): unknown {
-	return error instanceof CommandError && error.body.error === 'organization_conflict'
-		? new OrganizationConflictError()
-		: error;
-}
-
 export function useOrganizationSettingsMutations(): OrganizationSettingsMutations {
 	// Not suspense: this is a write hook, and a form that has not been submitted
 	// should not be what holds a page behind a fallback. Until the row arrives
@@ -257,7 +243,13 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 						}),
 					);
 				} catch (error) {
-					throw asConflict(error);
+					// The settings routes raise `OrganizationConflictError` themselves,
+					// inside `organizationRefusalFor`. The command path has no such hook
+					// and every refusal arrives as a `CommandError`, so the one refusal
+					// worth naming is recognized here by the error the server sent.
+					throw error instanceof CommandError && error.body.error === 'organization_conflict'
+						? new OrganizationConflictError()
+						: error;
 				}
 
 				// The stamp the timezone write has to state, read back off the row the

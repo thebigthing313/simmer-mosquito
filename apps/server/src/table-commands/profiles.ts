@@ -1,5 +1,5 @@
 /**
- * `/commands/profiles` — the agency's people, minus their logins.
+ * `/commands/profiles`: the agency's people, minus their logins.
  *
  * A Profile created here is **historical**: somebody the agency attributes work
  * to with no login behind it. Attaching a login is an invitation, which spans
@@ -16,18 +16,14 @@
  * per-table surface.
  */
 
+import type { IdentityCommand } from '@simmer-mosquito/domain';
 import { createProfileCommand, updateProfileCommand } from '@simmer-mosquito/domain';
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { type IdentityRow, writeIdentityCommand } from '../identity-commands.js';
 import type { TableCommands } from './dispatch.js';
 
-/** Every command the two identity tables on this surface accept. */
-export type IdentityTableCommand = Parameters<typeof writeIdentityCommand>[1];
-
-export function profileTableCommands(
-	db: CommandDb,
-): TableCommands<IdentityTableCommand, IdentityRow> {
+export function profileTableCommands(db: CommandDb): TableCommands<IdentityCommand, IdentityRow> {
 	return {
 		table: 'profiles',
 		run: { db, write: writeIdentityCommand, notFound: 'profile_not_found', key: 'profile' },

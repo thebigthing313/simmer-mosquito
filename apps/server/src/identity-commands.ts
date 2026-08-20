@@ -3,7 +3,7 @@
  *
  * Three of the seven ADR 0013 names: the agency's own details, and creating and
  * editing a Profile. All three write Postgres and nothing else, so they need no
- * part of the spanning contract — the writer takes the transaction the command
+ * part of the spanning contract. The writer takes the transaction the command
  * runner opened, like every other domain's.
  *
  * The four that are still REST live in `organization-commands.ts` and
@@ -146,30 +146,39 @@ async function updateOrganizationDetails(
 }
 
 /**
- * The column each detail field is, and only the fields that arrived.
+ * Each agency detail as the column it is and the command field it becomes.
  *
- * A table rather than nine conditional spreads: the command's `changes` carries
- * a field only when the client sent it, so a field's absence and a field set to
- * `null` are different writes, and `in` is what tells them apart. Written out
- * nine times that distinction is nine chances to write `??` instead.
+ * One list, read in both directions: `table-commands/organizations.ts` walks it
+ * to turn a request body into command input, and `detailColumns` below walks it
+ * to turn the command back into a `set`. Two lists would be the same nine facts
+ * written twice, inverted, and a mailing column added to one of them silently
+ * stops arriving through the other.
+ *
+ * A table rather than nine conditional spreads, because the command's `changes`
+ * carries a field only when the client sent it: a field's absence and a field
+ * set to `null` are different writes, and `in` is what tells them apart. Written
+ * out nine times, that distinction is nine chances to write `??` instead.
  */
-const DETAIL_COLUMNS = {
-	name: 'name',
-	mainContactEmail: 'main_contact_email',
-	phoneNumber: 'phone_number',
-	mailingCountry: 'mailing_country',
-	mailingAddressLine1: 'mailing_address_line_1',
-	mailingAddressLine2: 'mailing_address_line_2',
-	mailingLocality: 'mailing_locality',
-	mailingRegion: 'mailing_region',
-	mailingPostalCode: 'mailing_postal_code',
-} as const satisfies Record<keyof OrganizationDetailChanges, string>;
+export const ORGANIZATION_DETAIL_COLUMNS: readonly (readonly [
+	column: string,
+	field: keyof OrganizationDetailChanges,
+])[] = [
+	['name', 'name'],
+	['main_contact_email', 'mainContactEmail'],
+	['phone_number', 'phoneNumber'],
+	['mailing_country', 'mailingCountry'],
+	['mailing_address_line_1', 'mailingAddressLine1'],
+	['mailing_address_line_2', 'mailingAddressLine2'],
+	['mailing_locality', 'mailingLocality'],
+	['mailing_region', 'mailingRegion'],
+	['mailing_postal_code', 'mailingPostalCode'],
+];
 
 function detailColumns(changes: OrganizationDetailChanges): Record<string, unknown> {
 	const set: Record<string, unknown> = {};
-	for (const [field, column] of Object.entries(DETAIL_COLUMNS)) {
+	for (const [column, field] of ORGANIZATION_DETAIL_COLUMNS) {
 		if (field in changes) {
-			set[column] = changes[field as keyof OrganizationDetailChanges];
+			set[column] = changes[field];
 		}
 	}
 	return set;

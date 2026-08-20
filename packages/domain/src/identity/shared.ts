@@ -6,7 +6,7 @@ import type { DomainId, DomainValidationIssue } from '../shared.js';
  *
  * Three of the seven identity writes ADR 0013 folds in. The other four are
  * `people.listMemberships`, which is a read behind a POST and never becomes a
- * command, and the three that span WorkOS — inviting somebody, changing a role,
+ * command, and the three that span WorkOS: inviting somebody, changing a role,
  * ending a membership. Those wait for the spanning rules in
  * `docs/domain-command-contract.md` and for the invitation-id decision in #186.
  *

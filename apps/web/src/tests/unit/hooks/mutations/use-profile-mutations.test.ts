@@ -8,7 +8,7 @@
  *
  * The role half is the one worth a test. `person.role` arrives from the
  * unmatched side of a left join, so it is `null` or `undefined` on a Profile
- * with no login — and the picker shows `viewer` for one. Comparing the picker to
+ * with no login, and the picker shows `viewer` for one. Comparing the picker to
  * the role alone makes every historical Profile look changed, and a save would
  * grant a role to a membership that is not there. `membershipId == null` is the
  * question that answers it.
