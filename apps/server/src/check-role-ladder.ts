@@ -23,6 +23,8 @@
  * editing a comment — and the seed is what puts those back.
  */
 
+import type { SimmerRole } from '@simmer-mosquito/db';
+
 const API = process.env.SIMMER_CHECK_API ?? 'http://localhost:3000';
 const PASSWORD = process.env.SIMMER_CHECK_PASSWORD;
 const EMAIL_PREFIX = process.env.SIMMER_CHECK_EMAIL_PREFIX ?? 'adriankabigting+simmer-';
@@ -51,8 +53,6 @@ const FIXTURES = {
 /** One settings route stands in for all seven: they share a floor. */
 const SETTINGS_TIMEZONE = '/organization-settings/timezone';
 
-type Role = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
-
 interface Expectation {
 	readonly what: string;
 	readonly method: 'POST' | 'PATCH' | 'DELETE';
@@ -69,7 +69,7 @@ interface Expectation {
  * that is what makes a failure legible: "a collector reached planning" is a
  * different problem from "a manager reached the owner/admin catalog".
  */
-const CHECKS: Readonly<Record<Role, readonly Expectation[]>> = {
+const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 	viewer: [
 		deny('add a comment', 'POST', '/field-work/comments', comment(), 'Viewers have read-only'),
 		deny('create a tag', 'POST', '/foundation/tags', tag(), 'Viewers have read-only'),

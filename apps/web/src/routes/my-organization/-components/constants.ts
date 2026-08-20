@@ -6,10 +6,10 @@ import type {
 	ControlMethodCollectionKey,
 	ControlMethodListConfig,
 	DensityRangeFormValues,
-	OrgRole,
+	SimmerRole,
 } from './types';
 
-export const ORG_ROLE_OPTIONS: readonly OrgRole[] = [
+export const ORG_ROLE_OPTIONS: readonly SimmerRole[] = [
 	'viewer',
 	'collector',
 	'manager',

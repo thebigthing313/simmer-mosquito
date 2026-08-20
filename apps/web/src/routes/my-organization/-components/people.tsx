@@ -51,7 +51,7 @@ import { errorMessageForSave, formatRole, requiredTextValue, watchWrite } from '
 import { OrgSurface } from './layout/layout';
 import { OrgSection } from './layout/org-section';
 import { SectionHeader } from './layout/section-header';
-import type { OrgRole } from './types';
+import type { SimmerRole } from './types';
 
 export function PeopleSection({
 	auth,
@@ -60,7 +60,7 @@ export function PeopleSection({
 }: {
 	readonly auth: AuthMe | null;
 	readonly canManage: boolean;
-	readonly role: OrgRole;
+	readonly role: SimmerRole;
 }) {
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
@@ -367,7 +367,7 @@ function InviteProfileSheet({
 	const roleOptions = grantableRoles(auth);
 	const [displayName, setDisplayName] = useState('');
 	const [email, setEmail] = useState('');
-	const [role, setRole] = useState<OrgRole>('viewer');
+	const [role, setRole] = useState<SimmerRole>('viewer');
 	const [profileId, setProfileId] = useState('new');
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
@@ -449,7 +449,7 @@ function InviteProfileSheet({
 						</Field>
 						<Field className="gap-1">
 							<FieldLabel>Role</FieldLabel>
-							<Select value={role} onValueChange={(value) => setRole(value as OrgRole)}>
+							<Select value={role} onValueChange={(value) => setRole(value as SimmerRole)}>
 								<SelectTrigger size="sm" className="w-full">
 									<SelectValue />
 								</SelectTrigger>
@@ -497,7 +497,7 @@ function EditProfileSheet({
 	const [open, setOpen] = useState(false);
 	const [displayName, setDisplayName] = useState(person.displayName);
 	const [isActive, setIsActive] = useState(person.isActive);
-	const [role, setRole] = useState<OrgRole>(person.role ?? 'viewer');
+	const [role, setRole] = useState<SimmerRole>(person.role ?? 'viewer');
 	const [error, setError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 
@@ -602,8 +602,8 @@ function RoleField({
 	value,
 }: {
 	readonly editable: boolean;
-	readonly onChange: (role: OrgRole) => void;
-	readonly value: OrgRole;
+	readonly onChange: (role: SimmerRole) => void;
+	readonly value: SimmerRole;
 }) {
 	if (!editable) {
 		return null;
@@ -612,7 +612,7 @@ function RoleField({
 	return (
 		<Field className="gap-1">
 			<FieldLabel>Role</FieldLabel>
-			<Select value={value} onValueChange={(next) => onChange(next as OrgRole)}>
+			<Select value={value} onValueChange={(next) => onChange(next as SimmerRole)}>
 				<SelectTrigger size="sm" className="w-full">
 					<SelectValue />
 				</SelectTrigger>

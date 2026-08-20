@@ -15,8 +15,9 @@ const DEFAULT_SERVER_URL = 'http://localhost:3000';
 
 export type { AuthenticatedMe, AuthMe } from '@simmer-mosquito/auth/browser';
 
-export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 export type MembershipStatus = 'active' | 'inactive' | 'invited';
+
+import type { SimmerRole } from '@simmer-mosquito/domain';
 
 export interface AdminMembership {
 	readonly id: string;
