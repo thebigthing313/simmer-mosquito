@@ -365,9 +365,20 @@ describe('denyIdentityWrite', () => {
 		expect(identityDenyFor('admin', 'people.changeRole')).not.toBeNull();
 	});
 
-	it('refuses a manager the agency details surface', () => {
-		expect(identityDenyFor('admin', 'organization.updateDetails')).toBeNull();
-		expect(identityDenyFor('manager', 'organization.updateDetails')).not.toBeNull();
+	it('refuses a manager the membership list', () => {
+		expect(identityDenyFor('admin', 'people.listMemberships')).toBeNull();
+		expect(identityDenyFor('manager', 'people.listMemberships')).not.toBeNull();
+	});
+
+	// The three that left the identity table in ADR 0013's first slice. Their
+	// floors did not change; where they are written down did.
+	it('holds the three identity commands at the floors they had as routes', () => {
+		expect(denyFor('admin', 'identity.updateOrganizationDetails')).toBeNull();
+		expect(denyFor('manager', 'identity.updateOrganizationDetails')).not.toBeNull();
+		expect(denyFor('admin', 'identity.createProfile')).toBeNull();
+		expect(denyFor('manager', 'identity.createProfile')).not.toBeNull();
+		expect(denyFor('admin', 'identity.updateProfile')).toBeNull();
+		expect(denyFor('manager', 'identity.updateProfile')).not.toBeNull();
 	});
 });
 

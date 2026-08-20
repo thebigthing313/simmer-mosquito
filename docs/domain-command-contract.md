@@ -8,10 +8,15 @@ mutation adapters, or offline/mobile replay behavior. Load the specific
 **Every agency write to Postgres is a command.** One model covers every
 operation: *this is what I intended to do*, and the server decides whether to do
 it. A client never states which tables a write touches, in what order, or
-whether a second system is involved. Identity writes, meaning profiles,
-memberships, and the agency's own details, are the exception. ADR 0013 decided
-they become commands too, but none has moved yet: `apps/server/src/roles.ts`
-still holds all seven as REST surfaces with their own floors.
+whether a second system is involved.
+
+Identity is most of the way there. ADR 0013 decided that profiles, memberships
+and the agency's own details become commands too, and its first slice moved the
+three that touch Postgres and nothing else: `identity.updateOrganizationDetails`,
+`identity.createProfile`, `identity.updateProfile`. Four surfaces are still REST
+with their own floors in `apps/server/src/roles.ts` — `people.listMemberships`,
+which is a read behind a POST and never becomes a command, and the three that
+span WorkOS.
 
 ## Command shape
 
@@ -54,7 +59,7 @@ PATCH  /commands/habitats/{id}   { intents: ['larvalSurveillance.updateHabitatDe
 DELETE /commands/habitats/{id}   { intents: ['larvalSurveillance.deleteHabitat'] }
 ```
 
-Fifty-one tables are served this way, carrying 265 of the 274 names in the
+Fifty-three tables are served this way, carrying 268 of the 277 names in the
 vocabulary. The modules are `apps/server/src/table-commands/`, one per table or
 per group of tables written together, and `dispatch.ts` is the mechanism they
 share. Both the server and the client derive the path from `commandPathFor` in
@@ -220,7 +225,9 @@ still name what stopped it.
 
 ## Commands that span two systems
 
-Most commands commit in one Kysely transaction. Three identity commands cannot,
+Most commands commit in one Kysely transaction, including the three identity
+commands ADR 0013's first slice moved — they write Postgres and nothing else.
+Three others cannot,
 because the grant a session is refreshed against lives in WorkOS rather than in
 Postgres: inviting somebody, changing a role, and ending a membership. ADR 0013
 admits these to the vocabulary under four rules, which apply once the work is

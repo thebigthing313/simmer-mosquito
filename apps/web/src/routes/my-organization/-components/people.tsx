@@ -35,7 +35,10 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
 import { type AuthMe, getServerUrl } from '../../../auth';
-import { useProfileMutations } from '../../../hooks/mutations/use-profile-mutations';
+import {
+	profileSavePlan,
+	useProfileMutations,
+} from '../../../hooks/mutations/use-profile-mutations';
 import {
 	type PersonListing,
 	usePeopleDirectory,
@@ -518,17 +521,19 @@ function EditProfileSheet({
 		setIsSaving(true);
 		try {
 			const nextDisplayName = requiredTextValue(displayName, 'Display name');
+			const plan = profileSavePlan({ displayName: nextDisplayName, isActive, role }, person);
 			// The role first, and only if it moved: it is a different route with a
 			// different floor (owner, not admin), and a refusal there must not leave
 			// the profile half saved and the sheet closed.
-			if (person.membershipId != null && role !== person.role) {
-				await updateOrganizationMembershipRole(getServerUrl(), person.membershipId, role);
+			if (plan.roleChange !== null && person.membershipId != null) {
+				await updateOrganizationMembershipRole(
+					getServerUrl(),
+					person.membershipId,
+					plan.roleChange,
+				);
 			}
 			updateOpen(false);
-			watchWrite(
-				save(person.profileId, { displayName: nextDisplayName, isActive }),
-				'Unable to save profile.',
-			);
+			watchWrite(save(person.profileId, plan.changes), 'Unable to save profile.');
 		} catch (saveError) {
 			setError(errorMessageForSave(saveError));
 		} finally {

@@ -64,11 +64,13 @@ import {
 	habitatTypeTableCommands,
 } from './org-lookups.js';
 import { organizationSpeciesTableCommands } from './organization-species.js';
+import { organizationTableCommands } from './organizations.js';
 import {
 	biocontrolActionTableCommands,
 	outreachActionTableCommands,
 	sourceReductionTableCommands,
 } from './performed-actions.js';
+import { profileTableCommands } from './profiles.js';
 import { regionFolderTableCommands, regionTableCommands } from './regions.js';
 import { requestedControlActionTableCommands } from './requested-control-actions.js';
 import { routeItemTableCommands } from './route-items.js';
@@ -134,6 +136,10 @@ export function tableCommandSpecs(
 		regionTableCommands(db),
 		organizationSpeciesTableCommands(db),
 		addressTableCommands(db),
+		// The agency's own row and its people. Identity, and commands since ADR
+		// 0013 — the four that span WorkOS are still REST.
+		organizationTableCommands(db),
+		profileTableCommands(db),
 		// The stations an agency reads weather at, and the buckets it records.
 		// The spreadsheet import is not here: it is station-scoped and answers
 		// per-row results, so it has its own route in `weather-commands/import.ts`.

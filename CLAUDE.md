@@ -146,7 +146,7 @@ CI does not use staging for this. The `Database integration tests` job runs a `p
 
 Authoritative docs (read before non-trivial work):
 - `docs/architecture.md`: full system shape.
-- `docs/adr/`: accepted architecture decisions (0001 to 0014). Read the relevant ADR before changing auth, sync, identity, tenancy, DB layering, or field-work provenance. **0013 is accepted but not yet built**: it decides that identity writes become domain commands, while the code still writes them as REST routes through `IDENTITY_FLOORS` in `apps/server/src/roles.ts` and `hooks/mutations/rest-writes.ts` in `apps/web`. **0014 amends 0007**: read both for sync, because the package boundary is 0007's and the mechanism is 0014's.
+- `docs/adr/`: accepted architecture decisions (0001 to 0014). Read the relevant ADR before changing auth, sync, identity, tenancy, DB layering, or field-work provenance. **0013 is accepted and half built**: identity writes become domain commands, and the three that touch only Postgres have moved (`identity.*`). The four still on REST — the membership list and the three that span WorkOS — keep their floors in `IDENTITY_FLOORS` in `apps/server/src/roles.ts` and are reached through `hooks/mutations/rest-writes.ts` in `apps/web`. **0014 amends 0007**: read both for sync, because the package boundary is 0007's and the mechanism is 0014's.
 - `CONTEXT.md`: domain glossary (load often). `docs/*-domain.md`: per-domain command vocabulary.
 - `docs/sync.md`: the table-level Electric/TanStack DB sync matrix (eager vs on-demand per table).
 - `docs/domain-command-contract.md`: command, validation, and offline rules, plus the `/commands/{table}` write surface: which endpoint a new command goes on, the two halves declaring one takes, and the `snake_case`/`camelCase` rule for a body's keys. Read it before adding a command.
@@ -175,7 +175,7 @@ The **server authorizes every sync shape** before Electric streams. Shape proxy 
 
 Writes go through domain commands (intent, not DB patches), applied as TanStack DB optimistic mutations, sent to a Hono command endpoint, committed in a Kysely transaction, then confirmed via Electric sync. Commands use client-generated UUIDs and carry domain actor ids and operational dates so they are replay-safe and audit-safe.
 
-The command endpoint is one per table, `POST|PATCH|DELETE /commands/{table}`, and the body's `intents` list names the commands the write means rather than letting the server infer them from which fields arrived. `apps/server/src/table-commands/` is 51 tables and 265 of the 274 names in the vocabulary. The nine that are not on it, the older per-domain endpoints, and the rules for adding a command are in `docs/domain-command-contract.md`.
+The command endpoint is one per table, `POST|PATCH|DELETE /commands/{table}`, and the body's `intents` list names the commands the write means rather than letting the server infer them from which fields arrived. `apps/server/src/table-commands/` is 53 tables and 268 of the 277 names in the vocabulary. The nine that are not on it, the older per-domain endpoints, and the rules for adding a command are in `docs/domain-command-contract.md`.
 
 ### Authorization and identity
 

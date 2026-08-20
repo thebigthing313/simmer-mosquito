@@ -14,14 +14,11 @@ import { getServerUrl } from '../../auth';
  * `eager`: Who an agency's people are. Every record that names an inspector, applicator
  * or crew member resolves through this.
  *
- * `mutations: false`, and as on `organizations` that does not mean this app does
- * not write it. A Profile is written by REST — `/organization/profiles` — for now:
- * ADR 0013 folds identity into the command vocabulary, `/commands/profiles` will
- * exist, and this goes back to `mutations: true` when it does. Until then,
- * declaring no handlers is what makes a stray `profiles.update(...)` a refusal
- * rather than a request to an endpoint that is not there.
- * `hooks/mutations/use-profile-mutations.ts` opens the transaction that is the
- * only way in.
+ * `mutations: true` since ADR 0013's first slice: `/commands/profiles` exists,
+ * and creating or editing a Profile is `identity.createProfile` and
+ * `identity.updateProfile` through `mutateCollection` like every other table.
+ * Attaching or ending a login is not — an invitation and an offboarding span
+ * WorkOS, and they are still REST on `memberships`.
  *
  * The type is written here rather than inferred because a `Collection<…>`
  * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
@@ -30,7 +27,7 @@ import { getServerUrl } from '../../auth';
 export const profiles: Collection<Profile, string | number> = createProfilesCollection({
 	serverUrl: getServerUrl(),
 	syncMode: 'eager',
-	mutations: false,
+	mutations: true,
 });
 
 /**

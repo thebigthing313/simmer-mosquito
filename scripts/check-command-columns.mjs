@@ -100,7 +100,7 @@ const NOT_A_TABLE_MODULE = new Set(['dispatch.ts', 'index.ts']);
  * falls out of the match lowers it and fails, which is the point. A silent
  * "nothing to check here" is the one failure mode a check like this has.
  */
-const EXPECTED_TABLE_COUNT = 51;
+const EXPECTED_TABLE_COUNT = 53;
 
 /**
  * The `snake_case` keys that name a column of some other record, by module.

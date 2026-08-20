@@ -35,6 +35,7 @@ import type { AdultSurveillanceCommandType } from './adult-surveillance/index.js
 import type { ControlOperationsCommandType } from './control-operations/index.js';
 import type { FieldWorkCommandType } from './field-work/index.js';
 import type { FoundationCommandType } from './foundation/index.js';
+import type { IdentityCommandType } from './identity/index.js';
 import type { LarvalSurveillanceCommandType } from './larval-surveillance/index.js';
 import type { MissionDispatchCommandType } from './mission-dispatch/index.js';
 import type { OrganizationSettingsCommandType } from './organization-settings/index.js';
@@ -44,7 +45,7 @@ import type { WeatherCommandType } from './weather/index.js';
 /**
  * The name of any command in the vocabulary.
  *
- * Type-only, and assembled from the nine domain unions rather than restated — a
+ * Type-only, and assembled from the ten domain unions rather than restated — a
  * hand-written copy would be a tenth list to keep in step, and the one most
  * likely to be forgotten, since nothing fails when a command is missing from it.
  */
@@ -53,6 +54,7 @@ export type DomainCommandType =
 	| ControlOperationsCommandType
 	| FieldWorkCommandType
 	| FoundationCommandType
+	| IdentityCommandType
 	| LarvalSurveillanceCommandType
 	| MissionDispatchCommandType
 	| OrganizationSettingsCommandType
