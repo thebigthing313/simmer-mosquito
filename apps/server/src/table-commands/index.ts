@@ -13,9 +13,13 @@
  * reconstruct the command from which fields arrived — which is the thing these
  * routes exist to stop doing.
  *
- * These routes are additive. Nothing has moved off the existing command
- * endpoints, and both surfaces write through the same commands, permissions and
- * transaction, so a table served by both cannot disagree with itself.
+ * These routes are additive. The older per-domain endpoints are still
+ * registered, and both surfaces write through the same commands, permissions and
+ * transaction, so a table served by both cannot disagree with itself. What has
+ * changed is who calls them: `apps/web` posts every command write here, and the
+ * older surface is left with `apps/admin` seeding a new agency through
+ * `/foundation/*` and `/adult-surveillance/traps`. A new command goes here. See
+ * `docs/domain-command-contract.md`, "The write surface".
  */
 
 import type { Hono, MiddlewareHandler } from 'hono';
