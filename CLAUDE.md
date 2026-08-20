@@ -81,6 +81,25 @@ They stay under `src` rather than beside it because every project compiles
 hides; `vitest.shared.ts` is what keeps the compiled copy in `dist` from being
 collected a second time.
 
+**One directory is excepted: `apps/server/src/tests/unit/table-commands/`.** Its
+suites are grouped by domain, not by module, so several of them are named for a
+domain that spans two to four table-commands modules:
+`larval-surveillance.test.ts` covers `habitats.ts`, `inspections.ts`,
+`samples.ts`, and `sample-species.ts`. The rest of the directory is named for a
+single module, and those two shapes are both correct here. The reason is
+fixtures: the modules inside a domain need the same auth context, the same
+organization settings, and the same ids, so a file per module would copy that
+setup into several thin files. To find what covers a module, read the imports at
+the top of the files rather than the file names, or grep the directory for the
+module's `*TableCommands` export.
+
+New files in that directory follow the grouping: if a domain suite already
+exists, the test goes in it, and a new file is for a domain that has none, or for
+a module whose commands stand alone. `writer-coverage.test.ts` is a third case
+and follows neither convention. It asserts over every table at once, that each
+declared intent is one its writer handles, so it is not a test of any one module
+and is not named for one.
+
 ### Build toolchain
 
 The workspace is on **TypeScript 7** (`typescript@7.0.2`, the native compiler), and `tsc` is the only compiler: every project's `build` is `tsc -b` and every `typecheck` is `tsc -p tsconfig.json --noEmit --pretty false`. There are no per-compiler fallback targets. The old `:ts6` (TypeScript 6 `tsc`) and `:ts7` (`tsgo` from `@typescript/native-preview`) variants, and the `typcheck:ts6` typo alias, are gone. Don't reintroduce a second compiler path; if `tsc` misbehaves, fix it or pin the version at the root.
