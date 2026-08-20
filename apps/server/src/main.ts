@@ -60,7 +60,6 @@ import { registerRecordDeletionRoutes } from './record-deletion.js';
 import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 import { registerTableCommandSurface } from './table-commands/index.js';
-import { registerUnimplementedCommandRoutes } from './unimplemented-commands.js';
 import { registerWeatherImportRoute } from './weather-commands/index.js';
 
 const env = readServerEnv();
@@ -397,13 +396,6 @@ registerTableCommandSurface(app, {
 // The one weather command the table surface has no shape for, see the module.
 registerWeatherImportRoute(app, {
 	db,
-	authContextMiddleware,
-});
-
-// Last, so a real handler for any of these paths always wins: the day one is
-// implemented, its own route registers above this and the stub is unreachable
-// before it is deleted.
-registerUnimplementedCommandRoutes(app, {
 	authContextMiddleware,
 });
 

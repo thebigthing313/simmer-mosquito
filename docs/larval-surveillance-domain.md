@@ -224,8 +224,14 @@ Server validation enforces:
 - target is active and non-deleted;
 - sources are non-deleted and not the target;
 - sources may be active or inactive;
-- geometry, address, and habitat type differences are allowed with strong
-  acknowledgement.
+- geometry, address, and habitat type differences are allowed.
+
+The acknowledgement covering those differences is the one the command already
+carries, `acknowledgedMergeConsolidatesHistory`. There is no second flag and no
+conditional check: a merge says two records are the same place, so the fields
+that differ are the point of it rather than a special case, and a second
+confirmation nobody could answer differently would only teach people to click
+through both.
 
 Merge preserves the target habitat as authoritative. It does not blend source
 fields into the target:
@@ -246,9 +252,13 @@ Merge re-points source references to the target:
   actions
 - direct habitat comments
 - direct habitat tags
-- direct habitat additional personnel
 - route items targeting source habitats
 - assignment items targeting source habitats
+
+Additional personnel were on this list and are not. They hang off the six work
+records in `ADDITIONAL_PERSONNEL_TARGET_TYPES`: inspections, collections,
+applications, source reductions, outreach and biocontrol actions. A habitat is
+not one of them, so there has never been a row to move.
 
 Inspection snapshot fields do not change. Cross-domain records' own
 feature/address/date fields do not change.
@@ -258,8 +268,7 @@ same route or assignment. Keep the existing target item, preserve its position,
 and soft-delete the duplicate source item. When there is no duplicate, preserve
 the re-pointed source item position and directions.
 
-Moved comments, tags, and additional personnel keep original author and created
-audit fields. The merge updates only the target reference and technical update
+Moved comments and tags keep original author and created audit fields. The merge updates only the target reference and technical update
 fields. Duplicate tags/personnel are deduped by keeping one active association.
 
 Source habitats are soft-deleted after merge. There is no v1 undo merge command.

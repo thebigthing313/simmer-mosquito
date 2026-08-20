@@ -16,14 +16,16 @@
  * command is what makes it reachable, and `writeAddressCommand` in
  * `foundation-commands/addresses.ts` is the writer that fits `runCommands`.
  *
- * ## What is not here
+ * ## The merge
  *
- * `foundation.mergeAddresses`. Folding one address into another means repointing
- * every row that names the ones being retired, across four domains, and nothing
- * writes that yet (#163). It is domain work with its own semantics rather than a
- * translation, so the map does not offer it and its 501 stub stands — which is
- * the honest answer, and a better one than a route that accepts a merge and
- * writes half of it.
+ * `foundation.mergeAddresses` is here now. Folding one address into another
+ * means re-pointing every row that names the ones being retired, across four
+ * domains. `applyRecordMerge` in `packages/db` is what does it, driven by the
+ * same registry that decides what blocks an address delete, so the twelve tables
+ * that refuse the delete are the twelve the merge moves.
+ *
+ * It is a PATCH against the surviving address, not a route of its own, because
+ * the row it answers with is that address.
  *
  * ## Field names
  *
@@ -44,6 +46,7 @@ import {
 	createAddressCommand,
 	deleteAddressCommand,
 	type FoundationCommand,
+	mergeAddressesCommand,
 	updateAddressDetailsCommand,
 	updateAddressLocationCommand,
 } from '@simmer-mosquito/domain';
@@ -52,6 +55,7 @@ import type { CommandDb } from '../command-write.js';
 import { writeAddressCommand } from '../foundation-commands/addresses.js';
 import { toAddressResponse } from '../foundation-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
+import { acknowledged, readIdList } from './shared.js';
 
 type AddressResponse = ReturnType<typeof toAddressResponse>;
 
@@ -120,6 +124,20 @@ export function addressTableCommands(
 
 			'foundation.updateAddressLocation': ({ payload, agency, id }) =>
 				updateAddressLocationCommand({ ...agency, addressId: id, geometry: payload.geometry }),
+
+			// The row this write names is the *target*, the address that survives, and
+			// the sources come from the body, because there is no column for
+			// "addresses being folded into this one". Same shape as
+			// `publicEngagement.mergeContacts`.
+			'foundation.mergeAddresses': ({ payload, agency, id }) =>
+				mergeAddressesCommand({
+					...agency,
+					targetAddressId: id,
+					sourceAddressIds: readIdList(payload.sourceAddressIds),
+					acknowledgedMergeConsolidatesHistory: acknowledged(
+						payload.acknowledgedMergeConsolidatesHistory,
+					),
+				}),
 
 			'foundation.deleteAddress': ({ agency, id }) =>
 				deleteAddressCommand({ ...agency, addressId: id }),

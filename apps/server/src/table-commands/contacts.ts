@@ -50,7 +50,7 @@ import {
 	updateServiceRequestLocationCommand,
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
-import { type CommandDb, readDate, readStringArray } from '../command-write.js';
+import { type CommandDb, readDate } from '../command-write.js';
 import { writeContactCommand } from '../public-engagement-records-commands/contacts.js';
 import { writeServiceRequestCommand } from '../public-engagement-records-commands/service-requests.js';
 import type {
@@ -58,7 +58,7 @@ import type {
 	SafeServiceRequest,
 } from '../public-engagement-records-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
-import { acknowledged } from './shared.js';
+import { acknowledged, readIdList } from './shared.js';
 
 /** A boolean column, where absent is false rather than unknown. */
 function flag(value: unknown): boolean {
@@ -126,7 +126,7 @@ export function contactTableCommands(
 				mergeContactsCommand({
 					...agency,
 					targetContactId: id,
-					sourceContactIds: readStringArray(payload.sourceContactIds),
+					sourceContactIds: readIdList(payload.sourceContactIds),
 					acknowledgedContactMerge: acknowledged(payload.acknowledgedContactMerge),
 				}),
 

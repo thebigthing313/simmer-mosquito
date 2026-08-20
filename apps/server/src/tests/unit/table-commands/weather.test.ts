@@ -23,7 +23,6 @@ import {
 	weatherStationTableCommands,
 	weatherSummaryTableCommands,
 } from '../../../table-commands/weather.js';
-import { unimplementedCommandRoutes } from '../../../unimplemented-commands.js';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const ACTOR = '22222222-2222-4222-8222-222222222222';
@@ -281,18 +280,6 @@ describe('weather summaries', () => {
 		// Los Angeles.
 		expect(auckland).not.toThrow();
 		expect(losAngeles).toThrow(DomainValidationError);
-	});
-});
-
-describe('the weather stubs', () => {
-	it('no longer claims any weather command', () => {
-		// Ten of the thirteen stubs were `weather.*`. A stub left behind for a
-		// command that now has a writer would answer 501 on its old path while the
-		// real route answers on the new one, which reads as the feature being half
-		// built.
-		const stubbed = unimplementedCommandRoutes.map((route) => route.command as string);
-
-		expect(stubbed.filter((command) => command.startsWith('weather.'))).toEqual([]);
 	});
 });
 

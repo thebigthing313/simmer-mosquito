@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { deletableRecordLabel, deletableRecordTypes, isDeletableRecordType } from '../../index.js';
+import {
+	deletableRecordLabel,
+	deletableRecordTypes,
+	isDeletableRecordType,
+} from '../../../index.js';
 
 /**
  * Every record type the delete-impact endpoint accepts.

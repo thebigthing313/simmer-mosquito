@@ -20,9 +20,13 @@
  *
  * ## `generateMissionNotifications` is not here
  *
- * It is one of the twenty commands with no writer at all (#163), so there is
- * nothing to dispatch to. It joins this map when the writer lands, and the
- * permission entry it already has will apply unchanged.
+ * It has a writer now (#163), and still does not belong in this map. Every
+ * intent here translates a body into one command against the row the path names.
+ * Generation names a mission, writes as many `mission_notifications` rows as the
+ * spatial match turns up, and answers with the set, which `runCommands` and its
+ * `{ row, txid }` have nowhere to put. Its route is
+ * `public-engagement-records-commands/mission-notification-generation.ts`, and
+ * the permission entry it already had applies there unchanged.
  *
  * ## Field names
  *

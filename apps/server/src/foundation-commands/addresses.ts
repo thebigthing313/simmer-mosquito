@@ -1,7 +1,9 @@
 import {
 	applyRecordDeletion,
+	applyRecordMerge,
 	createAddress,
 	deleteAddress,
+	getAddressById,
 	RecordDeleteBlockedError,
 	type SafeAddress,
 	updateAddressDetails,
@@ -141,11 +143,15 @@ export function registerAddressRoutes(
  * order, with the same `applyRecordDeletion` in front of the delete — the
  * transaction is the only thing that moved.
  *
- * `foundation.mergeAddresses` is not here. A merge has to repoint every row that
- * names the addresses being folded away before it can retire them, which is a
- * piece of domain work with its own semantics rather than a translation, and it
- * still has no writer anywhere (#163). Its stub in `unimplemented-commands.ts`
- * stands, and `table-commands/addresses.ts` does not offer it.
+ * `foundation.mergeAddresses` is the one command here that writes rows in other
+ * domains. `applyRecordMerge` re-points every trap, habitat, inspection,
+ * application, service request and mission stop that named a source, then the
+ * sources are soft-deleted, in that order, because a rule finds its rows by the
+ * source id and a source already deleted is not one of them.
+ *
+ * Nothing about the target changes. The merge picks a survivor; it does not
+ * blend the retired addresses' fields into it, and every operational row keeps
+ * the geometry snapshot it took when the work happened.
  */
 export async function writeAddressCommand(
 	trx: CommandTransaction,
@@ -184,6 +190,34 @@ export async function writeAddressCommand(
 				geojson: command.payload.geometry,
 				updatedByProfileId: command.payload.actorProfileId,
 			});
+		case 'foundation.mergeAddresses': {
+			await applyRecordMerge(trx, {
+				recordType: 'address',
+				targetId: command.payload.targetAddressId,
+				sourceIds: command.payload.sourceAddressIds,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
+			// Not `applyRecordDeletion` for each source: the references it would
+			// refuse over are the ones the merge has just moved, and re-running the
+			// address policy would then find the comments and tags it already dealt
+			// with. The rows are empty of references by now, so what is left is
+			// retiring them.
+			for (const sourceId of command.payload.sourceAddressIds) {
+				await deleteAddress(trx, sourceId, {
+					organizationId: command.payload.organizationId,
+					actorProfileId: command.payload.actorProfileId,
+				});
+			}
+			// The survivor, unchanged. Read rather than returned by a write, because
+			// the merge does not touch it.
+			return (
+				(await getAddressById(trx, {
+					id: command.payload.targetAddressId,
+					organizationId: command.payload.organizationId,
+				})) ?? null
+			);
+		}
 		case 'foundation.deleteAddress':
 			// An address is kept alive by whatever still names it, so this is the one
 			// delete that routinely refuses. `applyRecordDeletion` raises

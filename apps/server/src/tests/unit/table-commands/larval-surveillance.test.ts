@@ -20,6 +20,7 @@ import type { AuthContext } from '../../../auth-context.js';
 import type { AgencyCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
+import { habitatTableCommands } from '../../../table-commands/habitats.js';
 import { inspectionTableCommands } from '../../../table-commands/inspections.js';
 import { sampleSpeciesTableCommands } from '../../../table-commands/sample-species.js';
 import { sampleTableCommands } from '../../../table-commands/samples.js';
@@ -32,8 +33,10 @@ const SAMPLE = '55555555-5555-4555-8555-555555555555';
 const SAMPLE_SPECIES = '66666666-6666-4666-8666-666666666666';
 const SPECIES = '77777777-7777-4777-8777-777777777777';
 const ASSIGNMENT_ITEM = '88888888-8888-4888-8888-888888888888';
+const SOURCE_HABITAT = '99999999-9999-4999-8999-999999999999';
 
 /** The map, with no database — nothing here reaches `run`. */
+const habitats = habitatTableCommands(undefined as never);
 const inspections = inspectionTableCommands(undefined as never);
 const samples = sampleTableCommands(undefined as never);
 const sampleSpecies = sampleSpeciesTableCommands(undefined as never);
@@ -264,5 +267,77 @@ describe('sample_species intent map', () => {
 
 		expect(command.payload).toMatchObject({ changes: { larvaeCount: 8 } });
 		expect((command.payload as { changes: object }).changes).not.toHaveProperty('speciesId');
+	});
+});
+
+/**
+ * The merge, which is the one habitat intent whose id means something other than
+ * "the row being changed".
+ *
+ * Everywhere else on `/commands/habitats` the path id is the habitat the write
+ * edits. Here it is the habitat that *survives*, and the ones being retired
+ * arrive in the body. Reading it the other way round would soft-delete the
+ * habitat the user had open and keep the ones they were folding away, which no
+ * type and no permission check would notice.
+ */
+describe('habitats: merge', () => {
+	it('takes the target from the path and the sources from the body', () => {
+		const command = build(
+			habitats,
+			'larvalSurveillance.mergeHabitats',
+			request(HABITAT, {
+				sourceHabitatIds: [SOURCE_HABITAT],
+				acknowledgedMergeConsolidatesHistory: true,
+			}),
+		);
+
+		expect(command.payload).toMatchObject({
+			targetHabitatId: HABITAT,
+			sourceHabitatIds: [SOURCE_HABITAT],
+		});
+	});
+
+	it('refuses a merge the caller withheld the acknowledgement on', () => {
+		// An absent flag reads as confirmed, per `acknowledged`; `false` is how a
+		// client says it has not got the confirmation yet.
+		expect(() =>
+			build(
+				habitats,
+				'larvalSurveillance.mergeHabitats',
+				request(HABITAT, {
+					sourceHabitatIds: [SOURCE_HABITAT],
+					acknowledgedMergeConsolidatesHistory: false,
+				}),
+			),
+		).toThrow(DomainValidationError);
+	});
+
+	it('refuses a merge with no sources', () => {
+		// An empty list is a merge that would retire nothing and answer as if it
+		// had worked. The domain refuses it rather than the route reading it as a
+		// no-op.
+		expect(() =>
+			build(
+				habitats,
+				'larvalSurveillance.mergeHabitats',
+				request(HABITAT, {
+					sourceHabitatIds: [],
+					acknowledgedMergeConsolidatesHistory: true,
+				}),
+			),
+		).toThrow(DomainValidationError);
+	});
+
+	it('refuses a habitat listed as its own source', () => {
+		expect(() =>
+			build(
+				habitats,
+				'larvalSurveillance.mergeHabitats',
+				request(HABITAT, {
+					sourceHabitatIds: [HABITAT],
+					acknowledgedMergeConsolidatesHistory: true,
+				}),
+			),
+		).toThrow(DomainValidationError);
 	});
 });

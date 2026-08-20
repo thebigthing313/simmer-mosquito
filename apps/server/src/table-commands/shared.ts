@@ -27,6 +27,23 @@ export function acknowledged(value: unknown): boolean {
 }
 
 /**
+ * The ids a command is being told to act on, with anything malformed kept.
+ *
+ * `readStringArray` filters non-strings out, which is right for a list where a
+ * bad entry means nothing. It is wrong for a merge: a body carrying
+ * `[uuid, 123]` would fold one record away and answer as though it had folded
+ * two, and there is no undo. Substituting an empty string keeps the entry in
+ * place so the domain's own uuid check refuses it, and the 400 names the index
+ * rather than the request quietly doing less than it was asked.
+ *
+ * A value that is not an array at all is an empty list, and the domain refuses
+ * that too, because every command taking one of these requires at least one id.
+ */
+export function readIdList(value: unknown): readonly string[] {
+	return Array.isArray(value) ? value.map((entry) => (typeof entry === 'string' ? entry : '')) : [];
+}
+
+/**
  * The record a polymorphic row hangs off, out of the two columns that hold it.
  *
  * `comments`, `tag_items` and `additional_personnel` all point at a record with
