@@ -81,6 +81,30 @@ They stay under `src` rather than beside it because every project compiles
 hides; `vitest.shared.ts` is what keeps the compiled copy in `dist` from being
 collected a second time.
 
+**One directory is excepted: `apps/server/src/tests/unit/table-commands/`.** Its
+suites are grouped by surface rather than by module, so many of them are named
+for a group of tables that are written together and span two to four modules.
+`larval-surveillance.test.ts` covers `habitats.ts`, `inspections.ts`,
+`samples.ts`, and `sample-species.ts`. Files whose surface is one module, such as
+`taxonomy.test.ts` and `units.test.ts`, are named for it, and both shapes are
+correct here. The reason is fixtures. The modules on one surface need the same
+auth context, the same organization settings, and the same ids, so a file per
+module would copy that setup into several thin files.
+
+A surface is not the same unit as a domain in `CONTEXT.md`, and one domain can
+hold several suites. Field-work support is the case to know: `fieldWork.*`
+commands are covered by `tags.test.ts` for the Tag catalog,
+`field-work.test.ts` for the routes and assignments worklist, and
+`polymorphic-support.test.ts` for the three `entity_type`/`entity_id` link
+tables. So a new file is for a surface that has none, and a test whose surface
+already has a suite goes in that suite. To find what covers a module, read the
+imports at the top of the files rather than the file names, or grep the
+directory for the module's `*TableCommands` export.
+
+`writer-coverage.test.ts` is a third case and follows neither convention. It
+asserts over every table at once, that each declared intent is one its writer
+handles, so it is not a test of any one module and is not named for one.
+
 ### Build toolchain
 
 The workspace is on **TypeScript 7** (`typescript@7.0.2`, the native compiler), and `tsc` is the only compiler: every project's `build` is `tsc -b` and every `typecheck` is `tsc -p tsconfig.json --noEmit --pretty false`. There are no per-compiler fallback targets. The old `:ts6` (TypeScript 6 `tsc`) and `:ts7` (`tsgo` from `@typescript/native-preview`) variants, and the `typcheck:ts6` typo alias, are gone. Don't reintroduce a second compiler path; if `tsc` misbehaves, fix it or pin the version at the root.
