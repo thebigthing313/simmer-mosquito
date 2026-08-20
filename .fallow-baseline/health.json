@@ -1943,6 +1943,11 @@
         "count": 4
       }
     },
+    "scripts/check-command-columns.mjs": {
+      "crap_moderate": {
+        "count": 6
+      }
+    },
     "scripts/generate-table-schemas.mjs": {
       "complexity_critical": {
         "count": 1

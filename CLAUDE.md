@@ -59,6 +59,8 @@ pnpm fallow:baseline    # re-save the complexity baseline after real complexity 
 
 Duplication and complexity are gated **against where the workspace already is**, not against zero: the backlog is thousands of lines and hundreds of units, so an absolute gate would fail every branch on history. Read both as "did this branch make it worse". Lowering the duplication threshold or re-saving the complexity baseline is normal after a cleanup, but a re-saved baseline can also bury a regression, so read the diff.
 
+Two cheap static gates run in the same job and are not `fallow`. `pnpm check:build-graph` is below, under the build toolchain. `pnpm check:command-columns` reads every `snake_case` key an intent handler in `apps/server/src/table-commands/` reads and requires it to be a column of that handler's table, from the generated row schemas. `payload` is a loose record, so a misspelled or renamed column compiles, reads `undefined`, and answers 200 having dropped the field. See `docs/domain-command-contract.md`.
+
 Scope a task to one project with Nx or pnpm filters:
 
 ```sh
@@ -147,7 +149,7 @@ Authoritative docs (read before non-trivial work):
 - `docs/adr/`: accepted architecture decisions (0001 to 0014). Read the relevant ADR before changing auth, sync, identity, tenancy, DB layering, or field-work provenance. **0013 is accepted but not yet built**: it decides that identity writes become domain commands, while the code still writes them as REST routes through `IDENTITY_FLOORS` in `apps/server/src/roles.ts` and `hooks/mutations/rest-writes.ts` in `apps/web`. **0014 amends 0007**: read both for sync, because the package boundary is 0007's and the mechanism is 0014's.
 - `CONTEXT.md`: domain glossary (load often). `docs/*-domain.md`: per-domain command vocabulary.
 - `docs/sync.md`: the table-level Electric/TanStack DB sync matrix (eager vs on-demand per table).
-- `docs/domain-command-contract.md`: command, validation, and offline rules.
+- `docs/domain-command-contract.md`: command, validation, and offline rules, plus the `/commands/{table}` write surface: which endpoint a new command goes on, the two halves declaring one takes, and the `snake_case`/`camelCase` rule for a body's keys. Read it before adding a command.
 
 ### Apps and packages
 
@@ -172,6 +174,8 @@ Postgres -> ElectricSQL -> TanStack DB -> UI
 The **server authorizes every sync shape** before Electric streams. Shape proxy routes force the authorized table/columns/scope server-side and ignore caller-provided `table`/`columns`/`where`.
 
 Writes go through domain commands (intent, not DB patches), applied as TanStack DB optimistic mutations, sent to a Hono command endpoint, committed in a Kysely transaction, then confirmed via Electric sync. Commands use client-generated UUIDs and carry domain actor ids and operational dates so they are replay-safe and audit-safe.
+
+The command endpoint is one per table, `POST|PATCH|DELETE /commands/{table}`, and the body's `intents` list names the commands the write means rather than letting the server infer them from which fields arrived. `apps/server/src/table-commands/` is 51 tables and 265 of the 274 names in the vocabulary. The nine that are not on it, the older per-domain endpoints, and the rules for adding a command are in `docs/domain-command-contract.md`.
 
 ### Authorization and identity
 
