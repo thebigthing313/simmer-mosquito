@@ -6,8 +6,8 @@ import {
 	readDeleteImpact,
 	type SimmerDatabase,
 	sql,
-} from '../../index.js';
-import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
+} from '../../../index.js';
+import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
 
 /**
  * The delete policy against real tables.

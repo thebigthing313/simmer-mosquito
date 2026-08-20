@@ -20,9 +20,9 @@
  *
  * `foundation.mergeAddresses` is here now. Folding one address into another
  * means re-pointing every row that names the ones being retired, across four
- * domains, and `applyRecordMerge` in `packages/db` is what does it — driven by
- * the same registry that decides what blocks an address delete, so the twelve
- * tables that refuse the delete are the twelve the merge moves.
+ * domains. `applyRecordMerge` in `packages/db` is what does it, driven by the
+ * same registry that decides what blocks an address delete, so the twelve tables
+ * that refuse the delete are the twelve the merge moves.
  *
  * It is a PATCH against the surviving address, not a route of its own, because
  * the row it answers with is that address.
@@ -125,8 +125,8 @@ export function addressTableCommands(
 			'foundation.updateAddressLocation': ({ payload, agency, id }) =>
 				updateAddressLocationCommand({ ...agency, addressId: id, geometry: payload.geometry }),
 
-			// The row this write names is the *target* — the address that survives —
-			// and the sources come from the body, because there is no column for
+			// The row this write names is the *target*, the address that survives, and
+			// the sources come from the body, because there is no column for
 			// "addresses being folded into this one". Same shape as
 			// `publicEngagement.mergeContacts`.
 			'foundation.mergeAddresses': ({ payload, agency, id }) =>

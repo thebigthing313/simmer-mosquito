@@ -54,6 +54,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { agencyCommandContext, handleCommandError, readJsonObject } from '../command-endpoint.js';
+import { readString } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import { commandActor, writeCommands } from '../command-write.js';
 import { refusableWrite } from '../table-commands/shared.js';
@@ -378,10 +379,6 @@ function metricColumns(row: NormalizedWeatherSummaryImportRow) {
 		wind_speed_min_mph: row.windSpeedMinMph,
 		wind_speed_max_mph: row.windSpeedMaxMph,
 	};
-}
-
-function readString(value: unknown): string {
-	return typeof value === 'string' ? value : '';
 }
 
 /**

@@ -1,4 +1,4 @@
-import { applyRecordDeletion, applyRecordMerge, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, applyRecordMerge, softDelete, sql } from '@simmer-mosquito/db';
 import {
 	clearHabitatInaccessibleCommand,
 	createHabitatCommand,
@@ -348,18 +348,15 @@ export async function writeHabitatCommand(
 				actorProfileId: command.payload.actorProfileId,
 			});
 			for (const sourceId of command.payload.sourceHabitatIds) {
-				await trx
-					.updateTable('habitats')
-					.set({
-						deleted_at: sql`now()`,
-						deleted_by_profile_id: command.payload.actorProfileId,
-						updated_by_profile_id: command.payload.actorProfileId,
-						updated_at: sql`now()`,
-					})
-					.where('id', '=', sourceId)
-					.where('organization_id', '=', command.payload.organizationId)
-					.where('deleted_at', 'is', null)
-					.execute();
+				await softDelete(
+					trx,
+					'habitats',
+					sourceId,
+					command.payload.organizationId,
+					command.payload.actorProfileId,
+					habitatReturnColumns,
+					toSafeHabitat,
+				);
 			}
 			// The survivor, unchanged: a merge picks which habitat is authoritative
 			// and does not blend the retired ones' name, geometry, address or type

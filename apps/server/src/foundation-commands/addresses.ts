@@ -146,7 +146,7 @@ export function registerAddressRoutes(
  * `foundation.mergeAddresses` is the one command here that writes rows in other
  * domains. `applyRecordMerge` re-points every trap, habitat, inspection,
  * application, service request and mission stop that named a source, then the
- * sources are soft-deleted — in that order, because a rule finds its rows by the
+ * sources are soft-deleted, in that order, because a rule finds its rows by the
  * source id and a source already deleted is not one of them.
  *
  * Nothing about the target changes. The merge picks a survivor; it does not
@@ -209,7 +209,7 @@ export async function writeAddressCommand(
 					actorProfileId: command.payload.actorProfileId,
 				});
 			}
-			// The survivor, unchanged — read rather than returned by a write, because
+			// The survivor, unchanged. Read rather than returned by a write, because
 			// the merge does not touch it.
 			return (
 				(await getAddressById(trx, {

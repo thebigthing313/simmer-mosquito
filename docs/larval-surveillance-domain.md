@@ -250,9 +250,9 @@ Merge re-points source references to the target:
 - assignment items targeting source habitats
 
 Additional personnel were on this list and are not. They hang off the six work
-records in `ADDITIONAL_PERSONNEL_TARGET_TYPES` — inspections, collections,
-applications, source reductions, outreach and biocontrol actions — and a habitat
-is not one of them, so there has never been a row to move.
+records in `ADDITIONAL_PERSONNEL_TARGET_TYPES`: inspections, collections,
+applications, source reductions, outreach and biocontrol actions. A habitat is
+not one of them, so there has never been a row to move.
 
 Inspection snapshot fields do not change. Cross-domain records' own
 feature/address/date fields do not change.
@@ -262,8 +262,7 @@ same route or assignment. Keep the existing target item, preserve its position,
 and soft-delete the duplicate source item. When there is no duplicate, preserve
 the re-pointed source item position and directions.
 
-Moved comments, tags, and additional personnel keep original author and created
-audit fields. The merge updates only the target reference and technical update
+Moved comments and tags keep original author and created audit fields. The merge updates only the target reference and technical update
 fields. Duplicate tags/personnel are deduped by keeping one active association.
 
 Source habitats are soft-deleted after merge. There is no v1 undo merge command.

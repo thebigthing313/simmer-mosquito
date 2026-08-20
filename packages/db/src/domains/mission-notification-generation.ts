@@ -17,10 +17,10 @@ import type { SimmerDatabase } from '../index.js';
  *
  * ## Why it is one statement
  *
- * Regeneration is expected — stops move, people subscribe, a mission gets
- * rescheduled — and the spec is that existing rows are never mutated by it. That
+ * Regeneration is expected, because stops move, people subscribe and missions get
+ * rescheduled, and the spec is that existing rows are never mutated by it. That
  * is exactly what `mission_notifications_mission_registration_channel_unique`
- * says, so `on conflict … do nothing` is both the rule and the race guard. Two
+ * says, so `on conflict ... do nothing` is both the rule and the race guard. Two
  * operators pressing the button at once produce one set of rows, not two, and
  * neither of them gets an error.
  *
@@ -32,9 +32,9 @@ import type { SimmerDatabase } from '../index.js';
  *
  * A registration's catchment is `buffer_distance` in `buffer_unit_id`, and the
  * factor that turns that into metres lives in `packages/domain`, keyed by unit
- * code — the `units` table deliberately carries no factor. `packages/db` cannot
- * import the domain, so the caller resolves the factors and passes them, and
- * they arrive as a joinable set rather than as arithmetic baked into the SQL.
+ * code, because the `units` table deliberately carries no factor. `packages/db`
+ * cannot import the domain, so the caller resolves the factors and passes them,
+ * and they arrive as a joinable set rather than as arithmetic baked into the SQL.
  */
 
 /** How many metres one of a unit is, for the units a registration might use. */
@@ -94,7 +94,7 @@ export type MissionNotificationRefusalReason =
  *
  * `docs/public-engagement-domain.md`: generation is rejected for deleted,
  * completed, cancelled, or itemless missions. A mission with no notification
- * type is the fifth — generated rows snapshot the type, and there is nothing to
+ * type is the fifth: generated rows snapshot the type, and there is nothing to
  * snapshot.
  */
 export class MissionNotificationRefusedError extends Error {
@@ -282,8 +282,8 @@ async function requireConvertibleBufferUnits(
  * The unit factors as a joinable relation.
  *
  * An empty list still has to be a relation with the right column types, or the
- * left join below is a syntax error rather than a no-match — hence the
- * `where false` arm.
+ * left join below is a syntax error rather than a no-match, which is what the
+ * `where false` arm is for.
  */
 function unitMetresRelation(unitMetres: readonly UnitMetres[]): RawBuilder<unknown> {
 	if (unitMetres.length === 0) {

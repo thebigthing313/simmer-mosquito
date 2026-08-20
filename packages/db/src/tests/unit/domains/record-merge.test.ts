@@ -4,7 +4,7 @@ import {
 	isMergeableRecordType,
 	mergeableRecordLabel,
 	mergeReferenceScopes,
-} from '../../index.js';
+} from '../../../index.js';
 
 /**
  * The three record types a merge command exists for.
@@ -20,7 +20,7 @@ const MERGEABLE = ['address', 'habitat', 'contact'] as const;
  * Rows a delete rule covers that a merge deliberately does not re-point.
  *
  * Every other referencing table has to appear in both registries, so the list of
- * exceptions is the whole argument for keeping them separate — and it is short
+ * exceptions is the whole argument for keeping them separate, and it is short
  * enough to read.
  */
 const NOT_REPOINTED: Readonly<Record<string, readonly string[]>> = {
@@ -64,8 +64,8 @@ describe('mergeable record registry', () => {
  * against the delete registry here instead.
  *
  * The delete registry is the one that gets maintained, because a missing rule
- * there fails loudly — a delete that should have been blocked goes through. So
- * it is the reference, and merge is held to it.
+ * there fails loudly: a delete that should have been blocked goes through. So it
+ * is the reference, and merge is held to it.
  */
 describe('merge rules cover every table the delete rules do', () => {
 	for (const recordType of MERGEABLE) {
@@ -97,17 +97,15 @@ describe('merge rules cover every table the delete rules do', () => {
 				}
 
 				// A column on one side and an `entity_type` on the other would mean one
-				// of the two is writing the wrong thing, and both would still run.
-				if (scope.kind === 'column') {
-					expect(deleteScope.kind).toBe('direct');
-					if (deleteScope.kind === 'direct') {
-						expect(scope.column).toBe(deleteScope.column);
-					}
-				} else {
-					expect(deleteScope.kind).toBe('polymorphic');
-					if (deleteScope.kind === 'polymorphic') {
-						expect(scope.entityType).toBe(deleteScope.entityType);
-					}
+				// of the two is writing the wrong thing, and both would still run. The
+				// two registries spell the kinds the same way, so this compares them
+				// rather than mapping between two vocabularies.
+				expect(scope.kind).toBe(deleteScope.kind);
+				if (scope.kind === 'direct' && deleteScope.kind === 'direct') {
+					expect(scope.column).toBe(deleteScope.column);
+				}
+				if (scope.kind === 'polymorphic' && deleteScope.kind === 'polymorphic') {
+					expect(scope.entityType).toBe(deleteScope.entityType);
 				}
 			}
 		});
@@ -121,8 +119,8 @@ describe('merge rules cover every table the delete rules do', () => {
  * `assignment_items_assignment_entity_unique` are all `(<key>, entity_type,
  * entity_id) where deleted_at is null`. A move rewrites `entity_id` to one
  * value, so any two rows sharing the key collide, and the merge fails on a
- * constraint violation rather than doing something wrong — but it fails on a
- * merge somebody was halfway through, which is not where to find this out.
+ * constraint violation rather than doing something wrong. But it fails on a merge
+ * somebody was halfway through, which is not where to find this out.
  */
 describe('support rules dedupe wherever a unique index would collide', () => {
 	const UNIQUE_BY: Readonly<Record<string, string>> = {
@@ -134,7 +132,7 @@ describe('support rules dedupe wherever a unique index would collide', () => {
 	for (const recordType of MERGEABLE) {
 		it(`${recordType} dedupes by the column its index is keyed on`, () => {
 			for (const { table, scope } of mergeReferenceScopes(recordType)) {
-				if (scope.kind !== 'support') {
+				if (scope.kind !== 'polymorphic') {
 					continue;
 				}
 				const uniqueColumn = UNIQUE_BY[table];

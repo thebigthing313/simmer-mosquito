@@ -133,8 +133,8 @@ export function habitatTableCommands(
 			'larvalSurveillance.reactivateHabitat': ({ agency, id }) =>
 				reactivateHabitatCommand({ ...agency, habitatId: id }),
 
-			// The row this write names is the *target* — the habitat that survives —
-			// and the sources come from the body. Same shape as `mergeAddresses` and
+			// The row this write names is the *target*, the habitat that survives, and
+			// the sources come from the body. Same shape as `mergeAddresses` and
 			// `mergeContacts`.
 			'larvalSurveillance.mergeHabitats': ({ payload, agency, id }) =>
 				mergeHabitatsCommand({

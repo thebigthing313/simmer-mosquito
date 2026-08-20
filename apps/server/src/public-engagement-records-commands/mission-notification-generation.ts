@@ -51,6 +51,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { agencyCommandContext, handleCommandError, readJsonObject } from '../command-endpoint.js';
+import { readString } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import { type CommandTransaction, commandActor, writeCommands } from '../command-write.js';
 import type { RouteOptions } from './shared.js';
@@ -166,8 +167,4 @@ function responseBody(result: GenerateMissionNotificationsResult) {
 			destination: row.destination,
 		})),
 	};
-}
-
-function readString(value: unknown): string {
-	return typeof value === 'string' ? value : '';
 }

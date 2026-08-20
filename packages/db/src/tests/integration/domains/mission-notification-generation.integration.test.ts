@@ -7,8 +7,8 @@ import {
 	type SimmerDatabase,
 	sql,
 	type UnitMetres,
-} from '../../index.js';
-import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
+} from '../../../index.js';
+import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
 
 /**
  * Who a mission has to notify, decided against real geometry.
@@ -67,7 +67,7 @@ describeDbIntegration('mission notification generation', () => {
 		await withTestDb(async ({ db }) => {
 			const world = await seedWorld(db, 'mn_channels');
 			await createMissionItem(db, world, -90.499);
-			// Wants everything; has only an email. A preference is not a channel —
+			// Wants everything; has only an email. A preference is not a channel.
 			// `docs/public-engagement-domain.md`: rows are created only when a
 			// concrete destination exists.
 			const registration = await createRegistration(db, world, {
@@ -98,7 +98,7 @@ describeDbIntegration('mission notification generation', () => {
 	 * same `buffer_distance` are different catchments, and getting that backwards
 	 * would notify a neighbourhood or nobody.
 	 */
-	it('measures the buffer in the registration’s own unit', async () => {
+	it('measures each buffer in the unit the registration set it in', async () => {
 		await withTestDb(async ({ db }) => {
 			const world = await seedWorld(db, 'mn_units');
 			// 0.01° east, roughly 912 m.
@@ -398,7 +398,7 @@ describeDbIntegration('mission notification generation', () => {
 		});
 	});
 
-	it('does not see another agency’s mission', async () => {
+	it('does not see a mission belonging to another agency', async () => {
 		await withTestDb(async ({ db }) => {
 			const world = await seedWorld(db, 'mn_owner');
 			const other = await seedWorld(db, 'mn_other');
@@ -448,7 +448,7 @@ interface World {
 	readonly mileUnitId: string;
 }
 
-/** Metres priced, miles deliberately not — a test that needs both says so. */
+/** Metres priced, miles deliberately not. A test that needs both says so. */
 function generateInput(world: World): {
 	readonly missionId: string;
 	readonly organizationId: string;

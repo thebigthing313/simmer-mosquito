@@ -135,8 +135,8 @@ describe('addresses', () => {
 	});
 
 	// Both of these answered 501 from `unimplemented-commands.ts` until they had
-	// writers. That module is gone — the stub list reached zero — so what is left
-	// to assert is that the map offers them.
+	// writers. That module is gone, because the stub list reached zero, so what is
+	// left to assert is that the map offers them.
 	it('names the location update and the merge, which used to have no writer', () => {
 		expect(addresses.intents).toHaveProperty('foundation.updateAddressLocation');
 		expect(addresses.intents).toHaveProperty('foundation.mergeAddresses');

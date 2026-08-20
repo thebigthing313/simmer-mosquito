@@ -20,8 +20,8 @@ import type { DbExecutor, SimmerDatabase } from '../index.js';
  *
  * They are separate registries because the two policies genuinely disagree on
  * some rows. `mission_notifications.contact_id` blocks a contact delete and is
- * deliberately *not* re-pointed by a contact merge — those rows are snapshots of
- * who was told, and rewriting them would be falsifying a record of a
+ * deliberately *not* re-pointed by a contact merge, because those rows are
+ * snapshots of who was told, and rewriting them would falsify a record of a
  * notification. A merged rule set would have to encode that exception anyway.
  */
 export type MergeableRecordType = 'address' | 'habitat' | 'contact';
@@ -29,10 +29,12 @@ export type MergeableRecordType = 'address' | 'habitat' | 'contact';
 /**
  * How one referencing table follows the merge.
  *
- * `column` is a plain foreign key: set it to the target and nothing else
- * changes, so an operational row keeps its own geometry snapshot, dates and
- * audit fields. `support` is the `entity_type`/`entity_id` pair the polymorphic
- * tables use, where the row moves by having its `entity_id` rewritten.
+ * The two kinds are named as `record-deletion.ts` names them, so the drift test
+ * can compare a rule to its twin without translating first. `direct` is a plain
+ * foreign key: set it to the target and nothing else changes, so an operational
+ * row keeps its own geometry snapshot, dates and audit fields. `polymorphic` is
+ * the `entity_type`/`entity_id` pair the support tables use, where the row moves
+ * by having its `entity_id` rewritten.
  *
  * `dedupeBy` is what makes a support move safe to repeat. A tag the target
  * already carries, or a route the target is already a stop on, must not end up
@@ -42,9 +44,9 @@ export type MergeableRecordType = 'address' | 'habitat' | 'contact';
  * place.
  */
 export type MergeScope =
-	| { readonly kind: 'column'; readonly column: string }
+	| { readonly kind: 'direct'; readonly column: string }
 	| {
-			readonly kind: 'support';
+			readonly kind: 'polymorphic';
 			readonly entityType: string;
 			readonly dedupeBy?: readonly string[];
 	  };
@@ -93,7 +95,7 @@ export interface MergeImpact {
  *
  * The domain builder already refuses a target listed as its own source and a
  * missing acknowledgement. Everything here needs the database: whether the rows
- * exist, belong to this agency, are still live, and — for habitats — whether the
+ * exist, belong to this agency, are still live, and, for habitats, whether the
  * survivor is active.
  */
 export class RecordMergeRefusedError extends Error {
@@ -129,7 +131,7 @@ function repoints(
 	singular: string,
 	plural: string,
 ): MergeRule {
-	return { key, table, scope: { kind: 'column', column }, singular, plural };
+	return { key, table, scope: { kind: 'direct', column }, singular, plural };
 }
 
 function moves(
@@ -139,7 +141,7 @@ function moves(
 	singular: string,
 	plural: string,
 ): MergeRule {
-	return { key, table, scope: { kind: 'support', entityType }, singular, plural };
+	return { key, table, scope: { kind: 'polymorphic', entityType }, singular, plural };
 }
 
 /** A support move where the target may already hold the same association. */
@@ -151,7 +153,7 @@ function movesDeduped(
 	singular: string,
 	plural: string,
 ): MergeRule {
-	return { key, table, scope: { kind: 'support', entityType, dedupeBy }, singular, plural };
+	return { key, table, scope: { kind: 'polymorphic', entityType, dedupeBy }, singular, plural };
 }
 
 // ---------------------------------------------------------------------------
@@ -340,7 +342,7 @@ const MERGEABLE_RECORDS: Record<MergeableRecordType, MergeableRecordConfig> = {
  * The registry as data, for the test that holds it against the delete registry.
  *
  * Returns the referencing tables and how each is reached, without the SQL or the
- * copy — enough to compare two policies that must cover the same ground.
+ * copy. Enough to compare two policies that must cover the same ground.
  */
 export function mergeReferenceScopes(
 	recordType: MergeableRecordType,
@@ -388,7 +390,7 @@ function sourceMatch(scope: MergeScope, sourceIds: readonly string[]) {
 	// `::uuid[]` because the driver sends a JS array as `text[]`, and Postgres will
 	// not compare that to a uuid column. Every `= any(...)` in this package casts.
 	const ids = [...sourceIds];
-	return scope.kind === 'column'
+	return scope.kind === 'direct'
 		? sql`${sql.ref(scope.column)} = any(${ids}::uuid[])`
 		: sql`entity_type = ${scope.entityType} and entity_id = any(${ids}::uuid[])`;
 }
@@ -397,9 +399,9 @@ function sourceMatch(scope: MergeScope, sourceIds: readonly string[]) {
  * Retire the support rows a move would duplicate, and say how many.
  *
  * One row survives per `dedupeBy` key across the target and every source, and
- * the target's own row is the one that survives when it has one — `entity_id =
- * target` sorts first, so a route keeps the stop it already had, at the position
- * it already had. Ordering by `created_at` then `id` after that makes the choice
+ * the target's own row is the one that survives when it has one, because
+ * `entity_id = target` sorts first, so a route keeps the stop it already had, at
+ * the position it already had. Ordering by `created_at` then `id` after that makes the choice
  * between two sources stable rather than whatever Postgres returns first.
  *
  * This runs before the move, so the rows it deletes are still identifiable by
@@ -408,7 +410,7 @@ function sourceMatch(scope: MergeScope, sourceIds: readonly string[]) {
 async function dedupeSupportRows(
 	trx: Transaction<SimmerDatabase>,
 	rule: MergeRule,
-	scope: Extract<MergeScope, { kind: 'support' }>,
+	scope: Extract<MergeScope, { kind: 'polymorphic' }>,
 	dedupeBy: readonly string[],
 	input: MergeInput,
 ): Promise<number> {
@@ -444,12 +446,12 @@ async function applyRule(
 ): Promise<MergeMoveEntry> {
 	const scope = rule.scope;
 	const deduped =
-		scope.kind === 'support' && scope.dedupeBy !== undefined && scope.dedupeBy.length > 0
+		scope.kind === 'polymorphic' && scope.dedupeBy !== undefined && scope.dedupeBy.length > 0
 			? await dedupeSupportRows(trx, rule, scope, scope.dedupeBy, input)
 			: 0;
 
 	const set =
-		scope.kind === 'column'
+		scope.kind === 'direct'
 			? sql`${sql.ref(scope.column)} = ${input.targetId}, ${auditUpdate(input.actorProfileId)}`
 			: sql`entity_id = ${input.targetId}, ${auditUpdate(input.actorProfileId)}`;
 
@@ -512,7 +514,7 @@ export interface MergeInput {
  *
  * The sources are not touched here. Retiring them is the caller's own soft
  * delete, in the same transaction, for the same reason the delete helper leaves
- * the record itself alone — the writer owns the row it returns.
+ * the record itself alone: the writer owns the row it returns.
  *
  * @throws RecordMergeRefusedError when the target or a source is not a live row
  * of this agency, or the target is inactive.

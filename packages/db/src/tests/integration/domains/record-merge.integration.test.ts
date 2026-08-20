@@ -6,15 +6,15 @@ import {
 	readMergeImpact,
 	type SimmerDatabase,
 	sql,
-} from '../../index.js';
-import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
+} from '../../../index.js';
+import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
 
 /**
  * The merge policy against real tables.
  *
  * The unit test holds the registry against the delete registry, which catches a
  * missing table. It cannot catch a rule that names the right table and writes
- * the wrong thing, and it cannot catch the dedupe at all — that one is a window
+ * the wrong thing, and it cannot catch the dedupe at all. That one is a window
  * function over a partial unique index, and either it keeps exactly one row per
  * key or the merge dies on a constraint violation halfway through.
  *
@@ -23,7 +23,7 @@ import { describeDbIntegration, withTestDb } from '../../test-support/db-integra
  * and does the merge refuse a set of rows it should not touch.
  */
 describeDbIntegration('record merge policy', () => {
-	it('re-points an address’s references and leaves the rows otherwise alone', async () => {
+	it('re-points every reference to an address and leaves the rows otherwise alone', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'address_merge');
 			const target = await createAddress(db, org, 'Depot');
@@ -60,9 +60,9 @@ describeDbIntegration('record merge policy', () => {
 			});
 
 			// The reference moved and nothing else did. An operational row keeps its
-			// own name, its method and — the one the domain doc is explicit about —
-			// its own geometry, because the address it was standing at is a label,
-			// not the place the work happened.
+			// own name, its method and, the one the domain doc is explicit about, its
+			// own geometry, because the address it was standing at is a label rather
+			// than the place the work happened.
 			const trap = await db
 				.selectFrom('traps')
 				.select(['address_id', 'trap_name', 'collection_method_id', 'deleted_at'])
@@ -179,7 +179,7 @@ describeDbIntegration('record merge policy', () => {
 	 * are what a crew actually drives, so keeping the source's row instead would
 	 * silently reorder somebody's morning.
 	 */
-	it('keeps the target’s route stop, with its position and directions', async () => {
+	it('keeps the route stop the target already had, with its position and directions', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'habitat_route_merge');
 			const target = await createHabitat(db, org, null, 'Keep');
@@ -244,7 +244,7 @@ describeDbIntegration('record merge policy', () => {
 	 * who was told about a mission and how they were reached, so a merge leaves
 	 * them exactly as they were sent.
 	 */
-	it('re-points a contact’s requests and registrations, and never its sent notifications', async () => {
+	it('re-points requests and registrations, and never the notifications already sent', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'contact_merge');
 			const target = await createContact(db, org, 'Sam Rivera');
@@ -339,7 +339,7 @@ describeDbIntegration('record merge policy', () => {
 		});
 	});
 
-	it('leaves a neighbouring agency’s identical rows untouched', async () => {
+	it('leaves identical rows in a neighbouring agency untouched', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'merge_scope');
 			const other = await createOrganization(db, 'merge_scope_other');

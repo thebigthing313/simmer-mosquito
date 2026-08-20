@@ -41,6 +41,18 @@ export function readNullableText(value: unknown): string | null {
 	return readText(value);
 }
 
+/**
+ * A string as it arrived, or the empty string.
+ *
+ * Distinct from `readText`, which trims and answers `null`. This one is for the
+ * required ids that a domain builder is about to validate: handing it `''` makes
+ * the builder refuse and name the field, where `null` would need a second check
+ * here saying the same thing worse.
+ */
+export function readString(value: unknown): string {
+	return typeof value === 'string' ? value : '';
+}
+
 /** A finite number, or undefined. NaN and Infinity are not values. */
 export function readNumber(value: unknown): number | undefined {
 	return typeof value === 'number' && Number.isFinite(value) ? value : undefined;

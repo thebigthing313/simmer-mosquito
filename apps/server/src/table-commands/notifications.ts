@@ -23,7 +23,7 @@
  * It has a writer now (#163), and still does not belong in this map. Every
  * intent here translates a body into one command against the row the path names.
  * Generation names a mission, writes as many `mission_notifications` rows as the
- * spatial match turns up, and answers with the set — which `runCommands` and its
+ * spatial match turns up, and answers with the set, which `runCommands` and its
  * `{ row, txid }` have nowhere to put. Its route is
  * `public-engagement-records-commands/mission-notification-generation.ts`, and
  * the permission entry it already had applies there unchanged.
