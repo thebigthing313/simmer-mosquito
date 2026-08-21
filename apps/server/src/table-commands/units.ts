@@ -64,6 +64,18 @@ const duplicate = {
 	reason: 'A unit already uses that code, name, or abbreviation. Each must be unique.',
 } as const;
 
+/**
+ * One refusal for two paths.
+ *
+ * A foreign key raises it for a unit an agency measures in; `assertUnitNotChosen`
+ * raises it for one an agency has merely chosen. The operator is told the same
+ * thing either way, because the difference is ours and not theirs.
+ */
+const UNIT_IN_USE = {
+	error: 'unit_in_use',
+	reason: "This unit is still referenced by an agency's records or settings.",
+} as const;
+
 async function writeUnitCommand(
 	trx: CommandTransaction,
 	command: FoundationCommand,
@@ -121,12 +133,7 @@ async function writeUnitCommand(
 						.where('id', '=', command.payload.unitId)
 						.returning(UNIT_COLUMNS)
 						.executeTakeFirst(),
-				{
-					inUse: {
-						error: 'unit_in_use',
-						reason: 'This unit is still referenced by an agency’s records or settings.',
-					},
-				},
+				{ inUse: UNIT_IN_USE },
 			);
 			return row ?? null;
 		}
@@ -172,10 +179,7 @@ async function assertUnitNotChosen(trx: CommandTransaction, unitId: string): Pro
 		.executeTakeFirst();
 
 	if (chosen !== undefined) {
-		throw new CommandError(409, {
-			error: 'unit_in_use',
-			reason: 'This unit is still referenced by an agency’s records or settings.',
-		});
+		throw new CommandError(409, UNIT_IN_USE);
 	}
 }
 

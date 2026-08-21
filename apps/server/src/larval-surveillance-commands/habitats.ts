@@ -32,6 +32,7 @@ import {
 	type HabitatRow,
 	type HabitatUpdateColumns,
 	habitatReturnColumns,
+	habitatTypeReferences,
 	type InvalidCommandBody,
 	invalidUpdate,
 	type LarvalSurveillanceDb,
@@ -230,14 +231,8 @@ export async function writeHabitatCommand(
 		case 'larvalSurveillance.createHabitat': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				references: [
-					{
-						column: 'habitat_type_id',
-						catalog: 'habitatType',
-						id: command.payload.habitatTypeId ?? null,
-						label: 'habitat type',
-					},
-				],
+				write: { kind: 'create' },
+				references: habitatTypeReferences(command.payload),
 			});
 			const row = await trx
 				.insertInto('habitats')
@@ -325,19 +320,8 @@ export async function writeHabitatCommand(
 		case 'larvalSurveillance.updateHabitatConfiguration':
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				table: 'habitats',
-				recordId: command.payload.habitatId,
-				references:
-					'habitatTypeId' in command.payload.changes
-						? [
-								{
-									column: 'habitat_type_id',
-									catalog: 'habitatType',
-									id: command.payload.changes.habitatTypeId ?? null,
-									label: 'habitat type',
-								},
-							]
-						: [],
+				write: { kind: 'update', table: 'habitats', recordId: command.payload.habitatId },
+				references: habitatTypeReferences(command.payload.changes),
 			});
 			return updateHabitat(trx, command.payload.habitatId, command.payload.organizationId, {
 				...('addressId' in command.payload.changes

@@ -79,6 +79,7 @@ export async function writeTagItemCommand(
 		case 'fieldWork.assignTag': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
 				references: [{ column: 'tag_id', catalog: 'tag', id: command.payload.tagId, label: 'tag' }],
 			});
 			const row = await trx

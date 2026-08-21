@@ -186,6 +186,7 @@ export async function writeTrapCommand(
 		case 'adultSurveillance.createTrap': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
 				references: surveillanceCatalogReferences(command.payload),
 			});
 			const row = await trx
@@ -228,8 +229,7 @@ export async function writeTrapCommand(
 		case 'adultSurveillance.updateTrapConfiguration':
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				table: 'traps',
-				recordId: command.payload.trapId,
+				write: { kind: 'update', table: 'traps', recordId: command.payload.trapId },
 				references: surveillanceCatalogReferences(command.payload.changes),
 			});
 			return updateTrap(trx, command.payload.trapId, command.payload.organizationId, {

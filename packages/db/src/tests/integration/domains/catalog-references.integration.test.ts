@@ -27,6 +27,7 @@ describeDbIntegration('catalog reference gate', () => {
 			await expect(
 				assertCatalogReferences(db, {
 					organizationId: org,
+					write: { kind: 'create' },
 					references: [reference(methodId)],
 				}),
 			).resolves.toBeUndefined();
@@ -81,8 +82,7 @@ describeDbIntegration('catalog reference gate', () => {
 			await expect(
 				assertCatalogReferences(db, {
 					organizationId: org,
-					table: 'traps',
-					recordId: trapId,
+					write: { kind: 'update', table: 'traps', recordId: trapId },
 					references: [reference(methodId)],
 				}),
 			).resolves.toBeUndefined();
@@ -99,8 +99,7 @@ describeDbIntegration('catalog reference gate', () => {
 			await expect(
 				assertCatalogReferences(db, {
 					organizationId: org,
-					table: 'traps',
-					recordId: trapId,
+					write: { kind: 'update', table: 'traps', recordId: trapId },
 					references: [reference(retired)],
 				}),
 			).rejects.toBeInstanceOf(CatalogReferenceRefusedError);
@@ -114,6 +113,7 @@ describeDbIntegration('catalog reference gate', () => {
 			await expect(
 				assertCatalogReferences(db, {
 					organizationId: org,
+					write: { kind: 'create' },
 					references: [{ ...reference(''), id: null }],
 				}),
 			).resolves.toBeUndefined();
@@ -139,7 +139,11 @@ async function capture(
 	id: string,
 ): Promise<CatalogReferenceRefusedError | null> {
 	try {
-		await assertCatalogReferences(db, { organizationId, references: [reference(id)] });
+		await assertCatalogReferences(db, {
+			organizationId,
+			write: { kind: 'create' },
+			references: [reference(id)],
+		});
 		return null;
 	} catch (error) {
 		if (error instanceof CatalogReferenceRefusedError) {

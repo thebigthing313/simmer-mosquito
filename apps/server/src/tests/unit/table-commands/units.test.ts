@@ -20,6 +20,7 @@ import { unitTableCommands } from '../../../table-commands/units.js';
 
 const OPERATOR_USER = '11111111-1111-4111-8111-111111111111';
 const ROW = '22222222-2222-4222-8222-222222222222';
+const ORG = '33333333-3333-4333-8333-333333333333';
 
 const units = unitTableCommands(undefined as never);
 
@@ -120,8 +121,15 @@ function pgError(code: string): Error {
 	return Object.assign(new Error(`constraint violation ${code}`), { code });
 }
 
-/** A query chain that fails, whichever builder shape the writer reaches for. */
-function failingTransaction(error: unknown): CommandTransaction {
+/**
+ * A query chain that fails, whichever builder shape the writer reaches for.
+ *
+ * `selectFrom` is separate and does not fail, because the unit delete reads
+ * every agency's `unitDefaults` before it deletes (#131). `chosen` is what that
+ * read finds: false lets the delete statement run and raise the error under
+ * test, true is an agency holding the unit as a default.
+ */
+function failingTransaction(error: unknown, chosen = false): CommandTransaction {
 	const chain = {
 		values: () => chain,
 		set: () => chain,
@@ -130,27 +138,28 @@ function failingTransaction(error: unknown): CommandTransaction {
 		executeTakeFirst: () => Promise.reject(error),
 		executeTakeFirstOrThrow: () => Promise.reject(error),
 	};
-	// `selectFrom` answers empty rather than failing: the unit delete reads every
-	// agency's `unitDefaults` before it deletes (#131), and that read finding
-	// nothing is what lets the statement run and raise the error under test.
-	const emptySelect = {
-		select: () => emptySelect,
-		where: () => emptySelect,
-		limit: () => emptySelect,
-		execute: () => Promise.resolve([]),
-		executeTakeFirst: () => Promise.resolve(undefined),
+	const settingsRead = {
+		select: () => settingsRead,
+		where: () => settingsRead,
+		limit: () => settingsRead,
+		execute: () => Promise.resolve(chosen ? [{ id: ORG }] : []),
+		executeTakeFirst: () => Promise.resolve(chosen ? { id: ORG } : undefined),
 	};
 	return {
 		insertInto: () => chain,
 		updateTable: () => chain,
 		deleteFrom: () => chain,
-		selectFrom: () => emptySelect,
+		selectFrom: () => settingsRead,
 	} as unknown as CommandTransaction;
 }
 
-async function refusal(command: WritableCommand, error: unknown): Promise<unknown> {
+async function refusal(
+	command: WritableCommand,
+	error: unknown,
+	options: { readonly chosen?: boolean } = {},
+): Promise<unknown> {
 	return units.run
-		.write(failingTransaction(error), command as never)
+		.write(failingTransaction(error, options.chosen ?? false), command as never)
 		.catch((thrown: unknown) => thrown);
 }
 
@@ -209,5 +218,50 @@ describe('a unit write the database refuses', () => {
 		const dropped = new Error('connection terminated');
 
 		expect(await refusal(command, dropped)).toBe(dropped);
+	});
+});
+
+/**
+ * #131: a unit an agency has merely *chosen* has no foreign key to refuse it.
+ * Nine columns reference `units` by key and all nine are records; the agency's
+ * `unitDefaults` holds unit **codes in a JSON document**, so Postgres cannot
+ * help and the delete used to succeed with the agency's default naming nothing.
+ *
+ * The stub answers the settings read, so these test which answer the read
+ * produces rather than the SQL that produces it. The SQL is covered against
+ * Postgres by the delete-policy integration suite.
+ */
+describe('deleting a unit an agency has chosen as a default', () => {
+	it('answers 409 before the delete statement runs', async () => {
+		const command = build(units, 'foundation.deleteUnit', request({}));
+
+		const failure = await refusal(command, pgError('23503'), { chosen: true });
+
+		expect(failure).toBeInstanceOf(CommandError);
+		expect((failure as CommandError).status).toBe(409);
+		expect((failure as CommandError).body.error).toBe('unit_in_use');
+	});
+
+	it('says the same thing a foreign key would', async () => {
+		const command = build(units, 'foundation.deleteUnit', request({}));
+
+		const chosen = (await refusal(command, pgError('23503'), {
+			chosen: true,
+		})) as CommandError;
+		const referenced = (await refusal(command, pgError('23503'))) as CommandError;
+
+		// The operator is told the same thing either way. Which of the two rules
+		// caught it is ours to know and not theirs to act on.
+		expect(chosen.body).toEqual(referenced.body);
+	});
+
+	it('lets the delete through when no agency has chosen it', async () => {
+		const command = build(units, 'foundation.deleteUnit', request({}));
+
+		// `refusal` hands the delete a failure, so reaching it at all is the
+		// assertion: the settings check did not refuse first.
+		const failure = await refusal(command, new Error('reached the delete'));
+
+		expect(failure).toEqual(new Error('reached the delete'));
 	});
 });

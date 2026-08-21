@@ -226,7 +226,7 @@ which is the same check without the cascade and detach writes there is nothing
 for them to do. It takes a `DbExecutor`, so the writers in `packages/db` can
 call it without being retyped.
 
-The three operator-global catalogs — Unit, Genus, Species — cannot use the
+The three operator-global catalogs (Unit, Genus, Species) cannot use the
 registry, because every query in it scopes by `organization_id` and those rows
 have none. Their block counts across every agency, reports one total, and names
 no agency. `units` also carries a hand-written check against
@@ -240,15 +240,25 @@ refer to one. `packages/db/src/domains/catalog-references.ts` answers the second
 and shares the first's registry, so a catalog gets both directions or neither.
 
 `assertCatalogReferences` refuses a write naming a catalog row that is another
-agency's, soft-deleted, or inactive. Missing answers 404 and inactive 409;
+agency's, soft-deleted, or inactive. The body is
+`{ error: 'catalog_reference_refused', reason, catalog, message }`, where
+`reason` is `missing` or `inactive`. Missing answers 404 and inactive 409;
 missing does not distinguish "another agency's" from "no such row", because
 telling them apart would make the refusal a way to probe for ids.
 
-Pass `recordId` and the table on an update. The stored row is read once and any
-reference already holding that value is skipped, so only a reference whose value
+Pass `write: { kind: 'update', table, recordId }` on an update and
+`{ kind: 'create' }` on a create. The stored row is read once and any reference
+already holding that value is skipped, so only a reference whose value
 **changes** is gated and a historical record stays editable after its product
 retires. Gating on the payload id without that comparison refuses unchanged
-values, and nothing shows it until something is deactivated in production.
+values, and nothing shows it until something is deactivated in production. The
+two shapes are a union rather than optional fields for that reason.
+
+Every foreign key pointing at a catalog needs a rule, and
+`catalog-coverage.integration.test.ts` asks the live schema whether one exists.
+The registry is a hand-written list and cannot notice what it omits; a column
+added by a later `alter table` is invisible to anything reading the migration
+text, which is how `missions.notification_type_id` first got missed.
 
 Two references are deliberately not gated, both marked at the site: a habitat
 type copied from the Habitat being inspected, and a method the mission plan

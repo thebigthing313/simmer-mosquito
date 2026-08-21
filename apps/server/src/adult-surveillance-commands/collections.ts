@@ -509,8 +509,7 @@ export async function writeCollectionCommand(
 		case 'adultSurveillance.updateAdHocCollectionConfiguration':
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				table: 'collections',
-				recordId: command.payload.collectionId,
+				write: { kind: 'update', table: 'collections', recordId: command.payload.collectionId },
 				references: surveillanceCatalogReferences(command.payload.changes),
 			});
 			return updateCollection(trx, command.payload.collectionId, command.payload.organizationId, {
@@ -729,6 +728,7 @@ async function insertCollection(
 	// than on each caller.
 	await assertCatalogReferences(trx, {
 		organizationId: input.organizationId,
+		write: { kind: 'create' },
 		references: surveillanceCatalogReferences(input),
 	});
 

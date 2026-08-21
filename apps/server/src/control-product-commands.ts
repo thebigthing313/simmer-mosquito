@@ -547,6 +547,7 @@ async function createInsecticideBatch(
 ): Promise<InsecticideBatchRow> {
 	await assertCatalogReferences(db, {
 		organizationId: input.organizationId,
+		write: { kind: 'create' },
 		references: [
 			{
 				column: 'insecticide_id',

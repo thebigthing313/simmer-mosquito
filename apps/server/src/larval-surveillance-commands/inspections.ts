@@ -21,6 +21,7 @@ import {
 	type CommandContext,
 	commandEndpoint,
 	geojsonToGeom,
+	habitatTypeReferences,
 	hasInspectionResultFields,
 	type InspectionResultColumns,
 	type InspectionRow,
@@ -222,14 +223,8 @@ export async function writeInspectionCommand(
 		case 'larvalSurveillance.recordAdHocInspection': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				references: [
-					{
-						column: 'habitat_type_id',
-						catalog: 'habitatType',
-						id: command.payload.habitatTypeId ?? null,
-						label: 'habitat type',
-					},
-				],
+				write: { kind: 'create' },
+				references: habitatTypeReferences(command.payload),
 			});
 			const row = await trx
 				.insertInto('inspections')
@@ -264,19 +259,8 @@ export async function writeInspectionCommand(
 		case 'larvalSurveillance.updateAdHocInspectionLocation':
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				table: 'inspections',
-				recordId: command.payload.inspectionId,
-				references:
-					'habitatTypeId' in command.payload.changes
-						? [
-								{
-									column: 'habitat_type_id',
-									catalog: 'habitatType',
-									id: command.payload.changes.habitatTypeId ?? null,
-									label: 'habitat type',
-								},
-							]
-						: [],
+				write: { kind: 'update', table: 'inspections', recordId: command.payload.inspectionId },
+				references: habitatTypeReferences(command.payload.changes),
 			});
 			return updateInspection(trx, command.payload.inspectionId, command.payload.organizationId, {
 				...(command.payload.changes.locationSource !== undefined
@@ -353,6 +337,8 @@ async function recordInspectionForStop(
 	// habitatId at all and cannot disagree with the stop.
 	const habitatId = payload.habitatId ?? stop.entityId;
 	const snapshot = await loadHabitatSnapshot(trx, payload.organizationId, habitatId);
+	// Same inherited habitat type as `recordHabitatInspection`, and ungated for
+	// the same reason: it is a copy of the Habitat's own type, not a choice.
 	const row = await trx
 		.insertInto('inspections')
 		.values({

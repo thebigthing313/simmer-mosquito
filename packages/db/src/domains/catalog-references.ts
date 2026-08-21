@@ -3,7 +3,7 @@ import { type RawBuilder, sql } from 'kysely';
 import type { DbExecutor } from '../index.js';
 import { type DeletableRecordType, deletableRecordTable } from './record-deletion.js';
 
-/**
+/*
  * May this catalog row be referenced right now?
  *
  * The forward half of the question `record-deletion.ts` asks backwards. A
@@ -12,37 +12,42 @@ import { type DeletableRecordType, deletableRecordTable } from './record-deletio
  * share a module boundary and a registry rather than being a delete fix plus
  * `is_active` checks written writer by writer.
  *
- * A row qualifies when all three hold:
- *
- * - it belongs to the writing agency,
- * - it is not soft-deleted,
- * - it is active.
+ * A row qualifies when all three hold: it belongs to the writing agency, it is
+ * not soft-deleted, and it is active.
  *
  * The first two used to be nobody's job. A foreign key satisfies itself on the
  * row existing anywhere, so it cannot see `organization_id` and cannot see
  * `deleted_at`; the third was never checked at all, and Deactivate meant only
  * that the client-side pickers stopped offering the row.
- *
- * The refusal does not distinguish a missing row from another agency's, because
- * telling them apart would turn this into a way to probe for ids.
  */
-export type CatalogRecordType = Extract<
-	DeletableRecordType,
-	| 'collectionMethod'
-	| 'collectionLure'
-	| 'habitatType'
-	| 'applicationMethod'
-	| 'sourceReductionMethod'
-	| 'outreachMethod'
-	| 'biocontrolMethod'
-	| 'vehicle'
-	| 'equipment'
-	| 'insecticide'
-	| 'insecticideBatch'
-	| 'formulation'
-	| 'notificationType'
-	| 'tag'
->;
+
+/** The catalogs, as data: the coverage test walks this list. */
+const CATALOG_RECORD_TYPES = [
+	'collectionMethod',
+	'collectionLure',
+	'habitatType',
+	'applicationMethod',
+	'sourceReductionMethod',
+	'outreachMethod',
+	'biocontrolMethod',
+	'vehicle',
+	'equipment',
+	'insecticide',
+	'insecticideBatch',
+	'formulation',
+	'notificationType',
+	'tag',
+] as const satisfies readonly DeletableRecordType[];
+
+export type CatalogRecordType = (typeof CATALOG_RECORD_TYPES)[number];
+
+/**
+ * `catalog-coverage.integration.test.ts` walks this to ask the live schema
+ * whether every foreign key pointing at a catalog has a rule.
+ */
+export function catalogRecordTypes(): readonly CatalogRecordType[] {
+	return CATALOG_RECORD_TYPES;
+}
 
 export type CatalogReferenceReason = 'missing' | 'inactive';
 
@@ -80,18 +85,26 @@ interface CatalogRowState {
 }
 
 /**
- * Refuse a write that names a catalog row it may not use.
+ * Which write this is.
  *
- * Pass `recordId` on an update and omit it on a create. On an update the stored
- * row is read once and any reference already holding that value is skipped, so
- * a full-record PATCH against a historical record stays editable after its
- * product retires. Only a reference whose value **changes** is gated, which is
+ * A create gates every reference it names. An update reads the stored row and
+ * gates only the references whose value **changes**, so a full-record PATCH
+ * against a historical record stays editable after its product retires. That is
  * the difference between "you may not start using this" and "you may never
  * touch this record again".
  *
- * A caller that gates on the payload id without this comparison will refuse
- * unchanged values, and nothing will show it until something is deactivated in
+ * The two carry different data, so they are a union rather than a pair of
+ * optional fields. Optional fields let a caller pass the table and forget the
+ * id, and the gate would quietly fall back to gating unchanged values, which is
+ * the one failure here that shows up only once something is deactivated in
  * production.
+ */
+export type CatalogWrite =
+	| { readonly kind: 'create' }
+	| { readonly kind: 'update'; readonly table: string; readonly recordId: string };
+
+/**
+ * Refuse a write that names a catalog row it may not use.
  *
  * @throws CatalogReferenceRefusedError on the first reference that fails.
  */
@@ -99,9 +112,7 @@ export async function assertCatalogReferences(
 	db: DbExecutor,
 	input: {
 		readonly organizationId: string;
-		/** The table being written, needed only to read the stored row. */
-		readonly table?: string;
-		readonly recordId?: string | undefined;
+		readonly write: CatalogWrite;
 		readonly references: readonly CatalogReference[];
 	},
 ): Promise<void> {
@@ -111,9 +122,15 @@ export async function assertCatalogReferences(
 	}
 
 	const unchanged =
-		input.recordId === undefined || input.table === undefined
+		input.write.kind === 'create'
 			? new Set<string>()
-			: await readStoredReferences(db, input.table, input.recordId, input.organizationId, named);
+			: await readStoredReferences(
+					db,
+					input.write.table,
+					input.write.recordId,
+					input.organizationId,
+					named,
+				);
 
 	const changed = named.filter((reference) => !unchanged.has(reference.column));
 	if (changed.length === 0) {

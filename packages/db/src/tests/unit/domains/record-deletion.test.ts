@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	catalogRecordTypes,
 	deletableRecordLabel,
 	deletableRecordTypes,
 	deleteReferenceScopes,
@@ -58,23 +59,12 @@ const EXPECTED_TYPES = [
  * A catalog row is deletable only while nothing refers to it, so every one of
  * its rules blocks. A cascade or a detach here would mean a delete rewriting
  * records that name the row, which is what Deactivate exists to avoid.
+ *
+ * Read from `catalogRecordTypes()` rather than restated: the gate and the
+ * registry share that list, and a second copy here could disagree with it while
+ * both stayed green.
  */
-const CATALOG_TYPES = [
-	'applicationMethod',
-	'biocontrolMethod',
-	'collectionLure',
-	'collectionMethod',
-	'equipment',
-	'formulation',
-	'habitatType',
-	'insecticide',
-	'insecticideBatch',
-	'notificationType',
-	'outreachMethod',
-	'sourceReductionMethod',
-	'tag',
-	'vehicle',
-] as const;
+const CATALOG_TYPES = catalogRecordTypes();
 
 describe('deletable record registry', () => {
 	it('accepts exactly the record types it declares', () => {

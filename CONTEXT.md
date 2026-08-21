@@ -17,7 +17,7 @@ domain doc instead of expanding this file.
 | **Global Taxonomy** | SIMMER-controlled mosquito genus/species vocabulary shared across agencies. | agency species list |
 | **Organization Species** | Agency-selected subset of global species available for new data entry. | enabled species, species setting |
 | **Organization Lookup** | Agency-owned catalog value used to configure surveillance or control workflows. | dropdown option, enum |
-| **Delete** | Removing a record that should never have existed. Refused while any live record refers to it. | archive, remove, retire |
+| **Delete** | Removing a record that should never have existed. Refused while any live record refers to it. | archive, retire, purge |
 | **Deactivate** | Retiring a record that should not be referred to from now on. Leaves records that already name it alone. | delete, disable, archive |
 
 ## Workflow language

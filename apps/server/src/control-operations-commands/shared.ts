@@ -65,6 +65,7 @@ export async function insertApplicationBatch(
 ): Promise<ApplicationBatchRow> {
 	await assertCatalogReferences(trx, {
 		organizationId: input.organizationId,
+		write: { kind: 'create' },
 		references: [
 			{
 				column: 'insecticide_batch_id',

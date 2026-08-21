@@ -310,6 +310,7 @@ async function writeMissionApplication(
 	const stop = await beginMissionExecution(trx, payload, 'chemicalApplication');
 	await assertCatalogReferences(trx, {
 		organizationId: payload.organizationId,
+		write: { kind: 'create' },
 		references: applicationCatalogReferences(payload),
 	});
 	const ids = contextIds(payload.context ?? { kind: 'none' });
@@ -318,6 +319,9 @@ async function writeMissionApplication(
 		.values({
 			id: payload.applicationId,
 			organization_id: payload.organizationId,
+			// `defaultMissionMethodId` falls back to the method the mission plan
+			// named. Only the payload's own id is gated, above: a plan's method is
+			// not a new choice.
 			application_method_id: defaultMissionMethodId(payload.applicationMethodId, stop),
 			insecticide_id: payload.insecticideId,
 			applicator_profile_id: payload.applicatorProfileId,
@@ -361,6 +365,7 @@ export async function writeApplicationCommand(
 		case 'controlOperations.recordChemicalApplication': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
 				references: applicationCatalogReferences(command.payload),
 			});
 			const ids = contextIds(command.payload.context);
@@ -410,8 +415,7 @@ export async function writeApplicationCommand(
 			const changes = command.payload.changes;
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				table: 'applications',
-				recordId: command.payload.applicationId,
+				write: { kind: 'update', table: 'applications', recordId: command.payload.applicationId },
 				references: applicationCatalogReferences(changes),
 			});
 			return updateApplication(trx, command.payload.applicationId, command.payload.organizationId, {

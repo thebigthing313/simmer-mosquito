@@ -824,7 +824,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 	// a Batch stopped it. One row per refusal is worth the second click.
 	//
 	// The registry cannot express the same rule for the three operator-global
-	// catalogs — Unit, Genus, Species — because every query here scopes by
+	// catalogs (Unit, Genus, Species), because every query here scopes by
 	// `organization_id` and those rows have none. Their block counts across
 	// every agency and lives with the operator commands.
 	// -------------------------------------------------------------------------
@@ -1033,6 +1033,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'sent notification',
 				'sent notifications',
 			),
+			blocks('notificationTypeMissions', 'missions', 'notification_type_id', 'mission', 'missions'),
 		],
 	},
 

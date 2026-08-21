@@ -108,6 +108,7 @@ export async function writeFormulationInsecticideCommand(
 		case 'controlOperations.addFormulationInsecticide': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
 				references: [
 					{
 						column: 'formulation_id',
@@ -142,8 +143,11 @@ export async function writeFormulationInsecticideCommand(
 		case 'controlOperations.updateFormulationInsecticide': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				table: 'formulation_insecticides',
-				recordId: command.payload.formulationInsecticideId,
+				write: {
+					kind: 'update',
+					table: 'formulation_insecticides',
+					recordId: command.payload.formulationInsecticideId,
+				},
 				references:
 					'insecticideId' in command.payload.changes
 						? [

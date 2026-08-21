@@ -278,12 +278,8 @@ async function writeMissionSourceReduction(
 	// the payload names is gated.
 	await assertCatalogReferences(trx, {
 		organizationId: payload.organizationId,
-		references: methodReference(
-			'source_reduction_method_id',
-			'sourceReductionMethod',
-			'source reduction method',
-			payload.sourceReductionMethodId,
-		),
+		write: { kind: 'create' },
+		references: methodReferences('sourceReduction', payload.sourceReductionMethodId),
 	});
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
@@ -322,12 +318,8 @@ async function writeMissionOutreachAction(
 	// the payload names is gated.
 	await assertCatalogReferences(trx, {
 		organizationId: payload.organizationId,
-		references: methodReference(
-			'outreach_method_id',
-			'outreachMethod',
-			'outreach method',
-			payload.outreachMethodId,
-		),
+		write: { kind: 'create' },
+		references: methodReferences('outreach', payload.outreachMethodId),
 	});
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
@@ -365,12 +357,8 @@ async function writeMissionBiocontrolAction(
 	// the payload names is gated.
 	await assertCatalogReferences(trx, {
 		organizationId: payload.organizationId,
-		references: methodReference(
-			'biocontrol_method_id',
-			'biocontrolMethod',
-			'biocontrol method',
-			payload.biocontrolMethodId,
-		),
+		write: { kind: 'create' },
+		references: methodReferences('biocontrol', payload.biocontrolMethodId),
 	});
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
@@ -408,16 +396,34 @@ async function writeMissionBiocontrolAction(
 /**
  * The one catalog each performed action names: its method.
  *
- * The three action types differ only in the column, the catalog, and the noun,
- * so they share a builder rather than three near-identical blocks.
+ * The three action kinds differ only in the column, the catalog, and the noun.
+ * Naming them once here rather than passing three strings at each of the nine
+ * call sites keeps the trio from being retyped, and in an order that would
+ * still compile if two of them were swapped.
  */
-function methodReference(
-	column: string,
-	catalog: CatalogRecordType,
-	label: string,
-	id: string | null | undefined,
-): CatalogReference[] {
-	return [{ column, catalog, id: id ?? null, label }];
+const ACTION_METHODS = {
+	sourceReduction: {
+		column: 'source_reduction_method_id',
+		catalog: 'sourceReductionMethod',
+		label: 'source reduction method',
+	},
+	outreach: {
+		column: 'outreach_method_id',
+		catalog: 'outreachMethod',
+		label: 'outreach method',
+	},
+	biocontrol: {
+		column: 'biocontrol_method_id',
+		catalog: 'biocontrolMethod',
+		label: 'biocontrol method',
+	},
+} as const satisfies Record<string, Omit<CatalogReference, 'id'>>;
+
+type ActionKind = keyof typeof ACTION_METHODS;
+
+/** The method reference for one action kind, or none when no id was named. */
+function methodReferences(kind: ActionKind, id: string | null | undefined): CatalogReference[] {
+	return [{ ...ACTION_METHODS[kind], id: id ?? null }];
 }
 
 export async function writeSourceReductionCommand(
@@ -428,12 +434,8 @@ export async function writeSourceReductionCommand(
 		case 'controlOperations.recordSourceReduction': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				references: methodReference(
-					'source_reduction_method_id',
-					'sourceReductionMethod',
-					'source reduction method',
-					command.payload.sourceReductionMethodId,
-				),
+				write: { kind: 'create' },
+				references: methodReferences('sourceReduction', command.payload.sourceReductionMethodId),
 			});
 			const ids = contextIds(command.payload.context);
 			const row = await trx
@@ -468,16 +470,14 @@ export async function writeSourceReductionCommand(
 		case 'controlOperations.updateSourceReductionFieldDetails': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				table: 'source_reductions',
-				recordId: command.payload.sourceReductionId,
+				write: {
+					kind: 'update',
+					table: 'source_reductions',
+					recordId: command.payload.sourceReductionId,
+				},
 				references:
 					'sourceReductionMethodId' in command.payload.changes
-						? methodReference(
-								'source_reduction_method_id',
-								'sourceReductionMethod',
-								'source reduction method',
-								command.payload.changes.sourceReductionMethodId,
-							)
+						? methodReferences('sourceReduction', command.payload.changes.sourceReductionMethodId)
 						: [],
 			});
 			const changes = command.payload.changes;
@@ -659,12 +659,8 @@ export async function writeOutreachActionCommand(
 		case 'controlOperations.recordOutreachAction': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				references: methodReference(
-					'outreach_method_id',
-					'outreachMethod',
-					'outreach method',
-					command.payload.outreachMethodId,
-				),
+				write: { kind: 'create' },
+				references: methodReferences('outreach', command.payload.outreachMethodId),
 			});
 			const ids = contextIds(command.payload.context);
 			const row = await trx
@@ -698,16 +694,14 @@ export async function writeOutreachActionCommand(
 		case 'controlOperations.updateOutreachActionFieldDetails': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				table: 'outreach_actions',
-				recordId: command.payload.outreachActionId,
+				write: {
+					kind: 'update',
+					table: 'outreach_actions',
+					recordId: command.payload.outreachActionId,
+				},
 				references:
 					'outreachMethodId' in command.payload.changes
-						? methodReference(
-								'outreach_method_id',
-								'outreachMethod',
-								'outreach method',
-								command.payload.changes.outreachMethodId,
-							)
+						? methodReferences('outreach', command.payload.changes.outreachMethodId)
 						: [],
 			});
 			const changes = command.payload.changes;
@@ -889,12 +883,8 @@ export async function writeBiocontrolActionCommand(
 		case 'controlOperations.recordBiocontrolAction': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				references: methodReference(
-					'biocontrol_method_id',
-					'biocontrolMethod',
-					'biocontrol method',
-					command.payload.biocontrolMethodId,
-				),
+				write: { kind: 'create' },
+				references: methodReferences('biocontrol', command.payload.biocontrolMethodId),
 			});
 			const ids = contextIds(command.payload.context);
 			const row = await trx
@@ -929,16 +919,14 @@ export async function writeBiocontrolActionCommand(
 		case 'controlOperations.updateBiocontrolActionFieldDetails': {
 			await assertCatalogReferences(trx, {
 				organizationId: command.payload.organizationId,
-				table: 'biocontrol_actions',
-				recordId: command.payload.biocontrolActionId,
+				write: {
+					kind: 'update',
+					table: 'biocontrol_actions',
+					recordId: command.payload.biocontrolActionId,
+				},
 				references:
 					'biocontrolMethodId' in command.payload.changes
-						? methodReference(
-								'biocontrol_method_id',
-								'biocontrolMethod',
-								'biocontrol method',
-								command.payload.changes.biocontrolMethodId,
-							)
+						? methodReferences('biocontrol', command.payload.changes.biocontrolMethodId)
 						: [],
 			});
 			const changes = command.payload.changes;
