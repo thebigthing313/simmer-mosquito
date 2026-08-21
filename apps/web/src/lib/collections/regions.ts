@@ -8,7 +8,7 @@
 
 import { createRegionsCollection, type Region } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: Boundaries are large and numerous; the map and the region filter ask for the
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const regions: Collection<Region, string | number> = createRegionsCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'on-demand',
 	mutations: true,
 });

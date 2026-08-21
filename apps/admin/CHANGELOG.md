@@ -1,5 +1,17 @@
 # @simmer-mosquito/admin
 
+## 0.4.0 — 2026-08-21
+
+### Minor Changes
+
+- Added: A page that fails to load now reports what broke, in a panel beside the navigation you were using, instead of a bare block of text with nothing to act on.
+
+### Patch Changes
+
+- Fixed: An invitation that cannot be sent now says which of three things went wrong, in SIMMER's words. It used to repeat whatever sentence the sign-in service wrote, which was a string nobody here controls.
+
+- Fixed: Inviting somebody no longer reports a failure after their email has already gone out.
+
 ## 0.3.0 — 2026-08-21
 
 ### Minor Changes

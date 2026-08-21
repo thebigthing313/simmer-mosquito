@@ -10,13 +10,11 @@ operation: *this is what I intended to do*, and the server decides whether to do
 it. A client never states which tables a write touches, in what order, or
 whether a second system is involved.
 
-Identity is most of the way there. ADR 0013 decided that profiles, memberships
-and the agency's own details become commands too, and its first slice moved the
-three that touch Postgres and nothing else: `identity.updateOrganizationDetails`,
-`identity.createProfile`, `identity.updateProfile`. Four surfaces are still REST
-with their own floors in `apps/server/src/roles.ts`: `people.listMemberships`,
-which is a read behind a POST and never becomes a command, and the three that
-span WorkOS.
+Identity is there. ADR 0013 decided that profiles, memberships and the agency's
+own details become commands too, and every one of them is: three that touch
+Postgres and nothing else, and four on `/commands/memberships` that also settle
+WorkOS. One surface is still REST and always will be —
+`people.listMemberships`, which is a read behind a POST.
 
 ## Command shape
 
@@ -59,7 +57,7 @@ PATCH  /commands/habitats/{id}   { intents: ['larvalSurveillance.updateHabitatDe
 DELETE /commands/habitats/{id}   { intents: ['larvalSurveillance.deleteHabitat'] }
 ```
 
-Fifty-three tables are served this way, carrying 268 of the 277 names in the
+Fifty-four tables are served this way, carrying 272 of the 281 names in the
 vocabulary. The modules are `apps/server/src/table-commands/`, one per table or
 per group of tables written together, and `dispatch.ts` is the mechanism they
 share. Both the server and the client derive the path from `commandPathFor` in
@@ -313,9 +311,21 @@ itself.
 Most commands commit in one Kysely transaction, including the three identity
 commands ADR 0013's first slice moved, which write Postgres and nothing else.
 Four others cannot, because the grant a session is refreshed against lives in
-WorkOS rather than in Postgres: inviting somebody, re-inviting them, changing a
-role, and ending a membership. ADR 0013 admits these to the vocabulary under six
-rules.
+WorkOS rather than in Postgres: `identity.invite`, `identity.reinvite`,
+`identity.changeRole` and `identity.endMembership`. ADR 0013 admits these to the
+vocabulary under seven rules.
+
+All four are on `/commands/memberships`, and what carries the WorkOS half is
+`run.secondSystem` on that table alone: a `before` the command runner calls
+ahead of the transaction, and an `after` it calls once that has committed. Which
+hook a command uses is which side of the write its second system belongs on, so
+the ordering rule below is the shape of the code rather than a comment beside
+it. Nothing WorkOS-shaped runs inside the transaction.
+
+`identity.reinvite` is both sides at once and sits in `after`, because the
+refusal that matters to it is the Postgres one: a Membership that is not holding
+an invitation answers 409, and revoking ahead of that would kill a live link for
+a command that never happened.
 
 - **Postgres orders the write.** The row is written first on a create and last
   on a revoke. Revoking in Postgres first leaves somebody who reads as removed
@@ -344,6 +354,26 @@ rules.
   overwrites a Membership that is already invited, revokes the WorkOS invitation
   it replaces, and is reached from the invited row rather than from the invite
   dialog. Splitting them is what lets the minted id mean one thing.
+
+- **Replacing a grant revokes before it issues.** The second system decides
+  whether it will hold two of a thing at once, and WorkOS will not: one
+  invitation per address per organization, and a send while one is pending is
+  refused. `identity.reinvite` sent first and revoked last, which read as the
+  safe order and was in fact an order in which the command could never succeed
+  (#218), because the only rows the command is offered on are the rows holding an
+  invitation. So the revoke goes first.
+
+  What that costs is a window where the person holds no grant at all: the old one
+  is gone and the new one has not issued. Nothing closes it. A restore is another
+  call that can fail the same way, and the failure it is restoring from is usually
+  the second system being unreachable. What is owed instead is two things. The row
+  must end saying only what the second system actually finished, which for a
+  re-invitation means clearing `workos_invitation_id` the moment the revoke lands,
+  so a retry finds nothing to revoke and the Membership never names a dead link.
+  And the failure must be legible: one server log line naming the row, the agency
+  and the grant that was revoked, because no screen shows the difference between
+  "the re-invitation failed" and "the re-invitation failed and took their link
+  with it".
 
 - **No optimistic row for the half the client cannot see.** Apply optimistically
   to what the command fully determines; never invent a status only the second

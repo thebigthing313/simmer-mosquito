@@ -1,4 +1,5 @@
 import { OutletContentFallback } from '@simmer-mosquito/ui-web/components/app-shell';
+import { RouteErrorPage } from '@simmer-mosquito/ui-web/components/error-report';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode, useSyncExternalStore } from 'react';
@@ -38,6 +39,9 @@ const router = createRouter({
 	// collections renders this fallback inside the shell rather than blanking the
 	// console. See the longer note on the same line in apps/web's main.tsx.
 	defaultPendingComponent: OutletContentFallback,
+	// Every route that does not name its own error component falls here. See the
+	// longer note on the same line in apps/web's main.tsx.
+	defaultErrorComponent: (props) => <RouteErrorPage {...props} version={__APP_VERSION__} />,
 });
 
 declare module '@tanstack/react-router' {

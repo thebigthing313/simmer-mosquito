@@ -41,7 +41,7 @@
  * state code.
  */
 
-import type { SafeAddress } from '@simmer-mosquito/db';
+import type { AddressRow } from '@simmer-mosquito/db';
 import {
 	createAddressCommand,
 	deleteAddressCommand,
@@ -53,26 +53,15 @@ import {
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { writeAddressCommand } from '../foundation-commands/addresses.js';
-import { toAddressResponse } from '../foundation-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, readIdList } from './shared.js';
 
-type AddressResponse = ReturnType<typeof toAddressResponse>;
-
-export function addressTableCommands(
-	db: CommandDb,
-): TableCommands<FoundationCommand, AddressResponse> {
+export function addressTableCommands(db: CommandDb): TableCommands<FoundationCommand, AddressRow> {
 	return {
 		table: 'addresses',
 		run: {
 			db,
-			// The response shape is chosen here rather than in the writer, so the
-			// writer keeps returning `SafeAddress | null` and the 404 still keys off a
-			// null row.
-			write: async (trx, command) => {
-				const row: SafeAddress | null = await writeAddressCommand(trx, command);
-				return row === null ? null : toAddressResponse(row);
-			},
+			write: writeAddressCommand,
 			notFound: 'address_not_found',
 			key: 'address',
 		},

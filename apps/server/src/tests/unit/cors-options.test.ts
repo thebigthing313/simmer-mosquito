@@ -182,7 +182,7 @@ function registeredRoutes(): [string, string][] {
 		appOrigin: TEST_ORIGIN,
 		finalizeSession: (async () => ({ organizationRequired: false })) as never,
 	});
-	registerProfileCommandRoutes(app, { db, auth: {} as never, authContextMiddleware });
+	registerProfileCommandRoutes(app, { db, authContextMiddleware });
 	registerOrganizationSettingsCommandRoutes(app, { db, authContextMiddleware });
 	// The `/commands/{table}` surface. Registered here from the day it existed
 	// would have caught its own omission: it had no CORS prefix at all, which is
@@ -190,6 +190,7 @@ function registeredRoutes(): [string, string][] {
 	// write everywhere the SPA and the API are separate hosts.
 	registerTableCommandSurface(app, {
 		db,
+		auth: {} as never,
 		authContextMiddleware,
 		operatorAuthContextMiddleware: authContextMiddleware,
 	});

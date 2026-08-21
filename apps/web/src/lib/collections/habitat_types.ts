@@ -8,7 +8,7 @@
 
 import { createHabitatTypesCollection, type HabitatType } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: The habitat catalogue, read by every habitat form, card and filter.
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  */
 export const habitat_types: Collection<HabitatType, string | number> = createHabitatTypesCollection(
 	{
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'eager',
 		mutations: true,
 	},

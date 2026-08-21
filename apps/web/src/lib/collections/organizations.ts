@@ -8,7 +8,7 @@
 
 import { createOrganizationsCollection, type Organization } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: The agency's own record. One row, and the shell reads it before anything
@@ -27,7 +27,7 @@ import { getServerUrl } from '../../auth';
  */
 export const organizations: Collection<Organization, string | number> =
 	createOrganizationsCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'eager',
 		mutations: true,
 	});

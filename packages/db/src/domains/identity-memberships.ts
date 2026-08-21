@@ -728,6 +728,30 @@ export async function stampOrganizationInvitation(
 	return selectSafeOrganizationMembership(db, updated.id);
 }
 
+/**
+ * Forget the invitation a Membership names, once WorkOS no longer holds it.
+ *
+ * `identity.reinvite` revokes the invitation it replaces before mailing the
+ * replacement, and between those two calls the column names a link that is dead.
+ * Nulling it is what keeps the row saying only what WorkOS actually finished: a
+ * Membership at `invited` with no `workos_invitation_id` is #207's shape already,
+ * and every path reads it as nothing to revoke.
+ *
+ * Scoped by organization for the same reason the stamp is.
+ */
+export async function clearOrganizationInvitationStamp(
+	db: Kysely<SimmerDatabase>,
+	input: { readonly id: string; readonly organizationId: string },
+): Promise<void> {
+	await db
+		.updateTable('memberships')
+		.set({ workos_invitation_id: null, updated_at: sql`now()` })
+		.where('id', '=', input.id)
+		.where('organization_id', '=', input.organizationId)
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+}
+
 async function readCurrentTransactionId(db: IdentityDbExecutor): Promise<number> {
 	const result = await sql<{
 		txid: string;

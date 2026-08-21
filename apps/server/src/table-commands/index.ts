@@ -25,6 +25,7 @@
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import type { CommandDb } from '../command-write.js';
+import type { MembershipAuth } from '../membership-commands.js';
 import { additionalPersonnelTableCommands } from './additional-personnel.js';
 import { addressTableCommands } from './addresses.js';
 import { applicationBatchTableCommands, applicationTableCommands } from './applications.js';
@@ -50,6 +51,7 @@ import {
 import { type AnyTableCommands, registerTableCommandRoutes } from './dispatch.js';
 import { habitatTableCommands } from './habitats.js';
 import { inspectionTableCommands } from './inspections.js';
+import { membershipTableCommands } from './memberships.js';
 import { missionItemTableCommands } from './mission-items.js';
 import { missionTableCommands } from './missions.js';
 import {
@@ -90,13 +92,15 @@ import { weatherStationTableCommands, weatherSummaryTableCommands } from './weat
  * A list rather than a sequence of registration calls, so something other than
  * the router can walk it. The test that every intent a table declares is one its
  * writer actually handles is the reason: `moveMissionItems` is a command on the
- * `missions` table whose renumbering lives beside the stop writes, and when the
+ * `missions` table whose stop writes live in `mission-items.ts`, and when the
  * two disagreed the surface answered 500 with nothing to say why.
  */
 export function tableCommandSpecs(
 	db: CommandDb,
+	/** Only `memberships` uses it — the four commands that also settle WorkOS. */
+	auth: MembershipAuth,
 	// biome-ignore lint/suspicious/noExplicitAny: each table names its own command
-	// union and its own safe row; the list is heterogeneous by construction and
+	// union and its own row type; the list is heterogeneous by construction and
 	// only the shared `table`/`run`/`intents` shape is ever read off it.
 ): readonly AnyTableCommands<any, any>[] {
 	return [
@@ -137,9 +141,11 @@ export function tableCommandSpecs(
 		organizationSpeciesTableCommands(db),
 		addressTableCommands(db),
 		// The agency's own row and its people. Identity, and commands since ADR
-		// 0013. The four that span WorkOS are still REST.
+		// 0013 — including the four that also settle WorkOS, which is what
+		// `memberships` carries and no other table does.
 		organizationTableCommands(db),
 		profileTableCommands(db),
+		membershipTableCommands(db, auth),
 		// The stations an agency reads weather at, and the buckets it records.
 		// The spreadsheet import is not here: it is station-scoped and answers
 		// per-row results, so it has its own route in `weather-commands/import.ts`.
@@ -169,12 +175,14 @@ export function registerTableCommandSurface(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: {
 		readonly db: CommandDb;
+		/** Required only by `memberships` — see `membership-commands.ts`. */
+		readonly auth: MembershipAuth;
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 		/** Required only by the global catalogs — see `taxonomy.ts`. */
 		readonly operatorAuthContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
 ): void {
-	for (const spec of tableCommandSpecs(options.db)) {
+	for (const spec of tableCommandSpecs(options.db, options.auth)) {
 		registerTableCommandRoutes(app, options, spec);
 	}
 }

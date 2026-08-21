@@ -8,7 +8,7 @@
 
 import { createInsecticideBatchesCollection, type InsecticideBatch } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: One row per batch received, so it accumulates over seasons.
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  */
 export const insecticide_batches: Collection<InsecticideBatch, string | number> =
 	createInsecticideBatchesCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'on-demand',
 		mutations: true,
 	});

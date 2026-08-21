@@ -4,22 +4,39 @@ Date: 2026-08-18
 
 ## Status
 
-Accepted, and **half built** as of 2026-08-20.
+Accepted, and **built** as of 2026-08-21.
 
 Slices 1 and 2 landed (#168). `SimmerRole` has one declaration, in
 `packages/domain`. The three writes that touch Postgres and nothing else are
 commands: `identity.updateOrganizationDetails`, `identity.createProfile`,
 `identity.updateProfile`, with the floors they had in `IDENTITY_FLOORS`
-carried into `COMMAND_PERMISSIONS` unchanged. `profiles` and `organizations`
-are on the per-table write surface and their collections are back to
-`mutations: true`.
+carried into `COMMAND_PERMISSIONS` unchanged.
 
-Slice 3 is #186: `people.changeRole`, `people.endMembership` and
-`people.invite`, blocked on whether an invitation can carry a
-client-generated membership id. Those three and `people.listMemberships` are
-still REST routes with floors in `IDENTITY_FLOORS`, reached through
-`hooks/mutations/rest-writes.ts`, so "The three that span WorkOS" below
-still describes work rather than code.
+Slice 3 landed in #204, and the invitation question #186 held is answered:
+the client mints both ids. The four that span WorkOS are
+`identity.invite`, `identity.reinvite`, `identity.changeRole` and
+`identity.endMembership`, all on `/commands/memberships`. The namespace is
+`identity.*` throughout — the `people.*` names below and in the older issues
+were never shipped. `IdentityWriteSurface`, `IDENTITY_FLOORS` and
+`denyIdentityWrite` are gone, `lib/identity-api.ts` with them, and all three
+identity collections are `mutations: true`.
+
+**A fourth spanning command exists that this ADR does not name.**
+`identity.reinvite` is #186's answer to a question the ADR left open: a second
+`identity.invite` is a retry to swallow, and a deliberate redo cannot be told
+from one by any key, so the redo is its own command. See
+`docs/domain-command-contract.md`, "Commands that span two systems", for the
+six rules the four ship under — the four rules below are the ADR's original
+statement of them, and the doc is the current one.
+
+`hooks/mutations/rest-writes.ts` survives, against what "Consequences" says
+below. It has one caller left, and it is not identity: the seven
+`organizationSettings.*` routes need the same optimistic-row-and-txid
+machinery and are not on the per-table surface either.
+
+`people.listMemberships` is still `POST /organization/memberships/list`, with
+a plain admin check on its own route. It is a read behind a POST, and reads
+have never been commands. Nothing in `apps/web` calls it.
 
 Supersedes the reasoning recorded in `IdentityWriteSurface`
 (`apps/server/src/roles.ts`), which this ADR corrects rather than reverses.
@@ -55,6 +72,11 @@ That is true of one of the seven. Checked against the code:
 | `people.changeRole` | yes | setting a role is idempotent | n/a |
 | `people.endMembership` | yes | ending an ended one is a no-op | n/a |
 | `people.invite` | yes | **no**: a replay is a second invitation | no |
+
+The last row is what #186 answered, and the answer changed it: a replay is a
+second invitation only while the server keys the row. With the client minting
+the Membership id and the Profile id, a replay collides on the primary key and
+the server hands back the row already there.
 
 `createHistoricalProfileWithTxid` is a plain insert with `user_id: null`.
 `PATCH /organization/current` is a plain update. Neither has ever touched
@@ -155,8 +177,9 @@ re-exports it, and `sync` dropped its copy because sync must not depend on
 domain. The ranking stays in `apps/server/src/roles.ts`, which is where
 authorization is decided.
 
-`rest-writes.ts` and `lib/identity-api.ts` are deleted once the last surface
-moves. `lib/collections/profiles.ts` and `organizations.ts` go back to
+`lib/identity-api.ts` is deleted once the last surface moves, and
+`rest-writes.ts` with it — except that it turned out to have a caller that is
+not identity at all. See the status note above. `lib/collections/profiles.ts` and `organizations.ts` go back to
 `mutations: true`, because `/commands/profiles` and `/commands/organizations`
 will exist.
 

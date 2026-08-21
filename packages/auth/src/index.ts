@@ -738,7 +738,48 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 				updatedAt: invitation.updatedAt,
 			};
 		},
+
+		/**
+		 * Kill an invitation link.
+		 *
+		 * `identity.reinvite` is the only caller, and it calls this before the send
+		 * on purpose: WorkOS holds one invitation per address per organization and
+		 * refuses a second while one is pending, so a re-invitation that sent first
+		 * could not succeed at all (#218). `docs/identity-domain.md` states the
+		 * ordering and what it costs.
+		 *
+		 * An invitation that is already accepted, expired or revoked answers
+		 * `already_settled` rather than throwing. WorkOS refuses to revoke one, and
+		 * so would a second run of the same re-invitation — which is a retry, not a
+		 * failure. Anything else propagates: a revoke that failed for a reason
+		 * nobody named leaves a live link, and that should be visible.
+		 */
+		async revokeInvitation(
+			invitationId: string,
+		): Promise<{ readonly status: 'revoked' | 'already_settled' }> {
+			try {
+				await workos.userManagement.revokeInvitation(invitationId);
+				return { status: 'revoked' };
+			} catch (error) {
+				if (isSettledInvitationRefusal(error)) {
+					return { status: 'already_settled' };
+				}
+				throw error;
+			}
+		},
 	};
+}
+
+/**
+ * Whether a revoke was refused because there was nothing left to revoke.
+ *
+ * WorkOS answers 404 for an invitation id it does not hold and 400 for one that
+ * has already been accepted, expired or revoked. Both mean the link this call
+ * exists to kill is not live, which is the state the caller wanted.
+ */
+function isSettledInvitationRefusal(error: unknown): boolean {
+	const status = (error as { readonly status?: unknown } | null)?.status;
+	return status === 400 || status === 404;
 }
 
 interface WorkOsClientLike {

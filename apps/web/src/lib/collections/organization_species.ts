@@ -11,7 +11,7 @@ import {
 	type OrganizationSpecies,
 } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: Which species an agency actually records — a short list, and the one that
@@ -26,7 +26,7 @@ import { getServerUrl } from '../../auth';
  */
 export const organization_species: Collection<OrganizationSpecies, string | number> =
 	createOrganizationSpeciesCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'eager',
 		mutations: true,
 	});

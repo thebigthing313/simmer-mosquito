@@ -34,7 +34,8 @@ import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { type AuthMe, getServerUrl } from '../../../auth';
+import type { AuthMe } from '../../../auth';
+import { useMembershipMutations } from '../../../hooks/mutations/use-membership-mutations';
 import {
 	profileSavePlan,
 	useProfileMutations,
@@ -43,18 +44,21 @@ import {
 	type PersonListing,
 	usePeopleDirectory,
 } from '../../../hooks/queries/use-people-directory';
-import {
-	inviteOrganizationProfile,
-	removeOrganizationMembership,
-	updateOrganizationMembershipRole,
-} from '../../../lib/identity-api';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { canManageRoles, canRemoveMember, grantableRoles } from '../../../lib/write-access';
 import { AddIcon, CloseIcon, DeleteIcon, EditIcon, ORG_ROLE_OPTIONS, SaveIcon } from './constants';
-import { formatRole, requiredTextValue, watchWrite } from './helpers';
+import {
+	formatRole,
+	requiredTextValue,
+	SaveErrorNote,
+	saveFailureMessage,
+	watchWrite,
+} from './helpers';
 import { OrgSurface } from './layout/layout';
 import { OrgSection } from './layout/org-section';
 import { SectionHeader } from './layout/section-header';
+import { ReinviteControl } from './reinvite';
+import { RemoveMemberControl } from './remove-member';
 import type { SimmerRole } from './types';
 
 export function PeopleSection({
@@ -334,9 +338,7 @@ function HistoricalProfileSheet({
 							<span>Active for assignment</span>
 							<Switch checked={isActive} onCheckedChange={setIsActive} />
 						</div>
-						{error === null ? null : (
-							<p className="m-0 text-sm leading-snug text-destructive">{error}</p>
-						)}
+						<SaveErrorNote message={error} />
 					</div>
 					<SheetFooter>
 						<Button type="submit">
@@ -369,6 +371,7 @@ function InviteProfileSheet({
 	readonly people: readonly PersonListing[];
 }) {
 	const roleOptions = grantableRoles(auth);
+	const { invite } = useMembershipMutations();
 	const [displayName, setDisplayName] = useState('');
 	const [email, setEmail] = useState('');
 	const [role, setRole] = useState<SimmerRole>('viewer');
@@ -392,7 +395,7 @@ function InviteProfileSheet({
 		setError(null);
 		setIsSaving(true);
 		try {
-			await inviteOrganizationProfile(getServerUrl(), {
+			await invite({
 				displayName,
 				email,
 				role,
@@ -401,7 +404,7 @@ function InviteProfileSheet({
 			toast.success('Invitation sent.');
 			updateOpen(false);
 		} catch (saveError) {
-			setError(errorMessageForSave(saveError));
+			setError(saveFailureMessage(saveError, 'The invitation was not sent.'));
 		} finally {
 			setIsSaving(false);
 		}
@@ -466,9 +469,7 @@ function InviteProfileSheet({
 								</SelectContent>
 							</Select>
 						</Field>
-						{error === null ? null : (
-							<p className="m-0 text-sm leading-snug text-destructive">{error}</p>
-						)}
+						<SaveErrorNote message={error} />
 					</div>
 					<SheetFooter>
 						<Button type="submit" disabled={isSaving}>
@@ -498,6 +499,7 @@ function EditProfileSheet({
 	readonly person: PersonListing;
 }) {
 	const { save } = useProfileMutations();
+	const { changeRole } = useMembershipMutations();
 	const [open, setOpen] = useState(false);
 	const [displayName, setDisplayName] = useState(person.displayName);
 	const [isActive, setIsActive] = useState(person.isActive);
@@ -523,20 +525,16 @@ function EditProfileSheet({
 		try {
 			const nextDisplayName = requiredTextValue(displayName, 'Display name');
 			const plan = profileSavePlan({ displayName: nextDisplayName, isActive, role }, person);
-			// The role first, and only if it moved: it is a different route with a
+			// The role first, and only if it moved: it is a different command with a
 			// different floor (owner, not admin), and a refusal there must not leave
 			// the profile half saved and the sheet closed.
 			if (plan.roleChange !== null && person.membershipId != null) {
-				await updateOrganizationMembershipRole(
-					getServerUrl(),
-					person.membershipId,
-					plan.roleChange,
-				);
+				await changeRole(person.membershipId, plan.roleChange);
 			}
 			updateOpen(false);
 			watchWrite(save(person.profileId, plan.changes), 'Unable to save profile.');
 		} catch (saveError) {
-			setError(errorMessageForSave(saveError));
+			setError(saveFailureMessage(saveError, 'The changes were not saved.'));
 		} finally {
 			setIsSaving(false);
 		}
@@ -578,9 +576,7 @@ function EditProfileSheet({
 							<span>Active</span>
 							<Switch checked={isActive} onCheckedChange={setIsActive} />
 						</div>
-						{error === null ? null : (
-							<p className="m-0 text-sm leading-snug text-destructive">{error}</p>
-						)}
+						<SaveErrorNote message={error} />
 					</div>
 					<SheetFooter>
 						<Button type="submit" disabled={isSaving}>
@@ -595,6 +591,7 @@ function EditProfileSheet({
 						</SheetClose>
 					</SheetFooter>
 				</form>
+				<ReinviteControl person={person} />
 				<RemoveMemberControl auth={auth} person={person} onRemoved={() => setOpen(false)} />
 			</SheetContent>
 		</Sheet>
@@ -633,107 +630,5 @@ function RoleField({
 				</SelectContent>
 			</Select>
 		</Field>
-	);
-}
-
-/**
- * Ending somebody's access (ADR 0011).
- *
- * Below the form rather than in it: saving a display name and revoking a login
- * are not the same act, and one submit button for both would make the second
- * one an accident waiting to happen.
- *
- * The profile is deliberately left alone. It is what every record this person
- * created still points at, and it goes on being assignable field history — what
- * ends is the login's reach into this agency, not the person.
- */
-function RemoveMemberControl({
-	auth,
-	person,
-	onRemoved,
-}: {
-	readonly auth: AuthMe | null;
-	readonly person: PersonListing;
-	readonly onRemoved: () => void;
-}) {
-	// Both halves have to be present for the ladder question to mean anything: a
-	// historical Profile has no access to end, and `canRemoveMember` compares
-	// against a role there is none of.
-	if (person.membershipId == null || person.role == null) {
-		return null;
-	}
-	if (!canRemoveMember(auth, { id: person.membershipId, role: person.role })) {
-		return null;
-	}
-
-	return (
-		<RemoveMemberAction
-			membershipId={person.membershipId}
-			name={person.displayName}
-			onRemoved={onRemoved}
-		/>
-	);
-}
-
-function RemoveMemberAction({
-	membershipId,
-	name,
-	onRemoved,
-}: {
-	readonly membershipId: string;
-	readonly name: string;
-	readonly onRemoved: () => void;
-}) {
-	const [confirmOpen, setConfirmOpen] = useState(false);
-	const [isRemoving, setIsRemoving] = useState(false);
-
-	async function confirm() {
-		setConfirmOpen(false);
-		setIsRemoving(true);
-		try {
-			await removeOrganizationMembership(getServerUrl(), membershipId);
-			toast.success(`${name} no longer has access.`);
-			onRemoved();
-		} catch (removeError) {
-			toast.error(errorMessageForSave(removeError));
-		} finally {
-			setIsRemoving(false);
-		}
-	}
-
-	return (
-		<div className="grid gap-1.5 border-border/50 border-t px-4 pt-3">
-			<span className="text-muted-foreground text-xs">
-				Removing {name} ends their access to this organization. Their profile and everything
-				recorded under it stay.
-			</span>
-			<div>
-				<Button
-					disabled={isRemoving}
-					onClick={() => setConfirmOpen(true)}
-					size="xs"
-					type="button"
-					variant="destructive"
-				>
-					<DeleteIcon aria-hidden="true" />
-					Remove Access
-				</Button>
-			</div>
-			<AlertDialog onOpenChange={setConfirmOpen} open={confirmOpen}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Remove {name}'s access?</AlertDialogTitle>
-						<AlertDialogDescription>
-							They will not be able to sign in to this organization. Their profile, and every record
-							attributed to it, stay as they are. Reinstating them means a new invitation.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={confirm}>Remove Access</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
-		</div>
 	);
 }

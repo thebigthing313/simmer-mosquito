@@ -8,7 +8,7 @@
 
 import { createInsecticidesCollection, type Insecticide } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: The product catalogue, read by every application form and label lookup.
@@ -21,7 +21,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const insecticides: Collection<Insecticide, string | number> = createInsecticidesCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
 });

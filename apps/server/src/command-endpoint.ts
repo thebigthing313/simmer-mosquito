@@ -60,7 +60,10 @@ export type CommandContext = Context<{ Variables: AuthVariables }>;
  */
 export class CommandError extends Error {
 	constructor(
-		readonly status: 400 | 403 | 404 | 409,
+		// 502 is the spanning commands', and only theirs: WorkOS refusing an
+		// invitation is a failure of a system upstream of this one, not of the
+		// request that reached it.
+		readonly status: 400 | 403 | 404 | 409 | 502,
 		readonly body: { readonly error: string; readonly reason?: string },
 	) {
 		super(body.error);

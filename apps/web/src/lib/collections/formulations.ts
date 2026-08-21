@@ -8,7 +8,7 @@
 
 import { createFormulationsCollection, type Formulation } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: The formulation catalogue, read wherever a product is chosen.
@@ -21,7 +21,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const formulations: Collection<Formulation, string | number> = createFormulationsCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
 });

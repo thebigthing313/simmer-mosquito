@@ -8,7 +8,7 @@
 
 import { createMissionItemsCollection, type MissionItem } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: One row per stop on a mission, and only the mission on screen needs its own.
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  */
 export const mission_items: Collection<MissionItem, string | number> = createMissionItemsCollection(
 	{
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'on-demand',
 		mutations: true,
 	},

@@ -5,11 +5,12 @@ import {
 	type SimmerRole,
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
-	stampOrganizationInvitation,
 } from '@simmer-mosquito/db';
 import type { Hono } from 'hono';
 import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
+import { type InvitationRefusal, refuseInvitationSend } from './invitation-refusal.js';
+import { stampInvitation } from './invitation-stamp.js';
 
 type AdminInvitationDb = Parameters<typeof getOperatorOrganization>[0];
 
@@ -82,26 +83,30 @@ export function registerAdminInvitationRoutes(
 				email: payloadResult.payload.email,
 				workosOrganizationId: target.workosOrganizationId,
 				inviterWorkosUserId: operatorContext.workosUser.workosUserId,
+				membershipId: staged.membership.id,
+				organizationId,
 			});
 			if (!invitationResult.ok) {
 				// The Membership stays, with no invitation id on it. The role is still
 				// staged and still claimed the next time they enter the agency, and an
 				// operator who needs the mail can invite again.
-				return context.json(
-					{ error: 'invitation_send_failed', reason: invitationResult.reason },
-					502,
-				);
+				return context.json(invitationResult.refusal, 502);
 			}
 
 			const invitation = invitationResult.invitation;
+			// Nothing was sent when the person was already reached, so there is no id
+			// to stamp and nothing to retry.
+			// A stamp that could not be written answers `null`, and the staged row is
+			// what the console shows then: the mail is out and the Membership exists,
+			// so the invitation happened whether or not its id was recorded.
 			const membership =
 				invitation === null
 					? staged.membership
-					: await stampOrganizationInvitation(options.db, {
-							id: staged.membership.id,
+					: ((await stampInvitation(options.db, {
+							membershipId: staged.membership.id,
 							organizationId,
 							workosInvitationId: invitation.id,
-						});
+						})) ?? staged.membership);
 
 			return context.json(
 				{
@@ -184,7 +189,8 @@ type SentInvitation = Awaited<ReturnType<AdminInvitationAuth['sendOrganizationIn
  *
  * A `null` invitation is therefore success, not absence. Any other WorkOS
  * refusal comes back named: it used to leave the route throwing, which reached
- * the console as an unreadable 500.
+ * the console as an unreadable 500, and then as WorkOS's own prose (#220). The
+ * name is {@link refuseInvitationSend}'s and the prose goes to the log.
  */
 async function inviteUnlessAlreadyReached(
 	auth: AdminInvitationAuth,
@@ -192,10 +198,12 @@ async function inviteUnlessAlreadyReached(
 		readonly email: string;
 		readonly workosOrganizationId: string;
 		readonly inviterWorkosUserId: string;
+		readonly membershipId: string;
+		readonly organizationId: string;
 	},
 ): Promise<
 	| { readonly ok: true; readonly invitation: SentInvitation | null }
-	| { readonly ok: false; readonly reason: string }
+	| { readonly ok: false; readonly refusal: InvitationRefusal }
 > {
 	const existingMember = await auth.findOrganizationMember({
 		email: input.email,
@@ -206,11 +214,19 @@ async function inviteUnlessAlreadyReached(
 	}
 
 	try {
-		return { ok: true, invitation: await auth.sendOrganizationInvitation(input) };
+		const invitation = await auth.sendOrganizationInvitation({
+			email: input.email,
+			workosOrganizationId: input.workosOrganizationId,
+			inviterWorkosUserId: input.inviterWorkosUserId,
+		});
+		return { ok: true, invitation };
 	} catch (error) {
 		return {
 			ok: false,
-			reason: error instanceof Error ? error.message : 'WorkOS rejected the invitation.',
+			refusal: refuseInvitationSend(error, {
+				membershipId: input.membershipId,
+				organizationId: input.organizationId,
+			}),
 		};
 	}
 }

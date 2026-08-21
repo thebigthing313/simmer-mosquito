@@ -12,6 +12,10 @@
 			"types": "./src/components/app-shell/index.ts",
 			"import": "./src/components/app-shell/index.ts"
 		},
+		"./components/error-report": {
+			"types": "./src/components/error-report/index.ts",
+			"import": "./src/components/error-report/index.ts"
+		},
 		"./components/changelog": {
 			"types": "./src/components/changelog/index.ts",
 			"import": "./src/components/changelog/index.ts"

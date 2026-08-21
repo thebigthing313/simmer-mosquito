@@ -4,20 +4,23 @@ import type { DomainId, DomainValidationIssue } from '../shared.js';
 /**
  * The identity commands an agency can send.
  *
- * Three of the seven identity writes ADR 0013 folds in. The other four are
- * `people.listMemberships`, which is a read behind a POST and never becomes a
- * command, and the three that span WorkOS: inviting somebody, changing a role,
- * ending a membership. Those wait for the spanning rules in
- * `docs/domain-command-contract.md` and for the invitation-id decision in #186.
+ * Every identity write ADR 0013 folds in, which is all of them. The one surface
+ * left outside is `people.listMemberships`: it is a read behind a POST, and
+ * reads have never been commands.
  *
- * These three touch Postgres and nothing else, so they need no part of that
- * contract: a profile create already mints its own UUID, and the two updates are
- * ordinary single-row writes.
+ * The first three touch Postgres and nothing else. The last four span WorkOS
+ * and ship under the six rules in `docs/domain-command-contract.md` ->
+ * "Commands that span two systems" — see `memberships.ts` for what those rules
+ * cost each of them.
  */
 export type IdentityCommandType =
 	| 'identity.updateOrganizationDetails'
 	| 'identity.createProfile'
-	| 'identity.updateProfile';
+	| 'identity.updateProfile'
+	| 'identity.invite'
+	| 'identity.reinvite'
+	| 'identity.changeRole'
+	| 'identity.endMembership';
 
 export interface IdentityDomainCommand<TType extends IdentityCommandType, TPayload> {
 	readonly type: TType;

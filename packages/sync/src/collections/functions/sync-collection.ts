@@ -136,6 +136,59 @@ const defaultGcTime = 5 * 60 * 1000;
 export type CollectionSyncMode = SyncMode | 'progressive';
 
 /**
+ * What Electric asks about the host's lifecycle when it is told not to read
+ * `document`.
+ *
+ * Electric's own type, restated rather than imported. The type is exported from
+ * `@electric-sql/client`, but this package depends only on
+ * `@tanstack/electric-db-collection` and taking a direct dependency risks a
+ * second copy of the client resolving at a different version, whose type is then
+ * structurally separate from the one the stream is actually built with. Two
+ * members over a two-member union is cheap to restate, and structural typing
+ * makes it assignable either way. `CollectionSyncMode` above is restated for the
+ * same reason.
+ */
+export interface RuntimeVisibility {
+	readonly getCurrentState?: () => 'visible' | 'hidden' | undefined;
+	readonly subscribe: (callback: (state: 'visible' | 'hidden') => void) => () => void;
+}
+
+/**
+ * A lifecycle that never reports hidden.
+ *
+ * `ShapeStream` subscribes to `visibilitychange` and runs its handler at
+ * construction, so a stream created while `document.hidden` is true takes the
+ * visibility pause lock immediately, aborts its in-flight request, and issues no
+ * further ones until the lock is released. A stream born hidden therefore makes
+ * zero HTTP requests, forever, and waiting does not help.
+ *
+ * That is the whole of why browser-driven verification of `apps/web` and
+ * `apps/admin` used to hang on a loading skeleton: the Claude Code Browser pane
+ * reports `hidden` for its tab even when the tab is fronted. Handing Electric an
+ * adapter makes it use this instead of the `document.hidden` branch, so the
+ * stream keeps running whatever the tab is doing. Measured against a genuinely
+ * hidden tab, a shape that never settled at all settled in 14 ms with this in
+ * place.
+ *
+ * Development only. Each app installs it behind `import.meta.env.DEV`, which Vite
+ * replaces at build time, so a production tab keeps pausing when it goes hidden.
+ * That is the right default there, since otherwise a backgrounded tab holds a
+ * connection open for every shape.
+ *
+ * The client reads `getCurrentState()` once when it subscribes and pauses only on
+ * `'hidden'`, so the initial answer is what decides it. Delivering `'visible'` to
+ * the subscriber as well is harmless: releasing a lock nobody holds is guarded
+ * and logs nothing.
+ */
+export const alwaysVisibleRuntime: RuntimeVisibility = {
+	getCurrentState: () => 'visible',
+	subscribe: (callback) => {
+		callback('visible');
+		return () => {};
+	},
+};
+
+/**
  * What a client says about a collection it wants.
  *
  * Everything else is a fact about the table, and every fact about a table is in
@@ -167,6 +220,15 @@ export interface SyncCollectionClientOptions {
 	readonly mutations: boolean;
 	/** Override {@link defaultGcTime} for a surface that returns to this table. */
 	readonly gcTime?: number;
+	/**
+	 * Decide visibility from this rather than from `document.hidden`.
+	 *
+	 * Per-app, and in practice per-build: an app supplies
+	 * {@link alwaysVisibleRuntime} in development so a hidden tab keeps syncing,
+	 * and supplies nothing in a build so hidden tabs pause as they should. See
+	 * that adapter for what the pause does and why it is worth opting out of.
+	 */
+	readonly runtimeVisibility?: RuntimeVisibility;
 }
 
 export interface SyncCollectionConfigOptions extends SyncCollectionClientOptions {
@@ -196,6 +258,7 @@ export interface SyncCollectionConfig<TRow extends SyncedRow>
 		readonly subsetMethod: 'POST';
 		readonly fetchClient: typeof fetch;
 		readonly parser: typeof shapeParsers;
+		readonly runtimeVisibility?: RuntimeVisibility;
 	};
 }
 
@@ -258,6 +321,16 @@ export function syncCollectionConfig<TRow extends SyncedRow>(
 			fetchClient: fetchWithSession,
 
 			parser: shapeParsers,
+
+			// Spread rather than assigned, for the same reason as the mutation handlers
+			// above: assigning `undefined` breaks `exactOptionalPropertyTypes`, and an
+			// invalid config object is not reported here. It drops the schema overload of
+			// `electricCollectionOptions` and surfaces at the call site as the schema not
+			// being assignable to `never`.
+			//
+			// Absent is what production wants. See `alwaysVisibleRuntime` for what
+			// supplying one does and why development supplies it.
+			...(options.runtimeVisibility ? { runtimeVisibility: options.runtimeVisibility } : {}),
 		},
 	};
 }

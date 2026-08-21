@@ -2,7 +2,7 @@ import type { AppAuthController } from '@simmer-mosquito/auth/browser';
 import { createRootRouteWithContext, Outlet, redirect, useLocation } from '@tanstack/react-router';
 import { AppShellRoot } from '../components/app-shell/app-shell-root';
 import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
-import { WorkspaceChromeError, WorkspaceChromeFallback } from './-components';
+import { WorkspaceChromeError, WorkspaceChromeFallback } from './-workspace-chrome';
 
 // Both are exported because the generated route tree names them in its inferred
 // signatures; nothing imports them directly, but declaration emit needs them —
@@ -62,7 +62,7 @@ function RootComponent() {
 
 	return (
 		<SuspenseQueryBoundary
-			errorFallback={<WorkspaceChromeError />}
+			errorFallback={(error, reset) => <WorkspaceChromeError error={error} reset={reset} />}
 			loadingFallback={<WorkspaceChromeFallback />}
 			resetKey="root-layout"
 		>

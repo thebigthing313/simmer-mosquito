@@ -1,5 +1,31 @@
 # @simmer-mosquito/web
 
+## 0.4.0 — 2026-08-21
+
+### Minor Changes
+
+- Added: A page that fails to load now reports what broke, in a panel beside the navigation you were using, instead of a bare block of text with nothing to act on.
+
+- Changed: A workspace that fails to load now names the error, shows the technical detail behind a disclosure, and copies the whole report to your clipboard for a support request.
+
+- Added: Somebody who never got their invitation can be sent a new one, from their row on the People page. It names the address, the role the new link grants, and that the old link stops working.
+
+### Patch Changes
+
+- Fixed: An invitation that cannot be sent now says which of three things went wrong, in SIMMER's words. It used to repeat whatever sentence the sign-in service wrote, which was a string nobody here controls.
+
+- Fixed: Reordering a stop on a route, an assignment or a mission now changes only the stops that moved, so the rest of the list keeps the timestamps it had.
+
+- Fixed: Inviting somebody no longer reports a failure after their email has already gone out.
+
+- Fixed: Sending somebody a new invitation works. One address holds one invitation at a time, and the old one was cancelled only after the replacement had been sent, so the send was refused every time.
+
+- Fixed: A re-invitation or a removal the server refuses now says so on the People page, under the control that asked for it, instead of leaving the sheet reading as it did before the click.
+
+- Fixed: The address a pending colleague was invited at, and the id of their invitation, no longer reach every signed-in person's browser. No screen showed either one.
+
+- Fixed: An agency address is refused if its country is anything but US, the same way its state already was. The form only ever sent US, so nothing on screen changes.
+
 ## 0.3.0 — 2026-08-21
 
 ### Minor Changes

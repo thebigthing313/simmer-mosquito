@@ -2,9 +2,9 @@
  * The product table, one row per insecticide, each expanding to its batches.
  *
  * The route renders this twice, once for the active products and once inside
- * the retired disclosure, which is why the rows it draws and the full product
- * list arrive as separate props: the batch drawer picks from every product, not
- * from the half this table happens to be showing.
+ * the retired disclosure, which is why the rows it draws arrive separately from
+ * the catalog: the batch drawer picks from every product, not from the half
+ * this table happens to be showing.
  */
 
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -24,37 +24,24 @@ import {
 	CatalogLifecycleButton,
 	toggleCatalogActive,
 } from '../../../components/catalog';
-import type {
-	InsecticideBatchMutations,
-	InsecticideMutations,
-} from '../../../hooks/mutations/use-insecticide-mutations';
 import type { InsecticideRecord } from '../../../hooks/queries/use-insecticide-records';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
-import { formatMode, hasMetadata } from '../../../lib/record-display';
+import { hasMetadata, titleCaseToken } from '../../../lib/record-display';
 import { InsecticideBatchPanel } from './-batch-panel';
+import type { InsecticideCatalog } from './-insecticide-catalog';
 import { InsecticideDrawer } from './-insecticide-drawer';
 
 const EditIcon = iconRegistry.actions.edit.icon;
 
 export function InsecticideTable({
-	allInsecticides,
-	batchTrackingEnabled,
-	canManage,
-	insecticides,
-	batchMutations,
-	mutations,
-	units,
+	catalog,
+	shownProducts,
 }: {
-	/** Full product list, which feeds the batch drawer's insecticide selector. */
-	readonly allInsecticides: readonly InsecticideRecord[];
-	readonly batchMutations: InsecticideBatchMutations;
-	readonly batchTrackingEnabled: boolean;
-	readonly canManage: boolean;
-	/** The subset of products this table renders as rows. */
-	readonly insecticides: readonly InsecticideRecord[];
-	readonly mutations: InsecticideMutations;
-	readonly units: readonly UnitLabel[];
+	readonly catalog: InsecticideCatalog;
+	/** The subset of the catalog this table draws as rows. */
+	readonly shownProducts: readonly InsecticideRecord[];
 }) {
+	const { canManage } = catalog;
 	// Expand toggle + product columns (+ actions when the viewer can manage).
 	const columnCount = 7 + (canManage ? 1 : 0);
 
@@ -80,17 +67,12 @@ export function InsecticideTable({
 					</TableRow>
 				</TableHeader>
 				<TableBody>
-					{insecticides.map((insecticide) => (
+					{shownProducts.map((insecticide) => (
 						<InsecticideTableRow
-							batchMutations={batchMutations}
-							batchTrackingEnabled={batchTrackingEnabled}
-							canManage={canManage}
+							catalog={catalog}
 							columnCount={columnCount}
 							insecticide={insecticide}
-							insecticides={allInsecticides}
 							key={insecticide.id}
-							mutations={mutations}
-							units={units}
 						/>
 					))}
 				</TableBody>
@@ -100,24 +82,15 @@ export function InsecticideTable({
 }
 
 function InsecticideTableRow({
-	batchTrackingEnabled,
-	canManage,
+	catalog,
 	columnCount,
 	insecticide,
-	insecticides,
-	batchMutations,
-	mutations,
-	units,
 }: {
-	readonly batchMutations: InsecticideBatchMutations;
-	readonly batchTrackingEnabled: boolean;
-	readonly canManage: boolean;
+	readonly catalog: InsecticideCatalog;
 	readonly columnCount: number;
 	readonly insecticide: InsecticideRecord;
-	readonly insecticides: readonly InsecticideRecord[];
-	readonly mutations: InsecticideMutations;
-	readonly units: readonly UnitLabel[];
 }) {
+	const { canManage, mutations, units } = catalog;
 	const [expanded, setExpanded] = useState(false);
 	const productLabel = insecticide.tradeName;
 
@@ -135,7 +108,7 @@ function InsecticideTableRow({
 				</TableCell>
 				<TableCell className="font-medium">{productLabel}</TableCell>
 				<TableCell>{insecticide.activeIngredient}</TableCell>
-				<TableCell>{formatMode(insecticide.type)}</TableCell>
+				<TableCell>{titleCaseToken(insecticide.type)}</TableCell>
 				<TableCell>{unitLabel(units, insecticide.defaultUnitId)}</TableCell>
 				<TableCell>
 					{insecticide.isActive ? (
@@ -182,13 +155,7 @@ function InsecticideTableRow({
 			{expanded ? (
 				<TableRow className="hover:bg-transparent">
 					<TableCell className="p-0" colSpan={columnCount}>
-						<InsecticideBatchPanel
-							batchTrackingEnabled={batchTrackingEnabled}
-							canManage={canManage}
-							insecticide={insecticide}
-							insecticides={insecticides}
-							mutations={batchMutations}
-						/>
+						<InsecticideBatchPanel catalog={catalog} insecticide={insecticide} />
 					</TableCell>
 				</TableRow>
 			) : null}

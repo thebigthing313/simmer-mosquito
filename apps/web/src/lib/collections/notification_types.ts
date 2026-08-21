@@ -8,7 +8,7 @@
 
 import { createNotificationTypesCollection, type NotificationType } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: The notification catalogue an agency offers. A short list, read by every
@@ -23,7 +23,7 @@ import { getServerUrl } from '../../auth';
  */
 export const notification_types: Collection<NotificationType, string | number> =
 	createNotificationTypesCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'eager',
 		mutations: true,
 	});

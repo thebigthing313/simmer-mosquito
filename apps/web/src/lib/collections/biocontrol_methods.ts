@@ -8,7 +8,7 @@
 
 import { type BiocontrolMethod, createBiocontrolMethodsCollection } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: A method catalogue an agency has dozens of rows of.
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  */
 export const biocontrol_methods: Collection<BiocontrolMethod, string | number> =
 	createBiocontrolMethodsCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'eager',
 		mutations: true,
 	});

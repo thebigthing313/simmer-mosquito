@@ -11,7 +11,7 @@ import {
 	createAdditionalPersonnelCollection,
 } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: One row per extra crew member on an assignment.
@@ -25,7 +25,7 @@ import { getServerUrl } from '../../auth';
  */
 export const additional_personnel: Collection<AdditionalPersonnel, string | number> =
 	createAdditionalPersonnelCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'on-demand',
 		mutations: true,
 	});

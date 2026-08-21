@@ -1,0 +1,61 @@
+/**
+ * That every collection in this app was actually swept onto the shared options.
+ *
+ * This is the seam that catches a file missed in a fifty-module mechanical edit.
+ * A module that writes its own `serverUrl` still compiles, still syncs, and still
+ * hangs in a hidden tab, which is exactly the failure that is expensive to
+ * notice. It looks like the environment rather than like a diff.
+ *
+ * It reads the source text rather than importing the modules, because importing
+ * one creates a live collection that opens a shape stream. The invariant is about
+ * what the files say, so reading what they say is the honest check.
+ *
+ * Prior art for asserting across every collection at once:
+ * `packages/sync/src/tests/unit/index.test.ts`.
+ */
+
+import { readdirSync, readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import { describe, expect, it } from 'vitest';
+
+const collectionsDir = join(import.meta.dirname, '../../../../lib/collections');
+
+/**
+ * A collection module is one that calls a `create…Collection` factory.
+ *
+ * Derived rather than listed, so a table added later is covered without anyone
+ * remembering to add it here. It is also what excludes `client-options.ts` itself
+ * and the two write modules, `mutate.ts` and `transact.ts`, which are not
+ * collections and pass nothing to one.
+ */
+function collectionModules(): readonly { readonly name: string; readonly source: string }[] {
+	return readdirSync(collectionsDir)
+		.filter((name) => name.endsWith('.ts'))
+		.map((name) => ({ name, source: readFileSync(join(collectionsDir, name), 'utf8') }))
+		.filter(({ source }) => /create\w+Collection\(/.test(source));
+}
+
+describe('collection modules', () => {
+	it('finds the collections to check', () => {
+		// So a broken filter cannot make the sweep below vacuously green.
+		expect(collectionModules().length).toBeGreaterThan(40);
+	});
+
+	it('builds every collection from the shared client options', () => {
+		const offending = collectionModules()
+			.filter(({ source }) => !source.includes('...syncClientOptions,'))
+			.map(({ name }) => name);
+
+		expect(offending).toEqual([]);
+	});
+
+	it('leaves no module reaching for the server URL itself', () => {
+		// The other half of the same invariant. Spreading the shared object and then
+		// overwriting `serverUrl` would pass the check above and mean nothing.
+		const offending = collectionModules()
+			.filter(({ source }) => source.includes('getServerUrl'))
+			.map(({ name }) => name);
+
+		expect(offending).toEqual([]);
+	});
+});

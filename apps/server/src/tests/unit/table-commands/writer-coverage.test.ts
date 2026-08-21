@@ -10,9 +10,9 @@
  * indication of which half is wrong.
  *
  * `missionDispatch.moveMissionItems` is the case this was written for. It is a
- * command on the `missions` table — `position` belongs to the sequence, so a move
- * renumbers every stop and answers with the mission — while the renumbering
- * itself lives beside the stop writes in `mission-items.ts`. The route accepted
+ * command on the `missions` table, because `position` belongs to the sequence:
+ * a move takes an id list and a placement and answers with the mission, while
+ * the write itself lives beside the stop writes in `mission-items.ts`. The route accepted
  * it and `writeMissionCommand` had never heard of it.
  *
  * ## How a writer is asked without a database
@@ -58,7 +58,10 @@ interface WriterSpec {
 	};
 }
 
-const specs = tableCommandSpecs(undefined as never) as unknown as readonly WriterSpec[];
+const specs = tableCommandSpecs(
+	undefined as never,
+	undefined as never,
+) as unknown as readonly WriterSpec[];
 
 /** Every (table, intent) pair on the surface, as test cases. */
 const pairs = specs.flatMap((spec) =>

@@ -8,7 +8,7 @@
 
 import { type ApplicationBatch, createApplicationBatchesCollection } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: One row per batch drawn down by a treatment.
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  */
 export const application_batches: Collection<ApplicationBatch, string | number> =
 	createApplicationBatchesCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'on-demand',
 		mutations: true,
 	});

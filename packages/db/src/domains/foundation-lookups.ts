@@ -1,6 +1,7 @@
-import { type Kysely, sql, type Transaction } from 'kysely';
+import { type Kysely, sql } from 'kysely';
 
 import type { DbExecutor, MutationWriteResult, SimmerDatabase } from '../index.js';
+import type { SelectedRow } from './org-owned-writes.js';
 import { assertRecordDeletable } from './record-deletion.js';
 
 export type OrgLookupKind = 'collection_methods' | 'collection_lures' | 'habitat_types';
@@ -17,6 +18,12 @@ export interface CreateOrgLookupInput {
 	readonly updatedByProfileId?: string | null;
 }
 
+/**
+ * The camelCase row the operator console reads. `listOrgLookups` is the only
+ * thing that still answers it; the writes below answer their own columns, so a
+ * lure no longer comes back carrying the `custom_schema` and `action_threshold`
+ * it has no column for.
+ */
 export interface SafeOrgLookup {
 	readonly id: string;
 	readonly organizationId: string;
@@ -30,6 +37,57 @@ export interface SafeOrgLookup {
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
+
+const lookupSharedColumns = ['id', 'organization_id', 'name', 'description'] as const;
+
+const lookupTrailingColumns = [
+	'is_active',
+	'created_by_profile_id',
+	'updated_by_profile_id',
+	'created_at',
+	'updated_at',
+] as const;
+
+export const collectionMethodReturnColumns = [
+	...lookupSharedColumns,
+	'custom_schema',
+	'action_threshold',
+	...lookupTrailingColumns,
+] as const;
+
+export const collectionLureReturnColumns = [
+	...lookupSharedColumns,
+	...lookupTrailingColumns,
+] as const;
+
+export const habitatTypeReturnColumns = [
+	...lookupSharedColumns,
+	'custom_schema',
+	...lookupTrailingColumns,
+] as const;
+
+export type CollectionMethodRow = SelectedRow<
+	'collection_methods',
+	typeof collectionMethodReturnColumns
+>;
+export type CollectionLureRow = SelectedRow<'collection_lures', typeof collectionLureReturnColumns>;
+export type HabitatTypeRow = SelectedRow<'habitat_types', typeof habitatTypeReturnColumns>;
+
+/**
+ * What a write to any of the three catalogs answers with.
+ *
+ * A union rather than one widened shape: the three tables genuinely differ, and
+ * `createOrgLookup` picks the table from its `kind` argument, so the caller that
+ * knows which catalog it asked for is the one that can narrow it.
+ */
+export type OrgLookupRow = CollectionMethodRow | CollectionLureRow | HabitatTypeRow;
+
+/** Which of the three a `kind` means, so `createOrgLookup` narrows for a caller. */
+export type OrgLookupRowFor<TKind extends OrgLookupKind> = {
+	readonly collection_methods: CollectionMethodRow;
+	readonly collection_lures: CollectionLureRow;
+	readonly habitat_types: HabitatTypeRow;
+}[TKind];
 
 export interface UpdateCollectionMethodLookupInput {
 	readonly organizationId: string;
@@ -70,11 +128,16 @@ export interface HabitatTypeLookupLifecycleInput {
 	readonly actorProfileId?: string | null;
 }
 
-export async function createOrgLookup(
+/**
+ * The three casts below are what a `kind` argument costs. Each branch selects
+ * its own catalog's columns, so the row is right; what the compiler cannot do is
+ * tie the branch it took to the `TKind` the caller passed.
+ */
+export async function createOrgLookup<TKind extends OrgLookupKind>(
 	db: DbExecutor,
-	kind: OrgLookupKind,
+	kind: TKind,
 	input: CreateOrgLookupInput,
-): Promise<SafeOrgLookup> {
+): Promise<OrgLookupRowFor<TKind>> {
 	if (kind === 'collection_methods') {
 		const row = await db
 			.insertInto('collection_methods')
@@ -89,22 +152,10 @@ export async function createOrgLookup(
 				created_by_profile_id: input.createdByProfileId ?? null,
 				updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
 			})
-			.returning([
-				'id',
-				'organization_id',
-				'name',
-				'description',
-				'custom_schema',
-				'action_threshold',
-				'is_active',
-				'created_by_profile_id',
-				'updated_by_profile_id',
-				'created_at',
-				'updated_at',
-			])
+			.returning(collectionMethodReturnColumns)
 			.executeTakeFirstOrThrow();
 
-		return toSafeOrgLookup(row);
+		return row as OrgLookupRowFor<TKind>;
 	}
 
 	if (kind === 'collection_lures') {
@@ -119,20 +170,10 @@ export async function createOrgLookup(
 				created_by_profile_id: input.createdByProfileId ?? null,
 				updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
 			})
-			.returning([
-				'id',
-				'organization_id',
-				'name',
-				'description',
-				'is_active',
-				'created_by_profile_id',
-				'updated_by_profile_id',
-				'created_at',
-				'updated_at',
-			])
+			.returning(collectionLureReturnColumns)
 			.executeTakeFirstOrThrow();
 
-		return toSafeOrgLookup({ ...row, custom_schema: null });
+		return row as OrgLookupRowFor<TKind>;
 	}
 
 	const row = await db
@@ -147,21 +188,10 @@ export async function createOrgLookup(
 			created_by_profile_id: input.createdByProfileId ?? null,
 			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
 		})
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'description',
-			'custom_schema',
-			'is_active',
-			'created_by_profile_id',
-			'updated_by_profile_id',
-			'created_at',
-			'updated_at',
-		])
+		.returning(habitatTypeReturnColumns)
 		.executeTakeFirstOrThrow();
 
-	return toSafeOrgLookup(row);
+	return row as OrgLookupRowFor<TKind>;
 }
 
 export async function listOrgLookups(
@@ -240,7 +270,7 @@ export async function listOrgLookups(
 export async function createCollectionMethodLookupWithTxid(
 	db: Kysely<SimmerDatabase>,
 	input: CreateOrgLookupInput & { readonly id: string },
-): Promise<MutationWriteResult<SafeOrgLookup>> {
+): Promise<MutationWriteResult<CollectionMethodRow>> {
 	return db.transaction().execute(async (trx) => {
 		const row = await createOrgLookup(trx, 'collection_methods', input);
 		const txid = await readCurrentTransactionId(trx);
@@ -252,7 +282,7 @@ export async function updateCollectionMethodLookup(
 	db: DbExecutor,
 	collectionMethodId: string,
 	input: UpdateCollectionMethodLookupInput,
-): Promise<SafeOrgLookup | null> {
+): Promise<CollectionMethodRow | null> {
 	const row = await db
 		.updateTable('collection_methods')
 		.set({
@@ -266,29 +296,17 @@ export async function updateCollectionMethodLookup(
 		.where('id', '=', collectionMethodId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'description',
-			'custom_schema',
-			'action_threshold',
-			'is_active',
-			'created_by_profile_id',
-			'updated_by_profile_id',
-			'created_at',
-			'updated_at',
-		])
+		.returning(collectionMethodReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeOrgLookup(row);
+	return row ?? null;
 }
 
 export async function updateCollectionMethodLookupWithTxid(
 	db: Kysely<SimmerDatabase>,
 	collectionMethodId: string,
 	input: UpdateCollectionMethodLookupInput,
-): Promise<MutationWriteResult<SafeOrgLookup | null>> {
+): Promise<MutationWriteResult<CollectionMethodRow | null>> {
 	return db.transaction().execute(async (trx) => {
 		const row = await updateCollectionMethodLookup(trx, collectionMethodId, input);
 		const txid = await readCurrentTransactionId(trx);
@@ -300,7 +318,7 @@ export async function setCollectionMethodLookupActive(
 	db: DbExecutor,
 	collectionMethodId: string,
 	input: CollectionMethodLookupLifecycleInput & { readonly isActive: boolean },
-): Promise<SafeOrgLookup | null> {
+): Promise<CollectionMethodRow | null> {
 	const row = await db
 		.updateTable('collection_methods')
 		.set({
@@ -311,29 +329,17 @@ export async function setCollectionMethodLookupActive(
 		.where('id', '=', collectionMethodId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'description',
-			'custom_schema',
-			'action_threshold',
-			'is_active',
-			'created_by_profile_id',
-			'updated_by_profile_id',
-			'created_at',
-			'updated_at',
-		])
+		.returning(collectionMethodReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeOrgLookup(row);
+	return row ?? null;
 }
 
 export async function deleteCollectionMethodLookup(
 	db: DbExecutor,
 	collectionMethodId: string,
 	input: CollectionMethodLookupLifecycleInput,
-): Promise<SafeOrgLookup | null> {
+): Promise<CollectionMethodRow | null> {
 	await assertRecordDeletable(db, {
 		recordType: 'collectionMethod',
 		recordId: collectionMethodId,
@@ -351,29 +357,17 @@ export async function deleteCollectionMethodLookup(
 		.where('id', '=', collectionMethodId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'description',
-			'custom_schema',
-			'action_threshold',
-			'is_active',
-			'created_by_profile_id',
-			'updated_by_profile_id',
-			'created_at',
-			'updated_at',
-		])
+		.returning(collectionMethodReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeOrgLookup(row);
+	return row ?? null;
 }
 
 export async function updateCollectionLureLookup(
 	db: DbExecutor,
 	collectionLureId: string,
 	input: UpdateCollectionLureLookupInput,
-): Promise<SafeOrgLookup | null> {
+): Promise<CollectionLureRow | null> {
 	const row = await db
 		.updateTable('collection_lures')
 		.set({
@@ -385,27 +379,17 @@ export async function updateCollectionLureLookup(
 		.where('id', '=', collectionLureId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'description',
-			'is_active',
-			'created_by_profile_id',
-			'updated_by_profile_id',
-			'created_at',
-			'updated_at',
-		])
+		.returning(collectionLureReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeOrgLookup({ ...row, custom_schema: null });
+	return row ?? null;
 }
 
 export async function setCollectionLureLookupActive(
 	db: DbExecutor,
 	collectionLureId: string,
 	input: CollectionLureLookupLifecycleInput & { readonly isActive: boolean },
-): Promise<SafeOrgLookup | null> {
+): Promise<CollectionLureRow | null> {
 	const row = await db
 		.updateTable('collection_lures')
 		.set({
@@ -416,27 +400,17 @@ export async function setCollectionLureLookupActive(
 		.where('id', '=', collectionLureId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'description',
-			'is_active',
-			'created_by_profile_id',
-			'updated_by_profile_id',
-			'created_at',
-			'updated_at',
-		])
+		.returning(collectionLureReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeOrgLookup({ ...row, custom_schema: null });
+	return row ?? null;
 }
 
 export async function deleteCollectionLureLookup(
 	db: DbExecutor,
 	collectionLureId: string,
 	input: CollectionLureLookupLifecycleInput,
-): Promise<SafeOrgLookup | null> {
+): Promise<CollectionLureRow | null> {
 	await assertRecordDeletable(db, {
 		recordType: 'collectionLure',
 		recordId: collectionLureId,
@@ -454,27 +428,17 @@ export async function deleteCollectionLureLookup(
 		.where('id', '=', collectionLureId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'description',
-			'is_active',
-			'created_by_profile_id',
-			'updated_by_profile_id',
-			'created_at',
-			'updated_at',
-		])
+		.returning(collectionLureReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeOrgLookup({ ...row, custom_schema: null });
+	return row ?? null;
 }
 
 export async function updateHabitatTypeLookup(
 	db: DbExecutor,
 	habitatTypeId: string,
 	input: UpdateHabitatTypeLookupInput,
-): Promise<SafeOrgLookup | null> {
+): Promise<HabitatTypeRow | null> {
 	const row = await db
 		.updateTable('habitat_types')
 		.set({
@@ -487,28 +451,17 @@ export async function updateHabitatTypeLookup(
 		.where('id', '=', habitatTypeId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'description',
-			'custom_schema',
-			'is_active',
-			'created_by_profile_id',
-			'updated_by_profile_id',
-			'created_at',
-			'updated_at',
-		])
+		.returning(habitatTypeReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeOrgLookup(row);
+	return row ?? null;
 }
 
 export async function setHabitatTypeLookupActive(
 	db: DbExecutor,
 	habitatTypeId: string,
 	input: HabitatTypeLookupLifecycleInput & { readonly isActive: boolean },
-): Promise<SafeOrgLookup | null> {
+): Promise<HabitatTypeRow | null> {
 	const row = await db
 		.updateTable('habitat_types')
 		.set({
@@ -519,28 +472,17 @@ export async function setHabitatTypeLookupActive(
 		.where('id', '=', habitatTypeId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'description',
-			'custom_schema',
-			'is_active',
-			'created_by_profile_id',
-			'updated_by_profile_id',
-			'created_at',
-			'updated_at',
-		])
+		.returning(habitatTypeReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeOrgLookup(row);
+	return row ?? null;
 }
 
 export async function deleteHabitatTypeLookup(
 	db: DbExecutor,
 	habitatTypeId: string,
 	input: HabitatTypeLookupLifecycleInput,
-): Promise<SafeOrgLookup | null> {
+): Promise<HabitatTypeRow | null> {
 	await assertRecordDeletable(db, {
 		recordType: 'habitatType',
 		recordId: habitatTypeId,
@@ -558,21 +500,10 @@ export async function deleteHabitatTypeLookup(
 		.where('id', '=', habitatTypeId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning([
-			'id',
-			'organization_id',
-			'name',
-			'description',
-			'custom_schema',
-			'is_active',
-			'created_by_profile_id',
-			'updated_by_profile_id',
-			'created_at',
-			'updated_at',
-		])
+		.returning(habitatTypeReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeOrgLookup(row);
+	return row ?? null;
 }
 
 async function readCurrentTransactionId(db: DbExecutor): Promise<number> {

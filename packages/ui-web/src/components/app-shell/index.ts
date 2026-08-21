@@ -22,6 +22,7 @@ export {
 export { OutletContentFallback } from './outlet/outlet-content-fallback';
 export { OutletShell } from './outlet/outlet-shell';
 export { OutletSimpleLayout } from './outlet/simple-layout';
+export { PRIMARY_SIDEBAR_COLLAPSED_KEY } from './primary-sidebar/primary-sidebar';
 export {
 	buildBreadcrumbs,
 	firstDestination,

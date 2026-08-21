@@ -11,7 +11,7 @@ import { settleWrite } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
 import type { AgencyDetailsFields } from '../../../hooks/mutations/use-organization-settings-mutations';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
-import { formatMode } from '../../../lib/record-display';
+import { titleCaseToken } from '../../../lib/record-display';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { defaultDensityRangeValues } from './constants';
 import type {
@@ -111,7 +111,7 @@ export function unitDefaultsFrom(values: UnitDefaultsFormValues): UnitDefaults {
 	return Object.fromEntries(
 		Object.entries(values).map(([unitType, unitCode]) => [
 			unitType,
-			requiredTextValue(unitCode, formatMode(unitType)),
+			requiredTextValue(unitCode, titleCaseToken(unitType)),
 		]),
 	) as UnitDefaults;
 }
@@ -152,9 +152,41 @@ export function watchWrite(write: Promise<unknown>, fallback: string): void {
 	});
 }
 
+/**
+ * A refused write, said where the control that made it still is.
+ *
+ * A toast is the whole report for a surface that closed on submit, and it is not
+ * enough for one that did not: the sheet stays open, the row reads the way it
+ * read before, and nothing on it distinguishes a write that landed from one that
+ * was refused (#219). `role="alert"` because the sheet holds focus and the reason
+ * arrives after the click that asked for it.
+ */
+export function SaveErrorNote({ message }: { readonly message: string | null }) {
+	if (message === null) {
+		return null;
+	}
+
+	return (
+		<p className="m-0 text-destructive text-sm leading-snug" role="alert">
+			{message}
+		</p>
+	);
+}
+
 function reportSaveFailure(error: unknown, fallback: string): void {
+	toast.error(saveFailureMessage(error, fallback));
+}
+
+/**
+ * The refusal to show, or the caller's own words when there are none.
+ *
+ * `errorMessageForSave` answers for every write in the app, so its generic string
+ * is what arrives whenever the thrown value carries nothing better. A caller that
+ * knows which write it made says so instead.
+ */
+export function saveFailureMessage(error: unknown, fallback: string): string {
 	const message = errorMessageForSave(error);
-	toast.error(message === 'Unable to save changes.' ? fallback : message);
+	return message === 'Unable to save changes.' ? fallback : message;
 }
 
 /**
@@ -372,7 +404,7 @@ export function unitDefaultFields(
 	return (Object.entries(unitDefaults) as Array<[keyof UnitDefaults, string]>).map(
 		([unitType, code]) =>
 			selectField(
-				formatMode(unitType),
+				titleCaseToken(unitType),
 				code,
 				unitOptionsForDefault(
 					code,

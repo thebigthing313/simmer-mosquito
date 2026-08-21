@@ -17,7 +17,7 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
-import { applyPlacement } from '../ordered-items.js';
+import { moveItems } from '../ordered-items.js';
 import {
 	assertAssignmentTransition,
 	checkCompleteAssignment,
@@ -43,7 +43,6 @@ import {
 	readItemMappings,
 	readLifecycleTransition,
 	readStringArray,
-	reindexItems,
 	runCommands,
 	softDelete,
 	updateRow,
@@ -387,20 +386,20 @@ export async function writeAssignmentCommand(
 				assignmentReturnColumns,
 			);
 		case 'fieldWork.moveAssignmentItems': {
-			await reindexItems(
+			await moveItems(
 				trx,
-				'assignment_items',
-				'assignment_id',
-				command.payload.assignmentId,
-				command.payload.organizationId,
+				{
+					table: 'assignment_items',
+					parentColumn: 'assignment_id',
+					parentId: command.payload.assignmentId,
+					organizationId: command.payload.organizationId,
+				},
+				command.payload.assignmentItemIds,
+				{
+					kind: command.payload.placement.kind,
+					refId: assignmentPlacementRef(command.payload.placement),
+				},
 				command.payload.actorProfileId,
-				(ids) =>
-					applyPlacement(
-						ids,
-						command.payload.assignmentItemIds,
-						command.payload.placement.kind,
-						assignmentPlacementRef(command.payload.placement),
-					),
 			);
 			return loadAssignment(trx, command.payload.assignmentId, command.payload.organizationId);
 		}

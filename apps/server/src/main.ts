@@ -319,7 +319,6 @@ registerOrganizationSettingsCommandRoutes(app, {
 
 registerProfileCommandRoutes(app, {
 	db,
-	auth,
 	authContextMiddleware,
 });
 
@@ -383,6 +382,7 @@ registerGeocoderRoutes(app, {
 // same commands, permissions and write transaction.
 registerTableCommandSurface(app, {
 	db,
+	auth,
 	authContextMiddleware,
 	operatorAuthContextMiddleware,
 });
