@@ -1,4 +1,4 @@
-import type { SelectedRow } from '@simmer-mosquito/db';
+import { type SelectedRow, sql } from '@simmer-mosquito/db';
 /**
  * The `units` table, as commands — the third operator table.
  *
@@ -40,6 +40,7 @@ import {
 	type FoundationCommand,
 	updateUnitCommand,
 } from '@simmer-mosquito/domain';
+import { CommandError } from '../command-endpoint.js';
 import { readText } from '../command-payload.js';
 import type { CommandDb, CommandTransaction } from '../command-write.js';
 import type { OperatorTableCommands } from './dispatch.js';
@@ -108,8 +109,11 @@ async function writeUnitCommand(
 			return row ?? null;
 		}
 		// A hard delete, like the taxonomy: no `deleted_at`, and the foreign keys
-		// refuse a unit an agency still measures in or has set as a default.
+		// refuse a unit an agency still measures in. A unit an agency has merely
+		// *chosen* has no foreign key to refuse it, so `assertUnitNotChosen` reads
+		// the settings documents first. See #131.
 		case 'foundation.deleteUnit': {
+			await assertUnitNotChosen(trx, command.payload.unitId);
 			const row = await refusableWrite(
 				() =>
 					trx
@@ -128,6 +132,46 @@ async function writeUnitCommand(
 		}
 		default:
 			throw new Error(`Unsupported unit command: ${command.type}`);
+	}
+}
+
+/**
+ * Refuse a unit any agency has chosen as a default.
+ *
+ * Nine columns reference `units` by foreign key and every one of them is a
+ * record, so Postgres refuses those itself. `organizations.settings ->
+ * 'unitDefaults'` holds unit **codes in a JSON document**, so nothing
+ * references the row and nothing refuses: the delete succeeded and the agency's
+ * default silently named a unit that was gone.
+ *
+ * This is one cross-table invariant enforced in one handler, which is the kind
+ * of thing that drifts the moment a second writer appears. It is written this
+ * way because the reference is a string inside a document, so the delete
+ * registry, which counts rows, cannot see it.
+ *
+ * The refusal reports that the unit is in use and names no agency: an operator
+ * needs to know the row is spoken for, not which customer spoke for it. An
+ * agency that is inactive still counts, because an agency coming back to find
+ * its area default gone is the failure this prevents.
+ */
+async function assertUnitNotChosen(trx: CommandTransaction, unitId: string): Promise<void> {
+	const result = await sql<{ readonly count: string }>`
+		select count(*)::text as count
+		from organizations o
+		where o.deleted_at is null
+			and exists (
+				select 1
+				from jsonb_each_text(coalesce(o.settings -> 'unitDefaults', '{}'::jsonb)) as chosen(key, code)
+				where chosen.code = (select u.unit_code from units u where u.id = ${unitId})
+			)
+	`.execute(trx);
+
+	const count = Number.parseInt(result.rows[0]?.count ?? '0', 10);
+	if (count > 0) {
+		throw new CommandError(409, {
+			error: 'unit_in_use',
+			reason: 'This unit is still referenced by an agency’s records or settings.',
+		});
 	}
 }
 

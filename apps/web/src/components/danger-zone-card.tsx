@@ -120,6 +120,26 @@ const DELETE_FLOOR: Record<DeletableRecordType, MinimumRole> = {
 	outreachAction: 'manager',
 	biocontrolAction: 'manager',
 	requestedControlAction: 'manager',
+
+	// The catalogs, from the same file. They have no detail page and reach their
+	// delete through `CatalogDeleteDialog` inside an edit drawer, so nothing
+	// passes them here — but the map claims to cover every deletable type, and a
+	// missing member is the drift rather than a shorter list.
+	collectionMethod: 'admin',
+	collectionLure: 'admin',
+	habitatType: 'admin',
+	applicationMethod: 'admin',
+	sourceReductionMethod: 'admin',
+	outreachMethod: 'admin',
+	biocontrolMethod: 'admin',
+	insecticide: 'admin',
+	formulation: 'admin',
+	notificationType: 'admin',
+
+	vehicle: 'manager',
+	equipment: 'manager',
+	insecticideBatch: 'manager',
+	tag: 'manager',
 };
 
 function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: DangerZoneCardProps) {

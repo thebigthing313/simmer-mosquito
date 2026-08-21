@@ -30,7 +30,23 @@ export type DeletableRecordType =
 	// members is the drift the comment above warns about rather than a shorter
 	// list of what the endpoint answers.
 	| 'requestedControlAction'
-	| 'mission';
+	| 'mission'
+	// The catalogs. Every one of their rules blocks: a catalog row deletes only
+	// while nothing refers to it, so `blockers` is the only list they ever fill.
+	| 'collectionMethod'
+	| 'collectionLure'
+	| 'habitatType'
+	| 'applicationMethod'
+	| 'sourceReductionMethod'
+	| 'outreachMethod'
+	| 'biocontrolMethod'
+	| 'vehicle'
+	| 'equipment'
+	| 'insecticide'
+	| 'insecticideBatch'
+	| 'formulation'
+	| 'notificationType'
+	| 'tag';
 
 /** One consequence: how many rows, and what to call them. */
 export interface DeleteImpactEntry {
@@ -64,12 +80,21 @@ export interface DeleteImpact {
  * the delete transaction regardless; this read is what lets the page say so
  * first instead of failing at the button.
  */
-export function useDeleteImpact(recordType: DeletableRecordType, recordId: string) {
+export function useDeleteImpact(
+	recordType: DeletableRecordType,
+	recordId: string,
+	/**
+	 * Whether to ask at all. A catalog page renders a delete dialog per row, and
+	 * the question is only worth a request once one of them opens.
+	 */
+	enabled = true,
+) {
 	return useQuery({
 		queryKey: deleteImpactQueryKey(recordType, recordId),
 		queryFn: ({ signal }) => fetchDeleteImpact(recordType, recordId, signal),
 		staleTime: 15_000,
 		refetchOnWindowFocus: true,
+		enabled,
 	});
 }
 
