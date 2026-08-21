@@ -57,6 +57,7 @@ import type { MembershipCommand } from '@simmer-mosquito/domain';
 import type { AuthContext } from './auth-context.js';
 import { CommandError } from './command-endpoint.js';
 import type { CommandDb, CommandTransaction } from './command-write.js';
+import { refuseInvitationSend } from './invitation-refusal.js';
 import { forgetInvitation, stampInvitation } from './invitation-stamp.js';
 import { canGrantRole, forbidden } from './roles.js';
 
@@ -498,6 +499,8 @@ async function sendAndStamp(
 	const invitationId = await sendInvitation(auth, {
 		email: state.invitedEmail,
 		authContext: input.authContext,
+		membershipId: input.membershipId,
+		organizationId: input.organizationId,
 	});
 	await stampInvitation(db, {
 		membershipId: input.membershipId,
@@ -585,7 +588,12 @@ async function sendReplacement(
 	},
 ): Promise<string> {
 	try {
-		return await sendInvitation(auth, { email: input.email, authContext: input.authContext });
+		return await sendInvitation(auth, {
+			email: input.email,
+			authContext: input.authContext,
+			membershipId: input.membershipId,
+			organizationId: input.organizationId,
+		});
 	} catch (error) {
 		if (input.revokedInvitationId !== null) {
 			console.error(
@@ -597,10 +605,21 @@ async function sendReplacement(
 	}
 }
 
-/** The WorkOS send, with a refusal named rather than reaching the console as a 500. */
+/**
+ * The WorkOS send, with a refusal named rather than reaching the console as a 500.
+ *
+ * The name is this server's, from {@link refuseInvitationSend}. WorkOS's own
+ * message goes to the log: it is a third party's prose and #220 is about not
+ * putting it in a browser.
+ */
 async function sendInvitation(
 	auth: MembershipAuth,
-	input: { readonly email: string; readonly authContext: AuthContext },
+	input: {
+		readonly email: string;
+		readonly authContext: AuthContext;
+		readonly membershipId: string;
+		readonly organizationId: string;
+	},
 ): Promise<string> {
 	try {
 		const invitation = await auth.sendOrganizationInvitation({
@@ -613,10 +632,13 @@ async function sendInvitation(
 		// The row is written and the mail is not. That reads on the People page as
 		// somebody invited who never got a link, and the repair is a re-invitation.
 		// The other order sends a working link to somebody the agency has no row for.
-		throw new CommandError(502, {
-			error: 'invitation_send_failed',
-			reason: error instanceof Error ? error.message : 'WorkOS rejected the invitation.',
-		});
+		throw new CommandError(
+			502,
+			refuseInvitationSend(error, {
+				membershipId: input.membershipId,
+				organizationId: input.organizationId,
+			}),
+		);
 	}
 }
 

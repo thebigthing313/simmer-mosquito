@@ -166,7 +166,12 @@ describe('an invitation', () => {
 
 		expect(thrown).toBeInstanceOf(CommandError);
 		expect((thrown as CommandError).status).toBe(502);
-		expect((thrown as CommandError).body).toMatchObject({ error: 'invitation_send_failed' });
+		// #220: WorkOS is unreachable rather than refusing, and the body says so in
+		// this server's words. `WorkOS is down` reaches the log, not the browser.
+		expect((thrown as CommandError).body).toEqual({
+			error: 'invitation_service_unavailable',
+			reason: 'The invitation could not be sent. Try again shortly.',
+		});
 	});
 
 	// #207: two attempts and no more. The mail is out and the row exists, so the
@@ -280,8 +285,13 @@ describe('a re-invitation', () => {
 			.catch((error: unknown) => error);
 
 		expect((thrown as CommandError).status).toBe(502);
-		const line = String(logged.mock.calls[0]?.[0]);
-		expect(line).toContain('inv_1');
+		// Two lines now (#220): the send names the refusal first, then this one
+		// names what the revoke already took. Found by content rather than by
+		// index, because which is written first is not what the test is about.
+		const line = logged.mock.calls
+			.map((call) => String(call[0]))
+			.find((written) => written.includes('inv_1'));
+		expect(line).toBeDefined();
 		expect(line).toContain(MEMBERSHIP);
 		expect(line).toContain(ORG);
 

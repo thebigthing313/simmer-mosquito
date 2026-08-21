@@ -93,6 +93,30 @@ dialog is the confirmation and there is no step after it, and the control is onl
 drawn on a Membership still at `invited` — an active member has no link to
 replace, and an ended one is a fresh invitation.
 
+## A failed send is named here, not by WorkOS
+
+Both invite paths used to answer `reason: error.message`, which put a string
+WorkOS writes straight into a browser (#220). The one seen on staging named an
+address; the next could name an internal id or an account WorkOS holds for
+another agency, and nothing in this repo decides which.
+
+`apps/server/src/invitation-refusal.ts` answers instead, from the HTTP status
+WorkOS replied with rather than from its prose. Three names, because there are
+three next moves:
+
+- `invitation_refused` — WorkOS turned the address down. Postgres already
+  refuses the two cases the People page can see, so what reaches here is drift:
+  a membership or invitation WorkOS holds and SIMMER has no row for.
+- `invitation_service_unauthorized` — 401 or 403. SIMMER's own credentials, or
+  an agency wired to a WorkOS organization it cannot write to. A retry
+  reproduces it.
+- `invitation_service_unavailable` — 429, a 5xx, or no answer at all. Worth
+  retrying.
+
+The `reason` beside each is the sentence a person reads: `apps/web` and
+`apps/admin` both render the server's `reason` verbatim. WorkOS's message goes
+to one log line carrying the membership and organization ids.
+
 `workos_invitation_id` may be `null` on a row that was invited. #207 answers a
 failed stamp with the Membership unstamped and one log line carrying the id, and
 a re-invitation whose revoke landed clears the column itself. Either way there is
