@@ -9,6 +9,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
+import { type MapInset, NO_MAP_INSET } from './map-inset';
 
 export interface MapCardProps {
 	/** A small eyebrow row above the title (e.g. a date with a calendar icon). */
@@ -29,6 +30,12 @@ export interface MapCardProps {
 	readonly viewDetailLink?: (content: ReactNode) => ReactNode;
 	/** Layout-only overrides for the card shell (e.g. a wider `max-w-*`). */
 	readonly className?: string;
+	/**
+	 * What else is floating over this map. The card centres in the room that is
+	 * left, so a full-page map with a results panel does not centre the card half
+	 * underneath it.
+	 */
+	readonly inset?: MapInset | undefined;
 }
 
 /**
@@ -38,6 +45,9 @@ export interface MapCardProps {
  * so the chrome, positioning, motion, and dismiss affordance stay identical;
  * only the body differs per record type (see the `*MapCard` components).
  */
+/** Gap (px) between the card and the map edge, matching the `*-4` it replaced. */
+const CARD_EDGE = 16;
+
 export function MapCard({
 	eyebrow,
 	title,
@@ -46,9 +56,18 @@ export function MapCard({
 	onClose,
 	viewDetailLink,
 	className,
+	inset,
 }: MapCardProps) {
+	const clear = inset ?? NO_MAP_INSET;
 	return (
-		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
+		<div
+			className="pointer-events-none absolute z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2"
+			style={{
+				left: CARD_EDGE + clear.left,
+				right: CARD_EDGE + clear.right,
+				bottom: CARD_EDGE + clear.bottom,
+			}}
+		>
 			<article
 				className={cn(
 					'pointer-events-auto w-full max-w-[460px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm',

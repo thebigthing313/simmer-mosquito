@@ -1,6 +1,10 @@
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { type iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import {
+	ChevronLeftIcon,
+	type iconRegistry,
+	PlusIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import type { MinimumRole } from '../../lib/write-access';
@@ -34,6 +38,7 @@ export function ExplorerHeader({
 	isLoading,
 	noun,
 	create,
+	collapse,
 	children,
 }: {
 	readonly title: string;
@@ -42,6 +47,11 @@ export function ExplorerHeader({
 	readonly isLoading: boolean;
 	readonly noun?: { readonly one: string; readonly many: string } | undefined;
 	readonly create?: ExplorerCreateAction | undefined;
+	/**
+	 * Put the whole panel away. Only the map frame passes one — a header above a
+	 * column has nothing to collapse into.
+	 */
+	readonly collapse?: { readonly onCollapse: () => void; readonly label: string } | undefined;
 	/** The filter controls, stacked under the title row. */
 	readonly children: ReactNode;
 }) {
@@ -67,6 +77,16 @@ export function ExplorerHeader({
 								</Link>
 							</Button>
 						</WriteOnly>
+					)}
+					{collapse === undefined ? null : (
+						<Button
+							aria-label={collapse.label}
+							onClick={collapse.onCollapse}
+							size="icon-sm"
+							variant="ghost"
+						>
+							<ChevronLeftIcon aria-hidden="true" />
+						</Button>
 					)}
 				</div>
 			</div>

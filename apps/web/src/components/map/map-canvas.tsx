@@ -13,6 +13,7 @@ import { buildHabitatExtentUrl } from './habitat-tiles';
 import { buildInspectionExtentUrl } from './inspection-tiles';
 import { MapContextMenu, type MapContextMenuConfig } from './map-context-menu';
 import { MapFallback } from './map-fallback';
+import { type MapInset, NO_MAP_INSET } from './map-inset';
 import { MapLayerControls } from './map-layer-controls';
 import { MapSearch } from './map-search';
 import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles';
@@ -81,6 +82,7 @@ export function MapCanvas({
 	className,
 	camera,
 	controls,
+	inset,
 	contextMenu,
 	habitatLayer,
 	regionLayer,
@@ -105,6 +107,12 @@ export function MapCanvas({
 	readonly className?: string;
 	readonly camera?: MapCamera;
 	readonly controls?: MapControlsConfig;
+	/**
+	 * What a page has floating over this canvas. The controls sit clear of it and
+	 * the camera frames into what is left, so a full-page map with a results panel
+	 * over it does not put its own chrome or a selected record underneath.
+	 */
+	readonly inset?: MapInset | undefined;
 	/**
 	 * Give the map a right-click menu — the clicked coordinate, and the records
 	 * this surface can start there. Omitted means no menu at all, which is what
@@ -162,6 +170,7 @@ export function MapCanvas({
 	const [container, setContainer] = useState<HTMLDivElement | null>(null);
 	const [basemapId, setBasemapId] = useState<BasemapId>(DEFAULT_BASEMAP_ID);
 	const [measureOpen, setMeasureOpen] = useState(false);
+	const clear = inset ?? NO_MAP_INSET;
 
 	const show = {
 		search: controls?.search ?? true,
@@ -218,6 +227,7 @@ export function MapCanvas({
 			trapLayer,
 			collectionLayer,
 		}),
+		clear,
 	);
 
 	const onMapReadyRef = useRef(onMapReady);
@@ -276,12 +286,18 @@ export function MapCanvas({
 
 					<div className="pointer-events-none absolute inset-0">
 						{show.search ? (
-							<div className="pointer-events-auto absolute top-4 left-4">
+							<div
+								className="pointer-events-auto absolute top-4"
+								style={{ left: EDGE + clear.left }}
+							>
 								<MapSearch map={map} />
 							</div>
 						) : null}
 						{show.basemap || show.layers ? (
-							<div className="pointer-events-auto absolute top-4 right-4 flex flex-col items-end gap-3">
+							<div
+								className="pointer-events-auto absolute top-4 flex flex-col items-end gap-3"
+								style={{ right: EDGE + clear.right }}
+							>
 								{show.basemap ? (
 									<BasemapSwitcher onChange={setBasemapId} value={basemapId} />
 								) : null}
@@ -290,10 +306,11 @@ export function MapCanvas({
 						) : null}
 						{show.measure ? (
 							<div
-								className={cn(
-									'pointer-events-auto absolute left-4 flex flex-col items-start gap-2',
-									show.attribution ? 'bottom-11' : 'bottom-4',
-								)}
+								className="pointer-events-auto absolute flex flex-col items-start gap-2"
+								style={{
+									left: EDGE + clear.left,
+									bottom: bottomOffset(show.attribution, clear),
+								}}
 							>
 								{measureOpen ? (
 									<MeasureControl
@@ -318,12 +335,14 @@ export function MapCanvas({
 							</div>
 						) : null}
 						{show.geolocate || show.zoom ? (
-							// bottom-11 clears the attribution chip; without it, sit nearer the corner.
+							// The taller offset clears the attribution chip; without it, sit
+							// nearer the corner.
 							<div
-								className={cn(
-									'pointer-events-auto absolute right-4 flex flex-col items-end gap-2',
-									show.attribution ? 'bottom-11' : 'bottom-4',
-								)}
+								className="pointer-events-auto absolute flex flex-col items-end gap-2"
+								style={{
+									right: EDGE + clear.right,
+									bottom: bottomOffset(show.attribution, clear),
+								}}
 							>
 								{show.geolocate ? <GeolocateControl map={map} /> : null}
 								{show.zoom ? <MapZoomControls map={map} /> : null}
@@ -334,6 +353,16 @@ export function MapCanvas({
 			)}
 		</div>
 	);
+}
+
+/** Gap (px) between a floating control group and the map edge, matching `*-4`. */
+const EDGE = 16;
+/** Taller, to clear the Mapbox attribution chip along the bottom. */
+const ATTRIBUTION_EDGE = 44;
+
+/** How far up a bottom control group sits, over the attribution chip and any chrome. */
+function bottomOffset(hasAttribution: boolean, clear: MapInset): number {
+	return (hasAttribution ? ATTRIBUTION_EDGE : EDGE) + clear.bottom;
 }
 
 /** The tile layers a canvas can frame, in the order a shared canvas resolves them. */

@@ -4,6 +4,7 @@ import {
 	AlertTriangleIcon,
 	CheckCircle2Icon,
 	CircleIcon,
+	ComponentIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
@@ -11,18 +12,17 @@ import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
 	ActiveFilterBar,
-	ExplorerHeader,
+	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
 	mapQueryParams,
-	ResultList,
 	SegmentedFilter,
 	toggle,
 	useEntityTags,
+	useExplorerPanel,
 	useFlyToSelection,
 	useHabitatTypeOptions,
 	useMapBoundsParam,
@@ -135,6 +135,7 @@ function HabitatsExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 
 	const { options: habitatTypes, nameById: typeNameById } = useHabitatTypeOptions();
 	const { options: tags, byId: tagById } = useTagOptions();
@@ -181,7 +182,7 @@ function HabitatsExplorerRoute() {
 	const fallbackSelected = useSelectedHabitat(selectedId, visibleById);
 	const selectedHabitat =
 		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
-	useFlyToSelection(map, selectedHabitat);
+	useFlyToSelection(map, selectedHabitat, panel.inset);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
 	const habitatLayer = useMemo(
@@ -189,40 +190,22 @@ function HabitatsExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const hasActiveFilters =
-		status !== 'active' ||
-		access !== 'all' ||
-		typeIds.size > 0 ||
-		tagIds.size > 0 ||
-		regionIds.size > 0;
+	const activeFilterCount =
+		(status === 'active' ? 0 : 1) +
+		(access === 'all' ? 0 : 1) +
+		typeIds.size +
+		tagIds.size +
+		regionIds.size;
 	const clearAll = useCallback(() => {
 		clearSearchInput();
 		reset();
 	}, [clearSearchInput, reset]);
 
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.habitat, MAP_CREATE_TARGETS.inspection] }}
-						controls={{ layers: false, measure: true }}
-						fitToData
-						habitatLayer={habitatLayer}
-						onMapReady={handleMapReady}
-					/>
-					{selectedHabitat === null ? null : (
-						<HabitatMapCard
-							detailTo="/larval-surveillance/habitats/$id"
-							id={selectedHabitat.id}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<ExplorerHeader isLoading={isLoading} title="Habitats" total={total}>
 					<SearchField
 						label="Search habitats by name or description"
 						onChange={setSearchInput}
@@ -269,7 +252,7 @@ function HabitatsExplorerRoute() {
 						/>
 					</div>
 
-					{hasActiveFilters ? (
+					{activeFilterCount > 0 ? (
 						<ActiveFilters
 							status={status}
 							access={access}
@@ -287,28 +270,63 @@ function HabitatsExplorerRoute() {
 							onClearAll={clearAll}
 						/>
 					) : null}
-				</ExplorerHeader>
-
-				<HabitatResults
-					isLoading={isLoading}
-					onSelect={setSelectedId}
-					rows={rows}
-					selectedId={selectedId}
-					tagsByHabitatId={tagsByHabitatId}
-					typeNameById={typeNameById}
+				</>
+			}
+			footer={
+				<ExplorerPagination
+					noun="habitats"
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
 				/>
-
-				<div className="border-border/50 border-t p-3">
-					<ExplorerPagination
-						noun="habitats"
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={total}
+			}
+			heading={{
+				title: 'Habitats',
+				icon: ComponentIcon,
+				total,
+				isLoading,
+				create: { to: '/larval-surveillance/habitats/create', label: 'Add Habitat' },
+			}}
+			map={
+				<>
+					<MapCanvas
+						contextMenu={{ create: [MAP_CREATE_TARGETS.habitat, MAP_CREATE_TARGETS.inspection] }}
+						controls={{ layers: false, measure: true }}
+						fitToData
+						habitatLayer={habitatLayer}
+						inset={panel.inset}
+						onMapReady={handleMapReady}
 					/>
-				</div>
-			</div>
-		</MapSplitPage>
+					{selectedHabitat === null ? null : (
+						<HabitatMapCard
+							detailTo="/larval-surveillance/habitats/$id"
+							id={selectedHabitat.id}
+							inset={panel.inset}
+							onClose={() => setSelectedId(null)}
+						/>
+					)}
+				</>
+			}
+			panel={panel}
+			results={{
+				rows,
+				skeletonClassName: 'h-[58px]',
+				emptyTitle: 'No habitats in view',
+				emptyDescription:
+					'Pan or zoom the map, or loosen the filters to bring habitats into range.',
+				renderRow: (habitat) => (
+					<HabitatListItem
+						habitat={habitat}
+						isSelected={habitat.id === selectedId}
+						key={habitat.id}
+						onSelect={setSelectedId}
+						tags={tagsByHabitatId.get(habitat.id) ?? NO_TAGS}
+						typeName={resolveTypeName(habitat, typeNameById)}
+					/>
+				),
+			}}
+		/>
 	);
 }
 
@@ -395,43 +413,6 @@ function ActiveFilters({
 				);
 			})}
 		</ActiveFilterBar>
-	);
-}
-
-function HabitatResults({
-	rows,
-	isLoading,
-	selectedId,
-	typeNameById,
-	tagsByHabitatId,
-	onSelect,
-}: {
-	readonly rows: readonly HabitatListRow[];
-	readonly isLoading: boolean;
-	readonly selectedId: string | null;
-	readonly typeNameById: ReadonlyMap<string, string>;
-	readonly tagsByHabitatId: ReadonlyMap<string, readonly Tag[]>;
-	readonly onSelect: (id: string) => void;
-}) {
-	return (
-		<ResultList
-			emptyDescription="Pan or zoom the map, or loosen the filters to bring habitats into range."
-			emptyTitle="No habitats in view"
-			isLoading={isLoading}
-			rows={rows}
-			skeletonClassName="h-[58px]"
-		>
-			{(habitat) => (
-				<HabitatListItem
-					habitat={habitat}
-					isSelected={habitat.id === selectedId}
-					key={habitat.id}
-					onSelect={onSelect}
-					tags={tagsByHabitatId.get(habitat.id) ?? NO_TAGS}
-					typeName={resolveTypeName(habitat, typeNameById)}
-				/>
-			)}
-		</ResultList>
 	);
 }
 
