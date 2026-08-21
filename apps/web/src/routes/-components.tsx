@@ -1,14 +1,13 @@
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { LandingStage } from './-landing-stage';
 
 /**
- * Pre-shell surfaces: the unauthenticated landing page and the chrome
- * loading/error fallbacks used by the root route. The authenticated shell lives
- * in `components/app-shell`.
+ * The unauthenticated landing page. The root route's whole-window loading and
+ * error surfaces are in `-workspace-chrome`, and the authenticated shell is in
+ * `components/app-shell`.
  *
  * The landing page is the one product surface that earns a committed brand
  * treatment: a drenched-green "map room" stage carrying the real SIMMER logo,
@@ -16,7 +15,6 @@ import { LandingStage } from './-landing-stage';
  * stage — see `-landing-stage`.
  */
 
-const BrandMark = iconRegistry.simmer.brandMark.icon;
 const WarningIcon = iconRegistry.actions.warning.icon;
 
 export function LandingPage({
@@ -112,35 +110,4 @@ function toRedirectPath(redirectTo: string): string {
 	} catch {
 		return '/';
 	}
-}
-
-export function WorkspaceChromeFallback() {
-	return (
-		<div className="grid min-h-screen place-items-center bg-(--app-stage) p-6">
-			<Card variant="surface" className="w-[min(420px,100%)]">
-				<CardContent padding="default" className="grid gap-3">
-					<BrandMark aria-label="SIMMER" role="img" className="size-8" />
-					<strong className="text-[1rem] text-foreground">Loading workspace</strong>
-				</CardContent>
-			</Card>
-		</div>
-	);
-}
-
-export function WorkspaceChromeError() {
-	return (
-		<div className="grid min-h-screen place-items-center bg-(--app-stage) p-6">
-			<Card variant="surface" className="w-[min(460px,100%)]">
-				<CardContent padding="default" className="grid gap-4">
-					<div className="grid gap-2">
-						<BrandMark aria-label="SIMMER" role="img" className="size-8" />
-						<strong className="text-[1rem] text-foreground">Unable to load workspace data</strong>
-					</div>
-					<Button type="button" onClick={() => window.location.reload()}>
-						Reload
-					</Button>
-				</CardContent>
-			</Card>
-		</div>
-	);
 }
