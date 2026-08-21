@@ -29,6 +29,7 @@ import {
 	useInsecticideBatches,
 } from '../../../hooks/queries/use-insecticide-records';
 import { DeleteInsecticideBatchDialog, InsecticideBatchDrawer } from './-batch-drawer';
+import type { InsecticideCatalog } from './-insecticide-catalog';
 
 const AddIcon = iconRegistry.actions.add.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
@@ -39,18 +40,13 @@ const EditIcon = iconRegistry.actions.edit.icon;
  * products a user actually opens.
  */
 export function InsecticideBatchPanel({
-	batchTrackingEnabled,
-	canManage,
+	catalog,
 	insecticide,
-	insecticides,
-	mutations,
 }: {
-	readonly batchTrackingEnabled: boolean;
-	readonly canManage: boolean;
+	readonly catalog: InsecticideCatalog;
 	readonly insecticide: InsecticideRecord;
-	readonly insecticides: readonly InsecticideRecord[];
-	readonly mutations: InsecticideBatchMutations;
 }) {
+	const { allProducts, batchMutations, batchTrackingEnabled, canManage } = catalog;
 	const { batches, isReady, isError } = useInsecticideBatches(insecticide.id);
 	const canManageBatches = canManage && batchTrackingEnabled;
 	const activeBatches = batches.filter((batch) => batch.isActive);
@@ -60,11 +56,11 @@ export function InsecticideBatchPanel({
 		<CatalogDetailPanel
 			action={
 				<InsecticideBatchDrawer
+					allProducts={allProducts}
 					canManage={canManageBatches}
 					defaultInsecticideId={insecticide.id}
-					insecticides={insecticides}
 					lockInsecticide
-					mutations={mutations}
+					mutations={batchMutations}
 					trigger={
 						<Button disabled={!canManageBatches} size="sm" type="button" variant="outline">
 							<AddIcon aria-hidden="true" />
@@ -83,22 +79,22 @@ export function InsecticideBatchPanel({
 			) : (
 				<>
 					<InsecticideBatchList
+						allProducts={allProducts}
 						batches={activeBatches}
 						canManage={canManageBatches}
 						disabled={!batchTrackingEnabled}
 						emptyLabel="No active batches."
-						insecticides={insecticides}
-						mutations={mutations}
+						mutations={batchMutations}
 					/>
 					{inactiveBatches.length > 0 ? (
 						<CatalogInactiveDisclosure count={inactiveBatches.length}>
 							<InsecticideBatchList
+								allProducts={allProducts}
 								batches={inactiveBatches}
 								canManage={canManageBatches}
 								disabled={!batchTrackingEnabled}
 								emptyLabel="No inactive batches."
-								insecticides={insecticides}
-								mutations={mutations}
+								mutations={batchMutations}
 							/>
 						</CatalogInactiveDisclosure>
 					) : null}
@@ -109,18 +105,19 @@ export function InsecticideBatchPanel({
 }
 
 function InsecticideBatchList({
+	allProducts,
 	batches,
 	canManage,
 	disabled,
 	emptyLabel,
-	insecticides,
 	mutations,
 }: {
+	/** Every product, so an edit can move a batch to any of them. */
+	readonly allProducts: readonly InsecticideRecord[];
 	readonly batches: readonly InsecticideBatchRecord[];
 	readonly canManage: boolean;
 	readonly disabled: boolean;
 	readonly emptyLabel: string;
-	readonly insecticides: readonly InsecticideRecord[];
 	readonly mutations: InsecticideBatchMutations;
 }) {
 	if (batches.length === 0) {
@@ -148,9 +145,9 @@ function InsecticideBatchList({
 								<TableCell className="text-right">
 									<div className="flex justify-end gap-2">
 										<InsecticideBatchDrawer
+											allProducts={allProducts}
 											batch={batch}
 											canManage={canManage}
-											insecticides={insecticides}
 											mutations={mutations}
 											trigger={
 												<Button size="icon" type="button" variant="outline">

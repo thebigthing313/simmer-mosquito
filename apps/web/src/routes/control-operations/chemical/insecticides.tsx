@@ -25,6 +25,7 @@ import {
 import { useInsecticideRecords } from '../../../hooks/queries/use-insecticide-records';
 import { type UnitType, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import type { InsecticideCatalog } from './-insecticide-catalog';
 import { InsecticideDrawer } from './-insecticide-drawer';
 import { InsecticideTable } from './-insecticide-table';
 
@@ -63,6 +64,17 @@ function InsecticidesRoute() {
 	const activeInsecticides = insecticides.filter((row) => row.isActive);
 	const inactiveInsecticides = insecticides.filter((row) => !row.isActive);
 	const batchTrackingEnabled = settings.controlOperations.trackInsecticideBatches;
+
+	// Built once and passed down whole. Each table then names only the subset it
+	// draws, so the full catalog cannot arrive under a subset's name.
+	const catalog: InsecticideCatalog = {
+		allProducts: insecticides,
+		batchMutations,
+		batchTrackingEnabled,
+		canManage,
+		mutations,
+		units,
+	};
 
 	// The header and the empty state offer the same way in, so they mount the
 	// same drawer rather than each spelling out its own trigger.
@@ -109,27 +121,11 @@ function InsecticidesRoute() {
 				{activeInsecticides.length === 0 ? (
 					<CatalogNote>No active insecticides.</CatalogNote>
 				) : (
-					<InsecticideTable
-						allInsecticides={insecticides}
-						batchMutations={batchMutations}
-						batchTrackingEnabled={batchTrackingEnabled}
-						canManage={canManage}
-						insecticides={activeInsecticides}
-						mutations={mutations}
-						units={units}
-					/>
+					<InsecticideTable catalog={catalog} shownProducts={activeInsecticides} />
 				)}
 				{inactiveInsecticides.length > 0 ? (
 					<CatalogInactiveDisclosure count={inactiveInsecticides.length}>
-						<InsecticideTable
-							allInsecticides={insecticides}
-							batchMutations={batchMutations}
-							batchTrackingEnabled={batchTrackingEnabled}
-							canManage={canManage}
-							insecticides={inactiveInsecticides}
-							mutations={mutations}
-							units={units}
-						/>
+						<InsecticideTable catalog={catalog} shownProducts={inactiveInsecticides} />
 					</CatalogInactiveDisclosure>
 				) : null}
 			</section>
