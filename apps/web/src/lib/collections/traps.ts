@@ -8,7 +8,7 @@
 
 import { createTrapsCollection, type Trap } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: A trap network is a fixed set an agency maintains, not a record that
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const traps: Collection<Trap, string | number> = createTrapsCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
 });

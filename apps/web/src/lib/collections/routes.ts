@@ -8,7 +8,7 @@
 
 import { createRoutesCollection, type Route } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: The route list. An agency has dozens, and the planner needs all of them to
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const routes: Collection<Route, string | number> = createRoutesCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
 });

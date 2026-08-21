@@ -8,7 +8,7 @@
 
 import { createSourceReductionsCollection, type SourceReduction } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: One row per action taken, so the explorers ask for a date window rather than
@@ -23,7 +23,7 @@ import { getServerUrl } from '../../auth';
  */
 export const source_reductions: Collection<SourceReduction, string | number> =
 	createSourceReductionsCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'on-demand',
 		mutations: true,
 	});

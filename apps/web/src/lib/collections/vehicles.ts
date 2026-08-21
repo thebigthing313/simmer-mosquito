@@ -8,7 +8,7 @@
 
 import { createVehiclesCollection, type Vehicle } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: An agency's fleet. A short list, offered on every application and
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const vehicles: Collection<Vehicle, string | number> = createVehiclesCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
 });

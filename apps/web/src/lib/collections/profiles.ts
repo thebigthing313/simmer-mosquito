@@ -8,7 +8,7 @@
 
 import { createProfilesCollection, type Profile } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: Who an agency's people are. Every record that names an inspector, applicator
@@ -25,7 +25,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const profiles: Collection<Profile, string | number> = createProfilesCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
 });

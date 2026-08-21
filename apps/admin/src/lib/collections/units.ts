@@ -7,7 +7,7 @@
 
 import { createUnitsCollection, type Unit } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../api';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: a few dozen units, grouped by what they measure on the page that owns
@@ -18,7 +18,7 @@ import { getServerUrl } from '../../api';
  * no domain command at all, and the console wrote them through `/admin/units`.
  */
 export const units: Collection<Unit, string | number> = createUnitsCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
 });

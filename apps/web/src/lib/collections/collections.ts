@@ -8,7 +8,7 @@
 
 import { type AdultCollection, createCollectionsCollection } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: One row per trap visit, so it grows every week the season runs.
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  */
 export const collections: Collection<AdultCollection, string | number> =
 	createCollectionsCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'on-demand',
 		mutations: true,
 	});

@@ -10,7 +10,7 @@
 
 import { createGeneraCollection, type Genus } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../api';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: the whole global taxonomy, which is a few dozen rows and is listed in
@@ -27,7 +27,7 @@ import { getServerUrl } from '../../api';
  * `number` is wanted.
  */
 export const genera: Collection<Genus, string | number> = createGeneraCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
 });

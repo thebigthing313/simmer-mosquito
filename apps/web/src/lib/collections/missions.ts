@@ -8,7 +8,7 @@
 
 import { createMissionsCollection, type Mission } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: One row per dispatched mission, so it grows every day worked.
@@ -21,7 +21,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const missions: Collection<Mission, string | number> = createMissionsCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'on-demand',
 	mutations: true,
 });

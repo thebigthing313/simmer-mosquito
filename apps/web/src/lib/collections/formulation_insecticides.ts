@@ -11,7 +11,7 @@ import {
 	type FormulationInsecticide,
 } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: What each formulation contains. Read with the formulations, and about as
@@ -27,7 +27,7 @@ import { getServerUrl } from '../../auth';
  */
 export const formulation_insecticides: Collection<FormulationInsecticide, string | number> =
 	createFormulationInsecticidesCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'eager',
 		mutations: true,
 	});
