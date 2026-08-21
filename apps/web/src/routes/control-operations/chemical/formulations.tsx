@@ -497,8 +497,8 @@ function DeleteFormulationDialog({
 			confirmLabel="Delete"
 			description={
 				<>
-					This removes {formulation.formulationName} and the products in it. Applications already
-					recorded from this mix are unaffected — they store their own product and amount.
+					This removes {formulation.formulationName} from the mix list. A formulation that still
+					lists products cannot be deleted; take them out first, or deactivate it instead.
 				</>
 			}
 			onConfirm={() =>
@@ -507,6 +507,7 @@ function DeleteFormulationDialog({
 					save: () => mutations.remove(formulation.id),
 				})
 			}
+			record={{ type: 'formulation', id: formulation.id }}
 			title="Delete Formulation?"
 			trigger={
 				<Button type="button" variant="destructive">

@@ -1,4 +1,5 @@
 import {
+	assertRecordDeletable,
 	type Kysely,
 	type MutationWriteResult,
 	type SelectedRow,
@@ -244,6 +245,12 @@ async function deleteNotificationType(
 	notificationTypeId: string,
 	input: NotificationTypeLifecycleInput,
 ): Promise<NotificationTypeRow | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'notificationType',
+		recordId: notificationTypeId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('notification_types')
 		.set({

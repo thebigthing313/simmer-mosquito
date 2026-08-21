@@ -1,4 +1,9 @@
-import { type SelectedRow, sql } from '@simmer-mosquito/db';
+import {
+	assertRecordDeletable,
+	type DeletableRecordType,
+	type SelectedRow,
+	sql,
+} from '@simmer-mosquito/db';
 import {
 	type CreateApplicationMethodCommand,
 	type CreateBiocontrolMethodCommand,
@@ -452,12 +457,31 @@ async function setControlMethodActive(
 	return row ?? null;
 }
 
+/**
+ * The four method catalogs are one writer, so the delete guard needs the
+ * record type its table answers to. A `Record` over the table union rather
+ * than a lookup that can miss: a fifth method catalog will not compile until
+ * it names its type here.
+ */
+const CONTROL_METHOD_RECORD_TYPES: Record<ControlMethodTableName, DeletableRecordType> = {
+	application_methods: 'applicationMethod',
+	source_reduction_methods: 'sourceReductionMethod',
+	outreach_methods: 'outreachMethod',
+	biocontrol_methods: 'biocontrolMethod',
+};
+
 async function deleteControlMethod(
 	db: ControlMethodTransaction,
 	table: ControlMethodTableName,
 	methodId: string,
 	input: ControlMethodLifecycleInput,
 ): Promise<ControlMethodRow | null> {
+	await assertRecordDeletable(db, {
+		recordType: CONTROL_METHOD_RECORD_TYPES[table],
+		recordId: methodId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable(table)
 		.set({

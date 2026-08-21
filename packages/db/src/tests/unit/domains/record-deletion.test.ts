@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
+	catalogRecordTypes,
 	deletableRecordLabel,
 	deletableRecordTypes,
+	deleteReferenceScopes,
 	isDeletableRecordType,
 } from '../../../index.js';
 
@@ -34,7 +36,35 @@ const EXPECTED_TYPES = [
 	'serviceRequest',
 	'sourceReduction',
 	'trap',
+	// Catalogs, block-only.
+	'applicationMethod',
+	'biocontrolMethod',
+	'collectionLure',
+	'collectionMethod',
+	'equipment',
+	'formulation',
+	'habitatType',
+	'insecticide',
+	'insecticideBatch',
+	'notificationType',
+	'outreachMethod',
+	'sourceReductionMethod',
+	'tag',
+	'vehicle',
 ];
+
+/**
+ * The catalogs, which carry a rule the operational types do not.
+ *
+ * A catalog row is deletable only while nothing refers to it, so every one of
+ * its rules blocks. A cascade or a detach here would mean a delete rewriting
+ * records that name the row, which is what Deactivate exists to avoid.
+ *
+ * Read from `catalogRecordTypes()` rather than restated: the gate and the
+ * registry share that list, and a second copy here could disagree with it while
+ * both stayed green.
+ */
+const CATALOG_TYPES = catalogRecordTypes();
 
 describe('deletable record registry', () => {
 	it('accepts exactly the record types it declares', () => {
@@ -49,6 +79,20 @@ describe('deletable record registry', () => {
 			// multi-word type that never got one would leak `requestedControlAction`
 			// into a sentence an agency reads.
 			expect(label).not.toMatch(/[A-Z]/);
+		}
+	});
+
+	it('blocks and only blocks on every catalog', () => {
+		for (const recordType of CATALOG_TYPES) {
+			const scopes = deleteReferenceScopes(recordType);
+			expect(scopes.length).toBeGreaterThan(0);
+			for (const scope of scopes) {
+				expect(scope.effect).toBe('block');
+				// A catalog is never a comment, tag, or personnel target, so a
+				// polymorphic scope here would be pointing at a support table that
+				// cannot name it.
+				expect(scope.scope.kind).toBe('direct');
+			}
 		}
 	});
 

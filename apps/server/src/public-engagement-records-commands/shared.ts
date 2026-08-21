@@ -1,4 +1,5 @@
 import {
+	assertCatalogReferences,
 	geojsonToGeom,
 	localDateColumn,
 	type SelectedRow,
@@ -116,6 +117,19 @@ export async function insertRegistrationType(
 	notificationTypeId: string,
 	actorProfileId: string,
 ): Promise<RegistrationTypeRow> {
+	await assertCatalogReferences(trx, {
+		organizationId,
+		write: { kind: 'create' },
+		references: [
+			{
+				column: 'notification_type_id',
+				catalog: 'notificationType',
+				id: notificationTypeId,
+				label: 'notification type',
+			},
+		],
+	});
+
 	const row = await trx
 		.insertInto('notification_registration_types')
 		.values({

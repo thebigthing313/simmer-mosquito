@@ -8,6 +8,7 @@ const { Pool } = pg;
 export type { Kysely, RawBuilder, Transaction } from 'kysely';
 export { sql } from 'kysely';
 export * from './domains/adult-surveillance.js';
+export * from './domains/catalog-references.js';
 export * from './domains/control-operations-map.js';
 export * from './domains/foundation.js';
 export * from './domains/habitats.js';

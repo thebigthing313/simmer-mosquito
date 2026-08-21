@@ -158,8 +158,8 @@ export function DeleteInsecticideBatchDialog({
 			confirmLabel="Delete"
 			description={
 				<>
-					This removes {batch.batchName} from batch choices. If a server rule blocks the delete, the
-					record will stay in place.
+					This removes {batch.batchName} from batch choices. A batch any application already used
+					cannot be deleted; deactivate it instead.
 				</>
 			}
 			onConfirm={() =>
@@ -168,6 +168,7 @@ export function DeleteInsecticideBatchDialog({
 					save: () => mutations.remove(batch.id),
 				})
 			}
+			record={{ type: 'insecticideBatch', id: batch.id }}
 			title="Delete Batch?"
 			trigger={
 				<Button size="icon" type="button" variant="destructive">

@@ -1,5 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	assertCatalogReferences,
+	type CatalogReference,
+	sql,
+} from '@simmer-mosquito/db';
 import {
 	assignMissionCommand,
 	cancelMissionCommand,
@@ -246,12 +251,29 @@ async function runMissionCommands(
 	);
 }
 
+/** The one catalog a Mission names: the Notification Type it will send under. */
+function notificationTypeReference(id: string | null | undefined): CatalogReference[] {
+	return [
+		{
+			column: 'notification_type_id',
+			catalog: 'notificationType',
+			id: id ?? null,
+			label: 'notification type',
+		},
+	];
+}
+
 export async function writeMissionCommand(
 	trx: MissionDispatchTransaction,
 	command: MissionDispatchCommand,
 ): Promise<MissionRow | null> {
 	switch (command.type) {
 		case 'missionDispatch.createMission': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
+				references: notificationTypeReference(command.payload.notificationTypeId),
+			});
 			const row = await trx
 				.insertInto('missions')
 				.values({
@@ -331,6 +353,11 @@ export async function writeMissionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.updateMissionNotificationType':
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'update', table: 'missions', recordId: command.payload.missionId },
+				references: notificationTypeReference(command.payload.notificationTypeId),
+			});
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				notification_type_id: command.payload.notificationTypeId,
 				updated_by_profile_id: command.payload.actorProfileId,

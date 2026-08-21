@@ -1,4 +1,4 @@
-import { type SelectedRow, sql } from '@simmer-mosquito/db';
+import { assertRecordDeletable, type SelectedRow, sql } from '@simmer-mosquito/db';
 import {
 	type CreateEquipmentCommand,
 	type CreateVehicleCommand,
@@ -367,6 +367,12 @@ async function deleteVehicle(
 	vehicleId: string,
 	input: ControlAssetLifecycleInput,
 ): Promise<ControlAssetRow | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'vehicle',
+		recordId: vehicleId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('vehicles')
 		.set({
@@ -389,6 +395,12 @@ async function deleteEquipment(
 	equipmentId: string,
 	input: ControlAssetLifecycleInput,
 ): Promise<ControlAssetRow | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'equipment',
+		recordId: equipmentId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('equipment')
 		.set({

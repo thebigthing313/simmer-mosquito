@@ -1,4 +1,6 @@
 import {
+	assertCatalogReferences,
+	assertRecordDeletable,
 	type Kysely,
 	type MutationWriteResult,
 	type SelectedRow,
@@ -503,6 +505,12 @@ async function deleteInsecticide(
 	insecticideId: string,
 	input: ProductLifecycleInput,
 ): Promise<InsecticideRow | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'insecticide',
+		recordId: insecticideId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('insecticides')
 		.set({
@@ -537,7 +545,18 @@ async function createInsecticideBatch(
 	db: ControlProductTransaction,
 	input: InsecticideBatchWriteInput,
 ): Promise<InsecticideBatchRow> {
-	await assertInsecticideBelongsToOrganization(db, input.insecticideId, input.organizationId);
+	await assertCatalogReferences(db, {
+		organizationId: input.organizationId,
+		write: { kind: 'create' },
+		references: [
+			{
+				column: 'insecticide_id',
+				catalog: 'insecticide',
+				id: input.insecticideId,
+				label: 'insecticide',
+			},
+		],
+	});
 
 	const row = await db
 		.insertInto('insecticide_batches')
@@ -603,6 +622,12 @@ async function deleteInsecticideBatch(
 	batchId: string,
 	input: ProductLifecycleInput,
 ): Promise<InsecticideBatchRow | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'insecticideBatch',
+		recordId: batchId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('insecticide_batches')
 		.set({
@@ -618,32 +643,6 @@ async function deleteInsecticideBatch(
 		.executeTakeFirst();
 
 	return row ?? null;
-}
-
-async function assertInsecticideBelongsToOrganization(
-	db: ControlProductTransaction,
-	insecticideId: string,
-	organizationId: string,
-): Promise<void> {
-	const row = await db
-		.selectFrom('insecticides')
-		.select('insecticides.id')
-		.where('insecticides.id', '=', insecticideId)
-		.where('insecticides.organization_id', '=', organizationId)
-		.where('insecticides.deleted_at', 'is', null)
-		.executeTakeFirst();
-
-	if (row === undefined) {
-		// A `CommandError` rather than a bare `Error`: this is reached with an id
-		// that belongs to another agency, to a soft-deleted row, or to nothing at
-		// all, and all three are the caller's 404 rather than the server's 500.
-		// The three cases answer alike on purpose — a refusal that told them apart
-		// would let a caller probe for insecticide ids in other agencies.
-		throw new CommandError(404, {
-			error: 'insecticide_not_found',
-			reason: 'An insecticide batch must belong to an insecticide in this organization.',
-		});
-	}
 }
 
 interface InsecticidePayload {

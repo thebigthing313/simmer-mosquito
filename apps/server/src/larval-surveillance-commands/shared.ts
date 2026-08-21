@@ -1,4 +1,10 @@
-import { geojsonToGeom, localDateColumn, type SelectedRow, updateRow } from '@simmer-mosquito/db';
+import {
+	type CatalogReference,
+	geojsonToGeom,
+	localDateColumn,
+	type SelectedRow,
+	updateRow,
+} from '@simmer-mosquito/db';
 import {
 	type LarvalDensity,
 	type ResolvedLarvalInspectionEntryPolicy,
@@ -267,3 +273,27 @@ export type SampleUpdateColumns = {
 	unidentifiable_reason?: string | null;
 	updated_by_profile_id: string;
 };
+
+/**
+ * The one catalog a Habitat and an Inspection both name.
+ *
+ * Only a key that is present is gated, so an edit that moves the inspection
+ * date asks nothing of the catalogs. Matches
+ * `adult-surveillance-commands/shared.ts`, which does the same for the two a
+ * Trap and a Collection name.
+ */
+export function habitatTypeReferences(source: {
+	readonly habitatTypeId?: string | null | undefined;
+}): CatalogReference[] {
+	if (!('habitatTypeId' in source)) {
+		return [];
+	}
+	return [
+		{
+			column: 'habitat_type_id',
+			catalog: 'habitatType',
+			id: source.habitatTypeId ?? null,
+			label: 'habitat type',
+		},
+	];
+}

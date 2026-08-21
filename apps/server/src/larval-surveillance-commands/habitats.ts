@@ -1,4 +1,10 @@
-import { applyRecordDeletion, applyRecordMerge, softDelete, sql } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	applyRecordMerge,
+	assertCatalogReferences,
+	softDelete,
+	sql,
+} from '@simmer-mosquito/db';
 import {
 	clearHabitatInaccessibleCommand,
 	createHabitatCommand,
@@ -26,6 +32,7 @@ import {
 	type HabitatRow,
 	type HabitatUpdateColumns,
 	habitatReturnColumns,
+	habitatTypeReferences,
 	type InvalidCommandBody,
 	invalidUpdate,
 	type LarvalSurveillanceDb,
@@ -222,6 +229,11 @@ export async function writeHabitatCommand(
 ): Promise<HabitatRow | null> {
 	switch (command.type) {
 		case 'larvalSurveillance.createHabitat': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
+				references: habitatTypeReferences(command.payload),
+			});
 			const row = await trx
 				.insertInto('habitats')
 				.values({
@@ -247,6 +259,10 @@ export async function writeHabitatCommand(
 			return row;
 		}
 		case 'larvalSurveillance.createHabitatFromInspection': {
+			// The habitat type here is copied from the Habitat being inspected, not
+			// chosen by the person recording. The gate is about starting to use a
+			// retired catalog row; refusing an inherited one would make a Habitat
+			// uninspectable because its type was deactivated after it was built.
 			const snapshot = await loadInspectionSnapshot(
 				trx,
 				command.payload.organizationId,
@@ -302,6 +318,11 @@ export async function writeHabitatCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'larvalSurveillance.updateHabitatConfiguration':
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'update', table: 'habitats', recordId: command.payload.habitatId },
+				references: habitatTypeReferences(command.payload.changes),
+			});
 			return updateHabitat(trx, command.payload.habitatId, command.payload.organizationId, {
 				...('addressId' in command.payload.changes
 					? { address_id: command.payload.changes.addressId ?? null }

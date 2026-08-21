@@ -213,6 +213,57 @@ hand-rolling cleanup in the handler. A blocked delete answers 409 with the same
 entry shape the impact read returns, so a client that raced a new reference can
 still name what stopped it.
 
+### Catalogs are block-only
+
+The registry covers the catalogs as well as the operational records, and every
+catalog rule is a `block`. None cascades, none detaches. Delete means the record
+should never have existed, so a live referrer is proof that it did and the
+agency wanted Deactivate. The block reaches catalog children too: an Insecticide
+with a Batch needs the Batch deleted first.
+
+Catalog deletes call `assertRecordDeletable` rather than `applyRecordDeletion`,
+which is the same check without the cascade and detach writes there is nothing
+for them to do. It takes a `DbExecutor`, so the writers in `packages/db` can
+call it without being retyped.
+
+The three operator-global catalogs (Unit, Genus, Species) cannot use the
+registry, because every query in it scopes by `organization_id` and those rows
+have none. Their block counts across every agency, reports one total, and names
+no agency. `units` also carries a hand-written check against
+`organizations.settings -> 'unitDefaults'`, because that reference is a code
+string in a JSON document and a rule that counts rows cannot see it.
+
+### The same question, forwards
+
+A delete asks whether anything refers to a row. A write asks whether it may
+refer to one. `packages/db/src/domains/catalog-references.ts` answers the second
+and shares the first's registry, so a catalog gets both directions or neither.
+
+`assertCatalogReferences` refuses a write naming a catalog row that is another
+agency's, soft-deleted, or inactive. The body is
+`{ error: 'catalog_reference_refused', reason, catalog, message }`, where
+`reason` is `missing` or `inactive`. Missing answers 404 and inactive 409;
+missing does not distinguish "another agency's" from "no such row", because
+telling them apart would make the refusal a way to probe for ids.
+
+Pass `write: { kind: 'update', table, recordId }` on an update and
+`{ kind: 'create' }` on a create. The stored row is read once and any reference
+already holding that value is skipped, so only a reference whose value
+**changes** is gated and a historical record stays editable after its product
+retires. Gating on the payload id without that comparison refuses unchanged
+values, and nothing shows it until something is deactivated in production. The
+two shapes are a union rather than optional fields for that reason.
+
+Every foreign key pointing at a catalog needs a rule, and
+`catalog-coverage.integration.test.ts` asks the live schema whether one exists.
+The registry is a hand-written list and cannot notice what it omits; a column
+added by a later `alter table` is invisible to anything reading the migration
+text, which is how `missions.notification_type_id` first got missed.
+
+Two references are deliberately not gated, both marked at the site: a habitat
+type copied from the Habitat being inspected, and a method the mission plan
+supplied. Neither is a new choice.
+
 ## Offline and sync
 
 - Offline queues store domain commands, not DB-shaped patches.

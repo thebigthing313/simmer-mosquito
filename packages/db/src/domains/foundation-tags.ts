@@ -1,6 +1,7 @@
 import { type Kysely, sql, type Transaction } from 'kysely';
 
 import type { DbExecutor, MutationWriteResult, SimmerDatabase } from '../index.js';
+import { assertRecordDeletable } from './record-deletion.js';
 
 export interface CreateTagInput {
 	readonly id?: string;
@@ -140,6 +141,12 @@ export async function deleteTag(
 	tagId: string,
 	input: TagLifecycleInput,
 ): Promise<SafeTag | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'tag',
+		recordId: tagId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('tags')
 		.set({

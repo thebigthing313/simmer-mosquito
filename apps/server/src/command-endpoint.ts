@@ -23,6 +23,7 @@
  */
 
 import {
+	CatalogReferenceRefusedError,
 	MissionNotificationRefusedError,
 	RecordDeleteBlockedError,
 	RecordMergeRefusedError,
@@ -96,6 +97,21 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 		return context.json(
 			{ error: 'merge_refused', reason: error.reason, message: error.message },
 			error.reason === 'target_inactive' ? 409 : 404,
+		);
+	}
+	// A write that named a catalog row it may not use. Missing is a 404 and the
+	// same answer as another agency's row or a soft-deleted one, because telling
+	// them apart would make this a way to probe for ids. Inactive is a 409: the
+	// row is there and somebody can reactivate it or pick another.
+	if (error instanceof CatalogReferenceRefusedError) {
+		return context.json(
+			{
+				error: 'catalog_reference_refused',
+				reason: error.reason,
+				catalog: error.catalog,
+				message: error.message,
+			},
+			error.reason === 'inactive' ? 409 : 404,
 		);
 	}
 	// Same split for generation: a mission the caller cannot see is a 404, and

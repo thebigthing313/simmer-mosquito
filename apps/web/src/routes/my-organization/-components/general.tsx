@@ -28,6 +28,7 @@ import {
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { CatalogDeleteDialog } from '../../../components/catalog';
 import { EmptyValue } from '../../../components/empty-value';
 import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
 import { type TagFields, useTagMutations } from '../../../hooks/mutations/use-tag-mutations';
@@ -500,10 +501,24 @@ function TagEditorTableRow({
 			</TableCell>
 			<TableCell className="w-(--tag-actions-column) align-top">
 				<div className="flex justify-end gap-2">
-					<Button type="button" variant="destructive" size="icon" onClick={deleteTag}>
-						<DeleteIcon aria-hidden="true" />
-						<span className="sr-only">Delete {tag.name}</span>
-					</Button>
+					<CatalogDeleteDialog
+						confirmLabel="Delete"
+						description={
+							<>
+								This removes {tag.name} from the tag list. A tag still on any record cannot be
+								deleted; deactivate it instead.
+							</>
+						}
+						onConfirm={deleteTag}
+						record={{ type: 'tag', id: tag.id }}
+						title="Delete Tag?"
+						trigger={
+							<Button type="button" variant="destructive" size="icon">
+								<DeleteIcon aria-hidden="true" />
+								<span className="sr-only">Delete {tag.name}</span>
+							</Button>
+						}
+					/>
 					<Button type="button" variant="outline" size="icon" onClick={saveTag}>
 						<SaveIcon aria-hidden="true" />
 						<span className="sr-only">Save {tag.name}</span>

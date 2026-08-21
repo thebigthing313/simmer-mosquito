@@ -222,8 +222,8 @@ function DeleteInsecticideDialog({
 			confirmLabel="Delete"
 			description={
 				<>
-					This removes {insecticide.tradeName} from the product list. If a server rule blocks the
-					delete, because an application already used it, the record will stay in place.
+					This removes {insecticide.tradeName} from the product list. A product any application,
+					batch, or formulation already uses cannot be deleted; deactivate it instead.
 				</>
 			}
 			onConfirm={() =>
@@ -232,6 +232,7 @@ function DeleteInsecticideDialog({
 					save: () => mutations.remove(insecticide.id),
 				})
 			}
+			record={{ type: 'insecticide', id: insecticide.id }}
 			title="Delete Insecticide?"
 			trigger={
 				<Button type="button" variant="destructive">

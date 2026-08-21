@@ -17,6 +17,8 @@ domain doc instead of expanding this file.
 | **Global Taxonomy** | SIMMER-controlled mosquito genus/species vocabulary shared across agencies. | agency species list |
 | **Organization Species** | Agency-selected subset of global species available for new data entry. | enabled species, species setting |
 | **Organization Lookup** | Agency-owned catalog value used to configure surveillance or control workflows. | dropdown option, enum |
+| **Delete** | Removing a record that should never have existed. Refused while any live record refers to it. | archive, retire, purge |
+| **Deactivate** | Retiring a record that should not be referred to from now on. Leaves records that already name it alone. | delete, disable, archive |
 
 ## Workflow language
 
@@ -50,6 +52,10 @@ domain doc instead of expanding this file.
   Action**.
 - A **Formulation** helps calculate one or more chemical applications, but
   those applications do not store the formulation as historical source data.
+- **Delete** and **Deactivate** are not degrees of the same act. Delete says the
+  record was a mistake, so anything referring to it proves otherwise and refuses
+  the delete. Deactivate says the record was real and its use has ended, so it
+  never touches what already names it and only stops new references.
 - A **Service Request** belongs to a **Contact** and location.
 - A **Mission** contains ordered **Mission Items**; a mission item can produce
   zero or more performed control actions.

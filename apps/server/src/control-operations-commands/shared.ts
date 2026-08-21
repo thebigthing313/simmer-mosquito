@@ -1,4 +1,5 @@
 import {
+	assertCatalogReferences,
 	type geojsonToGeom,
 	localDateColumn,
 	type SelectedRow,
@@ -62,6 +63,19 @@ export async function insertApplicationBatch(
 		readonly actorProfileId: string;
 	},
 ): Promise<ApplicationBatchRow> {
+	await assertCatalogReferences(trx, {
+		organizationId: input.organizationId,
+		write: { kind: 'create' },
+		references: [
+			{
+				column: 'insecticide_batch_id',
+				catalog: 'insecticideBatch',
+				id: input.insecticideBatchId,
+				label: 'batch',
+			},
+		],
+	});
+
 	const row = await trx
 		.insertInto('application_batches')
 		.values({

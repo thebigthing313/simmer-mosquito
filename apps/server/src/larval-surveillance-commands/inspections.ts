@@ -1,4 +1,4 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, assertCatalogReferences, sql } from '@simmer-mosquito/db';
 import {
 	deleteInspectionCommand,
 	type LarvalSurveillanceCommand,
@@ -21,6 +21,7 @@ import {
 	type CommandContext,
 	commandEndpoint,
 	geojsonToGeom,
+	habitatTypeReferences,
 	hasInspectionResultFields,
 	type InspectionResultColumns,
 	type InspectionRow,
@@ -189,6 +190,10 @@ export async function writeInspectionCommand(
 ): Promise<InspectionRow | null> {
 	switch (command.type) {
 		case 'larvalSurveillance.recordHabitatInspection': {
+			// The habitat type here is copied from the Habitat being inspected, not
+			// chosen by the person recording. The gate is about starting to use a
+			// retired catalog row; refusing an inherited one would make a Habitat
+			// uninspectable because its type was deactivated after it was built.
 			const snapshot = await loadHabitatSnapshot(
 				trx,
 				command.payload.organizationId,
@@ -216,6 +221,11 @@ export async function writeInspectionCommand(
 		case 'fieldWork.recordHabitatInspectionForAssignmentItem':
 			return recordInspectionForStop(trx, command.payload);
 		case 'larvalSurveillance.recordAdHocInspection': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
+				references: habitatTypeReferences(command.payload),
+			});
 			const row = await trx
 				.insertInto('inspections')
 				.values({
@@ -247,6 +257,11 @@ export async function writeInspectionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'larvalSurveillance.updateAdHocInspectionLocation':
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'update', table: 'inspections', recordId: command.payload.inspectionId },
+				references: habitatTypeReferences(command.payload.changes),
+			});
 			return updateInspection(trx, command.payload.inspectionId, command.payload.organizationId, {
 				...(command.payload.changes.locationSource !== undefined
 					? {
@@ -322,6 +337,8 @@ async function recordInspectionForStop(
 	// habitatId at all and cannot disagree with the stop.
 	const habitatId = payload.habitatId ?? stop.entityId;
 	const snapshot = await loadHabitatSnapshot(trx, payload.organizationId, habitatId);
+	// Same inherited habitat type as `recordHabitatInspection`, and ungated for
+	// the same reason: it is a copy of the Habitat's own type, not a choice.
 	const row = await trx
 		.insertInto('inspections')
 		.values({
