@@ -11,6 +11,8 @@ domain doc instead of expanding this file.
 | **Agency** | Mosquito control organization that owns operational records and field workflows. | tenant, account |
 | **Profile** | Agency-scoped person used for field attribution, audit attribution, and role-bound work. | user, login, account |
 | **Membership** | A person's current access relationship to an agency through a role and profile. | permission row, user role |
+| **Invitation** | An offer of login access to an Agency, held against the address it was sent to and the role it would grant. Becomes an active Membership when the person accepts. | pending user, seat, signup |
+| **Re-invitation** | A new offer to an address that already holds a live Invitation. May carry a different role, and ends the earlier offer. | resend, re-send invite |
 | **SIMMER Operator** | Platform-side administrator for SIMMER-controlled setup and support workflows. | superuser, agency admin |
 | **Address** | Agency-owned address book entry that can help choose locations without becoming canonical for operational records. | canonical location, property |
 | **Region** | Agency-defined polygon used for GIS grouping, reporting, and spatial lookup. | district, zone |

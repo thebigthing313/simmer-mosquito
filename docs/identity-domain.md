@@ -16,14 +16,44 @@ nothing else:
 | `identity.createProfile` | `profiles` | admin |
 | `identity.updateProfile` | `profiles` | admin |
 
-Four identity surfaces are still REST routes with floors in `IDENTITY_FLOORS`
-(`apps/server/src/roles.ts`). `people.listMemberships` stays there: it is a read
-behind a POST, and reads have never been commands. `people.changeRole`,
-`people.endMembership` and `people.invite` are ADR 0013's slice 3, blocked on
-whether an invitation can carry a client-generated membership id (#186).
-
 Nothing here writes WorkOS. That is what made these three the ones to move
-first: they need no part of the spanning-command rules.
+first, because they need no part of the spanning-command rules.
+
+Four more commands are coming, and all four write WorkOS as well as Postgres.
+`identity.changeRole` and `identity.endMembership` are slice 3a.
+`identity.invite` and `identity.reinvite` are slice 3b, settled in #186 and
+described below. All four go on `POST|PATCH|DELETE /commands/memberships`, a
+module that does not exist yet.
+
+`people.listMemberships` is not one of them. It is a read behind a POST, and
+reads have never been commands. It keeps an admin floor as a plain role check on
+its own route, which is what lets `IdentityWriteSurface`, `IDENTITY_FLOORS` and
+`denyIdentityWrite` be deleted rather than kept alive for one caller.
+
+## An Invitation is two rows, and the client keys both
+
+Inviting somebody writes a Membership at `invited` status, and a Profile for it
+to point at when the invite is for a new person rather than a historical one.
+The invite dialog already knows which of those it is asking for, so the client
+mints both ids and sends them. Keying only the Membership would leave a retry
+able to mint a second Profile.
+
+The second system is WorkOS, and it is called after the Postgres transaction
+commits. A failure between the two leaves a Membership at `invited` with no
+invitation mail sent, which reads on the People page as somebody invited who
+never got a link. The repair is a re-invitation, and it is the safe direction.
+The other order sends a working link to somebody the agency has no row for.
+
+`identity.reinvite` is a separate command because a second call to
+`identity.invite` cannot be both a retry to swallow and a deliberate redo. It
+overwrites the Membership's role and invitation, then revokes the WorkOS
+invitation it replaced. Failing between those two leaves the previous link live,
+which is why the revoke goes last. An operator who lowered somebody's role and
+saw an error can re-run it, where the reverse would have already killed the only
+link the person holds.
+
+The People page names both effects on the invited row before it fires: the
+address, the role it will set, and that the earlier link stops working.
 
 ## The agency's own row has two vocabularies, by shape
 
