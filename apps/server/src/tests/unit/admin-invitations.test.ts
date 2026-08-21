@@ -24,6 +24,7 @@ const dbMock = vi.hoisted(() => {
 		assertOrganizationProfileCanBeInvited: vi.fn(),
 		getOperatorOrganization: vi.fn(),
 		stageOrganizationInvitation: vi.fn(),
+		stampOrganizationInvitation: vi.fn(),
 	};
 });
 
@@ -37,6 +38,17 @@ const operatorUser: AuthUser = {
 	displayName: 'Opal Operator',
 	emailVerified: true,
 	profilePictureUrl: null,
+};
+
+const sentInvitation = {
+	id: 'inv_1',
+	email: 'casey@example.test',
+	state: 'pending' as const,
+	organizationId: 'workos_org_1',
+	acceptedUserId: null,
+	expiresAt: '2026-05-17T00:00:00.000Z',
+	createdAt: '2026-05-16T00:00:00.000Z',
+	updatedAt: '2026-05-16T00:00:00.000Z',
 };
 
 const invitedMembership = {
@@ -87,7 +99,11 @@ describe('registerAdminInvitationRoutes', () => {
 			createdAt: new Date('2026-05-01T00:00:00.000Z'),
 			updatedAt: new Date('2026-05-01T00:00:00.000Z'),
 		});
-		dbMock.stageOrganizationInvitation.mockResolvedValue(invitedMembership);
+		dbMock.stageOrganizationInvitation.mockResolvedValue({
+			...invitedMembership,
+			workosInvitationId: null,
+		});
+		dbMock.stampOrganizationInvitation.mockResolvedValue(invitedMembership);
 	});
 
 	it('passes profileId through existing-profile invitation flow', async () => {
@@ -134,8 +150,56 @@ describe('registerAdminInvitationRoutes', () => {
 			email: 'casey@example.test',
 			displayName: null,
 			role: 'manager',
+			workosInvitationId: null,
+		});
+		expect(dbMock.stampOrganizationInvitation).toHaveBeenCalledWith(expect.anything(), {
+			id: 'membership-1',
+			organizationId: 'org-1',
 			workosInvitationId: 'inv_1',
 		});
+	});
+
+	// #202: the row is written first, so a WorkOS refusal can never leave somebody
+	// holding a link to an agency with no row for them.
+	it('writes the Membership before WorkOS is called', async () => {
+		const calls: string[] = [];
+		dbMock.stageOrganizationInvitation.mockImplementation(async () => {
+			calls.push('stage');
+			return invitedMembership;
+		});
+		const auth = createFakeInvitationAuth();
+		auth.sendOrganizationInvitation = vi.fn(async () => {
+			calls.push('workos');
+			return sentInvitation;
+		});
+		const app = createInvitationApp(auth);
+
+		const response = await app.request('/admin/organizations/org-1/invitations', {
+			method: 'POST',
+			body: JSON.stringify({ email: 'casey@example.test', role: 'manager' }),
+			headers: { 'content-type': 'application/json' },
+		});
+
+		expect(response.status).toBe(201);
+		expect(calls).toEqual(['stage', 'workos']);
+	});
+
+	it('sends nothing when staging refuses', async () => {
+		dbMock.stageOrganizationInvitation.mockRejectedValue(
+			new dbMock.StageOrganizationInvitationError('already_a_member'),
+		);
+		const auth = createFakeInvitationAuth();
+		const app = createInvitationApp(auth);
+
+		const response = await app.request('/admin/organizations/org-1/invitations', {
+			method: 'POST',
+			body: JSON.stringify({ email: 'casey@example.test', role: 'manager' }),
+			headers: { 'content-type': 'application/json' },
+		});
+
+		expect(response.status).toBe(409);
+		await expect(response.json()).resolves.toEqual({ error: 'already_a_member' });
+		expect(auth.sendOrganizationInvitation).not.toHaveBeenCalled();
 	});
 
 	it('rejects invalid profileId before sending a WorkOS invitation', async () => {
@@ -235,7 +299,11 @@ describe('registerAdminInvitationRoutes', () => {
 			error: 'invitation_send_failed',
 			reason: 'User is already a member of the organization.',
 		});
-		expect(dbMock.stageOrganizationInvitation).not.toHaveBeenCalled();
+		// The Membership stays, with no invitation id on it. That is the failure
+		// #202 chose: an operator can invite again, where the other order left a
+		// live link to an agency with no row for it.
+		expect(dbMock.stageOrganizationInvitation).toHaveBeenCalledOnce();
+		expect(dbMock.stampOrganizationInvitation).not.toHaveBeenCalled();
 	});
 });
 
