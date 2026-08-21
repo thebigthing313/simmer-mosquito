@@ -35,7 +35,7 @@ import { type TagFields, useTagMutations } from '../../../hooks/mutations/use-ta
 import { type TagRecord, useTagCatalog } from '../../../hooks/queries/use-tag-catalog';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { hexWithAlpha, validHexColor } from '../../../lib/hex-color';
-import { formatMode } from '../../../lib/record-display';
+import { titleCaseToken } from '../../../lib/record-display';
 import { errorMessageForSave } from '../../../lib/save-error';
 import {
 	AddIcon,
@@ -724,13 +724,13 @@ function EditUnitDefaultsSheet({
 									validators={{
 										onSubmit: ({ value }) =>
 											value.trim().length === 0
-												? `${formatMode(unitType)} is required.`
+												? `${titleCaseToken(unitType)} is required.`
 												: undefined,
 									}}
 								>
 									{(field) => (
 										<field.SelectField
-											label={formatMode(unitType)}
+											label={titleCaseToken(unitType)}
 											options={unitOptionsForDefault(
 												defaultValues[unitType],
 												units.filter((unit) => unit.unitType === unitType),

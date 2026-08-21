@@ -11,7 +11,7 @@ import { settleWrite } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
 import type { AgencyDetailsFields } from '../../../hooks/mutations/use-organization-settings-mutations';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
-import { formatMode } from '../../../lib/record-display';
+import { titleCaseToken } from '../../../lib/record-display';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { defaultDensityRangeValues } from './constants';
 import type {
@@ -111,7 +111,7 @@ export function unitDefaultsFrom(values: UnitDefaultsFormValues): UnitDefaults {
 	return Object.fromEntries(
 		Object.entries(values).map(([unitType, unitCode]) => [
 			unitType,
-			requiredTextValue(unitCode, formatMode(unitType)),
+			requiredTextValue(unitCode, titleCaseToken(unitType)),
 		]),
 	) as UnitDefaults;
 }
@@ -372,7 +372,7 @@ export function unitDefaultFields(
 	return (Object.entries(unitDefaults) as Array<[keyof UnitDefaults, string]>).map(
 		([unitType, code]) =>
 			selectField(
-				formatMode(unitType),
+				titleCaseToken(unitType),
 				code,
 				unitOptionsForDefault(
 					code,
