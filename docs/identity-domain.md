@@ -66,6 +66,29 @@ has no column diff to read an intent off, so the settings commands cannot go on
 the per-table surface. See "The nine commands that are not on it" in the
 contract.
 
+## An agency address is US-shaped
+
+Two fields on `identity.updateOrganizationDetails` enforce it. `mailingRegion`
+is upper-cased and must be one of the 51 state and district codes.
+`mailingCountry` is upper-cased and must be `US`. Either one can be `null`,
+because an agency that has not filled its address in is not an error, but
+neither can name somewhere else.
+
+The reason is that SIMMER does not expect an agency outside the US. A mosquito
+control district is a US institution, and the assumption is already load-bearing
+elsewhere: the agency timezone picker offers US zones only. Until this rule the
+constraint lived in three places and was stated in none, as a set of state codes
+in the domain, a hardcoded `'US'` in the web mutation plan, and a fixed option
+list in the details form. The country column was the one that had never been
+told, so a direct API caller could write an address in a state of somewhere
+else.
+
+A non-US agency would need more than widening these two checks. The region list
+is US states, the timezone picker is US zones, the postal code is validated at
+20 characters of anything, and no field carries a locale. Whoever takes that on
+should read this section first and treat it as the record of why the support
+does not exist yet.
+
 ## Field names
 
 Every key both `/commands/organizations` and `/commands/profiles` read is a

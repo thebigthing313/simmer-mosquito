@@ -7,7 +7,7 @@
  */
 
 /** A snake_case or kebab-case value as a label: `source_reduction` is `Source Reduction`. */
-export function formatMode(value: string): string {
+export function titleCaseToken(value: string): string {
 	return value
 		.split(/[_-]/g)
 		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))

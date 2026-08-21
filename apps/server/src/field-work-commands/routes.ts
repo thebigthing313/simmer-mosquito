@@ -10,7 +10,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
-import { applyPlacement } from '../ordered-items.js';
+import { moveItems } from '../ordered-items.js';
 import {
 	type CommandContext,
 	commandEndpoint,
@@ -19,7 +19,6 @@ import {
 	type RouteOptions,
 	type RouteRow,
 	readStringArray,
-	reindexItems,
 	routePlacementRef,
 	routeReturnColumns,
 	runCommands,
@@ -159,20 +158,20 @@ export async function writeRouteCommand(
 				routeReturnColumns,
 			);
 		case 'fieldWork.moveRouteItems': {
-			await reindexItems(
+			await moveItems(
 				trx,
-				'route_items',
-				'route_id',
-				command.payload.routeId,
-				command.payload.organizationId,
+				{
+					table: 'route_items',
+					parentColumn: 'route_id',
+					parentId: command.payload.routeId,
+					organizationId: command.payload.organizationId,
+				},
+				command.payload.routeItemIds,
+				{
+					kind: command.payload.placement.kind,
+					refId: routePlacementRef(command.payload.placement),
+				},
 				command.payload.actorProfileId,
-				(ids) =>
-					applyPlacement(
-						ids,
-						command.payload.routeItemIds,
-						command.payload.placement.kind,
-						routePlacementRef(command.payload.placement),
-					),
 			);
 			return loadRoute(trx, command.payload.routeId, command.payload.organizationId);
 		}

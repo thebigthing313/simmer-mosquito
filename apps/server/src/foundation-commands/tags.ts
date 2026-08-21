@@ -5,12 +5,12 @@ import {
 	deleteCollectionMethodLookup,
 	deleteHabitatTypeLookup,
 	deleteTag,
-	type SafeOrgLookup,
-	type SafeTag,
+	type OrgLookupRow,
 	setCollectionLureLookupActive,
 	setCollectionMethodLookupActive,
 	setHabitatTypeLookupActive,
 	setTagActive,
+	type TagRow,
 	updateCollectionLureLookup,
 	updateCollectionMethodLookup,
 	updateHabitatTypeLookup,
@@ -84,7 +84,7 @@ export function registerTagRoutes(
 			context,
 			{
 				db: options.db,
-				write: async (trx, command) => toTagResponse(await writeTagCommand(trx, command)),
+				write: writeTagCommand,
 				notFound: 'tag_not_found',
 				key: 'tag',
 			},
@@ -134,7 +134,7 @@ export function registerTagRoutes(
 export async function writeFoundationLookupCommand(
 	db: CommandTransaction,
 	command: LookupCommand,
-): Promise<SafeOrgLookup | null> {
+): Promise<OrgLookupRow | null> {
 	switch (command.type) {
 		case 'foundation.createCollectionMethod': {
 			const createPayload = (command as CreateCollectionMethodCommand).payload;
@@ -274,7 +274,7 @@ export async function writeFoundationLookupCommand(
 export async function writeFoundationTagCommand(
 	db: CommandTransaction,
 	command: TagCommand,
-): Promise<SafeTag | null> {
+): Promise<TagRow | null> {
 	switch (command.type) {
 		case 'fieldWork.createTag': {
 			const payload = command.payload;
@@ -420,22 +420,5 @@ function readTagUpdatePayload(raw: Record<string, unknown>): PayloadResult<TagUp
 			...(raw.color === undefined ? {} : { color: readOptionalText(raw.color) }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
 		},
-	};
-}
-
-function toTagResponse(row: SafeTag | null) {
-	if (row === null) {
-		return null;
-	}
-
-	return {
-		id: row.id,
-		organizationId: row.organizationId,
-		tagName: row.tagName,
-		description: row.description,
-		color: row.color,
-		isActive: row.isActive,
-		createdAt: row.createdAt,
-		updatedAt: row.updatedAt,
 	};
 }

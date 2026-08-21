@@ -28,31 +28,36 @@ import { insecticideDisplayName } from '../-control-display';
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
 export function InsecticideBatchDrawer({
+	allProducts,
 	batch,
 	canManage,
 	defaultInsecticideId,
-	insecticides,
 	lockInsecticide = false,
 	mutations,
 	trigger,
 }: {
+	/**
+	 * Every product, not the subset a table happens to be drawing. Narrowing
+	 * this narrows what a batch can be filed under.
+	 */
+	readonly allProducts: readonly InsecticideRecord[];
 	readonly batch?: InsecticideBatchRecord | undefined;
 	readonly canManage: boolean;
 	readonly defaultInsecticideId?: string | undefined;
-	readonly insecticides: readonly InsecticideRecord[];
 	readonly lockInsecticide?: boolean;
 	readonly mutations: InsecticideBatchMutations;
 	readonly trigger: React.ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
-	const activeInsecticides = insecticides.filter(
+	// A retired product stays selectable while editing a batch already on it.
+	const selectableProducts = allProducts.filter(
 		(item) => item.isActive || item.id === batch?.insecticideId,
 	);
-	const fallbackInsecticideId = defaultInsecticideId ?? activeInsecticides[0]?.id ?? '';
+	const fallbackInsecticideId = defaultInsecticideId ?? selectableProducts[0]?.id ?? '';
 	const defaultValues = insecticideBatchFormValues(batch, fallbackInsecticideId);
 	const insecticideChoices = useMemo(
-		() => activeInsecticides.map(insecticideOption),
-		[activeInsecticides],
+		() => selectableProducts.map(insecticideOption),
+		[selectableProducts],
 	);
 	const form = useAppForm({
 		defaultValues,

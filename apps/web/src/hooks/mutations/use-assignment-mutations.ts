@@ -35,7 +35,7 @@ import {
 	settleWrite,
 } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
-import type { MovePlan } from '../../components/stop-order';
+import { type MovePlan, planStopPositions } from '../../components/stop-order';
 import { assignment_items } from '../../lib/collections/assignment_items';
 import { assignments } from '../../lib/collections/assignments';
 import { mutateCollection } from '../../lib/collections/mutate';
@@ -330,17 +330,19 @@ export function useAssignmentMutations(): AssignmentMutations {
 						placement: assignmentPlacement(plan.placement),
 					},
 				},
-				// The server renumbers 0…n-1 in this order, so writing the same numbers
-				// keeps the optimistic rows and the synced ones in agreement. An empty
+				// The same arithmetic the server runs, so the optimistic rows carry the
+				// numbers that stream back and nothing shifts twice on screen. An empty
 				// `apply` would be worse than useless: TanStack DB completes a
 				// transaction with no mutations without calling its `mutationFn`, so the
-				// request would never leave the browser.
+				// request would never leave the browser. A move always rewrites at least
+				// the row it moved, which is why that cannot happen here.
 				apply: () => {
-					plan.order.forEach((assignmentItemId, index) => {
+					const positions = planStopPositions(plan, (id) => assignment_items.get(id)?.position);
+					for (const [assignmentItemId, position] of positions) {
 						assignment_items.update(assignmentItemId, (draft) => {
-							draft.position = index;
+							draft.position = position;
 						});
-					});
+					}
 				},
 			}),
 		);

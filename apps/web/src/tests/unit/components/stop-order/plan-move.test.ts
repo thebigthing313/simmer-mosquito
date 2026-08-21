@@ -1,5 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import { planMove } from '../../../../components/stop-order/plan-move';
+import {
+	type MovePlan,
+	planMove,
+	planStopPositions,
+} from '../../../../components/stop-order/plan-move';
 
 const ids = ['a', 'b', 'c', 'd'];
 
@@ -61,5 +65,39 @@ describe('planMove', () => {
 		for (const action of ['up', 'down', 'top', 'bottom'] as const) {
 			expect(planMove(['only'], 0, action)).toBeNull();
 		}
+	});
+});
+
+describe('planStopPositions', () => {
+	const positions = new Map(ids.map((id, index) => [id, index]));
+	const positionOf = (id: string) => positions.get(id);
+
+	it('writes only the stop that moved', () => {
+		const plan = planMove(ids, 2, 'up') as MovePlan;
+		expect([...planStopPositions(plan, positionOf)]).toEqual([['c', 0.5]]);
+	});
+
+	it('writes something for every move, so the request is sent', () => {
+		// A reorder that wrote no row would complete without calling `mutationFn`.
+		for (const [index, action] of [
+			[1, 'up'],
+			[1, 'down'],
+			[2, 'top'],
+			[1, 'bottom'],
+		] as const) {
+			const plan = planMove(ids, index, action) as MovePlan;
+			expect(planStopPositions(plan, positionOf).size).toBeGreaterThan(0);
+		}
+	});
+
+	it('falls back to numbering the list when a stop is not in the collection', () => {
+		const plan = planMove(ids, 2, 'up') as MovePlan;
+		const written = planStopPositions(plan, (id) => (id === 'b' ? undefined : positions.get(id)));
+		expect([...written]).toEqual([
+			['a', 0],
+			['c', 1],
+			['b', 2],
+			['d', 3],
+		]);
 	});
 });

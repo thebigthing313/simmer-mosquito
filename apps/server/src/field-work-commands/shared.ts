@@ -45,44 +45,6 @@ export {
 // Ordering helpers
 // ===========================================================================
 
-/**
- * Renumber a parent's items 0…n-1 in the order `reorder` puts them.
- *
- * Only `moveRouteItems` and `moveAssignmentItems` call this, and it writes
- * every active sibling, not only the moved ones. The domain doc says a move
- * should write only the rows it moved; issue #162 fixed the add path and left
- * this one alone, and the gap is issue #196. Adds compute a single fractional
- * position instead; see `ordered-items.ts`.
- */
-export async function reindexItems(
-	trx: FieldWorkTransaction,
-	table: 'route_items' | 'assignment_items',
-	parentColumn: 'route_id' | 'assignment_id',
-	parentId: string,
-	organizationId: string,
-	actorProfileId: string,
-	reorder: (orderedIds: readonly string[]) => readonly string[],
-): Promise<void> {
-	const rows = await trx
-		.selectFrom(table)
-		.select('id')
-		.where(parentColumn, '=', parentId)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.orderBy('position', 'asc')
-		.orderBy('created_at', 'asc')
-		.execute();
-	const ordered = reorder(rows.map((row) => row.id));
-	for (let index = 0; index < ordered.length; index += 1) {
-		await trx
-			.updateTable(table)
-			.set({ position: index, updated_by_profile_id: actorProfileId, updated_at: sql`now()` })
-			.where('id', '=', ordered[index] as string)
-			.where('organization_id', '=', organizationId)
-			.execute();
-	}
-}
-
 export function routePlacementRef(placement: RouteItemPlacement): string | null {
 	return placement.kind === 'before' || placement.kind === 'after' ? placement.routeItemId : null;
 }

@@ -1,19 +1,20 @@
+import { sql } from '@simmer-mosquito/db';
+import { planItemPositions, positionBetween } from '@simmer-mosquito/domain';
 import type { CommandTransaction } from './command-write.js';
 
 /**
  * Ordering for the three item tables that carry a stop list: `route_items`,
  * `assignment_items` and `mission_items`.
  *
- * `position` is `double precision` in all three so that adding a stop is a
- * single-row insert: the new row takes a value between its two neighbours and
- * nothing else moves. The removes already soft delete without renumbering, so
- * gaps in `position` are normal and mean nothing.
+ * `position` is `double precision` in all three so that both writes are
+ * minimal. An add takes a value between its two neighbours and nothing else
+ * moves; a move rewrites the rows it moved and leaves every sibling alone. The
+ * removes soft delete without renumbering, so gaps in `position` are normal and
+ * mean nothing.
  *
- * The moves are the exception: they still renumber every sibling 0…n-1. The
- * domain docs say they should write only the moved rows
- * (`docs/field-work-support-domain.md`, "Route item `position` is `double
- * precision` specifically to support minimal writes"), and issue #162 put them
- * out of scope. That gap is issue #196.
+ * The arithmetic itself is `planItemPositions` in `packages/domain`, because
+ * the optimistic write in `apps/web` has to compute the same numbers. If the
+ * two disagreed, every reorder would flicker when the real rows streamed back.
  */
 
 export type OrderedItemTable = 'route_items' | 'assignment_items' | 'mission_items';
@@ -68,38 +69,6 @@ export function applyPlacement(
 }
 
 /**
- * The position a row takes between the two it lands between. Either neighbour
- * is null at the ends of the list, and both are null when the list is empty.
- *
- * No rebalancer, deliberately. Halving the gap between the same pair over and
- * over exhausts a `double precision` mantissa after about 50 inserts, which
- * needs 50 stops added between the same two stops of one route without either
- * of them moving. A route is tens of stops edited by hand; nothing gets near
- * it.
- *
- * If it ever did, the midpoint would equal a neighbour, and two rows sharing a
- * position order by `created_at`, which puts the newer one second. So the list
- * stays deterministic, but a `before` placement whose reference is in the tie
- * lands after it instead. That is the failure mode to expect, not a scrambled
- * list.
- */
-export function positionBetween(before: number | null, after: number | null): number {
-	if (before === null && after === null) {
-		return 0;
-	}
-	if (before === null) {
-		// Head of the list. Halving keeps the value positive, but legacy rows are
-		// integers from zero, so a non-positive minimum has to step down instead.
-		const first = after as number;
-		return first > 0 ? first / 2 : first - 1;
-	}
-	if (after === null) {
-		return before + 1;
-	}
-	return (before + after) / 2;
-}
-
-/**
  * The position for a row about to be inserted into `list`.
  *
  * Reads the siblings once and resolves the placement with `applyPlacement`, the
@@ -139,4 +108,56 @@ export async function nextItemPosition(
 	const after =
 		index < ordered.length - 1 ? (positions.get(ordered[index + 1] as string) ?? null) : null;
 	return positionBetween(before, after);
+}
+
+/**
+ * Move `movingIds` to `placement` within `list`, writing only the rows that
+ * moved.
+ *
+ * Reads the siblings once, resolves the order with `applyPlacement` (so a move
+ * and an add of the same placement agree on where the row goes), then asks
+ * `planItemPositions` which rows to write. Answers with the positions it wrote,
+ * which is one entry per moved id on the normal path.
+ *
+ * When the gap between the moved run's anchors cannot hold it at `double
+ * precision`, the plan renumbers every active item instead and this writes all
+ * of them. That normalization happens inside the caller's transaction, which is
+ * what all three domain docs allow in place of a public normalization command.
+ */
+export async function moveItems(
+	trx: CommandTransaction,
+	list: OrderedItemList,
+	movingIds: readonly string[],
+	placement: ItemPlacement,
+	actorProfileId: string,
+): Promise<ReadonlyMap<string, number>> {
+	const rows = await trx
+		.selectFrom(list.table)
+		.select(['id', 'position'])
+		.where(list.parentColumn, '=', list.parentId)
+		.where('organization_id', '=', list.organizationId)
+		.where('deleted_at', 'is', null)
+		.orderBy('position', 'asc')
+		.orderBy('created_at', 'asc')
+		.execute();
+	const ordered = applyPlacement(
+		rows.map((row) => row.id),
+		movingIds,
+		placement.kind,
+		placement.refId,
+	);
+	const plan = planItemPositions(
+		ordered,
+		new Map(rows.map((row) => [row.id, row.position])),
+		movingIds,
+	);
+	for (const [id, position] of plan.positions) {
+		await trx
+			.updateTable(list.table)
+			.set({ position, updated_by_profile_id: actorProfileId, updated_at: sql`now()` })
+			.where('id', '=', id)
+			.where('organization_id', '=', list.organizationId)
+			.execute();
+	}
+	return plan.positions;
 }

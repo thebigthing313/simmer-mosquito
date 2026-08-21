@@ -9,10 +9,10 @@
  *
  * `fieldWork.moveRouteItems` restacks the items, so the obvious home is
  * `route_items`. It is here because `position` belongs to the *sequence* rather
- * than to any row in it: a move takes an id list and a placement, reindexes every
- * stop the route holds, and the row it answers with is the route. Posting that to
- * the child table would mean a request whose path names one item while its body
- * renumbers all of them.
+ * than to any row in it: a move takes an id list and a placement, resolves the
+ * order the route holds, and the row it answers with is the route. Posting that
+ * to the child table would mean a request whose path names one item while its
+ * body restacks the list around it.
  *
  * It is a PATCH on the route, which is also what makes it reachable: the dispatch
  * gives each table a POST, a PATCH and a DELETE, and the move is the only command

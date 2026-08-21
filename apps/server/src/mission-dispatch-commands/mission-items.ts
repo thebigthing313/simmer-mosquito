@@ -17,7 +17,7 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
-import { applyPlacement, nextItemPosition } from '../ordered-items.js';
+import { moveItems, nextItemPosition } from '../ordered-items.js';
 import { assertMissionItemProgress, autoStartMissionIfScheduled } from './mission-lifecycle.js';
 import {
 	agencyCommandContext,
@@ -393,19 +393,7 @@ export async function writeMissionItemCommand(
 				missionItemReturnColumns,
 			);
 		case 'missionDispatch.moveMissionItems': {
-			await reindexMissionItems(
-				trx,
-				command.payload.missionId,
-				command.payload.organizationId,
-				command.payload.actorProfileId,
-				(ids) =>
-					applyPlacement(
-						ids,
-						command.payload.missionItemIds,
-						command.payload.placement.kind,
-						missionPlacementRef(command.payload.placement),
-					),
-			);
+			await moveMissionItemRows(trx, command.payload);
 			const first = command.payload.missionItemIds[0];
 			return first === undefined
 				? null
@@ -476,41 +464,36 @@ async function loadMissionItem(
 }
 
 /**
- * Renumber a mission's stops 0…n-1 in the order `reorder` puts them.
+ * Restack a mission's stops, writing only the rows that moved.
  *
- * Only `missionDispatch.moveMissionItems` calls this, and it is a command on
- * the *mission* (see `table-commands/missions.ts`) while the stop writes are
- * here, so it stays exported. It writes every active stop, not only the moved
- * ones, the same gap against the domain doc that `reindexItems` has (#196).
- * Adds compute a single fractional position instead; see `ordered-items.ts`.
+ * `missionDispatch.moveMissionItems` is a command on the *mission* (see
+ * `table-commands/missions.ts`) while the stop writes are here, so this stays
+ * exported and both writers go through it.
  */
-export async function reindexMissionItems(
+export async function moveMissionItemRows(
 	trx: MissionDispatchTransaction,
-	missionId: string,
-	organizationId: string,
-	actorProfileId: string,
-	reorder: (orderedIds: readonly string[]) => readonly string[],
+	payload: {
+		readonly missionId: string;
+		readonly organizationId: string;
+		readonly actorProfileId: string;
+		readonly missionItemIds: readonly string[];
+		readonly placement: MissionItemPlacement;
+	},
 ): Promise<void> {
-	const rows = await trx
-		.selectFrom('mission_items')
-		.select('id')
-		.where('mission_id', '=', missionId)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.orderBy('position', 'asc')
-		.orderBy('created_at', 'asc')
-		.execute();
-	const ordered = reorder(rows.map((row) => row.id));
-	for (let index = 0; index < ordered.length; index += 1) {
-		await trx
-			.updateTable('mission_items')
-			.set({ position: index, updated_by_profile_id: actorProfileId, updated_at: sql`now()` })
-			.where('id', '=', ordered[index] as string)
-			.where('organization_id', '=', organizationId)
-			.execute();
-	}
+	await moveItems(
+		trx,
+		{
+			table: 'mission_items',
+			parentColumn: 'mission_id',
+			parentId: payload.missionId,
+			organizationId: payload.organizationId,
+		},
+		payload.missionItemIds,
+		{ kind: payload.placement.kind, refId: missionPlacementRef(payload.placement) },
+		payload.actorProfileId,
+	);
 }
 
-export function missionPlacementRef(placement: MissionItemPlacement): string | null {
+function missionPlacementRef(placement: MissionItemPlacement): string | null {
 	return placement.kind === 'before' || placement.kind === 'after' ? placement.missionItemId : null;
 }

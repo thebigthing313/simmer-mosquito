@@ -1,11 +1,11 @@
 import {
+	type AddressRow,
 	applyRecordDeletion,
 	applyRecordMerge,
 	createAddress,
 	deleteAddress,
-	getAddressById,
+	getAddressRowById,
 	RecordDeleteBlockedError,
-	type SafeAddress,
 	updateAddressDetails,
 	updateAddressLocation,
 } from '@simmer-mosquito/db';
@@ -22,7 +22,6 @@ import {
 	type FoundationCommandDb,
 	readAddressCreatePayload,
 	readAddressUpdatePayload,
-	toAddressResponse,
 	writeAddressDeleteWithTxid,
 	writeAddressUpdateWithTxid,
 	writeAddressWithTxid,
@@ -67,7 +66,7 @@ export function registerAddressRoutes(
 					updatedByProfileId: authContext.profile.id,
 				});
 
-				return context.json({ address: toAddressResponse(result.row), txid: result.txid }, 201);
+				return context.json({ address: result.row, txid: result.txid }, 201);
 			},
 		}),
 	);
@@ -156,7 +155,7 @@ export function registerAddressRoutes(
 export async function writeAddressCommand(
 	trx: CommandTransaction,
 	command: FoundationCommand,
-): Promise<SafeAddress | null> {
+): Promise<AddressRow | null> {
 	switch (command.type) {
 		case 'foundation.createAddress':
 			return createAddress(trx, {
@@ -212,7 +211,7 @@ export async function writeAddressCommand(
 			// The survivor, unchanged. Read rather than returned by a write, because
 			// the merge does not touch it.
 			return (
-				(await getAddressById(trx, {
+				(await getAddressRowById(trx, {
 					id: command.payload.targetAddressId,
 					organizationId: command.payload.organizationId,
 				})) ?? null
@@ -259,11 +258,11 @@ function addressId(context: CommandContext): string {
 
 function answerAddress(
 	context: CommandContext,
-	result: { readonly row: Parameters<typeof toAddressResponse>[0] | null; readonly txid: number },
+	result: { readonly row: AddressRow | null; readonly txid: number },
 ) {
 	if (result.row === null) {
 		return context.json({ error: 'address_not_found' }, 404);
 	}
 
-	return context.json({ address: toAddressResponse(result.row), txid: result.txid });
+	return context.json({ address: result.row, txid: result.txid });
 }
