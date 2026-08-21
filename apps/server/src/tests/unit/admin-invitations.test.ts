@@ -327,8 +327,9 @@ describe('registerAdminInvitationRoutes', () => {
 	});
 
 	// Two attempts and no more, so a persistent failure does not hold the request
-	// open. The log line is where the id survives.
-	it('answers 500 and logs the invitation id when the stamp fails twice', async () => {
+	// open. The mail is out and the row exists, so the invitation did happen and
+	// the 201 says so; the log line is where the id survives.
+	it('answers 201 with the unstamped Membership and logs the invitation id', async () => {
 		const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
 		dbMock.stampOrganizationInvitation.mockRejectedValue(new Error('connection terminated'));
 		const app = createInvitationApp(createFakeInvitationAuth());
@@ -339,8 +340,11 @@ describe('registerAdminInvitationRoutes', () => {
 			headers: { 'content-type': 'application/json' },
 		});
 
-		expect(response.status).toBe(500);
-		await expect(response.json()).resolves.toEqual({ error: 'invitation_stamp_failed' });
+		expect(response.status).toBe(201);
+		await expect(response.json()).resolves.toMatchObject({
+			invitation: { id: 'inv_1' },
+			membership: { id: 'membership-1', status: 'invited', workosInvitationId: null },
+		});
 		expect(dbMock.stampOrganizationInvitation).toHaveBeenCalledTimes(2);
 		const line = String(logged.mock.calls[0]?.[0]);
 		expect(line).toContain('inv_1');

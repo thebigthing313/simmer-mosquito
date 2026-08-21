@@ -96,24 +96,19 @@ export function registerAdminInvitationRoutes(
 			const invitation = invitationResult.invitation;
 			// Nothing was sent when the person was already reached, so there is no id
 			// to stamp and nothing to retry.
-			const stamped =
+			const membership =
 				invitation === null
-					? ({ ok: true, membership: staged.membership } as const)
+					? staged.membership
 					: await stampInvitation(options.db, {
-							membershipId: staged.membership.id,
+							staged: staged.membership,
 							organizationId,
 							workosInvitationId: invitation.id,
 						});
-			if (!stamped.ok) {
-				// The mail is out and its id is now only in the server log. The 500 is
-				// what stops that going unnoticed.
-				return context.json({ error: 'invitation_stamp_failed' }, 500);
-			}
 
 			return context.json(
 				{
 					invitation: toInvitationResponse(invitation),
-					membership: toAdminMembershipResponse(stamped.membership),
+					membership: toAdminMembershipResponse(membership),
 				},
 				201,
 			);

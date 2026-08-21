@@ -3,4 +3,4 @@
 '@simmer-mosquito/admin': patch
 ---
 
-Fixed: Inviting somebody no longer fails on a brief database blip after the mail has gone out; the last step is retried.
+Fixed: Inviting somebody no longer reports a failure after their email has already gone out.

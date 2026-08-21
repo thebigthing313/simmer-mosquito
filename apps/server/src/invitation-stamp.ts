@@ -2,10 +2,6 @@ import { type SafeOrganizationMembership, stampOrganizationInvitation } from '@s
 
 type StampDb = Parameters<typeof stampOrganizationInvitation>[0];
 
-type StampOutcome =
-	| { readonly ok: true; readonly membership: SafeOrganizationMembership }
-	| { readonly ok: false };
-
 const STAMP_ATTEMPTS = 2;
 
 /**
@@ -18,27 +14,31 @@ const STAMP_ATTEMPTS = 2;
  * `executeTakeFirstOrThrow` finding no row is a bug, and a retry reproduces it
  * exactly, so the log line is what makes the id recoverable by hand.
  *
+ * It hands back the Membership as staged rather than throwing. The mail is out
+ * and the row exists, so the invitation did happen, and a 500 would tell the
+ * caller it did not. The obvious next move after that 500 is to invite again,
+ * which collides with the row already there. The only thing lost is the id, and
+ * the log line carries it.
+ *
  * Both invite routes call this, and neither should grow its own copy.
  */
 export async function stampInvitation(
 	db: StampDb,
 	input: {
-		readonly membershipId: string;
+		readonly staged: SafeOrganizationMembership;
 		readonly organizationId: string;
 		readonly workosInvitationId: string;
 	},
-): Promise<StampOutcome> {
+): Promise<SafeOrganizationMembership> {
 	let lastError: unknown;
 
 	for (let attempt = 1; attempt <= STAMP_ATTEMPTS; attempt += 1) {
 		try {
-			const membership = await stampOrganizationInvitation(db, {
-				id: input.membershipId,
+			return await stampOrganizationInvitation(db, {
+				id: input.staged.id,
 				organizationId: input.organizationId,
 				workosInvitationId: input.workosInvitationId,
 			});
-
-			return { ok: true, membership };
 		} catch (error) {
 			lastError = error;
 		}
@@ -47,9 +47,9 @@ export async function stampInvitation(
 	// The one place the id still exists. An operator reads this to stamp the row
 	// by hand or to revoke the invitation in WorkOS.
 	console.error(
-		`[invitations] Stamp failed ${STAMP_ATTEMPTS} times. WorkOS invitation ${input.workosInvitationId} is live and recorded nowhere. Membership ${input.membershipId}, organization ${input.organizationId}.`,
+		`[invitations] Stamp failed ${STAMP_ATTEMPTS} times. WorkOS invitation ${input.workosInvitationId} is live and recorded nowhere. Membership ${input.staged.id}, organization ${input.organizationId}.`,
 		lastError,
 	);
 
-	return { ok: false };
+	return input.staged;
 }

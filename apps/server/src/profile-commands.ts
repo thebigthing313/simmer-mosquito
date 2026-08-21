@@ -201,18 +201,16 @@ export function registerProfileCommandRoutes(
 			return context.json({ error: 'invitation_send_failed', reason: sent.reason }, 502);
 		}
 
-		const stamped = await stampInvitation(options.db, {
-			membershipId: staged.membership.id,
+		// Stamped, or as staged when the stamp could not be written. Either is a
+		// Membership at `invited` with the mail already sent, which is what the 201
+		// says.
+		const membership = await stampInvitation(options.db, {
+			staged: staged.membership,
 			organizationId: authContext.organization.id,
 			workosInvitationId: sent.invitationId,
 		});
-		if (!stamped.ok) {
-			// The mail is out and its id is now only in the server log. The 500 is
-			// what stops that going unnoticed.
-			return context.json({ error: 'invitation_stamp_failed' }, 500);
-		}
 
-		return context.json({ membership: stamped.membership, txid: null }, 201);
+		return context.json({ membership, txid: null }, 201);
 	});
 }
 
