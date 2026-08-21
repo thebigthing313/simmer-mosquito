@@ -1,4 +1,4 @@
-import type { SafeOrgLookup, SafeTag, SimmerRole } from '@simmer-mosquito/db';
+import type { CollectionMethodRow, SimmerRole, TagRow } from '@simmer-mosquito/db';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { describe, expect, it } from 'vitest';
@@ -31,7 +31,11 @@ describe('registerFoundationCommandRoutes', () => {
 			}),
 		});
 
-		await expect(response.json()).resolves.toMatchObject({ txid: transactionId });
+		// The row comes back under its own column names, the ones sync streams.
+		await expect(response.json()).resolves.toMatchObject({
+			collectionMethod: { action_threshold: 12, is_active: true },
+			txid: transactionId,
+		});
 		expect(response.status).toBe(201);
 		expect(calls).toMatchObject([
 			{
@@ -76,7 +80,7 @@ describe('registerFoundationCommandRoutes', () => {
 			{
 				writeLookupCommand: async (_trx, command) => {
 					calls.push(command);
-					return { ...collectionMethodRow, isActive: false };
+					return { ...collectionMethodRow, is_active: false };
 				},
 			},
 			'admin',
@@ -144,7 +148,7 @@ describe('registerFoundationCommandRoutes', () => {
 			{
 				writeLookupCommand: async (_trx, command) => {
 					calls.push(command);
-					return { ...collectionMethodRow, name: 'Catch basin', isActive: false };
+					return { ...collectionMethodRow, name: 'Catch basin', is_active: false };
 				},
 			},
 			'admin',
@@ -190,7 +194,10 @@ describe('registerFoundationCommandRoutes', () => {
 			}),
 		});
 
-		await expect(response.json()).resolves.toMatchObject({ txid: transactionId });
+		await expect(response.json()).resolves.toMatchObject({
+			tag: { tag_name: 'High priority', is_active: true },
+			txid: transactionId,
+		});
 		expect(response.status).toBe(201);
 		expect(calls).toMatchObject([
 			{
@@ -212,7 +219,7 @@ describe('registerFoundationCommandRoutes', () => {
 		const app = createApp({
 			writeTagCommand: async (_trx, command) => {
 				calls.push(command);
-				return { ...tagRow, isActive: false };
+				return { ...tagRow, is_active: false };
 			},
 		});
 
@@ -374,29 +381,29 @@ const authContext = {
 	role: 'manager',
 } as AuthContext;
 
-const collectionMethodRow: SafeOrgLookup = {
+const collectionMethodRow: CollectionMethodRow = {
 	id: '4fe25a2d-925c-4d37-9d4e-07185ad19858',
-	organizationId,
+	organization_id: organizationId,
 	name: 'CDC light trap',
 	description: 'Overnight trap',
-	customSchema: null,
-	actionThreshold: 12,
-	isActive: true,
-	createdByProfileId: profileId,
-	updatedByProfileId: profileId,
-	createdAt: new Date('2026-05-18T00:00:00.000Z'),
-	updatedAt: new Date('2026-05-18T00:00:00.000Z'),
+	custom_schema: null,
+	action_threshold: 12,
+	is_active: true,
+	created_by_profile_id: profileId,
+	updated_by_profile_id: profileId,
+	created_at: new Date('2026-05-18T00:00:00.000Z'),
+	updated_at: new Date('2026-05-18T00:00:00.000Z'),
 };
 
-const tagRow: SafeTag = {
+const tagRow: TagRow = {
 	id: 'c15223fd-f242-4e6f-8c0e-0229ecdd95c3',
-	organizationId,
-	tagName: 'High priority',
+	organization_id: organizationId,
+	tag_name: 'High priority',
 	description: 'Needs attention',
 	color: '#dc2626',
-	isActive: true,
-	createdByProfileId: profileId,
-	updatedByProfileId: profileId,
-	createdAt: new Date('2026-05-18T00:00:00.000Z'),
-	updatedAt: new Date('2026-05-18T00:00:00.000Z'),
+	is_active: true,
+	created_by_profile_id: profileId,
+	updated_by_profile_id: profileId,
+	created_at: new Date('2026-05-18T00:00:00.000Z'),
+	updated_at: new Date('2026-05-18T00:00:00.000Z'),
 };

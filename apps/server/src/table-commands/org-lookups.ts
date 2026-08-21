@@ -41,6 +41,7 @@
  * exception here.
  */
 
+import type { OrgLookupRow } from '@simmer-mosquito/db';
 import {
 	createCollectionLureCommand,
 	createCollectionMethodCommand,
@@ -61,7 +62,7 @@ import {
 import { readNullableText, readText } from '../command-payload.js';
 import type { AgencyCommandType } from '../command-permissions.js';
 import { type CommandDb, readNumberOrNull } from '../command-write.js';
-import { type LookupCommand, toCollectionMethodResponse } from '../foundation-commands/shared.js';
+import type { LookupCommand } from '../foundation-commands/shared.js';
 import { writeFoundationLookupCommand } from '../foundation-commands/tags.js';
 import type { IntentBuilder, IntentMap, TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
@@ -125,12 +126,10 @@ interface OrgLookupCatalog {
 	readonly build: LookupBuilders;
 }
 
-type LookupResponse = ReturnType<typeof toCollectionMethodResponse>;
-
 function orgLookupTableCommands(
 	db: CommandDb,
 	catalog: OrgLookupCatalog,
-): TableCommands<LookupCommand, NonNullable<LookupResponse>> {
+): TableCommands<LookupCommand, OrgLookupRow> {
 	const target = ({ payload: _payload, agency, id }: Parameters<IntentBuilder<never>>[0]) => ({
 		...agency,
 		id,
@@ -180,10 +179,7 @@ function orgLookupTableCommands(
 		table: catalog.table,
 		run: {
 			db,
-			// The response shape is chosen here rather than in the writer so the 404
-			// still keys off a null row: `toCollectionMethodResponse` maps null to null.
-			write: async (trx, command) =>
-				toCollectionMethodResponse(await writeFoundationLookupCommand(trx, command)),
+			write: writeFoundationLookupCommand,
 			notFound: catalog.notFound,
 			key: catalog.key,
 		},

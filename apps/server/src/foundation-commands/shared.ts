@@ -1,13 +1,13 @@
 import {
+	type AddressRow,
 	applyRecordDeletion,
 	createAddress,
 	deleteAddress,
 	type GeoJsonGeometry,
 	type MutationWriteResult,
+	type OrgLookupRow,
 	readCurrentTransactionId,
-	type SafeAddress,
-	type SafeOrgLookup,
-	type SafeTag,
+	type TagRow,
 	updateAddressDetails,
 	updateAddressLocation,
 } from '@simmer-mosquito/db';
@@ -93,16 +93,16 @@ export type LookupCommand = CollectionMethodCommand | CollectionLureCommand | Ha
 export type LookupCommandWriter = (
 	trx: CommandTransaction,
 	command: LookupCommand,
-) => Promise<SafeOrgLookup | null>;
+) => Promise<OrgLookupRow | null>;
 export type TagCommandWriter = (
 	trx: CommandTransaction,
 	command: TagCommand,
-) => Promise<SafeTag | null>;
+) => Promise<TagRow | null>;
 
 export async function writeAddressWithTxid(
 	db: FoundationCommandDb,
 	input: AddressWriteInput,
-): Promise<MutationWriteResult<SafeAddress>> {
+): Promise<MutationWriteResult<AddressRow>> {
 	return db.transaction().execute(async (trx) => {
 		const row = await createAddress(trx, input);
 		return { row, txid: await readCurrentTransactionId(trx) };
@@ -113,10 +113,10 @@ export async function writeAddressUpdateWithTxid(
 	db: FoundationCommandDb,
 	addressId: string,
 	input: AddressUpdateWriteInput,
-): Promise<MutationWriteResult<SafeAddress | null>> {
+): Promise<MutationWriteResult<AddressRow | null>> {
 	const { organizationId, updatedByProfileId, geojson, ...details } = input;
 	return db.transaction().execute(async (trx) => {
-		let row: SafeAddress | null = null;
+		let row: AddressRow | null = null;
 		if (Object.keys(details).length > 0) {
 			row = await updateAddressDetails(trx, addressId, {
 				organizationId,
@@ -139,7 +139,7 @@ export async function writeAddressDeleteWithTxid(
 	db: FoundationCommandDb,
 	addressId: string,
 	input: { readonly organizationId: string; readonly actorProfileId: string },
-): Promise<MutationWriteResult<SafeAddress | null>> {
+): Promise<MutationWriteResult<AddressRow | null>> {
 	return db.transaction().execute(async (trx) => {
 		await applyRecordDeletion(trx, {
 			recordType: 'address',
@@ -553,41 +553,4 @@ function readGeoJson(value: unknown): GeoJsonGeometry | null {
 	}
 
 	return value;
-}
-
-export function toAddressResponse(row: SafeAddress) {
-	return {
-		id: row.id,
-		organizationId: row.organizationId,
-		geometry: row.geometry,
-		displayName: row.displayName,
-		country: row.country,
-		addressLine1: row.addressLine1,
-		addressLine2: row.addressLine2,
-		locality: row.locality,
-		region: row.region,
-		postalCode: row.postalCode,
-		createdByProfileId: row.createdByProfileId,
-		updatedByProfileId: row.updatedByProfileId,
-		createdAt: row.createdAt,
-		updatedAt: row.updatedAt,
-	};
-}
-
-export function toCollectionMethodResponse(row: SafeOrgLookup | null) {
-	if (row === null) {
-		return null;
-	}
-
-	return {
-		id: row.id,
-		organizationId: row.organizationId,
-		name: row.name,
-		description: row.description,
-		customSchema: row.customSchema,
-		actionThreshold: row.actionThreshold,
-		isActive: row.isActive,
-		createdAt: row.createdAt,
-		updatedAt: row.updatedAt,
-	};
 }

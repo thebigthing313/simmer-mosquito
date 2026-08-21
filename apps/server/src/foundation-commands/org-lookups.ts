@@ -7,8 +7,8 @@
  * role check, the write, the 404 named after the entity — was identical, and
  * was written out nine times.
  *
- * They all write the same table shape (`SafeOrgLookup`) through the same
- * per-command writer, so what is left once that is factored out is a table.
+ * They all write through the same per-command writer, so what is left once that
+ * is factored out is a table.
  */
 
 import {
@@ -40,7 +40,6 @@ import {
 	type LookupCommandWriter,
 	readCollectionMethodCreatePayload,
 	readCollectionMethodUpdatePayload,
-	toCollectionMethodResponse,
 } from './shared.js';
 
 /** What one catalog differs by. */
@@ -133,11 +132,7 @@ export function registerOrgLookupRoutes(
 				context,
 				{
 					db: options.db,
-					// The response shape is chosen here rather than in the writer so the
-					// 404 still keys off a null row: `toCollectionMethodResponse` maps
-					// null to null.
-					write: async (trx, command) =>
-						toCollectionMethodResponse(await writeLookupCommand(trx, command)),
+					write: writeLookupCommand,
 					notFound: catalog.notFound,
 					key: catalog.key,
 				},

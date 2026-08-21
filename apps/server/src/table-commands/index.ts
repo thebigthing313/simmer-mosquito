@@ -96,7 +96,7 @@ import { weatherStationTableCommands, weatherSummaryTableCommands } from './weat
 export function tableCommandSpecs(
 	db: CommandDb,
 	// biome-ignore lint/suspicious/noExplicitAny: each table names its own command
-	// union and its own safe row; the list is heterogeneous by construction and
+	// union and its own row type; the list is heterogeneous by construction and
 	// only the shared `table`/`run`/`intents` shape is ever read off it.
 ): readonly AnyTableCommands<any, any>[] {
 	return [
