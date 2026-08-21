@@ -1,5 +1,6 @@
 import {
-	assertCatalogReferences,
+	assertWriteReferences,
+	checkedValues,
 	type geojsonToGeom,
 	localDateColumn,
 	type SelectedRow,
@@ -63,7 +64,7 @@ export async function insertApplicationBatch(
 		readonly actorProfileId: string;
 	},
 ): Promise<ApplicationBatchRow> {
-	await assertCatalogReferences(trx, {
+	await assertWriteReferences(trx, {
 		organizationId: input.organizationId,
 		write: { kind: 'create' },
 		references: [
@@ -78,14 +79,16 @@ export async function insertApplicationBatch(
 
 	const row = await trx
 		.insertInto('application_batches')
-		.values({
-			id: input.id,
-			organization_id: input.organizationId,
-			application_id: input.applicationId,
-			insecticide_batch_id: input.insecticideBatchId,
-			created_by_profile_id: input.actorProfileId,
-			updated_by_profile_id: input.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, input.organizationId, {
+				id: input.id,
+				organization_id: input.organizationId,
+				application_id: input.applicationId,
+				insecticide_batch_id: input.insecticideBatchId,
+				created_by_profile_id: input.actorProfileId,
+				updated_by_profile_id: input.actorProfileId,
+			}),
+		)
 		.returning(applicationBatchReturnColumns)
 		.executeTakeFirstOrThrow();
 	return row;

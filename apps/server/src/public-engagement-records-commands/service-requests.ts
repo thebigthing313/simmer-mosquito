@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, checkedValues, sql } from '@simmer-mosquito/db';
 import {
 	type ContactReferenceInput,
 	closeServiceRequestCommand,
@@ -259,19 +259,21 @@ async function insertServiceRequest(
 	);
 	const row = await trx
 		.insertInto('service_requests')
-		.values({
-			id: payload.serviceRequestId,
-			organization_id: payload.organizationId,
-			intake_type: payload.intakeType,
-			request_date: localDateColumn(payload.requestDate),
-			geom: geojsonToGeom(payload.location.geometry),
-			address_id: addressId,
-			contact_id: contactId,
-			received_by_profile_id: payload.receivedByProfileId,
-			details: payload.details,
-			created_by_profile_id: payload.actorProfileId,
-			updated_by_profile_id: payload.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.serviceRequestId,
+				organization_id: payload.organizationId,
+				intake_type: payload.intakeType,
+				request_date: localDateColumn(payload.requestDate),
+				geom: geojsonToGeom(payload.location.geometry),
+				address_id: addressId,
+				contact_id: contactId,
+				received_by_profile_id: payload.receivedByProfileId,
+				details: payload.details,
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
 		.returning(serviceRequestReturnColumns)
 		.executeTakeFirstOrThrow();
 	return row;

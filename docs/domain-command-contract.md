@@ -236,15 +236,15 @@ string in a JSON document and a rule that counts rows cannot see it.
 ### The same question, forwards
 
 A delete asks whether anything refers to a row. A write asks whether it may
-refer to one. `packages/db/src/domains/catalog-references.ts` answers the second
+refer to one. `packages/db/src/domains/write-references.ts` answers the second
 and shares the first's registry, so a catalog gets both directions or neither.
 
-`assertCatalogReferences` refuses a write naming a catalog row that is another
-agency's, soft-deleted, or inactive. The body is
-`{ error: 'catalog_reference_refused', reason, catalog, message }`, where
-`reason` is `missing` or `inactive`. Missing answers 404 and inactive 409;
-missing does not distinguish "another agency's" from "no such row", because
-telling them apart would make the refusal a way to probe for ids.
+`assertWriteReferences` refuses a write naming a row it may not use. The body is
+`{ error: 'reference_refused', reason, reference, message }`, where `reason` is
+`missing` or `inactive` and `reference` names the catalog record type or the
+table. Missing answers 404 and inactive 409; missing does not distinguish
+"another agency's" from "no such row", because telling them apart would make the
+refusal a way to probe for ids.
 
 Pass `write: { kind: 'update', table, recordId }` on an update and
 `{ kind: 'create' }` on a create. The stored row is read once and any reference
@@ -255,14 +255,48 @@ values, and nothing shows it until something is deactivated in production. The
 two shapes are a union rather than optional fields for that reason.
 
 Every foreign key pointing at a catalog needs a rule, and
-`catalog-coverage.integration.test.ts` asks the live schema whether one exists.
-The registry is a hand-written list and cannot notice what it omits; a column
-added by a later `alter table` is invisible to anything reading the migration
-text, which is how `missions.notification_type_id` first got missed.
+`write-reference-coverage.integration.test.ts` asks the live schema whether one
+exists. The registry is a hand-written list and cannot notice what it omits; a
+column added by a later `alter table` is invisible to anything reading the
+migration text, which is how `missions.notification_type_id` first got missed.
 
-Two references are deliberately not gated, both marked at the site: a habitat
-type copied from the Habitat being inspected, and a method the mission plan
-supplied. Neither is a new choice.
+Two catalog references are deliberately not gated, both marked at the site: a
+habitat type copied from the Habitat being inspected, and a method the mission
+plan supplied. Neither is a new choice.
+
+### A record reference is the same rule, minus `is_active`
+
+A catalog is not the only thing a body names an id in. An Address, a Habitat, an
+Inspection, a Profile arrive the same way, and until #200 nothing checked whose
+they were: a foreign key is satisfied by the row existing anywhere, so org A
+could file a Chemical Application against org B's Equipment and get a 201.
+
+A **record** reference qualifies when the row belongs to the writing agency and
+is not soft-deleted. There is no third condition, because there is no
+`is_active` on an operational record and no meaning for one.
+
+Writers do not list these. They come off the row being written:
+
+- `checkedValues` wraps an insert's own object,
+  `.values(await checkedValues(trx, organizationId, { … }))`, and gates every
+  column in it that `RECORD_REFERENCE_COLUMNS` knows.
+- `updateRow` runs the same check on the patch, so an update through it is
+  covered without a line of its own.
+
+Taking the references from the values rather than from a per-writer list buys
+two properties a list cannot have: a reference cannot be forgotten once the
+column is being written, and it cannot name a column the table does not have,
+which matters because the update path reads the stored value back.
+
+`pnpm check:write-references` asserts every write that names one of those columns
+goes through one of the two seams. Its allowlist is for a column set from
+`AuthContext` rather than a payload, such as the actor who completed a stop.
+
+The two weather tables are outside all of this. Their `organization_id` is
+nullable, kept that way for a provider-owned station, and `organization_id = $1`
+compares unequal to null — this gate would read a global station as belonging to
+nobody and refuse it. `weather-commands/shared.ts` writes that predicate out
+itself.
 
 ## Offline and sync
 

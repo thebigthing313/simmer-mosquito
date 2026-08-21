@@ -1,3 +1,4 @@
+import { checkedValues } from '@simmer-mosquito/db';
 import {
 	addRouteItemCommand,
 	type FieldWorkCommand,
@@ -115,17 +116,19 @@ export async function writeRouteItemCommand(
 			);
 			await trx
 				.insertInto('route_items')
-				.values({
-					id: command.payload.routeItemId,
-					organization_id: command.payload.organizationId,
-					route_id: command.payload.routeId,
-					entity_type: toDbEntityType(command.payload.target.type),
-					entity_id: command.payload.target.id,
-					position,
-					directions_to_next_item: command.payload.directionsToNextItem,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.routeItemId,
+						organization_id: command.payload.organizationId,
+						route_id: command.payload.routeId,
+						entity_type: toDbEntityType(command.payload.target.type),
+						entity_id: command.payload.target.id,
+						position,
+						directions_to_next_item: command.payload.directionsToNextItem,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.execute();
 			return loadRouteItem(trx, command.payload.routeItemId, command.payload.organizationId);
 		}

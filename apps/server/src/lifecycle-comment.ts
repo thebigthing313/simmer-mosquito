@@ -29,6 +29,7 @@
  *   the browser-clock `closed_at` that made #125 unanswerable.
  */
 
+import { checkedValues } from '@simmer-mosquito/db';
 import { toDbEntityType } from '@simmer-mosquito/domain';
 import type { CommandTransaction } from './command-write.js';
 
@@ -65,19 +66,21 @@ export async function insertLifecycleComment(
 ): Promise<void> {
 	await trx
 		.insertInto('comments')
-		.values({
-			id: comment.commentId,
-			organization_id: comment.organizationId,
-			entity_type: toDbEntityType(comment.entityType),
-			entity_id: comment.entityId,
-			comment_text: comment.commentText,
-			commented_by_profile_id: comment.actorProfileId,
-			// Omitted rather than passed as null: the column is `not null default
-			// now()`, so leaving it out is what takes the transaction clock.
-			...(comment.commentedAt === null ? {} : { commented_at: comment.commentedAt }),
-			is_pinned: false,
-			created_by_profile_id: comment.actorProfileId,
-			updated_by_profile_id: comment.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, comment.organizationId, {
+				id: comment.commentId,
+				organization_id: comment.organizationId,
+				entity_type: toDbEntityType(comment.entityType),
+				entity_id: comment.entityId,
+				comment_text: comment.commentText,
+				commented_by_profile_id: comment.actorProfileId,
+				// Omitted rather than passed as null: the column is `not null default
+				// now()`, so leaving it out is what takes the transaction clock.
+				...(comment.commentedAt === null ? {} : { commented_at: comment.commentedAt }),
+				is_pinned: false,
+				created_by_profile_id: comment.actorProfileId,
+				updated_by_profile_id: comment.actorProfileId,
+			}),
+		)
 		.execute();
 }

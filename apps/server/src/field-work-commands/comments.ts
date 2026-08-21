@@ -1,3 +1,4 @@
+import { checkedValues } from '@simmer-mosquito/db';
 import {
 	addCommentCommand,
 	deleteCommentCommand,
@@ -113,20 +114,22 @@ export async function writeCommentCommand(
 		case 'fieldWork.addComment': {
 			const row = await trx
 				.insertInto('comments')
-				.values({
-					id: command.payload.commentId,
-					organization_id: command.payload.organizationId,
-					entity_type: toDbEntityType(command.payload.target.type),
-					entity_id: command.payload.target.id,
-					comment_text: command.payload.commentText,
-					commented_by_profile_id: command.payload.actorProfileId,
-					...(command.payload.commentedAt === null
-						? {}
-						: { commented_at: command.payload.commentedAt }),
-					is_pinned: false,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.commentId,
+						organization_id: command.payload.organizationId,
+						entity_type: toDbEntityType(command.payload.target.type),
+						entity_id: command.payload.target.id,
+						comment_text: command.payload.commentText,
+						commented_by_profile_id: command.payload.actorProfileId,
+						...(command.payload.commentedAt === null
+							? {}
+							: { commented_at: command.payload.commentedAt }),
+						is_pinned: false,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(commentReturnColumns)
 				.executeTakeFirstOrThrow();
 			return row;

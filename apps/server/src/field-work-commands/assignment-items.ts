@@ -1,4 +1,4 @@
-import { sql } from '@simmer-mosquito/db';
+import { checkedValues, sql } from '@simmer-mosquito/db';
 import {
 	type AssignmentItemPlacement,
 	type AssignmentItemTarget,
@@ -190,17 +190,19 @@ export async function writeAssignmentItemCommand(
 			);
 			await trx
 				.insertInto('assignment_items')
-				.values({
-					id: command.payload.assignmentItemId,
-					organization_id: command.payload.organizationId,
-					assignment_id: command.payload.assignmentId,
-					entity_type: toDbEntityType(command.payload.target.type),
-					entity_id: command.payload.target.id,
-					position,
-					directions_to_next_item: command.payload.directionsToNextItem,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.assignmentItemId,
+						organization_id: command.payload.organizationId,
+						assignment_id: command.payload.assignmentId,
+						entity_type: toDbEntityType(command.payload.target.type),
+						entity_id: command.payload.target.id,
+						position,
+						directions_to_next_item: command.payload.directionsToNextItem,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.execute();
 			return loadAssignmentItem(
 				trx,

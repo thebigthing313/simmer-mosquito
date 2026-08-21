@@ -1,6 +1,6 @@
 import {
-	assertCatalogReferences,
 	assertRecordDeletable,
+	assertWriteReferences,
 	type Kysely,
 	type MutationWriteResult,
 	type SelectedRow,
@@ -545,7 +545,7 @@ async function createInsecticideBatch(
 	db: ControlProductTransaction,
 	input: InsecticideBatchWriteInput,
 ): Promise<InsecticideBatchRow> {
-	await assertCatalogReferences(db, {
+	await assertWriteReferences(db, {
 		organizationId: input.organizationId,
 		write: { kind: 'create' },
 		references: [

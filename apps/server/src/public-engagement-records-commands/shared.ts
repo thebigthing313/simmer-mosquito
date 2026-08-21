@@ -1,5 +1,6 @@
 import {
-	assertCatalogReferences,
+	assertWriteReferences,
+	checkedValues,
 	geojsonToGeom,
 	localDateColumn,
 	type SelectedRow,
@@ -88,22 +89,24 @@ export async function insertContact(
 ): Promise<ContactRow> {
 	const row = await trx
 		.insertInto('contacts')
-		.values({
-			id: contactId,
-			organization_id: organizationId,
-			contact_name: details.contactName,
-			preferred_phone: details.preferredPhone,
-			alternate_phone: details.alternatePhone,
-			email: details.email,
-			company: details.company,
-			department: details.department,
-			title: details.title,
-			wants_email: details.wantsEmail,
-			wants_sms: details.wantsSms,
-			wants_phone: details.wantsPhone,
-			created_by_profile_id: actorProfileId,
-			updated_by_profile_id: actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, organizationId, {
+				id: contactId,
+				organization_id: organizationId,
+				contact_name: details.contactName,
+				preferred_phone: details.preferredPhone,
+				alternate_phone: details.alternatePhone,
+				email: details.email,
+				company: details.company,
+				department: details.department,
+				title: details.title,
+				wants_email: details.wantsEmail,
+				wants_sms: details.wantsSms,
+				wants_phone: details.wantsPhone,
+				created_by_profile_id: actorProfileId,
+				updated_by_profile_id: actorProfileId,
+			}),
+		)
 		.returning(contactReturnColumns)
 		.executeTakeFirstOrThrow();
 	return row;
@@ -117,7 +120,7 @@ export async function insertRegistrationType(
 	notificationTypeId: string,
 	actorProfileId: string,
 ): Promise<RegistrationTypeRow> {
-	await assertCatalogReferences(trx, {
+	await assertWriteReferences(trx, {
 		organizationId,
 		write: { kind: 'create' },
 		references: [
@@ -132,14 +135,16 @@ export async function insertRegistrationType(
 
 	const row = await trx
 		.insertInto('notification_registration_types')
-		.values({
-			id: notificationRegistrationTypeId,
-			organization_id: organizationId,
-			notification_registration_id: notificationRegistrationId,
-			notification_type_id: notificationTypeId,
-			created_by_profile_id: actorProfileId,
-			updated_by_profile_id: actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, organizationId, {
+				id: notificationRegistrationTypeId,
+				organization_id: organizationId,
+				notification_registration_id: notificationRegistrationId,
+				notification_type_id: notificationTypeId,
+				created_by_profile_id: actorProfileId,
+				updated_by_profile_id: actorProfileId,
+			}),
+		)
 		.returning(registrationTypeReturnColumns)
 		.executeTakeFirstOrThrow();
 	return row;

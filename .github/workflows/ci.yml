@@ -50,6 +50,12 @@ jobs:
       - name: Command columns
         run: pnpm check:command-columns
 
+      # A write's own agency comes from the session; the ids it references come
+      # from the payload, and a foreign key cannot see whose they are. This
+      # asserts every write that names one goes through the reference gate.
+      - name: Write references
+        run: pnpm check:write-references
+
       - name: Typecheck
         run: pnpm typecheck
 

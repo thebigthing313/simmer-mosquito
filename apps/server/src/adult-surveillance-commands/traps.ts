@@ -1,4 +1,9 @@
-import { applyRecordDeletion, assertCatalogReferences, sql } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	assertWriteReferences,
+	checkedValues,
+	sql,
+} from '@simmer-mosquito/db';
 import {
 	type AdultSurveillanceCommand,
 	createTrapCommand,
@@ -184,31 +189,33 @@ export async function writeTrapCommand(
 ): Promise<TrapRow | null> {
 	switch (command.type) {
 		case 'adultSurveillance.createTrap': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
 				references: surveillanceCatalogReferences(command.payload),
 			});
 			const row = await trx
 				.insertInto('traps')
-				.values({
-					id: command.payload.trapId,
-					organization_id: command.payload.organizationId,
-					geom: await resolveLocationGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					collection_method_id: command.payload.collectionMethodId,
-					address_id: command.payload.addressId,
-					collection_lure_id: command.payload.collectionLureId,
-					trap_name: command.payload.trapName,
-					trap_code: command.payload.trapCode,
-					description: command.payload.description,
-					is_active: true,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.trapId,
+						organization_id: command.payload.organizationId,
+						geom: await resolveLocationGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						collection_method_id: command.payload.collectionMethodId,
+						address_id: command.payload.addressId,
+						collection_lure_id: command.payload.collectionLureId,
+						trap_name: command.payload.trapName,
+						trap_code: command.payload.trapCode,
+						description: command.payload.description,
+						is_active: true,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(trapReturnColumns)
 				.executeTakeFirstOrThrow();
 			return row;
@@ -227,7 +234,7 @@ export async function writeTrapCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'adultSurveillance.updateTrapConfiguration':
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'update', table: 'traps', recordId: command.payload.trapId },
 				references: surveillanceCatalogReferences(command.payload.changes),

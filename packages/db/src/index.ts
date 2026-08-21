@@ -8,7 +8,6 @@ const { Pool } = pg;
 export type { Kysely, RawBuilder, Transaction } from 'kysely';
 export { sql } from 'kysely';
 export * from './domains/adult-surveillance.js';
-export * from './domains/catalog-references.js';
 export * from './domains/control-operations-map.js';
 export * from './domains/foundation.js';
 export * from './domains/habitats.js';
@@ -24,6 +23,7 @@ export * from './domains/profile-activity.js';
 export * from './domains/record-deletion.js';
 export * from './domains/record-merge.js';
 export * from './domains/service-request-nearby.js';
+export * from './domains/write-references.js';
 export * from './tables.js';
 
 export interface CreateDbOptions {

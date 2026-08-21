@@ -1,4 +1,4 @@
-import { assertCatalogReferences } from '@simmer-mosquito/db';
+import { assertWriteReferences } from '@simmer-mosquito/db';
 import {
 	assignTagCommand,
 	type FieldWorkCommand,
@@ -77,7 +77,7 @@ export async function writeTagItemCommand(
 ): Promise<TagItemRow | null> {
 	switch (command.type) {
 		case 'fieldWork.assignTag': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
 				references: [{ column: 'tag_id', catalog: 'tag', id: command.payload.tagId, label: 'tag' }],

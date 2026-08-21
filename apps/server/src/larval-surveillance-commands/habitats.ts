@@ -1,7 +1,8 @@
 import {
 	applyRecordDeletion,
 	applyRecordMerge,
-	assertCatalogReferences,
+	assertWriteReferences,
+	checkedValues,
 	softDelete,
 	sql,
 } from '@simmer-mosquito/db';
@@ -229,31 +230,33 @@ export async function writeHabitatCommand(
 ): Promise<HabitatRow | null> {
 	switch (command.type) {
 		case 'larvalSurveillance.createHabitat': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
 				references: habitatTypeReferences(command.payload),
 			});
 			const row = await trx
 				.insertInto('habitats')
-				.values({
-					id: command.payload.habitatId,
-					organization_id: command.payload.organizationId,
-					geom: await resolveLocationGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					address_id: command.payload.addressId,
-					habitat_type_id: command.payload.habitatTypeId,
-					habitat_name: command.payload.habitatName,
-					description: command.payload.description,
-					is_active: true,
-					is_inaccessible: false,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.habitatId,
+						organization_id: command.payload.organizationId,
+						geom: await resolveLocationGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						address_id: command.payload.addressId,
+						habitat_type_id: command.payload.habitatTypeId,
+						habitat_name: command.payload.habitatName,
+						description: command.payload.description,
+						is_active: true,
+						is_inaccessible: false,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(habitatReturnColumns)
 				.executeTakeFirstOrThrow();
 			return row;
@@ -270,29 +273,32 @@ export async function writeHabitatCommand(
 			);
 			const habitat = await trx
 				.insertInto('habitats')
-				.values({
-					id: command.payload.habitatId,
-					organization_id: command.payload.organizationId,
-					geom: geojsonToGeom(snapshot.geojson),
-					address_id: snapshot.addressId,
-					habitat_type_id: snapshot.habitatTypeId,
-					habitat_name: command.payload.habitatName,
-					description: command.payload.description,
-					is_active: true,
-					is_inaccessible: false,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.habitatId,
+						organization_id: command.payload.organizationId,
+						geom: geojsonToGeom(snapshot.geojson),
+						address_id: snapshot.addressId,
+						habitat_type_id: snapshot.habitatTypeId,
+						habitat_name: command.payload.habitatName,
+						description: command.payload.description,
+						is_active: true,
+						is_inaccessible: false,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(habitatReturnColumns)
 				.executeTakeFirstOrThrow();
-			await trx
-				.updateTable('inspections')
-				.set({ habitat_id: command.payload.habitatId, updated_at: sql`now()` })
-				.where('id', '=', command.payload.inspectionId)
-				.where('organization_id', '=', command.payload.organizationId)
-				.where('deleted_at', 'is', null)
-				.execute();
+			await updateRow(
+				trx,
+				'inspections',
+				command.payload.inspectionId,
+				command.payload.organizationId,
+				{ habitat_id: command.payload.habitatId },
+				['id'],
+			);
 			return habitat;
 		}
 		case 'larvalSurveillance.updateHabitatDetails':
@@ -318,7 +324,7 @@ export async function writeHabitatCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'larvalSurveillance.updateHabitatConfiguration':
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'update', table: 'habitats', recordId: command.payload.habitatId },
 				references: habitatTypeReferences(command.payload.changes),
