@@ -13,7 +13,7 @@ import type { CommandTransaction } from './command-write.js';
  * domain docs say they should write only the moved rows
  * (`docs/field-work-support-domain.md`, "Route item `position` is `double
  * precision` specifically to support minimal writes"), and issue #162 put them
- * out of scope, so that gap is open rather than settled.
+ * out of scope. That gap is issue #196.
  */
 
 export type OrderedItemTable = 'route_items' | 'assignment_items' | 'mission_items';

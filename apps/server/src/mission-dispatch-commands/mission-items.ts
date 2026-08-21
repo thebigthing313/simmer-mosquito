@@ -481,7 +481,7 @@ async function loadMissionItem(
  * Only `missionDispatch.moveMissionItems` calls this, and it is a command on
  * the *mission* (see `table-commands/missions.ts`) while the stop writes are
  * here, so it stays exported. It writes every active stop, not only the moved
- * ones, which is the same gap against the domain doc that `reindexItems` has.
+ * ones, the same gap against the domain doc that `reindexItems` has (#196).
  * Adds compute a single fractional position instead; see `ordered-items.ts`.
  */
 export async function reindexMissionItems(

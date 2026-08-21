@@ -51,8 +51,8 @@ export {
  * Only `moveRouteItems` and `moveAssignmentItems` call this, and it writes
  * every active sibling, not only the moved ones. The domain doc says a move
  * should write only the rows it moved; issue #162 fixed the add path and left
- * this one alone, so the gap is open. Adds compute a single fractional position
- * instead; see `ordered-items.ts`.
+ * this one alone, and the gap is issue #196. Adds compute a single fractional
+ * position instead; see `ordered-items.ts`.
  */
 export async function reindexItems(
 	trx: FieldWorkTransaction,
