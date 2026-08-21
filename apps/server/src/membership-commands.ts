@@ -14,6 +14,12 @@
  * runs *inside* the transaction, because a row that has not committed is a row
  * the second system would be agreeing with prematurely.
  *
+ * `identity.reinvite` is both at once and sits in `after`, because the refusal
+ * that matters is the Postgres one: a Membership that is not holding an
+ * invitation answers 409, and revoking ahead of that would kill a live link for a
+ * command that never happened. Inside `after` it revokes and then sends, which is
+ * the only order WorkOS leaves. See {@link replaceInvitation}.
+ *
  * **A retry must not mail twice.** Every id these commands create is the
  * client's, so a retry that lost its answer finds the row already there. What
  * decides whether WorkOS is called again is the row itself:
@@ -51,7 +57,7 @@ import type { MembershipCommand } from '@simmer-mosquito/domain';
 import type { AuthContext } from './auth-context.js';
 import { CommandError } from './command-endpoint.js';
 import type { CommandDb, CommandTransaction } from './command-write.js';
-import { stampInvitation } from './invitation-stamp.js';
+import { forgetInvitation, stampInvitation } from './invitation-stamp.js';
 import { canGrantRole, forbidden } from './roles.js';
 
 /**
@@ -501,16 +507,27 @@ async function sendAndStamp(
 }
 
 /**
- * Mail the replacement, record it, then kill the link it replaces.
+ * Kill the link it replaces, then mail the replacement.
  *
- * The revoke is last, and skipped when the stamp could not be written. Failing
- * between the two leaves the previous link live, which is the safe direction: an
- * operator who lowered somebody's role and saw an error can re-run it, where the
- * reverse would have already killed the only link the person holds.
+ * The revoke is first because WorkOS will not hold two invitations for one
+ * address and organization at once. It answers `Email already invited to
+ * organization.` to the send, and the re-invite control is only offered on a
+ * Membership that is holding an invitation, so the other order failed on every
+ * call rather than on a rare one (#218).
+ *
+ * That order costs a window: a send that fails after the revoke leaves the person
+ * with no link at all, where before they had a stale one. Nothing narrows it, so
+ * what is here instead is a row that agrees with WorkOS and a log line that names
+ * the three ids needed to put it right.
+ *
+ * All of it stays in `after`, on the far side of the transaction, even though the
+ * revoke is a revoke. The Postgres half is what refuses a Membership that is not
+ * holding an invitation, and revoking ahead of that refusal would kill a live
+ * link for a command that then answers 409.
  *
  * A `workos_invitation_id` of `null` is not an error. It is a Membership whose
  * stamp failed (#207) or one the operator console staged without mailing, and
- * either way there is no link to revoke.
+ * either way there is nothing to revoke and the send proceeds.
  */
 async function replaceInvitation(
 	db: CommandDb,
@@ -523,21 +540,61 @@ async function replaceInvitation(
 		return;
 	}
 
-	const invitationId = await sendInvitation(auth, {
+	const revoked = previous.workosInvitationId;
+	if (revoked !== null) {
+		await auth.revokeInvitation(revoked);
+		await forgetInvitation(db, {
+			membershipId: payload.membershipId,
+			organizationId: payload.organizationId,
+			revokedInvitationId: revoked,
+		});
+	}
+
+	const invitationId = await sendReplacement(auth, {
 		email: previous.invitedEmail,
 		authContext,
+		membershipId: payload.membershipId,
+		organizationId: payload.organizationId,
+		revokedInvitationId: revoked,
 	});
-	const stamped = await stampInvitation(db, {
+
+	await stampInvitation(db, {
 		membershipId: payload.membershipId,
 		organizationId: payload.organizationId,
 		workosInvitationId: invitationId,
 	});
+}
 
-	if (stamped === null || previous.workosInvitationId === null) {
-		return;
+/**
+ * The send, with the window the revoke opened written down when it fails.
+ *
+ * The 502 reaching the operator says the re-invitation did not work. It does not
+ * say that the link they were replacing is now gone too, and no screen shows the
+ * difference, so this line is the only record that somebody is locked out. An
+ * operator repairs it by re-running the re-invitation, which now has nothing to
+ * revoke.
+ */
+async function sendReplacement(
+	auth: MembershipAuth,
+	input: {
+		readonly email: string;
+		readonly authContext: AuthContext;
+		readonly membershipId: string;
+		readonly organizationId: string;
+		readonly revokedInvitationId: string | null;
+	},
+): Promise<string> {
+	try {
+		return await sendInvitation(auth, { email: input.email, authContext: input.authContext });
+	} catch (error) {
+		if (input.revokedInvitationId !== null) {
+			console.error(
+				`[invitations] Re-invitation revoked WorkOS invitation ${input.revokedInvitationId} and the replacement send then failed. Membership ${input.membershipId}, organization ${input.organizationId}, holding no live invitation.`,
+				error,
+			);
+		}
+		throw error;
 	}
-
-	await auth.revokeInvitation(previous.workosInvitationId);
 }
 
 /** The WorkOS send, with a refusal named rather than reaching the console as a 500. */

@@ -23,16 +23,19 @@ import type { MembershipAuth } from '../../../membership-commands.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import { membershipTableCommands } from '../../../table-commands/memberships.js';
 
-const { stampOrganizationInvitation } = vi.hoisted(() => ({
+const { stampOrganizationInvitation, clearOrganizationInvitationStamp } = vi.hoisted(() => ({
 	stampOrganizationInvitation: vi.fn(),
+	clearOrganizationInvitationStamp: vi.fn(),
 }));
 
-// Only the stamp. Everything else this module imports from `packages/db` is a
-// pure function or the reference gate, and replacing those would leave the
-// refusals below asserting a mock rather than a rule.
+// Only the two writes to `workos_invitation_id`. Everything else this module
+// imports from `packages/db` is a pure function or the reference gate, and
+// replacing those would leave the refusals below asserting a mock rather than a
+// rule.
 vi.mock('@simmer-mosquito/db', async (importOriginal) => ({
 	...(await importOriginal<Record<string, unknown>>()),
 	stampOrganizationInvitation,
+	clearOrganizationInvitationStamp,
 }));
 
 const ORG = '33333333-3333-4333-8333-333333333333';
@@ -209,63 +212,84 @@ describe('a re-invitation', () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
 		stampOrganizationInvitation.mockResolvedValue({ id: MEMBERSHIP });
+		clearOrganizationInvitationStamp.mockResolvedValue(undefined);
 	});
 
-	// The revoke is last on purpose. Failing between the two leaves the previous
-	// link live, and an operator who saw an error can re-run it; the reverse would
-	// have already killed the only link the person holds.
-	it('mails the replacement and stamps it before killing the old link', async () => {
+	/** The row this command exists for: invited, holding a live WorkOS link. */
+	function holdingInvitation() {
+		return invitationStateDb({
+			invited_email: 'casey@example.test',
+			workos_invitation_id: 'inv_1',
+		});
+	}
+
+	// #218. WorkOS holds one invitation per address and organization, and the
+	// re-invite control is only offered on a Membership holding one, so a send that
+	// goes first is refused every time rather than occasionally. The fake holds
+	// `inv_1`, which is what makes this fail against the old order.
+	it('revokes the invitation it replaces before mailing the new one', async () => {
 		const calls: string[] = [];
-		const auth = fakeAuth();
-		auth.sendOrganizationInvitation.mockImplementation(async () => {
-			calls.push('send');
-			return { id: 'inv_2' };
-		});
-		auth.revokeInvitation.mockImplementation(async () => {
-			calls.push('revoke');
-			return { status: 'revoked' as const };
-		});
+		const auth = fakeAuth({ pending: 'inv_1', issues: 'inv_2', calls });
 		stampOrganizationInvitation.mockImplementation(async () => {
 			calls.push('stamp');
 			return { id: MEMBERSHIP };
 		});
-		const db = invitationStateDb({
-			invited_email: 'casey@example.test',
-			workos_invitation_id: 'inv_1',
+		clearOrganizationInvitationStamp.mockImplementation(async () => {
+			calls.push('forget');
 		});
 
-		await secondSystem(db, auth).after(
+		await secondSystem(holdingInvitation(), auth).after(
 			build('identity.reinvite', { role: 'manager' }),
 			authContext(),
 		);
 
-		expect(calls).toEqual(['send', 'stamp', 'revoke']);
+		expect(calls).toEqual(['revoke', 'forget', 'send', 'stamp']);
 		expect(auth.revokeInvitation).toHaveBeenCalledWith('inv_1');
+		expect(stampOrganizationInvitation).toHaveBeenCalledWith(expect.anything(), {
+			id: MEMBERSHIP,
+			organizationId: ORG,
+			workosInvitationId: 'inv_2',
+		});
 	});
 
-	// A stamp that could not be written leaves the row still naming the old
-	// invitation. Revoking it then would point the Membership at a dead link with
-	// the live one recorded nowhere.
-	it('leaves the old link alive when the new one could not be recorded', async () => {
-		const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-		stampOrganizationInvitation.mockRejectedValue(new Error('connection terminated'));
-		const auth = fakeAuth();
-		const db = invitationStateDb({
-			invited_email: 'casey@example.test',
-			workos_invitation_id: 'inv_1',
-		});
+	// The row must not go on naming a link WorkOS has already killed. Cleared, it
+	// is #207's shape, which every path reads as nothing to revoke.
+	it('drops the old id as soon as the revoke lands', async () => {
+		const auth = fakeAuth({ pending: 'inv_1', issues: 'inv_2' });
 
-		await secondSystem(db, auth).after(
+		await secondSystem(holdingInvitation(), auth).after(
 			build('identity.reinvite', { role: 'manager' }),
 			authContext(),
 		);
 
-		expect(auth.revokeInvitation).not.toHaveBeenCalled();
+		expect(clearOrganizationInvitationStamp).toHaveBeenCalledWith(expect.anything(), {
+			id: MEMBERSHIP,
+			organizationId: ORG,
+		});
+	});
+
+	// The cost of the order the owner chose. The person is left with no link at
+	// all, no screen shows it, and this line is the only record of who.
+	it('names the revoked invitation in the log when the replacement will not send', async () => {
+		const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const auth = fakeAuth({ pending: 'inv_1', issues: 'inv_2' });
+		auth.sendOrganizationInvitation.mockRejectedValue(new Error('WorkOS is down'));
+
+		const thrown = await secondSystem(holdingInvitation(), auth)
+			.after(build('identity.reinvite', { role: 'manager' }), authContext())
+			.catch((error: unknown) => error);
+
+		expect((thrown as CommandError).status).toBe(502);
+		const line = String(logged.mock.calls[0]?.[0]);
+		expect(line).toContain('inv_1');
+		expect(line).toContain(MEMBERSHIP);
+		expect(line).toContain(ORG);
+
 		logged.mockRestore();
 	});
 
-	// #207 again, from the other end: a Membership whose stamp was lost has no
-	// invitation id, and that is a row with nothing to revoke rather than an error.
+	// #207 from the other end: a Membership whose stamp was lost has no invitation
+	// id, and that is a row with nothing to revoke rather than an error.
 	it('re-invites a row whose stamp was lost, with nothing to revoke', async () => {
 		const auth = fakeAuth();
 		const db = invitationStateDb({
@@ -280,6 +304,7 @@ describe('a re-invitation', () => {
 
 		expect(auth.sendOrganizationInvitation).toHaveBeenCalledOnce();
 		expect(auth.revokeInvitation).not.toHaveBeenCalled();
+		expect(clearOrganizationInvitationStamp).not.toHaveBeenCalled();
 	});
 });
 
@@ -404,10 +429,41 @@ function secondSystem(db: unknown, auth: MembershipAuth) {
 	};
 }
 
-function fakeAuth() {
+/**
+ * WorkOS, including the rule that made #218 fail on every call.
+ *
+ * `pending` is the invitation WorkOS is already holding for this address and
+ * organization. While there is one, a send is refused with the message live
+ * staging answered, so a fake that starts with one can tell revoke-then-send
+ * apart from send-then-revoke. Left at `null` it accepts the first send, which
+ * is every case that is not a re-invitation.
+ */
+function fakeAuth(
+	options: {
+		readonly pending?: string;
+		readonly issues?: string;
+		/** Every WorkOS call, in the order it was made. */
+		readonly calls?: string[];
+	} = {},
+) {
+	let pending = options.pending ?? null;
+	const issues = options.issues ?? 'inv_1';
+
 	return {
-		sendOrganizationInvitation: vi.fn(async () => ({ id: 'inv_1' })),
-		revokeInvitation: vi.fn(async () => ({ status: 'revoked' as const })),
+		sendOrganizationInvitation: vi.fn(async () => {
+			options.calls?.push('send');
+			if (pending !== null) {
+				throw new Error('Email already invited to organization.');
+			}
+			pending = issues;
+			return { id: issues };
+		}),
+		revokeInvitation: vi.fn(async (invitationId: string) => {
+			options.calls?.push('revoke');
+			const settled = pending !== invitationId;
+			pending = null;
+			return { status: settled ? ('already_settled' as const) : ('revoked' as const) };
+		}),
 		deactivateOrganizationMembership: vi.fn(async () => ({ status: 'deactivated' as const })),
 	};
 }

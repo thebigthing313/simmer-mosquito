@@ -742,11 +742,11 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 		/**
 		 * Kill an invitation link.
 		 *
-		 * `identity.reinvite` is the only caller, and it calls this last on purpose:
-		 * a re-invitation writes the new role and stamps the new invitation first,
-		 * so a failure here leaves the earlier link working rather than leaving
-		 * somebody with no way in at all. `docs/identity-domain.md` states the
-		 * ordering and why it is that way round.
+		 * `identity.reinvite` is the only caller, and it calls this before the send
+		 * on purpose: WorkOS holds one invitation per address per organization and
+		 * refuses a second while one is pending, so a re-invitation that sent first
+		 * could not succeed at all (#218). `docs/identity-domain.md` states the
+		 * ordering and what it costs.
 		 *
 		 * An invitation that is already accepted, expired or revoked answers
 		 * `already_settled` rather than throwing. WorkOS refuses to revoke one, and
