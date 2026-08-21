@@ -8,7 +8,7 @@
 
 import { createUnitsCollection, type Unit } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: The measurements everything is recorded in. Read wherever a quantity is
@@ -23,7 +23,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const units: Collection<Unit, string | number> = createUnitsCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: false,
 });

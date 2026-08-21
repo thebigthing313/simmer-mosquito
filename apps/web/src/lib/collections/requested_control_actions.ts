@@ -11,7 +11,7 @@ import {
 	type RequestedControlAction,
 } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: One row per action a mission asks for.
@@ -26,7 +26,7 @@ import { getServerUrl } from '../../auth';
  */
 export const requested_control_actions: Collection<RequestedControlAction, string | number> =
 	createRequestedControlActionsCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'on-demand',
 		mutations: true,
 	});

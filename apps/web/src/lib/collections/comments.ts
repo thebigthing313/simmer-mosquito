@@ -8,7 +8,7 @@
 
 import { type Comment, createCommentsCollection } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: One row per comment on any record, and only the record on screen needs its
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const comments: Collection<Comment, string | number> = createCommentsCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'on-demand',
 	mutations: true,
 });

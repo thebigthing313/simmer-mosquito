@@ -8,7 +8,7 @@
 
 import { type Application, createApplicationsCollection } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: One row per treatment, so the explorers ask for a date window rather than
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const applications: Collection<Application, string | number> = createApplicationsCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'on-demand',
 	mutations: true,
 });

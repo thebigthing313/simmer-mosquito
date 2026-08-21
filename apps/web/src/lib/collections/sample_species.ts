@@ -8,7 +8,7 @@
 
 import { createSampleSpeciesCollection, type SampleSpecies } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: One row per species found in a sample, so it grows faster than the samples
@@ -23,7 +23,7 @@ import { getServerUrl } from '../../auth';
  */
 export const sample_species: Collection<SampleSpecies, string | number> =
 	createSampleSpeciesCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'on-demand',
 		mutations: true,
 	});

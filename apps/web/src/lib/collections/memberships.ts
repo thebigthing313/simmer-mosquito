@@ -8,7 +8,7 @@
 
 import { createMembershipsCollection, type Membership } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: The role ladder. The server is what enforces it, but the UI hides what a
@@ -29,7 +29,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const memberships: Collection<Membership, string | number> = createMembershipsCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
 });

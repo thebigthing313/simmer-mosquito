@@ -8,7 +8,7 @@
 
 import { type CollectionLure, createCollectionLuresCollection } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: A catalogue an agency has dozens of rows of, read by every trap and
@@ -23,7 +23,7 @@ import { getServerUrl } from '../../auth';
  */
 export const collection_lures: Collection<CollectionLure, string | number> =
 	createCollectionLuresCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'eager',
 		mutations: true,
 	});

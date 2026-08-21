@@ -8,7 +8,7 @@
 
 import { createHabitatsCollection, type Habitat } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `on-demand`: An agency's habitats grow without bound, so live queries fetch the subsets
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  * Naming it on this side instantiates it where it resolves.
  */
 export const habitats: Collection<Habitat, string | number> = createHabitatsCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'on-demand',
 	mutations: true,
 });

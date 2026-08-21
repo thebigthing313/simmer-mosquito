@@ -7,7 +7,7 @@
 
 import { createSpeciesCollection, type Species } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../api';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: every species, listed in full on the page that owns them and counted
@@ -16,7 +16,7 @@ import { getServerUrl } from '../../api';
  * `mutations: true` posts to `/commands/species`.
  */
 export const species: Collection<Species, string | number> = createSpeciesCollection({
-	serverUrl: getServerUrl(),
+	...syncClientOptions,
 	syncMode: 'eager',
 	mutations: true,
 });

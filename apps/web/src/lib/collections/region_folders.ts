@@ -8,7 +8,7 @@
 
 import { createRegionFoldersCollection, type RegionFolder } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: The tree the region picker draws. It has to be whole to draw at all.
@@ -22,7 +22,7 @@ import { getServerUrl } from '../../auth';
  */
 export const region_folders: Collection<RegionFolder, string | number> =
 	createRegionFoldersCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'eager',
 		mutations: true,
 	});

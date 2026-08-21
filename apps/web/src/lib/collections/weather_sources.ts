@@ -8,7 +8,7 @@
 
 import { createWeatherSourcesCollection, type WeatherSource } from '@simmer-mosquito/sync';
 import { BasicIndex, type Collection } from '@tanstack/db';
-import { getServerUrl } from '../../auth';
+import { syncClientOptions } from './client-options';
 
 /**
  * `eager`: The stations an agency reads from. A short list the weather screens draw
@@ -25,7 +25,7 @@ import { getServerUrl } from '../../auth';
  */
 export const weather_sources: Collection<WeatherSource, string | number> =
 	createWeatherSourcesCollection({
-		serverUrl: getServerUrl(),
+		...syncClientOptions,
 		syncMode: 'eager',
 		mutations: true,
 	});
