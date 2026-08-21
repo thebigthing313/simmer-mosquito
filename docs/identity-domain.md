@@ -71,11 +71,21 @@ The other order sends a working link to somebody the agency has no row for.
 
 `identity.reinvite` is a separate command because a second call to
 `identity.invite` cannot be both a retry to swallow and a deliberate redo. It
-overwrites the Membership's role and invitation, then revokes the WorkOS
-invitation it replaced. Failing between those two leaves the previous link live,
-which is why the revoke goes last. An operator who lowered somebody's role and
-saw an error can re-run it, where the reverse would have already killed the only
-link the person holds.
+overwrites the Membership's role, then revokes the WorkOS invitation it replaces
+and mails the replacement, in that order.
+
+The revoke goes first because WorkOS holds one invitation per address per
+organization and refuses a second while one is pending. The re-invite control is
+only offered on a Membership that is holding an invitation, so a send that went
+first was refused on every call rather than on a rare one (#218).
+
+That order costs a window. A send that fails after the revoke leaves the person
+with no link at all, where before they had a stale one, and nothing on any screen
+says so. Two things stand in for that. The row is cleared of the revoked id as
+soon as WorkOS answers, so the Membership never claims a link that is dead, and
+re-running the command finds nothing to revoke and simply sends. And the failure
+logs one line naming the membership id, the organization id and the invitation
+that was revoked, which is the only record of who is locked out.
 
 The People page names both effects on the invited row before it fires: the
 address, the role it will set, and that the earlier link stops working. The
@@ -84,9 +94,10 @@ drawn on a Membership still at `invited` — an active member has no link to
 replace, and an ended one is a fresh invitation.
 
 `workos_invitation_id` may be `null` on a row that was invited. #207 answers a
-failed stamp with the Membership unstamped and one log line carrying the id, so a
-re-invitation there has nothing to revoke. That is not an error and must not
-block the re-invitation; it mails the replacement and leaves nothing behind.
+failed stamp with the Membership unstamped and one log line carrying the id, and
+a re-invitation whose revoke landed clears the column itself. Either way there is
+nothing to revoke. That is not an error and must not block the re-invitation; it
+mails the replacement and leaves nothing behind.
 
 ## The agency's own row has two vocabularies, by shape
 

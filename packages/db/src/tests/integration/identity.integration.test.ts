@@ -1,5 +1,6 @@
 import { expect, it } from 'vitest';
 import {
+	clearOrganizationInvitationStamp,
 	deactivateOrganizationMembershipWithTxid,
 	readMembershipRemovalTarget,
 	resolveActiveLocalAuthIdentity,
@@ -287,6 +288,72 @@ describeDbIntegration('staging and stamping an invitation', () => {
 				status: 'invited',
 				workosInvitationId: 'inv_stamped',
 			});
+		});
+	});
+
+	// #218: a re-invitation revokes before it sends, and between the two the row
+	// must stop naming the link WorkOS no longer holds.
+	it('clears the stamp of an invitation that was revoked', async () => {
+		await withTestDb(async ({ db }) => {
+			const organization = await db
+				.insertInto('organizations')
+				.values({ workos_organization_id: 'workos_org_unstamp', name: 'Unstamp District' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			const staged = await stageOrganizationInvitation(db, {
+				organizationId: organization.id,
+				email: 'unstamp@example.test',
+				displayName: 'Unstamp Invitee',
+				role: 'collector',
+				workosInvitationId: 'inv_revoked',
+			});
+
+			await clearOrganizationInvitationStamp(db, {
+				id: staged.id,
+				organizationId: organization.id,
+			});
+
+			const row = await db
+				.selectFrom('memberships')
+				.select(['status', 'workos_invitation_id'])
+				.where('id', '=', staged.id)
+				.executeTakeFirstOrThrow();
+			expect(row).toMatchObject({ status: 'invited', workos_invitation_id: null });
+		});
+	});
+
+	it('refuses to clear the stamp of a Membership in another organization', async () => {
+		await withTestDb(async ({ db }) => {
+			const organization = await db
+				.insertInto('organizations')
+				.values({ workos_organization_id: 'workos_org_unstamp_owner', name: 'Unstamp Owner' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			const other = await db
+				.insertInto('organizations')
+				.values({ workos_organization_id: 'workos_org_unstamp_other', name: 'Unstamp Other' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			const staged = await stageOrganizationInvitation(db, {
+				organizationId: organization.id,
+				email: 'unstamp.scope@example.test',
+				displayName: 'Scoped Unstamp',
+				role: 'viewer',
+				workosInvitationId: 'inv_other_org',
+			});
+
+			await expect(
+				clearOrganizationInvitationStamp(db, { id: staged.id, organizationId: other.id }),
+			).rejects.toThrow();
+
+			const untouched = await db
+				.selectFrom('memberships')
+				.select('workos_invitation_id')
+				.where('id', '=', staged.id)
+				.executeTakeFirstOrThrow();
+			expect(untouched.workos_invitation_id).toBe('inv_other_org');
 		});
 	});
 
