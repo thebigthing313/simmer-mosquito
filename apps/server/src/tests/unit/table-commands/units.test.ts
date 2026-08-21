@@ -130,10 +130,21 @@ function failingTransaction(error: unknown): CommandTransaction {
 		executeTakeFirst: () => Promise.reject(error),
 		executeTakeFirstOrThrow: () => Promise.reject(error),
 	};
+	// `selectFrom` answers empty rather than failing: the unit delete reads every
+	// agency's `unitDefaults` before it deletes (#131), and that read finding
+	// nothing is what lets the statement run and raise the error under test.
+	const emptySelect = {
+		select: () => emptySelect,
+		where: () => emptySelect,
+		limit: () => emptySelect,
+		execute: () => Promise.resolve([]),
+		executeTakeFirst: () => Promise.resolve(undefined),
+	};
 	return {
 		insertInto: () => chain,
 		updateTable: () => chain,
 		deleteFrom: () => chain,
+		selectFrom: () => emptySelect,
 	} as unknown as CommandTransaction;
 }
 

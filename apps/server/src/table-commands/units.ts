@@ -155,19 +155,23 @@ async function writeUnitCommand(
  * its area default gone is the failure this prevents.
  */
 async function assertUnitNotChosen(trx: CommandTransaction, unitId: string): Promise<void> {
-	const result = await sql<{ readonly count: string }>`
-		select count(*)::text as count
-		from organizations o
-		where o.deleted_at is null
-			and exists (
+	const chosen = await trx
+		.selectFrom('organizations')
+		.select('organizations.id')
+		.where('organizations.deleted_at', 'is', null)
+		.where(
+			sql<boolean>`exists (
 				select 1
-				from jsonb_each_text(coalesce(o.settings -> 'unitDefaults', '{}'::jsonb)) as chosen(key, code)
-				where chosen.code = (select u.unit_code from units u where u.id = ${unitId})
-			)
-	`.execute(trx);
+				from jsonb_each_text(
+					coalesce(organizations.settings -> 'unitDefaults', '{}'::jsonb)
+				) as chosen(setting, code)
+				where chosen.code = (select u.code from units u where u.id = ${sql.val(unitId)})
+			)`,
+		)
+		.limit(1)
+		.executeTakeFirst();
 
-	const count = Number.parseInt(result.rows[0]?.count ?? '0', 10);
-	if (count > 0) {
+	if (chosen !== undefined) {
 		throw new CommandError(409, {
 			error: 'unit_in_use',
 			reason: 'This unit is still referenced by an agency’s records or settings.',

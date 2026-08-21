@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import {
 	applyRecordDeletion,
+	assertRecordDeletable,
 	type Kysely,
 	RecordDeleteBlockedError,
 	readDeleteImpact,
@@ -329,6 +330,96 @@ describeDbIntegration('record deletion policy', () => {
 				}),
 			);
 			expect(applied).toBe(false);
+		});
+	});
+
+	// -------------------------------------------------------------------------
+	// Catalogs (#123)
+	// -------------------------------------------------------------------------
+
+	it('refuses a collection method a live trap still names, and allows it once the trap is deleted', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'method_block');
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, null, methodId);
+
+			const blocked = await readDeleteImpact(db, {
+				recordType: 'collectionMethod',
+				recordId: methodId,
+				organizationId: org,
+			});
+			expect(entry(blocked.blockers, 'collectionMethodTraps')).toBe(1);
+			expect(blocked.cascades).toEqual([]);
+			expect(blocked.detaches).toEqual([]);
+
+			await expect(
+				assertRecordDeletable(db, {
+					recordType: 'collectionMethod',
+					recordId: methodId,
+					organizationId: org,
+				}),
+			).rejects.toBeInstanceOf(RecordDeleteBlockedError);
+
+			// A soft-deleted referrer does not block: the trap is retired, so the
+			// method it named is a mistake nobody is living with any more.
+			await db
+				.updateTable('traps')
+				.set({ deleted_at: sql`now()` })
+				.where('id', '=', trapId)
+				.execute();
+
+			await expect(
+				assertRecordDeletable(db, {
+					recordType: 'collectionMethod',
+					recordId: methodId,
+					organizationId: org,
+				}),
+			).resolves.toBeUndefined();
+		});
+	});
+
+	it('refuses an insecticide a chemical application used', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'insecticide_block');
+			const unitId = await createUnit(db);
+			const applicationId = await createApplication(db, org, unitId, {});
+			const application = await db
+				.selectFrom('applications')
+				.select(['insecticide_id'])
+				.where('id', '=', applicationId)
+				.executeTakeFirstOrThrow();
+
+			const impact = await readDeleteImpact(db, {
+				recordType: 'insecticide',
+				recordId: application.insecticide_id,
+				organizationId: org,
+			});
+			expect(entry(impact.blockers, 'insecticideApplications')).toBe(1);
+
+			await expect(
+				assertRecordDeletable(db, {
+					recordType: 'insecticide',
+					recordId: application.insecticide_id,
+					organizationId: org,
+				}),
+			).rejects.toBeInstanceOf(RecordDeleteBlockedError);
+		});
+	});
+
+	it('does not let one agency’s referrer block another agency’s catalog row', async () => {
+		await withTestDb(async ({ db }) => {
+			const mine = await createOrganization(db, 'method_mine');
+			const theirs = await createOrganization(db, 'method_theirs');
+			const myMethod = await createCollectionMethod(db, mine);
+			await createTrap(db, theirs, null);
+
+			await expect(
+				assertRecordDeletable(db, {
+					recordType: 'collectionMethod',
+					recordId: myMethod,
+					organizationId: mine,
+				}),
+			).resolves.toBeUndefined();
 		});
 	});
 });
