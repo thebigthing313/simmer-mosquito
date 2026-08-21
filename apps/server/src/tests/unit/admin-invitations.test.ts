@@ -281,10 +281,14 @@ describe('registerAdminInvitationRoutes', () => {
 		expect(auth.sendOrganizationInvitation).toHaveBeenCalledOnce();
 	});
 
+	// #220: the answer names the refusal this server decided on. WorkOS's own
+	// sentence is not in it, and neither is the address it mentions.
 	it('names the cause when WorkOS refuses the invitation', async () => {
 		const auth = createFakeInvitationAuth();
 		auth.sendOrganizationInvitation = vi.fn(async () => {
-			throw new Error('User is already a member of the organization.');
+			throw Object.assign(new Error('User is already a member of the organization.'), {
+				status: 422,
+			});
 		});
 		const app = createInvitationApp(auth);
 
@@ -296,8 +300,9 @@ describe('registerAdminInvitationRoutes', () => {
 
 		expect(response.status).toBe(502);
 		await expect(response.json()).resolves.toEqual({
-			error: 'invitation_send_failed',
-			reason: 'User is already a member of the organization.',
+			error: 'invitation_refused',
+			reason:
+				'That address cannot be invited. Check whether they already have access or an invitation.',
 		});
 		// The Membership stays, with no invitation id on it. That is the failure
 		// #202 chose: an operator can invite again, where the other order left a
