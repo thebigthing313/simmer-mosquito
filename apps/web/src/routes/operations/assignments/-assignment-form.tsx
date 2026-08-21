@@ -1,4 +1,3 @@
-import type { RouteRow } from '@simmer-mosquito/sync';
 import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { DatePicker } from '@simmer-mosquito/ui-web/components/ui/date-picker';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
@@ -11,6 +10,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/select';
 import { useMemo, useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../../components/pickers/entity-picker';
+import type { RouteSummary } from '../../../components/route-planning/route-summary';
 import {
 	formatLocalDate,
 	localTimeAsInstant,
@@ -47,8 +47,12 @@ export function defaultAssignmentDetails(today: string): AssignmentDetailValues 
  * agency's — as a time nobody set, and the further the dispatcher is from the
  * yard the further off it is.
  */
-export function toDueAt(values: AssignmentDetailValues, timeZone: string): string | null {
-	return localTimeAsInstant(values.assignmentDate, values.dueTime, timeZone);
+export function toDueAt(values: AssignmentDetailValues, timeZone: string): Date | null {
+	const instant = localTimeAsInstant(values.assignmentDate, values.dueTime, timeZone);
+	// A `Date` rather than the ISO string the helper produces: `due_at` is a
+	// `timestamptz`, and the collection holds one parsed. Handing a string to the
+	// row would type-check nowhere useful and sort against the parsed ones wrongly.
+	return instant === null ? null : new Date(instant);
 }
 
 /** A stored assignment back into the form's shape, so edit starts where create left off. */
@@ -57,7 +61,7 @@ export function toAssignmentDetails(
 		readonly assignmentName: string | null;
 		readonly assignmentDate: string;
 		readonly assignedToProfileId: string | null;
-		readonly dueAt: string | null;
+		readonly dueAt: Date | null;
 	},
 	timeZone: string,
 ): AssignmentDetailValues {
@@ -192,10 +196,10 @@ export function RoutePicker({
 	value,
 	onSelect,
 }: {
-	readonly routes: readonly RouteRow[];
+	readonly routes: readonly RouteSummary[];
 	readonly stopCountById: ReadonlyMap<string, number>;
 	readonly value: string | null;
-	readonly onSelect: (route: RouteRow | null) => void;
+	readonly onSelect: (route: RouteSummary | null) => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');

@@ -1,7 +1,5 @@
-import type { ControlMethodRow, SourceReductionRow, UnitRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { MapCardAddress } from '../../components/linked-address';
 import {
@@ -10,17 +8,15 @@ import {
 	MapCardEyebrow,
 	MapCardLocation,
 } from '../../components/map/map-card';
-import { webCollections } from '../../sync/webCollections';
-import { formatAmount } from './-control-display';
+import { useSourceReduction } from '../../hooks/queries/use-source-reduction';
+import { formatMeasure } from './-control-display';
 
-const gcTimeMs = 30_000;
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 const UnitIcon = iconRegistry.entities.unit.icon;
 
 /**
- * The map focus card for a source-reduction action. Resolves the action off the
- * on-demand collection and its method + unit off the eager lookups, then renders
- * the shared {@link MapCard}.
+ * The map focus card for a source-reduction action. One query brings the action
+ * up with its method, unit and address already joined
+ * ({@link useSourceReduction}).
  */
 export function SourceReductionMapCard({
 	id,
@@ -29,46 +25,7 @@ export function SourceReductionMapCard({
 	readonly id: string;
 	readonly onClose: () => void;
 }) {
-	const actionResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ action: webCollections.sourceReductions })
-					.where(({ action }) => eq(action.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const action = actionResult.data as SourceReductionRow | undefined;
-
-	const methodId = action?.sourceReductionMethodId ?? UNMATCHABLE_ID;
-	const methodResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ method: webCollections.sourceReductionMethods })
-					.where(({ method }) => eq(method.id, methodId))
-					.findOne(),
-		},
-		[methodId],
-	);
-	const method = methodResult.data as ControlMethodRow | undefined;
-
-	const unitId = action?.sourcesEliminatedUnitId ?? UNMATCHABLE_ID;
-	const unitResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ unit: webCollections.units })
-					.where(({ unit }) => eq(unit.id, unitId))
-					.findOne(),
-		},
-		[unitId],
-	);
-	const unit = unitResult.data as UnitRow | undefined;
+	const { action } = useSourceReduction(id);
 
 	if (action === undefined) {
 		return (
@@ -81,14 +38,11 @@ export function SourceReductionMapCard({
 		);
 	}
 
-	const methodName = method?.name ?? 'Unknown method';
-	const amount = formatAmount(action.sourcesEliminatedAmount, unit);
-
 	return (
 		<MapCard
-			eyebrow={<MapCardEyebrow date={action.sourceReductionDate} type="Source reduction" />}
+			eyebrow={<MapCardEyebrow date={action.actionDate} type="Source reduction" />}
 			onClose={onClose}
-			title={methodName}
+			title={action.methodName}
 			viewDetailLink={(content) => (
 				<Link params={{ id: action.id }} to="/control-operations/source-reduction/$id">
 					{content}
@@ -96,9 +50,15 @@ export function SourceReductionMapCard({
 			)}
 		>
 			<div className="grid gap-1.5">
-				<MapCardDetail icon={UnitIcon}>{amount}</MapCardDetail>
-				<MapCardAddress addressId={action.addressId} />
-				<MapCardLocation geomType={action.geomType} lat={action.lat} lng={action.lng} />
+				<MapCardDetail icon={UnitIcon}>
+					{formatMeasure(action.sourcesEliminated, action.unitAbbreviation)}
+				</MapCardDetail>
+				<MapCardAddress address={action.address} addressId={action.addressId} />
+				<MapCardLocation
+					geomType={action.geometryKind}
+					lat={action.latitude}
+					lng={action.longitude}
+				/>
 			</div>
 		</MapCard>
 	);

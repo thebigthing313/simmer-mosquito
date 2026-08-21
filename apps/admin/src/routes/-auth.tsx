@@ -22,8 +22,8 @@ import { appAuthController } from '../app-auth';
  *
  * What is deliberately *not* here: sign-up, and a link to it. Operator accounts
  * are provisioned, not self-served — a stranger who reaches this page cannot
- * create their way onto `SIMMER_OPERATOR_EMAILS`, so offering the door would
- * only lead somewhere that refuses them one step later.
+ * create their way into the SIMMER organization, so offering the door would only
+ * lead somewhere that refuses them one step later.
  *
  * WorkOS can still interrupt before it will mint a session: with a verification
  * code, or with an organization choice when the account belongs to more than one
@@ -159,8 +159,9 @@ export function OperatorSignInPage({ redirectTo }: { readonly redirectTo: string
 			/*
 			 * No challenge means this account is in exactly one organization, so
 			 * WorkOS issued the session outright and there was nothing to choose. It
-			 * may not be SIMMER — the server's `SIMMER_OPERATOR_EMAILS` allowlist is
-			 * what refuses that case, on the first `/admin/*` call.
+			 * may not be SIMMER — the server compares the session's organization
+			 * against `SIMMER_OPERATOR_ORG_ID` and refuses that case on the first
+			 * `/admin/*` call.
 			 */
 			await finish();
 			return;

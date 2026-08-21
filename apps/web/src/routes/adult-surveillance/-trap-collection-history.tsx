@@ -1,4 +1,3 @@
-import type { SpeciesRow, TrapRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -30,23 +29,22 @@ import {
 	CircleIcon,
 	iconRegistry,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { and, eq, gte, isNull, or, toArray, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
 import { WriteOnly } from '../../components/write-only';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
+import { trapDisplayName } from '../../hooks/queries/trap-view';
+import type { TrapListing } from '../../hooks/queries/use-active-traps';
+import { useSpeciesNames } from '../../hooks/queries/use-species-names';
+import { useTrapCollections } from '../../hooks/queries/use-trap-collections';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
-import { localDayStartAsTimestamp } from '../../lib/local-date';
-import { webCollections } from '../../sync/webCollections';
 import {
 	CollectionFlagBadges,
 	collectionEffectiveDate,
 	isPendingCollection,
 	SpeciesSexBadge,
 	SpeciesStatusBadge,
-	trapDisplayName,
 } from './-adult-display';
-import { formatWeekdayMonthDay, todayInTimeZone } from './-overview-data';
+import { formatWeekdayMonthDay } from './-overview-data';
 import {
 	type CollectionYear,
 	type DirectoryCollection,
@@ -61,15 +59,9 @@ const CollectionIcon = iconRegistry.entities.collection.icon;
 const TrapIcon = iconRegistry.entities.trap.icon;
 const AddIcon = iconRegistry.actions.add.icon;
 
-const collectionsGcTimeMs = 30_000;
-
 /**
- * How many seasons load without being asked for.
- *
- * `docs/sync.md` sets the policy for this table — "Adult collections: three-year
- * persisted history, older on request" — and a trap directory is the surface
- * most able to break it, because a trap kept in the same place for a decade has
- * a decade of collections and every one of them carries its species rows.
+ * How many seasons load without being asked for. The window itself, and why it
+ * exists, are in {@link useTrapCollections}.
  */
 const DEFAULT_SEASONS = 3;
 
@@ -82,100 +74,30 @@ const DEFAULT_SEASONS = 3;
  * the most recent ten rows. Each collection stays collapsed until it is opened,
  * so the year reads as a run of dates first and a specimen list only on request.
  */
-export function TrapCollectionHistory({
-	trap,
-	methodName,
-}: {
-	readonly trap: TrapRow;
-	readonly methodName: string;
-}) {
+export function TrapCollectionHistory({ trap }: { readonly trap: TrapListing }) {
 	// Older seasons are asked for, not loaded up front — see DEFAULT_SEASONS.
 	const [allSeasons, setAllSeasons] = useState(false);
 	const timeZone = useOrganizationTimeZone();
-	const since = useMemo(() => {
-		const thisYear = Number(todayInTimeZone(timeZone).slice(0, 4));
-		return `${thisYear - (DEFAULT_SEASONS - 1)}-01-01`;
-	}, [timeZone]);
-	const sinceTimestamp = useMemo(
-		() => localDayStartAsTimestamp(since, timeZone),
-		[since, timeZone],
-	);
 
-	// collections is on-demand; this query's predicate is what loads the trap's
-	// subset, and the correlated species include comes with it. Status-gated
-	// useLiveQuery rather than the suspense variant, which hangs after a
-	// navigation unmount over an on-demand collection.
-	const result = useLiveQuery(
-		{
-			gcTime: collectionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ collection: webCollections.collections })
-					.where(({ collection }) =>
-						allSeasons
-							? eq(collection.trapId, trap.id)
-							: and(
-									eq(collection.trapId, trap.id),
-									or(
-										// Each column against a bound in its own type: a bare
-										// YYYY-MM-DD against a timestamptz is not a predicate
-										// Electric will parse.
-										gte(collection.collectedAt, sinceTimestamp),
-										gte(collection.collectionDate, since),
-										/*
-										 * A trap that is still out has neither date, and a
-										 * comparison against null is never true — so without this
-										 * the window would drop the "Trap out" bucket, hiding the
-										 * one collection the operator is most likely looking for.
-										 */
-										and(isNull(collection.collectedAt), isNull(collection.collectionDate)),
-									),
-								),
-					)
-					.select(({ collection }) => ({
-						id: collection.id,
-						collectedAt: collection.collectedAt,
-						collectionDate: collection.collectionDate,
-						collectionTimingMode: collection.collectionTimingMode,
-						hasProblem: collection.hasProblem,
-						isZeroResult: collection.isZeroResult,
-						hasBycatch: collection.hasBycatch,
-						species: toArray(
-							query
-								.from({ collectionSpecies: webCollections.collectionSpecies })
-								.where(({ collectionSpecies }) => eq(collectionSpecies.collectionId, collection.id))
-								.select(({ collectionSpecies }) => ({
-									id: collectionSpecies.id,
-									speciesId: collectionSpecies.speciesId,
-									count: collectionSpecies.count,
-									sex: collectionSpecies.sex,
-									status: collectionSpecies.status,
-								})),
-						),
-					})),
-		},
-		[trap.id, allSeasons, since, sinceTimestamp],
-	);
+	const { collections, isReady, isError } = useTrapCollections(trap.id, {
+		seasons: allSeasons ? null : DEFAULT_SEASONS,
+		timeZone,
+	});
 
 	const years = useMemo(
-		() => groupByYear((result.data ?? []) as unknown as readonly DirectoryCollection[], timeZone),
-		[result.data, timeZone],
+		() => groupByYear(collections as readonly DirectoryCollection[], timeZone),
+		[collections, timeZone],
 	);
 
-	// Resolved once for the pane rather than inside each row: the species catalog
-	// is one eager collection, and reading it per expanded collection would put a
-	// query behind every disclosure on the page.
-	const { rows: speciesRows } = useCollectionRows<SpeciesRow>(webCollections.species);
-	const speciesNameById = useMemo(
-		() => new Map(speciesRows.map((row) => [row.id, row.displayName] as const)),
-		[speciesRows],
-	);
+	// Resolved once for the pane rather than inside each row: reading the catalog
+	// per expanded collection would put a query behind every disclosure on the page.
+	const speciesNameById = useSpeciesNames();
 
 	return (
 		<CollectionYears
-			header={<TrapHeader methodName={methodName} trap={trap} />}
-			isError={result.isError}
-			isReady={result.isReady}
+			header={<TrapHeader trap={trap} />}
+			isError={isError}
+			isReady={isReady}
 			onLoadEarlier={allSeasons ? undefined : () => setAllSeasons(true)}
 			speciesNameById={speciesNameById}
 			timeZone={timeZone}
@@ -186,7 +108,7 @@ export function TrapCollectionHistory({
 
 // --- the trap ---------------------------------------------------------------
 
-function TrapHeader({ trap, methodName }: { readonly trap: TrapRow; readonly methodName: string }) {
+function TrapHeader({ trap }: { readonly trap: TrapListing }) {
 	return (
 		<div className="flex flex-wrap items-start justify-between gap-3">
 			<div className="grid min-w-0 gap-1">
@@ -194,7 +116,7 @@ function TrapHeader({ trap, methodName }: { readonly trap: TrapRow; readonly met
 					{trapDisplayName(trap)}
 				</h2>
 				<p className="m-0 flex items-center gap-2 text-muted-foreground text-sm">
-					{methodName}
+					{trap.methodName}
 					<span aria-hidden="true">·</span>
 					<span className="inline-flex items-center gap-1">
 						{trap.isActive ? (

@@ -22,7 +22,12 @@
  * domains while raising it.
  */
 
-import { RecordDeleteBlockedError } from '@simmer-mosquito/db';
+import {
+	MissionNotificationRefusedError,
+	RecordDeleteBlockedError,
+	RecordMergeRefusedError,
+	ReferenceRefusedError,
+} from '@simmer-mosquito/db';
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import type { Context } from 'hono';
 import type { AuthContext } from './auth-context.js';
@@ -43,12 +48,19 @@ export type CommandContext = Context<{ Variables: AuthVariables }>;
  *
  * The status set is the union of what the domains raise: `400` for a payload
  * the domain could not use, `403` for a row the actor may not reach, `404` for
- * one that is not theirs to see. `reason` is set where the client can act on
- * the distinction; the four surveillance domains never set it.
+ * one that is not theirs to see, and `409` for a row the database itself
+ * refuses to remove. `reason` is set where the client can act on the
+ * distinction; the four surveillance domains never set it.
+ *
+ * `409` is the global catalogs' case. An agency delete that other rows block is
+ * decided before the delete runs, by `applyRecordDeletion`, and arrives as
+ * `RecordDeleteBlockedError`; the taxonomy has no such registry and no
+ * `deleted_at`, so its refusal comes back from Postgres as a foreign key
+ * violation inside the transaction. Same answer, raised from a different place.
  */
 export class CommandError extends Error {
 	constructor(
-		readonly status: 400 | 403 | 404,
+		readonly status: 400 | 403 | 404 | 409,
 		readonly body: { readonly error: string; readonly reason?: string },
 	) {
 		super(body.error);
@@ -56,7 +68,15 @@ export class CommandError extends Error {
 }
 
 /**
- * Turn the two refusals a command endpoint can raise into responses.
+ * Turn the refusals a command endpoint can raise into responses.
+ *
+ * Four of them. `CommandError` carries its own status; the other three are
+ * domain refusals raised from inside `packages/db`, each with a registry or a
+ * lifecycle behind it that the handler has no way to restate.
+ *
+ * They are all here rather than caught per route on purpose. A refusal handled
+ * in the module that raises it escapes as a 500 the moment another module reaches
+ * that code, which is the argument `CommandError` above makes at length.
  *
  * Anything else rethrows: an error nobody declared is a bug, and a 500 with a
  * stack is more useful than a 400 that hides it.
@@ -67,6 +87,47 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 	}
 	if (error instanceof RecordDeleteBlockedError) {
 		return context.json(deleteBlockedBody(error), 409);
+	}
+	// A merge names rows the caller has to have seen to name, so a refusal is
+	// either that one of them is gone, which is a 404 and the same answer as a row
+	// of another agency, or that the survivor is retired, which is a state the
+	// caller can fix, so 409. `reason` is the discriminator, and is what the form
+	// maps to a message about the right field.
+	if (error instanceof RecordMergeRefusedError) {
+		return context.json(
+			{ error: 'merge_refused', reason: error.reason, message: error.message },
+			error.reason === 'target_inactive' ? 409 : 404,
+		);
+	}
+	// A write that named a row it may not use, catalog or otherwise. Missing is a
+	// 404 and the same answer as another agency's row or a soft-deleted one,
+	// because telling them apart would make this a way to probe for ids.
+	// Inactive is a 409: the row is there and somebody can reactivate it or pick
+	// another, and only a catalog can be in that state.
+	if (error instanceof ReferenceRefusedError) {
+		return context.json(
+			{
+				error: 'reference_refused',
+				reason: error.reason,
+				reference: error.reference,
+				message: error.message,
+			},
+			error.reason === 'inactive' ? 409 : 404,
+		);
+	}
+	// Same split for generation: a mission the caller cannot see is a 404, and
+	// every other reason is a state somebody can act on. `unitCodes` is empty
+	// except on `buffer_unit_not_convertible`, where it names the units to fix.
+	if (error instanceof MissionNotificationRefusedError) {
+		return context.json(
+			{
+				error: 'mission_notifications_refused',
+				reason: error.reason,
+				message: error.message,
+				unitCodes: error.unitCodes,
+			},
+			error.reason === 'mission_not_found' ? 404 : 409,
+		);
 	}
 	throw error;
 }
@@ -141,12 +202,18 @@ export function agencyCommandContext(authContext: AuthContext): AgencyContext {
 // The endpoint itself
 // ===========================================================================
 
-type JsonResult =
+export type JsonResult =
 	| { readonly ok: true; readonly payload: Record<string, unknown> }
 	| { readonly ok: false; readonly reason: string };
 
-/** Parse a request body that has to be a JSON object. */
-async function readJsonObject(request: {
+/**
+ * Parse a request body that has to be a JSON object.
+ *
+ * Exported for `table-commands/dispatch.ts`, which reads a body the same way and
+ * then does something different with it — the `intents` list decides which
+ * builders run, so it cannot go through {@link commandEndpoint}'s single `build`.
+ */
+export async function readJsonObject(request: {
 	readonly json: () => Promise<unknown>;
 }): Promise<JsonResult> {
 	let raw: unknown;

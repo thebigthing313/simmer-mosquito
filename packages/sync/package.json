@@ -16,8 +16,12 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {
-		"@tanstack/db": "^0.6.17",
-		"@tanstack/electric-db-collection": "0.3.15"
+		"@tanstack/db": "^0.7.2",
+		"@tanstack/electric-db-collection": "0.3.18",
+		"zod": "^4.4.3"
 	},
-	"types": "./dist/index.d.ts"
+	"types": "./dist/index.d.ts",
+	"devDependencies": {
+		"@simmer-mosquito/db": "workspace:*"
+	}
 }

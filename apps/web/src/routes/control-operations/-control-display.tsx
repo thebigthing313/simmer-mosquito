@@ -1,32 +1,49 @@
 import { lookupUnitConversion, totalInUnit, type UnitDefaults } from '@simmer-mosquito/domain';
-import type { HabitatRow, InsecticideRow, UnitRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
+
+/** As much of a unit as anything here reads: its conversion key and its label. */
+interface MeasureUnit {
+	readonly code: string;
+	readonly abbreviation: string;
+}
 
 // Shared labelling for the control-operations routes. Control actions reference
 // methods, units, profiles, and (optionally) a habitat or address, so most screens
 // need the same handful of name lookups.
 
-/** Habitats may be unnamed — fall back to a short id so rows stay identifiable. */
-export function habitatDisplayName(habitat: HabitatRow): string {
-	const name = habitat.habitatName?.trim() ?? '';
-	if (name.length > 0) {
-		return name;
-	}
-	return `Habitat ${habitat.id.slice(0, 8)}`;
-}
-
 /**
  * Insecticides display by trade name everywhere. `shorthand` is an agency's
  * internal abbreviation for data entry, not a name operators should have to read.
  */
-export function insecticideDisplayName(insecticide: InsecticideRow): string {
+export function insecticideDisplayName(insecticide: { readonly tradeName: string }): string {
 	return insecticide.tradeName;
 }
 
-/** `12 gal` — the compact amount+unit pairing used across tables and cards. */
-export function formatAmount(amount: number, unit: UnitRow | undefined): string {
+/**
+ * `12 gal` — the compact amount+unit pairing used across tables and cards.
+ *
+ * The unit is structural rather than a `UnitRow` so that both read paths satisfy
+ * it: the camelCase rows the unmigrated surfaces still hold, and the projections
+ * the query hooks return. Only the abbreviation is ever read.
+ */
+export function formatAmount(
+	amount: number,
+	unit: { readonly abbreviation: string } | undefined,
+): string {
+	return formatMeasure(amount, unit?.abbreviation ?? null);
+}
+
+/**
+ * The same, taking the abbreviation the query joined rather than a row to look it
+ * up in. What the surfaces reading through `hooks/queries` call.
+ *
+ * Stays a function rather than becoming a projection because the rule is
+ * conditional on the value: a whole number keeps its form and a fraction takes
+ * two places, which no compiled `select` can express.
+ */
+export function formatMeasure(amount: number, abbreviation: string | null): string {
 	const value = Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
-	return unit === undefined ? value : `${value} ${unit.abbreviation}`;
+	return abbreviation === null ? value : `${value} ${abbreviation}`;
 }
 
 /** Date-only columns arrive as `YYYY-MM-DD`; render them without a timezone shift. */
@@ -107,8 +124,12 @@ export function usageTotal({
 	unitDefaults,
 }: {
 	readonly totalsByUnitId: ReadonlyMap<string, number>;
-	readonly unitById: ReadonlyMap<string, UnitRow>;
-	readonly unitByCode: ReadonlyMap<string, UnitRow>;
+	// Structural, so both read paths satisfy it: the camelCase `UnitRow` the
+	// unmigrated surfaces hold, and the `UnitLabel` the query hook returns. The
+	// code is the conversion key and the abbreviation is what gets printed;
+	// nothing here reads anything else off a unit.
+	readonly unitById: ReadonlyMap<string, MeasureUnit>;
+	readonly unitByCode: ReadonlyMap<string, MeasureUnit>;
 	readonly unitDefaults: UnitDefaults;
 }): { readonly text: string; readonly convertedFrom: string | null } {
 	const entries = [...totalsByUnitId.entries()].map(([unitId, amount]) => ({
@@ -122,7 +143,7 @@ export function usageTotal({
 	}
 
 	const measured = entries.filter(
-		(entry): entry is { unit: UnitRow; amount: number } => entry.unit !== undefined,
+		(entry): entry is { unit: MeasureUnit; amount: number } => entry.unit !== undefined,
 	);
 	if (measured.length !== entries.length) {
 		return { text: separated, convertedFrom: null };

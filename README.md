@@ -26,7 +26,7 @@ On Windows or from Codex automation, prefer `pnpm.cmd ...` as described in
 ## Local development
 
 `apps/server` and the frontends always run locally. Postgres + Electric come from
-one of two backends — see `docs/deployment.md` → "Local development" for full
+one of two backends. See `docs/deployment.md`, "Local development", for the full
 setup:
 
 - **Railway-backed (recommended default):** point `DATABASE_URL` / `ELECTRIC_URL`
@@ -62,7 +62,7 @@ one they skip silently, so a green `pnpm test` does not mean they ran.
 
 Each test applies the whole migration set into a throwaway `simmer_test_*`
 schema and drops it afterwards. Point `TEST_DATABASE_URL` at any PostGIS-capable
-Postgres — the Railway staging URL from `.env`, or a local container:
+Postgres: the Railway staging URL from `.env`, or a local container.
 
 ```sh
 docker-compose up -d postgres
@@ -95,4 +95,3 @@ nothing CI does touches a database anyone else is using.
 - `docs/domain-command-contract.md`: shared command, validation, offline, and
   module-shape rules.
 - `docs/*-domain.md`: domain-specific command vocabulary and exceptions.
-- `docs/plan.md`: current boundary, next slice, and deferred work.

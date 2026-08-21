@@ -1,4 +1,4 @@
-# Weather Domain Decisions
+# Weather domain decisions
 
 Shared command, validation, offline, sync, location-source, and module-shape
 rules live in `docs/domain-command-contract.md`. This file records weather
@@ -9,11 +9,11 @@ agency-uploaded weather summary data only. Provider feeds, NWS sources,
 subscriptions, server-side raw observation aggregation, persisted import
 sessions, and detailed sync design are deferred.
 
-## Command Boundary
+## Command boundary
 
 Weather commands live behind a framework-agnostic public domain seam:
 
-- `packages/domain/src/weather.ts`
+- `packages/domain/src/weather/`
 
 The top-level file is the public seam. Its current implementation lives behind
 `packages/domain/src/weather/index.ts` so future station, summary, and import
@@ -32,7 +32,7 @@ Weather is a web-only management workflow in v1. Mobile may read weather data in
 future product surfaces, but mobile/offline command queues do not create weather
 stations, summaries, or imports.
 
-## V1 Scope
+## V1 scope
 
 V1 supports agency-created weather stations and agency-entered bucket summary
 data.
@@ -102,7 +102,7 @@ does not have to be inactive before deletion.
 Station mutation commands include optional `expectedUpdatedAt`. If supplied and
 stale, server handlers reject with a conflict. If omitted, last-write-wins.
 
-## Weather Summaries
+## Weather summaries
 
 Weather summaries are agency-managed bucket aggregate records, not raw
 observations.
@@ -173,7 +173,7 @@ clears a metric; `undefined` means no change. Update and delete include optional
 Summaries are not commentable, taggable, or associated with additional
 personnel.
 
-## Spreadsheet Import
+## Spreadsheet import
 
 CSV/XLS/XLSX parsing and column/unit mapping are web-client concerns. The domain
 and server accept only normalized SIMMER-shaped summary rows.
@@ -260,7 +260,7 @@ settled: weather summaries are not baseline synced. Station catalogs are small
 enough to sync later if needed for selected-organization context, but summary
 rows should be loaded by station/date/report need.
 
-## Validation Boundary
+## Validation boundary
 
 Use the shared validation boundary in `docs/domain-command-contract.md`.
 Weather-specific builder checks include station point geometry, explicit
@@ -282,9 +282,9 @@ Structured issue paths should match command payload names, for example:
 - `rows.3.weatherSummaryId`
 - `rows.3.dateRange`
 
-## Domain Module Shape
+## Domain module shape
 
-`packages/domain/src/weather.ts` exports:
+`packages/domain/src/weather/` exports:
 
 - `WeatherCommandType`
 - `WeatherCommand`
@@ -305,9 +305,9 @@ Weather-specific conventions are `LocalDateString` for date buckets, `Date`
 objects for optimistic timestamps, patch semantics for manual updates, and
 full-row replacement semantics for import updates.
 
-## Schema Backlog
+## Schema this domain drove
 
-Concrete schema follow-up for v1, covered by
+Concrete schema follow-up for v1, which landed in
 `202605130001_weather_domain_updates.sql`:
 
 ```sql
@@ -319,8 +319,8 @@ alter table weather_summaries
   alter column end_date set not null;
 ```
 
-Implement as a migration by first backfilling existing null `end_date` values to
-`start_date`, then setting `end_date not null`. Keep the date range check.
+The migration backfilled null `end_date` values to `start_date` before setting
+the column `not null`, and kept the date range check.
 
 Add summary audit profile fields:
 
@@ -345,10 +345,10 @@ create unique index weather_sources_organization_normalized_code_unique
   where deleted_at is null and source_code is not null;
 ```
 
-Once `end_date` is non-null, a normal unique index or constraint on
-`(weather_source_id, start_date, end_date)` is sufficient for exact duplicates.
+`end_date` is `not null`, so `weather_summaries_source_range_unique` on
+`(weather_source_id, start_date, end_date)` is enough for exact duplicates.
 
-Do not add for v1:
+None of these exists, and none is added for v1:
 
 - persisted import/session tables
 - raw row or filename provenance
@@ -363,7 +363,7 @@ The no-overlap invariant and two-decimal precision are command-handler
 invariants in v1. Future direct database scripts or admin imports must use
 command-equivalent validation.
 
-## Testing Expectations
+## Testing expectations
 
 When implemented, add focused unit tests for:
 

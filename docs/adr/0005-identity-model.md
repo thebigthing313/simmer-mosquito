@@ -1,4 +1,4 @@
-# ADR 0005: User, Organization, Profile, and Membership Identity Model
+# ADR 0005: User, Organization, Profile, and Membership identity model
 
 Status: Accepted
 

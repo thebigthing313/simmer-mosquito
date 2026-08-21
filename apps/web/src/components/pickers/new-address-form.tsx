@@ -1,12 +1,11 @@
 import { createAddressCommand } from '@simmer-mosquito/domain';
-import type { AddressRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Loader2Icon, MapPinnedIcon, SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useState } from 'react';
 import { getServerUrl } from '../../auth';
 import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../forms/domain-validation';
-import { webCollections } from '../../sync/webCollections';
+import { useAddressMutations } from '../../hooks/mutations/use-address-mutations';
+import type { AddressOption } from './address-picker';
 import {
 	GeocoderDialog,
 	type GeocoderPoint,
@@ -38,18 +37,14 @@ export interface MapPointDrawOptions {
 export type RequestMapPoint = (options?: MapPointDrawOptions) => Promise<GeoJsonPointGeometry>;
 
 export interface NewAddressFormProps {
-	readonly organizationId: string;
-	readonly actorProfileId: string | null;
 	/** Seeds the name and street line from whatever was typed into the picker. */
 	readonly initialSearch: string;
 	readonly requestMapPoint?: RequestMapPoint | undefined;
 	readonly onCancel: () => void;
-	readonly onCreated: (address: AddressRow) => void;
+	readonly onCreated: (address: AddressOption) => void;
 }
 
 export function NewAddressForm({
-	organizationId,
-	actorProfileId,
 	initialSearch,
 	requestMapPoint,
 	onCancel,
@@ -69,6 +64,7 @@ export function NewAddressForm({
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const [isSaving, setIsSaving] = useState(false);
 	const [isGeocoding, setIsGeocoding] = useState(false);
+	const mutations = useAddressMutations();
 
 	async function geocodeAddress() {
 		setSaveError(null);
@@ -143,29 +139,25 @@ export function NewAddressForm({
 		setIsSaving(true);
 		setSaveError(null);
 		try {
-			const now = new Date().toISOString();
-			const address: AddressRow = {
-				id: crypto.randomUUID(),
-				organizationId,
-				lat: geometry.coordinates[1],
-				lng: geometry.coordinates[0],
-				geojson: geometry,
-				geomType: geometry.type,
+			const fields = {
 				displayName: displayName.trim(),
-				country: country.trim().toUpperCase(),
 				addressLine1: nullableText(addressLine1),
 				addressLine2: nullableText(addressLine2),
 				locality: nullableText(locality),
 				region: nullableText(region),
 				postalCode: nullableText(postalCode),
 				geocoderResponse,
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
 			};
-			await settleWrite(webCollections.addresses.insert(address));
-			onCreated(address);
+			const addressId = await mutations.create(fields, country.trim().toUpperCase(), geometry);
+			// The picker labels its selection from what it is handed rather than
+			// waiting for the row to stream back, so the new address reads as picked
+			// the moment it is made.
+			onCreated({
+				...fields,
+				id: addressId,
+				lat: geometry.coordinates[1],
+				lng: geometry.coordinates[0],
+			});
 		} catch (error) {
 			setSaveError(error instanceof Error ? error.message : 'Unable to create address.');
 		} finally {

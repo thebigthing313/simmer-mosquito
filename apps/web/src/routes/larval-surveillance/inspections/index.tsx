@@ -1,4 +1,4 @@
-import type { HabitatTypeRow, LarvalDensity } from '@simmer-mosquito/sync';
+import type { LarvalDensity } from '@simmer-mosquito/sync';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -19,6 +19,7 @@ import {
 	toggle,
 	useDateRangeFilters,
 	useFlyToSelection,
+	useHabitatTypeOptions,
 	useMapBoundsParam,
 	usePagedMapResource,
 	usePersonnelOptions,
@@ -40,12 +41,9 @@ import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
 } from '../../../components/map';
-import { WriteOnly } from '../../../components/write-only';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import { InspectionMapCard } from '../-inspection-map-card';
 import { type InspectionFilters, inspectionFilterCodecs } from '../-inspections-search';
 import {
@@ -169,11 +167,7 @@ function InspectionsExplorerRoute() {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 
-	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
-	const typeNameById = useMemo(
-		() => new Map(habitatTypes.map((type) => [type.id, type.name])),
-		[habitatTypes],
-	);
+	const { options: habitatTypes, nameById: typeNameById } = useHabitatTypeOptions();
 
 	const filters = useMemo<InspectionTileFilters>(
 		() => ({
@@ -293,7 +287,7 @@ function InspectionsExplorerRoute() {
 							empty="No habitat types"
 							label="Habitat type"
 							onChange={setTypeIds}
-							options={habitatTypes.map((type) => ({ id: type.id, label: type.name }))}
+							options={habitatTypes}
 							selected={typeIds}
 						/>
 						<MultiSelectFilter

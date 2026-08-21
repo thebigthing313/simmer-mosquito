@@ -4,11 +4,24 @@ import type { DbExecutor, GeoJsonGeometry, OwnedGeometryInfo } from '../index.js
 import type { MapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import { type MapFilterInput, type MapTileInput, mapSurface } from './map-surface.js';
+import { checkedValues } from './write-references.js';
 
 export interface CreateAddressInput {
 	readonly id?: string;
 	readonly organizationId: string;
-	readonly geojson: GeoJsonGeometry;
+	/**
+	 * `unknown`, as `adult-surveillance-commands` and `larval-surveillance-commands`
+	 * already spell the same field, and as `geojsonToGeom` below actually takes it
+	 * — it stringifies whatever it is handed and lets PostGIS refuse the rest.
+	 *
+	 * `GeoJsonGeometry` is `Record<string, unknown>`, which the *shape* of a
+	 * geometry satisfies but a named geometry type does not: an interface has no
+	 * implicit index signature, so `packages/domain`'s `GeoJsonPoint` is refused
+	 * here however identical the value is. That is a spelling mismatch between two
+	 * packages rather than a check worth keeping, and it is what stopped
+	 * `foundation.createAddress` handing its own validated point straight through.
+	 */
+	readonly geojson: unknown;
 	readonly displayName: string;
 	readonly country: string;
 	readonly addressLine1?: string | null;
@@ -82,7 +95,7 @@ export interface SafeRegion {
 	readonly updatedAt: Date;
 }
 
-function geojsonToGeom(geojson: GeoJsonGeometry): RawBuilder<string> {
+function geojsonToGeom(geojson: unknown): RawBuilder<string> {
 	const serialized = JSON.stringify(geojson);
 	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
 		case
@@ -250,7 +263,8 @@ export async function updateAddressLocation(
 	id: string,
 	input: {
 		readonly organizationId: string;
-		readonly geojson: GeoJsonGeometry;
+		/** See `CreateAddressInput.geojson`. */
+		readonly geojson: unknown;
 		readonly updatedByProfileId?: string | null;
 	},
 ): Promise<SafeAddress | null> {
@@ -465,13 +479,15 @@ export async function createRegionFolder(
 ): Promise<SafeRegionFolder> {
 	const row = await db
 		.insertInto('region_folders')
-		.values({
-			organization_id: input.organizationId,
-			name: input.name,
-			description: input.description ?? null,
-			created_by_profile_id: input.createdByProfileId ?? null,
-			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
-		})
+		.values(
+			await checkedValues(db, input.organizationId, {
+				organization_id: input.organizationId,
+				name: input.name,
+				description: input.description ?? null,
+				created_by_profile_id: input.createdByProfileId ?? null,
+				updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
+			}),
+		)
 		.returning([
 			'id',
 			'organization_id',
@@ -514,16 +530,18 @@ export async function listRegionFolders(
 export async function createRegion(db: DbExecutor, input: CreateRegionInput): Promise<SafeRegion> {
 	const row = await db
 		.insertInto('regions')
-		.values({
-			organization_id: input.organizationId,
-			region_folder_id: input.regionFolderId ?? null,
-			geom: geojsonToGeom(input.geojson),
-			name: input.name,
-			description: input.description ?? null,
-			metadata: input.metadata ?? null,
-			created_by_profile_id: input.createdByProfileId ?? null,
-			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
-		})
+		.values(
+			await checkedValues(db, input.organizationId, {
+				organization_id: input.organizationId,
+				region_folder_id: input.regionFolderId ?? null,
+				geom: geojsonToGeom(input.geojson),
+				name: input.name,
+				description: input.description ?? null,
+				metadata: input.metadata ?? null,
+				created_by_profile_id: input.createdByProfileId ?? null,
+				updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
+			}),
+		)
 		.returning([
 			'id',
 			'organization_id',

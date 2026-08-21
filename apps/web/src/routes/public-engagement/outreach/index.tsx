@@ -1,4 +1,3 @@
-import type { ControlMethodRow } from '@simmer-mosquito/sync';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
@@ -16,6 +15,7 @@ import {
 	toggle,
 	useDateRangeFilters,
 	useFlyToSelection,
+	useOutreachMethodOptions,
 	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
@@ -23,7 +23,6 @@ import {
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MAP_CREATE_TARGETS, MapCanvas, type OutreachTileFilters } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 import {
@@ -33,8 +32,6 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
-import { nameById } from '../../control-operations/-control-display';
 import { addDaysToDateString } from '../../control-operations/-overview-data';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { OutreachMapCard } from '../-outreach-map-card';
@@ -118,8 +115,7 @@ function OutreachExplorerRoute() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.outreachMethods);
-	const methodNameById = useMemo(() => nameById(methods, (method) => method.name), [methods]);
+	const { options: methodOptions, nameById: methodNameById } = useOutreachMethodOptions();
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
@@ -209,7 +205,7 @@ function OutreachExplorerRoute() {
 							empty="No outreach methods"
 							label="Method"
 							onChange={setMethodIds}
-							options={methods.map((method) => ({ id: method.id, label: method.name }))}
+							options={methodOptions}
 							selected={methodIds}
 						/>
 						<MultiSelectFilter

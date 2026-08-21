@@ -1,4 +1,10 @@
-import { geojsonToGeom, localDateColumn, updateRow } from '@simmer-mosquito/db';
+import {
+	type CatalogReference,
+	geojsonToGeom,
+	localDateColumn,
+	type SelectedRow,
+	updateRow,
+} from '@simmer-mosquito/db';
 import {
 	type LarvalDensity,
 	type ResolvedLarvalInspectionEntryPolicy,
@@ -125,7 +131,14 @@ export function hasInspectionResultFields(payload: Record<string, unknown>): boo
 	return 'inspectionDate' in payload || 'isWet' in payload;
 }
 
-function readDensity(value: unknown): LarvalDensity | null {
+/**
+ * A density band, or nothing.
+ *
+ * Exported because `table-commands/inspections.ts` reads the same five values
+ * off a column named `density` rather than `density`'s camelCase twin, and the
+ * set of bands is not something two readers should each hold a copy of.
+ */
+export function readDensity(value: unknown): LarvalDensity | null {
 	return value === 'none' ||
 		value === 'light' ||
 		value === 'medium' ||
@@ -155,53 +168,7 @@ export const habitatReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeHabitat {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly addressId: string | null;
-	readonly habitatTypeId: string | null;
-	readonly habitatName: string | null;
-	readonly description: string;
-	readonly isActive: boolean;
-	readonly isInaccessible: boolean;
-	readonly metadata: unknown | null;
-	readonly createdByProfileId: string | null;
-	readonly updatedByProfileId: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeHabitat(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly address_id: string | null;
-	readonly habitat_type_id: string | null;
-	readonly habitat_name: string | null;
-	readonly description: string;
-	readonly is_active: boolean;
-	readonly is_inaccessible: boolean;
-	readonly metadata: unknown | null;
-	readonly created_by_profile_id: string | null;
-	readonly updated_by_profile_id: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeHabitat {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		addressId: row.address_id,
-		habitatTypeId: row.habitat_type_id,
-		habitatName: row.habitat_name,
-		description: row.description,
-		isActive: row.is_active,
-		isInaccessible: row.is_inaccessible,
-		metadata: row.metadata,
-		createdByProfileId: row.created_by_profile_id,
-		updatedByProfileId: row.updated_by_profile_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type HabitatRow = SelectedRow<'habitats', typeof habitatReturnColumns>;
 
 export const inspectionReturnColumns = [
 	'id',
@@ -227,77 +194,7 @@ export const inspectionReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeInspection {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly habitatId: string | null;
-	readonly habitatTypeId: string | null;
-	readonly addressId: string | null;
-	readonly inspectedByProfileId: string | null;
-	readonly inspectionDate: Date;
-	readonly isWet: boolean;
-	readonly dipCount: number | null;
-	readonly density: LarvalDensity | null;
-	readonly larvaeCount: number | null;
-	readonly hasFirstInstar: boolean;
-	readonly hasSecondInstar: boolean;
-	readonly hasThirdInstar: boolean;
-	readonly hasFourthInstar: boolean;
-	readonly hasPupae: boolean;
-	readonly hasEggs: boolean;
-	readonly createdByProfileId: string | null;
-	readonly updatedByProfileId: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeInspection(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly habitat_id: string | null;
-	readonly habitat_type_id: string | null;
-	readonly address_id: string | null;
-	readonly inspected_by_profile_id: string | null;
-	readonly inspection_date: Date;
-	readonly is_wet: boolean;
-	readonly dip_count: number | null;
-	readonly density: LarvalDensity | null;
-	readonly larvae_count: number | null;
-	readonly has_first_instar: boolean;
-	readonly has_second_instar: boolean;
-	readonly has_third_instar: boolean;
-	readonly has_fourth_instar: boolean;
-	readonly has_pupae: boolean;
-	readonly has_eggs: boolean;
-	readonly created_by_profile_id: string | null;
-	readonly updated_by_profile_id: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeInspection {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		habitatId: row.habitat_id,
-		habitatTypeId: row.habitat_type_id,
-		addressId: row.address_id,
-		inspectedByProfileId: row.inspected_by_profile_id,
-		inspectionDate: row.inspection_date,
-		isWet: row.is_wet,
-		dipCount: row.dip_count,
-		density: row.density,
-		larvaeCount: row.larvae_count,
-		hasFirstInstar: row.has_first_instar,
-		hasSecondInstar: row.has_second_instar,
-		hasThirdInstar: row.has_third_instar,
-		hasFourthInstar: row.has_fourth_instar,
-		hasPupae: row.has_pupae,
-		hasEggs: row.has_eggs,
-		createdByProfileId: row.created_by_profile_id,
-		updatedByProfileId: row.updated_by_profile_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type InspectionRow = SelectedRow<'inspections', typeof inspectionReturnColumns>;
 
 export const sampleReturnColumns = [
 	'id',
@@ -313,47 +210,7 @@ export const sampleReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeSample {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly inspectionId: string;
-	readonly displayName: string | null;
-	readonly isZeroLarvae: boolean;
-	readonly hasNonMosquito: boolean;
-	readonly unidentifiableReason: string | null;
-	readonly createdByProfileId: string | null;
-	readonly updatedByProfileId: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeSample(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly inspection_id: string;
-	readonly display_name: string | null;
-	readonly is_zero_larvae: boolean;
-	readonly has_non_mosquito: boolean;
-	readonly unidentifiable_reason: string | null;
-	readonly created_by_profile_id: string | null;
-	readonly updated_by_profile_id: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeSample {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		inspectionId: row.inspection_id,
-		displayName: row.display_name,
-		isZeroLarvae: row.is_zero_larvae,
-		hasNonMosquito: row.has_non_mosquito,
-		unidentifiableReason: row.unidentifiable_reason,
-		createdByProfileId: row.created_by_profile_id,
-		updatedByProfileId: row.updated_by_profile_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type SampleRow = SelectedRow<'samples', typeof sampleReturnColumns>;
 
 export const sampleSpeciesReturnColumns = [
 	'id',
@@ -369,47 +226,7 @@ export const sampleSpeciesReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeSampleSpecies {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly sampleId: string;
-	readonly speciesId: string;
-	readonly identifiedByProfileId: string | null;
-	readonly identifiedAt: Date;
-	readonly larvaeCount: number;
-	readonly createdByProfileId: string | null;
-	readonly updatedByProfileId: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeSampleSpecies(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly sample_id: string;
-	readonly species_id: string;
-	readonly identified_by_profile_id: string | null;
-	readonly identified_at: Date;
-	readonly larvae_count: number;
-	readonly created_by_profile_id: string | null;
-	readonly updated_by_profile_id: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeSampleSpecies {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		sampleId: row.sample_id,
-		speciesId: row.species_id,
-		identifiedByProfileId: row.identified_by_profile_id,
-		identifiedAt: row.identified_at,
-		larvaeCount: row.larvae_count,
-		createdByProfileId: row.created_by_profile_id,
-		updatedByProfileId: row.updated_by_profile_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type SampleSpeciesRow = SelectedRow<'sample_species', typeof sampleSpeciesReturnColumns>;
 
 // ---------------------------------------------------------------------------
 // Shared command + request helpers
@@ -456,3 +273,27 @@ export type SampleUpdateColumns = {
 	unidentifiable_reason?: string | null;
 	updated_by_profile_id: string;
 };
+
+/**
+ * The one catalog a Habitat and an Inspection both name.
+ *
+ * Only a key that is present is gated, so an edit that moves the inspection
+ * date asks nothing of the catalogs. Matches
+ * `adult-surveillance-commands/shared.ts`, which does the same for the two a
+ * Trap and a Collection name.
+ */
+export function habitatTypeReferences(source: {
+	readonly habitatTypeId?: string | null | undefined;
+}): CatalogReference[] {
+	if (!('habitatTypeId' in source)) {
+		return [];
+	}
+	return [
+		{
+			column: 'habitat_type_id',
+			catalog: 'habitatType',
+			id: source.habitatTypeId ?? null,
+			label: 'habitat type',
+		},
+	];
+}

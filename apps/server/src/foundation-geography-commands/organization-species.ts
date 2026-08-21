@@ -11,12 +11,11 @@ import {
 	commandEndpoint,
 	type FoundationDb,
 	type FoundationTransaction,
+	type OrganizationSpeciesRow,
 	organizationSpeciesReturnColumns,
 	type RouteOptions,
 	runCommands,
-	type SafeOrganizationSpecies,
 	softDelete,
-	toSafeOrganizationSpecies,
 } from './shared.js';
 
 // ===========================================================================
@@ -76,10 +75,11 @@ async function runOrganizationSpeciesCommands(
 	);
 }
 
-async function writeOrganizationSpeciesCommand(
+/** Exported for `table-commands/organization-species.ts` — one writer, two doors. */
+export async function writeOrganizationSpeciesCommand(
 	trx: FoundationTransaction,
 	command: FoundationCommand,
-): Promise<SafeOrganizationSpecies | null> {
+): Promise<OrganizationSpeciesRow | null> {
 	switch (command.type) {
 		case 'foundation.selectOrganizationSpecies': {
 			const row = await trx
@@ -93,7 +93,7 @@ async function writeOrganizationSpeciesCommand(
 				})
 				.returning(organizationSpeciesReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeOrganizationSpecies(row);
+			return row;
 		}
 		case 'foundation.unselectOrganizationSpecies':
 			return softDelete(
@@ -103,7 +103,6 @@ async function writeOrganizationSpeciesCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				organizationSpeciesReturnColumns,
-				toSafeOrganizationSpecies,
 			);
 		default:
 			throw new Error(`Unsupported organization species command: ${command.type}`);

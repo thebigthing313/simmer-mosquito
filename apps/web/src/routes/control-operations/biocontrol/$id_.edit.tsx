@@ -1,27 +1,26 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type {
-	BiocontrolActionRow,
-	ControlMethodRow,
-	ProfileRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { RecordUnavailable } from '../../../components/record';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
+import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
+import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
 import {
 	type AdditionalPersonnelResult,
-	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
-import { RecordUnavailable } from '../../../components/record';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+} from '../../../hooks/queries/use-additional-personnel';
+import { useBiocontrolAction } from '../../../hooks/queries/use-biocontrol-action';
+import {
+	type SchemaCatalogListing,
+	useBiocontrolMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
+import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	BiocontrolFormPage,
 	type BiocontrolFormValues,
@@ -48,29 +47,16 @@ function EditBiocontrolActionRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const methods = useBiocontrolMethodRoster();
+	const { all: units } = useUnitLabels();
+	const profiles = useProfileRoster();
 
-	// biocontrolActions is on-demand; status-gated useLiveQuery (not suspense)
-	// avoids the post-unmount hang.
-	const result = useLiveQuery(
-		{
-			gcTime: biocontrolGcTimeMs,
-			query: (query) =>
-				query
-					.from({ action: webCollections.biocontrolActions })
-					.where(({ action }) => eq(action.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const action = result.data as BiocontrolActionRow | undefined;
+	const { action, isReady, isError } = useBiocontrolAction(id, { gcTime: biocontrolGcTimeMs });
 
-	if (result.isError) {
+	if (isError) {
 		return <RecordUnavailable layout="centered" noun="biocontrol action" reason="error" />;
 	}
-	if (!result.isReady) {
+	if (!isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (action === undefined) {
@@ -83,9 +69,9 @@ function EditBiocontrolActionRoute() {
 	return (
 		<EditBiocontrolActionLoader
 			action={action}
-			actorProfileId={actorProfileId}
 			biocontrolMethods={methods}
 			canSubmit={organization !== null && actorProfileId !== null}
+			organizationId={organization?.id ?? ''}
 			profiles={profiles}
 			units={units}
 		/>
@@ -97,24 +83,30 @@ function EditBiocontrolActionLoader({
 	biocontrolMethods,
 	units,
 	profiles,
-	actorProfileId,
 	canSubmit,
+	organizationId,
 }: {
-	readonly action: BiocontrolActionRow;
-	readonly biocontrolMethods: readonly ControlMethodRow[];
-	readonly units: readonly UnitRow[];
-	readonly profiles: readonly ProfileRow[];
-	readonly actorProfileId: string | null;
+	readonly action: BiocontrolAction;
+	readonly biocontrolMethods: readonly SchemaCatalogListing[];
+	readonly units: readonly UnitLabel[];
+	readonly profiles: readonly ProfileListing[];
 	readonly canSubmit: boolean;
+	readonly organizationId: string;
 }) {
 	const navigate = useNavigate();
+	const { update } = useBiocontrolActionMutations();
 
 	// The synced row carries only the centroid, so the full shape (which may be a
 	// line or polygon) is read from the display endpoint before the form opens.
-	const geometryQuery = useOwnedGeometry(BIOCONTROL_GEOMETRY_SOURCE, action.id, action.updatedAt);
+	const geometryQuery = useOwnedGeometry(
+		BIOCONTROL_GEOMETRY_SOURCE,
+		action.id,
+		action.updatedAt.toISOString(),
+	);
 	// The crew lives in its own table; the form edits it as a list and the save
 	// reconciles that against who is attached now.
 	const personnel = useAdditionalPersonnel({ type: 'biocontrolAction', id: action.id });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 
 	const onSave = useCallback(
 		async ({
@@ -129,65 +121,48 @@ function EditBiocontrolActionLoader({
 			if (values.amountReleased === null) {
 				throw new Error('Enter how much was released.');
 			}
-			const nextAmount = values.amountReleased;
-			const nextTechnicianId =
-				values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId;
 
-			// The point (geometry) and the address are independent: only send a location
-			// source (and reseed the optimistic centroid) when the user actually refined
-			// the point; the address is a plain field change.
-			const refinedPoint = geometryChanged && geometry !== null;
-			const locationSource = refinedPoint
-				? ({ kind: 'geometry', geometry: geometry as unknown as GeoJsonGeometry } as const)
-				: undefined;
-			const nextCentroid = refinedPoint
-				? ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry)
-				: null;
+			// The shape and the address/habitat are independent: only state a location
+			// when the user actually redrew it. Absent means "leave it", which is not
+			// the same request as re-sending the shape it already has.
+			const redrawn =
+				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null;
+			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
 
-			const now = new Date().toISOString();
-			// Inlined so TanStack DB infers the mutable draft type.
-			const applyEdits = (draft: BiocontrolActionRow) => {
-				const writable = draft as {
-					-readonly [K in keyof BiocontrolActionRow]: BiocontrolActionRow[K];
-				};
-				writable.biocontrolMethodId = values.biocontrolMethodId;
-				writable.technicianProfileId = nextTechnicianId;
-				writable.biocontrolDate = values.biocontrolDate;
-				writable.amountReleased = nextAmount;
-				writable.releaseUnitId = values.releaseUnitId;
-				writable.addressId = values.addressId;
-				writable.habitatId = values.habitatId;
-				writable.metadata = values.metadata;
-				if (nextCentroid !== null) {
-					writable.lat = nextCentroid.lat;
-					writable.lng = nextCentroid.lng;
-					writable.geomType = nextCentroid.geomType;
-				}
-				if (actorProfileId !== null) {
-					writable.updatedByProfileId = actorProfileId;
-				}
-				writable.updatedAt = now;
-			};
-
-			const transaction =
-				locationSource === undefined
-					? webCollections.biocontrolActions.update(action.id, applyEdits)
-					: webCollections.biocontrolActions.update(
-							action.id,
-							{ metadata: { locationSource } },
-							applyEdits,
-						);
-			await settleWrite(transaction);
-			await saveAdditionalPersonnel({
+			// Which commands this save means is worked out by the hook, from what
+			// actually moved — the field details and the placement are different
+			// builders, and naming one with nothing to read is refused.
+			await update(action, {
+				values: {
+					methodId: values.biocontrolMethodId,
+					technicianProfileId:
+						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+					actionDate: values.biocontrolDate,
+					addressId: values.addressId,
+					habitatId: values.habitatId,
+					amountReleased: values.amountReleased,
+					unitId: values.releaseUnitId,
+					metadata: values.metadata,
+				},
+				...(centroid === null || redrawn === null
+					? {}
+					: {
+							location: {
+								lat: centroid.lat,
+								lng: centroid.lng,
+								geomType: centroid.geomType,
+								locationSource: { kind: 'geometry', geometry: redrawn },
+							},
+						}),
+			});
+			await setPersonnel({
 				target: { type: 'biocontrolAction', id: action.id },
-				organizationId: action.organizationId,
-				actorProfileId,
 				existing: personnel.rows,
 				profileIds: values.additionalPersonnelIds,
 			});
 			await navigate({ to: '/control-operations/biocontrol/$id', params: { id: action.id } });
 		},
-		[action, actorProfileId, personnel.rows, navigate],
+		[action, personnel.rows, navigate, update, setPersonnel],
 	);
 
 	if (geometryQuery.isError) {
@@ -228,7 +203,7 @@ function EditBiocontrolActionLoader({
 			}}
 			initialGeometry={geometryQuery.geometry}
 			onSave={onSave}
-			organizationId={action.organizationId}
+			organizationId={organizationId}
 			profiles={profiles}
 			requireLocation={false}
 			submitLabel="Save changes"
@@ -238,18 +213,18 @@ function EditBiocontrolActionLoader({
 }
 
 function defaultsFromAction(
-	action: BiocontrolActionRow,
+	action: BiocontrolAction,
 	personnel: AdditionalPersonnelResult,
 ): BiocontrolFormValues {
 	return {
 		addressId: action.addressId,
 		habitatId: action.habitatId,
-		biocontrolMethodId: action.biocontrolMethodId,
+		biocontrolMethodId: action.methodId,
 		technicianProfileId: action.technicianProfileId ?? noTechnicianValue,
 		additionalPersonnelIds: personnel.profileIds,
-		biocontrolDate: action.biocontrolDate.slice(0, 10),
+		biocontrolDate: action.actionDate.slice(0, 10),
 		amountReleased: action.amountReleased,
-		releaseUnitId: action.releaseUnitId,
+		releaseUnitId: action.unitId,
 		metadata: asMetadataValue(action.metadata),
 	};
 }

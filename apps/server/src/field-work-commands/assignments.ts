@@ -1,4 +1,4 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, checkedValues, sql } from '@simmer-mosquito/db';
 import {
 	type AssignmentItemPlacement,
 	cancelAssignmentCommand,
@@ -17,6 +17,7 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
+import { applyPlacement } from '../ordered-items.js';
 import {
 	assertAssignmentTransition,
 	checkCompleteAssignment,
@@ -24,8 +25,8 @@ import {
 	checkStartAssignment,
 } from './assignment-lifecycle.js';
 import {
+	type AssignmentRow,
 	agencyCommandContext,
-	applyPlacement,
 	assignmentPlacementRef,
 	assignmentReturnColumns,
 	type CommandContext,
@@ -44,9 +45,7 @@ import {
 	readStringArray,
 	reindexItems,
 	runCommands,
-	type SafeAssignment,
 	softDelete,
-	toSafeAssignment,
 	updateRow,
 } from './shared.js';
 
@@ -236,10 +235,10 @@ async function runAssignmentCommands(
 	);
 }
 
-async function writeAssignmentCommand(
+export async function writeAssignmentCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeAssignment | null> {
+): Promise<AssignmentRow | null> {
 	switch (command.type) {
 		case 'fieldWork.createAssignment':
 			return insertAssignment(trx, command.payload);
@@ -294,7 +293,6 @@ async function writeAssignmentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentReturnColumns,
-				toSafeAssignment,
 			);
 		}
 		case 'fieldWork.startAssignment':
@@ -315,7 +313,6 @@ async function writeAssignmentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentReturnColumns,
-				toSafeAssignment,
 			);
 		case 'fieldWork.completeAssignment':
 			await assertAssignmentTransition(
@@ -335,7 +332,6 @@ async function writeAssignmentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentReturnColumns,
-				toSafeAssignment,
 			);
 		case 'fieldWork.cancelAssignment':
 			return updateRow(
@@ -350,7 +346,6 @@ async function writeAssignmentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentReturnColumns,
-				toSafeAssignment,
 			);
 		case 'fieldWork.reopenAssignment':
 			await assertAssignmentTransition(
@@ -375,7 +370,6 @@ async function writeAssignmentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentReturnColumns,
-				toSafeAssignment,
 			);
 		case 'fieldWork.deleteAssignment':
 			await applyRecordDeletion(trx, {
@@ -391,7 +385,6 @@ async function writeAssignmentCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				assignmentReturnColumns,
-				toSafeAssignment,
 			);
 		case 'fieldWork.moveAssignmentItems': {
 			await reindexItems(
@@ -427,23 +420,25 @@ async function insertAssignment(
 		readonly dueAt: Date | null;
 		readonly actorProfileId: string;
 	},
-): Promise<SafeAssignment> {
+): Promise<AssignmentRow> {
 	const row = await trx
 		.insertInto('assignments')
-		.values({
-			id: payload.assignmentId,
-			organization_id: payload.organizationId,
-			assignment_name: payload.assignmentName,
-			assigned_to_profile_id: payload.assignedToProfileId,
-			assigned_by_profile_id: payload.actorProfileId,
-			assignment_date: localDateColumn(payload.assignmentDate),
-			due_at: payload.dueAt,
-			created_by_profile_id: payload.actorProfileId,
-			updated_by_profile_id: payload.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.assignmentId,
+				organization_id: payload.organizationId,
+				assignment_name: payload.assignmentName,
+				assigned_to_profile_id: payload.assignedToProfileId,
+				assigned_by_profile_id: payload.actorProfileId,
+				assignment_date: localDateColumn(payload.assignmentDate),
+				due_at: payload.dueAt,
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
 		.returning(assignmentReturnColumns)
 		.executeTakeFirstOrThrow();
-	return toSafeAssignment(row);
+	return row;
 }
 
 async function copyRouteItemsToAssignment(
@@ -471,17 +466,19 @@ async function copyRouteItemsToAssignment(
 		}
 		await trx
 			.insertInto('assignment_items')
-			.values({
-				id: assignmentItemId,
-				organization_id: organizationId,
-				assignment_id: assignmentId,
-				entity_type: routeItem.entity_type,
-				entity_id: routeItem.entity_id,
-				position,
-				directions_to_next_item: routeItem.directions_to_next_item,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-			})
+			.values(
+				await checkedValues(trx, organizationId, {
+					id: assignmentItemId,
+					organization_id: organizationId,
+					assignment_id: assignmentId,
+					entity_type: routeItem.entity_type,
+					entity_id: routeItem.entity_id,
+					position,
+					directions_to_next_item: routeItem.directions_to_next_item,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+				}),
+			)
 			.execute();
 		position += 1;
 	}
@@ -491,7 +488,7 @@ async function loadAssignment(
 	trx: FieldWorkTransaction,
 	assignmentId: string,
 	organizationId: string,
-): Promise<SafeAssignment | null> {
+): Promise<AssignmentRow | null> {
 	const row = await trx
 		.selectFrom('assignments')
 		.select(assignmentReturnColumns)
@@ -499,5 +496,5 @@ async function loadAssignment(
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeAssignment(row);
+	return row ?? null;
 }

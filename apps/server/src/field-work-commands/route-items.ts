@@ -1,3 +1,4 @@
+import { checkedValues } from '@simmer-mosquito/db';
 import {
 	addRouteItemCommand,
 	type FieldWorkCommand,
@@ -10,21 +11,19 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
+import { nextItemPosition } from '../ordered-items.js';
 import {
-	applyPlacement,
 	type CommandContext,
 	commandEndpoint,
 	type FieldWorkDb,
 	type FieldWorkTransaction,
+	type RouteItemRow,
 	type RouteOptions,
 	readTarget,
-	reindexItems,
 	routeItemReturnColumns,
 	routePlacementRef,
 	runCommands,
-	type SafeRouteItem,
 	softDelete,
-	toSafeRouteItem,
 	updateRow,
 } from './shared.js';
 
@@ -95,41 +94,42 @@ async function runRouteItemCommands(
 	);
 }
 
-async function writeRouteItemCommand(
+export async function writeRouteItemCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeRouteItem | null> {
+): Promise<RouteItemRow | null> {
 	switch (command.type) {
 		case 'fieldWork.addRouteItem': {
+			const position = await nextItemPosition(
+				trx,
+				{
+					table: 'route_items',
+					parentColumn: 'route_id',
+					parentId: command.payload.routeId,
+					organizationId: command.payload.organizationId,
+				},
+				command.payload.routeItemId,
+				{
+					kind: command.payload.placement.kind,
+					refId: routePlacementRef(command.payload.placement),
+				},
+			);
 			await trx
 				.insertInto('route_items')
-				.values({
-					id: command.payload.routeItemId,
-					organization_id: command.payload.organizationId,
-					route_id: command.payload.routeId,
-					entity_type: toDbEntityType(command.payload.target.type),
-					entity_id: command.payload.target.id,
-					position: 0,
-					directions_to_next_item: command.payload.directionsToNextItem,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.routeItemId,
+						organization_id: command.payload.organizationId,
+						route_id: command.payload.routeId,
+						entity_type: toDbEntityType(command.payload.target.type),
+						entity_id: command.payload.target.id,
+						position,
+						directions_to_next_item: command.payload.directionsToNextItem,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.execute();
-			await reindexItems(
-				trx,
-				'route_items',
-				'route_id',
-				command.payload.routeId,
-				command.payload.organizationId,
-				command.payload.actorProfileId,
-				(ids) =>
-					applyPlacement(
-						ids,
-						[command.payload.routeItemId],
-						command.payload.placement.kind,
-						routePlacementRef(command.payload.placement),
-					),
-			);
 			return loadRouteItem(trx, command.payload.routeItemId, command.payload.organizationId);
 		}
 		case 'fieldWork.updateRouteItem':
@@ -145,7 +145,6 @@ async function writeRouteItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				routeItemReturnColumns,
-				toSafeRouteItem,
 			);
 		case 'fieldWork.removeRouteItem':
 			return softDelete(
@@ -155,7 +154,6 @@ async function writeRouteItemCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				routeItemReturnColumns,
-				toSafeRouteItem,
 			);
 		default:
 			throw new Error(`Unsupported route item command: ${command.type}`);
@@ -166,7 +164,7 @@ async function loadRouteItem(
 	trx: FieldWorkTransaction,
 	routeItemId: string,
 	organizationId: string,
-): Promise<SafeRouteItem | null> {
+): Promise<RouteItemRow | null> {
 	const row = await trx
 		.selectFrom('route_items')
 		.select(routeItemReturnColumns)
@@ -174,5 +172,5 @@ async function loadRouteItem(
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeRouteItem(row);
+	return row ?? null;
 }

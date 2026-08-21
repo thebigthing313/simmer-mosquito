@@ -1,38 +1,39 @@
-import type {
-	AdultCollectionRow,
-	CollectionLureRow,
-	CollectionMethodRow,
-	ProfileRow,
-	TrapRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { RecordUnavailable } from '../../../components/record';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
+import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
 import {
 	type AdditionalPersonnelResult,
-	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
-import { RecordUnavailable } from '../../../components/record';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+} from '../../../hooks/queries/use-additional-personnel';
+import {
+	type CatalogListing,
+	type SchemaCatalogListing,
+	useCollectionLureRoster,
+	useCollectionMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
+import {
+	type CollectionRecord,
+	useCollectionRecord,
+} from '../../../hooks/queries/use-collection-record';
+import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { type TrapOption, useTrapOptions } from '../../../hooks/queries/use-trap-options';
+import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	CollectionFormPage,
 	type CollectionFormValues,
 	type CollectionSaveInput,
+	collectionFieldsFrom,
 	noLureValue,
 	noUnitValue,
 } from './-collection-form';
-import { collectionTimingStamps } from './-collection-timing';
-
-const collectionGcTimeMs = 30_000;
 
 export const Route = createFileRoute('/adult-surveillance/collections/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
@@ -48,49 +49,26 @@ export const Route = createFileRoute('/adult-surveillance/collections/$id_/edit'
 });
 
 function EditCollectionRoute() {
+	const { traps } = useTrapOptions();
+	const methods = useCollectionMethodRoster();
+	const lures = useCollectionLureRoster();
+	const profiles = useProfileRoster();
+	const { all: units } = useUnitLabels();
 	const { id } = Route.useParams();
-	const { auth } = Route.useRouteContext();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
+	const { collection, isReady, isError } = useCollectionRecord(id);
 
-	// collections is on-demand; status-gated useLiveQuery (not suspense) avoids the
-	// post-unmount hang.
-	const result = useLiveQuery(
-		{
-			gcTime: collectionGcTimeMs,
-			query: (query) =>
-				query
-					.from({ collection: webCollections.collections })
-					.where(({ collection }) => eq(collection.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const collection = result.data as AdultCollectionRow | undefined;
-
-	if (result.isError) {
+	if (isError) {
 		return <RecordUnavailable layout="centered" noun="collection" reason="error" />;
 	}
-	if (!result.isReady) {
+	if (!isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (collection === undefined) {
 		return <RecordUnavailable layout="centered" noun="collection" reason="not-found" />;
 	}
 
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-
 	return (
 		<EditCollectionLoader
-			actorProfileId={actorProfileId}
-			canSubmit={organization !== null && actorProfileId !== null}
 			collection={collection}
 			collectionLures={lures}
 			collectionMethods={methods}
@@ -108,81 +86,49 @@ function EditCollectionLoader({
 	collectionLures,
 	profiles,
 	units,
-	actorProfileId,
-	canSubmit,
 }: {
-	readonly collection: AdultCollectionRow;
-	readonly traps: readonly TrapRow[];
-	readonly collectionMethods: readonly CollectionMethodRow[];
-	readonly collectionLures: readonly CollectionLureRow[];
-	readonly profiles: readonly ProfileRow[];
-	readonly units: readonly UnitRow[];
-	readonly actorProfileId: string | null;
-	readonly canSubmit: boolean;
+	readonly collection: CollectionRecord;
+	readonly traps: readonly TrapOption[];
+	readonly collectionMethods: readonly SchemaCatalogListing[];
+	readonly collectionLures: readonly CatalogListing[];
+	readonly profiles: readonly ProfileListing[];
+	readonly units: readonly UnitLabel[];
 }) {
 	const navigate = useNavigate();
 	const timeZone = useOrganizationTimeZone();
+	const mutations = useCollectionMutations();
 	// The crew lives in its own table; the form edits it as a list and the save
 	// reconciles that against who is attached now.
 	const personnel = useAdditionalPersonnel({ type: 'collection', id: collection.id });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 
 	const onSave = useCallback(
 		async ({ values, geometry, geometryChanged }: CollectionSaveInput) => {
-			const exact = values.timingMode === 'exact_timestamps';
-			// Location edits only apply to ad-hoc collections; trap-based ones inherit
-			// their trap's location and address.
+			// A location edit only means anything on an ad hoc collection: a trap one
+			// inherits its trap's point and address, and moving it means moving the
+			// trap.
 			const isAdhoc = collection.trapId === null;
 			const refinedPoint =
 				isAdhoc && geometryChanged && geometry !== null && geometry.type === 'Point';
-			const locationSource = refinedPoint ? ({ kind: 'geometry', geometry } as const) : undefined;
 
-			const now = new Date().toISOString();
-			const timing = collectionTimingStamps(values, timeZone);
-			const applyEdits = (draft: AdultCollectionRow) => {
-				const writable = draft as {
-					-readonly [K in keyof AdultCollectionRow]: AdultCollectionRow[K];
-				};
-				writable.collectionMethodId = values.collectionMethodId;
-				writable.collectionLureId =
-					values.collectionLureId === noLureValue ? null : values.collectionLureId;
-				writable.setByProfileId = values.setByProfileId;
-				writable.collectedByProfileId = values.collectedByProfileId;
-				writable.hasProblem = values.hasProblem;
-				writable.metadata = values.metadata;
-				writable.collectionTimingMode = values.timingMode;
-				writable.startedAt = timing.startedAt;
-				writable.collectedAt = timing.collectedAt;
-				writable.collectionDate = exact ? null : values.collectionDate;
-				writable.durationAmount = exact ? null : values.durationAmount;
-				writable.durationUnitId =
-					exact || values.durationUnitId === noUnitValue ? null : values.durationUnitId;
-				if (isAdhoc) {
-					writable.addressId = values.addressId;
-				}
-				if (refinedPoint && geometry.type === 'Point') {
-					writable.lat = geometry.coordinates[1];
-					writable.lng = geometry.coordinates[0];
-					writable.geomType = 'point';
-				}
-				if (actorProfileId !== null) {
-					writable.updatedByProfileId = actorProfileId;
-				}
-				writable.updatedAt = now;
-			};
-
-			const transaction =
-				locationSource === undefined
-					? webCollections.collections.update(collection.id, applyEdits)
-					: webCollections.collections.update(
-							collection.id,
-							{ metadata: { locationSource } },
-							applyEdits,
-						);
-			await settleWrite(transaction);
-			await saveAdditionalPersonnel({
+			await mutations.save({
+				collectionId: collection.id,
+				fields: collectionFieldsFrom(values, timeZone),
+				current: collectionFieldsFrom(formValuesFrom(collection, personnel, timeZone), timeZone),
+				geometry:
+					refinedPoint && geometry.type === 'Point'
+						? {
+								geometry: geometry as unknown as GeoJsonGeometry,
+								centroid: {
+									lat: geometry.coordinates[1],
+									lng: geometry.coordinates[0],
+									geomType: 'point',
+								},
+							}
+						: null,
+			});
+			await setPersonnel({
 				target: { type: 'collection', id: collection.id },
-				organizationId: collection.organizationId,
-				actorProfileId,
 				existing: personnel.rows,
 				profileIds: values.additionalPersonnelIds,
 			});
@@ -191,15 +137,7 @@ function EditCollectionLoader({
 				params: { id: collection.id },
 			});
 		},
-		[
-			collection.id,
-			collection.organizationId,
-			collection.trapId,
-			actorProfileId,
-			personnel.rows,
-			navigate,
-			timeZone,
-		],
+		[collection, personnel, navigate, timeZone, setPersonnel, mutations],
 	);
 
 	if (personnel.isError) {
@@ -218,10 +156,10 @@ function EditCollectionLoader({
 
 	return (
 		<CollectionFormPage
-			canSubmit={canSubmit}
+			canSubmit={mutations.canWrite}
 			collectionLures={collectionLures}
 			collectionMethods={collectionMethods}
-			defaultValues={defaultsFromCollection(collection, personnel)}
+			defaultValues={formValuesFrom(collection, personnel, timeZone)}
 			header={{
 				title: 'Edit Collection',
 				description: 'Update this collection’s method, timing, personnel, location, or result.',
@@ -231,7 +169,7 @@ function EditCollectionLoader({
 			}}
 			initialGeometry={
 				collection.trapId === null
-					? { type: 'Point', coordinates: [collection.lng, collection.lat] }
+					? { type: 'Point', coordinates: [collection.longitude, collection.latitude] }
 					: null
 			}
 			lockSourceMode
@@ -245,9 +183,19 @@ function EditCollectionLoader({
 	);
 }
 
-function defaultsFromCollection(
-	collection: AdultCollectionRow,
+/**
+ * The form's values as this collection already stands.
+ *
+ * Used twice: to seed the form, and as the `current` a save compares against.
+ * Going back through the form's own spelling rather than comparing columns
+ * directly is what makes the comparison honest — the typed days are re-stamped
+ * on the way out, so an untouched date has to be re-stamped the same way to
+ * compare equal, and only this round trip guarantees that.
+ */
+function formValuesFrom(
+	collection: CollectionRecord,
 	personnel: AdditionalPersonnelResult,
+	timeZone: string,
 ): CollectionFormValues {
 	return {
 		sourceMode: collection.trapId === null ? 'adhoc' : 'trap',
@@ -256,8 +204,8 @@ function defaultsFromCollection(
 		collectionMethodId: collection.collectionMethodId,
 		collectionLureId: collection.collectionLureId ?? noLureValue,
 		timingMode: collection.collectionTimingMode,
-		startedAt: toDateOnly(collection.startedAt),
-		collectedAt: toDateOnly(collection.collectedAt),
+		startedAt: operationalDay(collection.startedAt, timeZone),
+		collectedAt: operationalDay(collection.collectedAt, timeZone),
 		collectionDate: collection.collectionDate,
 		durationAmount: collection.durationAmount,
 		durationUnitId: collection.durationUnitId ?? noUnitValue,
@@ -269,9 +217,19 @@ function defaultsFromCollection(
 	};
 }
 
-/** Reduce an ISO timestamp (or bare date) to its `YYYY-MM-DD` calendar day. */
-function toDateOnly(value: string | null): string | null {
-	return value === null ? null : value.slice(0, 10);
+/**
+ * A stored instant back as the `YYYY-MM-DD` a date field holds, on the agency's
+ * clock.
+ *
+ * The zone is the point. `collectionEffectiveDate` reads these same columns in
+ * the agency's zone everywhere else, so taking the UTC prefix here — which is
+ * what the route this replaces did — showed a trap emptied at 10:30pm under the
+ * next day in its own edit form while its detail page showed the day the crew
+ * worked. Two halves of one record disagreeing, and a save then wrote the form's
+ * answer back.
+ */
+function operationalDay(value: Date | null, timeZone: string): string | null {
+	return value === null ? null : todayInTimeZone(timeZone, value);
 }
 
 function EditFormSkeleton() {

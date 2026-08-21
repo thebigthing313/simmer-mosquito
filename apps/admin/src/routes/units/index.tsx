@@ -1,5 +1,3 @@
-import type { UnitRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { ListEmpty } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -7,11 +5,9 @@ import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
-import type { UnitSystem, UnitType } from '../../api';
 import { AdminPage } from '../../components/admin-page';
 import {
 	CatalogBody,
@@ -24,7 +20,14 @@ import {
 	EditRecordButton,
 	useCatalogForm,
 } from '../../components/catalog';
-import { adminCollections } from '../../sync/adminCollections';
+import { type UnitListing, useUnitCatalog } from '../../hooks/queries/use-unit-catalog';
+import {
+	createUnit,
+	deleteUnit,
+	type UnitSystem,
+	type UnitType,
+	updateUnit,
+} from '../../lib/collections/writes';
 
 const UnitIcon = iconRegistry.entities.unit.icon;
 const AddIcon = iconRegistry.actions.add.icon;
@@ -67,7 +70,7 @@ const EMPTY_UNIT: UnitFormValues = {
 	unitSystem: 'si',
 };
 
-type UnitDialog = CatalogDialogState<UnitRow>;
+type UnitDialog = CatalogDialogState<UnitListing>;
 
 /**
  * The global unit list, grouped by what it measures.
@@ -82,12 +85,12 @@ type UnitDialog = CatalogDialogState<UnitRow>;
  * compare; they are one list with a sort order.
  */
 function UnitsRoute() {
-	const unitsResult = useLiveQuery((query) => query.from({ row: adminCollections.units }), []);
+	const { units: all, isReady } = useUnitCatalog();
 	const [search, setSearch] = useState('');
 	const [dialog, setDialog] = useState<UnitDialog>(null);
 
-	const all = (unitsResult.data ?? []) as readonly UnitRow[];
-
+	// The rows arrive sorted by name from the query, so grouping preserves that
+	// order and this only filters and buckets.
 	const grouped = useMemo(() => {
 		const query = search.trim().toLowerCase();
 		const rows = all.filter(
@@ -99,46 +102,37 @@ function UnitsRoute() {
 		);
 		return UNIT_TYPES.map((unitType) => ({
 			unitType,
-			units: rows
-				.filter((unit) => unit.unitType === unitType)
-				.sort((a, b) => a.unitName.localeCompare(b.unitName)),
+			units: rows.filter((unit) => unit.unitType === unitType),
 		})).filter((group) => group.units.length > 0);
 	}, [all, search]);
 
 	const shown = grouped.reduce((sum, group) => sum + group.units.length, 0);
 
-	async function createUnit(values: UnitFormValues) {
-		await settleWrite(
-			adminCollections.units.insert({
-				id: crypto.randomUUID(),
-				code: values.code.trim(),
-				unitName: values.unitName.trim(),
-				abbreviation: values.abbreviation.trim(),
-				unitType: values.unitType,
-				unitSystem: values.unitSystem,
-				createdAt: new Date().toISOString(),
-			} as UnitRow),
-		);
-		toast.success(`${values.unitName.trim()} added.`);
+	function trimmed(values: UnitFormValues) {
+		return {
+			code: values.code.trim(),
+			unitName: values.unitName.trim(),
+			abbreviation: values.abbreviation.trim(),
+			unitType: values.unitType,
+			unitSystem: values.unitSystem,
+		};
+	}
+
+	async function addUnit(values: UnitFormValues) {
+		const written = trimmed(values);
+		await createUnit(written);
+		toast.success(`${written.unitName} added.`);
 	}
 
 	async function saveUnit(unitId: string, values: UnitFormValues) {
-		await settleWrite(
-			adminCollections.units.update(unitId, (draft) => {
-				const writable = draft as { -readonly [K in keyof UnitRow]: UnitRow[K] };
-				writable.code = values.code.trim();
-				writable.unitName = values.unitName.trim();
-				writable.abbreviation = values.abbreviation.trim();
-				writable.unitType = values.unitType;
-				writable.unitSystem = values.unitSystem;
-			}),
-		);
-		toast.success(`${values.unitName.trim()} updated.`);
+		const written = trimmed(values);
+		await updateUnit(unitId, written);
+		toast.success(`${written.unitName} updated.`);
 	}
 
-	async function removeUnit(unit: UnitRow) {
+	async function removeUnit(unit: UnitListing) {
 		try {
-			await settleWrite(adminCollections.units.delete(unit.id));
+			await deleteUnit(unit.id);
 			toast.success(`${unit.unitName} deleted.`);
 		} catch (error) {
 			toast.error(error instanceof Error ? error.message : 'Unable to delete the unit.');
@@ -171,7 +165,7 @@ function UnitsRoute() {
 						title="No units yet"
 					/>
 				}
-				isReady={unitsResult.isReady}
+				isReady={isReady}
 				noun="units"
 				onSearchChange={setSearch}
 				search={search}
@@ -204,7 +198,7 @@ function UnitsRoute() {
 						key={row?.id ?? 'new'}
 						onCancel={() => setDialog(null)}
 						onSubmit={async (values) => {
-							await (row === null ? createUnit(values) : saveUnit(row.id, values));
+							await (row === null ? addUnit(values) : saveUnit(row.id, values));
 							setDialog(null);
 						}}
 						submitLabel={submitLabel}
@@ -215,8 +209,8 @@ function UnitsRoute() {
 										code: row.code,
 										unitName: row.unitName,
 										abbreviation: row.abbreviation,
-										unitType: row.unitType as UnitType,
-										unitSystem: row.unitSystem as UnitSystem,
+										unitType: row.unitType,
+										unitSystem: row.unitSystem,
 									}
 						}
 					/>
@@ -240,9 +234,9 @@ function UnitTypeSection({
 	onDelete,
 }: {
 	readonly unitType: UnitType;
-	readonly units: readonly UnitRow[];
-	readonly onEdit: (unit: UnitRow) => void;
-	readonly onDelete: (unit: UnitRow) => Promise<void>;
+	readonly units: readonly UnitListing[];
+	readonly onEdit: (unit: UnitListing) => void;
+	readonly onDelete: (unit: UnitListing) => Promise<void>;
 }) {
 	return (
 		<section className="grid gap-2">

@@ -1,6 +1,5 @@
 import { isBiocontrolUnitType, recordBiocontrolActionCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { ControlMethodRow, HabitatRow, ProfileRow, UnitRow } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -32,6 +31,10 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
+import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
+import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
+import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
@@ -86,9 +89,9 @@ export interface BiocontrolFormHeader {
 export interface BiocontrolFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly biocontrolMethods: readonly ControlMethodRow[];
-	readonly units: readonly UnitRow[];
-	readonly profiles: readonly ProfileRow[];
+	readonly biocontrolMethods: readonly SchemaCatalogListing[];
+	readonly units: readonly UnitLabel[];
+	readonly profiles: readonly ProfileListing[];
 	readonly defaultValues: BiocontrolFormValues;
 	/** The action's geometry to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
@@ -265,12 +268,15 @@ export function BiocontrolFormPage({
 	// Picking a habitat frames the map on the larval site the release targets, and
 	// seeds the geometry there when nothing has been drawn yet.
 	const handleHabitatSelected = useCallback(
-		(habitat: HabitatRow | null) => {
+		(habitat: HabitatMatch | null) => {
 			if (habitat === null) {
 				setReferenceGeometry(null);
 				return;
 			}
-			const point: DrawGeometry = { type: 'Point', coordinates: [habitat.lng, habitat.lat] };
+			const point: DrawGeometry = {
+				type: 'Point',
+				coordinates: [habitat.longitude, habitat.latitude],
+			};
 			if (geometry === null) {
 				// Seeded as the action's own geometry, so it needs no reference copy.
 				setGeometry(point);

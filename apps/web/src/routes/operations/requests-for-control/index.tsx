@@ -28,12 +28,22 @@ import {
 	MultiSelectFilter,
 	RESULT_SKELETON_KEYS,
 	SegmentedFilter,
+	useControlMethodNames,
 	usePersonnelOptions,
 } from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
+import {
+	CONTROL_TYPES,
+	controlTypeLabel,
+	formatRequestedAt,
+	type RequestListing,
+	requestDisplayName,
+	requestStatus,
+} from '../../../hooks/queries/operations-view';
+import { useRequestedControlActions } from '../../../hooks/queries/use-requested-control-actions';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { todayInTimeZone } from '../../../lib/local-date';
+import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
 import {
 	choiceParam,
 	dateParam,
@@ -42,16 +52,6 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import {
-	addDays,
-	CONTROL_TYPES,
-	controlTypeLabel,
-	formatRequestedAt,
-	type RequestView,
-	requestDisplayName,
-	useAllControlMethodNames,
-	useRequestedControlActions,
-} from '../-operations-data';
 import { RequestStatusBadge } from '../-operations-display';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
@@ -103,7 +103,7 @@ function RequestsForControlRoute() {
 	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const filterDefaults = useMemo<RequestFilters>(
 		() => ({
-			from: addDays(today, -(DEFAULT_WINDOW_DAYS - 1)),
+			from: addCalendarDays(today, -(DEFAULT_WINDOW_DAYS - 1)),
 			to: today,
 			status: 'open',
 			types: new Set(),
@@ -119,7 +119,7 @@ function RequestsForControlRoute() {
 
 	const { requests, isLoading } = useRequestedControlActions(filters.from, filters.to);
 	const { options: personnelOptions, nameById } = usePersonnelOptions();
-	const methodNameById = useAllControlMethodNames();
+	const methodNameById = useControlMethodNames();
 
 	const visible = useMemo(
 		() => requests.filter((request) => matchesFilters(request, filters)),
@@ -310,8 +310,8 @@ function RequestsForControlRoute() {
  * the shape per filter change would re-stream the whole window each time. An
  * empty set means the filter is off.
  */
-function matchesFilters(request: RequestView, filters: RequestFilters): boolean {
-	if (filters.status !== 'all' && request.status !== filters.status) {
+function matchesFilters(request: RequestListing, filters: RequestFilters): boolean {
+	if (filters.status !== 'all' && requestStatus(request) !== filters.status) {
 		return false;
 	}
 	if (filters.types.size > 0 && !filters.types.has(request.controlType)) {
@@ -334,7 +334,7 @@ function RequestResults({
 	personnelNameById,
 	onSelect,
 }: {
-	readonly requests: readonly RequestView[];
+	readonly requests: readonly RequestListing[];
 	readonly isLoading: boolean;
 	readonly selectedId: string | null;
 	readonly methodNameById: ReadonlyMap<string, string>;
@@ -400,7 +400,7 @@ function RequestRow({
 	isSelected,
 	onSelect,
 }: {
-	readonly request: RequestView;
+	readonly request: RequestListing;
 	readonly methodName: string | null;
 	readonly requesterName: string | null;
 	readonly isSelected: boolean;
@@ -427,7 +427,7 @@ function RequestRow({
 				<div className="min-w-0 flex-1">
 					<div className="flex flex-wrap items-center gap-2">
 						<span className="font-medium text-foreground text-sm">{subject}</span>
-						<RequestStatusBadge status={request.status} />
+						<RequestStatusBadge status={requestStatus(request)} />
 					</div>
 					<p className="m-0 mt-1 text-muted-foreground text-xs">
 						{controlTypeLabel(request.controlType)}

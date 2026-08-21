@@ -1,6 +1,9 @@
 import {
+	assertRecordDeletable,
+	assertWriteReferences,
 	type Kysely,
 	type MutationWriteResult,
+	type SelectedRow,
 	type SimmerDatabase,
 	sql,
 	type Transaction,
@@ -49,45 +52,22 @@ import { runCommands } from './command-write.js';
 
 type ControlProductDb = Kysely<SimmerDatabase>;
 type ControlProductTransaction = Transaction<SimmerDatabase>;
-type InsecticideCommand =
+export type InsecticideCommand =
 	| CreateInsecticideCommand
 	| UpdateInsecticideCommand
 	| DeactivateInsecticideCommand
 	| ReactivateInsecticideCommand
 	| DeleteInsecticideCommand;
-type InsecticideBatchCommand =
+export type InsecticideBatchCommand =
 	| CreateInsecticideBatchCommand
 	| UpdateInsecticideBatchCommand
 	| DeactivateInsecticideBatchCommand
 	| ReactivateInsecticideBatchCommand
 	| DeleteInsecticideBatchCommand;
 
-interface SafeInsecticide {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly tradeName: string;
-	readonly activeIngredient: string;
-	readonly type: InsecticideType;
-	readonly registrationNumber: string;
-	readonly defaultUnitId: string;
-	readonly labelUrl: string | null;
-	readonly msdsUrl: string | null;
-	readonly shorthand: string | null;
-	readonly metadata: unknown | null;
-	readonly isActive: boolean;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
+type InsecticideRow = SelectedRow<'insecticides', typeof insecticideReturnColumns>;
 
-interface SafeInsecticideBatch {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly insecticideId: string;
-	readonly batchName: string;
-	readonly isActive: boolean;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
+type InsecticideBatchRow = SelectedRow<'insecticide_batches', typeof insecticideBatchReturnColumns>;
 
 export function registerControlProductCommandRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -105,8 +85,7 @@ export function registerControlProductCommandRoutes(
 			context,
 			{
 				db: options.db,
-				write: async (trx, command) =>
-					toInsecticideResponse(await writeInsecticideCommand(trx, command)),
+				write: async (trx, command) => await writeInsecticideCommand(trx, command),
 				notFound: 'insecticide_not_found',
 				key: 'insecticide',
 			},
@@ -123,8 +102,7 @@ export function registerControlProductCommandRoutes(
 			context,
 			{
 				db: options.db,
-				write: async (trx, command) =>
-					toInsecticideBatchResponse(await writeInsecticideBatchCommand(trx, command)),
+				write: async (trx, command) => await writeInsecticideBatchCommand(trx, command),
 				notFound: 'insecticide_batch_not_found',
 				key: 'batch',
 			},
@@ -318,10 +296,10 @@ function buildInsecticideBatchUpdateCommands(
 	return commands.length === 0 ? invalidUpdate('insecticide batch') : { ok: true, commands };
 }
 
-async function writeInsecticideCommand(
+export async function writeInsecticideCommand(
 	db: ControlProductTransaction,
 	command: InsecticideCommand,
-): Promise<SafeInsecticide | null> {
+): Promise<InsecticideRow | null> {
 	switch (command.type) {
 		case 'controlOperations.createInsecticide':
 			return createInsecticide(db, {
@@ -365,10 +343,10 @@ async function writeInsecticideCommand(
 	}
 }
 
-async function writeInsecticideBatchCommand(
+export async function writeInsecticideBatchCommand(
 	db: ControlProductTransaction,
 	command: InsecticideBatchCommand,
-): Promise<SafeInsecticideBatch | null> {
+): Promise<InsecticideBatchRow | null> {
 	switch (command.type) {
 		case 'controlOperations.createInsecticideBatch':
 			return createInsecticideBatch(db, {
@@ -443,7 +421,7 @@ interface ProductLifecycleInput {
 async function createInsecticide(
 	db: ControlProductTransaction,
 	input: InsecticideWriteInput,
-): Promise<SafeInsecticide> {
+): Promise<InsecticideRow> {
 	const row = await db
 		.insertInto('insecticides')
 		.values({
@@ -465,14 +443,14 @@ async function createInsecticide(
 		.returning(insecticideReturnColumns)
 		.executeTakeFirstOrThrow();
 
-	return toSafeInsecticide(row);
+	return row;
 }
 
 async function updateInsecticide(
 	db: ControlProductTransaction,
 	insecticideId: string,
 	input: InsecticideUpdateInput,
-): Promise<SafeInsecticide | null> {
+): Promise<InsecticideRow | null> {
 	const row = await db
 		.updateTable('insecticides')
 		.set({
@@ -498,14 +476,14 @@ async function updateInsecticide(
 		.returning(insecticideReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeInsecticide(row);
+	return row ?? null;
 }
 
 async function setInsecticideActive(
 	db: ControlProductTransaction,
 	insecticideId: string,
 	input: ProductLifecycleInput & { readonly isActive: boolean },
-): Promise<SafeInsecticide | null> {
+): Promise<InsecticideRow | null> {
 	const row = await db
 		.updateTable('insecticides')
 		.set({
@@ -519,14 +497,20 @@ async function setInsecticideActive(
 		.returning(insecticideReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeInsecticide(row);
+	return row ?? null;
 }
 
 async function deleteInsecticide(
 	db: ControlProductTransaction,
 	insecticideId: string,
 	input: ProductLifecycleInput,
-): Promise<SafeInsecticide | null> {
+): Promise<InsecticideRow | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'insecticide',
+		recordId: insecticideId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('insecticides')
 		.set({
@@ -541,7 +525,7 @@ async function deleteInsecticide(
 		.returning(insecticideReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeInsecticide(row);
+	return row ?? null;
 }
 
 interface InsecticideBatchWriteInput {
@@ -560,8 +544,19 @@ interface InsecticideBatchUpdateInput extends ProductLifecycleInput {
 async function createInsecticideBatch(
 	db: ControlProductTransaction,
 	input: InsecticideBatchWriteInput,
-): Promise<SafeInsecticideBatch> {
-	await assertInsecticideBelongsToOrganization(db, input.insecticideId, input.organizationId);
+): Promise<InsecticideBatchRow> {
+	await assertWriteReferences(db, {
+		organizationId: input.organizationId,
+		write: { kind: 'create' },
+		references: [
+			{
+				column: 'insecticide_id',
+				catalog: 'insecticide',
+				id: input.insecticideId,
+				label: 'insecticide',
+			},
+		],
+	});
 
 	const row = await db
 		.insertInto('insecticide_batches')
@@ -577,14 +572,14 @@ async function createInsecticideBatch(
 		.returning(insecticideBatchReturnColumns)
 		.executeTakeFirstOrThrow();
 
-	return toSafeInsecticideBatch(row);
+	return row;
 }
 
 async function updateInsecticideBatch(
 	db: ControlProductTransaction,
 	batchId: string,
 	input: InsecticideBatchUpdateInput,
-): Promise<SafeInsecticideBatch | null> {
+): Promise<InsecticideBatchRow | null> {
 	const row = await db
 		.updateTable('insecticide_batches')
 		.set({
@@ -598,14 +593,14 @@ async function updateInsecticideBatch(
 		.returning(insecticideBatchReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeInsecticideBatch(row);
+	return row ?? null;
 }
 
 async function setInsecticideBatchActive(
 	db: ControlProductTransaction,
 	batchId: string,
 	input: ProductLifecycleInput & { readonly isActive: boolean },
-): Promise<SafeInsecticideBatch | null> {
+): Promise<InsecticideBatchRow | null> {
 	const row = await db
 		.updateTable('insecticide_batches')
 		.set({
@@ -619,14 +614,20 @@ async function setInsecticideBatchActive(
 		.returning(insecticideBatchReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeInsecticideBatch(row);
+	return row ?? null;
 }
 
 async function deleteInsecticideBatch(
 	db: ControlProductTransaction,
 	batchId: string,
 	input: ProductLifecycleInput,
-): Promise<SafeInsecticideBatch | null> {
+): Promise<InsecticideBatchRow | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'insecticideBatch',
+		recordId: batchId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('insecticide_batches')
 		.set({
@@ -641,33 +642,7 @@ async function deleteInsecticideBatch(
 		.returning(insecticideBatchReturnColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeInsecticideBatch(row);
-}
-
-async function assertInsecticideBelongsToOrganization(
-	db: ControlProductTransaction,
-	insecticideId: string,
-	organizationId: string,
-): Promise<void> {
-	const row = await db
-		.selectFrom('insecticides')
-		.select('insecticides.id')
-		.where('insecticides.id', '=', insecticideId)
-		.where('insecticides.organization_id', '=', organizationId)
-		.where('insecticides.deleted_at', 'is', null)
-		.executeTakeFirst();
-
-	if (row === undefined) {
-		// A `CommandError` rather than a bare `Error`: this is reached with an id
-		// that belongs to another agency, to a soft-deleted row, or to nothing at
-		// all, and all three are the caller's 404 rather than the server's 500.
-		// The three cases answer alike on purpose — a refusal that told them apart
-		// would let a caller probe for insecticide ids in other agencies.
-		throw new CommandError(404, {
-			error: 'insecticide_not_found',
-			reason: 'An insecticide batch must belong to an insecticide in this organization.',
-		});
-	}
+	return row ?? null;
 }
 
 interface InsecticidePayload {
@@ -798,65 +773,3 @@ const insecticideBatchReturnColumns = [
 	'created_at',
 	'updated_at',
 ] as const;
-
-function toSafeInsecticide(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly trade_name: string;
-	readonly active_ingredient: string;
-	readonly type: InsecticideType;
-	readonly registration_number: string;
-	readonly default_unit_id: string;
-	readonly label_url: string | null;
-	readonly msds_url: string | null;
-	readonly shorthand: string | null;
-	readonly metadata: unknown | null;
-	readonly is_active: boolean;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeInsecticide {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		tradeName: row.trade_name,
-		activeIngredient: row.active_ingredient,
-		type: row.type,
-		registrationNumber: row.registration_number,
-		defaultUnitId: row.default_unit_id,
-		labelUrl: row.label_url,
-		msdsUrl: row.msds_url,
-		shorthand: row.shorthand,
-		metadata: row.metadata,
-		isActive: row.is_active,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
-
-function toSafeInsecticideBatch(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly insecticide_id: string;
-	readonly batch_name: string;
-	readonly is_active: boolean;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeInsecticideBatch {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		insecticideId: row.insecticide_id,
-		batchName: row.batch_name,
-		isActive: row.is_active,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
-
-function toInsecticideResponse(row: SafeInsecticide | null) {
-	return row;
-}
-
-function toInsecticideBatchResponse(row: SafeInsecticideBatch | null) {
-	return row;
-}

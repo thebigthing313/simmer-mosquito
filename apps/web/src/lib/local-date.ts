@@ -73,6 +73,34 @@ function calendarDateParts(value: string | null | undefined): CalendarDateParts 
 	return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
 }
 
+/**
+ * A `YYYY-MM-DD` plus a whole number of days.
+ *
+ * Done in UTC, where every day is 24 hours: adding a day in a zone that springs
+ * forward that night lands on the same date it started from. The value is a
+ * calendar date and the answer is a calendar date, so no zone is involved.
+ *
+ * An unreadable date comes back untouched rather than as `NaN-NaN-NaN`, so a
+ * caller building a bound from one gets a value the reader below still refuses
+ * rather than one it silently accepts.
+ */
+export function addCalendarDays(date: string, days: number): string {
+	const parts = calendarDateParts(date);
+	if (parts === undefined) {
+		return date;
+	}
+	const shifted = new Date(Date.UTC(parts.year, parts.month - 1, parts.day + days));
+	return Number.isNaN(shifted.getTime()) ? date : formatUtcDate(shifted);
+}
+
+/** A UTC Date back to `YYYY-MM-DD`, reading the UTC parts. See {@link formatLocalDate}. */
+function formatUtcDate(date: Date): string {
+	const year = `${date.getUTCFullYear()}`.padStart(4, '0');
+	const month = `${date.getUTCMonth() + 1}`.padStart(2, '0');
+	const day = `${date.getUTCDate()}`.padStart(2, '0');
+	return `${year}-${month}-${day}`;
+}
+
 /** A local Date back to `YYYY-MM-DD`, reading the local parts rather than the UTC ones. */
 export function formatLocalDate(date: Date): string {
 	const year = date.getFullYear();
@@ -108,9 +136,49 @@ export function localDayStartAsTimestamp(
 	date: string | null | undefined,
 	timeZone: string | undefined,
 ): string {
-	const start = zonedDayStart(date, timeZone) ?? new Date(0);
-	const iso = start.toISOString();
+	const iso = localDayStartAsInstant(date, timeZone).toISOString();
 	return `${iso.slice(0, 10)} ${iso.slice(11, 19)}+00`;
+}
+
+/**
+ * The same bound, as the instant it is.
+ *
+ * What {@link localDayStartAsTimestamp} exists to work around is gone on a
+ * collection whose row schema parses `timestamptz`: the column holds a `Date`, the
+ * browser re-runs the predicate as `Date >= Date`, and the subset compiler emits
+ * `toISOString()` on the way out to Electric. Nothing has to match a wire format
+ * character for character, because nothing is comparing text.
+ *
+ * So the string form is for the surfaces still reading raw Electric strings, and
+ * this is for the ones reading through `lib/collections`. Handing a string bound
+ * to a parsed column compares a `Date` against text, which orders by neither.
+ *
+ * Same epoch fallback, for the same reason: an unreadable date shows too much
+ * rather than silently showing nothing.
+ */
+export function localDayStartAsInstant(
+	date: string | null | undefined,
+	timeZone: string | undefined,
+): Date {
+	return zonedDayStart(date, timeZone) ?? new Date(0);
+}
+
+/**
+ * The same operational stamp as a `Date`.
+ *
+ * {@link operationalDayAsInstant} hands back an ISO string because most callers
+ * are building a request body. A row does not want one: a `timestamptz` column
+ * arrives from the shape as a `Date`, so a write seam that put a string in one
+ * would hold two spellings of the same instant, and something would eventually
+ * compare them to each other.
+ */
+export function operationalDayAsTimestamp(
+	date: string | null | undefined,
+	timeZone: string,
+	now?: Date,
+): Date | null {
+	const instant = operationalDayAsInstant(date, timeZone, now);
+	return instant === null ? null : new Date(instant);
 }
 
 /** A `HH:MM` time-of-day, the shape a `<input type="time">` and a picker both hold. */
@@ -192,7 +260,12 @@ const MIDDAY = '12:00';
  * Empty rather than a placeholder for an absent or unreadable instant, because
  * that is what an unset time field holds and what the callers already spell.
  */
-export function localTimeOfDay(instant: string | null | undefined, timeZone: string): string {
+export function localTimeOfDay(
+	// A `Date` as well as an ISO string: a `timestamptz` read through the query
+	// seam arrives parsed, and one read off a raw Electric row does not.
+	instant: Date | string | null | undefined,
+	timeZone: string,
+): string {
 	if (instant === null || instant === undefined) {
 		return '';
 	}

@@ -1,6 +1,6 @@
 import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
-import type { WeatherSourceRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
 	EmptyDescription,
@@ -16,7 +16,9 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { WriteOnly } from '../../../components/write-only';
+import type { WeatherStation } from '../../../hooks/queries/use-weather-station';
+import { useWeatherStations } from '../../../hooks/queries/use-weather-stations';
 import {
 	type FilterCodecs,
 	searchValidator,
@@ -24,7 +26,6 @@ import {
 	useDebouncedTextFilter,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import { weatherSourceTypeLabel } from './-weather-display';
 import { WeatherStationMapCard } from './-weather-station-map-card';
 import { StationStatusBadge } from './-weather-ui';
@@ -42,6 +43,7 @@ export const Route = createFileRoute('/gis/weather/')({
 });
 
 const WeatherIcon = iconRegistry.domains.weather.icon;
+const AddIcon = iconRegistry.actions.add.icon;
 
 /** A station whose synced centroid is usable as a map coordinate. */
 interface PlottedStation {
@@ -54,7 +56,7 @@ function WeatherStationsRoute() {
 	// weatherSources is eager, so the list resolves without a fetch and the points
 	// come off the same rows — there are tens of stations, not thousands, which is
 	// why this draws GeoJSON rather than standing up a tile route.
-	const { rows } = useCollectionRows<WeatherSourceRow>(webCollections.weatherSources);
+	const { stations: rows } = useWeatherStations();
 
 	const { filters: query, setFilters } = useSearchFilters(
 		STATION_FILTER_DEFAULTS,
@@ -69,23 +71,20 @@ function WeatherStationsRoute() {
 
 	const stations = useMemo(() => {
 		const term = search.trim().toLowerCase();
-		return [...rows]
-			.filter((station) =>
-				term.length === 0
-					? true
-					: [
-							station.sourceName,
-							station.sourceCode,
-							weatherSourceTypeLabel(station.sourceType),
-						].some((part) => (part ?? '').toLowerCase().includes(term)),
-			)
-			.sort((a, b) => a.sourceName.localeCompare(b.sourceName));
+		// Already alphabetical off the query; only the search narrows it here.
+		return rows.filter((station) =>
+			term.length === 0
+				? true
+				: [station.name, station.sourceCode, weatherSourceTypeLabel(station.sourceType)].some(
+						(part) => (part ?? '').toLowerCase().includes(term),
+					),
+		);
 	}, [rows, search]);
 
 	const plotted = useMemo(
 		() =>
 			stations.flatMap((station): PlottedStation[] => {
-				const { id, lat, lng } = station;
+				const { id, latitude: lat, longitude: lng } = station;
 				return typeof lat === 'number' && typeof lng === 'number' ? [{ id, lat, lng }] : [];
 			}),
 		[stations],
@@ -145,13 +144,23 @@ function WeatherStationsRoute() {
 		>
 			<div className="flex h-full min-h-0 flex-col">
 				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-					<div className="grid gap-1">
-						<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
-							Weather Stations
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm">
-							Stations feeding the agency's surveillance and control records.
-						</p>
+					<div className="flex flex-wrap items-start justify-between gap-2">
+						<div className="grid gap-1">
+							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
+								Weather Stations
+							</h1>
+							<p className="m-0 text-muted-foreground text-sm">
+								Stations feeding the agency's surveillance and control records.
+							</p>
+						</div>
+						<WriteOnly minimum="manager">
+							<Button asChild size="sm">
+								<Link to="/gis/weather/create">
+									<AddIcon aria-hidden="true" />
+									Add Station
+								</Link>
+							</Button>
+						</WriteOnly>
 					</div>
 					<div className="relative">
 						<SearchIcon
@@ -193,11 +202,11 @@ function StationRowItem({
 	isFocused,
 	onFocus,
 }: {
-	readonly station: WeatherSourceRow;
+	readonly station: WeatherStation;
 	readonly isFocused: boolean;
 	readonly onFocus: () => void;
 }) {
-	const hasPoint = typeof station.lat === 'number' && typeof station.lng === 'number';
+	const hasPoint = typeof station.latitude === 'number' && typeof station.longitude === 'number';
 	const detail = [weatherSourceTypeLabel(station.sourceType), station.sourceCode]
 		.filter((part): part is string => (part ?? '').length > 0)
 		.join(' · ');
@@ -217,13 +226,13 @@ function StationRowItem({
 				type="button"
 			>
 				<span className="block truncate font-medium text-foreground text-sm hover:text-primary">
-					{station.sourceName}
+					{station.name}
 				</span>
 				<span className="block text-muted-foreground text-xs leading-snug">{detail}</span>
 			</button>
 			<StationStatusBadge isActive={station.isActive} />
 			<Link
-				aria-label={`View details for ${station.sourceName}`}
+				aria-label={`View details for ${station.name}`}
 				className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 				params={{ id: station.id }}
 				title="View Station Details"
@@ -247,7 +256,7 @@ function StationsEmpty({ hasFilter }: { readonly hasFilter: boolean }) {
 					<EmptyDescription>
 						{hasFilter
 							? 'Try a different name or code.'
-							: "Stations appear here once they're connected for your agency."}
+							: 'Add a station to start recording readings against it.'}
 					</EmptyDescription>
 				</EmptyHeader>
 			</Empty>

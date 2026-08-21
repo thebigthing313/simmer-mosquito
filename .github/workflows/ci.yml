@@ -34,6 +34,28 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
+      # The cheapest gate in the file, and the only one that can see a build-order
+      # drift. `typecheck` and `build` both go through Nx, so they order from the
+      # package.json dependency graph and can never disagree with themselves.
+      # Every deploy orders from tsconfig `references` instead. This asserts the
+      # two name the same edges; the `shipped-build` job below proves it by
+      # running the deploy's own command.
+      - name: Build graph
+        run: pnpm check:build-graph
+
+      # The other half of a command write is hand-typed. A body's `snake_case`
+      # key names a column, and `payload` is a loose record, so a misspelled one
+      # reads `undefined` and the caller still gets a 200. The reads have a
+      # drift test against the database; this is the writes' equivalent.
+      - name: Command columns
+        run: pnpm check:command-columns
+
+      # A write's own agency comes from the session; the ids it references come
+      # from the payload, and a foreign key cannot see whose they are. This
+      # asserts every write that names one goes through the reference gate.
+      - name: Write references
+        run: pnpm check:write-references
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -71,6 +93,67 @@ jobs:
       - name: Build
         run: pnpm build
 
+  # Builds each deployable app the way its Dockerfile does, and nothing else.
+  #
+  # `pnpm build` in `verify` is `nx run-many`, which is not the command that
+  # ships: every Dockerfile and the server's Railpack build run
+  # `pnpm --filter <app> build`, which is `tsc -b` and orders projects from
+  # tsconfig `references` alone. When the two graphs disagree the filtered build
+  # is the only one that fails, and it fails on the deploy — #175 broke all three
+  # services on a merge whose CI was green.
+  #
+  # One runner per app on purpose, rather than three commands in a row. A
+  # filtered build leaves the packages it built on disk, and a `dist` that is
+  # already there satisfies an import whose build order was never declared — so
+  # the second and third builds in a shared workspace would pass for the wrong
+  # reason. That is the same staleness that made #175 read as a local
+  # environment fault. Each app needs a tree nothing has built yet.
+  #
+  # For the same reason, never add a step that builds the workspace above this
+  # one.
+  #
+  # The `VITE_*` values the two SPAs inline are absent here. Nothing ships out of
+  # this job; it proves the compile resolves, and nothing more.
+  shipped-build:
+    name: Shipped build (${{ matrix.app }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        app: [server, web, admin]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.16.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # A fresh checkout has no build output, so this removes nothing here. It is
+      # the same line the local reproduction needs — where a `dist` from any
+      # earlier full build would hide the fault — and it is what keeps this job
+      # honest if a build ever appears above it.
+      - name: Clean build output
+        run: |
+          find apps packages -name '*.tsbuildinfo' -not -path '*/node_modules/.pnpm/*' -delete
+          rm -rf apps/*/dist packages/*/dist
+
+      - name: Build as the deploy does
+        run: pnpm --filter @simmer-mosquito/${{ matrix.app }} build
+
   # A branch that changes what a user can do carries a changeset (docs/releases.md).
   # "If needed" is a judgement call no path heuristic can make — a refactor and a
   # feature touch the same directories — so this is deliberately a *prompt with an
@@ -78,6 +161,11 @@ jobs:
   # changeset, and the `no changeset` label says "I considered it, the answer is
   # no". A gate with no override would be answered by filing empty changesets,
   # which is worse than not gating at all.
+  #
+  # Declining one costs nothing that matters: the version still bumps at
+  # promotion, because `pnpm release:version` floors every app the pending
+  # changesets did not name. This gate is only ever asking whether the change
+  # belongs on the changelog page.
   changeset:
     name: Changeset filed (or declined)
     if: github.event_name == 'pull_request'

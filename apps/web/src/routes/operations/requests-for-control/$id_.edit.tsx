@@ -3,17 +3,17 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { RecordUnavailable } from '../../../components/record';
+import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
+import {
+	type RequestRecord,
+	useRequestedControlAction,
+} from '../../../hooks/queries/use-requested-control-action';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
 import { isWriteBlocked } from '../../../lib/write-access';
-import {
-	type RequestView,
-	updateRequestedControlAction,
-	useRequestedControlAction,
-} from '../-operations-data';
 import {
 	NO_METHOD,
 	RequestFormPage,
@@ -42,7 +42,7 @@ function EditRequestRoute() {
 	const { id } = Route.useParams();
 	const { request, isReady } = useRequestedControlAction(id);
 
-	if (request === null) {
+	if (request === undefined) {
 		return isReady ? (
 			<RecordUnavailable layout="centered" noun="request" reason="not-found" />
 		) : (
@@ -60,35 +60,46 @@ function EditRequestRoute() {
  * silently flattening it. The full shape is read first and the form does not
  * mount until it is in hand.
  */
-function EditRequestLoader({ request }: { readonly request: RequestView }) {
+function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 	const navigate = useNavigate();
 	const auth = useAuthSnapshot();
 	const actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
+	const requestWrites = useRequestedControlActionMutations();
 
 	const geometryQuery = useOwnedGeometry(
 		REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 		request.id,
-		request.updatedAt,
+		request.updatedAt.toISOString(),
 	);
 
 	const onSave = useCallback(
 		async ({ values, geometry, geometryChanged }: RequestSaveInput) => {
-			await updateRequestedControlAction({
-				requestId: request.id,
-				actorProfileId,
-				controlType: values.controlType,
-				...readRequestFields(values),
-				addressId: values.addressId,
-				habitatId: values.habitatId,
+			// The request as it stands goes with the edit: the details and the
+			// location-and-context are separate commands with separate guards, and
+			// which of them this save means is decided by what actually moved.
+			await requestWrites.update(
+				request.id,
+				{
+					controlType: values.controlType,
+					...readRequestFields(values),
+					addressId: values.addressId,
+					habitatId: values.habitatId,
+				},
+				{
+					controlType: request.controlType,
+					summary: request.summary,
+					recommendedMethodId: request.recommendedMethodId,
+					addressId: request.addressId,
+					habitatId: request.habitatId,
+				},
 				// Only a redrawn shape travels: the server re-resolves `geom` from
 				// whatever source it is handed, so re-sending the stored one would be a
 				// write with no edit behind it.
-				geometry:
-					geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null,
-			});
+				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null,
+			);
 			await navigate({ to: '/operations/requests-for-control/$id', params: { id: request.id } });
 		},
-		[request.id, actorProfileId, navigate],
+		[request, requestWrites, navigate],
 	);
 
 	if (geometryQuery.isError) {
@@ -125,7 +136,7 @@ function EditRequestLoader({ request }: { readonly request: RequestView }) {
 	);
 }
 
-function defaultsFromRequest(request: RequestView): RequestFormValues {
+function defaultsFromRequest(request: RequestRecord): RequestFormValues {
 	return {
 		controlType: request.controlType,
 		recommendedMethodId: request.recommendedMethodId ?? NO_METHOD,

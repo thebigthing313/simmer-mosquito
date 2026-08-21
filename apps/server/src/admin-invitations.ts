@@ -5,6 +5,7 @@ import {
 	type SimmerRole,
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
+	stampOrganizationInvitation,
 } from '@simmer-mosquito/db';
 import type { Hono } from 'hono';
 import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-middleware.js';
@@ -67,12 +68,25 @@ export function registerAdminInvitationRoutes(
 				return context.json({ error: target.code }, target.status);
 			}
 
+			// Postgres first, then WorkOS, under the ordering rule in
+			// `docs/domain-command-contract.md`. Staging still refuses an address
+			// already spoken for, and sending before it meant the operator read that
+			// refusal while the invitee held a working link to an agency with no row
+			// for them.
+			const staged = await stageMembership(options.db, organizationId, payloadResult.payload);
+			if (!staged.ok) {
+				return context.json({ error: staged.code }, staged.status);
+			}
+
 			const invitationResult = await inviteUnlessAlreadyReached(options.auth, {
 				email: payloadResult.payload.email,
 				workosOrganizationId: target.workosOrganizationId,
 				inviterWorkosUserId: operatorContext.workosUser.workosUserId,
 			});
 			if (!invitationResult.ok) {
+				// The Membership stays, with no invitation id on it. The role is still
+				// staged and still claimed the next time they enter the agency, and an
+				// operator who needs the mail can invite again.
 				return context.json(
 					{ error: 'invitation_send_failed', reason: invitationResult.reason },
 					502,
@@ -80,21 +94,19 @@ export function registerAdminInvitationRoutes(
 			}
 
 			const invitation = invitationResult.invitation;
-
-			const staged = await stageMembership(
-				options.db,
-				organizationId,
-				payloadResult.payload,
-				invitation,
-			);
-			if (!staged.ok) {
-				return context.json({ error: staged.code }, staged.status);
-			}
+			const membership =
+				invitation === null
+					? staged.membership
+					: await stampOrganizationInvitation(options.db, {
+							id: staged.membership.id,
+							organizationId,
+							workosInvitationId: invitation.id,
+						});
 
 			return context.json(
 				{
 					invitation: toInvitationResponse(invitation),
-					membership: toAdminMembershipResponse(staged.membership),
+					membership: toAdminMembershipResponse(membership),
 				},
 				201,
 			);
@@ -112,7 +124,6 @@ async function stageMembership(
 	db: AdminInvitationDb,
 	organizationId: string,
 	payload: InvitePayload,
-	invitation: SentInvitation | null,
 ): Promise<
 	| { readonly ok: true; readonly membership: SafeOrganizationMembership }
 	| { readonly ok: false; readonly code: string; readonly status: 404 | 409 }
@@ -120,12 +131,12 @@ async function stageMembership(
 	const input = {
 		organizationId,
 		...(payload.profileId === null ? {} : { profileId: payload.profileId }),
-		// WorkOS normalizes the address it accepted, so prefer its copy when there
-		// is one; with no invitation there is only what the operator typed.
-		email: invitation?.email ?? payload.email,
+		// What the operator typed, normalized by staging. WorkOS has not answered
+		// yet, so its copy of the address is not available to prefer.
+		email: payload.email,
 		displayName: payload.displayName,
 		role: payload.role,
-		workosInvitationId: invitation?.id ?? null,
+		workosInvitationId: null,
 	};
 
 	try {

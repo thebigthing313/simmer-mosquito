@@ -25,14 +25,11 @@ import {
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import type React from 'react';
 import { useState } from 'react';
+import { formatMode } from '../../../../lib/record-display';
+import { errorMessageForSave } from '../../../../lib/save-error';
 import { EditIcon } from '../constants';
-import {
-	collectionTimingModeFromFields,
-	displayFieldValue,
-	errorMessageForSave,
-	formatMode,
-} from '../helpers';
-import type { OrgRole, SettingField, SetupCatalog, SwitchSettingField } from '../types';
+import { collectionTimingModeFromFields, displayFieldValue } from '../helpers';
+import type { SettingField, SetupCatalog, SimmerRole, SwitchSettingField } from '../types';
 import { OrgSection } from './org-section';
 import { SectionHeader } from './section-header';
 
@@ -421,7 +418,7 @@ export function PermissionPill({
 	role,
 }: {
 	readonly canManage: boolean;
-	readonly role: OrgRole;
+	readonly role: SimmerRole;
 }) {
 	return (
 		<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">

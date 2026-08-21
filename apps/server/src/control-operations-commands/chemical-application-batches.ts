@@ -7,6 +7,7 @@ import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
+	type ApplicationBatchRow,
 	applicationBatchReturnColumns,
 	type CommandContext,
 	type ControlOperationsDb,
@@ -15,9 +16,7 @@ import {
 	insertApplicationBatch,
 	type RouteOptions,
 	runCommands,
-	type SafeApplicationBatch,
 	softDelete,
-	toSafeApplicationBatch,
 } from './shared.js';
 
 // ===========================================================================
@@ -77,10 +76,10 @@ async function runApplicationBatchCommands(
 	);
 }
 
-async function writeApplicationBatchCommand(
+export async function writeApplicationBatchCommand(
 	trx: ControlOperationsTransaction,
 	command: ControlOperationsCommand,
-): Promise<SafeApplicationBatch | null> {
+): Promise<ApplicationBatchRow | null> {
 	if (command.type === 'controlOperations.addChemicalApplicationBatch') {
 		return insertApplicationBatch(trx, {
 			id: command.payload.applicationBatchId,
@@ -98,7 +97,6 @@ async function writeApplicationBatchCommand(
 			command.payload.organizationId,
 			command.payload.actorProfileId,
 			applicationBatchReturnColumns,
-			toSafeApplicationBatch,
 		);
 	}
 	throw new Error(`Unsupported application batch command: ${command.type}`);

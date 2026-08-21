@@ -45,7 +45,7 @@ export const FORM_VALIDATION_CONTEXT = {
  * the real absence is caught by the form's own guard and reported against the
  * map.
  */
-const FORM_VALIDATION_GEOMETRY = {
+export const FORM_VALIDATION_GEOMETRY = {
 	type: 'Point',
 	coordinates: [0, 0],
 } as const;

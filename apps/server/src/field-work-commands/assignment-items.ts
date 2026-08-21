@@ -1,4 +1,4 @@
-import { sql } from '@simmer-mosquito/db';
+import { checkedValues, sql } from '@simmer-mosquito/db';
 import {
 	type AssignmentItemPlacement,
 	type AssignmentItemTarget,
@@ -16,10 +16,11 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
+import { nextItemPosition } from '../ordered-items.js';
 import { assertItemProgress } from './assignment-lifecycle.js';
 import {
+	type AssignmentItemRow,
 	agencyCommandContext,
-	applyPlacement,
 	assignmentItemReturnColumns,
 	assignmentPlacementRef,
 	type CommandContext,
@@ -33,11 +34,8 @@ import {
 	readDate,
 	readItemLifecycleTransition,
 	readTarget,
-	reindexItems,
 	runCommands,
-	type SafeAssignmentItem,
 	softDelete,
-	toSafeAssignmentItem,
 	updateRow,
 } from './shared.js';
 
@@ -170,41 +168,42 @@ async function runAssignmentItemCommands(
 	);
 }
 
-async function writeAssignmentItemCommand(
+export async function writeAssignmentItemCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeAssignmentItem | null> {
+): Promise<AssignmentItemRow | null> {
 	switch (command.type) {
 		case 'fieldWork.addAssignmentItem': {
+			const position = await nextItemPosition(
+				trx,
+				{
+					table: 'assignment_items',
+					parentColumn: 'assignment_id',
+					parentId: command.payload.assignmentId,
+					organizationId: command.payload.organizationId,
+				},
+				command.payload.assignmentItemId,
+				{
+					kind: command.payload.placement.kind,
+					refId: assignmentPlacementRef(command.payload.placement),
+				},
+			);
 			await trx
 				.insertInto('assignment_items')
-				.values({
-					id: command.payload.assignmentItemId,
-					organization_id: command.payload.organizationId,
-					assignment_id: command.payload.assignmentId,
-					entity_type: toDbEntityType(command.payload.target.type),
-					entity_id: command.payload.target.id,
-					position: 0,
-					directions_to_next_item: command.payload.directionsToNextItem,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.assignmentItemId,
+						organization_id: command.payload.organizationId,
+						assignment_id: command.payload.assignmentId,
+						entity_type: toDbEntityType(command.payload.target.type),
+						entity_id: command.payload.target.id,
+						position,
+						directions_to_next_item: command.payload.directionsToNextItem,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.execute();
-			await reindexItems(
-				trx,
-				'assignment_items',
-				'assignment_id',
-				command.payload.assignmentId,
-				command.payload.organizationId,
-				command.payload.actorProfileId,
-				(ids) =>
-					applyPlacement(
-						ids,
-						[command.payload.assignmentItemId],
-						command.payload.placement.kind,
-						assignmentPlacementRef(command.payload.placement),
-					),
-			);
 			return loadAssignmentItem(
 				trx,
 				command.payload.assignmentItemId,
@@ -224,7 +223,6 @@ async function writeAssignmentItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentItemReturnColumns,
-				toSafeAssignmentItem,
 			);
 		case 'fieldWork.completeAssignmentItem':
 			await assertItemProgress(
@@ -249,7 +247,6 @@ async function writeAssignmentItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentItemReturnColumns,
-				toSafeAssignmentItem,
 			);
 		case 'fieldWork.reopenAssignmentItem':
 			await assertItemProgress(
@@ -272,7 +269,6 @@ async function writeAssignmentItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentItemReturnColumns,
-				toSafeAssignmentItem,
 			);
 		case 'fieldWork.skipAssignmentItem':
 			await assertItemProgress(
@@ -296,7 +292,6 @@ async function writeAssignmentItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentItemReturnColumns,
-				toSafeAssignmentItem,
 			);
 		case 'fieldWork.unskipAssignmentItem':
 			await assertItemProgress(
@@ -318,7 +313,6 @@ async function writeAssignmentItemCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				assignmentItemReturnColumns,
-				toSafeAssignmentItem,
 			);
 		case 'fieldWork.removeAssignmentItem':
 			return softDelete(
@@ -328,7 +322,6 @@ async function writeAssignmentItemCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				assignmentItemReturnColumns,
-				toSafeAssignmentItem,
 			);
 		default:
 			throw new Error(`Unsupported assignment item command: ${command.type}`);
@@ -339,7 +332,7 @@ async function loadAssignmentItem(
 	trx: FieldWorkTransaction,
 	assignmentItemId: string,
 	organizationId: string,
-): Promise<SafeAssignmentItem | null> {
+): Promise<AssignmentItemRow | null> {
 	const row = await trx
 		.selectFrom('assignment_items')
 		.select(assignmentItemReturnColumns)
@@ -347,5 +340,5 @@ async function loadAssignmentItem(
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeAssignmentItem(row);
+	return row ?? null;
 }

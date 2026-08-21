@@ -1,6 +1,5 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import { createRegionCommand } from '@simmer-mosquito/domain';
-import type { RegionFolderRow } from '@simmer-mosquito/sync';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -16,6 +15,8 @@ import {
 } from '../../../components/map/geometry-control';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { RegionFields } from '../../../hooks/mutations/use-region-mutations';
+import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
 
 /**
  * Domain issue path → the form field holding it. Geometry is drawn on the map,
@@ -49,7 +50,7 @@ export interface RegionFormHeader {
 export interface RegionFormPageProps {
 	readonly mode: 'create' | 'edit';
 	readonly canSubmit: boolean;
-	readonly regionFolders: readonly RegionFolderRow[];
+	readonly regionFolders: readonly RegionFolderListing[];
 	readonly defaultValues: RegionFormValues;
 	/** The region's boundary to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
@@ -62,6 +63,23 @@ export interface RegionFormPageProps {
 		/** True when the user drew or redrew the boundary this session. */
 		readonly geometryChanged: boolean;
 	}) => Promise<void>;
+}
+
+/**
+ * The form's values, as the write seam takes them.
+ *
+ * Where the select's non-empty sentinel stops being a thing the routes have to
+ * remember: `'none'` exists because Radix forbids an empty item value, and the
+ * column it becomes is `null`.
+ */
+export function regionFieldsFrom(values: RegionFormValues): RegionFields {
+	const description = values.description.trim();
+	return {
+		name: values.name.trim(),
+		description: description.length === 0 ? null : description,
+		folderId: values.regionFolderId === noRegionFolderValue ? null : values.regionFolderId,
+		metadata: values.metadata ?? null,
+	};
 }
 
 export function defaultRegionFormValues(): RegionFormValues {
@@ -284,7 +302,7 @@ function MapLegend({ mode }: { readonly mode: 'create' | 'edit' }) {
 
 // --- helpers ----------------------------------------------------------------
 
-function folderOptions(folders: readonly RegionFolderRow[]) {
+function folderOptions(folders: readonly RegionFolderListing[]) {
 	return [
 		{ label: 'Unfiled', value: noRegionFolderValue },
 		...folders.map((folder) => ({ label: folder.name, value: folder.id })),

@@ -1,4 +1,4 @@
-# ADR 0008: Tenant Scope Columns on Org-Owned Rows
+# ADR 0008: Tenant scope columns on org-owned rows
 
 Status: Accepted
 

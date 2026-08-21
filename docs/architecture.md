@@ -1,4 +1,4 @@
-# SIMMER Architecture
+# SIMMER architecture
 
 SIMMER is the Strategic Integrated Mosquito Management Enterprise Resources
 platform. The product serves mosquito control agencies with a web management
@@ -9,7 +9,7 @@ the primary operational home for deployed services. WorkOS owns authentication
 identity. SIMMER owns agency data, authorization decisions, domain workflows,
 and historical attribution.
 
-## Product Shape
+## Product shape
 
 The MVP covers the full agency operating surface from the previous SIMMER work:
 
@@ -21,7 +21,7 @@ The MVP covers the full agency operating surface from the previous SIMMER work:
 The first implementation focus is auth and identity. Domain workflow depth will
 follow once the foundation is settled.
 
-## Deployment Shape
+## Deployment shape
 
 Production is one shared multi-tenant deployment serving many agencies.
 
@@ -72,17 +72,18 @@ It is built on the same platform as `apps/web` rather than beside it: the
 two-rail app shell, the TanStack Form field kit, the browser auth client, and
 the panel/search primitives are all shared packages, and each app supplies only
 its own navigation model, identity wiring, and routes. Reads follow the same
-split as the web app — `useLiveQuery` over Electric-backed collections for the
+split as the web app: `useLiveQuery` over Electric-backed collections for the
 global catalogs, `useQuery` for the operator-scoped `/admin/*` JSON endpoints,
 which are not tenant-scoped and so have no shape to authorize. The console
 deliberately carries no map: geometry for the foundation endpoints comes from
 KML/KMZ/GeoJSON files and typed coordinates, keeping `mapbox-gl` out of its
 bundle.
 
-Access is all-or-nothing, unlike the web app's role ladder: the server's
-`SIMMER_OPERATOR_EMAILS` allowlist admits an account to every `/admin/*`
-endpoint or to none, and the console renders that refusal as an explanation
-rather than an error.
+Access is all-or-nothing, unlike the web app's role ladder: a session in the one
+WorkOS organization that is SIMMER (`SIMMER_OPERATOR_ORG_ID`) reaches every
+`/admin/*` endpoint, and any other session reaches none, including the same
+person's while they are signed in to an agency they administer. The console
+renders that refusal as an explanation rather than an error.
 
 `apps/preview` is an internal Vite React/TanStack Router application for
 component preview, design-token inspection, visual-regression surfaces, and
@@ -118,16 +119,18 @@ Existing:
   surfaces, type, spacing, radius, motion, and CSS/TypeScript consumers.
 - `packages/domain`: framework-agnostic domain types, commands, validators, and
   aggregate helpers.
+- `packages/mapping`: provider-neutral geometry, GeoJSON, feature reference, and
+  viewport helpers.
+- `packages/sync`: framework-agnostic TanStack DB collection factories, per-table
+  row schemas generated from the database, and the optimistic command adapters.
 - `packages/ui-web`: shadcn-style web component source, shared styles, and the
   semantic web icon registry.
 
-`packages/domain/src` keeps stable public domain seams as top-level barrel
-modules such as `control-operations.ts`, `public-engagement.ts`, and
-`weather.ts`. Larger domains keep their implementation in matching folders
-behind those seams. For example, `control-operations/` is split by method
-catalogs, assets, products/formulations, performed actions, and requested
-actions, while `public-engagement/` is split by contacts, service requests,
-notification types, registrations, and mission notifications.
+Each domain under `packages/domain/src` is a folder with its own `index.ts`, and
+the package exports one public entry, `src/index.ts`. `control-operations/` is
+split by method catalogs, assets, products and formulations, performed actions,
+and requested actions, while `public-engagement/` is split by contacts, service
+requests, notification types, registrations, and mission notifications.
 
 Domain tests live under `packages/domain/src/tests/unit`, which is the layout
 every app and package follows: each one keeps its suites in `src/tests/`, split
@@ -138,17 +141,13 @@ implementation.
 
 Planned:
 
-- `packages/sync`: framework-agnostic TanStack DB collection factories, Electric
-  shape definitions, row schemas, and optimistic command adapters.
-- `packages/client`: framework-agnostic server command client.
-- `packages/mapping`: provider-neutral geometry, GeoJSON, feature reference, and
-  viewport helpers.
-- `packages/ui-mobile`: mobile platform component system.
+- `packages/ui-mobile`: mobile platform component system, for when `apps/mobile`
+  exists.
 
 Shared packages should avoid React and platform-specific storage unless their
 name explicitly says otherwise.
 
-## Design System
+## Design system
 
 SIMMER centralizes durable visual decisions in shared modules rather than
 letting colors, component variants, and interaction states sprawl through app
@@ -190,7 +189,7 @@ and template/accessibility stress tests.
 
 The fuller design-system architecture lives in `docs/design-system.md`.
 
-## Data Flow
+## Data flow
 
 Reads are sync-native:
 
@@ -248,7 +247,7 @@ geometry inside the authorized transaction. Geometry coordinates are preserved
 as submitted by apps or source imports. Read/sync rows expose each table's
 trigger-maintained centroid columns (`lat`, `lng`, `geom_type`) so pins and
 coordinate reads ride the synced row directly. Full geometry (`geom`, `geojson`)
-stays server-only — it is read through the `/map/*` endpoints, never streamed
+stays server-only. It is read through the `/map/*` endpoints, never streamed
 through an Electric shape, because Postgres logical replication does not publish
 `GENERATED` columns and the geojson payload is unbounded.
 
@@ -273,7 +272,7 @@ profile, membership, and role. It authorizes sync shapes and command endpoints.
 The database owns integrity: foreign keys, constraints, indexes, PostGIS types,
 and timestamps. It does not own the primary authorization model.
 
-## Identity Model
+## Identity model
 
 WorkOS identities are separate from SIMMER domain identities.
 
@@ -302,7 +301,12 @@ when query, sync, lifecycle, or indexing pressure proves it useful.
 This is an intentional departure from RLS-driven schemas that require
 `organization_id` everywhere.
 
-## Audit And Provenance
+Do not add a generic `sites` table. Location lives on the concrete domain
+entities that own it: traps, habitats, addresses, route items, service requests,
+requested control actions, mission items. A shared site model needs a workflow
+that proves it is worth the indirection.
+
+## Audit and provenance
 
 Keep three concepts separate:
 
@@ -323,32 +327,36 @@ Core operational records use soft delete fields:
 
 A separate deleted-data audit table is not part of the initial design.
 
-## Schema And Types
+## Schema and types
 
 SQL migrations are the source of truth. dbmate applies migrations. Kysely is the
 server query builder. `kysely-codegen` should generate database table types from
 the migrated database once the schema grows beyond the initial hand-written
 slice.
 
+These legacy tables from the old system are deliberately absent until a
+workflow needs them: `deleted_data`, `roles`, `tag_groups`, `species_groups`,
+`species_group_species`, and the contact-level notification preference join
+tables.
+
 Domain/app types may be richer than DB row types. Explicit mappers translate
 between DB/sync rows and domain aggregates or commands. Do this at workflow and
 aggregate boundaries, not as a giant generic translation framework.
 
-## Local Development
+## Local development
 
-Local infrastructure runs in Docker Compose:
-
-- Postgres with PostGIS.
-- ElectricSQL later.
+Postgres and Electric come from the Railway `staging` environment. There is no
+local Docker Postgres. `.env` and `apps/server/.env` point `DATABASE_URL`,
+`ELECTRIC_URL`, and `ELECTRIC_SECRET` at staging. See `docs/deployment.md` for
+the full setup.
 
 Apps run as local pnpm/Nx processes:
 
 - `pnpm dev:server`
 - `pnpm dev:admin`
 - `pnpm dev:web`
-- future mobile Expo commands
-
-Daily development should not require Railway local tooling.
+- `pnpm dev:preview`
+- `pnpm dev:caddy` for the local reverse proxy
 
 ## Testing
 

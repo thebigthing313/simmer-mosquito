@@ -1,22 +1,25 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { ControlMethodRow, OutreachActionRow, ProfileRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { RecordUnavailable } from '../../../components/record';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
+import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
+import type { OutreachAction } from '../../../hooks/queries/outreach-view';
 import {
 	type AdditionalPersonnelResult,
-	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
-import { RecordUnavailable } from '../../../components/record';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+} from '../../../hooks/queries/use-additional-personnel';
+import {
+	type SchemaCatalogListing,
+	useOutreachMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
+import { useOutreachAction } from '../../../hooks/queries/use-outreach-action';
+import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	type DrawGeometry,
 	noTechnicianValue,
@@ -43,28 +46,15 @@ function EditOutreachActionRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.outreachMethods);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const methods = useOutreachMethodRoster();
+	const profiles = useProfileRoster();
 
-	// outreachActions is on-demand; status-gated useLiveQuery (not suspense) avoids
-	// the post-unmount hang.
-	const result = useLiveQuery(
-		{
-			gcTime: outreachGcTimeMs,
-			query: (query) =>
-				query
-					.from({ action: webCollections.outreachActions })
-					.where(({ action }) => eq(action.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const action = result.data as OutreachActionRow | undefined;
+	const { action, isReady, isError } = useOutreachAction(id, { gcTime: outreachGcTimeMs });
 
-	if (result.isError) {
+	if (isError) {
 		return <RecordUnavailable layout="centered" noun="outreach action" reason="error" />;
 	}
-	if (!result.isReady) {
+	if (!isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (action === undefined) {
@@ -77,8 +67,8 @@ function EditOutreachActionRoute() {
 	return (
 		<EditOutreachActionLoader
 			action={action}
-			actorProfileId={actorProfileId}
 			canSubmit={organization !== null && actorProfileId !== null}
+			organizationId={organization?.id ?? ''}
 			outreachMethods={methods}
 			profiles={profiles}
 		/>
@@ -89,23 +79,29 @@ function EditOutreachActionLoader({
 	action,
 	outreachMethods,
 	profiles,
-	actorProfileId,
 	canSubmit,
+	organizationId,
 }: {
-	readonly action: OutreachActionRow;
-	readonly outreachMethods: readonly ControlMethodRow[];
-	readonly profiles: readonly ProfileRow[];
-	readonly actorProfileId: string | null;
+	readonly action: OutreachAction;
+	readonly outreachMethods: readonly SchemaCatalogListing[];
+	readonly profiles: readonly ProfileListing[];
 	readonly canSubmit: boolean;
+	readonly organizationId: string;
 }) {
 	const navigate = useNavigate();
+	const { update } = useOutreachActionMutations();
 
 	// The synced row carries only the centroid, so the full shape (which may be a
 	// line or polygon) is read from the display endpoint before the form opens.
-	const geometryQuery = useOwnedGeometry(OUTREACH_GEOMETRY_SOURCE, action.id, action.updatedAt);
+	const geometryQuery = useOwnedGeometry(
+		OUTREACH_GEOMETRY_SOURCE,
+		action.id,
+		action.updatedAt.toISOString(),
+	);
 	// The crew lives in its own table; the form edits it as a list and the save
 	// reconciles that against who is attached now.
 	const personnel = useAdditionalPersonnel({ type: 'outreachAction', id: action.id });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 
 	const onSave = useCallback(
 		async ({
@@ -120,65 +116,48 @@ function EditOutreachActionLoader({
 			if (values.reach === null) {
 				throw new Error('Enter how many people were reached.');
 			}
-			const nextReach = values.reach;
 			const trimmedDescription = values.reachDescription.trim();
-			const nextTechnicianId =
-				values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId;
 
-			// The geometry and the address are independent: only send a location source
-			// (and reseed the optimistic centroid) when the user actually redrew the
-			// shape; the address is a plain field change.
-			const refinedGeometry = geometryChanged && geometry !== null;
-			const locationSource = refinedGeometry
-				? ({ kind: 'geometry', geometry: geometry as unknown as GeoJsonGeometry } as const)
-				: undefined;
-			const nextCentroid = refinedGeometry
-				? ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry)
-				: null;
+			// The shape and the address are independent: only state a location when the
+			// user actually redrew it. Absent means "leave it", which is not the same
+			// request as re-sending the shape it already has.
+			const redrawn =
+				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null;
+			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
 
-			const now = new Date().toISOString();
-			// Inlined so TanStack DB infers the mutable draft type.
-			const applyEdits = (draft: OutreachActionRow) => {
-				const writable = draft as {
-					-readonly [K in keyof OutreachActionRow]: OutreachActionRow[K];
-				};
-				writable.outreachMethodId = values.outreachMethodId;
-				writable.technicianProfileId = nextTechnicianId;
-				writable.outreachDate = values.outreachDate;
-				writable.reach = nextReach;
-				writable.reachDescription = trimmedDescription === '' ? null : trimmedDescription;
-				writable.addressId = values.addressId;
-				writable.metadata = values.metadata;
-				if (nextCentroid !== null) {
-					writable.lat = nextCentroid.lat;
-					writable.lng = nextCentroid.lng;
-					writable.geomType = nextCentroid.geomType;
-				}
-				if (actorProfileId !== null) {
-					writable.updatedByProfileId = actorProfileId;
-				}
-				writable.updatedAt = now;
-			};
-
-			const transaction =
-				locationSource === undefined
-					? webCollections.outreachActions.update(action.id, applyEdits)
-					: webCollections.outreachActions.update(
-							action.id,
-							{ metadata: { locationSource } },
-							applyEdits,
-						);
-			await settleWrite(transaction);
-			await saveAdditionalPersonnel({
+			// Which commands this save means is worked out by the hook, from what
+			// actually moved — the field details and the placement are different
+			// builders, and naming one with nothing to read is refused.
+			await update(action, {
+				values: {
+					methodId: values.outreachMethodId,
+					technicianProfileId:
+						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+					actionDate: values.outreachDate,
+					addressId: values.addressId,
+					reach: values.reach,
+					reachDescription: trimmedDescription === '' ? null : trimmedDescription,
+					metadata: values.metadata,
+				},
+				...(centroid === null || redrawn === null
+					? {}
+					: {
+							location: {
+								lat: centroid.lat,
+								lng: centroid.lng,
+								geomType: centroid.geomType,
+								locationSource: { kind: 'geometry', geometry: redrawn },
+							},
+						}),
+			});
+			await setPersonnel({
 				target: { type: 'outreachAction', id: action.id },
-				organizationId: action.organizationId,
-				actorProfileId,
 				existing: personnel.rows,
 				profileIds: values.additionalPersonnelIds,
 			});
 			await navigate({ to: '/public-engagement/outreach/$id', params: { id: action.id } });
 		},
-		[action, actorProfileId, personnel.rows, navigate],
+		[action, personnel.rows, navigate, update, setPersonnel],
 	);
 
 	if (geometryQuery.isError) {
@@ -218,7 +197,7 @@ function EditOutreachActionLoader({
 			}}
 			initialGeometry={geometryQuery.geometry}
 			onSave={onSave}
-			organizationId={action.organizationId}
+			organizationId={organizationId}
 			outreachMethods={outreachMethods}
 			profiles={profiles}
 			requireLocation={false}
@@ -228,12 +207,12 @@ function EditOutreachActionLoader({
 }
 
 function defaultsFromAction(
-	action: OutreachActionRow,
+	action: OutreachAction,
 	personnel: AdditionalPersonnelResult,
 ): OutreachFormValues {
 	return {
 		addressId: action.addressId,
-		outreachMethodId: action.outreachMethodId,
+		outreachMethodId: action.methodId,
 		technicianProfileId: action.technicianProfileId ?? noTechnicianValue,
 		additionalPersonnelIds: personnel.profileIds,
 		outreachDate: action.outreachDate.slice(0, 10),

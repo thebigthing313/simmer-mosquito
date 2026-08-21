@@ -1,4 +1,11 @@
+/**
+ * The role ladder, declared once in `packages/domain` and re-exported here so the
+ * generated table types and their ~15 importers keep naming it the same way.
+ */
+import type { SimmerRole } from '@simmer-mosquito/domain';
 import type { ColumnType, Generated, Kysely, RawBuilder, Transaction } from 'kysely';
+
+export type { SimmerRole };
 
 type TimestampWithDefault = ColumnType<Date, Date | undefined, Date | undefined>;
 type NullableTimestampWithDefault = ColumnType<
@@ -17,7 +24,6 @@ type GeometryColumn = ColumnType<
 	string | RawBuilder<string> | undefined
 >;
 
-export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
 export type MembershipStatus = 'active' | 'inactive' | 'invited';
 export type OrganizationSubscriptionStatus = 'trial' | 'active' | 'suspended' | 'canceled';
 export type OrganizationBillingMode = 'manual_invoice';
@@ -413,17 +419,6 @@ export interface SafeUnit {
 	readonly unitSystem: UnitSystem;
 	readonly createdAt: string;
 }
-
-export interface CreateUnitInput {
-	readonly id?: string;
-	readonly code: string;
-	readonly unitName: string;
-	readonly abbreviation: string;
-	readonly unitType: UnitType;
-	readonly unitSystem: UnitSystem;
-}
-
-export interface UpdateUnitInput extends CreateUnitInput {}
 
 export interface ApplicationMethodsTable {
 	id: Generated<string>;
@@ -1021,6 +1016,7 @@ export interface WeatherSourcesTable {
 	source_code: string | null;
 	provider_source_id: string | null;
 	is_active: BooleanWithDefault;
+	metadata: JsonColumn;
 	created_by_profile_id: string | null;
 	updated_by_profile_id: string | null;
 	created_at: TimestampWithDefault;

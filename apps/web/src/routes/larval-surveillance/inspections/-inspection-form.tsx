@@ -4,7 +4,7 @@ import {
 	recordHabitatInspectionCommand,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { HabitatRow, HabitatTypeRow, LarvalDensity, ProfileRow } from '@simmer-mosquito/sync';
+import type { LarvalDensity } from '@simmer-mosquito/sync';
 import { RecordFormPage, RequiredMark, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
@@ -28,7 +28,6 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { CheckIcon, PlusIcon, SearchIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { and, eq, ilike, or, useLiveQuery } from '@tanstack/react-db';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
@@ -46,10 +45,15 @@ import {
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { InspectionResult } from '../../../hooks/mutations/use-inspection-mutations';
+import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
+import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
+import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
+import { useHabitatSearch } from '../../../hooks/queries/use-habitat-search';
+import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { formatLocalDate, parseLocalDate } from '../../../lib/local-date';
-import { webCollections } from '../../../sync/webCollections';
 import { todayInTimeZone } from '../-overview-data';
 
 export type InspectionLocationMode = 'habitat' | 'adhoc';
@@ -145,8 +149,8 @@ export interface InspectionFormPageProps {
 	readonly canSubmit: boolean;
 	/** The agency's larval entry policy — decides which abundance fields exist. */
 	readonly policy: ResolvedLarvalInspectionEntryPolicy;
-	readonly profiles: readonly ProfileRow[];
-	readonly habitatTypes: readonly HabitatTypeRow[];
+	readonly profiles: readonly ProfileListing[];
+	readonly habitatTypes: readonly SchemaCatalogListing[];
 	readonly defaultValues: InspectionFormValues;
 	/** Ad-hoc geometry to pre-fill on edit; create starts with none. */
 	readonly initialAdhocGeometry?: DrawGeometry | null;
@@ -167,6 +171,15 @@ export interface InspectionFormPageProps {
 	readonly onSave: (input: {
 		readonly values: InspectionFormValues;
 		readonly adhocGeometry: DrawGeometry | null;
+		/**
+		 * The selected habitat's own shape, as the map is showing it.
+		 *
+		 * Passed out because the caller needs a centroid for the optimistic row and
+		 * this is where that shape already lives — the server snapshots the same one
+		 * at commit. `null` in ad-hoc mode, and on the rare habitat save whose
+		 * geometry fetch failed.
+		 */
+		readonly habitatGeometry: GeoJsonGeometry | null;
 	}) => Promise<void>;
 }
 
@@ -357,6 +370,7 @@ export function InspectionFormPage({
 				await onSave({
 					values: value,
 					adhocGeometry: value.locationMode === 'adhoc' ? adhocGeometry : null,
+					habitatGeometry: value.locationMode === 'habitat' ? previewGeometry : null,
 				});
 			} catch (error) {
 				setSaveError(error instanceof Error ? error.message : 'Unable to save inspection.');
@@ -364,7 +378,7 @@ export function InspectionFormPage({
 		},
 	});
 
-	const handleHabitatSelected = useCallback((habitat: HabitatRow | null) => {
+	const handleHabitatSelected = useCallback((habitat: HabitatMatch | null) => {
 		setLocationError(null);
 		if (habitat === null) {
 			setPreviewGeometry(null);
@@ -828,29 +842,12 @@ function SamplesSection({
  * recorded.
  */
 function SelectedHabitat({ habitatId }: { readonly habitatId: string | null }) {
-	const result = useLiveQuery(
-		{
-			gcTime: habitatSearchGcTimeMs,
-			query: (query) =>
-				query
-					.from({ habitat: webCollections.habitats })
-					.where(({ habitat }) => eq(habitat.id, habitatId ?? UNMATCHABLE_ID))
-					.findOne(),
-		},
-		[habitatId],
-	);
-	const habitat = result.data as HabitatRow | undefined;
+	const name = useHabitatLabel(habitatId);
 
 	return (
 		<LabeledControl label="Habitat">
 			<div className="flex min-h-9 w-full items-center rounded-md border border-border/60 bg-muted/40 px-3 py-2 text-foreground text-sm">
-				{habitat === undefined ? (
-					<span className="text-muted-foreground">
-						{result.isReady ? 'Habitat unavailable' : 'Loading habitat…'}
-					</span>
-				) : (
-					habitatLabel(habitat)
-				)}
+				{name === '' ? <span className="text-muted-foreground">Loading habitat…</span> : name}
 			</div>
 		</LabeledControl>
 	);
@@ -858,24 +855,16 @@ function SelectedHabitat({ habitatId }: { readonly habitatId: string | null }) {
 
 // --- habitat picker ---------------------------------------------------------
 
-const habitatSearchGcTimeMs = 30_000;
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
-
-/** The display label for a habitat known only by id, or '' while it resolves. */
+/**
+ * The display label for a habitat known only by id, or '' while it resolves.
+ *
+ * One id through the shared lookup rather than its own `findOne`: the naming rule
+ * — a Habitat with no name reads out its coordinates — lives in one place, and a
+ * form that already has the site in view pays nothing to ask again.
+ */
 function useHabitatLabel(habitatId: string | null): string {
-	const result = useLiveQuery(
-		{
-			gcTime: habitatSearchGcTimeMs,
-			query: (query) =>
-				query
-					.from({ habitat: webCollections.habitats })
-					.where(({ habitat }) => eq(habitat.id, habitatId ?? UNMATCHABLE_ID))
-					.findOne(),
-		},
-		[habitatId],
-	);
-	const habitat = result.data as HabitatRow | undefined;
-	return habitat === undefined ? '' : habitatLabel(habitat);
+	const names = useHabitatNames(habitatId === null ? [] : [habitatId]);
+	return habitatId === null ? '' : (names.get(habitatId) ?? '');
 }
 
 function HabitatPicker({
@@ -885,7 +874,7 @@ function HabitatPicker({
 }: {
 	readonly organizationId: string;
 	readonly value: string | null;
-	readonly onSelect: (habitat: HabitatRow | null) => void;
+	readonly onSelect: (habitat: HabitatMatch | null) => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
@@ -949,8 +938,8 @@ function HabitatPicker({
 				>
 					<HabitatSearchResults
 						onSelect={(habitat) => {
-							setPickedLabel(habitatLabel(habitat));
-							setSearch(habitatLabel(habitat));
+							setPickedLabel(habitat.name);
+							setSearch(habitat.name);
 							onSelect(habitat);
 							setOpen(false);
 						}}
@@ -973,39 +962,22 @@ function HabitatSearchResults({
 	readonly organizationId: string;
 	readonly search: string;
 	readonly selectedValue: string | null;
-	readonly onSelect: (habitat: HabitatRow) => void;
+	readonly onSelect: (habitat: HabitatMatch) => void;
 }) {
-	const normalized = search.trim();
-	const pattern = `%${normalized}%`;
-	const { data, isReady, isError } = useLiveQuery(
-		{
-			gcTime: habitatSearchGcTimeMs,
-			query: (query) => {
-				const base = query
-					.from({ habitat: webCollections.habitats })
-					.where(({ habitat }) => eq(habitat.organizationId, organizationId));
-				const filtered =
-					normalized.length === 0
-						? base
-						: base.where(({ habitat }) =>
-								and(
-									eq(habitat.organizationId, organizationId),
-									or(ilike(habitat.habitatName, pattern), ilike(habitat.description, pattern)),
-								),
-							);
-				return filtered.orderBy(({ habitat }) => habitat.habitatName, 'asc').limit(6);
-			},
-		},
-		[organizationId, pattern],
-	);
+	// `includeRetired`, because this picker always has: an inspection is also how
+	// a site the agency retired gets looked at again. The control pickers exclude.
+	const {
+		matches: habitats,
+		isReady,
+		isError,
+	} = useHabitatSearch(organizationId, search, { includeRetired: true });
 
 	if (isError) {
 		return <SearchFallback label="Habitats unavailable" />;
 	}
-	if (!isReady && (data ?? []).length === 0) {
+	if (!isReady && habitats.length === 0) {
 		return <SearchFallback label="Searching habitats" />;
 	}
-	const habitats = (data ?? []) as readonly HabitatRow[];
 	if (habitats.length === 0) {
 		return <SearchFallback label="No habitat matches" />;
 	}
@@ -1020,7 +992,7 @@ function HabitatSearchResults({
 					type="button"
 				>
 					<span className="min-w-0 flex-1">
-						<span className="block truncate font-medium">{habitatLabel(habitat)}</span>
+						<span className="block truncate font-medium">{habitat.name}</span>
 						{habitat.description.trim().length === 0 ? null : (
 							<span className="block truncate text-muted-foreground text-xs">
 								{habitat.description}
@@ -1179,7 +1151,7 @@ function densityOptions() {
 	];
 }
 
-function habitatTypeOptions(habitatTypes: readonly HabitatTypeRow[]) {
+function habitatTypeOptions(habitatTypes: readonly SchemaCatalogListing[]) {
 	return [
 		{ label: 'Unassigned type', value: noHabitatTypeValue },
 		...lifecycleOptions(
@@ -1190,16 +1162,12 @@ function habitatTypeOptions(habitatTypes: readonly HabitatTypeRow[]) {
 	];
 }
 
-function profileOptions(profiles: readonly ProfileRow[]) {
+function profileOptions(profiles: readonly ProfileListing[]) {
 	return lifecycleOptions(
 		profiles,
 		(profile) => profile.isActive,
 		(profile) => profile.displayName,
 	);
-}
-
-function habitatLabel(habitat: HabitatRow): string {
-	return habitat.habitatName?.trim() || `Habitat ${habitat.id.slice(0, 8)}`;
 }
 
 async function fetchHabitatGeometry(habitatId: string): Promise<GeoJsonGeometry | null> {
@@ -1217,6 +1185,33 @@ async function fetchHabitatGeometry(habitatId: string): Promise<GeoJsonGeometry 
 	} catch {
 		return null;
 	}
+}
+
+/**
+ * What the inspector found, in the vocabulary the write hook takes.
+ *
+ * Here rather than in either route because both of them need it and it is a
+ * statement about this form's values. The wet/dry rule lives here too: a dry
+ * inspection carries no abundance and no life stages, and the command refuses
+ * one that does — so the values are reduced to a consistent result before they
+ * leave the form that collected them.
+ */
+export function inspectionResultOf(values: InspectionFormValues): InspectionResult {
+	const wet = values.isWet;
+	return {
+		inspectionDate: values.inspectionDate,
+		inspectedByProfileId: values.inspectedByProfileId,
+		isWet: wet,
+		dipCount: wet ? values.dipCount : null,
+		density: wet && values.density !== unsetDensityValue ? (values.density as LarvalDensity) : null,
+		larvaeCount: wet ? values.larvaeCount : null,
+		hasEggs: wet && values.lifeStages.hasEggs,
+		hasFirstInstar: wet && values.lifeStages.hasFirstInstar,
+		hasSecondInstar: wet && values.lifeStages.hasSecondInstar,
+		hasThirdInstar: wet && values.lifeStages.hasThirdInstar,
+		hasFourthInstar: wet && values.lifeStages.hasFourthInstar,
+		hasPupae: wet && values.lifeStages.hasPupae,
+	};
 }
 
 export type { DrawGeometry } from '../../../components/map/use-map-draw';

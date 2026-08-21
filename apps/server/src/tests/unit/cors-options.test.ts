@@ -20,7 +20,6 @@ import { registerGeocoderRoutes } from '../../geocoder.js';
 import { registerLarvalSurveillanceCommandRoutes } from '../../larval-surveillance-commands/index.js';
 import { registerMapTileRoutes } from '../../map-tiles.js';
 import { registerMissionDispatchCommandRoutes } from '../../mission-dispatch-commands/index.js';
-import { registerOrganizationCommandRoutes } from '../../organization-commands.js';
 import { registerOrganizationSettingsCommandRoutes } from '../../organization-settings-commands.js';
 import { registerProfileCommandRoutes } from '../../profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from '../../public-engagement-commands.js';
@@ -28,6 +27,7 @@ import { registerPublicEngagementRecordRoutes } from '../../public-engagement-re
 import { registerRecordDeletionRoutes } from '../../record-deletion.js';
 import { registerServiceRequestNearbyRoutes } from '../../service-request-nearby.js';
 import { registerSyncShapeRoutes } from '../../sync-shapes.js';
+import { registerTableCommandSurface } from '../../table-commands/index.js';
 
 /**
  * The check #118 asked for: every route the server registers is admitted by
@@ -102,7 +102,7 @@ describe('CORS preflights over the real middleware', () => {
 	});
 
 	it('allows POST preflights for Electric subset snapshot shape routes', async () => {
-		const response = await preflight('/sync/shapes/route-items', 'POST', 'content-type');
+		const response = await preflight('/sync/shapes/route_items', 'POST', 'content-type');
 
 		expect(response.headers.get('access-control-allow-methods')).toContain('POST');
 		expect(response.headers.get('access-control-allow-headers')).toContain('content-type');
@@ -183,8 +183,16 @@ function registeredRoutes(): [string, string][] {
 		finalizeSession: (async () => ({ organizationRequired: false })) as never,
 	});
 	registerProfileCommandRoutes(app, { db, auth: {} as never, authContextMiddleware });
-	registerOrganizationCommandRoutes(app, { db, authContextMiddleware });
 	registerOrganizationSettingsCommandRoutes(app, { db, authContextMiddleware });
+	// The `/commands/{table}` surface. Registered here from the day it existed
+	// would have caught its own omission: it had no CORS prefix at all, which is
+	// invisible under local Caddy — same origin, no preflight — and a refused
+	// write everywhere the SPA and the API are separate hosts.
+	registerTableCommandSurface(app, {
+		db,
+		authContextMiddleware,
+		operatorAuthContextMiddleware: authContextMiddleware,
+	});
 	registerFoundationCommandRoutes(app, options);
 	registerFoundationGeographyCommandRoutes(app, options);
 	registerLarvalSurveillanceCommandRoutes(app, options);

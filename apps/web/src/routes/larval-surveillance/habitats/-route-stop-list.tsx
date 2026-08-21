@@ -1,4 +1,3 @@
-import type { HabitatTypeRow, TagItemRow, TagRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	AlertTriangleIcon,
@@ -7,18 +6,18 @@ import {
 	MapPinnedIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { and, eq, inArray, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, useMemo } from 'react';
+import { useEntityTags } from '../../../components/explorer/use-entity-tags';
 import { OrdinalBadge } from '../../../components/stop-order';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import type { Tag } from '../../../hooks/queries/tag-view';
+import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { hexWithAlpha } from '../../../lib/hex-color';
-import { webCollections } from '../../../sync/webCollections';
 import { type RouteStopCluster, type RouteStopView, stopTone } from './-route-data';
 
 // `tag_items` is on-demand; keep this route's habitat tags warm briefly on unmount.
-const tagItemsGcTimeMs = 30_000;
-const NO_TAGS: readonly TagRow[] = [];
+const _tagItemsGcTimeMs = 30_000;
+const NO_TAGS: readonly Tag[] = [];
 
 interface RouteStopListProps {
 	readonly clusters: readonly RouteStopCluster[];
@@ -69,16 +68,14 @@ export function RouteStopList({ clusters, selectedId, onSelect, onHover }: Route
  */
 export function useStopMeta(stops: readonly RouteStopView[]): {
 	readonly typeNameById: ReadonlyMap<string, string>;
-	readonly tagsByHabitatId: ReadonlyMap<string, readonly TagRow[]>;
+	readonly tagsByHabitatId: ReadonlyMap<string, readonly Tag[]>;
 } {
-	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
-	const { rows: tags } = useCollectionRows<TagRow>(webCollections.tags);
+	const habitatTypes = useHabitatTypeRoster();
 
 	const typeNameById = useMemo(
 		() => new Map(habitatTypes.map((type) => [type.id, type.name])),
 		[habitatTypes],
 	);
-	const tagById = useMemo(() => new Map(tags.map((tag) => [tag.id, tag])), [tags]);
 
 	const habitatIds = useMemo(() => {
 		const ids = new Set<string>();
@@ -87,41 +84,9 @@ export function useStopMeta(stops: readonly RouteStopView[]): {
 		}
 		return [...ids];
 	}, [stops]);
-	// A sentinel keeps the IN predicate valid (and matching nothing) with no stops.
-	const queryIds = habitatIds.length > 0 ? habitatIds : ['00000000-0000-0000-0000-000000000000'];
-	const idsKey = habitatIds.join(',');
 
-	const tagItemsResult = useLiveQuery(
-		{
-			gcTime: tagItemsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ item: webCollections.tagItems })
-					.where(({ item }) =>
-						and(eq(item.entityType, 'habitat'), inArray(item.entityId, queryIds)),
-					),
-		},
-		[idsKey],
-	);
-
-	const tagsByHabitatId = useMemo(() => {
-		const map = new Map<string, TagRow[]>();
-		for (const item of (tagItemsResult.data ?? []) as readonly TagItemRow[]) {
-			const tag = tagById.get(item.tagId);
-			if (tag === undefined) {
-				continue;
-			}
-			const list = map.get(item.entityId) ?? [];
-			if (!list.some((existing) => existing.id === tag.id)) {
-				list.push(tag);
-			}
-			map.set(item.entityId, list);
-		}
-		for (const list of map.values()) {
-			list.sort((first, second) => first.tagName.localeCompare(second.tagName));
-		}
-		return map;
-	}, [tagItemsResult.data, tagById]);
+	// Scoped to the habitats on screen, and grouped for us — see `useEntityTags`.
+	const { byId: tagsByHabitatId } = useEntityTags('habitat', habitatIds);
 
 	return { typeNameById, tagsByHabitatId };
 }
@@ -161,7 +126,7 @@ function StopRow({
 	readonly stop: RouteStopView;
 	readonly selectedId: string | null;
 	readonly typeName: string | null;
-	readonly tags: readonly TagRow[];
+	readonly tags: readonly Tag[];
 	readonly onSelect?: ((id: string | null) => void) | undefined;
 	readonly onHover?: ((id: string | null) => void) | undefined;
 	readonly grouped?: boolean;
@@ -242,7 +207,7 @@ export function StopTypePill({ typeName }: { readonly typeName: string | null })
 }
 
 /** A stop's tags as colored chips, or nothing when it has none. */
-export function StopTagChips({ tags }: { readonly tags: readonly TagRow[] }) {
+export function StopTagChips({ tags }: { readonly tags: readonly Tag[] }) {
 	if (tags.length === 0) {
 		return null;
 	}
@@ -255,7 +220,7 @@ export function StopTagChips({ tags }: { readonly tags: readonly TagRow[] }) {
 	);
 }
 
-function TagChip({ tag }: { readonly tag: TagRow }) {
+function TagChip({ tag }: { readonly tag: Tag }) {
 	const style = tagColorStyle(tag.color);
 	return (
 		<span
@@ -266,7 +231,7 @@ function TagChip({ tag }: { readonly tag: TagRow }) {
 			style={style ?? undefined}
 			title={tag.description ?? undefined}
 		>
-			{tag.tagName}
+			{tag.name}
 		</span>
 	);
 }

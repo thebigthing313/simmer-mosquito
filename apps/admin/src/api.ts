@@ -1,4 +1,5 @@
 import { createAuthClient } from '@simmer-mosquito/auth/browser';
+import type { SimmerRole } from '@simmer-mosquito/domain';
 
 const DEFAULT_SERVER_URL = 'http://localhost:3000';
 
@@ -17,8 +18,8 @@ export type { AuthMe, AuthOrganizationChoice } from '@simmer-mosquito/auth/brows
  *
  * The code matters for exactly one case, but it is the case that decides whether
  * the console works at all: `operator_required` is a 403 from
- * `createOperatorAuthContextMiddleware` meaning "signed in, but not on
- * `SIMMER_OPERATOR_EMAILS`". A plain `Error` flattens that into a string, and
+ * `createOperatorAuthContextMiddleware` meaning "signed in, but not as SIMMER".
+ * A plain `Error` flattens that into a string, and
  * "operator_required" rendered in a red box is not an explanation. Pages read
  * {@link isOperatorRequiredError} instead and say what happened.
  */
@@ -39,19 +40,9 @@ export function isOperatorRequiredError(error: unknown): boolean {
 	return error instanceof AdminApiError && error.code === 'operator_required';
 }
 
-export type SimmerRole = 'owner' | 'admin' | 'manager' | 'collector' | 'viewer';
+/** One declaration, in `packages/domain`; re-exported for this app's call sites. */
+export type { SimmerRole } from '@simmer-mosquito/domain';
 export type MembershipStatus = 'active' | 'inactive' | 'invited';
-export type UnitType =
-	| 'weight'
-	| 'distance'
-	| 'area'
-	| 'volume'
-	| 'temperature'
-	| 'duration'
-	| 'count'
-	| 'speed';
-export type UnitSystem = 'si' | 'imperial' | 'us_customary';
-
 export interface AdminAgency {
 	readonly id: string;
 	readonly workosOrganizationId: string | null;
@@ -126,68 +117,6 @@ export interface InviteAdminUserInput {
 	readonly role: SimmerRole;
 }
 
-export interface AdminGenus {
-	readonly id: string;
-	readonly abbreviation: string;
-	readonly name: string;
-	readonly createdAt: string;
-	readonly updatedAt: string;
-}
-
-export interface AdminSpecies {
-	readonly id: string;
-	readonly genusId: string | null;
-	readonly epithet: string;
-	readonly commonName: string | null;
-	readonly displayName: string;
-	readonly createdAt: string;
-	readonly updatedAt: string;
-}
-
-export interface CreateAdminGenusInput {
-	readonly id?: string;
-	readonly abbreviation: string;
-	readonly name: string;
-}
-
-export interface UpdateAdminGenusInput extends CreateAdminGenusInput {}
-
-export interface CreateAdminSpeciesInput {
-	readonly id?: string;
-	readonly genusId: string | null;
-	readonly epithet: string;
-	readonly commonName: string;
-	readonly displayName: string;
-}
-
-export interface UpdateAdminSpeciesInput extends CreateAdminSpeciesInput {}
-
-export interface AdminUnit {
-	readonly id: string;
-	readonly code: string;
-	readonly unitName: string;
-	readonly abbreviation: string;
-	readonly unitType: UnitType;
-	readonly unitSystem: UnitSystem;
-	readonly createdAt: string;
-}
-
-export interface CreateAdminUnitInput {
-	readonly id?: string;
-	readonly code: string;
-	readonly unitName: string;
-	readonly abbreviation: string;
-	readonly unitType: UnitType;
-	readonly unitSystem: UnitSystem;
-}
-
-export interface UpdateAdminUnitInput extends CreateAdminUnitInput {}
-
-export interface AdminMutationResult<TRow> {
-	readonly row: TRow;
-	readonly txid: number;
-}
-
 export function getServerUrl(): string {
 	// Empty read as absent, not as a URL — `??` does not fall back on `''`, and
 	// a build variable arrives empty rather than missing whenever a field is
@@ -208,9 +137,10 @@ export function getServerUrl(): string {
  * and it will keep coming back.
  *
  * The console answers it without asking, because the answer is always the same:
- * an operator working in the control plane is acting as SIMMER. Nothing here
- * reads the organization (the `SIMMER_OPERATOR_EMAILS` allowlist is the whole
- * grant), so the choice was pure friction.
+ * an operator working in the control plane is acting as SIMMER. The server now
+ * reads exactly that organization off the session to decide operator access, so
+ * answering the challenge with it is not friction removal but the thing that
+ * puts the session in the org the console needs.
  *
  * Deliberately **not** server-side. Keyed off operator identity in
  * `/auth/sign-in` it would strip the picker from `apps/web` too, and an operator
@@ -317,126 +247,11 @@ export async function inviteAdminUser(
 	);
 }
 
-export async function createAdminGenus(
-	input: CreateAdminGenusInput,
-	serverUrl = getServerUrl(),
-): Promise<AdminMutationResult<AdminGenus>> {
-	const body = await postJson<{ readonly genus: AdminGenus; readonly txid: number }>(
-		`${serverUrl}/admin/genera`,
-		input,
-	);
-	return { row: body.genus, txid: body.txid };
-}
-
-export async function updateAdminGenus(
-	genusId: string,
-	input: UpdateAdminGenusInput,
-	serverUrl = getServerUrl(),
-): Promise<AdminMutationResult<AdminGenus>> {
-	const body = await patchJson<{ readonly genus: AdminGenus; readonly txid: number }>(
-		`${serverUrl}/admin/genera/${genusId}`,
-		input,
-	);
-	return { row: body.genus, txid: body.txid };
-}
-
-export async function deleteAdminGenus(
-	genusId: string,
-	serverUrl = getServerUrl(),
-): Promise<AdminMutationResult<AdminGenus>> {
-	const body = await deleteJson<{ readonly genus: AdminGenus; readonly txid: number }>(
-		`${serverUrl}/admin/genera/${genusId}`,
-	);
-	return { row: body.genus, txid: body.txid };
-}
-
-export async function createAdminSpecies(
-	input: CreateAdminSpeciesInput,
-	serverUrl = getServerUrl(),
-): Promise<AdminMutationResult<AdminSpecies>> {
-	const body = await postJson<{ readonly species: AdminSpecies; readonly txid: number }>(
-		`${serverUrl}/admin/species`,
-		input,
-	);
-	return { row: body.species, txid: body.txid };
-}
-
-export async function updateAdminSpecies(
-	speciesId: string,
-	input: UpdateAdminSpeciesInput,
-	serverUrl = getServerUrl(),
-): Promise<AdminMutationResult<AdminSpecies>> {
-	const body = await patchJson<{ readonly species: AdminSpecies; readonly txid: number }>(
-		`${serverUrl}/admin/species/${speciesId}`,
-		input,
-	);
-	return { row: body.species, txid: body.txid };
-}
-
-export async function deleteAdminSpecies(
-	speciesId: string,
-	serverUrl = getServerUrl(),
-): Promise<AdminMutationResult<AdminSpecies>> {
-	const body = await deleteJson<{ readonly species: AdminSpecies; readonly txid: number }>(
-		`${serverUrl}/admin/species/${speciesId}`,
-	);
-	return { row: body.species, txid: body.txid };
-}
-
-export async function createAdminUnit(
-	input: CreateAdminUnitInput,
-	serverUrl = getServerUrl(),
-): Promise<AdminMutationResult<AdminUnit>> {
-	const body = await postJson<{ readonly unit: AdminUnit; readonly txid: number }>(
-		`${serverUrl}/admin/units`,
-		input,
-	);
-	return { row: body.unit, txid: body.txid };
-}
-
-export async function updateAdminUnit(
-	unitId: string,
-	input: UpdateAdminUnitInput,
-	serverUrl = getServerUrl(),
-): Promise<AdminMutationResult<AdminUnit>> {
-	const body = await patchJson<{ readonly unit: AdminUnit; readonly txid: number }>(
-		`${serverUrl}/admin/units/${unitId}`,
-		input,
-	);
-	return { row: body.unit, txid: body.txid };
-}
-
-export async function deleteAdminUnit(
-	unitId: string,
-	serverUrl = getServerUrl(),
-): Promise<AdminMutationResult<AdminUnit>> {
-	const body = await deleteJson<{ readonly unit: AdminUnit; readonly txid: number }>(
-		`${serverUrl}/admin/units/${unitId}`,
-	);
-	return { row: body.unit, txid: body.txid };
-}
-
 async function postJson<T>(url: string, input: unknown): Promise<T> {
 	return writeJson<T>(url, 'POST', input);
 }
 
-async function patchJson<T>(url: string, input: unknown): Promise<T> {
-	return writeJson<T>(url, 'PATCH', input);
-}
-
-async function deleteJson<T>(url: string): Promise<T> {
-	const response = await fetch(url, {
-		method: 'DELETE',
-		credentials: 'include',
-		headers: {
-			accept: 'application/json',
-		},
-	});
-
-	return readJsonResponse<T>(response);
-}
-
-async function writeJson<T>(url: string, method: 'PATCH' | 'POST', input: unknown): Promise<T> {
+async function writeJson<T>(url: string, method: 'POST', input: unknown): Promise<T> {
 	const response = await fetch(url, {
 		method,
 		credentials: 'include',

@@ -1,15 +1,16 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { AddressRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { RecordUnavailable } from '../../../components/record';
+import {
+	type AddressFields,
+	useAddressMutations,
+} from '../../../hooks/mutations/use-address-mutations';
+import { type AddressRecord, useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import { seedAddressGeometryCache, useAddressGeometry } from './-address-data';
 import {
 	AddressFormPage,
@@ -26,7 +27,7 @@ export const Route = createFileRoute('/gis/addresses/$id_/edit')({
 	component: EditAddressRoute,
 });
 
-const addressGcTimeMs = 30_000;
+const _addressGcTimeMs = 30_000;
 
 function EditAddressRoute() {
 	const { id } = Route.useParams();
@@ -35,18 +36,8 @@ function EditAddressRoute() {
 
 	// addresses is on-demand; status-gated useLiveQuery (not the suspense variant)
 	// to avoid the post-unmount hang on on-demand collections.
-	const addressResult = useLiveQuery(
-		{
-			gcTime: addressGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const address = addressResult.data as AddressRow | undefined;
+	const addressResult = useAddressRecord(id);
+	const address = addressResult.address;
 	const geometryQuery = useAddressGeometry(id);
 
 	if (addressResult.isError) {
@@ -65,7 +56,6 @@ function EditAddressRoute() {
 
 	return (
 		<EditAddressLoader
-			actorProfileId={actorProfileId}
 			address={address}
 			canSubmit={organization !== null && actorProfileId !== null}
 			initialGeometry={initialGeometry}
@@ -76,16 +66,15 @@ function EditAddressRoute() {
 function EditAddressLoader({
 	address,
 	initialGeometry,
-	actorProfileId,
 	canSubmit,
 }: {
-	readonly address: AddressRow;
+	readonly address: AddressRecord;
 	readonly initialGeometry: AddressPointGeometry | null;
-	readonly actorProfileId: string | null;
 	readonly canSubmit: boolean;
 }) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
+	const mutations = useAddressMutations();
 
 	const onSave = useCallback(
 		async ({
@@ -99,37 +88,29 @@ function EditAddressLoader({
 			readonly geometryChanged: boolean;
 			readonly geocoderResponse: unknown | null;
 		}) => {
-			const now = new Date().toISOString();
 			const refinedPoint = geometryChanged && geometry !== null;
-			const applyEdits = (draft: AddressRow) => {
-				const writable = draft as { -readonly [K in keyof AddressRow]: AddressRow[K] };
-				writable.displayName = values.displayName.trim();
-				writable.addressLine1 = nullableText(values.addressLine1);
-				writable.addressLine2 = nullableText(values.addressLine2);
-				writable.locality = nullableText(values.locality);
-				writable.region = nullableText(values.region);
-				writable.postalCode = nullableText(values.postalCode);
-				writable.geocoderResponse = geocoderResponse ?? null;
-				if (refinedPoint && geometry !== null) {
-					writable.geojson = geometry;
-					writable.lat = geometry.coordinates[1];
-					writable.lng = geometry.coordinates[0];
-					writable.geomType = geometry.type;
-				}
-				if (actorProfileId !== null) {
-					writable.updatedByProfileId = actorProfileId;
-				}
-				writable.updatedAt = now;
-			};
-
-			const transaction = webCollections.addresses.update(address.id, applyEdits);
-			await settleWrite(transaction);
+			// The point goes only when it actually moved: naming the location command
+			// with the point the row already has is a write with no edit behind it.
+			await mutations.save(
+				address.id,
+				{
+					displayName: values.displayName.trim(),
+					addressLine1: nullableText(values.addressLine1),
+					addressLine2: nullableText(values.addressLine2),
+					locality: nullableText(values.locality),
+					region: nullableText(values.region),
+					postalCode: nullableText(values.postalCode),
+					geocoderResponse: geocoderResponse ?? null,
+				},
+				addressFieldsOf(address),
+				refinedPoint ? geometry : null,
+			);
 			if (refinedPoint && geometry !== null) {
 				seedAddressGeometryCache(queryClient, address.id, geometry as unknown as GeoJsonGeometry);
 			}
 			await navigate({ to: '/gis/addresses/$id', params: { id: address.id } });
 		},
-		[address, actorProfileId, navigate, queryClient],
+		[address, mutations, navigate, queryClient],
 	);
 
 	return (
@@ -151,7 +132,7 @@ function EditAddressLoader({
 	);
 }
 
-function defaultsFromAddress(address: AddressRow): AddressFormValues {
+function defaultsFromAddress(address: AddressRecord): AddressFormValues {
 	return {
 		displayName: address.displayName,
 		country: address.country,
@@ -184,4 +165,17 @@ function EditFormSkeleton() {
 			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
 		</div>
 	);
+}
+
+/** The record as the save compares against, in the write hook's vocabulary. */
+function addressFieldsOf(address: AddressRecord): AddressFields {
+	return {
+		displayName: address.displayName,
+		addressLine1: address.addressLine1,
+		addressLine2: address.addressLine2,
+		locality: address.locality,
+		region: address.region,
+		postalCode: address.postalCode,
+		geocoderResponse: address.geocoderResponse,
+	};
 }

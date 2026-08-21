@@ -14,7 +14,7 @@ two `*_by_profile_id` columns, `skip_reason`, and a check constraint making
 completed and skipped exclusive.
 
 They diverged on one point. `docs/mission-dispatch-domain.md` gives mission
-items a whole "Actual Control Action Provenance" section — a nullable
+items a whole "Actual control action provenance" section: a nullable
 `mission_item_id` on `applications`, `source_reductions`, `outreach_actions`,
 and `biocontrol_actions`, plus four `missionDispatch.record*ForMissionItem`
 helper commands that write the action and mark the item complete in one
@@ -31,11 +31,11 @@ failure mode where the work is recorded but the stop stays pending.
 
 Nothing in the repository explained the asymmetry. There was no ADR on either
 side, and the sentence landed in its original commit unaccompanied. Three
-plausible reasons can be reconstructed — assignments are declared "snapshots"
+plausible reasons can be reconstructed. Assignments are declared "snapshots"
 that stay intelligible when their targets change; an assignment stop's record
 lives in a *different domain* (larval, adult, public engagement) where a mission
 item's lives next door; and assignment items are polymorphic across three target
-types with no single proof shape — but all three are reconstruction.
+types with no single proof shape. All three are reconstruction.
 
 Two facts decided it:
 
@@ -60,8 +60,8 @@ Assignment items carry action provenance, symmetric with mission items.
 All three are `on delete set null`, mirroring the mission columns.
 
 `collections` gets two columns because one collection row spans two field
-visits — `started_at`/`set_by_profile_id` when the trap is set,
-`collected_at`/`collected_by_profile_id` when it is emptied — routinely on
+visits: `started_at`/`set_by_profile_id` when the trap is set, and
+`collected_at`/`collected_by_profile_id` when it is emptied, routinely on
 different days and therefore different assignments. A single column would let
 the collect visit overwrite the set visit's provenance, which is the fact most
 worth keeping. Missions have no equivalent because an application is one event.
@@ -82,8 +82,8 @@ collection mutations mapped to per-row endpoints; a bespoke execution endpoint
 would have been the only write path outside that transport.
 
 Service request stops are **excluded**. There is no single record a service
-request visit produces — the doc only ever suggested "a service request
-comment" — and a field-work foreign key on the polymorphic `comments` table
+request visit produces; the doc only ever suggested "a service request
+comment", and a field-work foreign key on the polymorphic `comments` table
 would be a worse artefact than the gap. They keep the two-step flow.
 
 ## Consequences
@@ -91,7 +91,7 @@ would be a worse artefact than the gap. They keep the two-step flow.
 The indexes on the three new columns are **not partial**, breaking local
 convention deliberately. Every comparable foreign key here is indexed `where
 deleted_at is null` for soft-delete reads, and referential integrity cannot use
-a partial index at all — sixteen columns are already in that state and each one
+a partial index at all. Sixteen columns are already in that state and each one
 looks covered (issue #126, `docs/deployment.md`). These are `on delete set
 null`, so a hard-deleted assignment item makes Postgres scan both tables, and
 `inspections` and `collections` are among the fastest-growing in the schema.

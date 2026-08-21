@@ -1,6 +1,9 @@
-import type { AddressRow } from '@simmer-mosquito/sync';
 import { describe, expect, it } from 'vitest';
-import { addressCoordOf, pointAt } from '../../../../components/map/use-address-point';
+import {
+	type AddressPoint,
+	addressCoordOf,
+	pointAt,
+} from '../../../../components/map/use-address-point';
 
 describe('address coordinates', () => {
 	it('reads the synced centroid off a picked address', () => {
@@ -11,7 +14,7 @@ describe('address coordinates', () => {
 		const { lat: _lat, lng: _lng, ...withoutCentroid } = addressRow();
 
 		expect(addressCoordOf(null)).toBeNull();
-		expect(addressCoordOf(withoutCentroid)).toBeNull();
+		expect(addressCoordOf({ ...withoutCentroid, lat: null, lng: null })).toBeNull();
 	});
 
 	it('builds a GeoJSON point in lng/lat order', () => {
@@ -22,24 +25,13 @@ describe('address coordinates', () => {
 	});
 });
 
-function addressRow(overrides: Partial<AddressRow> = {}): AddressRow {
-	return {
-		id: 'address-1',
-		organizationId: 'organization-1',
-		lat: 47.61,
-		lng: -122.33,
-		displayName: 'Riverside Pump House',
-		country: 'US',
-		addressLine1: '123 Main St',
-		addressLine2: null,
-		locality: 'Somewhere',
-		region: 'WA',
-		postalCode: '98101',
-		geocoderResponse: null,
-		createdByProfileId: null,
-		updatedByProfileId: null,
-		createdAt: '2026-01-01T00:00:00.000Z',
-		updatedAt: '2026-01-01T00:00:00.000Z',
-		...overrides,
-	};
+/**
+ * Only the centroid, because that is all `addressCoordOf` reads.
+ *
+ * It used to build a whole `AddressRow`, which said the subject needed a
+ * complete address row when it needs two optional numbers — and pinned the test
+ * to a row type the app no longer holds.
+ */
+function addressRow(overrides: Partial<AddressPoint> = {}): AddressPoint {
+	return { lat: 47.61, lng: -122.33, ...overrides };
 }

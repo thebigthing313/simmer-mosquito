@@ -1,16 +1,14 @@
-import type { AddressRow, ServiceRequestRow, TrapRow } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { inArray, useLiveQuery } from '@tanstack/react-db';
 import { useMemo, useRef, useState } from 'react';
 import { OptionRow, PickerFallback, PickerFrame } from '../../../components/pickers/entity-picker';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { webCollections } from '../../../sync/webCollections';
-import { trapDisplayName } from '../../adult-surveillance/-adult-display';
+import { trapDisplayName } from '../../../hooks/queries/trap-view';
+import { type TrapListing, useActiveTraps } from '../../../hooks/queries/use-active-traps';
+import { addresses } from '../../../lib/collections/addresses';
 import { TrapPicker } from '../../adult-surveillance/-adult-pickers';
-import { habitatDisplayName } from '../../control-operations/-control-display';
 import { HabitatPicker } from '../../control-operations/-control-pickers';
-import type { TargetType } from './-assignment-data';
+import type { OpenServiceRequest, TargetType } from './-assignment-data';
 import { useOpenServiceRequests } from './-assignment-data';
 
 // Adding a stop to a worklist. An assignment mixes traps, habitats, and service
@@ -57,7 +55,7 @@ export function AssignmentTargetPicker({
 }) {
 	const [type, setType] = useState<TargetType>('habitat');
 	const [selection, setSelection] = useState<AssignmentTargetSelection | null>(null);
-	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
+	const { traps } = useActiveTraps();
 
 	const alreadyOnList = selection !== null && existingKeys.has(`${selection.type}:${selection.id}`);
 
@@ -106,7 +104,6 @@ export function AssignmentTargetPicker({
 				<ServiceRequestPicker
 					key="serviceRequest"
 					onSelect={setSelection}
-					organizationId={organizationId}
 					value={selection?.type === 'serviceRequest' ? selection.id : null}
 				/>
 			)}
@@ -151,11 +148,7 @@ function HabitatTargetPicker({
 		<HabitatPicker
 			label="Habitat"
 			onSelect={(habitat) =>
-				onSelect(
-					habitat === null
-						? null
-						: { type: 'habitat', id: habitat.id, name: habitatDisplayName(habitat) },
-				)
+				onSelect(habitat === null ? null : { type: 'habitat', id: habitat.id, name: habitat.name })
 			}
 			organizationId={organizationId}
 			value={value}
@@ -169,7 +162,7 @@ function TrapTargetPicker({
 	value,
 	onSelect,
 }: {
-	readonly traps: readonly TrapRow[];
+	readonly traps: readonly TrapListing[];
 	readonly value: string | null;
 	readonly onSelect: (selection: AssignmentTargetSelection | null) => void;
 }) {
@@ -189,16 +182,15 @@ function TrapTargetPicker({
  * Open service requests, searched in memory.
  *
  * The other two catalogs already have a picker; this one did not, because
- * nothing else plans work against a request. It filters the org's open requests
- * — the same set the worklist map reads — rather than opening a second subset
- * for rows already streaming.
+ * nothing else plans work against a request. It filters the open requests
+ * already streaming — the same set the worklist map reads — rather than opening
+ * a second subset. No organization is passed: the shape is scoped server-side,
+ * so the only rows it could ever hold are this agency's.
  */
 function ServiceRequestPicker({
-	organizationId,
 	value,
 	onSelect,
 }: {
-	readonly organizationId: string;
 	readonly value: string | null;
 	readonly onSelect: (selection: AssignmentTargetSelection | null) => void;
 }) {
@@ -207,7 +199,7 @@ function ServiceRequestPicker({
 	const [selectedLabel, setSelectedLabel] = useState('');
 	const anchorRef = useRef<HTMLDivElement>(null);
 
-	const { requests, isReady } = useOpenServiceRequests(organizationId);
+	const { requests, isReady } = useOpenServiceRequests();
 	const addressById = useRequestAddresses(requests);
 
 	const normalized = search.trim().toLowerCase();
@@ -287,7 +279,7 @@ function ServiceRequestPicker({
  * resolve. Addresses sync on demand (docs/sync.md), so this is a bounded subset
  * over exactly the request set — the same second-level join the stop list does.
  */
-function useRequestAddresses(requests: readonly ServiceRequestRow[]): ReadonlyMap<string, string> {
+function useRequestAddresses(requests: readonly OpenServiceRequest[]): ReadonlyMap<string, string> {
 	const addressIds = useMemo(
 		() => [...new Set(requests.map((request) => request.addressId))].sort(),
 		[requests],
@@ -299,22 +291,17 @@ function useRequestAddresses(requests: readonly ServiceRequestRow[]): ReadonlyMa
 			gcTime: addressGcTimeMs,
 			query: (query) =>
 				query
-					.from({ address: webCollections.addresses })
+					.from({ address: addresses })
 					.where(({ address }) =>
 						inArray(address.id, addressIds.length > 0 ? addressIds : [UNMATCHABLE_ID]),
-					),
+					)
+					.select(({ address }) => ({ id: address.id, displayName: address.display_name })),
 		},
 		[addressKey],
 	);
 
 	return useMemo(
-		() =>
-			new Map(
-				((result.data ?? []) as readonly AddressRow[]).map((address) => [
-					address.id,
-					address.displayName,
-				]),
-			),
+		() => new Map(result.data.map((address) => [address.id, address.displayName])),
 		[result.data],
 	);
 }

@@ -1,3 +1,4 @@
+import { checkedValues } from '@simmer-mosquito/db';
 import {
 	addAdditionalPersonnelCommand,
 	type FieldWorkCommand,
@@ -8,6 +9,7 @@ import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
+	type AdditionalPersonnelRow,
 	additionalPersonnelReturnColumns,
 	type CommandContext,
 	commandEndpoint,
@@ -16,9 +18,7 @@ import {
 	type RouteOptions,
 	readTarget,
 	runCommands,
-	type SafeAdditionalPersonnel,
 	softDelete,
-	toSafeAdditionalPersonnel,
 } from './shared.js';
 
 // ===========================================================================
@@ -79,26 +79,28 @@ async function runAdditionalPersonnelCommands(
 	);
 }
 
-async function writeAdditionalPersonnelCommand(
+export async function writeAdditionalPersonnelCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeAdditionalPersonnel | null> {
+): Promise<AdditionalPersonnelRow | null> {
 	switch (command.type) {
 		case 'fieldWork.addAdditionalPersonnel': {
 			const row = await trx
 				.insertInto('additional_personnel')
-				.values({
-					id: command.payload.additionalPersonnelId,
-					organization_id: command.payload.organizationId,
-					personnel_profile_id: command.payload.personnelProfileId,
-					entity_type: toDbEntityType(command.payload.target.type),
-					entity_id: command.payload.target.id,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.additionalPersonnelId,
+						organization_id: command.payload.organizationId,
+						personnel_profile_id: command.payload.personnelProfileId,
+						entity_type: toDbEntityType(command.payload.target.type),
+						entity_id: command.payload.target.id,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(additionalPersonnelReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeAdditionalPersonnel(row);
+			return row;
 		}
 		case 'fieldWork.removeAdditionalPersonnel':
 			return softDelete(
@@ -108,7 +110,6 @@ async function writeAdditionalPersonnelCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				additionalPersonnelReturnColumns,
-				toSafeAdditionalPersonnel,
 			);
 		default:
 			throw new Error(`Unsupported additional personnel command: ${command.type}`);

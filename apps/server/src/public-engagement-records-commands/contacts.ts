@@ -1,4 +1,4 @@
-import { applyRecordDeletion } from '@simmer-mosquito/db';
+import { applyRecordDeletion, applyRecordMerge } from '@simmer-mosquito/db';
 import {
 	createContactCommand,
 	deleteContactCommand,
@@ -12,6 +12,7 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
 import {
 	type CommandContext,
+	type ContactRow,
 	commandEndpoint,
 	contactReturnColumns,
 	insertContact,
@@ -20,17 +21,25 @@ import {
 	type PublicEngagementTransaction,
 	type RouteOptions,
 	readContactDetails,
-	readStringArray,
 	runCommands,
-	type SafeContact,
 	softDelete,
-	toSafeContact,
 	updateRow,
 } from './shared.js';
 
 // ===========================================================================
 // Contacts
 // ===========================================================================
+
+/*
+ * `POST /public-engagement/contacts/merge` used to be here and is gone.
+ *
+ * It hard-coded `acknowledgedContactMerge: true`, so the one guard on an
+ * irreversible command could not be withheld by any caller. Nothing called it:
+ * `PATCH /commands/contacts/{target}` with the `publicEngagement.mergeContacts`
+ * intent is the route, and it reads the acknowledgement from the body like every
+ * other one. A second door to a destructive command with the lock removed is
+ * worth deleting rather than leaving for somebody to find.
+ */
 
 export function registerContactRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -47,21 +56,6 @@ export function registerContactRoutes(
 					...readContactDetails(payload),
 				}),
 			run: (context, commands) => runContactCommands(context, options.db, commands, 201),
-		}),
-	);
-
-	app.post(
-		'/public-engagement/contacts/merge',
-		options.authContextMiddleware,
-		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
-				mergeContactsCommand({
-					...ctx,
-					targetContactId: readText(payload.targetContactId) ?? '',
-					sourceContactIds: readStringArray(payload.sourceContactIds),
-					acknowledgedContactMerge: true,
-				}),
-			run: (context, commands) => runContactCommands(context, options.db, commands),
 		}),
 	);
 
@@ -149,10 +143,10 @@ async function runContactCommands(
 	);
 }
 
-async function writeContactCommand(
+export async function writeContactCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
-): Promise<SafeContact | null> {
+): Promise<ContactRow | null> {
 	switch (command.type) {
 		case 'publicEngagement.createContact': {
 			const row = await insertContact(
@@ -203,6 +197,22 @@ async function writeContactCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'publicEngagement.mergeContacts': {
+			// This used to be the soft deletes alone. That retired the source contacts
+			// and left every service request and notification registration pointing at
+			// a row that no longer resolves anywhere. No error, no constraint, the
+			// contact simply gone from every surface that filters `deleted_at`.
+			//
+			// `applyRecordMerge` is the re-pointing, and it runs first: each rule finds
+			// its rows by the source contact id, and a source already deleted is not
+			// one of them. `mission_notifications` is deliberately not among the
+			// rules, because those rows snapshot who was told and how.
+			await applyRecordMerge(trx, {
+				recordType: 'contact',
+				targetId: command.payload.targetContactId,
+				sourceIds: command.payload.sourceContactIds,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
 			for (const sourceId of command.payload.sourceContactIds) {
 				await softDelete(
 					trx,
@@ -211,7 +221,6 @@ async function writeContactCommand(
 					command.payload.organizationId,
 					command.payload.actorProfileId,
 					contactReturnColumns,
-					toSafeContact,
 				);
 			}
 			return loadContact(trx, command.payload.targetContactId, command.payload.organizationId);
@@ -230,7 +239,6 @@ async function writeContactCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				contactReturnColumns,
-				toSafeContact,
 			);
 		default:
 			throw new Error(`Unsupported contact command: ${command.type}`);
@@ -242,23 +250,15 @@ async function updateContact(
 	contactId: string,
 	organizationId: string,
 	set: Record<string, unknown>,
-): Promise<SafeContact | null> {
-	return updateRow(
-		trx,
-		'contacts',
-		contactId,
-		organizationId,
-		set,
-		contactReturnColumns,
-		toSafeContact,
-	);
+): Promise<ContactRow | null> {
+	return updateRow(trx, 'contacts', contactId, organizationId, set, contactReturnColumns);
 }
 
 async function loadContact(
 	trx: PublicEngagementTransaction,
 	contactId: string,
 	organizationId: string,
-): Promise<SafeContact | null> {
+): Promise<ContactRow | null> {
 	const row = await trx
 		.selectFrom('contacts')
 		.select(contactReturnColumns)
@@ -266,5 +266,5 @@ async function loadContact(
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeContact(row);
+	return row ?? null;
 }

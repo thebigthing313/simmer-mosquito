@@ -29,15 +29,17 @@ describe('a collection set and collected on the same day', () => {
 
 		expect(stamps.startedAt).not.toBeNull();
 		expect(stamps.collectedAt).not.toBeNull();
-		expect((stamps.collectedAt as string) >= (stamps.startedAt as string)).toBe(true);
+		expect((stamps.collectedAt as Date).getTime()).toBeGreaterThanOrEqual(
+			(stamps.startedAt as Date).getTime(),
+		);
 	});
 
 	it('keeps a set from an earlier day earlier', () => {
 		const morning = new Date('2026-08-04T13:00:00.000Z');
 		const stamps = collectionTimingStamps(exactValues('2026-08-02', '2026-08-04'), AGENCY, morning);
 
-		expect(stamps.startedAt).toBe('2026-08-02T16:00:00.000Z');
-		expect(stamps.collectedAt).toBe('2026-08-04T13:00:00.000Z');
+		expect(stamps.startedAt?.toISOString()).toBe('2026-08-02T16:00:00.000Z');
+		expect(stamps.collectedAt?.toISOString()).toBe('2026-08-04T13:00:00.000Z');
 	});
 
 	it('files a date+duration collection under its collection date and sets nothing', () => {
@@ -53,6 +55,6 @@ describe('a collection set and collected on the same day', () => {
 		);
 
 		expect(stamps.startedAt).toBeNull();
-		expect(stamps.collectedAt).toBe('2026-08-02T16:00:00.000Z');
+		expect(stamps.collectedAt?.toISOString()).toBe('2026-08-02T16:00:00.000Z');
 	});
 });

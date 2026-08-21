@@ -1,5 +1,4 @@
 import type { ControlType } from '@simmer-mosquito/domain';
-import type { RequestedControlActionRow } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -14,13 +13,13 @@ import {
 	StopReorderControls,
 } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
+import type { OpenRequest } from '../../../hooks/queries/operations-view';
+import { controlTypeLabel, requestDisplayName } from '../../../hooks/queries/operations-view';
+import { useOpenRequestedControlActions } from '../../../hooks/queries/use-open-requested-control-actions';
 import {
-	controlTypeLabel,
 	type MissionItemAction,
 	type MissionStopView,
 	missionItemActionsFor,
-	requestDisplayName,
-	useOpenRequestedControlActions,
 } from '../-operations-data';
 import { MissionItemProgressBadge, missionStopTone } from '../-operations-display';
 
@@ -339,22 +338,22 @@ function StopSubtitle({ stop }: { readonly stop: MissionStopView }) {
  * legitimate plan the domain flags rather than forbids.
  */
 export function RequestStopPicker({
-	organizationId,
 	existingRequestIds,
 	disabled = false,
 	onAdd,
 }: {
-	readonly organizationId: string;
 	readonly existingRequestIds: ReadonlySet<string>;
 	readonly disabled?: boolean;
-	readonly onAdd: (request: RequestedControlActionRow) => void;
+	readonly onAdd: (request: OpenRequest) => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
-	const [selected, setSelected] = useState<RequestedControlActionRow | null>(null);
+	const [selected, setSelected] = useState<OpenRequest | null>(null);
 	const anchorRef = useRef<HTMLDivElement>(null);
 
-	const { requests, isReady } = useOpenRequestedControlActions(organizationId);
+	// No organization argument: the shape is scoped to the caller's agency
+	// server-side, so a client-side predicate on it is redundant.
+	const { requests, isReady } = useOpenRequestedControlActions();
 	const matches = useRequestMatches(requests, existingRequestIds, search);
 
 	return (
@@ -422,10 +421,10 @@ export function RequestStopPicker({
 
 /** Open requests not already on this mission, narrowed by the search box. */
 function useRequestMatches(
-	requests: readonly RequestedControlActionRow[],
+	requests: readonly OpenRequest[],
 	existingRequestIds: ReadonlySet<string>,
 	search: string,
-): readonly RequestedControlActionRow[] {
+): readonly OpenRequest[] {
 	const normalized = search.trim().toLowerCase();
 	return useMemo(() => {
 		const available = requests.filter((request) => !existingRequestIds.has(request.id));

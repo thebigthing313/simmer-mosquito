@@ -1,8 +1,18 @@
-# ADR 0007: Shared Sync Descriptors With Per-Frontend Collections
+# ADR 0007: Shared sync descriptors with per-frontend collections
 
-Status: Accepted
+Status: Accepted, amended by
+[ADR 0014](0014-generated-table-schemas-replace-sync-descriptors.md)
 
 Date: 2026-05-14
+
+> **Read 0014 before acting on this.** The package boundary below still holds:
+> shared contracts in `packages/sync`, collection singletons per frontend, and
+> no universal prebuilt collection exported from the package. The mechanism does
+> not. Descriptors are deleted and replaced by schemas generated from the
+> migrations; `syncMode`, preload policy, and retention moved to the app; and
+> tracer descriptor sets are gone. The `packages/sync` responsibility list in
+> **Decision** and the last bullet of **Consequences** are the parts 0014
+> replaces.
 
 ## Context
 

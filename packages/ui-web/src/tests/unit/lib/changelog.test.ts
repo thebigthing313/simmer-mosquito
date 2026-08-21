@@ -114,6 +114,25 @@ describe('parseChangelog', () => {
 		]);
 	});
 
+	// The shape `scripts/release-version.mjs`' floor bump generates: a release
+	// that moved the version and said nothing, so changesets writes the heading
+	// with no section under it at all. It has to survive as a release — the
+	// sidebar is displaying this number, and the page draws it as a maintenance
+	// one.
+	it('keeps a release with no section under its heading', () => {
+		const releases = parseChangelog(
+			'# app\n\n## 1.0.1 — 2026-01-09\n\n## 1.0.0 — 2026-01-02\n\n### Patch Changes\n\n- Fixed: A crash.\n',
+		);
+
+		expect(releases[0]).toEqual({
+			version: '1.0.1',
+			date: '2026-01-09',
+			uncategorized: [],
+			groups: [],
+		});
+		expect(releases[1]?.groups[0]?.entries).toEqual(['A crash.']);
+	});
+
 	it('returns nothing for a changelog with no releases in it yet', () => {
 		expect(parseChangelog('# @simmer-mosquito/web\n')).toEqual([]);
 	});

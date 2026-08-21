@@ -1,5 +1,4 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
-import type { ControlMethodRow, NotificationTypeRow, OrganizationRow } from '@simmer-mosquito/sync';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -20,39 +19,42 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import type { Collection } from '@tanstack/react-db';
 import { useState } from 'react';
-import { toast } from 'sonner';
-import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
+import {
+	type CatalogFormValues,
+	catalogFields,
+	catalogFormValues,
+	commitCatalogSave,
+} from '../../../components/catalog';
+import {
+	type CatalogMutations,
+	useNotificationTypeMutations,
+	useOutreachMethodMutations,
+} from '../../../hooks/mutations/use-catalog-mutations';
+import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
+import {
+	type DescribedCatalogRecord,
+	useNotificationTypeRecords,
+	useOutreachMethodRecords,
+} from '../../../hooks/queries/use-catalog-records';
 import { AddIcon, CloseIcon, EditIcon } from './constants';
 import { ControlMethodLookupList } from './control';
-import {
-	createNotificationTypeFromValues,
-	errorMessageForSave,
-	notificationTypeFormValues,
-	savePublicSettingsFromValues,
-	updateNotificationTypeFromValues,
-	watchPersistence,
-} from './helpers';
+import { serviceRequestContextFrom } from './helpers';
 import { EditSettingsSheet, LookupListFrame } from './layout/layout';
-import type { NotificationTypeFormValues } from './types';
 
 export function PublicEngagementSettings({
 	canManage,
 	canEditMethods,
-	notificationTypes,
-	organization,
-	outreachMethods,
 	settings,
 }: {
 	readonly canManage: boolean;
 	/** Manager-and-above may rename an outreach method; only admin adds one. */
 	readonly canEditMethods: boolean;
-	readonly notificationTypes: Collection<NotificationTypeRow, string | number>;
-	readonly organization: OrganizationRow | null;
-	readonly outreachMethods: Collection<ControlMethodRow, string | number>;
 	readonly settings: OrganizationSettings;
 }) {
+	const outreachMethods = useOutreachMethodRecords();
+	const outreachMethodMutations = useOutreachMethodMutations();
+
 	return (
 		<div className="grid gap-3">
 			<ServiceRequestContextGuide settings={settings} />
@@ -63,14 +65,10 @@ export function PublicEngagementSettings({
 						canEditMethods={canEditMethods}
 						canManage={canManage}
 						collectionKey="outreachMethods"
-						methods={outreachMethods}
-						organization={organization}
+						mutations={outreachMethodMutations}
+						records={outreachMethods}
 					/>
-					<NotificationTypeLookupList
-						canManage={canManage}
-						notificationTypes={notificationTypes}
-						organization={organization}
-					/>
+					<NotificationTypeLookupList canManage={canManage} />
 				</div>
 			</div>
 		</div>
@@ -129,13 +127,13 @@ function PublicSettingTile({
 
 export function PublicSettingsDrawer({
 	canManage,
-	organization,
 	settings,
 }: {
 	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
 	readonly settings: OrganizationSettings;
 }) {
+	const { setServiceRequestContext } = useOrganizationSettingsMutations();
+
 	return (
 		<EditSettingsSheet
 			description="Set how much nearby activity is shown when staff review a resident service request."
@@ -169,29 +167,24 @@ export function PublicSettingsDrawer({
 				},
 			]}
 			onSave={(formData) =>
-				savePublicSettingsFromValues(organization, settings, {
-					radiusAmount: Number(formData.get('Search radius')),
-					radiusUnitCode: String(formData.get('Radius unit') ?? ''),
-					daysBefore: Number(formData.get('Days before')),
-					daysAfter: Number(formData.get('Days after')),
-				})
+				setServiceRequestContext(
+					serviceRequestContextFrom({
+						radiusAmount: Number(formData.get('Search radius')),
+						radiusUnitCode: String(formData.get('Radius unit') ?? ''),
+						daysBefore: Number(formData.get('Days before')),
+						daysAfter: Number(formData.get('Days after')),
+					}),
+				)
 			}
 			title="Edit Public Engagement"
 		/>
 	);
 }
 
-function NotificationTypeLookupList({
-	canManage,
-	notificationTypes,
-	organization,
-}: {
-	readonly canManage: boolean;
-	readonly notificationTypes: Collection<NotificationTypeRow, string | number>;
-	readonly organization: OrganizationRow | null;
-}) {
-	const { activeRows: activeTypes, inactiveRows: inactiveTypes } =
-		useActiveNamedCollectionRows(notificationTypes);
+function NotificationTypeLookupList({ canManage }: { readonly canManage: boolean }) {
+	const { activeRecords: activeTypes, inactiveRecords: inactiveTypes } =
+		useNotificationTypeRecords();
+	const mutations = useNotificationTypeMutations();
 
 	return (
 		<LookupListFrame
@@ -202,7 +195,7 @@ function NotificationTypeLookupList({
 			action={
 				<NotificationTypeDrawer
 					canManage={canManage}
-					organization={organization}
+					mutations={mutations}
 					trigger={
 						<Button type="button" variant="outline" size="sm" disabled={!canManage}>
 							<AddIcon aria-hidden="true" />
@@ -214,14 +207,14 @@ function NotificationTypeLookupList({
 		>
 			<NotificationTypeTable
 				canManage={canManage}
+				mutations={mutations}
 				notificationTypes={activeTypes}
-				organization={organization}
 			/>
 			{inactiveTypes.length > 0 ? (
 				<NotificationTypeTable
 					canManage={canManage}
+					mutations={mutations}
 					notificationTypes={inactiveTypes}
-					organization={organization}
 				/>
 			) : null}
 		</LookupListFrame>
@@ -230,12 +223,12 @@ function NotificationTypeLookupList({
 
 function NotificationTypeTable({
 	canManage,
+	mutations,
 	notificationTypes,
-	organization,
 }: {
 	readonly canManage: boolean;
-	readonly notificationTypes: readonly NotificationTypeRow[];
-	readonly organization: OrganizationRow | null;
+	readonly mutations: CatalogMutations;
+	readonly notificationTypes: readonly DescribedCatalogRecord[];
 }) {
 	return (
 		<div className="overflow-x-auto rounded-md border border-border/40">
@@ -258,8 +251,8 @@ function NotificationTypeTable({
 								<TableCell className="text-right">
 									<NotificationTypeDrawer
 										canManage={canManage}
+										mutations={mutations}
 										notificationType={notificationType}
-										organization={organization}
 										trigger={
 											<Button type="button" variant="outline" size="icon">
 												<EditIcon aria-hidden="true" />
@@ -279,39 +272,38 @@ function NotificationTypeTable({
 
 function NotificationTypeDrawer({
 	canManage,
+	mutations,
 	notificationType,
-	organization,
 	trigger,
 }: {
 	readonly canManage: boolean;
-	readonly notificationType?: NotificationTypeRow | undefined;
-	readonly organization: OrganizationRow | null;
+	readonly mutations: CatalogMutations;
+	readonly notificationType?: DescribedCatalogRecord | undefined;
 	readonly trigger: React.ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
-	const defaultValues: NotificationTypeFormValues = notificationTypeFormValues(notificationType);
+	const defaultValues: CatalogFormValues = catalogFormValues(notificationType);
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction =
-					notificationType === undefined
-						? createNotificationTypeFromValues(organization, value)
-						: updateNotificationTypeFromValues(notificationType, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
+			commitCatalogSave({
+				failureMessage:
 					notificationType === undefined
 						? 'Unable to create notification type.'
 						: `Unable to save ${notificationType.name}.`,
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+				onWritten: () => setOpen(false),
+				save: () =>
+					notificationType === undefined
+						? mutations.create(catalogFields(value)).then(() => undefined)
+						: mutations.save(
+								notificationType.id,
+								catalogFields(value),
+								catalogFields(catalogFormValues(notificationType)),
+							),
+			});
 		},
 	});
 
@@ -374,7 +366,7 @@ function NotificationTypeDrawer({
 						</form.AppField>
 						<DrawerFooter className="px-0">
 							<form.FormActions>
-								<form.SubmitButton disabled={!canManage || organization === null} />
+								<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
 								<DrawerClose asChild>
 									<Button type="button" variant="outline">
 										<CloseIcon data-icon="inline-start" aria-hidden="true" />

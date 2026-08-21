@@ -1,6 +1,4 @@
-import type { CollectionSpeciesRow, SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
-import { eq, useLiveQuery } from '@tanstack/react-db';
+import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
 import { useCallback, useEffect, useRef } from 'react';
 import {
 	type CommitBaseline,
@@ -13,9 +11,14 @@ import {
 	type TallyEntry,
 	type TallyVariant,
 } from '../../components/key-entry/use-key-entry-tally';
+import { newRecordId } from '../../hooks/mutations/shared';
+import { useCollectionSpeciesMutations } from '../../hooks/mutations/use-collection-species-mutations';
+import {
+	type CollectionIdentification,
+	useCollectionIdentifications,
+} from '../../hooks/queries/use-collection-identifications';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { useSpeciesKeyBindings } from '../../hooks/use-species-key-bindings';
-import { webCollections } from '../../sync/webCollections';
 import {
 	SPECIES_SEX_VALUES,
 	SPECIES_STATUS_VALUES,
@@ -51,28 +54,15 @@ export function CollectionKeyEntryDialog({
 	open,
 	onOpenChange,
 	collectionId,
-	organizationId,
-	actorProfileId,
 }: {
 	readonly open: boolean;
 	readonly onOpenChange: (open: boolean) => void;
 	readonly collectionId: string;
-	readonly organizationId: string;
-	readonly actorProfileId: string | null;
 }) {
 	const bindings = useSpeciesKeyBindings();
 	const timeZone = useOrganizationTimeZone();
-
-	const result = useLiveQuery(
-		{
-			query: (query) =>
-				query
-					.from({ collectionSpecies: webCollections.collectionSpecies })
-					.where(({ collectionSpecies }) => eq(collectionSpecies.collectionId, collectionId)),
-		},
-		[collectionId],
-	);
-	const rows = (result.data ?? []) as readonly CollectionSpeciesRow[];
+	const { identifications } = useCollectionIdentifications(collectionId);
+	const mutations = useCollectionSpeciesMutations();
 
 	// What was already recorded when the modal opened, plus what this session has
 	// written. `planCommit` reads all three to turn the tally into absolute targets.
@@ -80,8 +70,8 @@ export function CollectionKeyEntryDialog({
 	const insertedRef = useRef<Map<string, string>>(new Map());
 	const flushedRef = useRef<ReadonlySet<string>>(new Set());
 
-	const rowsRef = useRef(rows);
-	rowsRef.current = rows;
+	const rowsRef = useRef(identifications);
+	rowsRef.current = identifications;
 
 	useEffect(() => {
 		if (!open) {
@@ -100,45 +90,41 @@ export function CollectionKeyEntryDialog({
 				inserted: insertedRef.current,
 				flushed: flushedRef.current,
 			});
-			const now = new Date().toISOString();
 
 			const writes = steps.map((step) => {
 				if (step.kind === 'update') {
-					return updateCount(step.rowId, step.count, actorProfileId);
+					return mutations.save(step.rowId, { count: step.count });
 				}
 				if (step.kind === 'delete') {
 					insertedRef.current.delete(step.entryKey);
-					return settleWrite(webCollections.collectionSpecies.delete(step.rowId));
+					return mutations.remove(step.rowId);
 				}
 
-				const id = crypto.randomUUID();
-				const row: CollectionSpeciesRow = {
-					id,
-					organizationId,
-					collectionId,
-					speciesId: step.speciesId,
-					count: step.count,
-					sex: step.variant.sex as SpeciesSex | null,
-					status: step.variant.status as SpeciesStatus | null,
-					identifiedByProfileId: actorProfileId,
-					identifiedDate: todayInTimeZone(timeZone),
-					createdByProfileId: actorProfileId,
-					updatedByProfileId: actorProfileId,
-					createdAt: now,
-					updatedAt: now,
-				};
+				const collectionSpeciesId = newRecordId();
 				// Remember the id only once the insert sticks. A rejected insert is rolled
 				// back out of the collection, so recording it up front would leave the next
 				// flush trying to update a row that no longer exists.
-				return settleWrite(webCollections.collectionSpecies.insert(row)).then(() => {
-					insertedRef.current.set(step.entryKey, id);
-				});
+				return mutations
+					.add({
+						collectionId,
+						collectionSpeciesId,
+						identifiedDate: todayInTimeZone(timeZone),
+						fields: {
+							speciesId: step.speciesId,
+							count: step.count,
+							sex: step.variant.sex as SpeciesSex | null,
+							status: step.variant.status as SpeciesStatus | null,
+						},
+					})
+					.then(() => {
+						insertedRef.current.set(step.entryKey, collectionSpeciesId);
+					});
 			});
 
 			await Promise.all(writes);
 			flushedRef.current = flushedKeysAfter(entries);
 		},
-		[actorProfileId, collectionId, organizationId, timeZone],
+		[collectionId, timeZone, mutations],
 	);
 
 	return (
@@ -159,11 +145,17 @@ export function CollectionKeyEntryDialog({
  * The first active row per species/sex/status. `collection_species` carries no
  * uniqueness constraint, so a duplicate pair can exist; keying off the earliest row
  * leaves any other alone rather than silently folding them together.
+ *
+ * The read seam hands `created_at` up as the `Date` the row schema parses, so the
+ * ordering is by instant rather than by the lexical compare the raw string
+ * allowed.
  */
-function baselineFrom(rows: readonly CollectionSpeciesRow[]): ReadonlyMap<string, CommitBaseline> {
+function baselineFrom(
+	rows: readonly CollectionIdentification[],
+): ReadonlyMap<string, CommitBaseline> {
 	const baseline = new Map<string, CommitBaseline>();
-	const ordered = [...rows].sort((first, second) =>
-		first.createdAt.localeCompare(second.createdAt),
+	const ordered = [...rows].sort(
+		(first, second) => first.createdAt.getTime() - second.createdAt.getTime(),
 	);
 	for (const row of ordered) {
 		const entryKey = entryKeyFor(row.speciesId, variantOf(row));
@@ -174,16 +166,6 @@ function baselineFrom(rows: readonly CollectionSpeciesRow[]): ReadonlyMap<string
 	return baseline;
 }
 
-function variantOf(row: CollectionSpeciesRow): TallyVariant {
+function variantOf(row: CollectionIdentification): TallyVariant {
 	return { sex: row.sex, status: row.status };
-}
-
-function updateCount(rowId: string, count: number, actorProfileId: string | null): Promise<void> {
-	return settleWrite(
-		webCollections.collectionSpecies.update(rowId, (draft) => {
-			const mutable = draft as { count: number; updatedByProfileId: string | null };
-			mutable.count = count;
-			mutable.updatedByProfileId = actorProfileId;
-		}),
-	);
 }

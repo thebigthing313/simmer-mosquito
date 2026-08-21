@@ -51,7 +51,6 @@ import { registerGeocoderRoutes } from './geocoder.js';
 import { registerLarvalSurveillanceCommandRoutes } from './larval-surveillance-commands/index.js';
 import { registerMapTileRoutes } from './map-tiles.js';
 import { registerMissionDispatchCommandRoutes } from './mission-dispatch-commands/index.js';
-import { registerOrganizationCommandRoutes } from './organization-commands.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
 import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
@@ -59,6 +58,8 @@ import { registerPublicEngagementRecordRoutes } from './public-engagement-record
 import { registerRecordDeletionRoutes } from './record-deletion.js';
 import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
+import { registerTableCommandSurface } from './table-commands/index.js';
+import { registerWeatherImportRoute } from './weather-commands/index.js';
 
 const env = readServerEnv();
 const auth = createWorkOsAuth({
@@ -108,12 +109,13 @@ if (env.geocodioApiKey === null) {
 const authContextMiddleware = createAuthContextMiddleware({
 	auth: sessionProvider,
 	localIdentityResolver,
+	operatorOrganizationId: env.simmerOperatorOrganizationId,
 	setAuthCookie,
 });
 const operatorAuthContextMiddleware = createOperatorAuthContextMiddleware({
 	auth: sessionProvider,
 	localIdentityResolver,
-	isOperatorEmail,
+	operatorOrganizationId: env.simmerOperatorOrganizationId,
 	setAuthCookie,
 });
 
@@ -310,11 +312,6 @@ registerControlProductCommandRoutes(app, {
 	authContextMiddleware,
 });
 
-registerOrganizationCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
 registerOrganizationSettingsCommandRoutes(app, {
 	db,
 	authContextMiddleware,
@@ -378,6 +375,21 @@ registerRecordDeletionRoutes(app, {
 
 registerGeocoderRoutes(app, {
 	apiKey: env.geocodioApiKey,
+	authContextMiddleware,
+});
+
+// The `/commands/{table}` surface, which the new sync collections write through.
+// Additive: the domain-shaped endpoints above are untouched, and both reach the
+// same commands, permissions and write transaction.
+registerTableCommandSurface(app, {
+	db,
+	authContextMiddleware,
+	operatorAuthContextMiddleware,
+});
+
+// The one weather command the table surface has no shape for, see the module.
+registerWeatherImportRoute(app, {
+	db,
 	authContextMiddleware,
 });
 
@@ -541,10 +553,6 @@ function setAuthCookie(
 		sameSite: 'Lax',
 		secure: env.nodeEnv === 'production',
 	});
-}
-
-function isOperatorEmail(email: string): boolean {
-	return env.simmerOperatorEmails.includes(email.trim().toLowerCase());
 }
 
 function readAllowedReturnTo(value: string | undefined): string | null {

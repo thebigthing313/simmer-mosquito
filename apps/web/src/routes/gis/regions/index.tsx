@@ -1,5 +1,3 @@
-import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -28,7 +26,6 @@ import {
 	SearchIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useRef, useState } from 'react';
@@ -36,8 +33,15 @@ import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
+import {
+	type RegionListing,
+	useRegionDirectory,
+} from '../../../hooks/queries/use-region-directory';
+import {
+	type RegionFolderListing,
+	useRegionFolders,
+} from '../../../hooks/queries/use-region-folders';
 import {
 	type FilterCodecs,
 	searchValidator,
@@ -45,7 +49,6 @@ import {
 	useDebouncedTextFilter,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import { RegionFolderDialog } from './-folder-dialog';
 import {
 	isHoveredDropTarget,
@@ -73,29 +76,16 @@ export const Route = createFileRoute('/gis/regions/')({
 const RegionIcon = iconRegistry.entities.region.icon;
 const ImportIcon = iconRegistry.actions.upload.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
-const regionsGcTimeMs = 30_000;
 
 function RegionsExplorerRoute() {
-	const { auth } = Route.useRouteContext();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const organizationId = organization?.id ?? '';
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-
-	const { rows: folders } = useCollectionRows<RegionFolderRow>(webCollections.regionFolders);
-
-	const result = useLiveQuery(
-		{
-			gcTime: regionsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ region: webCollections.regions })
-					.where(({ region }) => eq(region.organizationId, organizationId))
-					.orderBy(({ region }) => region.name, 'asc'),
-		},
-		[organizationId],
-	);
-	const regions = (result.data ?? []) as readonly RegionRow[];
+	// `region_folders` is eager but no longer preloaded at boot — it left the
+	// baseline bundle with its webCollections entry — so the tree waits for both
+	// halves. Drawn on the regions alone, an agency that files everything would
+	// flash "No Regions Yet" for as long as the folder list took to arrive.
+	const { folders, isReady: foldersReady } = useRegionFolders();
+	const { regions, isReady: regionsReady } = useRegionDirectory();
+	const isReady = foldersReady && regionsReady;
+	const mutations = useRegionMutations();
 	// A ref keeps rename/move handlers stable while still reading the latest rows.
 	const regionsRef = useRef(regions);
 	regionsRef.current = regions;
@@ -121,22 +111,22 @@ function RegionsExplorerRoute() {
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	// `null` = closed; a folder row = edit it; `'new'` = create one.
-	const [folderDialog, setFolderDialog] = useState<RegionFolderRow | 'new' | null>(null);
+	const [folderDialog, setFolderDialog] = useState<RegionFolderListing | 'new' | null>(null);
 
 	const sortedFolders = useMemo(
 		() => [...folders].sort((a, b) => a.name.localeCompare(b.name)),
 		[folders],
 	);
 	const regionsByFolder = useMemo(() => {
-		const byFolder = new Map<string, RegionRow[]>();
-		const root: RegionRow[] = [];
+		const byFolder = new Map<string, RegionListing[]>();
+		const root: RegionListing[] = [];
 		for (const region of regions) {
-			if (region.regionFolderId === null) {
+			if (region.folderId === null) {
 				root.push(region);
 			} else {
-				const bucket = byFolder.get(region.regionFolderId);
+				const bucket = byFolder.get(region.folderId);
 				if (bucket === undefined) {
-					byFolder.set(region.regionFolderId, [region]);
+					byFolder.set(region.folderId, [region]);
 				} else {
 					bucket.push(region);
 				}
@@ -157,12 +147,12 @@ function RegionsExplorerRoute() {
 			return {
 				folders: sortedFolders.map((folder) => ({
 					folder,
-					regions: regionsByFolder.byFolder.get(folder.id) ?? ([] as readonly RegionRow[]),
+					regions: regionsByFolder.byFolder.get(folder.id) ?? ([] as readonly RegionListing[]),
 				})),
-				unfiled: regionsByFolder.root as readonly RegionRow[],
+				unfiled: regionsByFolder.root as readonly RegionListing[],
 			};
 		}
-		const matchedFolders: { folder: RegionFolderRow; regions: readonly RegionRow[] }[] = [];
+		const matchedFolders: { folder: RegionFolderListing; regions: readonly RegionListing[] }[] = [];
 		for (const folder of sortedFolders) {
 			const folderRegions = regionsByFolder.byFolder.get(folder.id) ?? [];
 			const folderHit = hit(folder.name) || hit(folder.description);
@@ -233,8 +223,9 @@ function RegionsExplorerRoute() {
 		setFocusedId(id);
 	}, []);
 
-	// Persist a rename. Name is the only field editable here, so we PATCH just it;
-	// the optimistic mutation reverts to the synced name if the write fails.
+	// An inline rename is `updateRegionDetails` and nothing else. Guarded on the
+	// current row rather than sent blindly: renaming a region to the name it
+	// already has is a command with nothing to change, which the domain refuses.
 	const renameRegion = useCallback(
 		async (id: string, rawName: string) => {
 			const name = rawName.trim();
@@ -242,49 +233,31 @@ function RegionsExplorerRoute() {
 			if (current === undefined || name.length === 0 || name === current.name) {
 				return;
 			}
-			const now = new Date().toISOString();
 			try {
-				await settleWrite(
-					webCollections.regions.update(id, (draft) => {
-						const writable = draft as { -readonly [K in keyof RegionRow]: RegionRow[K] };
-						writable.name = name;
-						if (actorProfileId !== null) {
-							writable.updatedByProfileId = actorProfileId;
-						}
-						writable.updatedAt = now;
-					}),
-				);
+				await mutations.rename(id, name);
 			} catch {
 				// Optimistic mutation rolled back; the tree already shows the synced name.
 			}
 		},
-		[actorProfileId],
+		[mutations],
 	);
 
-	// Reassign a region's folder (null = unfiled). PATCHes only regionFolderId.
+	// A drag between folders is `moveRegionToFolder`, and `null` unfiles it —
+	// which is why the guard compares the value rather than asking whether one
+	// arrived.
 	const moveRegion = useCallback(
 		async (id: string, folderId: string | null) => {
 			const current = regionsRef.current.find((region) => region.id === id);
-			if (current === undefined || (current.regionFolderId ?? null) === folderId) {
+			if (current === undefined || current.folderId === folderId) {
 				return;
 			}
-			const now = new Date().toISOString();
 			try {
-				await settleWrite(
-					webCollections.regions.update(id, (draft) => {
-						const writable = draft as { -readonly [K in keyof RegionRow]: RegionRow[K] };
-						writable.regionFolderId = folderId;
-						if (actorProfileId !== null) {
-							writable.updatedByProfileId = actorProfileId;
-						}
-						writable.updatedAt = now;
-					}),
-				);
+				await mutations.move(id, folderId);
 			} catch {
 				// Optimistic mutation rolled back; the tree already shows the prior folder.
 			}
 		},
-		[actorProfileId],
+		[mutations],
 	);
 
 	const dnd = useRegionDnd(moveRegion);
@@ -344,7 +317,7 @@ function RegionsExplorerRoute() {
 					/>
 				</div>
 
-				{!result.isReady ? (
+				{!isReady ? (
 					<RegionsSkeleton />
 				) : regions.length === 0 && sortedFolders.length === 0 ? (
 					<RegionsEmpty />
@@ -390,10 +363,8 @@ function RegionsExplorerRoute() {
 			</div>
 			{folderDialog === null ? null : (
 				<RegionFolderDialog
-					actorProfileId={actorProfileId}
 					folder={folderDialog === 'new' ? null : folderDialog}
 					onClose={() => setFolderDialog(null)}
-					organizationId={organizationId}
 				/>
 			)}
 		</MapSplitPage>
@@ -415,8 +386,8 @@ export function FolderNode({
 	onFocusRegion,
 	onEdit,
 }: {
-	readonly folder: RegionFolderRow;
-	readonly regions: readonly RegionRow[];
+	readonly folder: RegionFolderListing;
+	readonly regions: readonly RegionListing[];
 	readonly expanded: boolean;
 	readonly visibleIds: ReadonlySet<string>;
 	readonly focusedId: string | null;
@@ -533,7 +504,7 @@ function UnfiledGroup({
 	onToggleRegion,
 	onFocusRegion,
 }: {
-	readonly regions: readonly RegionRow[];
+	readonly regions: readonly RegionListing[];
 	readonly showHeader: boolean;
 	readonly visibleIds: ReadonlySet<string>;
 	readonly focusedId: string | null;
@@ -609,7 +580,7 @@ function RegionTreeRow({
 	onToggle,
 	onFocus,
 }: {
-	readonly region: RegionRow;
+	readonly region: RegionListing;
 	readonly isVisible: boolean;
 	readonly isFocused: boolean;
 	readonly depth: number;

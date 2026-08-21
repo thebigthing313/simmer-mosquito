@@ -1,4 +1,9 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	assertWriteReferences,
+	checkedValues,
+	sql,
+} from '@simmer-mosquito/db';
 import {
 	type AdultCollectionLocationSourceInput,
 	type AdultSurveillanceCommand,
@@ -37,6 +42,7 @@ import {
 	type AdultSurveillanceTransaction,
 	agencyCommandContext,
 	type CollectionInsertInput,
+	type CollectionRow,
 	type CollectionTimingColumns,
 	type CollectionUpdateColumns,
 	type CommandContext,
@@ -55,8 +61,7 @@ import {
 	readDate,
 	resolveLocationGeom,
 	runCommands,
-	type SafeCollection,
-	toSafeCollection,
+	surveillanceCatalogReferences,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -373,10 +378,15 @@ async function runCollectionCommands(
 	);
 }
 
-async function writeCollectionCommand(
+/**
+ * Exported for `table-commands/collections.ts`, which reaches the same fifteen
+ * commands through `/commands/collections` and needs the writer unchanged —
+ * only the route and how the command is chosen differ.
+ */
+export async function writeCollectionCommand(
 	trx: AdultSurveillanceTransaction,
 	command: CollectionCommand,
-): Promise<SafeCollection | null> {
+): Promise<CollectionRow | null> {
 	switch (command.type) {
 		case 'adultSurveillance.setTrapCollection': {
 			const snapshot = await loadTrapSnapshot(
@@ -502,6 +512,11 @@ async function writeCollectionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'adultSurveillance.updateAdHocCollectionConfiguration':
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'update', table: 'collections', recordId: command.payload.collectionId },
+				references: surveillanceCatalogReferences(command.payload.changes),
+			});
 			return updateCollection(trx, command.payload.collectionId, command.payload.organizationId, {
 				...(command.payload.changes.locationSource !== undefined
 					? {
@@ -567,7 +582,7 @@ async function writeCollectionCommand(
  * the stop that produced it. They are `fieldWork.*` commands handled here
  * because the row is a collection; see the same note in the inspection handler.
  */
-type CollectionCommand =
+export type CollectionCommand =
 	| AdultSurveillanceCommand
 	| SetTrapCollectionForAssignmentItemCommand
 	| CollectTrapCollectionForAssignmentItemCommand
@@ -607,7 +622,7 @@ async function finishExecution(
 async function setTrapCollectionForStop(
 	trx: AdultSurveillanceTransaction,
 	payload: SetTrapCollectionForAssignmentItemCommand['payload'],
-): Promise<SafeCollection | null> {
+): Promise<CollectionRow | null> {
 	const stop = await beginExecution(
 		trx,
 		payload.assignmentItemId,
@@ -641,7 +656,7 @@ async function setTrapCollectionForStop(
 async function recordCollectedTrapCollectionForStop(
 	trx: AdultSurveillanceTransaction,
 	payload: RecordCollectedTrapCollectionForAssignmentItemCommand['payload'],
-): Promise<SafeCollection | null> {
+): Promise<CollectionRow | null> {
 	const stop = await beginExecution(
 		trx,
 		payload.assignmentItemId,
@@ -678,7 +693,7 @@ async function recordCollectedTrapCollectionForStop(
 async function collectTrapCollectionForStop(
 	trx: AdultSurveillanceTransaction,
 	payload: CollectTrapCollectionForAssignmentItemCommand['payload'],
-): Promise<SafeCollection | null> {
+): Promise<CollectionRow | null> {
 	// The collection already exists — it was set on an earlier visit — so the
 	// target check is against the trap that row already names, not a snapshot.
 	const existing = await trx
@@ -713,30 +728,40 @@ async function collectTrapCollectionForStop(
 async function insertCollection(
 	trx: AdultSurveillanceTransaction,
 	input: CollectionInsertInput,
-): Promise<SafeCollection> {
+): Promise<CollectionRow> {
+	// The one funnel both create paths run through, so the gate sits here rather
+	// than on each caller.
+	await assertWriteReferences(trx, {
+		organizationId: input.organizationId,
+		write: { kind: 'create' },
+		references: surveillanceCatalogReferences(input),
+	});
+
 	const row = await trx
 		.insertInto('collections')
-		.values({
-			id: input.id,
-			organization_id: input.organizationId,
-			geom: input.geom,
-			trap_id: input.trapId,
-			collection_method_id: input.collectionMethodId,
-			collection_lure_id: input.collectionLureId,
-			address_id: input.addressId,
-			collected_by_profile_id: input.collectedByProfileId,
-			set_by_profile_id: input.setByProfileId,
-			has_problem: input.hasProblem,
-			metadata: input.metadata,
-			set_assignment_item_id: input.setAssignmentItemId ?? null,
-			collected_assignment_item_id: input.collectedAssignmentItemId ?? null,
-			created_by_profile_id: input.actorProfileId,
-			updated_by_profile_id: input.actorProfileId,
-			...timingColumns(input.timing),
-		})
+		.values(
+			await checkedValues(trx, input.organizationId, {
+				id: input.id,
+				organization_id: input.organizationId,
+				geom: input.geom,
+				trap_id: input.trapId,
+				collection_method_id: input.collectionMethodId,
+				collection_lure_id: input.collectionLureId,
+				address_id: input.addressId,
+				collected_by_profile_id: input.collectedByProfileId,
+				set_by_profile_id: input.setByProfileId,
+				has_problem: input.hasProblem,
+				metadata: input.metadata,
+				set_assignment_item_id: input.setAssignmentItemId ?? null,
+				collected_assignment_item_id: input.collectedAssignmentItemId ?? null,
+				created_by_profile_id: input.actorProfileId,
+				updated_by_profile_id: input.actorProfileId,
+				...timingColumns(input.timing),
+			}),
+		)
 		.returning(collectionReturnColumns)
 		.executeTakeFirstOrThrow();
-	return toSafeCollection(row);
+	return row;
 }
 
 async function updateCollection(
@@ -744,7 +769,7 @@ async function updateCollection(
 	collectionId: string,
 	organizationId: string,
 	set: CollectionUpdateColumns,
-): Promise<SafeCollection | null> {
+): Promise<CollectionRow | null> {
 	const row = await trx
 		.updateTable('collections')
 		.set({ ...set, updated_at: sql`now()` })
@@ -753,7 +778,7 @@ async function updateCollection(
 		.where('deleted_at', 'is', null)
 		.returning(collectionReturnColumns)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeCollection(row);
+	return row ?? null;
 }
 
 /**
@@ -767,7 +792,7 @@ async function softDeleteCollection(
 	collectionId: string,
 	organizationId: string,
 	actorProfileId: string,
-): Promise<SafeCollection | null> {
+): Promise<CollectionRow | null> {
 	await applyRecordDeletion(trx, {
 		recordType: 'collection',
 		recordId: collectionId,
@@ -787,7 +812,7 @@ async function softDeleteCollection(
 		.where('deleted_at', 'is', null)
 		.returning(collectionReturnColumns)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeCollection(row);
+	return row ?? null;
 }
 
 function timingColumns(timing: CollectionTiming): CollectionTimingColumns {

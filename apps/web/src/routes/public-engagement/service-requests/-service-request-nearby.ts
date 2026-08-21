@@ -1,15 +1,6 @@
 import { circlePolygon } from '@simmer-mosquito/mapping';
-import type {
-	ControlMethodRow,
-	HabitatTypeRow,
-	InsecticideRow,
-	OrgLookupRowBase,
-} from '@simmer-mosquito/sync';
-import { useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
-import { useMemo } from 'react';
 import { getServerUrl } from '../../../auth';
-import { webCollections } from '../../../sync/webCollections';
 
 // Data + display helpers for the service-request map context (nearby records).
 // Dash-prefixed so TanStack Router ignores this file as a route.
@@ -120,61 +111,6 @@ async function fetchNearby(id: string, signal: AbortSignal): Promise<NearbyRespo
 		throw new Error(`Nearby request failed (${response.status}).`);
 	}
 	return (await response.json()) as NearbyResponse;
-}
-
-/**
- * A merged id → display-name map over the eager lookup collections a nearby item
- * references (habitat types, collection methods, insecticides, source-reduction
- * and biocontrol methods). Ids are globally unique, so one map serves every
- * category's `refId`.
- */
-export function useNearbyNameById(): ReadonlyMap<string, string> {
-	const habitatTypes = useLiveQuery(
-		(query) => query.from({ row: webCollections.habitatTypes }),
-		[],
-	);
-	const collectionMethods = useLiveQuery(
-		(query) => query.from({ row: webCollections.collectionMethods }),
-		[],
-	);
-	const insecticides = useLiveQuery(
-		(query) => query.from({ row: webCollections.insecticides }),
-		[],
-	);
-	const sourceReductionMethods = useLiveQuery(
-		(query) => query.from({ row: webCollections.sourceReductionMethods }),
-		[],
-	);
-	const biocontrolMethods = useLiveQuery(
-		(query) => query.from({ row: webCollections.biocontrolMethods }),
-		[],
-	);
-
-	return useMemo(() => {
-		const map = new Map<string, string>();
-		for (const row of (habitatTypes.data ?? []) as readonly HabitatTypeRow[]) {
-			map.set(row.id, row.name);
-		}
-		for (const row of (collectionMethods.data ?? []) as readonly OrgLookupRowBase[]) {
-			map.set(row.id, row.name);
-		}
-		for (const row of (sourceReductionMethods.data ?? []) as readonly ControlMethodRow[]) {
-			map.set(row.id, row.name);
-		}
-		for (const row of (biocontrolMethods.data ?? []) as readonly ControlMethodRow[]) {
-			map.set(row.id, row.name);
-		}
-		for (const row of (insecticides.data ?? []) as readonly InsecticideRow[]) {
-			map.set(row.id, row.tradeName);
-		}
-		return map;
-	}, [
-		habitatTypes.data,
-		collectionMethods.data,
-		sourceReductionMethods.data,
-		biocontrolMethods.data,
-		insecticides.data,
-	]);
 }
 
 /** A title + optional subtitle for a nearby item, resolving lookup names where useful. */

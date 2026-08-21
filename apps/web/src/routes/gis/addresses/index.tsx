@@ -1,4 +1,3 @@
-import type { AddressRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -17,7 +16,6 @@ import {
 	SearchIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -33,7 +31,10 @@ import {
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import {
+	type AddressListing,
+	useOrganizationAddresses,
+} from '../../../hooks/queries/use-organization-addresses';
 import {
 	type FilterCodecs,
 	idSetParam,
@@ -42,7 +43,6 @@ import {
 	useDebouncedTextFilter,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import { AddressMapCard } from './-address-map-card';
 
 interface AddressFilters {
@@ -62,28 +62,11 @@ export const Route = createFileRoute('/gis/addresses/')({
 });
 
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
-const addressesGcTimeMs = 30_000;
+const _addressesGcTimeMs = 30_000;
 const PAGE_SIZE = 25;
 
 function AddressesExplorerRoute() {
-	const { auth } = Route.useRouteContext();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const organizationId = organization?.id ?? '';
-
-	// addresses is on-demand; the org-scoped query drives its subset. Status-gated
-	// useLiveQuery (not the suspense variant) to avoid the post-unmount hang.
-	const result = useLiveQuery(
-		{
-			gcTime: addressesGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.organizationId, organizationId))
-					.orderBy(({ address }) => address.displayName, 'asc'),
-		},
-		[organizationId],
-	);
-	const addresses = (result.data ?? []) as readonly AddressRow[];
+	const { addresses, isReady } = useOrganizationAddresses();
 
 	// The search term lives in the URL, so a shared link and Back out of an
 	// address both land on the list the operator had narrowed to.
@@ -110,7 +93,7 @@ function AddressesExplorerRoute() {
 	const filtered = useMemo(() => {
 		const query = search.trim().toLowerCase();
 		return addresses.filter((address) => {
-			const point = { lng: address.lng ?? Number.NaN, lat: address.lat ?? Number.NaN };
+			const point = { lng: address.longitude ?? Number.NaN, lat: address.latitude ?? Number.NaN };
 			if (!regionMembership.contains(point)) {
 				return false;
 			}
@@ -225,7 +208,7 @@ function AddressesExplorerRoute() {
 					</div>
 				</div>
 
-				{!result.isReady || !regionMembership.isReady ? (
+				{!isReady || !regionMembership.isReady ? (
 					<AddressesSkeleton />
 				) : filtered.length === 0 ? (
 					<AddressesEmpty hasFilter={search.trim().length > 0 || regionIds.size > 0} />
@@ -264,7 +247,7 @@ function AddressRowItem({
 	isFocused,
 	onFocus,
 }: {
-	readonly address: AddressRow;
+	readonly address: AddressListing;
 	readonly isFocused: boolean;
 	readonly onFocus: () => void;
 }) {
@@ -302,7 +285,7 @@ function AddressRowItem({
 }
 
 /** The complete postal address as a readable line: street, unit · city, state postal · country. */
-function fullAddress(address: AddressRow): string {
+function fullAddress(address: AddressListing): string {
 	const street = joinParts([address.addressLine1, address.addressLine2], ', ');
 	const cityStateZip = joinParts(
 		[joinParts([address.locality, address.region], ', '), address.postalCode],

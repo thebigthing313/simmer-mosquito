@@ -33,6 +33,7 @@ import { type CommandContext, CommandError, handleCommandError } from './command
 import { resolveCommandOwnership } from './command-ownership.js';
 import {
 	type AgencyCommandType,
+	authorizeCommands,
 	type CommandActor,
 	denyUnauthorizedAgencyCommands,
 } from './command-permissions.js';
@@ -59,14 +60,14 @@ export function commandActor(authContext: AuthContext): CommandActor {
  * The result carries the last row written and the transaction id the client
  * waits on before trusting its optimistic mutation.
  */
-export async function writeCommands<TCommand extends WritableCommand, TSafe>(
+export async function writeCommands<TCommand extends WritableCommand, TRow>(
 	db: CommandDb,
 	actor: CommandActor,
 	commands: readonly TCommand[],
-	write: (trx: CommandTransaction, command: TCommand) => Promise<TSafe | null>,
-): Promise<MutationWriteResult<TSafe | null>> {
+	write: (trx: CommandTransaction, command: TCommand) => Promise<TRow | null>,
+): Promise<MutationWriteResult<TRow | null>> {
 	return db.transaction().execute(async (trx) => {
-		let row: TSafe | null = null;
+		let row: TRow | null = null;
 		for (const command of commands) {
 			await assertCommandOwnership(trx, command, actor);
 			row = await write(trx, command);
@@ -140,9 +141,9 @@ export function nowLocalDate(): string {
  * Three values: which writer commits the batch, what to call the row when there
  * isn't one, and what key to return it under.
  */
-export interface RunCommandsConfig<TCommand extends WritableCommand, TSafe> {
+export interface RunCommandsConfig<TCommand extends WritableCommand, TRow> {
 	readonly db: CommandDb;
-	readonly write: (trx: CommandTransaction, command: TCommand) => Promise<TSafe | null>;
+	readonly write: (trx: CommandTransaction, command: TCommand) => Promise<TRow | null>;
 	/** The 404 body's `error`, e.g. `region_folder_not_found`. */
 	readonly notFound: string;
 	/** The response key the row is returned under, e.g. `regionFolder`. */
@@ -161,9 +162,56 @@ export interface RunCommandsConfig<TCommand extends WritableCommand, TSafe> {
  * Generalized from `runActionCommands`, which had done exactly this for three
  * of the 28 and never left the file it was written in.
  */
-export async function runCommands<TCommand extends WritableCommand, TSafe>(
+/**
+ * The standing of a SIMMER operator, which is no agency standing at all.
+ *
+ * `viewer` is the floor on purpose: if a command that was not operator-scoped
+ * ever reached this path, the role check would refuse it rather than wave it
+ * through. `profileId` is empty because an operator has no agency profile —
+ * and neither field is ever read, because `resolveCommandOwnership` returns
+ * `ALLOWED` for every permission kind but the three ownership ones, and
+ * `registerOperatorRoutes` proves at startup that an operator table carries
+ * none of those.
+ */
+const OPERATOR_ACTOR: CommandActor = { role: 'viewer', profileId: '' };
+
+/**
+ * The write tail for an operator table.
+ *
+ * Separate from {@link runCommands} because that one reads an agency
+ * `AuthContext` off the request, and an operator session has none — the global
+ * catalogs have no `organization_id` for one to scope.
+ */
+export async function runOperatorCommands<TCommand extends WritableCommand, TRow>(
+	context: {
+		readonly json: (body: unknown, status?: number) => Response;
+	},
+	config: RunCommandsConfig<TCommand, TRow>,
+	commands: readonly TCommand[],
+	createdStatus?: 201,
+): Promise<Response> {
+	// Belt and braces over the startup assertion: the door already proved this
+	// session is SIMMER's, so the only thing left to refuse is a command that
+	// should never have been on an operator table.
+	const denial = authorizeCommands({ role: 'viewer', isOperator: true }, commands);
+	if (denial !== null) {
+		return context.json(denial, 403);
+	}
+
+	try {
+		const result = await writeCommands(config.db, OPERATOR_ACTOR, commands, config.write);
+		if (result.row === null) {
+			return context.json({ error: config.notFound }, 404);
+		}
+		return context.json({ [config.key]: result.row, txid: result.txid }, createdStatus ?? 200);
+	} catch (error) {
+		return handleCommandError(context as never, error);
+	}
+}
+
+export async function runCommands<TCommand extends WritableCommand, TRow>(
 	context: CommandContext,
-	config: RunCommandsConfig<TCommand, TSafe>,
+	config: RunCommandsConfig<TCommand, TRow>,
 	commands: readonly TCommand[],
 	createdStatus?: 201,
 ): Promise<Response> {

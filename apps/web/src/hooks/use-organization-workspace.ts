@@ -1,17 +1,17 @@
 import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
+import type { Organization } from '@simmer-mosquito/sync';
+import { useLiveSuspenseQuery } from '@tanstack/react-db';
 import type { AuthMe } from '../auth';
-import { canManageCatalogs, canManageOperationalCatalogs } from '../lib/write-access';
-import { readRole } from '../routes/my-organization/-components/helpers';
-import { webCollections } from '../sync/webCollections';
-import { useCollectionRows } from './use-collection-rows';
+import { organizations } from '../lib/collections/organizations';
+import { canManageCatalogs, canManageOperationalCatalogs, readOrgRole } from '../lib/write-access';
 
 export function useOrganizationWorkspace(auth: AuthMe | null) {
-	const { rows: organizationRows, status } = useCollectionRows(webCollections.currentOrganization);
-	const organization = organizationRows[0] ?? null;
-	if (status === 'ready' && organization === null) {
+	const result = useLiveSuspenseQuery((query) => query.from({ organization: organizations }), []);
+	const organization: Organization | null = result.data[0] ?? null;
+	if (organization === null) {
 		throw new Error('Unable to resolve active organization for this workspace.');
 	}
-	const role = readRole(auth);
+	const role = readOrgRole(auth);
 	// Two floors, because this workspace holds catalogs from both. `canManage`
 	// is the owner/admin floor that configures the agency — settings, lookup
 	// catalogs, insecticides. `canManageOperational` is the manager floor for
@@ -24,16 +24,14 @@ export function useOrganizationWorkspace(auth: AuthMe | null) {
 	// `apps/server/src/command-permissions.ts`.
 	const canManage = canManageCatalogs(auth);
 	const canManageOperational = canManageOperationalCatalogs(auth);
-	const settings = resolveOrganizationSettings(organization?.settings).settings;
-	const organizationName = organization?.name ?? 'Organization details';
+	const settings = resolveOrganizationSettings(organization.settings).settings;
 
 	return {
 		canManage,
 		canManageOperational,
 		organization,
-		organizationName,
+		organizationName: organization.name,
 		role,
 		settings,
-		status,
 	};
 }

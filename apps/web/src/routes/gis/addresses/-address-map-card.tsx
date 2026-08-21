@@ -1,7 +1,5 @@
-import type { AddressRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { LocateFixedIcon, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect } from 'react';
@@ -12,18 +10,15 @@ import {
 	MapCardEyebrow,
 } from '../../../components/map/map-card';
 import { TagBadge } from '../../../components/tag-badge';
-import { useMapCardTags } from '../../../hooks/use-map-card-tags';
+import { useAddress } from '../../../hooks/queries/use-address';
+import { useRecordTags } from '../../../hooks/queries/use-record-tags';
 import { formatAddressLine } from '../../../lib/address-format';
-import { webCollections } from '../../../sync/webCollections';
 import { useAddressGeometry } from './-address-data';
 
-const gcTimeMs = 30_000;
-
 /**
- * The map focus card for an address. Self-fetches the address off the on-demand
- * collection, its tags off the eager catalog, and its point geometry (kept out of
- * the sync shape) over HTTP — to fly the map to it and to show its coordinates —
- * then renders the shared {@link MapCard}.
+ * The map focus card for an address. Reads the address through {@link useAddress},
+ * its tags alongside it, and its point geometry — which is kept out of the sync
+ * shape — over HTTP, to fly the map to it and to show its coordinates.
  */
 export function AddressMapCard({
 	id,
@@ -34,24 +29,13 @@ export function AddressMapCard({
 	readonly map: MapboxMap | null;
 	readonly onClose: () => void;
 }) {
-	const addressResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const address = addressResult.data as AddressRow | undefined;
+	const { address } = useAddress(id);
 
 	const geometryQuery = useAddressGeometry(id);
 	const lat = geometryQuery.data?.lat ?? null;
 	const lng = geometryQuery.data?.lng ?? null;
 
-	const tags = useMapCardTags(id);
+	const tags = useRecordTags(id);
 
 	useEffect(() => {
 		if (map === null || lat === null || lng === null) {

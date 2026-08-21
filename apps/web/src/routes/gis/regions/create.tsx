@@ -1,20 +1,20 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
+import type { GeoJsonGeometry, GeoJsonPolygon } from '@simmer-mosquito/mapping';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { useCallback, useState } from 'react';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
+import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
+import { useRegionRecord } from '../../../hooks/queries/use-region-record';
 import { seedRegionGeometryCache } from '../../../hooks/use-region-geometry';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	type DrawGeometry,
 	defaultRegionFormValues,
-	noRegionFolderValue,
 	RegionFormPage,
 	type RegionFormValues,
+	regionFieldsFrom,
 } from './-region-form';
 
 export const Route = createFileRoute('/gis/regions/create')({
@@ -27,15 +27,16 @@ export const Route = createFileRoute('/gis/regions/create')({
 });
 
 function CreateRegionRoute() {
-	const { auth } = Route.useRouteContext();
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: regionFolders } = useCollectionRows<RegionFolderRow>(webCollections.regionFolders);
+	const { folders } = useRegionFolders();
+	const mutations = useRegionMutations();
 
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
+	// Minted up front, and queried before it exists: `regions` is on-demand, and a
+	// write into a collection nothing is querying waits out a txid confirmation
+	// that never arrives — which reads as a frozen save rather than a slow one.
+	const [regionId] = useState(() => newRecordId());
+	useRegionRecord(regionId);
 
 	const onSave = useCallback(
 		async ({
@@ -45,41 +46,23 @@ function CreateRegionRoute() {
 			readonly values: RegionFormValues;
 			readonly geometry: DrawGeometry | null;
 		}) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (geometry === null) {
+			if (geometry === null || geometry.type !== 'Polygon') {
 				throw new Error('Draw the region boundary before saving.');
 			}
+			const boundary = geometry as unknown as GeoJsonPolygon;
 
-			const now = new Date().toISOString();
-			const row: RegionRow = {
-				id: crypto.randomUUID(),
-				organizationId: organization.id,
-				regionFolderId:
-					values.regionFolderId === noRegionFolderValue ? null : values.regionFolderId,
-				name: values.name.trim(),
-				description: nullableText(values.description),
-				metadata: values.metadata ?? null,
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
-
-			const transaction = webCollections.regions.insert(row, { metadata: { geometry } });
-			await settleWrite(transaction);
+			await settleWrite(mutations.create(regionId, regionFieldsFrom(values), boundary));
 			// Prime the detail's geometry cache so it renders the new boundary on arrival
 			// instead of fetching (and briefly showing an empty state) from scratch.
-			seedRegionGeometryCache(queryClient, row.id, geometry as unknown as GeoJsonGeometry);
-			await navigate({ to: '/gis/regions/$id', params: { id: row.id } });
+			seedRegionGeometryCache(queryClient, regionId, boundary as unknown as GeoJsonGeometry);
+			await navigate({ to: '/gis/regions/$id', params: { id: regionId } });
 		},
-		[organization, actorProfileId, navigate, queryClient],
+		[mutations, navigate, queryClient, regionId],
 	);
 
 	return (
 		<RegionFormPage
-			canSubmit={canSubmit}
+			canSubmit={mutations.canWrite}
 			defaultValues={defaultRegionFormValues()}
 			header={{
 				title: 'Create Region',
@@ -90,13 +73,8 @@ function CreateRegionRoute() {
 			initialGeometry={null}
 			mode="create"
 			onSave={onSave}
-			regionFolders={regionFolders}
+			regionFolders={folders}
 			submitLabel="Create Region"
 		/>
 	);
-}
-
-function nullableText(value: string): string | null {
-	const text = value.trim();
-	return text.length === 0 ? null : text;
 }

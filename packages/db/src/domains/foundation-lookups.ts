@@ -1,6 +1,7 @@
 import { type Kysely, sql, type Transaction } from 'kysely';
 
 import type { DbExecutor, MutationWriteResult, SimmerDatabase } from '../index.js';
+import { assertRecordDeletable } from './record-deletion.js';
 
 export type OrgLookupKind = 'collection_methods' | 'collection_lures' | 'habitat_types';
 
@@ -333,6 +334,12 @@ export async function deleteCollectionMethodLookup(
 	collectionMethodId: string,
 	input: CollectionMethodLookupLifecycleInput,
 ): Promise<SafeOrgLookup | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'collectionMethod',
+		recordId: collectionMethodId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('collection_methods')
 		.set({
@@ -430,6 +437,12 @@ export async function deleteCollectionLureLookup(
 	collectionLureId: string,
 	input: CollectionLureLookupLifecycleInput,
 ): Promise<SafeOrgLookup | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'collectionLure',
+		recordId: collectionLureId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('collection_lures')
 		.set({
@@ -528,6 +541,12 @@ export async function deleteHabitatTypeLookup(
 	habitatTypeId: string,
 	input: HabitatTypeLookupLifecycleInput,
 ): Promise<SafeOrgLookup | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'habitatType',
+		recordId: habitatTypeId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('habitat_types')
 		.set({

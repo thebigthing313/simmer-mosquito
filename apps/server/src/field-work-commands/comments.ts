@@ -1,3 +1,4 @@
+import { checkedValues } from '@simmer-mosquito/db';
 import {
 	addCommentCommand,
 	deleteCommentCommand,
@@ -12,6 +13,7 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
 import {
 	type CommandContext,
+	type CommentRow,
 	commandEndpoint,
 	commentReturnColumns,
 	type FieldWorkDb,
@@ -21,9 +23,7 @@ import {
 	readDate,
 	readTarget,
 	runCommands,
-	type SafeComment,
 	softDelete,
-	toSafeComment,
 	updateRow,
 } from './shared.js';
 
@@ -106,31 +106,33 @@ async function runCommentCommands(
 	);
 }
 
-async function writeCommentCommand(
+export async function writeCommentCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeComment | null> {
+): Promise<CommentRow | null> {
 	switch (command.type) {
 		case 'fieldWork.addComment': {
 			const row = await trx
 				.insertInto('comments')
-				.values({
-					id: command.payload.commentId,
-					organization_id: command.payload.organizationId,
-					entity_type: toDbEntityType(command.payload.target.type),
-					entity_id: command.payload.target.id,
-					comment_text: command.payload.commentText,
-					commented_by_profile_id: command.payload.actorProfileId,
-					...(command.payload.commentedAt === null
-						? {}
-						: { commented_at: command.payload.commentedAt }),
-					is_pinned: false,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.commentId,
+						organization_id: command.payload.organizationId,
+						entity_type: toDbEntityType(command.payload.target.type),
+						entity_id: command.payload.target.id,
+						comment_text: command.payload.commentText,
+						commented_by_profile_id: command.payload.actorProfileId,
+						...(command.payload.commentedAt === null
+							? {}
+							: { commented_at: command.payload.commentedAt }),
+						is_pinned: false,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(commentReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeComment(row);
+			return row;
 		}
 		case 'fieldWork.updateComment':
 			return updateRow(
@@ -143,7 +145,6 @@ async function writeCommentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				commentReturnColumns,
-				toSafeComment,
 			);
 		case 'fieldWork.pinComment':
 			return updateRow(
@@ -156,7 +157,6 @@ async function writeCommentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				commentReturnColumns,
-				toSafeComment,
 			);
 		case 'fieldWork.unpinComment':
 			return updateRow(
@@ -169,7 +169,6 @@ async function writeCommentCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				commentReturnColumns,
-				toSafeComment,
 			);
 		case 'fieldWork.deleteComment':
 			return softDelete(
@@ -179,7 +178,6 @@ async function writeCommentCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				commentReturnColumns,
-				toSafeComment,
 			);
 		default:
 			throw new Error(`Unsupported comment command: ${command.type}`);

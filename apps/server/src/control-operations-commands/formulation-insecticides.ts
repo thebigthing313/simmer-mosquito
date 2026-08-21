@@ -1,4 +1,4 @@
-import { sql } from '@simmer-mosquito/db';
+import { assertWriteReferences, sql } from '@simmer-mosquito/db';
 import {
 	addFormulationInsecticideCommand,
 	type ControlOperationsCommand,
@@ -13,12 +13,11 @@ import {
 	type ControlOperationsDb,
 	type ControlOperationsTransaction,
 	commandEndpoint,
+	type FormulationInsecticideRow,
 	formulationInsecticideReturnColumns,
 	type RouteOptions,
 	runCommands,
-	type SafeFormulationInsecticide,
 	softDelete,
-	toSafeFormulationInsecticide,
 } from './shared.js';
 
 // ===========================================================================
@@ -101,12 +100,30 @@ async function runFormulationInsecticideCommands(
 	);
 }
 
-async function writeFormulationInsecticideCommand(
+export async function writeFormulationInsecticideCommand(
 	trx: ControlOperationsTransaction,
 	command: ControlOperationsCommand,
-): Promise<SafeFormulationInsecticide | null> {
+): Promise<FormulationInsecticideRow | null> {
 	switch (command.type) {
 		case 'controlOperations.addFormulationInsecticide': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
+				references: [
+					{
+						column: 'formulation_id',
+						catalog: 'formulation',
+						id: command.payload.formulationId,
+						label: 'formulation',
+					},
+					{
+						column: 'insecticide_id',
+						catalog: 'insecticide',
+						id: command.payload.insecticideId,
+						label: 'insecticide',
+					},
+				],
+			});
 			const row = await trx
 				.insertInto('formulation_insecticides')
 				.values({
@@ -121,9 +138,28 @@ async function writeFormulationInsecticideCommand(
 				})
 				.returning(formulationInsecticideReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeFormulationInsecticide(row);
+			return row;
 		}
 		case 'controlOperations.updateFormulationInsecticide': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: {
+					kind: 'update',
+					table: 'formulation_insecticides',
+					recordId: command.payload.formulationInsecticideId,
+				},
+				references:
+					'insecticideId' in command.payload.changes
+						? [
+								{
+									column: 'insecticide_id',
+									catalog: 'insecticide',
+									id: command.payload.changes.insecticideId ?? null,
+									label: 'insecticide',
+								},
+							]
+						: [],
+			});
 			const row = await trx
 				.updateTable('formulation_insecticides')
 				.set({
@@ -144,7 +180,7 @@ async function writeFormulationInsecticideCommand(
 				.where('deleted_at', 'is', null)
 				.returning(formulationInsecticideReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeFormulationInsecticide(row);
+			return row ?? null;
 		}
 		case 'controlOperations.removeFormulationInsecticide':
 			return softDelete(
@@ -154,7 +190,6 @@ async function writeFormulationInsecticideCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				formulationInsecticideReturnColumns,
-				toSafeFormulationInsecticide,
 			);
 		default:
 			throw new Error(`Unsupported formulation insecticide command: ${command.type}`);

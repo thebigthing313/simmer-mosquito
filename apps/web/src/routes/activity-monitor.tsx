@@ -12,7 +12,7 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ComponentType, type ReactNode, useCallback, useMemo, useState } from 'react';
 import { MapSplitPage } from '../components/app-shell/outlet/map-split-page';
@@ -42,7 +42,6 @@ import {
 	ACTIVITY_ROLE_LABEL,
 	type ActivityDayGroup,
 	type ActivityEntry,
-	ActivityRequestError,
 	type ActivityStateToken,
 	activityEntryKey,
 	activityPanelMessage,

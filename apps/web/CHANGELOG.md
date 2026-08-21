@@ -1,5 +1,33 @@
 # @simmer-mosquito/web
 
+## 0.3.0 — 2026-08-21
+
+### Minor Changes
+
+- Changed: Organization settings now refuse values they cannot use instead of quietly replacing them. A timezone the agency does not support, a unit default naming a code that is not that kind of unit, or a key binding pointing at a species that no longer exists were all accepted and stored as something else, with the save reporting success. Each is now an error that says what was wrong.
+
+  Changed: Saving a setting no longer overwrites changes somebody else made while you had the panel open. Two people editing the agency at once used to end with whoever saved second silently replacing the other's work, including settings they had not touched. A save now covers only the setting it changed, and a genuine collision says so and asks you to reopen.
+
+- Added: Weather stations can now be managed and their readings recorded. Add a station by placing it on the map, edit its name, code or location, retire it when it stops reporting, and delete it when it is gone for good.
+
+  Readings can be entered by hand, covering one day or a stretch of days, with temperature, precipitation, humidity and wind. They can also be loaded in bulk from a CSV or Excel file. Before anything is written the upload shows what each line would do against the readings the station already holds, so a line that would overwrite one is visible before you commit rather than after. Managing weather is a manager-and-above job; collectors and viewers read it as before.
+
+  Renaming a station relabels every reading ever taken there, and moving one relocates all of them, because a reading records neither the station's name nor where it stood. Both now ask before they do it, and so does deleting a station, which takes its readings with it.
+
+### Patch Changes
+
+- Fixed: Deleting an insecticide, vehicle, method, or other catalog entry is now refused while anything still uses it, and the confirmation names what. Deleting one used to succeed and leave those records pointing at an entry that was gone.
+
+- Fixed: A record can no longer be saved against another agency's address, habitat, inspection, contact, or person. Those ids came straight off the request and nothing checked whose they were, so a hand-built request could file your agency's work against a record you would never be able to open.
+
+- Fixed: A form that cannot be saved now says why in its alert, instead of "Unable to save changes."
+
+- Fixed: A deactivated catalog entry can no longer be put on a new record. Deactivating one used to hide it from the pickers and nothing more, so a record that named it another way still saved.
+
+- Fixed: A failed invitation no longer mails a sign-in link the agency has no record of. The invitation used to go out before the person was added, so an address that could not be invited got a working link while the invite came back as an error. Inviting somebody who already has access now says so instead of failing.
+
+- Fixed: Unit defaults could not be changed. Every dropdown in the Unit Defaults editor was empty, so there was nothing to pick, and the summary above it listed raw codes like `miles_per_hour` instead of unit names. Both are fixed, and the list is grouped so metric and imperial units no longer interleave.
+
 ## 0.2.0 — 2026-08-13
 
 ### Minor Changes

@@ -1,4 +1,3 @@
-import type { AddressRow } from '@simmer-mosquito/sync';
 import { describe, expect, it } from 'vitest';
 import {
 	addressCardLabel,
@@ -96,22 +95,31 @@ describe('formatAddressLines', () => {
 	});
 });
 
-function addressRow(overrides: Partial<AddressRow> = {}): AddressRow {
+/**
+ * The five parts the formatters read, and nothing else.
+ *
+ * `formatAddressLine` takes a structural `AddressParts`; building a whole
+ * address row here claimed a dependency the code does not have.
+ */
+function addressRow(overrides: Partial<AddressLineParts> = {}): AddressLineParts {
 	return {
 		id: 'address-1',
-		organizationId: 'organization-1',
 		displayName: 'Riverside Pump House',
-		country: 'US',
 		addressLine1: '123 Main St',
 		addressLine2: null,
 		locality: 'Somewhere',
 		region: 'WA',
 		postalCode: '98101',
-		geocoderResponse: null,
-		createdByProfileId: null,
-		updatedByProfileId: null,
-		createdAt: '2026-01-01T00:00:00.000Z',
-		updatedAt: '2026-01-01T00:00:00.000Z',
 		...overrides,
 	};
+}
+
+interface AddressLineParts {
+	readonly id: string;
+	readonly displayName: string | null;
+	readonly addressLine1: string | null;
+	readonly addressLine2: string | null;
+	readonly locality: string | null;
+	readonly region: string | null;
+	readonly postalCode: string | null;
 }

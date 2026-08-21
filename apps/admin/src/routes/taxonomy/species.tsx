@@ -1,5 +1,3 @@
-import type { GenusRow, SpeciesRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { ListEmpty } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -7,7 +5,6 @@ import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
@@ -23,7 +20,9 @@ import {
 	EditRecordButton,
 	useCatalogForm,
 } from '../../components/catalog';
-import { adminCollections } from '../../sync/adminCollections';
+import { type GenusListing, useGenusRoster } from '../../hooks/queries/use-genus-roster';
+import { type SpeciesListing, useSpeciesRoster } from '../../hooks/queries/use-species-roster';
+import { createSpecies, deleteSpecies, updateSpecies } from '../../lib/collections/writes';
 
 const SpeciesIcon = iconRegistry.simmer.mosquito.icon;
 const AddIcon = iconRegistry.actions.add.icon;
@@ -56,7 +55,7 @@ const EMPTY_SPECIES: SpeciesFormValues = {
  */
 function suggestedDisplayName(
 	values: SpeciesFormValues,
-	genusById: ReadonlyMap<string, GenusRow>,
+	genusById: ReadonlyMap<string, GenusListing>,
 ): string {
 	const epithet = values.epithet.trim();
 	if (epithet === '') {
@@ -66,76 +65,54 @@ function suggestedDisplayName(
 	return genus === undefined ? epithet : `${genus.name} ${epithet}`;
 }
 
-async function createSpecies(values: SpeciesFormValues, genusById: ReadonlyMap<string, GenusRow>) {
-	const displayName = values.displayName.trim() || suggestedDisplayName(values, genusById);
+/** The form's values as the write seam takes them, with the sentinel resolved. */
+function toSpeciesValues(values: SpeciesFormValues, genusById: ReadonlyMap<string, GenusListing>) {
 	const commonName = values.commonName.trim();
-	const now = new Date().toISOString();
-	await settleWrite(
-		adminCollections.species.insert({
-			id: crypto.randomUUID(),
-			genusId: values.genusId === NO_GENUS ? null : values.genusId,
-			epithet: values.epithet.trim(),
-			commonName: commonName === '' ? null : commonName,
-			displayName,
-			createdAt: now,
-			updatedAt: now,
-		} as SpeciesRow),
-	);
-	toast.success(`${displayName} added.`);
+	return {
+		genusId: values.genusId === NO_GENUS ? null : values.genusId,
+		epithet: values.epithet.trim(),
+		commonName: commonName === '' ? null : commonName,
+		displayName: values.displayName.trim() || suggestedDisplayName(values, genusById),
+	};
+}
+
+async function addSpecies(values: SpeciesFormValues, genusById: ReadonlyMap<string, GenusListing>) {
+	const written = toSpeciesValues(values, genusById);
+	await createSpecies(written);
+	toast.success(`${written.displayName} added.`);
 }
 
 async function saveSpecies(
 	speciesId: string,
 	values: SpeciesFormValues,
-	genusById: ReadonlyMap<string, GenusRow>,
+	genusById: ReadonlyMap<string, GenusListing>,
 ) {
-	const displayName = values.displayName.trim() || suggestedDisplayName(values, genusById);
-	const commonName = values.commonName.trim();
-	await settleWrite(
-		adminCollections.species.update(speciesId, (draft) => {
-			const writable = draft as { -readonly [K in keyof SpeciesRow]: SpeciesRow[K] };
-			writable.genusId = values.genusId === NO_GENUS ? null : values.genusId;
-			writable.epithet = values.epithet.trim();
-			writable.commonName = commonName === '' ? null : commonName;
-			writable.displayName = displayName;
-		}),
-	);
-	toast.success(`${displayName} updated.`);
+	const written = toSpeciesValues(values, genusById);
+	await updateSpecies(speciesId, written);
+	toast.success(`${written.displayName} updated.`);
 }
 
-async function removeSpecies(row: SpeciesRow) {
+async function removeSpecies(row: SpeciesListing) {
 	try {
-		await settleWrite(adminCollections.species.delete(row.id));
+		await deleteSpecies(row.id);
 		toast.success(`${row.displayName} deleted.`);
 	} catch (error) {
 		toast.error(error instanceof Error ? error.message : 'Unable to delete the species.');
 	}
 }
 
-type SpeciesDialog = CatalogDialogState<SpeciesRow>;
+type SpeciesDialog = CatalogDialogState<SpeciesListing>;
 
 function SpeciesRoute() {
-	const generaResult = useLiveQuery((query) => query.from({ row: adminCollections.genera }), []);
-	const speciesResult = useLiveQuery((query) => query.from({ row: adminCollections.species }), []);
+	const { genera } = useGenusRoster();
+	const { species: all, isReady } = useSpeciesRoster();
 	const [search, setSearch] = useState('');
 	const [dialog, setDialog] = useState<SpeciesDialog>(null);
 
-	const genera = useMemo(
-		() =>
-			[...((generaResult.data ?? []) as readonly GenusRow[])].sort((a, b) =>
-				a.name.localeCompare(b.name),
-			),
-		[generaResult.data],
-	);
+	// The one `useMemo` the read seam does not remove: a query returns rows and
+	// cannot return a lookup of them. The form needs one to name a genus while the
+	// operator is still choosing.
 	const genusById = useMemo(() => new Map(genera.map((genus) => [genus.id, genus])), [genera]);
-
-	const all = useMemo(
-		() =>
-			[...((speciesResult.data ?? []) as readonly SpeciesRow[])].sort((a, b) =>
-				a.displayName.localeCompare(b.displayName),
-			),
-		[speciesResult.data],
-	);
 
 	const species = useMemo(() => {
 		const query = search.trim().toLowerCase();
@@ -197,7 +174,7 @@ function SpeciesRoute() {
 						title={canAdd ? 'No species yet' : 'Add a genus first'}
 					/>
 				}
-				isReady={speciesResult.isReady}
+				isReady={isReady}
 				noun="species"
 				onSearchChange={setSearch}
 				search={search}
@@ -207,7 +184,7 @@ function SpeciesRoute() {
 				<CatalogList>
 					{species.map((row) => (
 						<SpeciesListRow
-							genusName={genusLabel(row, genusById)}
+							genusName={row.genusName ?? ''}
 							key={row.id}
 							onDelete={() => void removeSpecies(row)}
 							onEdit={() => setDialog(row)}
@@ -232,7 +209,7 @@ function SpeciesRoute() {
 						onCancel={() => setDialog(null)}
 						onSubmit={async (values) => {
 							await (row === null
-								? createSpecies(values, genusById)
+								? addSpecies(values, genusById)
 								: saveSpecies(row.id, values, genusById));
 							setDialog(null);
 						}}
@@ -255,13 +232,6 @@ function SpeciesRoute() {
 	);
 }
 
-function genusLabel(row: SpeciesRow, genusById: ReadonlyMap<string, GenusRow>): string {
-	if (row.genusId === null) {
-		return '';
-	}
-	return genusById.get(row.genusId)?.name ?? 'Unknown genus';
-}
-
 /** One species. Split out so the route component stays query, writes, and dialog. */
 function SpeciesListRow({
 	row,
@@ -269,7 +239,7 @@ function SpeciesListRow({
 	onEdit,
 	onDelete,
 }: {
-	readonly row: SpeciesRow;
+	readonly row: SpeciesListing;
 	readonly genusName: string;
 	readonly onEdit: () => void;
 	readonly onDelete: () => void;
@@ -314,7 +284,7 @@ function SpeciesForm({
 	onSubmit,
 }: {
 	readonly values: SpeciesFormValues;
-	readonly genera: readonly GenusRow[];
+	readonly genera: readonly GenusListing[];
 	readonly submitLabel: string;
 	readonly suggestDisplayName: (values: SpeciesFormValues) => string;
 	readonly onCancel: () => void;

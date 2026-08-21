@@ -1,3 +1,4 @@
+import { checkedValues } from '@simmer-mosquito/db';
 import {
 	type ContactReferenceInput,
 	createNotificationRegistrationCommand,
@@ -26,6 +27,7 @@ import {
 	invalidUpdate,
 	type PublicEngagementDb,
 	type PublicEngagementTransaction,
+	type RegistrationRow,
 	type RouteOptions,
 	readNumberOrNull,
 	readSubscriptions,
@@ -33,9 +35,7 @@ import {
 	resolveContact,
 	resolveNotificationAddress,
 	runCommands,
-	type SafeRegistration,
 	softDelete,
-	toSafeRegistration,
 	updateRow,
 } from './shared.js';
 
@@ -201,10 +201,10 @@ async function runRegistrationCommands(
 	);
 }
 
-async function writeRegistrationCommand(
+export async function writeRegistrationCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
-): Promise<SafeRegistration | null> {
+): Promise<RegistrationRow | null> {
 	switch (command.type) {
 		case 'publicEngagement.createNotificationRegistration': {
 			const contactId = await resolveContact(
@@ -221,20 +221,22 @@ async function writeRegistrationCommand(
 			);
 			const row = await trx
 				.insertInto('notification_registrations')
-				.values({
-					id: command.payload.notificationRegistrationId,
-					organization_id: command.payload.organizationId,
-					contact_id: contactId,
-					geom: geojsonToGeom(command.payload.location.geometry),
-					address_id: addressId,
-					buffer_distance: command.payload.bufferDistance,
-					buffer_unit_id: command.payload.bufferUnitId,
-					has_bees: command.payload.hasBees,
-					is_no_spray: command.payload.isNoSpray,
-					is_active: true,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.notificationRegistrationId,
+						organization_id: command.payload.organizationId,
+						contact_id: contactId,
+						geom: geojsonToGeom(command.payload.location.geometry),
+						address_id: addressId,
+						buffer_distance: command.payload.bufferDistance,
+						buffer_unit_id: command.payload.bufferUnitId,
+						has_bees: command.payload.hasBees,
+						is_no_spray: command.payload.isNoSpray,
+						is_active: true,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(registrationReturnColumns)
 				.executeTakeFirstOrThrow();
 			for (const subscription of command.payload.subscriptions) {
@@ -247,7 +249,7 @@ async function writeRegistrationCommand(
 					command.payload.actorProfileId,
 				);
 			}
-			return toSafeRegistration(row);
+			return row;
 		}
 		case 'publicEngagement.updateNotificationRegistrationContact': {
 			const contactId = await resolveContact(
@@ -338,7 +340,6 @@ async function writeRegistrationCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				registrationReturnColumns,
-				toSafeRegistration,
 			);
 		default:
 			throw new Error(`Unsupported notification registration command: ${command.type}`);
@@ -350,7 +351,7 @@ async function updateRegistration(
 	notificationRegistrationId: string,
 	organizationId: string,
 	set: Record<string, unknown>,
-): Promise<SafeRegistration | null> {
+): Promise<RegistrationRow | null> {
 	return updateRow(
 		trx,
 		'notification_registrations',
@@ -358,6 +359,5 @@ async function updateRegistration(
 		organizationId,
 		set,
 		registrationReturnColumns,
-		toSafeRegistration,
 	);
 }

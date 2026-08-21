@@ -61,39 +61,53 @@ export function forbidden(reason: string): ForbiddenBody {
 }
 
 /**
- * Every agency write that is not a command, and the floor it sits behind.
+ * Every agency write that is not *yet* a command, and the floor it sits behind.
  *
- * `COMMAND_PERMISSIONS` is total over `AgencyCommandType`, which is what stops
- * ~95 endpoints drifting: a command with no floor does not compile. These
- * surfaces cannot join it, and the reason is not that nobody got round to it
- * (#130).
+ * **This table is being deleted.** ADR 0013 folds identity into the command
+ * vocabulary, so every agency write to Postgres reaches it the same way: the
+ * client states what it intended, and the server decides whether to do it. Each
+ * surface below leaves as its command lands, and the floor it holds is the
+ * source for the `COMMAND_PERMISSIONS` entry that replaces it — the floors
+ * themselves are not being revisited, only where they are written down.
  *
- * **They have no commands.** A domain command is an intent a client generates,
- * applies optimistically, and can safely replay. Identity writes are not that:
- * they land in WorkOS *and* Postgres, and a replayed invitation or role change
- * is a second grant rather than the same one. So `organization-commands.ts` and
- * `profile-commands.ts` are ordinary REST endpoints that write directly, with
- * no command type to key a map by. One of them — `POST
- * /organization/memberships/list` — is a read behind a POST, and could never be
- * a command permission at all.
+ * ## What this comment used to say, and why it was wrong
  *
- * What they can have is the same *table*: floors declared in one readable
- * place, away from the handlers that forget them. Be clear about how much that
- * buys, because it is less than the command map buys. Removing a surface's
- * floor, or adding a surface without one, fails the build. Adding a whole new
- * route and never naming a surface does not — nothing forces the call, the way
- * a command type forces a map entry. It is a smaller promise, honestly kept.
+ * It said these surfaces *cannot* be commands, because "they land in WorkOS
+ * *and* Postgres, and a replayed invitation or role change is a second grant
+ * rather than the same one". That is true of exactly one of the seven.
+ * `people.invite` is not replay-safe. `people.changeRole` and
+ * `people.endMembership` do span WorkOS but are idempotent. And
+ * `organization.updateDetails`, `people.createProfile` and
+ * `people.updateProfile` never touched WorkOS at all. They were plain Postgres
+ * writes, and `createProfile` already carried a client-minted UUID, which is the
+ * exact property the command contract asks for. Those three are gone from this
+ * table: they are `identity.updateOrganizationDetails`, `identity.createProfile`
+ * and `identity.updateProfile`, with the same floors in `COMMAND_PERMISSIONS`.
+ *
+ * The reason was reconstruction, and it read as a constraint. It was a boundary
+ * decision that nobody had written down, and ADR 0013 is the decision reversed
+ * with the reasoning attached.
+ *
+ * ## The hole this table has that the command map does not
+ *
+ * `COMMAND_PERMISSIONS` is total over `AgencyCommandType`: a command with no
+ * floor does not compile, and dispatch reads the map before a handler runs.
+ * Here, removing a surface's floor or adding a surface without one fails the
+ * build — but adding a whole new route and never calling
+ * {@link denyIdentityWrite} does not. Nothing forces the call. That gap is the
+ * concrete reason the fold is worth doing rather than only a tidiness argument.
+ *
+ * `people.listMemberships` is not going anywhere, and is not an exception: it is
+ * a read behind a POST, and reads have never been commands.
  *
  * Floors only. The people surface also refuses by {@link canGrantRole}, twice —
  * against the role named in an invitation, and against the role of the
  * membership being ended — and neither is a floor, because both compare the
  * actor to a value rather than to a rung. Those stay in `profile-commands.ts`,
- * beside the payload and the row they read.
+ * beside the payload and the row they read, and will move to the command
+ * handlers with them.
  */
 export type IdentityWriteSurface =
-	| 'organization.updateDetails'
-	| 'people.createProfile'
-	| 'people.updateProfile'
 	| 'people.listMemberships'
 	| 'people.changeRole'
 	| 'people.endMembership'
@@ -105,22 +119,9 @@ interface IdentityFloor {
 }
 
 const IDENTITY_FLOORS: Record<IdentityWriteSurface, IdentityFloor> = {
-	'organization.updateDetails': {
-		minimum: 'admin',
-		refusal: 'Only organization owners and admins can manage details.',
-	},
-
 	// The people floor is admin, not owner: an agency delegates onboarding, and
 	// an office manager adding a seasonal crew is the ordinary case. Handing out
 	// a role is the separate question below.
-	'people.createProfile': {
-		minimum: 'admin',
-		refusal: 'Only organization owners and admins can manage people.',
-	},
-	'people.updateProfile': {
-		minimum: 'admin',
-		refusal: 'Only organization owners and admins can manage people.',
-	},
 	'people.listMemberships': {
 		minimum: 'admin',
 		refusal: 'Only organization owners and admins can manage people.',
