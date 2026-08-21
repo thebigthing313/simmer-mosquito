@@ -19,6 +19,7 @@ import '@fontsource/poppins/latin-ext-700.css';
 import '@fontsource/poppins/latin-800.css';
 import '@fontsource/poppins/latin-ext-800.css';
 import { OutletContentFallback } from '@simmer-mosquito/ui-web/components/app-shell';
+import { RouteErrorPage } from '@simmer-mosquito/ui-web/components/error-report';
 import { appAuthController } from './app-auth';
 import { routeTree } from './routeTree.gen';
 import './styles.css';
@@ -43,6 +44,11 @@ const router = createRouter({
 	// collections actually renders this fallback; a boundary further up has
 	// already committed by then and React suppresses its fallback mid-transition.
 	defaultPendingComponent: OutletContentFallback,
+	// Every route that does not name its own error component falls here. Without
+	// it they fell to TanStack's built-in, which prints the message in a bare
+	// `<pre>` and offers nothing to act on. The root route keeps its own, because
+	// a failure there means the shell never mounted.
+	defaultErrorComponent: (props) => <RouteErrorPage {...props} version={__APP_VERSION__} />,
 });
 
 declare module '@tanstack/react-router' {

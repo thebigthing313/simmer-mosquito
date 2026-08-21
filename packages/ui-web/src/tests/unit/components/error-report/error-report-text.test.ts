@@ -4,9 +4,10 @@ import {
 	describeError,
 	joinStacks,
 	type ReportContext,
-} from '../../../routes/-workspace-error-report';
+} from '../../../../components/error-report/error-report-text';
 
 const CONTEXT: ReportContext = {
+	summary: 'The workspace did not finish loading',
 	version: '0.3.0',
 	href: 'https://app.example.test/larval-surveillance/habitats',
 	time: '2026-08-21T18:00:00.000Z',
@@ -45,13 +46,13 @@ describe('describeError', () => {
 		const details = describeError(thrown);
 
 		expect(details.name).toBe('Unknown error');
-		expect(details.message).toBe(`The workspace threw a value that is not an error: ${rendered}`);
+		expect(details.message).toBe(`A value that is not an error was thrown: ${rendered}`);
 		expect(details.stack).toBeNull();
 	});
 
 	it('does not leave the sentence hanging on its colon for an empty string', () => {
 		expect(describeError('').message).toBe(
-			'The workspace threw a value that is not an error, and it was empty.',
+			'A value that is not an error was thrown, and it was empty.',
 		);
 	});
 });
@@ -80,7 +81,7 @@ describe('buildErrorReport', () => {
 
 		expect(report).toBe(
 			[
-				'SIMMER 0.3.0 failed to load the workspace.',
+				'SIMMER 0.3.0: The workspace did not finish loading',
 				'',
 				'Error: TypeError: Failed to fetch',
 				'Page: https://app.example.test/larval-surveillance/habitats',
@@ -94,6 +95,15 @@ describe('buildErrorReport', () => {
 				'at AppShellRoot',
 			].join('\n'),
 		);
+	});
+
+	it('names the surface that failed, so two reports are told apart', () => {
+		const report = buildErrorReport({ name: 'Error', message: 'boom', stack: null }, undefined, {
+			...CONTEXT,
+			summary: 'This page did not load',
+		});
+
+		expect(report.startsWith('SIMMER 0.3.0: This page did not load')).toBe(true);
 	});
 
 	it('leaves out the sections the runtime did not supply', () => {

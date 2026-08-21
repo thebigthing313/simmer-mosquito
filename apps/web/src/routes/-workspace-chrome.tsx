@@ -1,18 +1,12 @@
 import { PRIMARY_SIDEBAR_COLLAPSED_KEY } from '@simmer-mosquito/ui-web/components/app-shell';
+import { ErrorReport } from '@simmer-mosquito/ui-web/components/error-report';
 import { SkeletonRows } from '@simmer-mosquito/ui-web/components/skeleton-rows';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
+import { Card } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { usePersistentFlag } from '@simmer-mosquito/ui-web/hooks/use-persistent-flag';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { Fragment, useEffect, useState } from 'react';
-import {
-	buildErrorReport,
-	describeError,
-	type ErrorDetails,
-	joinStacks,
-} from './-workspace-error-report';
 
 /**
  * The two whole-window states of the authenticated root route: the workspace is
@@ -22,9 +16,6 @@ import {
  */
 
 const BrandMark = iconRegistry.simmer.brandMark.icon;
-const ErrorIcon = iconRegistry.generic.error.icon;
-const ChevronIcon = iconRegistry.arrows.chevronRight.icon;
-const CopyIcon = iconRegistry.actions.copy.icon;
 
 /**
  * One width class per placeholder row. `SkeletonRows` explains why they are
@@ -124,209 +115,38 @@ function FallbackStage() {
 	);
 }
 
-interface WorkspaceChromeErrorProps {
-	/** Whatever the boundary caught. Typed loosely because a `throw` is unchecked. */
-	readonly error?: unknown;
-	readonly info?: { readonly componentStack: string } | undefined;
-	/** Clears the boundary and re-renders. Absent when nothing can retry in place. */
-	readonly reset?: (() => void) | undefined;
-}
-
 /**
  * The workspace failed before the shell mounted.
  *
- * This surface has one job the previous version did not do: hand over what
- * actually broke. A user who reads "unable to load workspace data" and reloads
- * twice has nothing to report. So the thrown message is on screen verbatim, the
- * stack sits one disclosure away, and "Copy details" puts message, stack, page,
- * app version, time, and browser on the clipboard for a support thread.
+ * Same report as every other error surface, in the frame that fits this one: a
+ * centred card on an empty stage, because with no shell there is nothing else on
+ * screen to sit beside. A route that throws *inside* the shell gets
+ * `RouteErrorPage` instead, which keeps the navigation the reader still needs.
  *
  * `error`, `info`, and `reset` arrive from TanStack Router's `errorComponent`.
  * All three are optional because `SuspenseQueryBoundary` renders this surface
  * too, and it only ever caught an error.
  */
-export function WorkspaceChromeError({ error, info, reset }: WorkspaceChromeErrorProps) {
-	const details = describeError(error);
-	const stackText = joinStacks(details.stack, info?.componentStack);
-
+export function WorkspaceChromeError({
+	error,
+	info,
+	reset,
+}: {
+	readonly error?: unknown;
+	readonly info?: { readonly componentStack: string } | undefined;
+	readonly reset?: (() => void) | undefined;
+}) {
 	return (
 		<div className="grid min-h-svh place-items-center bg-(--app-stage) p-6">
 			<Card className="w-[min(680px,100%)] overflow-hidden" variant="panel">
-				<ErrorHeadline />
-				<CardContent className="grid gap-4 py-5" padding="default">
-					<div className="grid gap-1.5">
-						<span className="font-bold text-muted-foreground text-xs uppercase tracking-wide">
-							{details.name}
-						</span>
-						<p className="m-0 max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/50 px-3 py-2.5 font-mono text-foreground text-sm leading-relaxed">
-							{details.message}
-						</p>
-					</div>
-
-					<ErrorFacts />
-					<ErrorStack text={stackText} />
-					<ErrorActions componentStack={info?.componentStack} details={details} reset={reset} />
-				</CardContent>
+				<ErrorReport
+					error={error}
+					info={info}
+					reset={reset}
+					title="The workspace did not finish loading"
+					version={__APP_VERSION__}
+				/>
 			</Card>
 		</div>
 	);
-}
-
-/**
- * What broke, in one line, and what to do about it.
- *
- * `navigator.onLine` is read during render rather than tracked: this surface
- * does not re-render, and the answer that matters is the one at the moment the
- * read failed.
- */
-function ErrorHeadline() {
-	const offline = navigator.onLine === false;
-
-	return (
-		<div className="flex items-start gap-3 border-destructive/20 border-b bg-destructive/8 px-6 py-4">
-			<ErrorIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-destructive" />
-			<div className="grid gap-1">
-				<strong className="font-semibold text-foreground text-lg leading-tight">
-					The workspace did not finish loading
-				</strong>
-				<p className="m-0 max-w-[62ch] text-muted-foreground text-sm leading-normal">
-					{offline
-						? 'Your browser reports no network connection. Reconnect, then try again.'
-						: 'Try again first. If it keeps happening, copy the details and send them with your report.'}
-				</p>
-			</div>
-		</div>
-	);
-}
-
-/** The context a support thread needs and the reader cannot be expected to know. */
-function ErrorFacts() {
-	const facts = [
-		{ label: 'Page', value: `${window.location.pathname}${window.location.search}` },
-		{ label: 'Version', value: `SIMMER ${__APP_VERSION__}` },
-		{ label: 'Time', value: new Date().toLocaleString() },
-	];
-
-	return (
-		<dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
-			{facts.map(({ label, value }) => (
-				<Fragment key={label}>
-					<dt className="m-0 text-muted-foreground">{label}</dt>
-					<dd className="m-0 truncate font-mono text-foreground" title={value}>
-						{value}
-					</dd>
-				</Fragment>
-			))}
-		</dl>
-	);
-}
-
-/**
- * The stack, folded away.
- *
- * Native `<details>` rather than the Collapsible primitive. This is the surface
- * that renders once the app is already broken, and the disclosure needs no React
- * state and no portal to work.
- */
-function ErrorStack({ text }: { readonly text: string }) {
-	if (text === '') {
-		return null;
-	}
-
-	return (
-		<details className="group rounded-md border border-border bg-muted/30">
-			<summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-medium text-foreground text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
-				<ChevronIcon
-					aria-hidden="true"
-					className="size-4 text-muted-foreground transition-transform group-open:rotate-90 motion-reduce:transition-none"
-				/>
-				Technical details
-			</summary>
-			<pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-words border-border border-t px-3 py-2.5 font-mono text-muted-foreground text-xs leading-relaxed">
-				{text}
-			</pre>
-		</details>
-	);
-}
-
-const COPY_LABELS = {
-	idle: 'Copy details',
-	copied: 'Copied',
-	failed: 'Copy failed',
-} as const;
-
-/**
- * Retry, reload, and take the report away.
- *
- * "Reload the page" only appears when `reset` exists. Without it "Try again" is
- * a reload already, and two buttons that do the same thing is a choice the
- * reader has to make for nothing.
- */
-function ErrorActions({
-	componentStack,
-	details,
-	reset,
-}: {
-	readonly componentStack: string | undefined;
-	readonly details: ErrorDetails;
-	readonly reset: (() => void) | undefined;
-}) {
-	const [copyState, setCopyState] = useState<'idle' | 'copied' | 'failed'>('idle');
-
-	// Back to "Copy details" after a beat, so a second copy is visibly a second
-	// copy. A label stuck on "Copied" cannot confirm the next click.
-	useEffect(() => {
-		if (copyState === 'idle') {
-			return;
-		}
-
-		const timer = window.setTimeout(() => setCopyState('idle'), 2500);
-		return () => window.clearTimeout(timer);
-	}, [copyState]);
-
-	// `navigator.clipboard` is absent outside a secure context, and reading
-	// `.writeText` off `undefined` throws inside the handler. Nothing on this
-	// surface may raise a second error: the boundary above it has already caught
-	// one, so a throw here is what the reader sees instead of the report.
-	const copyDetails = () => {
-		try {
-			navigator.clipboard
-				.writeText(buildErrorReport(details, componentStack, readReportContext()))
-				.then(() => setCopyState('copied'))
-				.catch(() => setCopyState('failed'));
-		} catch {
-			setCopyState('failed');
-		}
-	};
-
-	return (
-		<div className="flex flex-wrap items-center gap-2 pt-1">
-			<Button onClick={reset ?? reloadPage} size="sm" type="button">
-				Try again
-			</Button>
-			{reset === undefined ? null : (
-				<Button onClick={reloadPage} size="sm" type="button" variant="outline">
-					Reload the page
-				</Button>
-			)}
-			<Button className="ml-auto" onClick={copyDetails} size="sm" type="button" variant="ghost">
-				<CopyIcon aria-hidden="true" />
-				{COPY_LABELS[copyState]}
-			</Button>
-		</div>
-	);
-}
-
-function reloadPage() {
-	window.location.reload();
-}
-
-/** The page context stamped into a copied report, read at the moment of the copy. */
-function readReportContext() {
-	return {
-		version: __APP_VERSION__,
-		href: window.location.href,
-		time: new Date().toISOString(),
-		userAgent: navigator.userAgent,
-	};
 }
