@@ -25,8 +25,7 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
 import { insertLifecycleComment } from '../lifecycle-comment.js';
-import { applyPlacement } from '../ordered-items.js';
-import { missionPlacementRef, reindexMissionItems } from './mission-items.js';
+import { moveMissionItemRows } from './mission-items.js';
 import {
 	assertMissionTransition,
 	checkCancelMission,
@@ -493,25 +492,13 @@ export async function writeMissionCommand(
 		 * Reordering the stops, which is a command on the mission.
 		 *
 		 * `position` is a fact about the sequence rather than about any stop in it:
-		 * a move takes an id list and a placement, renumbers every stop the mission
-		 * holds, and answers with the mission. The renumbering lives beside the stop
-		 * writes, in `mission-items.ts`. An add does not renumber; it takes a
-		 * fractional position between its neighbours.
+		 * a move takes an id list and a placement, restacks the mission's stops, and
+		 * answers with the mission. The write lives beside the stop writes, in
+		 * `mission-items.ts`, and touches only the rows that moved. An add is the
+		 * same shape: one fractional position between its neighbours.
 		 */
 		case 'missionDispatch.moveMissionItems': {
-			await reindexMissionItems(
-				trx,
-				command.payload.missionId,
-				command.payload.organizationId,
-				command.payload.actorProfileId,
-				(ids) =>
-					applyPlacement(
-						ids,
-						command.payload.missionItemIds,
-						command.payload.placement.kind,
-						missionPlacementRef(command.payload.placement),
-					),
-			);
+			await moveMissionItemRows(trx, command.payload);
 			return loadMission(trx, command.payload.missionId, command.payload.organizationId);
 		}
 		default:

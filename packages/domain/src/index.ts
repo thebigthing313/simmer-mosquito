@@ -18,6 +18,7 @@ export * from './control-operations/index.js';
 export * from './field-work/index.js';
 export * from './foundation/index.js';
 export * from './identity/index.js';
+export * from './item-ordering.js';
 export * from './larval-surveillance/index.js';
 export * from './location-intent.js';
 export * from './mission-dispatch/index.js';

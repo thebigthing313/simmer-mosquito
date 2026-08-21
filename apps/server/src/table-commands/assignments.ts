@@ -182,7 +182,7 @@ export function assignmentTableCommands(
 					),
 				}),
 
-			// A move renumbers the whole worklist and answers with the assignment — see
+			// A move restacks the worklist and answers with the assignment. See
 			// `routes.ts` for why that puts it on the parent.
 			'fieldWork.moveAssignmentItems': ({ payload, agency, id }) =>
 				moveAssignmentItemsCommand({
