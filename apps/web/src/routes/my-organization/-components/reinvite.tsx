@@ -13,9 +13,8 @@ import { useState } from 'react';
 import { toast } from 'sonner';
 import { useMembershipMutations } from '../../../hooks/mutations/use-membership-mutations';
 import type { PersonListing } from '../../../hooks/queries/use-people-directory';
-import { errorMessageForSave } from '../../../lib/save-error';
 import { AddIcon } from './constants';
-import { formatRole } from './helpers';
+import { formatRole, SaveErrorNote, saveFailureMessage } from './helpers';
 import type { SimmerRole } from './types';
 
 /**
@@ -70,15 +69,19 @@ function ReinviteAction({
 	const { reinvite } = useMembershipMutations();
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [isSending, setIsSending] = useState(false);
+	const [failure, setFailure] = useState<string | null>(null);
 
 	async function confirm() {
 		setConfirmOpen(false);
 		setIsSending(true);
+		setFailure(null);
 		try {
 			await reinvite(membershipId, role);
 			toast.success(`New invitation sent to ${email ?? name}.`);
 		} catch (sendError) {
-			toast.error(errorMessageForSave(sendError));
+			const message = saveFailureMessage(sendError, 'The new invitation was not sent.');
+			setFailure(message);
+			toast.error(message);
 		} finally {
 			setIsSending(false);
 		}
@@ -101,6 +104,7 @@ function ReinviteAction({
 					Send New Invitation
 				</Button>
 			</div>
+			<SaveErrorNote message={failure} />
 			<AlertDialog onOpenChange={setConfirmOpen} open={confirmOpen}>
 				<AlertDialogContent>
 					<AlertDialogTitle>Send {name} a new invitation?</AlertDialogTitle>
