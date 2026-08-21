@@ -1,4 +1,10 @@
-import { geojsonToGeom, localDateColumn, type SelectedRow, updateRow } from '@simmer-mosquito/db';
+import {
+	type CatalogReference,
+	geojsonToGeom,
+	localDateColumn,
+	type SelectedRow,
+	updateRow,
+} from '@simmer-mosquito/db';
 import type { CollectionTiming } from '@simmer-mosquito/domain';
 import {
 	agencyCommandContext,
@@ -258,4 +264,34 @@ export function readSpeciesStatus(
 	return value === 'damaged' || value === 'unfed' || value === 'bloodfed' || value === 'gravid'
 		? value
 		: null;
+}
+
+/**
+ * The two catalogs a Trap and a Collection both name.
+ *
+ * Only the keys present are gated, so renaming a trap asks nothing of the
+ * catalogs and moving its method asks only about the method.
+ */
+export function surveillanceCatalogReferences(source: {
+	readonly collectionMethodId?: string | null | undefined;
+	readonly collectionLureId?: string | null | undefined;
+}): CatalogReference[] {
+	const references: CatalogReference[] = [];
+	if ('collectionMethodId' in source) {
+		references.push({
+			column: 'collection_method_id',
+			catalog: 'collectionMethod',
+			id: source.collectionMethodId ?? null,
+			label: 'collection method',
+		});
+	}
+	if ('collectionLureId' in source) {
+		references.push({
+			column: 'collection_lure_id',
+			catalog: 'collectionLure',
+			id: source.collectionLureId ?? null,
+			label: 'lure',
+		});
+	}
+	return references;
 }

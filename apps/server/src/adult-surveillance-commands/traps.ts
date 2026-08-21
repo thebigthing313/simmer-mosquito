@@ -1,4 +1,4 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, assertCatalogReferences, sql } from '@simmer-mosquito/db';
 import {
 	type AdultSurveillanceCommand,
 	createTrapCommand,
@@ -24,6 +24,7 @@ import {
 	invalidUpdate,
 	resolveLocationGeom,
 	runCommands,
+	surveillanceCatalogReferences,
 	type TrapRow,
 	type TrapUpdateColumns,
 	trapReturnColumns,
@@ -183,6 +184,10 @@ export async function writeTrapCommand(
 ): Promise<TrapRow | null> {
 	switch (command.type) {
 		case 'adultSurveillance.createTrap': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				references: surveillanceCatalogReferences(command.payload),
+			});
 			const row = await trx
 				.insertInto('traps')
 				.values({
@@ -221,6 +226,12 @@ export async function writeTrapCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'adultSurveillance.updateTrapConfiguration':
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				table: 'traps',
+				recordId: command.payload.trapId,
+				references: surveillanceCatalogReferences(command.payload.changes),
+			});
 			return updateTrap(trx, command.payload.trapId, command.payload.organizationId, {
 				...(command.payload.changes.locationSource !== undefined
 					? {

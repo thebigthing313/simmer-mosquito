@@ -1,4 +1,4 @@
-import { sql } from '@simmer-mosquito/db';
+import { assertCatalogReferences, sql } from '@simmer-mosquito/db';
 import {
 	addFormulationInsecticideCommand,
 	type ControlOperationsCommand,
@@ -106,6 +106,23 @@ export async function writeFormulationInsecticideCommand(
 ): Promise<FormulationInsecticideRow | null> {
 	switch (command.type) {
 		case 'controlOperations.addFormulationInsecticide': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				references: [
+					{
+						column: 'formulation_id',
+						catalog: 'formulation',
+						id: command.payload.formulationId,
+						label: 'formulation',
+					},
+					{
+						column: 'insecticide_id',
+						catalog: 'insecticide',
+						id: command.payload.insecticideId,
+						label: 'insecticide',
+					},
+				],
+			});
 			const row = await trx
 				.insertInto('formulation_insecticides')
 				.values({
@@ -123,6 +140,22 @@ export async function writeFormulationInsecticideCommand(
 			return row;
 		}
 		case 'controlOperations.updateFormulationInsecticide': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				table: 'formulation_insecticides',
+				recordId: command.payload.formulationInsecticideId,
+				references:
+					'insecticideId' in command.payload.changes
+						? [
+								{
+									column: 'insecticide_id',
+									catalog: 'insecticide',
+									id: command.payload.changes.insecticideId ?? null,
+									label: 'insecticide',
+								},
+							]
+						: [],
+			});
 			const row = await trx
 				.updateTable('formulation_insecticides')
 				.set({

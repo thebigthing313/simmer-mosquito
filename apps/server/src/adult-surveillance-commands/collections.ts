@@ -1,4 +1,4 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, assertCatalogReferences, sql } from '@simmer-mosquito/db';
 import {
 	type AdultCollectionLocationSourceInput,
 	type AdultSurveillanceCommand,
@@ -56,6 +56,7 @@ import {
 	readDate,
 	resolveLocationGeom,
 	runCommands,
+	surveillanceCatalogReferences,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -506,6 +507,12 @@ export async function writeCollectionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'adultSurveillance.updateAdHocCollectionConfiguration':
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				table: 'collections',
+				recordId: command.payload.collectionId,
+				references: surveillanceCatalogReferences(command.payload.changes),
+			});
 			return updateCollection(trx, command.payload.collectionId, command.payload.organizationId, {
 				...(command.payload.changes.locationSource !== undefined
 					? {
@@ -718,6 +725,13 @@ async function insertCollection(
 	trx: AdultSurveillanceTransaction,
 	input: CollectionInsertInput,
 ): Promise<CollectionRow> {
+	// The one funnel both create paths run through, so the gate sits here rather
+	// than on each caller.
+	await assertCatalogReferences(trx, {
+		organizationId: input.organizationId,
+		references: surveillanceCatalogReferences(input),
+	});
+
 	const row = await trx
 		.insertInto('collections')
 		.values({

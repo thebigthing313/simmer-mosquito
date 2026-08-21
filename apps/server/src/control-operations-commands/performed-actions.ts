@@ -1,4 +1,9 @@
-import { applyRecordDeletion } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	assertCatalogReferences,
+	type CatalogRecordType,
+	type CatalogReference,
+} from '@simmer-mosquito/db';
 import {
 	type ControlActionLocationSourceInput,
 	type ControlOperationsCommand,
@@ -269,6 +274,17 @@ async function writeMissionSourceReduction(
 	payload: RecordSourceReductionForMissionItemCommand['payload'],
 ): Promise<SourceReductionRow | null> {
 	const stop = await beginMissionExecution(trx, payload, 'sourceReduction');
+	// A method the mission plan supplied is not a new choice, so only an id
+	// the payload names is gated.
+	await assertCatalogReferences(trx, {
+		organizationId: payload.organizationId,
+		references: methodReference(
+			'source_reduction_method_id',
+			'sourceReductionMethod',
+			'source reduction method',
+			payload.sourceReductionMethodId,
+		),
+	});
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
 		.insertInto('source_reductions')
@@ -302,6 +318,17 @@ async function writeMissionOutreachAction(
 	payload: RecordOutreachActionForMissionItemCommand['payload'],
 ): Promise<OutreachActionRow | null> {
 	const stop = await beginMissionExecution(trx, payload, 'outreach');
+	// A method the mission plan supplied is not a new choice, so only an id
+	// the payload names is gated.
+	await assertCatalogReferences(trx, {
+		organizationId: payload.organizationId,
+		references: methodReference(
+			'outreach_method_id',
+			'outreachMethod',
+			'outreach method',
+			payload.outreachMethodId,
+		),
+	});
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
 		.insertInto('outreach_actions')
@@ -334,6 +361,17 @@ async function writeMissionBiocontrolAction(
 	payload: RecordBiocontrolActionForMissionItemCommand['payload'],
 ): Promise<BiocontrolActionRow | null> {
 	const stop = await beginMissionExecution(trx, payload, 'biocontrol');
+	// A method the mission plan supplied is not a new choice, so only an id
+	// the payload names is gated.
+	await assertCatalogReferences(trx, {
+		organizationId: payload.organizationId,
+		references: methodReference(
+			'biocontrol_method_id',
+			'biocontrolMethod',
+			'biocontrol method',
+			payload.biocontrolMethodId,
+		),
+	});
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
 		.insertInto('biocontrol_actions')
@@ -367,12 +405,36 @@ async function writeMissionBiocontrolAction(
 	return row;
 }
 
+/**
+ * The one catalog each performed action names: its method.
+ *
+ * The three action types differ only in the column, the catalog, and the noun,
+ * so they share a builder rather than three near-identical blocks.
+ */
+function methodReference(
+	column: string,
+	catalog: CatalogRecordType,
+	label: string,
+	id: string | null | undefined,
+): CatalogReference[] {
+	return [{ column, catalog, id: id ?? null, label }];
+}
+
 export async function writeSourceReductionCommand(
 	trx: ControlOperationsTransaction,
 	command: ActionCommand,
 ): Promise<SourceReductionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordSourceReduction': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				references: methodReference(
+					'source_reduction_method_id',
+					'sourceReductionMethod',
+					'source reduction method',
+					command.payload.sourceReductionMethodId,
+				),
+			});
 			const ids = contextIds(command.payload.context);
 			const row = await trx
 				.insertInto('source_reductions')
@@ -404,6 +466,20 @@ export async function writeSourceReductionCommand(
 		case 'missionDispatch.recordSourceReductionForMissionItem':
 			return writeMissionSourceReduction(trx, command.payload);
 		case 'controlOperations.updateSourceReductionFieldDetails': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				table: 'source_reductions',
+				recordId: command.payload.sourceReductionId,
+				references:
+					'sourceReductionMethodId' in command.payload.changes
+						? methodReference(
+								'source_reduction_method_id',
+								'sourceReductionMethod',
+								'source reduction method',
+								command.payload.changes.sourceReductionMethodId,
+							)
+						: [],
+			});
 			const changes = command.payload.changes;
 			return updateActionRow(
 				trx,
@@ -581,6 +657,15 @@ export async function writeOutreachActionCommand(
 ): Promise<OutreachActionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordOutreachAction': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				references: methodReference(
+					'outreach_method_id',
+					'outreachMethod',
+					'outreach method',
+					command.payload.outreachMethodId,
+				),
+			});
 			const ids = contextIds(command.payload.context);
 			const row = await trx
 				.insertInto('outreach_actions')
@@ -611,6 +696,20 @@ export async function writeOutreachActionCommand(
 		case 'missionDispatch.recordOutreachActionForMissionItem':
 			return writeMissionOutreachAction(trx, command.payload);
 		case 'controlOperations.updateOutreachActionFieldDetails': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				table: 'outreach_actions',
+				recordId: command.payload.outreachActionId,
+				references:
+					'outreachMethodId' in command.payload.changes
+						? methodReference(
+								'outreach_method_id',
+								'outreachMethod',
+								'outreach method',
+								command.payload.changes.outreachMethodId,
+							)
+						: [],
+			});
 			const changes = command.payload.changes;
 			return updateActionRow(
 				trx,
@@ -788,6 +887,15 @@ export async function writeBiocontrolActionCommand(
 ): Promise<BiocontrolActionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordBiocontrolAction': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				references: methodReference(
+					'biocontrol_method_id',
+					'biocontrolMethod',
+					'biocontrol method',
+					command.payload.biocontrolMethodId,
+				),
+			});
 			const ids = contextIds(command.payload.context);
 			const row = await trx
 				.insertInto('biocontrol_actions')
@@ -819,6 +927,20 @@ export async function writeBiocontrolActionCommand(
 		case 'missionDispatch.recordBiocontrolActionForMissionItem':
 			return writeMissionBiocontrolAction(trx, command.payload);
 		case 'controlOperations.updateBiocontrolActionFieldDetails': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				table: 'biocontrol_actions',
+				recordId: command.payload.biocontrolActionId,
+				references:
+					'biocontrolMethodId' in command.payload.changes
+						? methodReference(
+								'biocontrol_method_id',
+								'biocontrolMethod',
+								'biocontrol method',
+								command.payload.changes.biocontrolMethodId,
+							)
+						: [],
+			});
 			const changes = command.payload.changes;
 			return updateActionRow(
 				trx,

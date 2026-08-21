@@ -1058,6 +1058,11 @@ export function deletableRecordLabel(recordType: DeletableRecordType): string {
 	return DELETABLE_RECORDS[recordType].singular;
 }
 
+/** The table a record type lives in, for a caller that needs to query it. */
+export function deletableRecordTable(recordType: DeletableRecordType): string {
+	return DELETABLE_RECORDS[recordType].table;
+}
+
 /**
  * The registry as data, without the SQL or the copy.
  *

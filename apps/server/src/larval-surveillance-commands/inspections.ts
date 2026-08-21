@@ -1,4 +1,4 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, assertCatalogReferences, sql } from '@simmer-mosquito/db';
 import {
 	deleteInspectionCommand,
 	type LarvalSurveillanceCommand,
@@ -189,6 +189,10 @@ export async function writeInspectionCommand(
 ): Promise<InspectionRow | null> {
 	switch (command.type) {
 		case 'larvalSurveillance.recordHabitatInspection': {
+			// The habitat type here is copied from the Habitat being inspected, not
+			// chosen by the person recording. The gate is about starting to use a
+			// retired catalog row; refusing an inherited one would make a Habitat
+			// uninspectable because its type was deactivated after it was built.
 			const snapshot = await loadHabitatSnapshot(
 				trx,
 				command.payload.organizationId,
@@ -216,6 +220,17 @@ export async function writeInspectionCommand(
 		case 'fieldWork.recordHabitatInspectionForAssignmentItem':
 			return recordInspectionForStop(trx, command.payload);
 		case 'larvalSurveillance.recordAdHocInspection': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				references: [
+					{
+						column: 'habitat_type_id',
+						catalog: 'habitatType',
+						id: command.payload.habitatTypeId ?? null,
+						label: 'habitat type',
+					},
+				],
+			});
 			const row = await trx
 				.insertInto('inspections')
 				.values({
@@ -247,6 +262,22 @@ export async function writeInspectionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'larvalSurveillance.updateAdHocInspectionLocation':
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				table: 'inspections',
+				recordId: command.payload.inspectionId,
+				references:
+					'habitatTypeId' in command.payload.changes
+						? [
+								{
+									column: 'habitat_type_id',
+									catalog: 'habitatType',
+									id: command.payload.changes.habitatTypeId ?? null,
+									label: 'habitat type',
+								},
+							]
+						: [],
+			});
 			return updateInspection(trx, command.payload.inspectionId, command.payload.organizationId, {
 				...(command.payload.changes.locationSource !== undefined
 					? {

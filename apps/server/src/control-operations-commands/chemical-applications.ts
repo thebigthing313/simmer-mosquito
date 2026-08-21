@@ -1,4 +1,9 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	assertCatalogReferences,
+	type CatalogReference,
+	sql,
+} from '@simmer-mosquito/db';
 import {
 	type ControlActionLocationSourceInput,
 	type ControlOperationsCommand,
@@ -249,11 +254,64 @@ async function runApplicationCommands(
 	);
 }
 
+/**
+ * The four catalogs a chemical application names.
+ *
+ * Only the keys present are gated, so an update that moves the amount and
+ * nothing else asks nothing of the catalogs, and one that moves the insecticide
+ * asks only about that.
+ */
+function applicationCatalogReferences(source: {
+	readonly applicationMethodId?: string | null | undefined;
+	readonly insecticideId?: string | null | undefined;
+	readonly vehicleId?: string | null | undefined;
+	readonly equipmentId?: string | null | undefined;
+}): CatalogReference[] {
+	const references: CatalogReference[] = [];
+	if ('applicationMethodId' in source) {
+		references.push({
+			column: 'application_method_id',
+			catalog: 'applicationMethod',
+			id: source.applicationMethodId ?? null,
+			label: 'application method',
+		});
+	}
+	if ('insecticideId' in source) {
+		references.push({
+			column: 'insecticide_id',
+			catalog: 'insecticide',
+			id: source.insecticideId ?? null,
+			label: 'insecticide',
+		});
+	}
+	if ('vehicleId' in source) {
+		references.push({
+			column: 'vehicle_id',
+			catalog: 'vehicle',
+			id: source.vehicleId ?? null,
+			label: 'vehicle',
+		});
+	}
+	if ('equipmentId' in source) {
+		references.push({
+			column: 'equipment_id',
+			catalog: 'equipment',
+			id: source.equipmentId ?? null,
+			label: 'equipment record',
+		});
+	}
+	return references;
+}
+
 async function writeMissionApplication(
 	trx: ControlOperationsTransaction,
 	payload: RecordChemicalApplicationForMissionItemCommand['payload'],
 ): Promise<ApplicationRow | null> {
 	const stop = await beginMissionExecution(trx, payload, 'chemicalApplication');
+	await assertCatalogReferences(trx, {
+		organizationId: payload.organizationId,
+		references: applicationCatalogReferences(payload),
+	});
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
 		.insertInto('applications')
@@ -301,6 +359,10 @@ export async function writeApplicationCommand(
 ): Promise<ApplicationRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordChemicalApplication': {
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				references: applicationCatalogReferences(command.payload),
+			});
 			const ids = contextIds(command.payload.context);
 			const row = await trx
 				.insertInto('applications')
@@ -346,6 +408,12 @@ export async function writeApplicationCommand(
 			return writeMissionApplication(trx, command.payload);
 		case 'controlOperations.updateChemicalApplicationFieldDetails': {
 			const changes = command.payload.changes;
+			await assertCatalogReferences(trx, {
+				organizationId: command.payload.organizationId,
+				table: 'applications',
+				recordId: command.payload.applicationId,
+				references: applicationCatalogReferences(changes),
+			});
 			return updateApplication(trx, command.payload.applicationId, command.payload.organizationId, {
 				...('applicationDate' in changes && changes.applicationDate !== undefined
 					? { application_date: localDateColumn(changes.applicationDate) }
