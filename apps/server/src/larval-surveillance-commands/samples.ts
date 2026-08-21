@@ -1,4 +1,4 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, checkedValues, sql, updateRow } from '@simmer-mosquito/db';
 import {
 	addInspectionSampleCommand,
 	addUnlabeledInspectionSampleCommand,
@@ -263,16 +263,18 @@ async function insertSample(
 ): Promise<SampleRow> {
 	const row = await trx
 		.insertInto('samples')
-		.values({
-			id: input.id,
-			organization_id: input.organizationId,
-			inspection_id: input.inspectionId,
-			display_name: input.displayName,
-			is_zero_larvae: false,
-			has_non_mosquito: false,
-			created_by_profile_id: input.actorProfileId,
-			updated_by_profile_id: input.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, input.organizationId, {
+				id: input.id,
+				organization_id: input.organizationId,
+				inspection_id: input.inspectionId,
+				display_name: input.displayName,
+				is_zero_larvae: false,
+				has_non_mosquito: false,
+				created_by_profile_id: input.actorProfileId,
+				updated_by_profile_id: input.actorProfileId,
+			}),
+		)
 		.returning(sampleReturnColumns)
 		.executeTakeFirstOrThrow();
 	return row;
@@ -284,13 +286,5 @@ async function updateSample(
 	organizationId: string,
 	set: SampleUpdateColumns,
 ): Promise<SampleRow | null> {
-	const row = await trx
-		.updateTable('samples')
-		.set({ ...set, updated_at: sql`now()` })
-		.where('id', '=', sampleId)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(sampleReturnColumns)
-		.executeTakeFirst();
-	return row ?? null;
+	return updateRow(trx, 'samples', sampleId, organizationId, set, sampleReturnColumns);
 }

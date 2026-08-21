@@ -1,4 +1,5 @@
 import {
+	checkedValues,
 	geojsonToGeom,
 	localDateColumn,
 	type RawBuilder,
@@ -59,17 +60,19 @@ export async function insertMissionItem(
 ): Promise<void> {
 	await trx
 		.insertInto('mission_items')
-		.values({
-			id: input.missionItemId,
-			organization_id: input.organizationId,
-			mission_id: input.missionId,
-			requested_control_action_id: input.requestedControlActionId,
-			geom: input.geom,
-			address_id: input.addressId,
-			position: input.position,
-			created_by_profile_id: input.actorProfileId,
-			updated_by_profile_id: input.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, input.organizationId, {
+				id: input.missionItemId,
+				organization_id: input.organizationId,
+				mission_id: input.missionId,
+				requested_control_action_id: input.requestedControlActionId,
+				geom: input.geom,
+				address_id: input.addressId,
+				position: input.position,
+				created_by_profile_id: input.actorProfileId,
+				updated_by_profile_id: input.actorProfileId,
+			}),
+		)
 		.execute();
 }
 

@@ -1,4 +1,10 @@
-import { applyRecordDeletion, assertCatalogReferences, sql } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	assertWriteReferences,
+	checkedValues,
+	sql,
+	updateRow,
+} from '@simmer-mosquito/db';
 import {
 	deleteInspectionCommand,
 	type LarvalSurveillanceCommand,
@@ -201,19 +207,21 @@ export async function writeInspectionCommand(
 			);
 			const row = await trx
 				.insertInto('inspections')
-				.values({
-					id: command.payload.inspectionId,
-					organization_id: command.payload.organizationId,
-					geom: geojsonToGeom(snapshot.geojson),
-					habitat_id: command.payload.habitatId,
-					habitat_type_id: snapshot.habitatTypeId,
-					address_id: snapshot.addressId,
-					inspected_by_profile_id: command.payload.inspectedByProfileId,
-					inspection_date: localDateColumn(command.payload.inspectionDate),
-					...inspectionResultColumns(command.payload),
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.inspectionId,
+						organization_id: command.payload.organizationId,
+						geom: geojsonToGeom(snapshot.geojson),
+						habitat_id: command.payload.habitatId,
+						habitat_type_id: snapshot.habitatTypeId,
+						address_id: snapshot.addressId,
+						inspected_by_profile_id: command.payload.inspectedByProfileId,
+						inspection_date: localDateColumn(command.payload.inspectionDate),
+						...inspectionResultColumns(command.payload),
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(inspectionReturnColumns)
 				.executeTakeFirstOrThrow();
 			return row;
@@ -221,30 +229,32 @@ export async function writeInspectionCommand(
 		case 'fieldWork.recordHabitatInspectionForAssignmentItem':
 			return recordInspectionForStop(trx, command.payload);
 		case 'larvalSurveillance.recordAdHocInspection': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
 				references: habitatTypeReferences(command.payload),
 			});
 			const row = await trx
 				.insertInto('inspections')
-				.values({
-					id: command.payload.inspectionId,
-					organization_id: command.payload.organizationId,
-					geom: await resolveLocationGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					habitat_id: null,
-					habitat_type_id: command.payload.habitatTypeId,
-					address_id: command.payload.addressId,
-					inspected_by_profile_id: command.payload.inspectedByProfileId,
-					inspection_date: localDateColumn(command.payload.inspectionDate),
-					...inspectionResultColumns(command.payload),
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.inspectionId,
+						organization_id: command.payload.organizationId,
+						geom: await resolveLocationGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						habitat_id: null,
+						habitat_type_id: command.payload.habitatTypeId,
+						address_id: command.payload.addressId,
+						inspected_by_profile_id: command.payload.inspectedByProfileId,
+						inspection_date: localDateColumn(command.payload.inspectionDate),
+						...inspectionResultColumns(command.payload),
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(inspectionReturnColumns)
 				.executeTakeFirstOrThrow();
 			return row;
@@ -257,7 +267,7 @@ export async function writeInspectionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'larvalSurveillance.updateAdHocInspectionLocation':
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'update', table: 'inspections', recordId: command.payload.inspectionId },
 				references: habitatTypeReferences(command.payload.changes),
@@ -341,20 +351,22 @@ async function recordInspectionForStop(
 	// the same reason: it is a copy of the Habitat's own type, not a choice.
 	const row = await trx
 		.insertInto('inspections')
-		.values({
-			id: payload.inspectionId,
-			organization_id: payload.organizationId,
-			geom: geojsonToGeom(snapshot.geojson),
-			habitat_id: habitatId,
-			habitat_type_id: snapshot.habitatTypeId,
-			address_id: snapshot.addressId,
-			inspected_by_profile_id: payload.inspectedByProfileId,
-			inspection_date: localDateColumn(payload.inspectionDate),
-			assignment_item_id: payload.assignmentItemId,
-			...inspectionResultColumns(payload),
-			created_by_profile_id: payload.actorProfileId,
-			updated_by_profile_id: payload.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.inspectionId,
+				organization_id: payload.organizationId,
+				geom: geojsonToGeom(snapshot.geojson),
+				habitat_id: habitatId,
+				habitat_type_id: snapshot.habitatTypeId,
+				address_id: snapshot.addressId,
+				inspected_by_profile_id: payload.inspectedByProfileId,
+				inspection_date: localDateColumn(payload.inspectionDate),
+				assignment_item_id: payload.assignmentItemId,
+				...inspectionResultColumns(payload),
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
 		.returning(inspectionReturnColumns)
 		.executeTakeFirstOrThrow();
 	if (payload.completeAssignmentItem) {
@@ -375,15 +387,7 @@ async function updateInspection(
 	organizationId: string,
 	set: InspectionUpdateColumns,
 ): Promise<InspectionRow | null> {
-	const row = await trx
-		.updateTable('inspections')
-		.set({ ...set, updated_at: sql`now()` })
-		.where('id', '=', inspectionId)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(inspectionReturnColumns)
-		.executeTakeFirst();
-	return row ?? null;
+	return updateRow(trx, 'inspections', inspectionId, organizationId, set, inspectionReturnColumns);
 }
 
 function inspectionResultColumns(result: NormalizedInspectionResult): InspectionResultColumns {

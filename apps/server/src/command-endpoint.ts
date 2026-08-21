@@ -23,10 +23,10 @@
  */
 
 import {
-	CatalogReferenceRefusedError,
 	MissionNotificationRefusedError,
 	RecordDeleteBlockedError,
 	RecordMergeRefusedError,
+	ReferenceRefusedError,
 } from '@simmer-mosquito/db';
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import type { Context } from 'hono';
@@ -99,16 +99,17 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 			error.reason === 'target_inactive' ? 409 : 404,
 		);
 	}
-	// A write that named a catalog row it may not use. Missing is a 404 and the
-	// same answer as another agency's row or a soft-deleted one, because telling
-	// them apart would make this a way to probe for ids. Inactive is a 409: the
-	// row is there and somebody can reactivate it or pick another.
-	if (error instanceof CatalogReferenceRefusedError) {
+	// A write that named a row it may not use, catalog or otherwise. Missing is a
+	// 404 and the same answer as another agency's row or a soft-deleted one,
+	// because telling them apart would make this a way to probe for ids.
+	// Inactive is a 409: the row is there and somebody can reactivate it or pick
+	// another, and only a catalog can be in that state.
+	if (error instanceof ReferenceRefusedError) {
 		return context.json(
 			{
-				error: 'catalog_reference_refused',
+				error: 'reference_refused',
 				reason: error.reason,
-				catalog: error.catalog,
+				reference: error.reference,
 				message: error.message,
 			},
 			error.reason === 'inactive' ? 409 : 404,

@@ -1,3 +1,4 @@
+import { checkedValues } from '@simmer-mosquito/db';
 import {
 	type ContactReferenceInput,
 	createNotificationRegistrationCommand,
@@ -220,20 +221,22 @@ export async function writeRegistrationCommand(
 			);
 			const row = await trx
 				.insertInto('notification_registrations')
-				.values({
-					id: command.payload.notificationRegistrationId,
-					organization_id: command.payload.organizationId,
-					contact_id: contactId,
-					geom: geojsonToGeom(command.payload.location.geometry),
-					address_id: addressId,
-					buffer_distance: command.payload.bufferDistance,
-					buffer_unit_id: command.payload.bufferUnitId,
-					has_bees: command.payload.hasBees,
-					is_no_spray: command.payload.isNoSpray,
-					is_active: true,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.notificationRegistrationId,
+						organization_id: command.payload.organizationId,
+						contact_id: contactId,
+						geom: geojsonToGeom(command.payload.location.geometry),
+						address_id: addressId,
+						buffer_distance: command.payload.bufferDistance,
+						buffer_unit_id: command.payload.bufferUnitId,
+						has_bees: command.payload.hasBees,
+						is_no_spray: command.payload.isNoSpray,
+						is_active: true,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(registrationReturnColumns)
 				.executeTakeFirstOrThrow();
 			for (const subscription of command.payload.subscriptions) {

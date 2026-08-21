@@ -1,4 +1,4 @@
-import { applyRecordDeletion } from '@simmer-mosquito/db';
+import { applyRecordDeletion, checkedValues } from '@simmer-mosquito/db';
 import {
 	createRegionCommand,
 	deleteRegionCommand,
@@ -161,17 +161,19 @@ export async function writeRegionCommand(
 		case 'foundation.createRegion': {
 			const row = await trx
 				.insertInto('regions')
-				.values({
-					id: command.payload.regionId,
-					organization_id: command.payload.organizationId,
-					region_folder_id: command.payload.regionFolderId,
-					geom: geojsonToGeom(command.payload.geometry),
-					name: command.payload.name,
-					description: command.payload.description,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.regionId,
+						organization_id: command.payload.organizationId,
+						region_folder_id: command.payload.regionFolderId,
+						geom: geojsonToGeom(command.payload.geometry),
+						name: command.payload.name,
+						description: command.payload.description,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(regionReturnColumns)
 				.executeTakeFirstOrThrow();
 			return row;

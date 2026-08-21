@@ -1,8 +1,9 @@
 import { randomUUID } from 'node:crypto';
 import {
 	applyRecordDeletion,
-	assertCatalogReferences,
+	assertWriteReferences,
 	type CatalogReference,
+	checkedValues,
 	sql,
 } from '@simmer-mosquito/db';
 import {
@@ -269,30 +270,32 @@ export async function writeMissionCommand(
 ): Promise<MissionRow | null> {
 	switch (command.type) {
 		case 'missionDispatch.createMission': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
 				references: notificationTypeReference(command.payload.notificationTypeId),
 			});
 			const row = await trx
 				.insertInto('missions')
-				.values({
-					id: command.payload.missionId,
-					organization_id: command.payload.organizationId,
-					mission_name: command.payload.missionName,
-					control_type: command.payload.controlType,
-					planned_method_id: command.payload.plannedMethodId,
-					assigned_to_profile_id: command.payload.assignedToProfileId,
-					assigned_by_profile_id: command.payload.actorProfileId,
-					scheduled_start_at: command.payload.scheduledStartAt,
-					scheduled_end_at: command.payload.scheduledEndAt,
-					...(command.payload.rainDate === null
-						? {}
-						: { rain_date: localDateColumn(command.payload.rainDate) }),
-					notification_type_id: command.payload.notificationTypeId,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.missionId,
+						organization_id: command.payload.organizationId,
+						mission_name: command.payload.missionName,
+						control_type: command.payload.controlType,
+						planned_method_id: command.payload.plannedMethodId,
+						assigned_to_profile_id: command.payload.assignedToProfileId,
+						assigned_by_profile_id: command.payload.actorProfileId,
+						scheduled_start_at: command.payload.scheduledStartAt,
+						scheduled_end_at: command.payload.scheduledEndAt,
+						...(command.payload.rainDate === null
+							? {}
+							: { rain_date: localDateColumn(command.payload.rainDate) }),
+						notification_type_id: command.payload.notificationTypeId,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(missionReturnColumns)
 				.executeTakeFirstOrThrow();
 			let position = 0;
@@ -353,7 +356,7 @@ export async function writeMissionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.updateMissionNotificationType':
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'update', table: 'missions', recordId: command.payload.missionId },
 				references: notificationTypeReference(command.payload.notificationTypeId),

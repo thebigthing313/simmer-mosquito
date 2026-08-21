@@ -1,6 +1,7 @@
 import { type RawBuilder, type Selectable, sql, type Transaction } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../tables.js';
+import { assertWriteReferences, recordReferencesIn } from './write-references.js';
 
 /**
  * Every table a tenant owns rows in directly: it carries the tenant column, and
@@ -76,6 +77,13 @@ export type SelectedRow<
  * Returns `null` rather than throwing when nothing matched: whether that means
  * "not yours" or "not there" is not a distinction this layer can draw, and the
  * caller in `apps/server` is the one that knows it answers 404 either way.
+ *
+ * Every record id the patch names is checked first. This is the one seam every
+ * update goes through, so #200's rule holds for all of them from here rather
+ * than from a line each writer has to remember; the stored row is read back, so
+ * a reference the patch repeats unchanged is not refused. Catalog ids are gated
+ * at the writer instead, because the two documented exceptions to that rule are
+ * only visible there.
  */
 export async function updateRow<
 	TTable extends OrgOwnedTable,
@@ -88,6 +96,12 @@ export async function updateRow<
 	set: Record<string, unknown>,
 	columns: TColumns,
 ): Promise<SelectedRow<TTable, TColumns> | null> {
+	await assertWriteReferences(trx, {
+		organizationId,
+		write: { kind: 'update', table, recordId: id },
+		references: recordReferencesIn(set),
+	});
+
 	const row = await trx
 		.updateTable(table as OrgOwnedTable)
 		.set({ ...set, updated_at: sql`now()` } as never)

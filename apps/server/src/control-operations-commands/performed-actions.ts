@@ -1,8 +1,9 @@
 import {
 	applyRecordDeletion,
-	assertCatalogReferences,
+	assertWriteReferences,
 	type CatalogRecordType,
 	type CatalogReference,
+	checkedValues,
 } from '@simmer-mosquito/db';
 import {
 	type ControlActionLocationSourceInput,
@@ -276,7 +277,7 @@ async function writeMissionSourceReduction(
 	const stop = await beginMissionExecution(trx, payload, 'sourceReduction');
 	// A method the mission plan supplied is not a new choice, so only an id
 	// the payload names is gated.
-	await assertCatalogReferences(trx, {
+	await assertWriteReferences(trx, {
 		organizationId: payload.organizationId,
 		write: { kind: 'create' },
 		references: methodReferences('sourceReduction', payload.sourceReductionMethodId),
@@ -284,24 +285,26 @@ async function writeMissionSourceReduction(
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
 		.insertInto('source_reductions')
-		.values({
-			id: payload.sourceReductionId,
-			organization_id: payload.organizationId,
-			source_reduction_method_id: resolveMissionMethodId(payload.sourceReductionMethodId, stop),
-			technician_profile_id: payload.technicianProfileId,
-			source_reduction_date: localDateColumn(payload.sourceReductionDate),
-			sources_eliminated_amount: payload.sourcesEliminatedAmount,
-			sources_eliminated_unit_id: payload.sourcesEliminatedUnitId,
-			geom: missionItemGeom(payload.missionItemId, payload.geometry),
-			address_id: payload.addressId ?? null,
-			habitat_id: ids.habitatId,
-			inspection_id: ids.inspectionId,
-			requested_control_action_id: stop.requestedControlActionId,
-			mission_item_id: payload.missionItemId,
-			metadata: payload.metadata,
-			created_by_profile_id: payload.actorProfileId,
-			updated_by_profile_id: payload.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.sourceReductionId,
+				organization_id: payload.organizationId,
+				source_reduction_method_id: resolveMissionMethodId(payload.sourceReductionMethodId, stop),
+				technician_profile_id: payload.technicianProfileId,
+				source_reduction_date: localDateColumn(payload.sourceReductionDate),
+				sources_eliminated_amount: payload.sourcesEliminatedAmount,
+				sources_eliminated_unit_id: payload.sourcesEliminatedUnitId,
+				geom: missionItemGeom(payload.missionItemId, payload.geometry),
+				address_id: payload.addressId ?? null,
+				habitat_id: ids.habitatId,
+				inspection_id: ids.inspectionId,
+				requested_control_action_id: stop.requestedControlActionId,
+				mission_item_id: payload.missionItemId,
+				metadata: payload.metadata,
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
 		.returning(sourceReductionReturnColumns)
 		.executeTakeFirstOrThrow();
 	await assertMissionGeometryCovered(trx, payload, payload.sourceReductionId, 'source_reductions');
@@ -316,7 +319,7 @@ async function writeMissionOutreachAction(
 	const stop = await beginMissionExecution(trx, payload, 'outreach');
 	// A method the mission plan supplied is not a new choice, so only an id
 	// the payload names is gated.
-	await assertCatalogReferences(trx, {
+	await assertWriteReferences(trx, {
 		organizationId: payload.organizationId,
 		write: { kind: 'create' },
 		references: methodReferences('outreach', payload.outreachMethodId),
@@ -324,23 +327,25 @@ async function writeMissionOutreachAction(
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
 		.insertInto('outreach_actions')
-		.values({
-			id: payload.outreachActionId,
-			organization_id: payload.organizationId,
-			outreach_method_id: resolveMissionMethodId(payload.outreachMethodId, stop),
-			technician_profile_id: payload.technicianProfileId,
-			outreach_date: localDateColumn(payload.outreachDate),
-			reach: payload.reach ?? 0,
-			reach_description: payload.reachDescription,
-			geom: missionItemGeom(payload.missionItemId, payload.geometry),
-			address_id: payload.addressId ?? null,
-			inspection_id: ids.inspectionId,
-			requested_control_action_id: stop.requestedControlActionId,
-			mission_item_id: payload.missionItemId,
-			metadata: payload.metadata,
-			created_by_profile_id: payload.actorProfileId,
-			updated_by_profile_id: payload.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.outreachActionId,
+				organization_id: payload.organizationId,
+				outreach_method_id: resolveMissionMethodId(payload.outreachMethodId, stop),
+				technician_profile_id: payload.technicianProfileId,
+				outreach_date: localDateColumn(payload.outreachDate),
+				reach: payload.reach ?? 0,
+				reach_description: payload.reachDescription,
+				geom: missionItemGeom(payload.missionItemId, payload.geometry),
+				address_id: payload.addressId ?? null,
+				inspection_id: ids.inspectionId,
+				requested_control_action_id: stop.requestedControlActionId,
+				mission_item_id: payload.missionItemId,
+				metadata: payload.metadata,
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
 		.returning(outreachActionReturnColumns)
 		.executeTakeFirstOrThrow();
 	await assertMissionGeometryCovered(trx, payload, payload.outreachActionId, 'outreach_actions');
@@ -355,7 +360,7 @@ async function writeMissionBiocontrolAction(
 	const stop = await beginMissionExecution(trx, payload, 'biocontrol');
 	// A method the mission plan supplied is not a new choice, so only an id
 	// the payload names is gated.
-	await assertCatalogReferences(trx, {
+	await assertWriteReferences(trx, {
 		organizationId: payload.organizationId,
 		write: { kind: 'create' },
 		references: methodReferences('biocontrol', payload.biocontrolMethodId),
@@ -363,24 +368,26 @@ async function writeMissionBiocontrolAction(
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
 		.insertInto('biocontrol_actions')
-		.values({
-			id: payload.biocontrolActionId,
-			organization_id: payload.organizationId,
-			biocontrol_method_id: resolveMissionMethodId(payload.biocontrolMethodId, stop),
-			technician_profile_id: payload.technicianProfileId,
-			biocontrol_date: localDateColumn(payload.biocontrolDate),
-			amount_released: payload.amountReleased,
-			release_unit_id: payload.releaseUnitId,
-			geom: missionItemGeom(payload.missionItemId, payload.geometry),
-			address_id: payload.addressId ?? null,
-			habitat_id: ids.habitatId,
-			inspection_id: ids.inspectionId,
-			requested_control_action_id: stop.requestedControlActionId,
-			mission_item_id: payload.missionItemId,
-			metadata: payload.metadata,
-			created_by_profile_id: payload.actorProfileId,
-			updated_by_profile_id: payload.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.biocontrolActionId,
+				organization_id: payload.organizationId,
+				biocontrol_method_id: resolveMissionMethodId(payload.biocontrolMethodId, stop),
+				technician_profile_id: payload.technicianProfileId,
+				biocontrol_date: localDateColumn(payload.biocontrolDate),
+				amount_released: payload.amountReleased,
+				release_unit_id: payload.releaseUnitId,
+				geom: missionItemGeom(payload.missionItemId, payload.geometry),
+				address_id: payload.addressId ?? null,
+				habitat_id: ids.habitatId,
+				inspection_id: ids.inspectionId,
+				requested_control_action_id: stop.requestedControlActionId,
+				mission_item_id: payload.missionItemId,
+				metadata: payload.metadata,
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
 		.returning(biocontrolActionReturnColumns)
 		.executeTakeFirstOrThrow();
 	await assertMissionGeometryCovered(
@@ -432,7 +439,7 @@ export async function writeSourceReductionCommand(
 ): Promise<SourceReductionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordSourceReduction': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
 				references: methodReferences('sourceReduction', command.payload.sourceReductionMethodId),
@@ -440,27 +447,29 @@ export async function writeSourceReductionCommand(
 			const ids = contextIds(command.payload.context);
 			const row = await trx
 				.insertInto('source_reductions')
-				.values({
-					id: command.payload.sourceReductionId,
-					organization_id: command.payload.organizationId,
-					source_reduction_method_id: command.payload.sourceReductionMethodId,
-					technician_profile_id: command.payload.technicianProfileId,
-					source_reduction_date: localDateColumn(command.payload.sourceReductionDate),
-					geom: await resolveGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					address_id: command.payload.addressId,
-					habitat_id: ids.habitatId,
-					sources_eliminated_amount: command.payload.sourcesEliminatedAmount,
-					sources_eliminated_unit_id: command.payload.sourcesEliminatedUnitId,
-					inspection_id: ids.inspectionId,
-					requested_control_action_id: command.payload.requestedControlActionId,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.sourceReductionId,
+						organization_id: command.payload.organizationId,
+						source_reduction_method_id: command.payload.sourceReductionMethodId,
+						technician_profile_id: command.payload.technicianProfileId,
+						source_reduction_date: localDateColumn(command.payload.sourceReductionDate),
+						geom: await resolveGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						address_id: command.payload.addressId,
+						habitat_id: ids.habitatId,
+						sources_eliminated_amount: command.payload.sourcesEliminatedAmount,
+						sources_eliminated_unit_id: command.payload.sourcesEliminatedUnitId,
+						inspection_id: ids.inspectionId,
+						requested_control_action_id: command.payload.requestedControlActionId,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(sourceReductionReturnColumns)
 				.executeTakeFirstOrThrow();
 			return row;
@@ -468,7 +477,7 @@ export async function writeSourceReductionCommand(
 		case 'missionDispatch.recordSourceReductionForMissionItem':
 			return writeMissionSourceReduction(trx, command.payload);
 		case 'controlOperations.updateSourceReductionFieldDetails': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: {
 					kind: 'update',
@@ -657,7 +666,7 @@ export async function writeOutreachActionCommand(
 ): Promise<OutreachActionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordOutreachAction': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
 				references: methodReferences('outreach', command.payload.outreachMethodId),
@@ -665,26 +674,28 @@ export async function writeOutreachActionCommand(
 			const ids = contextIds(command.payload.context);
 			const row = await trx
 				.insertInto('outreach_actions')
-				.values({
-					id: command.payload.outreachActionId,
-					organization_id: command.payload.organizationId,
-					outreach_method_id: command.payload.outreachMethodId,
-					technician_profile_id: command.payload.technicianProfileId,
-					outreach_date: localDateColumn(command.payload.outreachDate),
-					geom: await resolveGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					address_id: command.payload.addressId,
-					inspection_id: ids.inspectionId,
-					reach: command.payload.reach,
-					reach_description: command.payload.reachDescription,
-					requested_control_action_id: command.payload.requestedControlActionId,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.outreachActionId,
+						organization_id: command.payload.organizationId,
+						outreach_method_id: command.payload.outreachMethodId,
+						technician_profile_id: command.payload.technicianProfileId,
+						outreach_date: localDateColumn(command.payload.outreachDate),
+						geom: await resolveGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						address_id: command.payload.addressId,
+						inspection_id: ids.inspectionId,
+						reach: command.payload.reach,
+						reach_description: command.payload.reachDescription,
+						requested_control_action_id: command.payload.requestedControlActionId,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(outreachActionReturnColumns)
 				.executeTakeFirstOrThrow();
 			return row;
@@ -692,7 +703,7 @@ export async function writeOutreachActionCommand(
 		case 'missionDispatch.recordOutreachActionForMissionItem':
 			return writeMissionOutreachAction(trx, command.payload);
 		case 'controlOperations.updateOutreachActionFieldDetails': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: {
 					kind: 'update',
@@ -881,7 +892,7 @@ export async function writeBiocontrolActionCommand(
 ): Promise<BiocontrolActionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordBiocontrolAction': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
 				references: methodReferences('biocontrol', command.payload.biocontrolMethodId),
@@ -889,27 +900,29 @@ export async function writeBiocontrolActionCommand(
 			const ids = contextIds(command.payload.context);
 			const row = await trx
 				.insertInto('biocontrol_actions')
-				.values({
-					id: command.payload.biocontrolActionId,
-					organization_id: command.payload.organizationId,
-					biocontrol_method_id: command.payload.biocontrolMethodId,
-					technician_profile_id: command.payload.technicianProfileId,
-					biocontrol_date: localDateColumn(command.payload.biocontrolDate),
-					geom: await resolveGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					address_id: command.payload.addressId,
-					habitat_id: ids.habitatId,
-					inspection_id: ids.inspectionId,
-					amount_released: command.payload.amountReleased,
-					release_unit_id: command.payload.releaseUnitId,
-					requested_control_action_id: command.payload.requestedControlActionId,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.biocontrolActionId,
+						organization_id: command.payload.organizationId,
+						biocontrol_method_id: command.payload.biocontrolMethodId,
+						technician_profile_id: command.payload.technicianProfileId,
+						biocontrol_date: localDateColumn(command.payload.biocontrolDate),
+						geom: await resolveGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						address_id: command.payload.addressId,
+						habitat_id: ids.habitatId,
+						inspection_id: ids.inspectionId,
+						amount_released: command.payload.amountReleased,
+						release_unit_id: command.payload.releaseUnitId,
+						requested_control_action_id: command.payload.requestedControlActionId,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(biocontrolActionReturnColumns)
 				.executeTakeFirstOrThrow();
 			return row;
@@ -917,7 +930,7 @@ export async function writeBiocontrolActionCommand(
 		case 'missionDispatch.recordBiocontrolActionForMissionItem':
 			return writeMissionBiocontrolAction(trx, command.payload);
 		case 'controlOperations.updateBiocontrolActionFieldDetails': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: {
 					kind: 'update',

@@ -1,4 +1,9 @@
-import { applyRecordDeletion, assertCatalogReferences, sql } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	assertWriteReferences,
+	checkedValues,
+	sql,
+} from '@simmer-mosquito/db';
 import {
 	type AdultCollectionLocationSourceInput,
 	type AdultSurveillanceCommand,
@@ -507,7 +512,7 @@ export async function writeCollectionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'adultSurveillance.updateAdHocCollectionConfiguration':
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'update', table: 'collections', recordId: command.payload.collectionId },
 				references: surveillanceCatalogReferences(command.payload.changes),
@@ -726,7 +731,7 @@ async function insertCollection(
 ): Promise<CollectionRow> {
 	// The one funnel both create paths run through, so the gate sits here rather
 	// than on each caller.
-	await assertCatalogReferences(trx, {
+	await assertWriteReferences(trx, {
 		organizationId: input.organizationId,
 		write: { kind: 'create' },
 		references: surveillanceCatalogReferences(input),
@@ -734,24 +739,26 @@ async function insertCollection(
 
 	const row = await trx
 		.insertInto('collections')
-		.values({
-			id: input.id,
-			organization_id: input.organizationId,
-			geom: input.geom,
-			trap_id: input.trapId,
-			collection_method_id: input.collectionMethodId,
-			collection_lure_id: input.collectionLureId,
-			address_id: input.addressId,
-			collected_by_profile_id: input.collectedByProfileId,
-			set_by_profile_id: input.setByProfileId,
-			has_problem: input.hasProblem,
-			metadata: input.metadata,
-			set_assignment_item_id: input.setAssignmentItemId ?? null,
-			collected_assignment_item_id: input.collectedAssignmentItemId ?? null,
-			created_by_profile_id: input.actorProfileId,
-			updated_by_profile_id: input.actorProfileId,
-			...timingColumns(input.timing),
-		})
+		.values(
+			await checkedValues(trx, input.organizationId, {
+				id: input.id,
+				organization_id: input.organizationId,
+				geom: input.geom,
+				trap_id: input.trapId,
+				collection_method_id: input.collectionMethodId,
+				collection_lure_id: input.collectionLureId,
+				address_id: input.addressId,
+				collected_by_profile_id: input.collectedByProfileId,
+				set_by_profile_id: input.setByProfileId,
+				has_problem: input.hasProblem,
+				metadata: input.metadata,
+				set_assignment_item_id: input.setAssignmentItemId ?? null,
+				collected_assignment_item_id: input.collectedAssignmentItemId ?? null,
+				created_by_profile_id: input.actorProfileId,
+				updated_by_profile_id: input.actorProfileId,
+				...timingColumns(input.timing),
+			}),
+		)
 		.returning(collectionReturnColumns)
 		.executeTakeFirstOrThrow();
 	return row;

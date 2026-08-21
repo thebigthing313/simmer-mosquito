@@ -1,3 +1,4 @@
+import { checkedValues } from '@simmer-mosquito/db';
 import {
 	addAdditionalPersonnelCommand,
 	type FieldWorkCommand,
@@ -86,15 +87,17 @@ export async function writeAdditionalPersonnelCommand(
 		case 'fieldWork.addAdditionalPersonnel': {
 			const row = await trx
 				.insertInto('additional_personnel')
-				.values({
-					id: command.payload.additionalPersonnelId,
-					organization_id: command.payload.organizationId,
-					personnel_profile_id: command.payload.personnelProfileId,
-					entity_type: toDbEntityType(command.payload.target.type),
-					entity_id: command.payload.target.id,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.additionalPersonnelId,
+						organization_id: command.payload.organizationId,
+						personnel_profile_id: command.payload.personnelProfileId,
+						entity_type: toDbEntityType(command.payload.target.type),
+						entity_id: command.payload.target.id,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(additionalPersonnelReturnColumns)
 				.executeTakeFirstOrThrow();
 			return row;

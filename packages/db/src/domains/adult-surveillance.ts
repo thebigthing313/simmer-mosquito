@@ -19,6 +19,7 @@ import {
 	mapRecordSurface,
 } from './map-surface.js';
 import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
+import { checkedValues } from './write-references.js';
 
 export interface CreateTrapInput {
 	readonly organizationId: string;
@@ -134,19 +135,21 @@ const trapReturnColumns = [
 export async function createTrap(db: DbExecutor, input: CreateTrapInput): Promise<SafeTrap> {
 	const row = await db
 		.insertInto('traps')
-		.values({
-			organization_id: input.organizationId,
-			geom: geojsonToGeom(input.geojson),
-			collection_method_id: input.collectionMethodId,
-			address_id: input.addressId ?? null,
-			collection_lure_id: input.collectionLureId ?? null,
-			trap_name: input.trapName ?? null,
-			trap_code: input.trapCode ?? null,
-			description: input.description ?? null,
-			is_active: input.isActive ?? true,
-			created_by_profile_id: input.createdByProfileId ?? null,
-			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
-		})
+		.values(
+			await checkedValues(db, input.organizationId, {
+				organization_id: input.organizationId,
+				geom: geojsonToGeom(input.geojson),
+				collection_method_id: input.collectionMethodId,
+				address_id: input.addressId ?? null,
+				collection_lure_id: input.collectionLureId ?? null,
+				trap_name: input.trapName ?? null,
+				trap_code: input.trapCode ?? null,
+				description: input.description ?? null,
+				is_active: input.isActive ?? true,
+				created_by_profile_id: input.createdByProfileId ?? null,
+				updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
+			}),
+		)
 		.returning(trapReturnColumns)
 		.executeTakeFirstOrThrow();
 
@@ -203,28 +206,30 @@ export async function createCollection(
 	const timing = resolveCollectionTiming(input);
 	const row = await db
 		.insertInto('collections')
-		.values({
-			organization_id: input.organizationId,
-			trap_id: input.trapId ?? null,
-			collection_method_id: snapshot.collectionMethodId,
-			collection_lure_id: snapshot.collectionLureId,
-			geom: snapshot.geom,
-			address_id: snapshot.addressId,
-			collected_at: timing.collectedAt,
-			collected_by_profile_id: input.collectedByProfileId ?? null,
-			started_at: timing.startedAt,
-			set_by_profile_id: input.setByProfileId ?? null,
-			collection_timing_mode: timing.timingMode,
-			collection_date: timing.collectionDate,
-			duration_amount: timing.durationAmount,
-			duration_unit_id: timing.durationUnitId,
-			has_problem: input.hasProblem ?? false,
-			is_zero_result: input.isZeroResult ?? false,
-			has_bycatch: input.hasBycatch ?? false,
-			metadata: input.metadata ?? null,
-			created_by_profile_id: input.createdByProfileId ?? null,
-			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
-		})
+		.values(
+			await checkedValues(db, input.organizationId, {
+				organization_id: input.organizationId,
+				trap_id: input.trapId ?? null,
+				collection_method_id: snapshot.collectionMethodId,
+				collection_lure_id: snapshot.collectionLureId,
+				geom: snapshot.geom,
+				address_id: snapshot.addressId,
+				collected_at: timing.collectedAt,
+				collected_by_profile_id: input.collectedByProfileId ?? null,
+				started_at: timing.startedAt,
+				set_by_profile_id: input.setByProfileId ?? null,
+				collection_timing_mode: timing.timingMode,
+				collection_date: timing.collectionDate,
+				duration_amount: timing.durationAmount,
+				duration_unit_id: timing.durationUnitId,
+				has_problem: input.hasProblem ?? false,
+				is_zero_result: input.isZeroResult ?? false,
+				has_bycatch: input.hasBycatch ?? false,
+				metadata: input.metadata ?? null,
+				created_by_profile_id: input.createdByProfileId ?? null,
+				updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
+			}),
+		)
 		.returning(collectionReturnColumns)
 		.executeTakeFirstOrThrow();
 

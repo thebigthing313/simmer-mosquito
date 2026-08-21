@@ -1,7 +1,8 @@
 import {
 	applyRecordDeletion,
-	assertCatalogReferences,
+	assertWriteReferences,
 	type CatalogReference,
+	checkedValues,
 	sql,
 } from '@simmer-mosquito/db';
 import {
@@ -308,7 +309,7 @@ async function writeMissionApplication(
 	payload: RecordChemicalApplicationForMissionItemCommand['payload'],
 ): Promise<ApplicationRow | null> {
 	const stop = await beginMissionExecution(trx, payload, 'chemicalApplication');
-	await assertCatalogReferences(trx, {
+	await assertWriteReferences(trx, {
 		organizationId: payload.organizationId,
 		write: { kind: 'create' },
 		references: applicationCatalogReferences(payload),
@@ -316,31 +317,33 @@ async function writeMissionApplication(
 	const ids = contextIds(payload.context ?? { kind: 'none' });
 	const row = await trx
 		.insertInto('applications')
-		.values({
-			id: payload.applicationId,
-			organization_id: payload.organizationId,
-			// `defaultMissionMethodId` falls back to the method the mission plan
-			// named. Only the payload's own id is gated, above: a plan's method is
-			// not a new choice.
-			application_method_id: defaultMissionMethodId(payload.applicationMethodId, stop),
-			insecticide_id: payload.insecticideId,
-			applicator_profile_id: payload.applicatorProfileId,
-			application_date: localDateColumn(payload.applicationDate),
-			geom: missionItemGeom(payload.missionItemId, payload.geometry),
-			address_id: payload.addressId ?? null,
-			vehicle_id: payload.vehicleId,
-			equipment_id: payload.equipmentId,
-			amount_applied: payload.amountApplied,
-			application_unit_id: payload.applicationUnitId,
-			habitat_id: ids.habitatId,
-			collection_id: ids.collectionId,
-			inspection_id: ids.inspectionId,
-			requested_control_action_id: stop.requestedControlActionId,
-			mission_item_id: payload.missionItemId,
-			metadata: payload.metadata,
-			created_by_profile_id: payload.actorProfileId,
-			updated_by_profile_id: payload.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.applicationId,
+				organization_id: payload.organizationId,
+				// `defaultMissionMethodId` falls back to the method the mission plan
+				// named. Only the payload's own id is gated, above: a plan's method is
+				// not a new choice.
+				application_method_id: defaultMissionMethodId(payload.applicationMethodId, stop),
+				insecticide_id: payload.insecticideId,
+				applicator_profile_id: payload.applicatorProfileId,
+				application_date: localDateColumn(payload.applicationDate),
+				geom: missionItemGeom(payload.missionItemId, payload.geometry),
+				address_id: payload.addressId ?? null,
+				vehicle_id: payload.vehicleId,
+				equipment_id: payload.equipmentId,
+				amount_applied: payload.amountApplied,
+				application_unit_id: payload.applicationUnitId,
+				habitat_id: ids.habitatId,
+				collection_id: ids.collectionId,
+				inspection_id: ids.inspectionId,
+				requested_control_action_id: stop.requestedControlActionId,
+				mission_item_id: payload.missionItemId,
+				metadata: payload.metadata,
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
 		.returning(applicationReturnColumns)
 		.executeTakeFirstOrThrow();
 	for (const batch of payload.applicationBatches) {
@@ -363,7 +366,7 @@ export async function writeApplicationCommand(
 ): Promise<ApplicationRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordChemicalApplication': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
 				references: applicationCatalogReferences(command.payload),
@@ -371,31 +374,33 @@ export async function writeApplicationCommand(
 			const ids = contextIds(command.payload.context);
 			const row = await trx
 				.insertInto('applications')
-				.values({
-					id: command.payload.applicationId,
-					organization_id: command.payload.organizationId,
-					application_method_id: command.payload.applicationMethodId,
-					insecticide_id: command.payload.insecticideId,
-					applicator_profile_id: command.payload.applicatorProfileId,
-					application_date: localDateColumn(command.payload.applicationDate),
-					geom: await resolveGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					address_id: command.payload.addressId,
-					vehicle_id: command.payload.vehicleId,
-					equipment_id: command.payload.equipmentId,
-					amount_applied: command.payload.amountApplied,
-					application_unit_id: command.payload.applicationUnitId,
-					habitat_id: ids.habitatId,
-					collection_id: ids.collectionId,
-					inspection_id: ids.inspectionId,
-					requested_control_action_id: command.payload.requestedControlActionId,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.applicationId,
+						organization_id: command.payload.organizationId,
+						application_method_id: command.payload.applicationMethodId,
+						insecticide_id: command.payload.insecticideId,
+						applicator_profile_id: command.payload.applicatorProfileId,
+						application_date: localDateColumn(command.payload.applicationDate),
+						geom: await resolveGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						address_id: command.payload.addressId,
+						vehicle_id: command.payload.vehicleId,
+						equipment_id: command.payload.equipmentId,
+						amount_applied: command.payload.amountApplied,
+						application_unit_id: command.payload.applicationUnitId,
+						habitat_id: ids.habitatId,
+						collection_id: ids.collectionId,
+						inspection_id: ids.inspectionId,
+						requested_control_action_id: command.payload.requestedControlActionId,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(applicationReturnColumns)
 				.executeTakeFirstOrThrow();
 			for (const batch of command.payload.applicationBatches) {
@@ -413,7 +418,7 @@ export async function writeApplicationCommand(
 			return writeMissionApplication(trx, command.payload);
 		case 'controlOperations.updateChemicalApplicationFieldDetails': {
 			const changes = command.payload.changes;
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'update', table: 'applications', recordId: command.payload.applicationId },
 				references: applicationCatalogReferences(changes),

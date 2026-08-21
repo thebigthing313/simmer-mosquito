@@ -1,4 +1,4 @@
-import { assertCatalogReferences, sql } from '@simmer-mosquito/db';
+import { assertWriteReferences, sql } from '@simmer-mosquito/db';
 import {
 	addFormulationInsecticideCommand,
 	type ControlOperationsCommand,
@@ -106,7 +106,7 @@ export async function writeFormulationInsecticideCommand(
 ): Promise<FormulationInsecticideRow | null> {
 	switch (command.type) {
 		case 'controlOperations.addFormulationInsecticide': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
 				references: [
@@ -141,7 +141,7 @@ export async function writeFormulationInsecticideCommand(
 			return row;
 		}
 		case 'controlOperations.updateFormulationInsecticide': {
-			await assertCatalogReferences(trx, {
+			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: {
 					kind: 'update',

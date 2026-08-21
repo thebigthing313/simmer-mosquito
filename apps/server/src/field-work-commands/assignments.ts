@@ -1,4 +1,4 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, checkedValues, sql } from '@simmer-mosquito/db';
 import {
 	type AssignmentItemPlacement,
 	cancelAssignmentCommand,
@@ -423,17 +423,19 @@ async function insertAssignment(
 ): Promise<AssignmentRow> {
 	const row = await trx
 		.insertInto('assignments')
-		.values({
-			id: payload.assignmentId,
-			organization_id: payload.organizationId,
-			assignment_name: payload.assignmentName,
-			assigned_to_profile_id: payload.assignedToProfileId,
-			assigned_by_profile_id: payload.actorProfileId,
-			assignment_date: localDateColumn(payload.assignmentDate),
-			due_at: payload.dueAt,
-			created_by_profile_id: payload.actorProfileId,
-			updated_by_profile_id: payload.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.assignmentId,
+				organization_id: payload.organizationId,
+				assignment_name: payload.assignmentName,
+				assigned_to_profile_id: payload.assignedToProfileId,
+				assigned_by_profile_id: payload.actorProfileId,
+				assignment_date: localDateColumn(payload.assignmentDate),
+				due_at: payload.dueAt,
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
 		.returning(assignmentReturnColumns)
 		.executeTakeFirstOrThrow();
 	return row;
@@ -464,17 +466,19 @@ async function copyRouteItemsToAssignment(
 		}
 		await trx
 			.insertInto('assignment_items')
-			.values({
-				id: assignmentItemId,
-				organization_id: organizationId,
-				assignment_id: assignmentId,
-				entity_type: routeItem.entity_type,
-				entity_id: routeItem.entity_id,
-				position,
-				directions_to_next_item: routeItem.directions_to_next_item,
-				created_by_profile_id: actorProfileId,
-				updated_by_profile_id: actorProfileId,
-			})
+			.values(
+				await checkedValues(trx, organizationId, {
+					id: assignmentItemId,
+					organization_id: organizationId,
+					assignment_id: assignmentId,
+					entity_type: routeItem.entity_type,
+					entity_id: routeItem.entity_id,
+					position,
+					directions_to_next_item: routeItem.directions_to_next_item,
+					created_by_profile_id: actorProfileId,
+					updated_by_profile_id: actorProfileId,
+				}),
+			)
 			.execute();
 		position += 1;
 	}
