@@ -305,6 +305,54 @@ describe('registerAdminInvitationRoutes', () => {
 		expect(dbMock.stageOrganizationInvitation).toHaveBeenCalledOnce();
 		expect(dbMock.stampOrganizationInvitation).not.toHaveBeenCalled();
 	});
+
+	// #207: the mail is already out by the time the stamp runs, so the id it
+	// writes is the only record of an invitation somebody may need to revoke. One
+	// retry covers the connection blip.
+	it('retries a stamp that failed once', async () => {
+		dbMock.stampOrganizationInvitation.mockRejectedValueOnce(new Error('connection terminated'));
+		const app = createInvitationApp(createFakeInvitationAuth());
+
+		const response = await app.request('/admin/organizations/org-1/invitations', {
+			method: 'POST',
+			body: JSON.stringify({ email: 'casey@example.test', role: 'manager' }),
+			headers: { 'content-type': 'application/json' },
+		});
+
+		expect(response.status).toBe(201);
+		expect(dbMock.stampOrganizationInvitation).toHaveBeenCalledTimes(2);
+		await expect(response.json()).resolves.toMatchObject({
+			membership: { workosInvitationId: 'inv_1' },
+		});
+	});
+
+	// Two attempts and no more, so a persistent failure does not hold the request
+	// open. The mail is out and the row exists, so the invitation did happen and
+	// the 201 says so; the log line is where the id survives.
+	it('answers 201 with the unstamped Membership and logs the invitation id', async () => {
+		const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		dbMock.stampOrganizationInvitation.mockRejectedValue(new Error('connection terminated'));
+		const app = createInvitationApp(createFakeInvitationAuth());
+
+		const response = await app.request('/admin/organizations/org-1/invitations', {
+			method: 'POST',
+			body: JSON.stringify({ email: 'casey@example.test', role: 'manager' }),
+			headers: { 'content-type': 'application/json' },
+		});
+
+		expect(response.status).toBe(201);
+		await expect(response.json()).resolves.toMatchObject({
+			invitation: { id: 'inv_1' },
+			membership: { id: 'membership-1', status: 'invited', workosInvitationId: null },
+		});
+		expect(dbMock.stampOrganizationInvitation).toHaveBeenCalledTimes(2);
+		const line = String(logged.mock.calls[0]?.[0]);
+		expect(line).toContain('inv_1');
+		expect(line).toContain('membership-1');
+		expect(line).toContain('org-1');
+
+		logged.mockRestore();
+	});
 });
 
 function createInvitationApp(auth: AdminInvitationAuth) {

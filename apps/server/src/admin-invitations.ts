@@ -5,11 +5,11 @@ import {
 	type SimmerRole,
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
-	stampOrganizationInvitation,
 } from '@simmer-mosquito/db';
 import type { Hono } from 'hono';
 import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
+import { stampInvitation } from './invitation-stamp.js';
 
 type AdminInvitationDb = Parameters<typeof getOperatorOrganization>[0];
 
@@ -94,11 +94,13 @@ export function registerAdminInvitationRoutes(
 			}
 
 			const invitation = invitationResult.invitation;
+			// Nothing was sent when the person was already reached, so there is no id
+			// to stamp and nothing to retry.
 			const membership =
 				invitation === null
 					? staged.membership
-					: await stampOrganizationInvitation(options.db, {
-							id: staged.membership.id,
+					: await stampInvitation(options.db, {
+							staged: staged.membership,
 							organizationId,
 							workosInvitationId: invitation.id,
 						});

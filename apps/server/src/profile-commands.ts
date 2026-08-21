@@ -8,13 +8,13 @@ import {
 	type SimmerRole,
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
-	stampOrganizationInvitation,
 	updateOrganizationMembershipRoleWithTxid,
 	validateMembershipRemoval,
 } from '@simmer-mosquito/db';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
+import { stampInvitation } from './invitation-stamp.js';
 import { canGrantRole, denyIdentityWrite, forbidden } from './roles.js';
 
 type ProfileCommandDb = Parameters<typeof listOrganizationMemberships>[0];
@@ -201,8 +201,11 @@ export function registerProfileCommandRoutes(
 			return context.json({ error: 'invitation_send_failed', reason: sent.reason }, 502);
 		}
 
-		const membership = await stampOrganizationInvitation(options.db, {
-			id: staged.membership.id,
+		// Stamped, or as staged when the stamp could not be written. Either is a
+		// Membership at `invited` with the mail already sent, which is what the 201
+		// says.
+		const membership = await stampInvitation(options.db, {
+			staged: staged.membership,
 			organizationId: authContext.organization.id,
 			workosInvitationId: sent.invitationId,
 		});
