@@ -24,6 +24,7 @@ import type {
 } from '../../../hooks/mutations/use-insecticide-mutations';
 import type { InsecticideRecord } from '../../../hooks/queries/use-insecticide-records';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
+import { jsonObjectValue } from '../../../lib/record-display';
 
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
@@ -290,16 +291,9 @@ function insecticideFormValues(insecticide: InsecticideRecord | undefined, defau
 		labelUrl: insecticide.labelUrl ?? '',
 		msdsUrl: insecticide.msdsUrl ?? '',
 		shorthand: insecticide.shorthand ?? '',
-		metadata: metadataObject(insecticide.metadata),
+		metadata: jsonObjectValue(insecticide.metadata),
 		isActive: insecticide.isActive,
 	};
-}
-
-/** `metadata` is an unknown JSON column; the field takes an object or nothing. */
-function metadataObject(metadata: unknown): MetadataValue | null {
-	return typeof metadata === 'object' && metadata !== null && !Array.isArray(metadata)
-		? (metadata as MetadataValue)
-		: null;
 }
 
 /** The drawer's values as the write hook takes them: trimmed, empty means absent. */

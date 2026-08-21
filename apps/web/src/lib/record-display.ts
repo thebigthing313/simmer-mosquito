@@ -1,7 +1,7 @@
 /**
- * How a record's enum and metadata columns read in a table cell.
+ * How a record's enum and JSON columns read on a surface.
  *
- * Both started in the My Organization settings pages and are now read by the
+ * These started in the My Organization settings pages and are now read by the
  * catalogs too, so they sit here rather than in one route's `-components`
  * folder, which is private to that route.
  */
@@ -14,12 +14,25 @@ export function formatMode(value: string): string {
 		.join(' ');
 }
 
+/**
+ * A JSON column as an object, or nothing.
+ *
+ * `metadata` and `custom_schema` are `unknown`: nothing stops a row holding an
+ * array or a number, and the fields that render them take an object or `null`.
+ * Anything else reads as nothing, which is the answer the field would give it
+ * anyway and one the user can replace.
+ *
+ * `MetadataValue` and `JsonSchemaValue` are both `Record<string, unknown> | null`,
+ * so this assigns to either without a cast at the call site.
+ */
+export function jsonObjectValue(value: unknown): Record<string, unknown> | null {
+	return typeof value === 'object' && value !== null && !Array.isArray(value)
+		? (value as Record<string, unknown>)
+		: null;
+}
+
 /** Whether a `metadata` column holds a JSON object with anything in it. */
 export function hasMetadata(value: unknown): boolean {
-	return (
-		typeof value === 'object' &&
-		value !== null &&
-		!Array.isArray(value) &&
-		Object.keys(value).length > 0
-	);
+	const object = jsonObjectValue(value);
+	return object !== null && Object.keys(object).length > 0;
 }

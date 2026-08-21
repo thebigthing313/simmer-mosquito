@@ -7,6 +7,7 @@
  * batch-tracking gate, and the layout.
  */
 
+import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
@@ -24,7 +25,6 @@ import {
 import { useInsecticideRecords } from '../../../hooks/queries/use-insecticide-records';
 import { type UnitType, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { BatchTrackingDisabledNotice } from './-batch-panel';
 import { InsecticideDrawer } from './-insecticide-drawer';
 import { InsecticideTable } from './-insecticide-table';
 
@@ -134,5 +134,23 @@ function InsecticidesRoute() {
 				) : null}
 			</section>
 		</CatalogPage>
+	);
+}
+
+/** Batches stay editable while tracking is off; the application form stops asking for one. */
+function BatchTrackingDisabledNotice() {
+	return (
+		<div className="grid gap-1 rounded-md border border-border/40 bg-muted/40 px-3 py-2.5">
+			<div className="flex flex-wrap items-center gap-2">
+				<strong className="text-foreground text-sm">Batch tracking is off</strong>
+				<Badge tone="neutral" variant="outline">
+					Tracking off
+				</Badge>
+			</div>
+			<p className="m-0 text-muted-foreground text-xs leading-snug">
+				Saved batches are retained, but application records will not ask crews to select one until
+				an owner or admin turns tracking on under My Organization → Insecticides.
+			</p>
+		</div>
 	);
 }

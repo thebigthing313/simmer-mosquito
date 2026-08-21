@@ -1,12 +1,11 @@
 /**
- * The batches under one product, and the notice that says they are not in use.
+ * The batches under one product.
  *
- * Everything here is the batch half of the insecticides catalog. The route owns
- * the batch-tracking gate and passes it down; this decides what the gate looks
- * like once it is off.
+ * The route owns the batch-tracking gate; this renders what a product's batches
+ * look like once the gate has been read, which is a disabled list rather than no
+ * list at all.
  */
 
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
@@ -33,23 +32,6 @@ import { DeleteInsecticideBatchDialog, InsecticideBatchDrawer } from './-batch-d
 
 const AddIcon = iconRegistry.actions.add.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
-
-export function BatchTrackingDisabledNotice() {
-	return (
-		<div className="grid gap-1 rounded-md border border-border/40 bg-muted/40 px-3 py-2.5">
-			<div className="flex flex-wrap items-center gap-2">
-				<strong className="text-foreground text-sm">Batch tracking is off</strong>
-				<Badge tone="neutral" variant="outline">
-					Tracking off
-				</Badge>
-			</div>
-			<p className="m-0 text-muted-foreground text-xs leading-snug">
-				Saved batches are retained, but application records will not ask crews to select one until
-				an owner or admin turns tracking on under My Organization → Insecticides.
-			</p>
-		</div>
-	);
-}
 
 /**
  * Batches for one product, revealed when its row is expanded. Mounting lazily
