@@ -416,7 +416,12 @@ export async function writeMissionItemCommand(
 	}
 }
 
-/** Where an added stop lands, from the placement the command carries. */
+/**
+ * Where an added stop lands, from the placement the command carries.
+ *
+ * Both adds carry the same four fields under different geometry, so this reads
+ * the payload once rather than either add spelling the list out.
+ */
 async function missionItemPosition(
 	trx: MissionDispatchTransaction,
 	payload: {
@@ -428,13 +433,14 @@ async function missionItemPosition(
 ): Promise<number> {
 	return nextItemPosition(
 		trx,
-		'mission_items',
-		'mission_id',
-		payload.missionId,
-		payload.organizationId,
+		{
+			table: 'mission_items',
+			parentColumn: 'mission_id',
+			parentId: payload.missionId,
+			organizationId: payload.organizationId,
+		},
 		payload.missionItemId,
-		payload.placement.kind,
-		missionPlacementRef(payload.placement),
+		{ kind: payload.placement.kind, refId: missionPlacementRef(payload.placement) },
 	);
 }
 
@@ -474,9 +480,9 @@ async function loadMissionItem(
  *
  * Only `missionDispatch.moveMissionItems` calls this, and it is a command on
  * the *mission* (see `table-commands/missions.ts`) while the stop writes are
- * here, so it stays exported. A move takes an id list, so it writes a row per
- * moved stop whatever the numbering is. Adds compute a single fractional
- * position instead; see `ordered-items.ts`.
+ * here, so it stays exported. It writes every active stop, not only the moved
+ * ones, which is the same gap against the domain doc that `reindexItems` has.
+ * Adds compute a single fractional position instead; see `ordered-items.ts`.
  */
 export async function reindexMissionItems(
 	trx: MissionDispatchTransaction,

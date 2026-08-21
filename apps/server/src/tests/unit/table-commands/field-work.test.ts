@@ -203,7 +203,7 @@ describe('route items intent map', () => {
 
 	it('ignores the position a client drew', () => {
 		// A client holds a `position` for the row it drew optimistically. The server
-		// renumbers, so the column is not read.
+		// derives the stored one from `placement`, so the column is not read.
 		const command = build(routeItems, 'fieldWork.addRouteItem', ROUTE_ITEM, {
 			route_id: ROUTE,
 			entity_type: 'trap',

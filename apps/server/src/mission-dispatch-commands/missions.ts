@@ -464,9 +464,9 @@ export async function writeMissionCommand(
 		 *
 		 * `position` is a fact about the sequence rather than about any stop in it:
 		 * a move takes an id list and a placement, renumbers every stop the mission
-		 * holds, and answers with the mission. The renumbering itself lives beside
-		 * the stop writes that also do it, so both write the same 0…n-1 the client
-		 * mirrors optimistically.
+		 * holds, and answers with the mission. The renumbering lives beside the stop
+		 * writes, in `mission-items.ts`. An add does not renumber; it takes a
+		 * fractional position between its neighbours.
 		 */
 		case 'missionDispatch.moveMissionItems': {
 			await reindexMissionItems(

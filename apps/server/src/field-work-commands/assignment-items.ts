@@ -176,13 +176,17 @@ export async function writeAssignmentItemCommand(
 		case 'fieldWork.addAssignmentItem': {
 			const position = await nextItemPosition(
 				trx,
-				'assignment_items',
-				'assignment_id',
-				command.payload.assignmentId,
-				command.payload.organizationId,
+				{
+					table: 'assignment_items',
+					parentColumn: 'assignment_id',
+					parentId: command.payload.assignmentId,
+					organizationId: command.payload.organizationId,
+				},
 				command.payload.assignmentItemId,
-				command.payload.placement.kind,
-				assignmentPlacementRef(command.payload.placement),
+				{
+					kind: command.payload.placement.kind,
+					refId: assignmentPlacementRef(command.payload.placement),
+				},
 			);
 			await trx
 				.insertInto('assignment_items')

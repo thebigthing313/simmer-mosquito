@@ -48,8 +48,10 @@ export {
 /**
  * Renumber a parent's items 0…n-1 in the order `reorder` puts them.
  *
- * Only the moves call this. They take an id list, so moving N items writes N
- * rows whatever the numbering is. Adds compute a single fractional position
+ * Only `moveRouteItems` and `moveAssignmentItems` call this, and it writes
+ * every active sibling, not only the moved ones. The domain doc says a move
+ * should write only the rows it moved; issue #162 fixed the add path and left
+ * this one alone, so the gap is open. Adds compute a single fractional position
  * instead; see `ordered-items.ts`.
  */
 export async function reindexItems(

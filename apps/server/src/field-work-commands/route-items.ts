@@ -101,13 +101,17 @@ export async function writeRouteItemCommand(
 		case 'fieldWork.addRouteItem': {
 			const position = await nextItemPosition(
 				trx,
-				'route_items',
-				'route_id',
-				command.payload.routeId,
-				command.payload.organizationId,
+				{
+					table: 'route_items',
+					parentColumn: 'route_id',
+					parentId: command.payload.routeId,
+					organizationId: command.payload.organizationId,
+				},
 				command.payload.routeItemId,
-				command.payload.placement.kind,
-				routePlacementRef(command.payload.placement),
+				{
+					kind: command.payload.placement.kind,
+					refId: routePlacementRef(command.payload.placement),
+				},
 			);
 			await trx
 				.insertInto('route_items')

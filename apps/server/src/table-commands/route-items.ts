@@ -11,8 +11,9 @@
  *
  * ## `position` is not a field a client sets
  *
- * A new stop is appended and the server renumbers, so `placement` is an
- * instruction rather than a column and the row's own `position` is ignored. A
+ * The server derives the new stop's position from `placement`, so `placement`
+ * is an instruction rather than a column and the row's own `position` is
+ * ignored. A
  * client may still send one — it has to hold a value for the row it drew
  * optimistically — and it is simply not read.
  *
@@ -67,7 +68,7 @@ export function routeItemTableCommands(
 				}),
 
 			// No acknowledgement: a stop holds nothing of its own, so dropping one takes
-			// nothing with it. The route reindexes around the gap.
+			// nothing with it. The gap it leaves in `position` stays there.
 			'fieldWork.removeRouteItem': ({ agency, id }) =>
 				removeRouteItemCommand({ ...agency, routeItemId: id }),
 		},

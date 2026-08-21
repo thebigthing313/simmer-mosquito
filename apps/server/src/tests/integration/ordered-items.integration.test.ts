@@ -11,6 +11,7 @@ import { expect, it } from 'vitest';
 import { writeAssignmentItemCommand } from '../../field-work-commands/assignment-items.js';
 import { writeRouteItemCommand } from '../../field-work-commands/route-items.js';
 import { writeMissionItemCommand } from '../../mission-dispatch-commands/mission-items.js';
+import type { OrderedItemParentColumn, OrderedItemTable } from '../../ordered-items.js';
 
 /**
  * What the four add commands write, against real Postgres.
@@ -217,8 +218,8 @@ const POINT = { type: 'Point' as const, coordinates: [-121.49, 38.58] };
 
 async function readItems(
 	db: Db,
-	table: 'route_items' | 'assignment_items' | 'mission_items',
-	parentColumn: 'route_id' | 'assignment_id' | 'mission_id',
+	table: OrderedItemTable,
+	parentColumn: OrderedItemParentColumn,
 	parentId: string,
 ) {
 	return db
