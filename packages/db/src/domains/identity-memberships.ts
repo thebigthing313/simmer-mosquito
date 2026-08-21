@@ -75,7 +75,8 @@ export type StageOrganizationInvitationErrorCode =
 	| 'profile_not_found'
 	| 'profile_already_linked'
 	| 'profile_deleted'
-	| 'invited_email_already_used';
+	| 'invited_email_already_used'
+	| 'already_a_member';
 
 export class StageOrganizationInvitationError extends Error {
 	readonly code: StageOrganizationInvitationErrorCode;
@@ -518,6 +519,22 @@ export async function stageOrganizationInvitation(
 	return db.transaction().execute(async (trx) => {
 		const normalizedEmail = normalizeEmail(input.email);
 		const displayName = input.displayName ?? input.email;
+
+		// Somebody who already has access cannot be invited to it. Without this the
+		// insert branch below stages a second Profile and a second Membership
+		// beside their live one, and provisioning prefers the active membership on
+		// every sign-in, so the invited row is never consumed and never leaves.
+		const activeMembership = await trx
+			.selectFrom('memberships')
+			.innerJoin('profiles', 'profiles.id', 'memberships.profile_id')
+			.select('memberships.id')
+			.where('memberships.organization_id', '=', input.organizationId)
+			.where('memberships.status', '=', 'active')
+			.where(sql<boolean>`lower(${sql.ref('profiles.email')}) = ${normalizedEmail}`)
+			.executeTakeFirst();
+		if (activeMembership !== undefined) {
+			throw new StageOrganizationInvitationError('already_a_member');
+		}
 		if (input.profileId !== undefined) {
 			const profile = await trx
 				.selectFrom('profiles')
@@ -679,6 +696,36 @@ export async function stageOrganizationInvitation(
 
 		return selectSafeOrganizationMembership(trx, membership.id);
 	});
+}
+
+/**
+ * The second half of an invitation, once WorkOS has answered.
+ *
+ * Staging writes the Membership with no `workos_invitation_id`, because the
+ * mail must not go out before the row it will be accepted into exists. This
+ * stamps the id the send returned onto that row.
+ *
+ * Scoped by organization as well as by id. The caller has an id it read from
+ * its own staging call, and a stamp that could reach another agency's row would
+ * be a tenancy hole for the sake of one saved predicate.
+ */
+export async function stampOrganizationInvitation(
+	db: Kysely<SimmerDatabase>,
+	input: {
+		readonly id: string;
+		readonly organizationId: string;
+		readonly workosInvitationId: string;
+	},
+): Promise<SafeOrganizationMembership> {
+	const updated = await db
+		.updateTable('memberships')
+		.set({ workos_invitation_id: input.workosInvitationId, updated_at: sql`now()` })
+		.where('id', '=', input.id)
+		.where('organization_id', '=', input.organizationId)
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+
+	return selectSafeOrganizationMembership(db, updated.id);
 }
 
 async function readCurrentTransactionId(db: IdentityDbExecutor): Promise<number> {

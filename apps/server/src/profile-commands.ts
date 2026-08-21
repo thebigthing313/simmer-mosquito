@@ -8,6 +8,7 @@ import {
 	type SimmerRole,
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
+	stampOrganizationInvitation,
 	updateOrganizationMembershipRoleWithTxid,
 	validateMembershipRemoval,
 } from '@simmer-mosquito/db';
@@ -180,34 +181,96 @@ export function registerProfileCommandRoutes(
 			}
 		}
 
-		const invitation = await options.auth.sendOrganizationInvitation({
+		const staged = await stageInvitedMembership(context, options.db, {
+			organizationId: authContext.organization.id,
+			payload: payloadResult.payload,
+		});
+		if (!staged.ok) {
+			return staged.response;
+		}
+
+		const sent = await sendInvitation(options.auth, {
 			email: payloadResult.payload.email,
 			workosOrganizationId: authContext.organization.workosOrganizationId,
 			inviterWorkosUserId: authContext.workosUser.workosUserId,
 		});
-
-		let membership: SafeOrganizationMembership;
-		try {
-			membership = await stageOrganizationInvitation(options.db, {
-				organizationId: authContext.organization.id,
-				...(payloadResult.payload.profileId === null
-					? {}
-					: { profileId: payloadResult.payload.profileId }),
-				email: invitation.email,
-				displayName: payloadResult.payload.displayName,
-				role: payloadResult.payload.role,
-				workosInvitationId: invitation.id,
-			});
-		} catch (error) {
-			const errorResponse = invitationErrorResponse(context, error);
-			if (errorResponse !== null) {
-				return errorResponse;
-			}
-			throw error;
+		if (!sent.ok) {
+			// The failure that is left, and the safe one. The Membership stays at
+			// `invited` with no mail sent, which reads on the People page as
+			// somebody who never got their link, and inviting again repairs it.
+			return context.json({ error: 'invitation_send_failed', reason: sent.reason }, 502);
 		}
+
+		const membership = await stampOrganizationInvitation(options.db, {
+			id: staged.membership.id,
+			organizationId: authContext.organization.id,
+			workosInvitationId: sent.invitationId,
+		});
 
 		return context.json({ membership, txid: null }, 201);
 	});
+}
+
+/**
+ * The Postgres half, and it runs first.
+ *
+ * Staging refuses an address already spoken for and a profile that cannot take
+ * a login. Sending before it meant the caller read that refusal while the
+ * invitee held a working link to an agency with no row for them, which is the
+ * ordering rule in `docs/domain-command-contract.md`.
+ */
+async function stageInvitedMembership(
+	context: Context<{ Variables: AuthVariables }>,
+	db: ProfileCommandDb,
+	input: {
+		readonly organizationId: string;
+		readonly payload: InvitePayload;
+	},
+): Promise<
+	| { readonly ok: true; readonly membership: SafeOrganizationMembership }
+	| { readonly ok: false; readonly response: Response }
+> {
+	try {
+		const membership = await stageOrganizationInvitation(db, {
+			organizationId: input.organizationId,
+			...(input.payload.profileId === null ? {} : { profileId: input.payload.profileId }),
+			email: input.payload.email,
+			displayName: input.payload.displayName,
+			role: input.payload.role,
+			workosInvitationId: null,
+		});
+		return { ok: true, membership };
+	} catch (error) {
+		const response = invitationErrorResponse(context, error);
+		if (response === null) {
+			throw error;
+		}
+
+		return { ok: false, response };
+	}
+}
+
+/** The WorkOS half. A refusal comes back named rather than reaching the console as a 500. */
+async function sendInvitation(
+	auth: ProfileInvitationAuth,
+	input: {
+		readonly email: string;
+		readonly workosOrganizationId: string;
+		readonly inviterWorkosUserId: string;
+	},
+): Promise<
+	| { readonly ok: true; readonly invitationId: string }
+	| { readonly ok: false; readonly reason: string }
+> {
+	try {
+		const invitation = await auth.sendOrganizationInvitation(input);
+		return { ok: true, invitationId: invitation.id };
+	} catch (error) {
+		return {
+			ok: false,
+			reason: error instanceof Error ? error.message : 'WorkOS rejected the invitation.',
+		};
+	}
 }
 
 function removalStatus(issue: MembershipRemovalIssue): 404 | 409 {
