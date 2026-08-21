@@ -140,6 +140,40 @@ describe('POST /organization/invitations', () => {
 		expect(dbMock.stageOrganizationInvitation).not.toHaveBeenCalled();
 		expect(auth.sendOrganizationInvitation).not.toHaveBeenCalled();
 	});
+
+	// #207: the mail is already out by the time the stamp runs, so the id it
+	// writes is the only record of an invitation somebody may need to revoke. One
+	// retry covers the connection blip.
+	it('retries a stamp that failed once', async () => {
+		dbMock.stampOrganizationInvitation.mockRejectedValueOnce(new Error('connection terminated'));
+
+		const response = await invite(fakeAuth(), { email: 'casey@example.test', role: 'manager' });
+
+		expect(response.status).toBe(201);
+		expect(dbMock.stampOrganizationInvitation).toHaveBeenCalledTimes(2);
+		await expect(response.json()).resolves.toMatchObject({
+			membership: { workosInvitationId: 'inv_1' },
+		});
+	});
+
+	// Two attempts and no more, so a persistent failure does not hold the request
+	// open. The log line is where the id survives.
+	it('answers 500 and logs the invitation id when the stamp fails twice', async () => {
+		const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		dbMock.stampOrganizationInvitation.mockRejectedValue(new Error('connection terminated'));
+
+		const response = await invite(fakeAuth(), { email: 'casey@example.test', role: 'manager' });
+
+		expect(response.status).toBe(500);
+		await expect(response.json()).resolves.toEqual({ error: 'invitation_stamp_failed' });
+		expect(dbMock.stampOrganizationInvitation).toHaveBeenCalledTimes(2);
+		const line = String(logged.mock.calls[0]?.[0]);
+		expect(line).toContain('inv_1');
+		expect(line).toContain('membership-1');
+		expect(line).toContain('org-1');
+
+		logged.mockRestore();
+	});
 });
 
 function fakeAuth(

@@ -8,13 +8,13 @@ import {
 	type SimmerRole,
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
-	stampOrganizationInvitation,
 	updateOrganizationMembershipRoleWithTxid,
 	validateMembershipRemoval,
 } from '@simmer-mosquito/db';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
+import { stampInvitation } from './invitation-stamp.js';
 import { canGrantRole, denyIdentityWrite, forbidden } from './roles.js';
 
 type ProfileCommandDb = Parameters<typeof listOrganizationMemberships>[0];
@@ -201,13 +201,18 @@ export function registerProfileCommandRoutes(
 			return context.json({ error: 'invitation_send_failed', reason: sent.reason }, 502);
 		}
 
-		const membership = await stampOrganizationInvitation(options.db, {
-			id: staged.membership.id,
+		const stamped = await stampInvitation(options.db, {
+			membershipId: staged.membership.id,
 			organizationId: authContext.organization.id,
 			workosInvitationId: sent.invitationId,
 		});
+		if (!stamped.ok) {
+			// The mail is out and its id is now only in the server log. The 500 is
+			// what stops that going unnoticed.
+			return context.json({ error: 'invitation_stamp_failed' }, 500);
+		}
 
-		return context.json({ membership, txid: null }, 201);
+		return context.json({ membership: stamped.membership, txid: null }, 201);
 	});
 }
 

@@ -5,11 +5,11 @@ import {
 	type SimmerRole,
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
-	stampOrganizationInvitation,
 } from '@simmer-mosquito/db';
 import type { Hono } from 'hono';
 import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
+import { stampInvitation } from './invitation-stamp.js';
 
 type AdminInvitationDb = Parameters<typeof getOperatorOrganization>[0];
 
@@ -94,19 +94,26 @@ export function registerAdminInvitationRoutes(
 			}
 
 			const invitation = invitationResult.invitation;
-			const membership =
+			// Nothing was sent when the person was already reached, so there is no id
+			// to stamp and nothing to retry.
+			const stamped =
 				invitation === null
-					? staged.membership
-					: await stampOrganizationInvitation(options.db, {
-							id: staged.membership.id,
+					? ({ ok: true, membership: staged.membership } as const)
+					: await stampInvitation(options.db, {
+							membershipId: staged.membership.id,
 							organizationId,
 							workosInvitationId: invitation.id,
 						});
+			if (!stamped.ok) {
+				// The mail is out and its id is now only in the server log. The 500 is
+				// what stops that going unnoticed.
+				return context.json({ error: 'invitation_stamp_failed' }, 500);
+			}
 
 			return context.json(
 				{
 					invitation: toInvitationResponse(invitation),
-					membership: toAdminMembershipResponse(membership),
+					membership: toAdminMembershipResponse(stamped.membership),
 				},
 				201,
 			);
