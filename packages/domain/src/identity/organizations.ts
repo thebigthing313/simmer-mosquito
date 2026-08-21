@@ -128,17 +128,53 @@ const US_STATE_CODES: ReadonlySet<string> = new Set([
 	'DC',
 ]);
 
-const DETAIL_KEYS = [
-	'name',
-	'mainContactEmail',
-	'phoneNumber',
-	'mailingCountry',
-	'mailingAddressLine1',
-	'mailingAddressLine2',
-	'mailingLocality',
-	'mailingRegion',
-	'mailingPostalCode',
-] as const;
+/**
+ * Every detail but the name, and how long each may be.
+ *
+ * The name is the only required one, so it is normalized on its own. The other
+ * eight are nullable text and differ from each other in nothing but the limit.
+ */
+const NULLABLE_DETAIL_LIMITS = {
+	mainContactEmail: 320,
+	phoneNumber: 50,
+	mailingCountry: 2,
+	mailingAddressLine1: 200,
+	mailingAddressLine2: 200,
+	mailingLocality: 200,
+	mailingRegion: 2,
+	mailingPostalCode: 20,
+} as const;
+
+type NullableDetailKey = keyof typeof NULLABLE_DETAIL_LIMITS;
+
+const NULLABLE_DETAIL_KEYS = Object.keys(NULLABLE_DETAIL_LIMITS) as readonly NullableDetailKey[];
+
+const DETAIL_KEYS: readonly (keyof OrganizationDetailChanges)[] = ['name', ...NULLABLE_DETAIL_KEYS];
+
+/**
+ * The two details that are codes rather than free text.
+ *
+ * Both are upper-cased and then required to be one of a fixed set, and both say
+ * the same thing: an agency address is US-shaped. They are a pair here so that
+ * neither can be given the rule while the other is forgotten, which is how the
+ * country came to be written with no check at all.
+ */
+const CODED_DETAILS: readonly {
+	readonly key: NullableDetailKey;
+	readonly isAllowed: (code: string) => boolean;
+	readonly message: string;
+}[] = [
+	{
+		key: 'mailingCountry',
+		isAllowed: (code) => code === US_COUNTRY_CODE,
+		message: 'mailingCountry must be US.',
+	},
+	{
+		key: 'mailingRegion',
+		isAllowed: (code) => US_STATE_CODES.has(code),
+		message: 'mailingRegion must be a US state code.',
+	},
+];
 
 export function updateOrganizationDetailsCommand(
 	input: UpdateOrganizationDetailsCommandInput,
@@ -146,8 +182,7 @@ export function updateOrganizationDetailsCommand(
 	const issues = createIssues();
 	validateAgencyBase(input, issues);
 
-	const present = DETAIL_KEYS.filter((key) => input[key] !== undefined);
-	if (present.length === 0) {
+	if (DETAIL_KEYS.every((key) => input[key] === undefined)) {
 		issues.push({ path: 'changes', message: 'At least one agency detail must change.' });
 	}
 
@@ -155,66 +190,24 @@ export function updateOrganizationDetailsCommand(
 	if (input.name !== undefined) {
 		changes.name = normalizeRequiredText(input.name, 'name', issues, 200);
 	}
-	if (input.mainContactEmail !== undefined) {
-		changes.mainContactEmail = normalizeNullableText(
-			input.mainContactEmail,
-			'mainContactEmail',
-			issues,
-			320,
-		);
-	}
-	if (input.phoneNumber !== undefined) {
-		changes.phoneNumber = normalizeNullableText(input.phoneNumber, 'phoneNumber', issues, 50);
-	}
-	if (input.mailingCountry !== undefined) {
-		const country =
-			normalizeNullableText(input.mailingCountry, 'mailingCountry', issues, 2)?.toUpperCase() ??
-			null;
-		// `null` is fine. An agency that has not filled its address in is not an error.
-		if (country !== null && country !== US_COUNTRY_CODE) {
-			issues.push({ path: 'mailingCountry', message: 'mailingCountry must be US.' });
+	for (const key of NULLABLE_DETAIL_KEYS) {
+		if (input[key] !== undefined) {
+			changes[key] = normalizeNullableText(input[key], key, issues, NULLABLE_DETAIL_LIMITS[key]);
 		}
-		changes.mailingCountry = country;
 	}
-	if (input.mailingAddressLine1 !== undefined) {
-		changes.mailingAddressLine1 = normalizeNullableText(
-			input.mailingAddressLine1,
-			'mailingAddressLine1',
-			issues,
-			200,
-		);
-	}
-	if (input.mailingAddressLine2 !== undefined) {
-		changes.mailingAddressLine2 = normalizeNullableText(
-			input.mailingAddressLine2,
-			'mailingAddressLine2',
-			issues,
-			200,
-		);
-	}
-	if (input.mailingLocality !== undefined) {
-		changes.mailingLocality = normalizeNullableText(
-			input.mailingLocality,
-			'mailingLocality',
-			issues,
-			200,
-		);
-	}
-	if (input.mailingRegion !== undefined) {
-		const region =
-			normalizeNullableText(input.mailingRegion, 'mailingRegion', issues, 2)?.toUpperCase() ?? null;
-		if (region !== null && !US_STATE_CODES.has(region)) {
-			issues.push({ path: 'mailingRegion', message: 'mailingRegion must be a US state code.' });
+	for (const { key, isAllowed, message } of CODED_DETAILS) {
+		const value = changes[key];
+		// Absent leaves the column alone and `null` clears it. An agency that has
+		// not filled its address in is not an error; only a code that names
+		// somewhere else is.
+		if (typeof value !== 'string') {
+			continue;
 		}
-		changes.mailingRegion = region;
-	}
-	if (input.mailingPostalCode !== undefined) {
-		changes.mailingPostalCode = normalizeNullableText(
-			input.mailingPostalCode,
-			'mailingPostalCode',
-			issues,
-			20,
-		);
+		const code = value.toUpperCase();
+		if (!isAllowed(code)) {
+			issues.push({ path: key, message });
+		}
+		changes[key] = code;
 	}
 
 	const expectedUpdatedAt = normalizeExpectedUpdatedAt(input.expectedUpdatedAt, issues);
