@@ -159,7 +159,11 @@ type OrganizationDrift = Drift<
 type _Organization = Assert<OrganizationDrift>;
 type ProfileDrift = Drift<Profile, ProfilesTable>;
 type _Profile = Assert<ProfileDrift>;
-type MembershipDrift = Drift<Membership, MembershipsTable>;
+type MembershipDrift = Drift<
+	Membership,
+	MembershipsTable,
+	'invited_email' | 'workos_invitation_id'
+>;
 type _Membership = Assert<MembershipDrift>;
 type AddressDrift = Drift<Address, AddressesTable>;
 type _Address = Assert<AddressDrift>;

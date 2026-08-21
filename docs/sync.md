@@ -76,6 +76,12 @@ from it; the workflow that will need them is not built.
   table that withholds a fifth column declares it in `WITHHELD` in
   `scripts/generate-table-schemas.mjs`, which generates both halves. See
   `organizations`, which keeps its billing and subscription columns.
+- `memberships` is eager for the role ladder, and that reason covers `role`,
+  `status` and `profile_id` only. It withholds `invited_email` and
+  `workos_invitation_id`: an invited address belongs to somebody who has not
+  accepted yet, and `workos_invitation_id` is a handle on a live grant in
+  WorkOS. The handlers that need either read it server-side inside the
+  transaction, and the operator console reads both over REST.
 - Region intersection cache data is derived GIS data and is not part of normal
   app sync unless a specific reporting/GIS screen proves it needs direct client
   access.
