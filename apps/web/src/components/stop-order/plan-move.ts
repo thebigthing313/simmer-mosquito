@@ -2,18 +2,22 @@
  * Reordering an ordered list of stops.
  *
  * Routes, assignments, and mission items all store a `position` and reorder through
- * a dedicated `/move-items` command endpoint that takes a *declarative placement*
- * rather than computed positions — the server resolves the active sequence and
- * reindexes inside one transaction.
+ * a dedicated command endpoint that takes a *declarative placement* rather than
+ * computed positions. The server resolves the active sequence and writes only
+ * the rows that moved, inside one transaction.
  *
- * That leaves the client two jobs per move: say where the item should land, and
- * show it there immediately. {@link planMove} does both, returning the placement to
- * send and the id order to render until sync catches up.
+ * That leaves the client three jobs per move: say where the item should land,
+ * show it there immediately, and write the same positions the server will write.
+ * {@link planMove} does the first two, returning the placement to send and the id
+ * order to render until sync catches up. {@link planStopPositions} does the third,
+ * through the same arithmetic the server runs.
  *
  * The anchor is named `anchorId` rather than `routeItemId`/`assignmentItemId` so
- * this module stays domain-free; each feature renames it at its own fetch boundary,
- * where the wire vocabulary actually belongs.
+ * this module names no one table; each feature renames it at its own fetch
+ * boundary, where the wire vocabulary actually belongs.
  */
+
+import { type ItemPositions, planItemPositions } from '@simmer-mosquito/domain';
 
 export type MoveAction = 'up' | 'down' | 'top' | 'bottom';
 
@@ -83,4 +87,31 @@ export function planMove(
 			return { order: [...rest, moved], movedId: moved, placement: { kind: 'end' } };
 		}
 	}
+}
+
+/**
+ * The rows the optimistic half of a move writes, and the `position` each takes.
+ *
+ * `positionOf` reads a stop's current position out of the collection the caller
+ * is writing to. The arithmetic is `planItemPositions`, the function the server
+ * runs on the same move, so the rows written here and the rows that stream back
+ * carry the same numbers and nothing shifts twice on screen.
+ *
+ * A stop the collection has not got is left out of the input, which sends the
+ * plan down its normalize path and writes the whole list. That is the same
+ * answer the server would reach from a list it could not subdivide, and sync
+ * corrects it either way.
+ */
+export function planStopPositions(
+	plan: MovePlan,
+	positionOf: (id: string) => number | undefined,
+): ItemPositions {
+	const positions = new Map<string, number>();
+	for (const id of plan.order) {
+		const position = positionOf(id);
+		if (position !== undefined) {
+			positions.set(id, position);
+		}
+	}
+	return planItemPositions(plan.order, positions, [plan.movedId]).positions;
 }

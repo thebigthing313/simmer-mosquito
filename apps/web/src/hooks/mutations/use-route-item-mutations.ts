@@ -7,7 +7,7 @@
  * Both target types are single words, so nothing looks wrong until the day a
  * two-word one is added — see `use-additional-personnel-mutations.ts`.
  *
- * Reordering is not here: it renumbers the whole sequence and is a command on the
+ * Reordering is not here: it restacks the sequence and is a command on the
  * Route, in `use-route-mutations.ts`.
  *
  * ## `position` on a new stop

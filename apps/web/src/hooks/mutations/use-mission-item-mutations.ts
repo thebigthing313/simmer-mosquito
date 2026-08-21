@@ -34,7 +34,7 @@
  * because a builder reads the fields it takes and the actor is one it takes from
  * the session rather than from the body.
  *
- * Reordering is not here: it renumbers the whole worklist and is a command on
+ * Reordering is not here: it restacks the worklist and is a command on
  * the mission, in `use-mission-mutations.ts`.
  */
 

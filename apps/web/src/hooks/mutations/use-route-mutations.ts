@@ -9,26 +9,27 @@
  *
  * A move restacks the stops, but `position` belongs to the sequence rather than
  * to any row in it: the server takes a declarative placement, resolves the live
- * order and renumbers every stop inside one transaction. So the request is a
- * PATCH on the route, and the optimistic half is N updates to `route_items` —
- * which is exactly the shape `commandTransaction` exists for, and why
- * `fieldWork.moveRouteItems` is a compile error in `mutateCollection`.
+ * order and writes the moved rows inside one transaction. So the request is a
+ * PATCH on the route, and the optimistic half is an update per moved stop in
+ * `route_items`, which is exactly the shape `commandTransaction` exists for and
+ * why `fieldWork.moveRouteItems` is a compile error in `mutateCollection`.
  *
- * The client mirrors the server's numbering (0…n-1, in `plan.order`) rather than
- * inventing gaps, so the rows it writes and the rows that stream back agree and
- * nothing moves twice on screen.
+ * The client runs the server's arithmetic through `planStopPositions` rather
+ * than numbering the list itself, so the rows it writes and the rows that stream
+ * back carry the same values and nothing moves twice on screen.
  *
  * **An empty `apply` would send nothing at all.** TanStack DB completes a
- * transaction with no mutations without ever calling its `mutationFn` — no
+ * transaction with no mutations without ever calling its `mutationFn`: no
  * request, no error, `isPersisted` resolved. A move that wrote no rows would
- * therefore look like a success and change nothing, which is why the positions
- * are written here rather than left to `useStopOrder`'s display overlay.
+ * therefore look like a success and change nothing, which is why a move rewrites
+ * the row it moved even when the order it resolves to is the order the list is
+ * already in.
  */
 
 import type { MultiRowCommandType } from '@simmer-mosquito/domain';
 import { type Route as RouteRow, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
-import type { MovePlan } from '../../components/stop-order';
+import { type MovePlan, planStopPositions } from '../../components/stop-order';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { route_items } from '../../lib/collections/route_items';
 import { routes } from '../../lib/collections/routes';
@@ -148,12 +149,19 @@ export function useRouteMutations(): RouteMutations {
 						placement: routePlacement(plan.placement),
 					},
 				},
+				// The same arithmetic the server runs, so the optimistic rows carry the
+				// numbers that stream back and nothing shifts twice on screen. An empty
+				// `apply` would be worse than useless: TanStack DB completes a
+				// transaction with no mutations without calling its `mutationFn`, so the
+				// request would never leave the browser. A move always rewrites at least
+				// the row it moved, which is why that cannot happen here.
 				apply: () => {
-					plan.order.forEach((routeItemId, index) => {
+					const positions = planStopPositions(plan, (id) => route_items.get(id)?.position);
+					for (const [routeItemId, position] of positions) {
 						route_items.update(routeItemId, (draft) => {
-							draft.position = index;
+							draft.position = position;
 						});
-					});
+					}
 				},
 			}),
 		);

@@ -90,7 +90,7 @@ import { weatherStationTableCommands, weatherSummaryTableCommands } from './weat
  * A list rather than a sequence of registration calls, so something other than
  * the router can walk it. The test that every intent a table declares is one its
  * writer actually handles is the reason: `moveMissionItems` is a command on the
- * `missions` table whose renumbering lives beside the stop writes, and when the
+ * `missions` table whose stop writes live in `mission-items.ts`, and when the
  * two disagreed the surface answered 500 with nothing to say why.
  */
 export function tableCommandSpecs(

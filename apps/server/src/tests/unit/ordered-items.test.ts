@@ -1,52 +1,15 @@
 /**
- * Where a new stop lands, as arithmetic.
+ * Which order a placement resolves to.
  *
- * `positionBetween` is the whole of the add path's ordering decision: the
- * neighbours come from a query, and everything that could be wrong about the
- * number written is here. The database half, that the neighbours are the right
- * two rows and that no sibling is touched, is in
+ * `applyPlacement` is the only ordering decision this app makes on its own: the
+ * position arithmetic is `planItemPositions` in `packages/domain`, tested
+ * beside it, and the database half, that the neighbours are the right rows and
+ * that no sibling is touched, is in
  * `tests/integration/ordered-items.integration.test.ts`.
  */
 
 import { describe, expect, it } from 'vitest';
-import { applyPlacement, positionBetween } from '../../ordered-items.js';
-
-describe('positionBetween', () => {
-	it('starts an empty list at zero', () => {
-		expect(positionBetween(null, null)).toBe(0);
-	});
-
-	it('lands strictly between two neighbours', () => {
-		expect(positionBetween(1, 2)).toBe(1.5);
-		expect(positionBetween(0, 1)).toBe(0.5);
-	});
-
-	it('lands past the end when there is nothing after', () => {
-		expect(positionBetween(4, null)).toBe(5);
-	});
-
-	it('halves a positive first position', () => {
-		expect(positionBetween(null, 2)).toBe(1);
-	});
-
-	it('steps below a first position that halving would not clear', () => {
-		// Rows written under the old integer scheme start at zero, and half of zero
-		// is zero. A head insert has to step down or it ties with the row it is
-		// meant to precede.
-		expect(positionBetween(null, 0)).toBe(-1);
-		expect(positionBetween(null, -3)).toBe(-4);
-	});
-
-	it('keeps subdividing the same gap', () => {
-		let after = 1;
-		for (let insert = 0; insert < 20; insert += 1) {
-			const next = positionBetween(0, after);
-			expect(next).toBeGreaterThan(0);
-			expect(next).toBeLessThan(after);
-			after = next;
-		}
-	});
-});
+import { applyPlacement } from '../../ordered-items.js';
 
 describe('applyPlacement', () => {
 	it('puts a new id where its placement asks', () => {

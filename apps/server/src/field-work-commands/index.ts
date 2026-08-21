@@ -15,9 +15,9 @@ import { registerTagItemRoutes } from './tag-items.js';
  *
  * Client issues plain optimistic POST/PATCH/DELETE per row; the server decomposes
  * each into the field-work domain command vocabulary. Ordered child rows
- * (route/assignment items) take a fractional `position` on insert and are
- * renumbered only by a move, so the column is not contiguous and is not meant
- * to be. Assignment + item lifecycle transitions are derived from the changed
+ * (route/assignment items) take a fractional `position` on insert, and a move
+ * rewrites only the rows it moved, so the column is not contiguous and is not
+ * meant to be. Assignment + item lifecycle transitions are derived from the changed
  * timestamp fields in a PATCH.
  */
 export function registerFieldWorkCommandRoutes(
