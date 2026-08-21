@@ -63,6 +63,24 @@ describe('updateOrganizationDetailsCommand', () => {
 		);
 	});
 
+	it('accepts a US mailing country in either case and refuses any other', () => {
+		expect(
+			updateOrganizationDetailsCommand({ ...agency, mailingCountry: 'us' }).payload.changes
+				.mailingCountry,
+		).toBe('US');
+
+		expect(() => updateOrganizationDetailsCommand({ ...agency, mailingCountry: 'CA' })).toThrow(
+			DomainValidationError,
+		);
+	});
+
+	it('accepts a null mailing country, because an unfilled address is not an error', () => {
+		expect(
+			updateOrganizationDetailsCommand({ ...agency, mailingCountry: null }).payload.changes
+				.mailingCountry,
+		).toBeNull();
+	});
+
 	it('refuses an expectedUpdatedAt that is not a timestamp', () => {
 		expect(() =>
 			updateOrganizationDetailsCommand({

@@ -53,12 +53,26 @@ export type UpdateOrganizationDetailsCommand = IdentityDomainCommand<
 >;
 
 /**
+ * The one country an agency address can name.
+ *
+ * SIMMER does not expect an agency outside the US. A mosquito control district
+ * is a US institution, and the rest of the product already assumes it: the
+ * agency timezone picker offers US zones only, and the mailing region is
+ * checked against the state codes below. The country is the field that was
+ * never told, so a direct caller could write an address in a state that is a
+ * state of somewhere else. Both halves refuse now, and this is where the
+ * assumption is written down rather than implied by a select. See "An agency
+ * address is US-shaped" in `docs/identity-domain.md` for what would have to
+ * change if a non-US agency ever appears.
+ */
+const US_COUNTRY_CODE = 'US';
+
+/**
  * The mailing regions an agency address can name.
  *
- * The address is US-shaped, and an unrecognized code was silently dropped to
- * `null` by the route this replaces. It is refused here instead: a state nobody
- * can spell is a typo, and writing an address with the state missing is the
- * worse of the two answers.
+ * An unrecognized code was silently dropped to `null` by the route this
+ * replaces. It is refused here instead: a state nobody can spell is a typo, and
+ * writing an address with the state missing is the worse of the two answers.
  */
 const US_STATE_CODES: ReadonlySet<string> = new Set([
 	'AL',
@@ -153,9 +167,14 @@ export function updateOrganizationDetailsCommand(
 		changes.phoneNumber = normalizeNullableText(input.phoneNumber, 'phoneNumber', issues, 50);
 	}
 	if (input.mailingCountry !== undefined) {
-		changes.mailingCountry =
+		const country =
 			normalizeNullableText(input.mailingCountry, 'mailingCountry', issues, 2)?.toUpperCase() ??
 			null;
+		// `null` is fine. An agency that has not filled its address in is not an error.
+		if (country !== null && country !== US_COUNTRY_CODE) {
+			issues.push({ path: 'mailingCountry', message: 'mailingCountry must be US.' });
+		}
+		changes.mailingCountry = country;
 	}
 	if (input.mailingAddressLine1 !== undefined) {
 		changes.mailingAddressLine1 = normalizeNullableText(
