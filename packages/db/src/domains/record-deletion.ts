@@ -33,7 +33,23 @@ export type DeletableRecordType =
 	| 'route'
 	| 'assignment'
 	| 'requestedControlAction'
-	| 'mission';
+	| 'mission'
+	// Catalogs. Every catalog rule is a `block`, and that is the decision rather
+	// than an omission. The reasoning is in the registry, above `collectionMethod`.
+	| 'collectionMethod'
+	| 'collectionLure'
+	| 'habitatType'
+	| 'applicationMethod'
+	| 'sourceReductionMethod'
+	| 'outreachMethod'
+	| 'biocontrolMethod'
+	| 'vehicle'
+	| 'equipment'
+	| 'insecticide'
+	| 'insecticideBatch'
+	| 'formulation'
+	| 'notificationType'
+	| 'tag';
 
 /**
  * How a rule's rows relate to the record being deleted.
@@ -787,6 +803,244 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 			cascadesSupport('missionComments', 'comments', 'mission', 'comment', 'comments'),
 		],
 	},
+
+	// -------------------------------------------------------------------------
+	// Catalogs
+	//
+	// Every catalog rule is a `block`, and none of them cascades or detaches.
+	// That is the decision, not an omission.
+	//
+	// Delete means the record should never have existed. Deactivate means it
+	// should not be referred to from now on, and it leaves existing records
+	// alone. So a catalog row with any live referrer cannot be deleted: the
+	// referrer is proof it did exist and was used, and the agency wanted
+	// Deactivate. A mistake made minutes ago has no referrers and deletes fine.
+	//
+	// The block reaches catalog children too. An Insecticide with a Batch needs
+	// the Batch deleted first, in the Batch's own drawer. The alternative was to
+	// cascade into children that are themselves unreferenced, and that fails in
+	// a way the user cannot read: they press Delete on the Insecticide, it
+	// refuses, and nothing tells them whether the Insecticide or something under
+	// a Batch stopped it. One row per refusal is worth the second click.
+	//
+	// The registry cannot express the same rule for the three operator-global
+	// catalogs — Unit, Genus, Species — because every query here scopes by
+	// `organization_id` and those rows have none. Their block counts across
+	// every agency and lives with the operator commands.
+	// -------------------------------------------------------------------------
+
+	collectionMethod: {
+		table: 'collection_methods',
+		singular: 'collection method',
+		rules: [
+			blocks('collectionMethodTraps', 'traps', 'collection_method_id', 'trap', 'traps'),
+			blocks(
+				'collectionMethodCollections',
+				'collections',
+				'collection_method_id',
+				'collection',
+				'collections',
+			),
+		],
+	},
+
+	collectionLure: {
+		table: 'collection_lures',
+		singular: 'lure',
+		rules: [
+			blocks('collectionLureTraps', 'traps', 'collection_lure_id', 'trap', 'traps'),
+			blocks(
+				'collectionLureCollections',
+				'collections',
+				'collection_lure_id',
+				'collection',
+				'collections',
+			),
+		],
+	},
+
+	habitatType: {
+		table: 'habitat_types',
+		singular: 'habitat type',
+		rules: [
+			blocks('habitatTypeHabitats', 'habitats', 'habitat_type_id', 'habitat', 'habitats'),
+			blocks(
+				'habitatTypeInspections',
+				'inspections',
+				'habitat_type_id',
+				'inspection',
+				'inspections',
+			),
+		],
+	},
+
+	applicationMethod: {
+		table: 'application_methods',
+		singular: 'application method',
+		rules: [
+			blocks(
+				'applicationMethodApplications',
+				'applications',
+				'application_method_id',
+				'chemical application',
+				'chemical applications',
+			),
+		],
+	},
+
+	sourceReductionMethod: {
+		table: 'source_reduction_methods',
+		singular: 'source reduction method',
+		rules: [
+			blocks(
+				'sourceReductionMethodActions',
+				'source_reductions',
+				'source_reduction_method_id',
+				'source reduction',
+				'source reductions',
+			),
+		],
+	},
+
+	outreachMethod: {
+		table: 'outreach_methods',
+		singular: 'outreach method',
+		rules: [
+			blocks(
+				'outreachMethodActions',
+				'outreach_actions',
+				'outreach_method_id',
+				'outreach action',
+				'outreach actions',
+			),
+		],
+	},
+
+	biocontrolMethod: {
+		table: 'biocontrol_methods',
+		singular: 'biocontrol method',
+		rules: [
+			blocks(
+				'biocontrolMethodActions',
+				'biocontrol_actions',
+				'biocontrol_method_id',
+				'biocontrol action',
+				'biocontrol actions',
+			),
+		],
+	},
+
+	vehicle: {
+		table: 'vehicles',
+		singular: 'vehicle',
+		rules: [
+			blocks(
+				'vehicleApplications',
+				'applications',
+				'vehicle_id',
+				'chemical application',
+				'chemical applications',
+			),
+		],
+	},
+
+	equipment: {
+		table: 'equipment',
+		singular: 'equipment record',
+		rules: [
+			blocks(
+				'equipmentApplications',
+				'applications',
+				'equipment_id',
+				'chemical application',
+				'chemical applications',
+			),
+		],
+	},
+
+	insecticide: {
+		table: 'insecticides',
+		singular: 'insecticide',
+		rules: [
+			blocks('insecticideBatches', 'insecticide_batches', 'insecticide_id', 'batch', 'batches'),
+			blocks(
+				'insecticideFormulations',
+				'formulation_insecticides',
+				'insecticide_id',
+				'formulation',
+				'formulations',
+			),
+			blocks(
+				'insecticideApplications',
+				'applications',
+				'insecticide_id',
+				'chemical application',
+				'chemical applications',
+			),
+		],
+	},
+
+	insecticideBatch: {
+		table: 'insecticide_batches',
+		singular: 'batch',
+		rules: [
+			blocks(
+				'insecticideBatchApplications',
+				'application_batches',
+				'insecticide_batch_id',
+				'chemical application',
+				'chemical applications',
+			),
+		],
+	},
+
+	/**
+	 * A Formulation blocks on its own ingredient rows, which reads heavier than
+	 * the rest: the ingredients belong to the Formulation and the schema even
+	 * cascades them. The rule holds anyway, because a Formulation that lists
+	 * insecticides is one somebody built rather than one typed by mistake, and
+	 * the ingredient rows are removable from the Formulation's own editor.
+	 */
+	formulation: {
+		table: 'formulations',
+		singular: 'formulation',
+		rules: [
+			blocks(
+				'formulationInsecticides',
+				'formulation_insecticides',
+				'formulation_id',
+				'ingredient',
+				'ingredients',
+			),
+		],
+	},
+
+	notificationType: {
+		table: 'notification_types',
+		singular: 'notification type',
+		rules: [
+			blocks(
+				'notificationTypeRegistrations',
+				'notification_registration_types',
+				'notification_type_id',
+				'notification registration',
+				'notification registrations',
+			),
+			blocks(
+				'notificationTypeMissionNotifications',
+				'mission_notifications',
+				'notification_type_id',
+				'sent notification',
+				'sent notifications',
+			),
+		],
+	},
+
+	tag: {
+		table: 'tags',
+		singular: 'tag',
+		rules: [blocks('tagItems', 'tag_items', 'tag_id', 'tagged record', 'tagged records')],
+	},
 };
 
 const DELETABLE_RECORD_TYPES = Object.keys(DELETABLE_RECORDS) as readonly DeletableRecordType[];
@@ -981,6 +1235,41 @@ export async function readDeleteImpact(
 }
 
 /**
+ * Refuse the delete if anything live still refers to the record.
+ *
+ * The whole of a catalog's policy, since every catalog rule blocks and none
+ * cascades or detaches: there is nothing to write, only something to refuse. It
+ * takes a `DbExecutor` rather than a `Transaction` for that reason, which is
+ * what lets the lookup and tag writers in this package call it without being
+ * retyped.
+ *
+ * `applyRecordDeletion` calls this rather than repeating it, so the two cannot
+ * come to disagree about what blocks.
+ *
+ * @throws RecordDeleteBlockedError when a `block` rule matched.
+ */
+export async function assertRecordDeletable(
+	db: DbExecutor,
+	input: {
+		readonly recordType: DeletableRecordType;
+		readonly recordId: string;
+		readonly organizationId: string;
+	},
+): Promise<void> {
+	const { recordType, recordId, organizationId } = input;
+	const blocking = DELETABLE_RECORDS[recordType].rules.filter((rule) => rule.effect === 'block');
+	if (blocking.length === 0) {
+		return;
+	}
+
+	const counts = await countRules(db, blocking, recordId, organizationId);
+	const blockers = toEntries(blocking, counts, 'block');
+	if (blockers.length > 0) {
+		throw new RecordDeleteBlockedError(recordType, recordId, blockers);
+	}
+}
+
+/**
  * Run the record's delete policy inside the caller's transaction.
  *
  * Call this before soft-deleting the record itself: it refuses the delete when
@@ -1007,14 +1296,7 @@ export async function applyRecordDeletion(
 		return false;
 	}
 
-	const blocking = config.rules.filter((rule) => rule.effect === 'block');
-	if (blocking.length > 0) {
-		const counts = await countRules(trx, blocking, recordId, organizationId);
-		const blockers = toEntries(blocking, counts, 'block');
-		if (blockers.length > 0) {
-			throw new RecordDeleteBlockedError(recordType, recordId, blockers);
-		}
-	}
+	await assertRecordDeletable(trx, { recordType, recordId, organizationId });
 
 	for (const rule of orderRules(config.rules.filter((rule) => rule.effect !== 'block'))) {
 		const match = scopeMatch(rule, recordId, organizationId);

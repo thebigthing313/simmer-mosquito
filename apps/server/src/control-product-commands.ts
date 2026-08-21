@@ -1,4 +1,5 @@
 import {
+	assertRecordDeletable,
 	type Kysely,
 	type MutationWriteResult,
 	type SelectedRow,
@@ -503,6 +504,12 @@ async function deleteInsecticide(
 	insecticideId: string,
 	input: ProductLifecycleInput,
 ): Promise<InsecticideRow | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'insecticide',
+		recordId: insecticideId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('insecticides')
 		.set({
@@ -603,6 +610,12 @@ async function deleteInsecticideBatch(
 	batchId: string,
 	input: ProductLifecycleInput,
 ): Promise<InsecticideBatchRow | null> {
+	await assertRecordDeletable(db, {
+		recordType: 'insecticideBatch',
+		recordId: batchId,
+		organizationId: input.organizationId,
+	});
+
 	const row = await db
 		.updateTable('insecticide_batches')
 		.set({

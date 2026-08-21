@@ -1,4 +1,4 @@
-import { sql } from '@simmer-mosquito/db';
+import { assertRecordDeletable, sql } from '@simmer-mosquito/db';
 import {
 	activateFormulationCommand,
 	type ControlOperationsCommand,
@@ -190,6 +190,11 @@ export async function writeFormulationCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'controlOperations.deleteFormulation':
+			await assertRecordDeletable(trx, {
+				recordType: 'formulation',
+				recordId: command.payload.formulationId,
+				organizationId: command.payload.organizationId,
+			});
 			return softDelete(
 				trx,
 				'formulations',
