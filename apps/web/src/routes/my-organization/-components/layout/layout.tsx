@@ -25,7 +25,7 @@ import {
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import type React from 'react';
 import { useState } from 'react';
-import { formatMode } from '../../../../lib/record-display';
+import { titleCaseToken } from '../../../../lib/record-display';
 import { errorMessageForSave } from '../../../../lib/save-error';
 import { EditIcon } from '../constants';
 import { collectionTimingModeFromFields, displayFieldValue } from '../helpers';
@@ -422,7 +422,7 @@ export function PermissionPill({
 }) {
 	return (
 		<Badge tone={canManage ? 'success' : 'neutral'} variant="outline">
-			{canManage ? `${formatMode(role)} access` : `${formatMode(role)} view`}
+			{canManage ? `${titleCaseToken(role)} access` : `${titleCaseToken(role)} view`}
 		</Badge>
 	);
 }

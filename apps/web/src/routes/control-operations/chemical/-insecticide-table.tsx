@@ -30,7 +30,7 @@ import type {
 } from '../../../hooks/mutations/use-insecticide-mutations';
 import type { InsecticideRecord } from '../../../hooks/queries/use-insecticide-records';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
-import { formatMode, hasMetadata } from '../../../lib/record-display';
+import { hasMetadata, titleCaseToken } from '../../../lib/record-display';
 import { InsecticideBatchPanel } from './-batch-panel';
 import { InsecticideDrawer } from './-insecticide-drawer';
 
@@ -135,7 +135,7 @@ function InsecticideTableRow({
 				</TableCell>
 				<TableCell className="font-medium">{productLabel}</TableCell>
 				<TableCell>{insecticide.activeIngredient}</TableCell>
-				<TableCell>{formatMode(insecticide.type)}</TableCell>
+				<TableCell>{titleCaseToken(insecticide.type)}</TableCell>
 				<TableCell>{unitLabel(units, insecticide.defaultUnitId)}</TableCell>
 				<TableCell>
 					{insecticide.isActive ? (
