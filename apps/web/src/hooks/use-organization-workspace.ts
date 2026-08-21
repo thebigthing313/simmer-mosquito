@@ -3,8 +3,7 @@ import type { Organization } from '@simmer-mosquito/sync';
 import { useLiveSuspenseQuery } from '@tanstack/react-db';
 import type { AuthMe } from '../auth';
 import { organizations } from '../lib/collections/organizations';
-import { canManageCatalogs, canManageOperationalCatalogs } from '../lib/write-access';
-import { readRole } from '../routes/my-organization/-components/helpers';
+import { canManageCatalogs, canManageOperationalCatalogs, readOrgRole } from '../lib/write-access';
 
 export function useOrganizationWorkspace(auth: AuthMe | null) {
 	const result = useLiveSuspenseQuery((query) => query.from({ organization: organizations }), []);
@@ -12,7 +11,7 @@ export function useOrganizationWorkspace(auth: AuthMe | null) {
 	if (organization === null) {
 		throw new Error('Unable to resolve active organization for this workspace.');
 	}
-	const role = readRole(auth);
+	const role = readOrgRole(auth);
 	// Two floors, because this workspace holds catalogs from both. `canManage`
 	// is the owner/admin floor that configures the agency — settings, lookup
 	// catalogs, insecticides. `canManageOperational` is the manager floor for

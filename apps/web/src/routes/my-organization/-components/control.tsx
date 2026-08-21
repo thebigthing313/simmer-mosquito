@@ -48,6 +48,7 @@ import {
 	useEquipmentRecords,
 	useVehicleRecords,
 } from '../../../hooks/queries/use-control-asset-records';
+import { hasMetadata } from '../../../lib/record-display';
 import {
 	AddIcon,
 	ArrowRightIcon,
@@ -56,7 +57,6 @@ import {
 	controlMethodListConfigs,
 	EditIcon,
 } from './constants';
-import { hasMetadata } from './helpers';
 import { LookupListFrame } from './layout/layout';
 import type { ControlAssetCollectionKey, ControlMethodCollectionKey } from './types';
 

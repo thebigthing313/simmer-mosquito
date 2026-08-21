@@ -34,6 +34,8 @@ import { type TagFields, useTagMutations } from '../../../hooks/mutations/use-ta
 import { type TagRecord, useTagCatalog } from '../../../hooks/queries/use-tag-catalog';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { hexWithAlpha, validHexColor } from '../../../lib/hex-color';
+import { formatMode } from '../../../lib/record-display';
+import { errorMessageForSave } from '../../../lib/save-error';
 import {
 	AddIcon,
 	CloseIcon,
@@ -47,9 +49,7 @@ import {
 	AgencyDetailLine,
 	agencyDetailsFieldsFrom,
 	agencyDetailsFormValues,
-	errorMessageForSave,
 	formatMailingAddress,
-	formatMode,
 	unitDefaultsFormValues,
 	unitDefaultsFrom,
 	unitOptionsForDefault,

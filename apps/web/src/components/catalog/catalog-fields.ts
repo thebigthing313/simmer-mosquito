@@ -19,6 +19,7 @@
 
 import type { JsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
 import type { CatalogFields } from '../../hooks/mutations/use-catalog-mutations';
+import { jsonObjectValue } from '../../lib/record-display';
 
 /** The union of every field any of the eight catalog dialogs renders. */
 export interface CatalogFormValues {
@@ -49,7 +50,7 @@ export function catalogFormValues(record: CatalogFormRecord | undefined): Catalo
 		name: record?.name ?? '',
 		description: record?.description ?? '',
 		actionThreshold: record?.actionThreshold ?? null,
-		customSchema: jsonSchemaValue(record?.customSchema),
+		customSchema: jsonObjectValue(record?.customSchema),
 		isActive: record?.isActive ?? true,
 	};
 }
@@ -68,18 +69,4 @@ export function catalogFields(values: CatalogFormValues): CatalogFields {
 		customSchema: values.customSchema,
 		isActive: values.isActive,
 	};
-}
-
-/**
- * A stored `custom_schema` as the form field takes it.
- *
- * The column is `unknown` — nothing stops a row holding an array or a number —
- * while the field renders an object or nothing. Anything else reads as nothing,
- * which is the same answer the field would give it and one the user can then
- * replace.
- */
-function jsonSchemaValue(value: unknown): JsonSchemaValue {
-	return typeof value === 'object' && value !== null && !Array.isArray(value)
-		? (value as JsonSchemaValue)
-		: null;
 }

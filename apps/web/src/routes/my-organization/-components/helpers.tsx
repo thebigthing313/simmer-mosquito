@@ -9,9 +9,10 @@ import type {
 import type { Organization } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
-import type { AuthMe } from '../../../auth';
 import type { AgencyDetailsFields } from '../../../hooks/mutations/use-organization-settings-mutations';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
+import { formatMode } from '../../../lib/record-display';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { defaultDensityRangeValues } from './constants';
 import type {
 	AgencyDetailsFormValues,
@@ -30,10 +31,6 @@ import type {
 
 export function formatRole(role: SimmerRole): string {
 	return role.charAt(0).toUpperCase() + role.slice(1);
-}
-
-export function errorMessageForSave(saveError: unknown): string {
-	return saveError instanceof Error ? saveError.message : 'Unable to save changes.';
 }
 
 export function AgencyDetailLine({
@@ -223,10 +220,6 @@ function nonnegativeIntegerValue(value: number | null, label: string): number {
 	return value;
 }
 
-function isPlainJsonObject(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null && !Array.isArray(value);
-}
-
 export function densityRangeFormValues(ranges: LarvalDensityRanges | null): DensityRangeFormValues {
 	if (ranges === null) {
 		return defaultDensityRangeValues;
@@ -341,10 +334,6 @@ export function formatDensityRange(range: LarvalDensityRange | null): string {
 		: `More than ${range.minInclusive} and up to ${range.maxExclusive} larvae per dip`;
 }
 
-export function hasMetadata(value: unknown): boolean {
-	return isPlainJsonObject(value) && Object.keys(value).length > 0;
-}
-
 export function textField(
 	label: string,
 	value: string,
@@ -455,25 +444,4 @@ export function collectionTimingModeFromFields(
 	return field?.value === 'collection_date_duration'
 		? 'collection_date_duration'
 		: 'exact_timestamps';
-}
-
-export function readRole(auth: AuthMe | null): SimmerRole {
-	if (auth?.authenticated !== true) {
-		return 'viewer';
-	}
-	const role = auth.localIdentity.role;
-	return role === 'owner' ||
-		role === 'admin' ||
-		role === 'manager' ||
-		role === 'collector' ||
-		role === 'viewer'
-		? role
-		: 'viewer';
-}
-
-export function formatMode(value: string): string {
-	return value
-		.split(/[_-]/g)
-		.map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-		.join(' ');
 }
