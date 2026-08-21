@@ -1,12 +1,13 @@
 /**
- * What the workspace error surface knows about a thrown value, and the plain
- * text report it hands to the clipboard.
+ * What an error surface knows about a thrown value, and the plain text report it
+ * hands to the clipboard.
  *
- * These are separate from the component because they are the part that has to be
- * right. The surface renders once, when the app is already broken, so nobody
- * clicks through it twice to check it: `describeError` runs against values a
- * boundary can genuinely catch, and `buildErrorReport` takes its page context as
- * an argument rather than reading `window`, so both are provable in a test.
+ * These are separate from the components because they are the part that has to
+ * be right. An error surface renders once, when the app is already broken, so
+ * nobody clicks through it twice to check it: `describeError` runs against
+ * values a boundary can genuinely catch, and `buildErrorReport` takes its page
+ * context as an argument rather than reading `window`, so both are provable in a
+ * test.
  */
 
 export interface ErrorDetails {
@@ -17,6 +18,8 @@ export interface ErrorDetails {
 
 /** Page context stamped into a copied report. */
 export interface ReportContext {
+	/** The report's opening line, naming what failed. */
+	readonly summary: string;
 	readonly version: string;
 	readonly href: string;
 	readonly time: string;
@@ -54,8 +57,8 @@ function describeThrownValue(error: unknown): ErrorDetails {
 		name: 'Unknown error',
 		message:
 			rendered === ''
-				? 'The workspace threw a value that is not an error, and it was empty.'
-				: `The workspace threw a value that is not an error: ${rendered}`,
+				? 'A value that is not an error was thrown, and it was empty.'
+				: `A value that is not an error was thrown: ${rendered}`,
 		stack: null,
 	};
 }
@@ -71,7 +74,7 @@ export function buildErrorReport(
 	context: ReportContext,
 ): string {
 	const lines = [
-		`SIMMER ${context.version} failed to load the workspace.`,
+		`SIMMER ${context.version}: ${context.summary}`,
 		'',
 		`Error: ${details.name}: ${details.message}`,
 		`Page: ${context.href}`,
