@@ -1,5 +1,5 @@
 import { toast } from 'sonner';
-import { errorMessageForSave } from '../../routes/my-organization/-components/helpers';
+import { errorMessageForSave } from '../../lib/save-error';
 
 /**
  * Make a catalog write, dismiss the surface that made it, and watch it land.

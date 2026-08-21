@@ -60,6 +60,7 @@ import {
 	type SchemaCatalogRecord,
 	useHabitatTypeRecords,
 } from '../../../hooks/queries/use-catalog-records';
+import { errorMessageForSave } from '../../../lib/save-error';
 import {
 	AddIcon,
 	CloseIcon,
@@ -73,7 +74,6 @@ import {
 	densityLabel,
 	densityRangeFormValues,
 	densityRangesFromFormValues,
-	errorMessageForSave,
 	formatDensityRange,
 	safeDensityRangesFromFormValues,
 	watchWrite,

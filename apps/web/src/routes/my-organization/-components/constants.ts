@@ -176,13 +176,6 @@ export const controlAssetListConfigs: Record<ControlAssetCollectionKey, ControlA
 	},
 };
 
-export const insecticideTypeOptions = [
-	{ label: 'Larvicide', value: 'larvicide' },
-	{ label: 'Adulticide', value: 'adulticide' },
-	{ label: 'Pupicide', value: 'pupicide' },
-	{ label: 'Other', value: 'other' },
-] as const;
-
 export const sections = [
 	{ id: 'general', label: 'General', to: '/my-organization' },
 	{ id: 'people', label: 'People', to: '/my-organization/people' },

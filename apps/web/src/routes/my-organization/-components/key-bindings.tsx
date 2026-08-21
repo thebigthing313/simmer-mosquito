@@ -25,7 +25,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useMemo, useState } from 'react';
 import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
 import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
-import { errorMessageForSave } from './helpers';
+import { errorMessageForSave } from '../../../lib/save-error';
 
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 

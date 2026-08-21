@@ -48,9 +48,10 @@ import {
 	removeOrganizationMembership,
 	updateOrganizationMembershipRole,
 } from '../../../lib/identity-api';
+import { errorMessageForSave } from '../../../lib/save-error';
 import { canManageRoles, canRemoveMember, grantableRoles } from '../../../lib/write-access';
 import { AddIcon, CloseIcon, DeleteIcon, EditIcon, ORG_ROLE_OPTIONS, SaveIcon } from './constants';
-import { errorMessageForSave, formatRole, requiredTextValue, watchWrite } from './helpers';
+import { formatRole, requiredTextValue, watchWrite } from './helpers';
 import { OrgSurface } from './layout/layout';
 import { OrgSection } from './layout/org-section';
 import { SectionHeader } from './layout/section-header';
