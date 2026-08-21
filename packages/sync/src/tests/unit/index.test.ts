@@ -57,4 +57,17 @@ describe('collection schemas', () => {
 
 		expect(offending).toEqual([]);
 	});
+
+	it('keeps the invitation columns off the memberships schema', () => {
+		// `memberships` streams eager to every signed-in agency user, viewers
+		// included, because the role ladder needs `role`, `status` and
+		// `profile_id`. An invited address belongs to somebody who has not
+		// accepted, and `workos_invitation_id` is a handle on a live grant in
+		// WorkOS. Both are read server-side inside the transaction that needs
+		// them, so nothing in a collection is owed either.
+		const fields = Object.keys(tableSchemas.memberships.shape);
+
+		expect(fields).not.toContain('invited_email');
+		expect(fields).not.toContain('workos_invitation_id');
+	});
 });
