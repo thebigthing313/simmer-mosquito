@@ -278,22 +278,43 @@ supplied. Neither is a new choice.
 
 Most commands commit in one Kysely transaction, including the three identity
 commands ADR 0013's first slice moved, which write Postgres and nothing else.
-Three others cannot,
-because the grant a session is refreshed against lives in WorkOS rather than in
-Postgres: inviting somebody, changing a role, and ending a membership. ADR 0013
-admits these to the vocabulary under four rules, which apply once the work is
-done.
+Four others cannot, because the grant a session is refreshed against lives in
+WorkOS rather than in Postgres: inviting somebody, re-inviting them, changing a
+role, and ending a membership. ADR 0013 admits these to the vocabulary under six
+rules.
 
 - **Postgres orders the write.** The row is written first on a create and last
   on a revoke. Revoking in Postgres first leaves somebody who reads as removed
   and can still sign in.
-- **A client-generated id is what makes the replay safe.** An invitation carries
-  the membership id it will create, so a replay collides on the primary key and
-  the second system is never called twice. A spanning command without one is not
-  replay-safe and must not be built.
+
+- **A client-generated id is what makes a retry safe.** The replay to defend
+  against is a retry inside one live request, not an offline queue. Nothing
+  queues an identity write offline, `apps/web` is online-only, and `apps/mobile`
+  signs in and nothing else. The client mints every id the command creates, so a
+  retry that lost its answer collides on the primary key, and the server returns
+  the row that is already there instead of calling WorkOS twice. A spanning
+  command whose rows are keyed by the server is not retry-safe and must not be
+  built. If an identity write ever does queue offline, this rule is the one that
+  no longer holds, and the decision is a new one.
+
+- **The natural key refuses a race.** A collision on a minted id is the caller's
+  own retry. A collision on a uniqueness rule the schema owns, carrying a
+  different id, is two admins asking for the same thing at once, and the server
+  refuses it and names who holds it. For an invitation that rule is
+  `memberships_organization_invited_email_unique`, which is one live invitation
+  per address per agency.
+
+- **An overwrite is its own command.** Where a second call is sometimes a retry
+  to swallow and sometimes a deliberate redo, no key can tell them apart.
+  `identity.invite` creates and refuses a collision. `identity.reinvite`
+  overwrites a Membership that is already invited, revokes the WorkOS invitation
+  it replaces, and is reached from the invited row rather than from the invite
+  dialog. Splitting them is what lets the minted id mean one thing.
+
 - **No optimistic row for the half the client cannot see.** Apply optimistically
   to what the command fully determines; never invent a status only the second
   system decides. Sync reflects the result once both have settled.
+
 - **The domain doc names the second system**, and says what a partial failure
   leaves behind. A half-applied spanning command is an access bug, not a data
   bug, and it will not look like one.
