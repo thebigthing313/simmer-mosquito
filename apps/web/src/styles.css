@@ -146,6 +146,62 @@ select {
 }
 
 /*
+ * The workspace boot state's progress hairline, across the top of the content
+ * stage in `WorkspaceChromeFallback`. It is the only moving part of that
+ * surface, and it carries state rather than decoration: the skeletons say what
+ * is coming, and this says work is still in flight.
+ *
+ * Under reduced motion the bar stops travelling and breathes in place. A static
+ * full-width bar would read as finished, which is the one thing it must not say.
+ */
+@keyframes workspace-sweep {
+	from {
+		transform: translateX(-100%);
+	}
+	to {
+		transform: translateX(400%);
+	}
+}
+
+@keyframes workspace-sweep-hold {
+	0%,
+	100% {
+		opacity: 0.25;
+	}
+	50% {
+		opacity: 0.6;
+	}
+}
+
+.workspace-sweep {
+	position: absolute;
+	inset-block-start: 0;
+	inset-inline: 0;
+	z-index: 1;
+	display: block;
+	overflow: hidden;
+	block-size: 2px;
+	background-color: color-mix(in oklch, var(--primary) 12%, transparent);
+}
+
+.workspace-sweep::after {
+	content: "";
+	display: block;
+	block-size: 100%;
+	inline-size: 25%;
+	background-color: var(--primary);
+	animation: workspace-sweep 1400ms cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.workspace-sweep::after {
+		inline-size: 100%;
+		transform: none;
+		animation: workspace-sweep-hold 1800ms ease-in-out infinite;
+	}
+}
+
+/*
  * Mapbox compact attribution, restyled to match our floating map controls. The
  * descendant `.mapboxgl-map` selectors raise specificity so they win regardless
  * of whether mapbox-gl.css loads before or after this sheet. When closed the
