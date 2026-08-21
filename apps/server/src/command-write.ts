@@ -148,6 +148,37 @@ export interface RunCommandsConfig<TCommand extends WritableCommand, TRow> {
 	readonly notFound: string;
 	/** The response key the row is returned under, e.g. `regionFolder`. */
 	readonly key: string;
+	/** Only `memberships` has one — see {@link SecondSystem}. */
+	readonly secondSystem?: SecondSystem<TCommand>;
+}
+
+/**
+ * The half of a command that is not Postgres.
+ *
+ * One table has one. `memberships` writes SIMMER's row *and* settles the grant a
+ * session is refreshed against, which lives in WorkOS, and ADR 0013 admits that
+ * under a rule about order: the row is written first on a create and last on a
+ * revoke. Revoking in Postgres first leaves somebody who reads as removed and can
+ * still sign in; mailing an invitation first sends a working link to somebody the
+ * agency has no row for.
+ *
+ * So it is two hooks rather than one, and which one a command uses *is* which
+ * side of the transaction it belongs on. Neither runs inside it: a transaction
+ * that has not committed is not a fact the second system should be agreeing with,
+ * and holding one open across a network call to another provider is its own
+ * problem.
+ *
+ * Either may throw `CommandError`, which is answered the same way a refusal from
+ * inside the write is. A `before` that throws means nothing was written at all,
+ * which is the point of it running first.
+ *
+ * This is deliberately not a template. `docs/domain-command-contract.md` says a
+ * command that does not span two systems must not be written as though it might,
+ * and the rules above are a cost rather than a shape to copy.
+ */
+export interface SecondSystem<TCommand extends WritableCommand> {
+	readonly before?: (command: TCommand, authContext: AuthContext) => Promise<void>;
+	readonly after?: (command: TCommand, authContext: AuthContext) => Promise<void>;
 }
 
 /**
@@ -220,16 +251,35 @@ export async function runCommands<TCommand extends WritableCommand, TRow>(
 		return denial;
 	}
 
+	const authContext = context.get('authContext');
+
 	try {
+		// The revoke side, and every refusal that has to be settled before anything
+		// is written. Nothing here for all but one table.
+		for (const command of commands) {
+			await config.secondSystem?.before?.(command, authContext);
+		}
+
 		const result = await writeCommands(
 			config.db,
-			commandActor(context.get('authContext')),
+			commandActor(authContext),
 			commands,
 			config.write,
 		);
 		if (result.row === null) {
 			return context.json({ error: config.notFound }, 404);
 		}
+
+		// The create side. The row is committed by the time this runs, which is the
+		// whole reason it is out here: a mail that beat its own Membership would
+		// reach somebody the agency has no row for.
+		for (const command of commands) {
+			await config.secondSystem?.after?.(command, authContext);
+		}
+
+		// The txid is the transaction's, not the second system's. A client waits on
+		// it to know its row has arrived, and the second half writes nothing a client
+		// receives — `workos_invitation_id` is withheld from the shape.
 		return context.json({ [config.key]: result.row, txid: result.txid }, createdStatus ?? 200);
 	} catch (error) {
 		return handleCommandError(context, error);

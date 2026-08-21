@@ -34,7 +34,8 @@ import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { type AuthMe, getServerUrl } from '../../../auth';
+import type { AuthMe } from '../../../auth';
+import { useMembershipMutations } from '../../../hooks/mutations/use-membership-mutations';
 import {
 	profileSavePlan,
 	useProfileMutations,
@@ -43,11 +44,6 @@ import {
 	type PersonListing,
 	usePeopleDirectory,
 } from '../../../hooks/queries/use-people-directory';
-import {
-	inviteOrganizationProfile,
-	removeOrganizationMembership,
-	updateOrganizationMembershipRole,
-} from '../../../lib/identity-api';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { canManageRoles, canRemoveMember, grantableRoles } from '../../../lib/write-access';
 import { AddIcon, CloseIcon, DeleteIcon, EditIcon, ORG_ROLE_OPTIONS, SaveIcon } from './constants';
@@ -55,6 +51,7 @@ import { formatRole, requiredTextValue, watchWrite } from './helpers';
 import { OrgSurface } from './layout/layout';
 import { OrgSection } from './layout/org-section';
 import { SectionHeader } from './layout/section-header';
+import { ReinviteControl } from './reinvite';
 import type { SimmerRole } from './types';
 
 export function PeopleSection({
@@ -369,6 +366,7 @@ function InviteProfileSheet({
 	readonly people: readonly PersonListing[];
 }) {
 	const roleOptions = grantableRoles(auth);
+	const { invite } = useMembershipMutations();
 	const [displayName, setDisplayName] = useState('');
 	const [email, setEmail] = useState('');
 	const [role, setRole] = useState<SimmerRole>('viewer');
@@ -392,7 +390,7 @@ function InviteProfileSheet({
 		setError(null);
 		setIsSaving(true);
 		try {
-			await inviteOrganizationProfile(getServerUrl(), {
+			await invite({
 				displayName,
 				email,
 				role,
@@ -498,6 +496,7 @@ function EditProfileSheet({
 	readonly person: PersonListing;
 }) {
 	const { save } = useProfileMutations();
+	const { changeRole } = useMembershipMutations();
 	const [open, setOpen] = useState(false);
 	const [displayName, setDisplayName] = useState(person.displayName);
 	const [isActive, setIsActive] = useState(person.isActive);
@@ -523,15 +522,11 @@ function EditProfileSheet({
 		try {
 			const nextDisplayName = requiredTextValue(displayName, 'Display name');
 			const plan = profileSavePlan({ displayName: nextDisplayName, isActive, role }, person);
-			// The role first, and only if it moved: it is a different route with a
+			// The role first, and only if it moved: it is a different command with a
 			// different floor (owner, not admin), and a refusal there must not leave
 			// the profile half saved and the sheet closed.
 			if (plan.roleChange !== null && person.membershipId != null) {
-				await updateOrganizationMembershipRole(
-					getServerUrl(),
-					person.membershipId,
-					plan.roleChange,
-				);
+				await changeRole(person.membershipId, plan.roleChange);
 			}
 			updateOpen(false);
 			watchWrite(save(person.profileId, plan.changes), 'Unable to save profile.');
@@ -595,6 +590,7 @@ function EditProfileSheet({
 						</SheetClose>
 					</SheetFooter>
 				</form>
+				<ReinviteControl person={person} />
 				<RemoveMemberControl auth={auth} person={person} onRemoved={() => setOpen(false)} />
 			</SheetContent>
 		</Sheet>
@@ -684,6 +680,7 @@ function RemoveMemberAction({
 	readonly name: string;
 	readonly onRemoved: () => void;
 }) {
+	const { endMembership } = useMembershipMutations();
 	const [confirmOpen, setConfirmOpen] = useState(false);
 	const [isRemoving, setIsRemoving] = useState(false);
 
@@ -691,7 +688,7 @@ function RemoveMemberAction({
 		setConfirmOpen(false);
 		setIsRemoving(true);
 		try {
-			await removeOrganizationMembership(getServerUrl(), membershipId);
+			await endMembership(membershipId);
 			toast.success(`${name} no longer has access.`);
 			onRemoved();
 		} catch (removeError) {

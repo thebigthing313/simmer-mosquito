@@ -14,7 +14,7 @@
  * particular is what operators write *about* an agency. An agency that
  * should see its own subscription state is a product decision to make
  * deliberately, not a column to leave streaming by default. Say so in
- * `WITHHELD` in `scripts/generate-table-schemas.mjs`, never by deleting a
+ * `WITHHELD` in `scripts/withheld-columns.mjs`, never by deleting a
  * line below — that lasts until the next regeneration, and the drift check
  * reads the same list.
  *

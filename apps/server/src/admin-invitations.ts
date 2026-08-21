@@ -96,14 +96,17 @@ export function registerAdminInvitationRoutes(
 			const invitation = invitationResult.invitation;
 			// Nothing was sent when the person was already reached, so there is no id
 			// to stamp and nothing to retry.
+			// A stamp that could not be written answers `null`, and the staged row is
+			// what the console shows then: the mail is out and the Membership exists,
+			// so the invitation happened whether or not its id was recorded.
 			const membership =
 				invitation === null
 					? staged.membership
-					: await stampInvitation(options.db, {
-							staged: staged.membership,
+					: ((await stampInvitation(options.db, {
+							membershipId: staged.membership.id,
 							organizationId,
 							workosInvitationId: invitation.id,
-						});
+						})) ?? staged.membership);
 
 			return context.json(
 				{

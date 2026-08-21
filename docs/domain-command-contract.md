@@ -10,13 +10,11 @@ operation: *this is what I intended to do*, and the server decides whether to do
 it. A client never states which tables a write touches, in what order, or
 whether a second system is involved.
 
-Identity is most of the way there. ADR 0013 decided that profiles, memberships
-and the agency's own details become commands too, and its first slice moved the
-three that touch Postgres and nothing else: `identity.updateOrganizationDetails`,
-`identity.createProfile`, `identity.updateProfile`. Four surfaces are still REST
-with their own floors in `apps/server/src/roles.ts`: `people.listMemberships`,
-which is a read behind a POST and never becomes a command, and the three that
-span WorkOS.
+Identity is there. ADR 0013 decided that profiles, memberships and the agency's
+own details become commands too, and every one of them is: three that touch
+Postgres and nothing else, and four on `/commands/memberships` that also settle
+WorkOS. One surface is still REST and always will be —
+`people.listMemberships`, which is a read behind a POST.
 
 ## Command shape
 
@@ -59,7 +57,7 @@ PATCH  /commands/habitats/{id}   { intents: ['larvalSurveillance.updateHabitatDe
 DELETE /commands/habitats/{id}   { intents: ['larvalSurveillance.deleteHabitat'] }
 ```
 
-Fifty-three tables are served this way, carrying 268 of the 277 names in the
+Fifty-four tables are served this way, carrying 272 of the 281 names in the
 vocabulary. The modules are `apps/server/src/table-commands/`, one per table or
 per group of tables written together, and `dispatch.ts` is the mechanism they
 share. Both the server and the client derive the path from `commandPathFor` in
@@ -313,9 +311,16 @@ itself.
 Most commands commit in one Kysely transaction, including the three identity
 commands ADR 0013's first slice moved, which write Postgres and nothing else.
 Four others cannot, because the grant a session is refreshed against lives in
-WorkOS rather than in Postgres: inviting somebody, re-inviting them, changing a
-role, and ending a membership. ADR 0013 admits these to the vocabulary under six
-rules.
+WorkOS rather than in Postgres: `identity.invite`, `identity.reinvite`,
+`identity.changeRole` and `identity.endMembership`. ADR 0013 admits these to the
+vocabulary under six rules.
+
+All four are on `/commands/memberships`, and what carries the WorkOS half is
+`run.secondSystem` on that table alone: a `before` the command runner calls
+ahead of the transaction, and an `after` it calls once that has committed. Which
+hook a command uses is which side of the write its second system belongs on, so
+the ordering rule below is the shape of the code rather than a comment beside
+it. Nothing WorkOS-shaped runs inside the transaction.
 
 - **Postgres orders the write.** The row is written first on a create and last
   on a revoke. Revoking in Postgres first leaves somebody who reads as removed

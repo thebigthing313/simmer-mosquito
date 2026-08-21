@@ -158,6 +158,7 @@ export type CommandPermission =
 	/** No entry in the map — see `readCommandPermission`. */
 	| { readonly kind: 'unmapped' };
 
+const OWNER: CommandPermission = { kind: 'role', minimum: 'owner' };
 const ADMIN: CommandPermission = { kind: 'role', minimum: 'admin' };
 const OPERATOR: CommandPermission = { kind: 'operator' };
 const MANAGER: CommandPermission = { kind: 'role', minimum: 'manager' };
@@ -724,18 +725,37 @@ const WEATHER_PERMISSIONS: Record<WeatherCommandType, CommandPermission> = {
 };
 
 /**
- * The three identity writes ADR 0013 folded into the vocabulary.
+ * Every identity write, now that ADR 0013 is built.
  *
- * The floors are carried across from `IDENTITY_FLOORS` in `roles.ts` unchanged.
- * That table still holds the four surfaces slice 3 owns; these three left it,
- * and the difference is that a fourth identity command now cannot be added
- * without a floor, because this map is exhaustive and that one was a convention
- * each handler had to remember.
+ * The floors are carried across from `IDENTITY_FLOORS` in `roles.ts` unchanged,
+ * and that table is gone: a new identity command cannot be added without a floor,
+ * because this map is exhaustive, where the old one was a convention each handler
+ * had to remember to consult.
+ *
+ * The people floor is admin, not owner: an agency delegates onboarding, and an
+ * office manager adding a seasonal crew is the ordinary case. Handing out a role
+ * is the separate question, and `identity.changeRole` is the only `owner` floor
+ * in the whole map — a settable role is a self-promotable one, so an admin who
+ * could set a role could set their own.
+ *
+ * Inviting and re-inviting name a role too, and sit at admin anyway. A floor
+ * compares the actor to a rung; what stops an admin minting an owner compares the
+ * actor to the *payload*, which no fixed floor can express. That is
+ * `assertCanGrantRole` in `membership-commands.ts`, and
+ * `tests/unit/table-commands/role-escalation.test.ts` asserts every role-bearing
+ * command calls it.
  */
 const IDENTITY_PERMISSIONS: Record<IdentityCommandType, CommandPermission> = {
 	'identity.updateOrganizationDetails': ADMIN,
 	'identity.createProfile': ADMIN,
 	'identity.updateProfile': ADMIN,
+
+	'identity.invite': ADMIN,
+	'identity.reinvite': ADMIN,
+	'identity.endMembership': ADMIN,
+
+	// Owner, because a settable role is a self-promotable one — see MinimumRole.
+	'identity.changeRole': OWNER,
 };
 
 /**

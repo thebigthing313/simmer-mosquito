@@ -15,7 +15,7 @@
  * yet, and `workos_invitation_id` is a handle on a grant in the second
  * system. The handlers that need them read them server-side inside the
  * transaction, and the operator console reads them over REST. Say so in
- * `WITHHELD` in `scripts/generate-table-schemas.mjs`, never by deleting a
+ * `WITHHELD` in `scripts/withheld-columns.mjs`, never by deleting a
  * line below — that lasts until the next regeneration, and the drift check
  * reads the same list.
  *

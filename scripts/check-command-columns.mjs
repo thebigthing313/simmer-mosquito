@@ -80,6 +80,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { withheldColumnsFor } from './withheld-columns.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const COMMAND_DIR = join(workspaceRoot, 'apps/server/src/table-commands');
@@ -100,7 +101,7 @@ const NOT_A_TABLE_MODULE = new Set(['dispatch.ts', 'index.ts']);
  * falls out of the match lowers it and fails, which is the point. A silent
  * "nothing to check here" is the one failure mode a check like this has.
  */
-const EXPECTED_TABLE_COUNT = 53;
+const EXPECTED_TABLE_COUNT = 54;
 
 /**
  * The `snake_case` keys that name a column of some other record, by module.
@@ -116,6 +117,7 @@ const EXPECTED_TABLE_COUNT = 53;
  */
 const CROSS_RECORD_KEYS = new Map([
 	['applications.application_batches', 'rows of `application_batches`, sent with the create'],
+	['memberships.display_name', 'the `profiles` row an invitation creates or attaches to'],
 	['assignments.assignment_items', 'rows of `assignment_items`, sent with the create'],
 	['assignments.route_id', 'the `routes` row an assignment is drawn from'],
 	['assignments.assignment_item_ids', '`assignment_items.id`, the stops a move plan names'],
@@ -133,9 +135,10 @@ const CROSS_RECORD_KEYS = new Map([
  * Every table's columns, from the generated row schemas.
  *
  * These rather than the Kysely table types, because they are what
- * `drift.test.ts` already holds against the database, and because they are the
- * exact set a client can send: a command body's column keys are the row type's
- * keys minus the server-owned ones.
+ * `drift.test.ts` already holds against the database, and because they are all
+ * but the exact set a client can send: a command body's column keys are the row
+ * type's keys minus the server-owned ones, plus the ones the table withholds
+ * from readers and still accepts from a writer.
  *
  * The file name is the table name, so no import graph has to be read to find
  * one.
@@ -152,7 +155,12 @@ function readColumnsByTable() {
 		if (keys.size === 0) {
 			throw new Error(`${file} has no columns this check could read. Has the generator changed?`);
 		}
-		columns.set(file.slice(0, -'.ts'.length), keys);
+		const table = file.slice(0, -'.ts'.length);
+		// A withheld column is still a column, and still one a command can write.
+		// `memberships.invited_email` is the case: the invite dialog supplies it and
+		// the handler writes it, and no client ever receives it back. Reading only the
+		// schema here would take that for a typo.
+		columns.set(table, new Set([...keys, ...withheldColumnsFor(table)]));
 	}
 
 	return columns;
