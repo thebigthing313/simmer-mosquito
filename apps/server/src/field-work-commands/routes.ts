@@ -10,8 +10,8 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readText } from '../command-payload.js';
+import { applyPlacement } from '../ordered-items.js';
 import {
-	applyPlacement,
 	type CommandContext,
 	commandEndpoint,
 	type FieldWorkDb,

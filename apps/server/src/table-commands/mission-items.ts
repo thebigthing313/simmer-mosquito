@@ -23,8 +23,9 @@
  *
  * ## `position` is not a field a client sets
  *
- * A new stop is placed and the server renumbers, so `placement` is an
- * instruction rather than a column and the row's own `position` is ignored. A
+ * The server derives the new stop's position from `placement`, so `placement`
+ * is an instruction rather than a column and the row's own `position` is
+ * ignored. A
  * client may still send one — it has to hold a value for the row it drew
  * optimistically — and it is simply not read. Same as `route_items`.
  *

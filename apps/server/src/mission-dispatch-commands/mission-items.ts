@@ -17,6 +17,7 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
+import { applyPlacement, nextItemPosition } from '../ordered-items.js';
 import { assertMissionItemProgress, autoStartMissionIfScheduled } from './mission-lifecycle.js';
 import {
 	agencyCommandContext,
@@ -228,22 +229,9 @@ export async function writeMissionItemCommand(
 				}),
 				addressId: command.payload.addressId,
 				requestedControlActionId: command.payload.requestedControlActionId,
-				position: 0,
+				position: await missionItemPosition(trx, command.payload),
 				actorProfileId: command.payload.actorProfileId,
 			});
-			await reindexMissionItems(
-				trx,
-				command.payload.missionId,
-				command.payload.organizationId,
-				command.payload.actorProfileId,
-				(ids) =>
-					applyPlacement(
-						ids,
-						[command.payload.missionItemId],
-						command.payload.placement.kind,
-						missionPlacementRef(command.payload.placement),
-					),
-			);
 			return loadMissionItem(trx, command.payload.missionItemId, command.payload.organizationId);
 		}
 		case 'missionDispatch.addMissionItemFromRequestedControlAction': {
@@ -259,22 +247,9 @@ export async function writeMissionItemCommand(
 				),
 				addressId: null,
 				requestedControlActionId: command.payload.requestedControlActionId,
-				position: 0,
+				position: await missionItemPosition(trx, command.payload),
 				actorProfileId: command.payload.actorProfileId,
 			});
-			await reindexMissionItems(
-				trx,
-				command.payload.missionId,
-				command.payload.organizationId,
-				command.payload.actorProfileId,
-				(ids) =>
-					applyPlacement(
-						ids,
-						[command.payload.missionItemId],
-						command.payload.placement.kind,
-						missionPlacementRef(command.payload.placement),
-					),
-			);
 			return loadMissionItem(trx, command.payload.missionItemId, command.payload.organizationId);
 		}
 		case 'missionDispatch.updateMissionItemLocationAndLink': {
@@ -441,6 +416,34 @@ export async function writeMissionItemCommand(
 	}
 }
 
+/**
+ * Where an added stop lands, from the placement the command carries.
+ *
+ * Both adds carry the same four fields under different geometry, so this reads
+ * the payload once rather than either add spelling the list out.
+ */
+async function missionItemPosition(
+	trx: MissionDispatchTransaction,
+	payload: {
+		readonly missionItemId: string;
+		readonly missionId: string;
+		readonly organizationId: string;
+		readonly placement: MissionItemPlacement;
+	},
+): Promise<number> {
+	return nextItemPosition(
+		trx,
+		{
+			table: 'mission_items',
+			parentColumn: 'mission_id',
+			parentId: payload.missionId,
+			organizationId: payload.organizationId,
+		},
+		payload.missionItemId,
+		{ kind: payload.placement.kind, refId: missionPlacementRef(payload.placement) },
+	);
+}
+
 async function updateMissionItemRow(
 	trx: MissionDispatchTransaction,
 	missionItemId: string,
@@ -475,10 +478,11 @@ async function loadMissionItem(
 /**
  * Renumber a mission's stops 0…n-1 in the order `reorder` puts them.
  *
- * Exported because the move that calls it is a command on the *mission* — see
- * `table-commands/missions.ts` — while the stop writes that also renumber are
- * here. Both write the same numbers, which is what the optimistic half on the
- * client mirrors.
+ * Only `missionDispatch.moveMissionItems` calls this, and it is a command on
+ * the *mission* (see `table-commands/missions.ts`) while the stop writes are
+ * here, so it stays exported. It writes every active stop, not only the moved
+ * ones, the same gap against the domain doc that `reindexItems` has (#196).
+ * Adds compute a single fractional position instead; see `ordered-items.ts`.
  */
 export async function reindexMissionItems(
 	trx: MissionDispatchTransaction,
@@ -505,27 +509,6 @@ export async function reindexMissionItems(
 			.where('organization_id', '=', organizationId)
 			.execute();
 	}
-}
-
-export function applyPlacement(
-	orderedIds: readonly string[],
-	movingIds: readonly string[],
-	kind: 'start' | 'end' | 'before' | 'after',
-	refId: string | null,
-): readonly string[] {
-	const moving = movingIds.filter((id) => orderedIds.includes(id));
-	const remaining = orderedIds.filter((id) => !moving.includes(id));
-	if (kind === 'start') {
-		return [...moving, ...remaining];
-	}
-	if (kind === 'before' || kind === 'after') {
-		const refIndex = refId === null ? -1 : remaining.indexOf(refId);
-		if (refIndex !== -1) {
-			const insertAt = kind === 'before' ? refIndex : refIndex + 1;
-			return [...remaining.slice(0, insertAt), ...moving, ...remaining.slice(insertAt)];
-		}
-	}
-	return [...remaining, ...moving];
 }
 
 export function missionPlacementRef(placement: MissionItemPlacement): string | null {
