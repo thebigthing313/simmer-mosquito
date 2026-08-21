@@ -7,8 +7,10 @@ all, and ADR 0005 and 0011 for the identity model these commands write.
 
 ## What is here, and what is not
 
-Three commands, and they are the three identity writes that touch Postgres and
-nothing else:
+Seven commands, split by whether they settle anything outside Postgres.
+
+Three do not, and they moved first for that reason: they need no part of the
+spanning-command rules.
 
 | command | table | floor |
 | --- | --- | --- |
@@ -16,19 +18,42 @@ nothing else:
 | `identity.createProfile` | `profiles` | admin |
 | `identity.updateProfile` | `profiles` | admin |
 
-Nothing here writes WorkOS. That is what made these three the ones to move
-first, because they need no part of the spanning-command rules.
+Four do, because the grant a session is refreshed against lives in WorkOS. All
+four are on `POST|PATCH|DELETE /commands/memberships`, and they ship under the
+six rules in `docs/domain-command-contract.md` -> "Commands that span two
+systems".
 
-Four more commands are coming, and all four write WorkOS as well as Postgres.
-`identity.changeRole` and `identity.endMembership` are slice 3a.
-`identity.invite` and `identity.reinvite` are slice 3b, settled in #186 and
-described below. All four go on `POST|PATCH|DELETE /commands/memberships`, a
-module that does not exist yet.
+| command | verb | floor |
+| --- | --- | --- |
+| `identity.invite` | POST | admin |
+| `identity.reinvite` | PATCH | admin |
+| `identity.changeRole` | PATCH | **owner** |
+| `identity.endMembership` | PATCH | admin |
+
+Three of those four name a role, and a floor cannot settle what that costs: it
+compares the actor to a rung, and the escalation to refuse compares the actor to
+the *payload*. `assertCanGrantRole` in `apps/server/src/membership-commands.ts`
+is where that lives, and `tests/unit/table-commands/role-escalation.test.ts`
+derives the role-bearing commands from the intent map rather than listing them,
+so a fifth added without the check fails on the day it is written.
+
+**`identity.endMembership` is a PATCH, not a DELETE.** Ending access sets
+`status` to `inactive`; the row survives, because it is the only record that
+access was ever held. A DELETE would take the person off the People page and
+sync would put them straight back.
+
+Only `identity.changeRole` and `identity.endMembership` are written through the
+`memberships` collection. Inviting and re-inviting settle whether a mail was
+delivered, which is the half the contract refuses an optimistic row for, so
+`apps/web/src/hooks/mutations/use-membership-mutations.ts` posts those two
+directly and waits on the txid the server answers with.
 
 `people.listMemberships` is not one of them. It is a read behind a POST, and
 reads have never been commands. It keeps an admin floor as a plain role check on
-its own route, which is what lets `IdentityWriteSurface`, `IDENTITY_FLOORS` and
-`denyIdentityWrite` be deleted rather than kept alive for one caller.
+its own route, which is what let `IdentityWriteSurface`, `IDENTITY_FLOORS` and
+`denyIdentityWrite` be deleted rather than kept alive for one caller. Nothing in
+`apps/web` calls it: the People page reads its people from the `profiles` and
+`memberships` collections over sync.
 
 ## An Invitation is two rows, and the client keys both
 
@@ -53,7 +78,15 @@ saw an error can re-run it, where the reverse would have already killed the only
 link the person holds.
 
 The People page names both effects on the invited row before it fires: the
-address, the role it will set, and that the earlier link stops working.
+address, the role it will set, and that the earlier link stops working. The
+dialog is the confirmation and there is no step after it, and the control is only
+drawn on a Membership still at `invited` — an active member has no link to
+replace, and an ended one is a fresh invitation.
+
+`workos_invitation_id` may be `null` on a row that was invited. #207 answers a
+failed stamp with the Membership unstamped and one log line carrying the id, so a
+re-invitation there has nothing to revoke. That is not an error and must not
+block the re-invitation; it mails the replacement and leaves nothing behind.
 
 ## The agency's own row has two vocabularies, by shape
 

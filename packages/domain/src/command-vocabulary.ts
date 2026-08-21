@@ -165,6 +165,14 @@ export type MultiRowCommandType =
 	| 'fieldWork.setTrapCollectionForAssignmentItem'
 	// A Habitat, and the Habitat Inspection promoted into it.
 	| 'larvalSurveillance.createHabitatFromInspection'
+	// A Membership, and the Profile it attaches a login to. Both are drawn by the
+	// People page, so one optimistic row would leave the other half missing from a
+	// screen the inviter is looking at. It also spans WorkOS, and
+	// `docs/domain-command-contract.md` refuses an optimistic row for the half the
+	// client cannot see — `identity.reinvite` is out for that second reason alone,
+	// and is kept out by not being written through a collection rather than by
+	// being named here, because it does write exactly one row.
+	| 'identity.invite'
 	// `mergeContacts` has a handler; the other two do not, and are listed on what a
 	// merge means rather than on what one does.
 	| 'foundation.mergeAddresses'

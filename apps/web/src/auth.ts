@@ -15,29 +15,6 @@ const DEFAULT_SERVER_URL = 'http://localhost:3000';
 
 export type { AuthenticatedMe, AuthMe } from '@simmer-mosquito/auth/browser';
 
-export type MembershipStatus = 'active' | 'inactive' | 'invited';
-
-import type { SimmerRole } from '@simmer-mosquito/domain';
-
-export interface AdminMembership {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly userId: string | null;
-	readonly profileId: string;
-	readonly role: SimmerRole;
-	readonly status: MembershipStatus;
-	readonly isDefault: boolean;
-	readonly invitedEmail: string | null;
-	readonly workosInvitationId: string | null;
-	readonly profile: {
-		readonly displayName: string;
-		readonly email: string | null;
-		readonly isActive: boolean;
-	};
-	readonly createdAt: string;
-	readonly updatedAt: string;
-}
-
 /**
  * A `VITE_*` value that is present but empty, read as absent.
  *

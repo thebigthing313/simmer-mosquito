@@ -17,7 +17,7 @@ import { registerFieldWorkCommandRoutes } from '../../field-work-commands/index.
 import { registerFoundationGeographyCommandRoutes } from '../../foundation-geography-commands/index.js';
 import { registerLarvalSurveillanceCommandRoutes } from '../../larval-surveillance-commands/index.js';
 import { registerPublicEngagementRecordRoutes } from '../../public-engagement-records-commands/index.js';
-import { denyIdentityWrite, type ForbiddenBody, type IdentityWriteSurface } from '../../roles.js';
+import type { ForbiddenBody } from '../../roles.js';
 
 /**
  * The agency half of a scope, which is what almost every case here is about.
@@ -356,23 +356,16 @@ describe('denyUnauthorizedCommandType', () => {
 	});
 });
 
-describe('denyIdentityWrite', () => {
-	it('holds the people floor at admin and the role floor at owner', () => {
-		expect(identityDenyFor('admin', 'people.invite')).toBeNull();
-		expect(identityDenyFor('manager', 'people.invite')).not.toBeNull();
-
-		expect(identityDenyFor('owner', 'people.changeRole')).toBeNull();
-		expect(identityDenyFor('admin', 'people.changeRole')).not.toBeNull();
-	});
-
-	it('refuses a manager the membership list', () => {
-		expect(identityDenyFor('admin', 'people.listMemberships')).toBeNull();
-		expect(identityDenyFor('manager', 'people.listMemberships')).not.toBeNull();
-	});
-
-	// The three that left the identity table in ADR 0013's first slice. Their
-	// floors did not change; where they are written down did.
-	it('holds the three identity commands at the floors they had as routes', () => {
+/**
+ * The floors the identity commands carry, and where they came from.
+ *
+ * `IDENTITY_FLOORS` in `roles.ts` held these as a parallel table until ADR 0013
+ * was finished. Not one of them changed value on the way over; what changed is
+ * that the map they landed in is exhaustive, so an identity command with no floor
+ * no longer compiles.
+ */
+describe('the identity floors', () => {
+	it('holds the three pure-Postgres writes at the floors they had as routes', () => {
 		expect(denyFor('admin', 'identity.updateOrganizationDetails')).toBeNull();
 		expect(denyFor('manager', 'identity.updateOrganizationDetails')).not.toBeNull();
 		expect(denyFor('admin', 'identity.createProfile')).toBeNull();
@@ -380,17 +373,25 @@ describe('denyIdentityWrite', () => {
 		expect(denyFor('admin', 'identity.updateProfile')).toBeNull();
 		expect(denyFor('manager', 'identity.updateProfile')).not.toBeNull();
 	});
+
+	it('holds the people floor at admin and the role floor at owner', () => {
+		expect(denyFor('admin', 'identity.invite')).toBeNull();
+		expect(denyFor('manager', 'identity.invite')).not.toBeNull();
+		expect(denyFor('admin', 'identity.reinvite')).toBeNull();
+		expect(denyFor('manager', 'identity.reinvite')).not.toBeNull();
+		expect(denyFor('admin', 'identity.endMembership')).toBeNull();
+		expect(denyFor('manager', 'identity.endMembership')).not.toBeNull();
+
+		expect(denyFor('owner', 'identity.changeRole')).toBeNull();
+		expect(denyFor('admin', 'identity.changeRole')).not.toBeNull();
+	});
 });
 
 function denyFor(role: SimmerRole, type: AgencyCommandType): Response | null {
 	return denyUnauthorizedCommandType(refusalContext(role), type);
 }
 
-function identityDenyFor(role: SimmerRole, surface: IdentityWriteSurface): Response | null {
-	return denyIdentityWrite(refusalContext(role), surface);
-}
-
-/** The two guards take only what they need: the role, and a way to say no. */
+/** The guard takes only what it needs: the role, and a way to say no. */
 function refusalContext(role: SimmerRole) {
 	return {
 		get: (_key: 'authContext') => ({ role }),

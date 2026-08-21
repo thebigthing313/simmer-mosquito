@@ -14,9 +14,15 @@ import { getServerUrl } from '../../auth';
  * `eager`: The role ladder. The server is what enforces it, but the UI hides what a
  * Profile may not do, and it cannot do that a subset at a time.
  *
- * Read-only here. Declaring it leaves the collection with no
- * `onInsert`/`onUpdate`/`onDelete` at all, so a write is refused before it
- * travels.
+ * Writable since ADR 0013's last slice. Changing a role and ending a membership
+ * are `identity.*` commands on `/commands/memberships`, applied as ordinary
+ * optimistic updates — the row they move is one the client fully determines, and
+ * the WorkOS half writes nothing a client receives.
+ *
+ * Inviting and re-inviting are not written through this collection at all. Both
+ * settle whether a mail was delivered, which is the half the contract refuses an
+ * optimistic row for, and an invitation writes a Profile beside the Membership.
+ * `use-membership-mutations.ts` posts those two and waits on the txid here.
  *
  * The type is written here rather than inferred because a `Collection<…>`
  * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
@@ -25,7 +31,7 @@ import { getServerUrl } from '../../auth';
 export const memberships: Collection<Membership, string | number> = createMembershipsCollection({
 	serverUrl: getServerUrl(),
 	syncMode: 'eager',
-	mutations: false,
+	mutations: true,
 });
 
 /**

@@ -58,7 +58,10 @@ interface WriterSpec {
 	};
 }
 
-const specs = tableCommandSpecs(undefined as never) as unknown as readonly WriterSpec[];
+const specs = tableCommandSpecs(
+	undefined as never,
+	undefined as never,
+) as unknown as readonly WriterSpec[];
 
 /** Every (table, intent) pair on the surface, as test cases. */
 const pairs = specs.flatMap((spec) =>

@@ -31,6 +31,14 @@ const ROLE_RANK: Record<SimmerRole, number> = {
  * to `owner`, and a rung anyone below it can award themselves is not a rung.
  * That is the whole of what `owner` gates; see {@link canGrantRole} for the same
  * reasoning applied to invitations, which name a role too.
+ *
+ * Every agency write to Postgres now reads its floor from `COMMAND_PERMISSIONS`.
+ * There was a second table here, `IDENTITY_FLOORS`, holding the seven writes that
+ * were REST routes instead, and the hole it had is what ADR 0013 closed: a
+ * command with no floor does not compile, while a route that never consulted the
+ * table was nothing that could fail. The one identity surface left on REST is
+ * `people.listMemberships`, which is a read behind a POST, and it carries a plain
+ * role check on its own route.
  */
 export type MinimumRole = 'owner' | 'admin' | 'manager' | 'collector';
 
@@ -58,107 +66,4 @@ export interface ForbiddenBody {
 
 export function forbidden(reason: string): ForbiddenBody {
 	return { error: 'forbidden', reason };
-}
-
-/**
- * Every agency write that is not *yet* a command, and the floor it sits behind.
- *
- * **This table is being deleted.** ADR 0013 folds identity into the command
- * vocabulary, so every agency write to Postgres reaches it the same way: the
- * client states what it intended, and the server decides whether to do it. Each
- * surface below leaves as its command lands, and the floor it holds is the
- * source for the `COMMAND_PERMISSIONS` entry that replaces it — the floors
- * themselves are not being revisited, only where they are written down.
- *
- * ## What this comment used to say, and why it was wrong
- *
- * It said these surfaces *cannot* be commands, because "they land in WorkOS
- * *and* Postgres, and a replayed invitation or role change is a second grant
- * rather than the same one". That is true of exactly one of the seven.
- * `people.invite` is not replay-safe. `people.changeRole` and
- * `people.endMembership` do span WorkOS but are idempotent. And
- * `organization.updateDetails`, `people.createProfile` and
- * `people.updateProfile` never touched WorkOS at all. They were plain Postgres
- * writes, and `createProfile` already carried a client-minted UUID, which is the
- * exact property the command contract asks for. Those three are gone from this
- * table: they are `identity.updateOrganizationDetails`, `identity.createProfile`
- * and `identity.updateProfile`, with the same floors in `COMMAND_PERMISSIONS`.
- *
- * The reason was reconstruction, and it read as a constraint. It was a boundary
- * decision that nobody had written down, and ADR 0013 is the decision reversed
- * with the reasoning attached.
- *
- * ## The hole this table has that the command map does not
- *
- * `COMMAND_PERMISSIONS` is total over `AgencyCommandType`: a command with no
- * floor does not compile, and dispatch reads the map before a handler runs.
- * Here, removing a surface's floor or adding a surface without one fails the
- * build — but adding a whole new route and never calling
- * {@link denyIdentityWrite} does not. Nothing forces the call. That gap is the
- * concrete reason the fold is worth doing rather than only a tidiness argument.
- *
- * `people.listMemberships` is not going anywhere, and is not an exception: it is
- * a read behind a POST, and reads have never been commands.
- *
- * Floors only. The people surface also refuses by {@link canGrantRole}, twice —
- * against the role named in an invitation, and against the role of the
- * membership being ended — and neither is a floor, because both compare the
- * actor to a value rather than to a rung. Those stay in `profile-commands.ts`,
- * beside the payload and the row they read, and will move to the command
- * handlers with them.
- */
-export type IdentityWriteSurface =
-	| 'people.listMemberships'
-	| 'people.changeRole'
-	| 'people.endMembership'
-	| 'people.invite';
-
-interface IdentityFloor {
-	readonly minimum: MinimumRole;
-	readonly refusal: string;
-}
-
-const IDENTITY_FLOORS: Record<IdentityWriteSurface, IdentityFloor> = {
-	// The people floor is admin, not owner: an agency delegates onboarding, and
-	// an office manager adding a seasonal crew is the ordinary case. Handing out
-	// a role is the separate question below.
-	'people.listMemberships': {
-		minimum: 'admin',
-		refusal: 'Only organization owners and admins can manage people.',
-	},
-	'people.endMembership': {
-		minimum: 'admin',
-		refusal: 'Only organization owners and admins can manage people.',
-	},
-	'people.invite': {
-		minimum: 'admin',
-		refusal: 'Only organization owners and admins can manage people.',
-	},
-
-	// Owner, because a settable role is a self-promotable one — see MinimumRole.
-	'people.changeRole': {
-		minimum: 'owner',
-		refusal: 'Only organization owners can change a role.',
-	},
-};
-
-/**
- * The route-boundary check for an identity write.
- *
- * Structurally typed against the context rather than importing Hono, so this
- * file stays what it says it is: the ladder, and nothing that serves it.
- */
-export function denyIdentityWrite(
-	context: {
-		readonly get: (key: 'authContext') => { readonly role: SimmerRole };
-		readonly json: (body: ForbiddenBody, status: 403) => Response;
-	},
-	surface: IdentityWriteSurface,
-): Response | null {
-	const floor = IDENTITY_FLOORS[surface];
-	if (hasAtLeastRole(context.get('authContext').role, floor.minimum)) {
-		return null;
-	}
-
-	return context.json(forbidden(floor.refusal), 403);
 }

@@ -147,7 +147,8 @@ describe('people', () => {
 		'collector',
 		'viewer',
 	] as const)('refuses a %s changing a role', async (role) => {
-		const response = await patch(role, `/organization/memberships/${membershipId}/role`, {
+		const response = await patch(role, `/commands/memberships/${membershipId}`, {
+			intents: ['identity.changeRole'],
 			role: 'manager',
 		});
 
@@ -164,14 +165,14 @@ describe('people', () => {
 		'collector',
 		'viewer',
 	] as const)('refuses a %s removing a member', async (role) => {
-		const response = await remove(role, `/organization/memberships/${membershipId}`);
+		const response = await endMembership(role, membershipId);
 
 		expect(response.status).toBe(403);
 		await expect(response.json()).resolves.toMatchObject({ error: 'forbidden' });
 	});
 
 	it('admits an admin removing a member', async () => {
-		const response = await remove('admin', `/organization/memberships/${membershipId}`);
+		const response = await endMembership('admin', membershipId);
 
 		expect(response.status).toBe(500);
 	});
@@ -179,9 +180,9 @@ describe('people', () => {
 	// Without the bound, "admins may remove" is "admins may remove every owner",
 	// and an agency with no owner cannot appoint one.
 	it('refuses an admin removing an owner', async () => {
-		const response = await remove(
+		const response = await endMembership(
 			'admin',
-			`/organization/memberships/${membershipId}`,
+			membershipId,
 			membershipDb({ role: 'owner', status: 'active' }),
 		);
 
@@ -193,12 +194,12 @@ describe('people', () => {
 	});
 
 	// The membership the request carries is the actor's own, so this is the
-	// self-removal refusal — asserted here because only the route knows which
-	// membership is the caller's.
+	// self-removal refusal — asserted here because only `AuthContext` knows which
+	// membership belongs to the caller.
 	it('refuses removing your own membership', async () => {
-		const response = await remove(
+		const response = await endMembership(
 			'owner',
-			`/organization/memberships/${ACTOR_MEMBERSHIP_ID}`,
+			ACTOR_MEMBERSHIP_ID,
 			membershipDb({ role: 'owner', status: 'active' }),
 		);
 
@@ -206,12 +207,15 @@ describe('people', () => {
 		await expect(response.json()).resolves.toMatchObject({ error: 'membership_is_self' });
 	});
 
-	// The escalation the two floors exist to close: refused at the role endpoint,
+	// The escalation the two floors exist to close: refused at the role command,
 	// an admin must not reach the same place by inviting an owner instead.
 	it('refuses an admin inviting an owner', async () => {
-		const response = await post('admin', '/organization/invitations', {
-			email: 'someone@example.test',
-			displayName: 'Someone Else',
+		const response = await post('admin', '/commands/memberships', {
+			intents: ['identity.invite'],
+			id: membershipId,
+			profile_id: profileId,
+			invited_email: 'someone@example.test',
+			display_name: 'Someone Else',
 			role: 'owner',
 		});
 
@@ -219,6 +223,20 @@ describe('people', () => {
 		await expect(response.json()).resolves.toMatchObject({
 			error: 'forbidden',
 			reason: 'You cannot invite somebody above your own role.',
+		});
+	});
+
+	// A re-invitation names a role too, and reaches the same rung the same way.
+	it('refuses an admin re-inviting somebody as an owner', async () => {
+		const response = await patch('admin', `/commands/memberships/${membershipId}`, {
+			intents: ['identity.reinvite'],
+			role: 'owner',
+		});
+
+		expect(response.status).toBe(403);
+		await expect(response.json()).resolves.toMatchObject({
+			error: 'forbidden',
+			reason: 'You cannot re-invite somebody above your own role.',
 		});
 	});
 });
@@ -233,7 +251,8 @@ function createApp(role: SimmerRole, db: unknown = unusableDb): Hono<{ Variables
 	);
 
 	registerTableCommandSurface(app, {
-		db: unusableDb as never,
+		db: db as never,
+		auth: unusableAuth as never,
 		authContextMiddleware,
 		operatorAuthContextMiddleware: authContextMiddleware,
 	});
@@ -241,17 +260,27 @@ function createApp(role: SimmerRole, db: unknown = unusableDb): Hono<{ Variables
 		db: unusableDb as never,
 		authContextMiddleware,
 	});
-	registerProfileCommandRoutes(app, {
-		db: db as never,
-		auth: unusableAuth as never,
-		authContextMiddleware,
-	});
+	registerProfileCommandRoutes(app, { db: db as never, authContextMiddleware });
 
 	return app;
 }
 
-async function remove(role: SimmerRole, path: string, db?: unknown): Promise<Response> {
-	return createApp(role, db ?? unusableDb).request(path, { method: 'DELETE' });
+/**
+ * Ending access, as the PATCH it is.
+ *
+ * The row survives at `inactive`, so this is not a DELETE, and the `status` a
+ * client sends moves its optimistic row rather than telling the server anything.
+ */
+async function endMembership(
+	role: SimmerRole,
+	membershipId: string,
+	db?: unknown,
+): Promise<Response> {
+	return createApp(role, db ?? unusableDb).request(`/commands/memberships/${membershipId}`, {
+		method: 'PATCH',
+		headers: { 'content-type': 'application/json' },
+		body: JSON.stringify({ intents: ['identity.endMembership'], status: 'inactive' }),
+	});
 }
 
 async function patch(role: SimmerRole, path: string, body: unknown): Promise<Response> {
@@ -274,12 +303,18 @@ const unusableDb = {
 	transaction: () => {
 		throw new Error('The database must not be reached for an unauthorized command.');
 	},
+	selectFrom: () => {
+		throw new Error('The database must not be reached for an unauthorized command.');
+	},
 };
 
-/** Invitations and removals are side effects on WorkOS; a refusal must not reach either. */
+/** Every WorkOS call these commands make is a side effect; a refusal must reach none of them. */
 const unusableAuth = {
 	sendOrganizationInvitation: () => {
 		throw new Error('WorkOS must not be reached for an unauthorized invitation.');
+	},
+	revokeInvitation: () => {
+		throw new Error('WorkOS must not be reached for an unauthorized re-invitation.');
 	},
 	deactivateOrganizationMembership: () => {
 		throw new Error('WorkOS must not be reached for an unauthorized removal.');
@@ -287,7 +322,8 @@ const unusableAuth = {
 };
 
 /**
- * A database that answers `readMembershipRemovalTarget` and nothing else.
+ * A database that answers the two reads `identity.endMembership` makes before it
+ * writes, and nothing else.
  *
  * The rank bound on removal is the one refusal that cannot be reached with
  * `unusableDb`: it needs to know the target's role, which is a read. Every
