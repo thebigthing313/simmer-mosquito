@@ -1,3 +1,4 @@
+import { QueryErrorResetBoundary } from '@tanstack/react-query';
 import type React from 'react';
 import { Component, Suspense } from 'react';
 
@@ -23,21 +24,39 @@ interface SuspenseQueryBoundaryState {
 	readonly caught: boolean;
 }
 
+/**
+ * `QueryErrorResetBoundary` is what makes the fallback's retry mean anything.
+ *
+ * Clearing this boundary's own state only re-renders the children. A react-query
+ * read that already failed re-throws its cached error on that render, so the
+ * retry looks inert: the surface flickers and comes straight back. The reset
+ * boundary clears those cached errors first, so the read is actually reissued.
+ *
+ * It does not cover every way a child can fail. A component that throws
+ * synchronously on state that has not changed will throw again, which is correct
+ * behaviour and not something a retry button can fix.
+ */
 export function SuspenseQueryBoundary({
 	children,
 	errorFallback,
 	loadingFallback,
 	resetKey,
 }: SuspenseQueryBoundaryProps) {
-	const boundaryProps =
-		resetKey === undefined
-			? { fallback: errorFallback ?? null }
-			: { fallback: errorFallback ?? null, resetKey };
-
 	return (
-		<QueryErrorBoundary {...boundaryProps}>
-			<Suspense fallback={loadingFallback}>{children}</Suspense>
-		</QueryErrorBoundary>
+		<QueryErrorResetBoundary>
+			{({ reset: resetQueries }) => {
+				const boundaryProps =
+					resetKey === undefined
+						? { fallback: errorFallback ?? null, onReset: resetQueries }
+						: { fallback: errorFallback ?? null, onReset: resetQueries, resetKey };
+
+				return (
+					<QueryErrorBoundary {...boundaryProps}>
+						<Suspense fallback={loadingFallback}>{children}</Suspense>
+					</QueryErrorBoundary>
+				);
+			}}
+		</QueryErrorResetBoundary>
 	);
 }
 
@@ -45,6 +64,7 @@ class QueryErrorBoundary extends Component<
 	{
 		readonly children: React.ReactNode;
 		readonly fallback: ErrorFallback;
+		readonly onReset: () => void;
 		readonly resetKey?: string;
 	},
 	SuspenseQueryBoundaryState
@@ -67,7 +87,10 @@ class QueryErrorBoundary extends Component<
 		}
 	}
 
+	// Queries first: clearing local state re-renders the children, and a cached
+	// query error still standing at that point throws straight back into here.
 	reset = () => {
+		this.props.onReset();
 		this.setState({ error: undefined, caught: false });
 	};
 

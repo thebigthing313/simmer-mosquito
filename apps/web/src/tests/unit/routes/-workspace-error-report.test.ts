@@ -40,7 +40,6 @@ describe('describeError', () => {
 	it.each([
 		['undefined', undefined, 'undefined'],
 		['null', null, 'null'],
-		['an empty string', '', ''],
 		['a plain object', { status: 503 }, '[object Object]'],
 	])('names the value when %s is thrown', (_label, thrown, rendered) => {
 		const details = describeError(thrown);
@@ -48,6 +47,12 @@ describe('describeError', () => {
 		expect(details.name).toBe('Unknown error');
 		expect(details.message).toBe(`The workspace threw a value that is not an error: ${rendered}`);
 		expect(details.stack).toBeNull();
+	});
+
+	it('does not leave the sentence hanging on its colon for an empty string', () => {
+		expect(describeError('').message).toBe(
+			'The workspace threw a value that is not an error, and it was empty.',
+		);
 	});
 });
 

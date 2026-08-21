@@ -45,9 +45,17 @@ function describeThrownValue(error: unknown): ErrorDetails {
 		return { name: 'Error', message: error, stack: null };
 	}
 
+	// `String('')` is empty, and naming the value would leave the sentence hanging
+	// on its colon. An empty string carries no more than a bare `throw` does, so
+	// both land on the same line.
+	const rendered = String(error);
+
 	return {
 		name: 'Unknown error',
-		message: `The workspace threw a value that is not an error: ${String(error)}`,
+		message:
+			rendered === ''
+				? 'The workspace threw a value that is not an error, and it was empty.'
+				: `The workspace threw a value that is not an error: ${rendered}`,
 		stack: null,
 	};
 }

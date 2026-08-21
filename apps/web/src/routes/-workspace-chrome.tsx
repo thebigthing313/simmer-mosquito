@@ -1,4 +1,5 @@
 import { PRIMARY_SIDEBAR_COLLAPSED_KEY } from '@simmer-mosquito/ui-web/components/app-shell';
+import { SkeletonRows } from '@simmer-mosquito/ui-web/components/skeleton-rows';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
@@ -26,28 +27,13 @@ const ChevronIcon = iconRegistry.arrows.chevronRight.icon;
 const CopyIcon = iconRegistry.actions.copy.icon;
 
 /**
- * Placeholder row widths, uneven on purpose: a column of identical bars reads as
- * a pattern, and a ragged one reads as text that has not arrived yet. Each row
- * carries its own key because the same width repeats down a column.
+ * One width class per placeholder row. `SkeletonRows` explains why they are
+ * uneven; the counts here are what the real rail and navigation column hold.
  */
-const RAIL_ROWS = [
-	{ id: 'rail-1', width: 'w-full' },
-	{ id: 'rail-2', width: 'w-11/12' },
-	{ id: 'rail-3', width: 'w-full' },
-	{ id: 'rail-4', width: 'w-10/12' },
-	{ id: 'rail-5', width: 'w-full' },
-	{ id: 'rail-6', width: 'w-9/12' },
-] as const;
-
-const NAV_ROWS = [
-	{ id: 'nav-1', width: 'w-full' },
-	{ id: 'nav-2', width: 'w-5/6' },
-	{ id: 'nav-3', width: 'w-full' },
-	{ id: 'nav-4', width: 'w-2/3' },
-	{ id: 'nav-5', width: 'w-11/12' },
-] as const;
-
-const CONTENT_ROWS = ['row-1', 'row-2', 'row-3', 'row-4', 'row-5'] as const;
+const RAIL_ROW_WIDTHS = ['w-full', 'w-11/12', 'w-full', 'w-10/12', 'w-full', 'w-9/12'] as const;
+const COLLAPSED_RAIL_ROW_WIDTHS = ['w-9', 'w-9', 'w-9', 'w-9', 'w-9', 'w-9'] as const;
+const NAV_ROW_WIDTHS = ['w-full', 'w-5/6', 'w-full', 'w-2/3', 'w-11/12'] as const;
+const CONTENT_ROW_WIDTHS = ['w-full', 'w-full', 'w-full', 'w-full', 'w-full'] as const;
 
 /**
  * The whole-window state while the authenticated shell resolves.
@@ -94,31 +80,25 @@ function FallbackRail({ collapsed }: { readonly collapsed: boolean }) {
 			) : (
 				<img alt="" className="h-10 w-auto self-center" src="/logo.svg" />
 			)}
-			<div className={cn('grid w-full gap-2', collapsed && 'justify-items-center')}>
-				{RAIL_ROWS.map(({ id, width }) => (
-					<div
-						className={cn('h-8 animate-pulse rounded-md bg-white/10', collapsed ? 'w-9' : width)}
-						key={id}
-					/>
-				))}
-			</div>
+			<SkeletonRows
+				className="w-full"
+				rowClassName="h-8 bg-white/10"
+				widths={collapsed ? COLLAPSED_RAIL_ROW_WIDTHS : RAIL_ROW_WIDTHS}
+			/>
 		</div>
 	);
 }
 
-/**
- * The active domain's navigation column.
- *
- * `bg-muted` and `bg-sidebar` resolve to the same paper, so a muted placeholder
- * is invisible here. The strong step up is not.
- */
+/** The active domain's navigation column. */
 function FallbackNav() {
 	return (
 		<div className="flex w-60 shrink-0 flex-col gap-2.5 border-sidebar-border border-r bg-sidebar px-3 py-4">
-			<div className="h-4 w-24 animate-pulse rounded bg-sidebar-accent" />
-			{NAV_ROWS.map(({ id, width }) => (
-				<div className={cn('h-7 animate-pulse rounded-md bg-sidebar-accent', width)} key={id} />
-			))}
+			<Skeleton className="h-4 w-24 bg-sidebar-accent" />
+			<SkeletonRows
+				className="gap-2.5"
+				rowClassName="h-7 bg-sidebar-accent"
+				widths={NAV_ROW_WIDTHS}
+			/>
 		</div>
 	);
 }
@@ -133,19 +113,11 @@ function FallbackStage() {
 				<Skeleton className="size-8 rounded-full" />
 			</div>
 			<div className="relative min-h-0 flex-1 overflow-hidden bg-(--app-stage)">
-				{/*
-				 * The one moving part. Skeletons say what is coming; they cannot say
-				 * whether anything is still happening.
-				 */}
-				<span aria-hidden="true" className="workspace-sweep" />
+				<span aria-hidden="true" className="simmer-sweep" />
 				<div className="grid gap-3 p-6">
 					<Skeleton className="h-8 w-[min(280px,45%)]" />
 					<Skeleton className="h-4 w-[min(420px,65%)]" />
-					<div className="mt-3 grid gap-3">
-						{CONTENT_ROWS.map((row) => (
-							<Skeleton className="h-14 w-full" key={row} />
-						))}
-					</div>
+					<SkeletonRows className="mt-3 gap-3" rowClassName="h-14" widths={CONTENT_ROW_WIDTHS} />
 				</div>
 			</div>
 		</div>
@@ -183,10 +155,10 @@ export function WorkspaceChromeError({ error, info, reset }: WorkspaceChromeErro
 				<ErrorHeadline />
 				<CardContent className="grid gap-4 py-5" padding="default">
 					<div className="grid gap-1.5">
-						<span className="font-bold text-[0.72rem] text-muted-foreground uppercase tracking-[0.06em]">
+						<span className="font-bold text-muted-foreground text-xs uppercase tracking-wide">
 							{details.name}
 						</span>
-						<p className="m-0 max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/50 px-3 py-2.5 font-mono text-[0.82rem] text-foreground leading-relaxed">
+						<p className="m-0 max-h-40 overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-border bg-muted/50 px-3 py-2.5 font-mono text-foreground text-sm leading-relaxed">
 							{details.message}
 						</p>
 					</div>
@@ -214,7 +186,7 @@ function ErrorHeadline() {
 		<div className="flex items-start gap-3 border-destructive/20 border-b bg-destructive/8 px-6 py-4">
 			<ErrorIcon aria-hidden="true" className="mt-0.5 size-5 shrink-0 text-destructive" />
 			<div className="grid gap-1">
-				<strong className="font-bold text-[1.05rem] text-foreground leading-tight">
+				<strong className="font-semibold text-foreground text-lg leading-tight">
 					The workspace did not finish loading
 				</strong>
 				<p className="m-0 max-w-[62ch] text-muted-foreground text-sm leading-normal">
@@ -236,7 +208,7 @@ function ErrorFacts() {
 	];
 
 	return (
-		<dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[0.8rem]">
+		<dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs">
 			{facts.map(({ label, value }) => (
 				<Fragment key={label}>
 					<dt className="m-0 text-muted-foreground">{label}</dt>
@@ -270,7 +242,7 @@ function ErrorStack({ text }: { readonly text: string }) {
 				/>
 				Technical details
 			</summary>
-			<pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-words border-border border-t px-3 py-2.5 font-mono text-[0.75rem] text-muted-foreground leading-relaxed">
+			<pre className="m-0 max-h-64 overflow-auto whitespace-pre-wrap break-words border-border border-t px-3 py-2.5 font-mono text-muted-foreground text-xs leading-relaxed">
 				{text}
 			</pre>
 		</details>
