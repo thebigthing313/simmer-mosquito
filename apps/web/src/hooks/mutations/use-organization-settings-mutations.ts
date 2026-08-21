@@ -110,9 +110,10 @@ export interface AgencyDetailsColumns {
  * asks for nothing.
  *
  * `mailingCountry` is not compared to a field because there is no field. The
- * address is US-shaped — the region is checked against the state codes — so it is
- * always `'US'`, and comparing it to the stored value is what stops an agency
- * whose row predates that from being left alone forever.
+ * address is US-shaped, enforced by the domain on both the region and the
+ * country, so it is always `'US'`. Comparing it to the stored value is what
+ * stops an agency whose row predates that from being left alone forever, which
+ * is why the field stays in the plan rather than being dropped.
  */
 export function agencyDetailsPlan(
 	fields: AgencyDetailsFields,
