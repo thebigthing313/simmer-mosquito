@@ -27,7 +27,7 @@
  * lifecycle instruction, so no camelCase exception.
  */
 
-import type { SafeTag } from '@simmer-mosquito/db';
+import type { TagRow } from '@simmer-mosquito/db';
 import {
 	activateTagCommand,
 	createTagCommand,
@@ -41,7 +41,7 @@ import type { TagCommand } from '../foundation-commands/shared.js';
 import { writeFoundationTagCommand } from '../foundation-commands/tags.js';
 import type { TableCommands } from './dispatch.js';
 
-export function tagTableCommands(db: CommandDb): TableCommands<TagCommand, SafeTag> {
+export function tagTableCommands(db: CommandDb): TableCommands<TagCommand, TagRow> {
 	return {
 		table: 'tags',
 		run: { db, write: writeFoundationTagCommand, notFound: 'tag_not_found', key: 'tag' },

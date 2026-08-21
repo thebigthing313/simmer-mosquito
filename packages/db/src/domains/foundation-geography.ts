@@ -4,6 +4,7 @@ import type { DbExecutor, GeoJsonGeometry, OwnedGeometryInfo } from '../index.js
 import type { MapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import { type MapFilterInput, type MapTileInput, mapSurface } from './map-surface.js';
+import type { SelectedRow } from './org-owned-writes.js';
 import { checkedValues } from './write-references.js';
 
 export interface CreateAddressInput {
@@ -50,6 +51,33 @@ export interface SafeAddress {
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
+
+export const addressColumns = [
+	'id',
+	'organization_id',
+	'lat',
+	'lng',
+	'geojson',
+	'geom_type',
+	'display_name',
+	'country',
+	'address_line_1',
+	'address_line_2',
+	'locality',
+	'region',
+	'postal_code',
+	'created_by_profile_id',
+	'updated_by_profile_id',
+	'created_at',
+	'updated_at',
+] as const;
+
+/**
+ * What an address write answers with: the columns it returned, under their own
+ * names. `SafeAddress` above is the camelCase reading of the same list, and only
+ * the operator console's list and the `/map/*` lookup still read it.
+ */
+export type AddressRow = SelectedRow<'addresses', typeof addressColumns>;
 
 export interface CreateRegionFolderInput {
 	readonly organizationId: string;
@@ -109,7 +137,7 @@ function geojsonToGeom(geojson: unknown): RawBuilder<string> {
 export async function createAddress(
 	db: DbExecutor,
 	input: CreateAddressInput,
-): Promise<SafeAddress> {
+): Promise<AddressRow> {
 	const row = await db
 		.insertInto('addresses')
 		.values({
@@ -127,28 +155,10 @@ export async function createAddress(
 			created_by_profile_id: input.createdByProfileId ?? null,
 			updated_by_profile_id: input.updatedByProfileId ?? input.createdByProfileId ?? null,
 		})
-		.returning([
-			'id',
-			'organization_id',
-			'lat',
-			'lng',
-			'geojson',
-			'geom_type',
-			'display_name',
-			'country',
-			'address_line_1',
-			'address_line_2',
-			'locality',
-			'region',
-			'postal_code',
-			'created_by_profile_id',
-			'updated_by_profile_id',
-			'created_at',
-			'updated_at',
-		])
+		.returning(addressColumns)
 		.executeTakeFirstOrThrow();
 
-	return toSafeAddress(row);
+	return row;
 }
 
 export async function listAddresses(
@@ -157,25 +167,7 @@ export async function listAddresses(
 ): Promise<SafeAddress[]> {
 	const rows = await db
 		.selectFrom('addresses')
-		.select([
-			'id',
-			'organization_id',
-			'lat',
-			'lng',
-			'geojson',
-			'geom_type',
-			'display_name',
-			'country',
-			'address_line_1',
-			'address_line_2',
-			'locality',
-			'region',
-			'postal_code',
-			'created_by_profile_id',
-			'updated_by_profile_id',
-			'created_at',
-			'updated_at',
-		])
+		.select(addressColumns)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
 		.orderBy('display_name', 'asc')
@@ -184,39 +176,30 @@ export async function listAddresses(
 	return rows.map(toSafeAddress);
 }
 
-const addressColumns = [
-	'id',
-	'organization_id',
-	'lat',
-	'lng',
-	'geojson',
-	'geom_type',
-	'display_name',
-	'country',
-	'address_line_1',
-	'address_line_2',
-	'locality',
-	'region',
-	'postal_code',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
-
 export async function getAddressById(
 	db: DbExecutor,
 	input: { readonly id: string; readonly organizationId: string },
 ): Promise<SafeAddress | undefined> {
-	const row = await db
+	const row = await getAddressRowById(db, input);
+	return row === undefined ? undefined : toSafeAddress(row);
+}
+
+/**
+ * The same read, unmapped. `foundation.mergeAddresses` answers with the address
+ * that survived, and the merge does not write it, so this is the one read on the
+ * command path.
+ */
+export async function getAddressRowById(
+	db: DbExecutor,
+	input: { readonly id: string; readonly organizationId: string },
+): Promise<AddressRow | undefined> {
+	return db
 		.selectFrom('addresses')
 		.select(addressColumns)
 		.where('id', '=', input.id)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
 		.executeTakeFirst();
-
-	return row === undefined ? undefined : toSafeAddress(row);
 }
 
 export interface UpdateAddressDetailsInput {
@@ -235,7 +218,7 @@ export async function updateAddressDetails(
 	db: DbExecutor,
 	id: string,
 	input: UpdateAddressDetailsInput,
-): Promise<SafeAddress | null> {
+): Promise<AddressRow | null> {
 	const row = await db
 		.updateTable('addresses')
 		.set({
@@ -255,7 +238,7 @@ export async function updateAddressDetails(
 		.returning(addressColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeAddress(row);
+	return row ?? null;
 }
 
 export async function updateAddressLocation(
@@ -267,7 +250,7 @@ export async function updateAddressLocation(
 		readonly geojson: unknown;
 		readonly updatedByProfileId?: string | null;
 	},
-): Promise<SafeAddress | null> {
+): Promise<AddressRow | null> {
 	const row = await db
 		.updateTable('addresses')
 		.set({
@@ -281,14 +264,14 @@ export async function updateAddressLocation(
 		.returning(addressColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeAddress(row);
+	return row ?? null;
 }
 
 export async function deleteAddress(
 	db: DbExecutor,
 	id: string,
 	input: { readonly organizationId: string; readonly actorProfileId?: string | null },
-): Promise<SafeAddress | null> {
+): Promise<AddressRow | null> {
 	const row = await db
 		.updateTable('addresses')
 		.set({
@@ -303,7 +286,7 @@ export async function deleteAddress(
 		.returning(addressColumns)
 		.executeTakeFirst();
 
-	return row === undefined ? null : toSafeAddress(row);
+	return row ?? null;
 }
 
 export interface AddressMvtTileFilters {
