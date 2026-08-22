@@ -1,5 +1,6 @@
 import { iconRegistry, SatelliteIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { MAP_CHROME_SURFACE } from './chrome';
 import { BASEMAP_STYLES, type BasemapId } from './map-styles';
 
 const StreetsIcon = iconRegistry.domains.gis.icon;
@@ -19,7 +20,10 @@ export function BasemapSwitcher({
 	return (
 		<fieldset
 			aria-label="Base map style"
-			className="flex min-w-0 items-center gap-0.5 rounded-lg border border-border/70 bg-background/80 p-0.5 shadow-md ring-1 ring-black/[0.03] backdrop-blur-sm supports-[backdrop-filter]:bg-background/70"
+			className={cn(
+				'flex min-w-0 items-center gap-0.5 rounded-lg p-0.5 shadow-md',
+				MAP_CHROME_SURFACE,
+			)}
 		>
 			{BASEMAP_STYLES.map((style) => {
 				const Icon = style.id === 'satellite' ? SatelliteIcon : StreetsIcon;

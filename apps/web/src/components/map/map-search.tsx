@@ -9,6 +9,7 @@ import { Loader2Icon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { MAP_CHROME_SURFACE } from './chrome';
 import { getMapboxToken } from './map-styles';
 import {
 	createSessionToken,
@@ -163,7 +164,7 @@ export function MapSearch({
 				<div className={shell.className} style={shell.style}>
 					<SearchInput
 						aria-label="Search for a location"
-						className="h-10 border-border/70 bg-background/85 text-sm shadow-md ring-1 ring-black/[0.03] backdrop-blur-sm supports-[backdrop-filter]:bg-background/75"
+						className={cn('h-10 text-sm shadow-md', MAP_CHROME_SURFACE)}
 						disabled={!canSearch}
 						endAddon={
 							query.length > 0 ? (

@@ -6,6 +6,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/tooltip';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
+import { MAP_CHROME_SURFACE } from './chrome';
 
 /**
  * Shared on-map control primitives. Every floating cluster is built from the
@@ -25,7 +26,8 @@ export function MapControlGroup({
 	return (
 		<div
 			className={cn(
-				'flex overflow-hidden rounded-lg border border-border/70 bg-background/80 shadow-md ring-1 ring-black/[0.03] backdrop-blur-sm supports-[backdrop-filter]:bg-background/70',
+				'flex overflow-hidden rounded-lg shadow-md',
+				MAP_CHROME_SURFACE,
 				orientation === 'vertical' ? 'flex-col' : 'flex-row',
 				className,
 			)}

@@ -11,6 +11,7 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
 import { OutletFullPageMap } from '../app-shell/outlet/full-page-map';
+import { MAP_CHROME_SURFACE } from '../map/chrome';
 import { type ExplorerCreateAction, ExplorerHeader } from './explorer-header';
 import { ResultList } from './result-list';
 import { ResultMeta } from './result-meta';
@@ -18,9 +19,15 @@ import type { ExplorerPanel } from './use-explorer-panel';
 
 type RegistryIcon = typeof iconRegistry.entities.sample.icon;
 
-/** The floating-panel shell both panels in the column wear. */
-const PANEL_SHELL =
-	'pointer-events-auto flex flex-col overflow-hidden rounded-xl border border-border/60 bg-background/95 shadow-lg backdrop-blur-sm';
+/**
+ * The floating-panel shell both panels in the column wear. It carries the same
+ * translucent surface as the map's own controls, so the column reads as chrome
+ * over the map rather than a second page laid on top of it.
+ */
+const PANEL_SHELL = cn(
+	'pointer-events-auto flex flex-col overflow-hidden rounded-xl shadow-lg',
+	MAP_CHROME_SURFACE,
+);
 
 /** What the panel says it is holding, expanded or collapsed. */
 export interface ExplorerHeading {
@@ -167,6 +174,7 @@ function ResultsPanel<TRow>({
 				icon={heading.icon}
 				isLoading={heading.isLoading}
 				noun={heading.noun}
+				surface="chrome"
 				title={heading.title}
 				total={heading.total}
 			/>
@@ -212,7 +220,7 @@ function FiltersPanel({
 	if (!isOpen) {
 		return (
 			<Button
-				className="pointer-events-auto self-start rounded-full border-border/60 bg-background/95 shadow-lg backdrop-blur-sm"
+				className={cn('pointer-events-auto self-start rounded-full shadow-lg', MAP_CHROME_SURFACE)}
 				onClick={() => onOpenChange(true)}
 				size="sm"
 				variant="outline"
@@ -272,7 +280,12 @@ function CollapsedPanel({
 }) {
 	const Icon = heading.icon;
 	return (
-		<div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border/60 bg-background/95 py-1.5 pr-1.5 pl-3 shadow-lg backdrop-blur-sm">
+		<div
+			className={cn(
+				'pointer-events-auto flex items-center gap-2 rounded-full py-1.5 pr-1.5 pl-3 shadow-lg',
+				MAP_CHROME_SURFACE,
+			)}
+		>
 			{Icon === undefined ? null : (
 				<Icon aria-hidden="true" className="size-4 text-muted-foreground" />
 			)}

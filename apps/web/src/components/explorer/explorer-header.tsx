@@ -36,6 +36,7 @@ export function ExplorerHeader({
 	create,
 	collapse,
 	children,
+	surface = 'page',
 }: {
 	readonly title: string;
 	readonly icon?: RegistryIcon | undefined;
@@ -60,9 +61,15 @@ export function ExplorerHeader({
 	 * gives its filters a panel of their own.
 	 */
 	readonly children?: ReactNode;
+	/**
+	 * What the header sits on. `page` is the opaque bar a scrolling page needs.
+	 * `chrome` paints nothing, for the map frame's panel, which already carries
+	 * the translucent surface the map's own controls wear.
+	 */
+	readonly surface?: 'page' | 'chrome';
 }) {
 	return (
-		<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
+		<div className={stickyHeader({ surface, gap: 'default', padding: 'default' })}>
 			<div className="flex items-center justify-between gap-3">
 				{Icon === undefined ? (
 					<h1 className="font-semibold text-foreground text-lg leading-none">{title}</h1>
