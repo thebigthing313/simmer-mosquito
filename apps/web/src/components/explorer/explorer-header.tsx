@@ -4,6 +4,7 @@ import {
 	DropdownMenu,
 	DropdownMenuContent,
 	DropdownMenuItem,
+	DropdownMenuSeparator,
 	DropdownMenuTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import {
@@ -62,6 +63,7 @@ export function ExplorerHeader({
 	create,
 	collapse,
 	filterToggle,
+	menuItems,
 	onResetFilters,
 	children,
 	surface = 'page',
@@ -75,6 +77,12 @@ export function ExplorerHeader({
 	readonly create?: ExplorerCreateAction | undefined;
 	/** The control that shows and hides the filter card. Only the map frame has one. */
 	readonly filterToggle?: ExplorerFilterToggle | undefined;
+	/**
+	 * Extra entries for the overflow menu, under the create action. For the
+	 * surfaces whose work is not only "add one of these": the Regions tree files
+	 * regions into folders and imports boundaries from a file.
+	 */
+	readonly menuItems?: ReactNode;
 	/** Put every filter back to its default. Sits in the menu beside create. */
 	readonly onResetFilters?: (() => void) | undefined;
 	/**
@@ -170,9 +178,11 @@ export function ExplorerHeader({
 						</WriteOnly>
 					)}
 					{filterToggle === undefined ? null : <FilterToggleButton toggle={filterToggle} />}
-					{isChrome && (create !== undefined || onResetFilters !== undefined) ? (
+					{isChrome &&
+					(create !== undefined || menuItems !== undefined || onResetFilters !== undefined) ? (
 						<PanelMenu
 							create={create}
+							menuItems={menuItems}
 							onResetFilters={onResetFilters}
 							resetDisabled={(filterToggle?.activeCount ?? 0) === 0}
 						/>
@@ -245,22 +255,28 @@ function FilterToggleButton({ toggle }: { readonly toggle: ExplorerFilterToggle 
 }
 
 /**
- * The panel's overflow menu: what this surface can create, and the way back to
- * an unfiltered list.
+ * The panel's overflow menu: what this surface can add, and the way back to an
+ * unfiltered list.
  *
- * Both were controls of their own until the header ran out of room. Neither is
- * reached often enough to hold a permanent seat in a panel that already has to
- * show a title, a count, a filter toggle and a collapse.
+ * All of it was controls of its own until the header ran out of room. None of
+ * it is reached often enough to hold a permanent seat in a panel that already
+ * has to show a title, a count, a filter toggle and a collapse.
+ *
+ * The separator is the one line of structure it needs: everything above it
+ * writes a record, and the one below it only changes what is on screen.
  */
 function PanelMenu({
 	create,
+	menuItems,
 	onResetFilters,
 	resetDisabled,
 }: {
 	readonly create: ExplorerCreateAction | undefined;
+	readonly menuItems: ReactNode;
 	readonly onResetFilters: (() => void) | undefined;
 	readonly resetDisabled: boolean;
 }) {
+	const hasWrites = create !== undefined || menuItems !== undefined;
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>
@@ -279,11 +295,13 @@ function PanelMenu({
 						</DropdownMenuItem>
 					</WriteOnly>
 				)}
+				{menuItems}
+				{hasWrites && onResetFilters !== undefined ? <DropdownMenuSeparator /> : null}
 				{onResetFilters === undefined ? null : (
 					/*
 					 * Disabled rather than hidden while nothing is filtered. A menu whose
 					 * items come and go is one a reader has to open to find out what is in
-					 * it, and this one has two.
+					 * it.
 					 */
 					<DropdownMenuItem disabled={resetDisabled} onSelect={onResetFilters}>
 						<ResetIcon aria-hidden="true" />

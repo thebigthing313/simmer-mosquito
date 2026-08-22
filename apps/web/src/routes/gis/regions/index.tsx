@@ -1,12 +1,12 @@
 import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/collapsible';
+import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import {
 	Empty,
 	EmptyDescription,
@@ -21,6 +21,7 @@ import {
 	ChevronRightIcon,
 	GripVerticalIcon,
 	iconRegistry,
+	NewFolderIcon,
 	SearchIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -290,6 +291,26 @@ function RegionsExplorerRoute() {
 						) : null}
 					</>
 				}
+				/*
+				 * Filing and importing sit with Create Region rather than as buttons over
+				 * the tree. All three write regions, none is reached often, and a row of
+				 * them across the top of a 400px panel cost two rows of the tree they act
+				 * on every time the page was opened.
+				 */
+				menuItems={
+					<WriteOnly minimum="manager">
+						<DropdownMenuItem onSelect={() => setFolderDialog('new')}>
+							<NewFolderIcon aria-hidden="true" />
+							New Folder
+						</DropdownMenuItem>
+						<DropdownMenuItem asChild>
+							<Link to="/gis/regions/import">
+								<ImportIcon aria-hidden="true" />
+								Import Regions
+							</Link>
+						</DropdownMenuItem>
+					</WriteOnly>
+				}
 				heading={{
 					title: 'Regions',
 					icon: RegionIcon,
@@ -337,23 +358,6 @@ function RegionsExplorerRoute() {
 						<RegionsNoMatches query={search.trim()} />
 					) : (
 						<div className="p-2">
-							{/*
-							 * Filing controls, at the top of the tree they act on. The panel's
-							 * own header has room for one button in 380px, and Create takes it.
-							 */}
-							<WriteOnly minimum="manager">
-								<div className="flex items-center gap-2 px-1 pb-2">
-									<Button onClick={() => setFolderDialog('new')} size="sm" variant="outline">
-										New Folder
-									</Button>
-									<Button asChild size="sm" variant="outline">
-										<Link to="/gis/regions/import">
-											<ImportIcon aria-hidden="true" data-icon="inline-start" />
-											Import
-										</Link>
-									</Button>
-								</div>
-							</WriteOnly>
 							{filtered.folders.map(({ folder, regions: folderRegions }) => (
 								<FolderNode
 									dnd={dnd}

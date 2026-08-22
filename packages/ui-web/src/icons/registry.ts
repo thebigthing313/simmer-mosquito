@@ -27,6 +27,7 @@ import {
 	EyeOff,
 	Fish,
 	FlaskConical,
+	FolderPlus,
 	GripVertical,
 	Hammer,
 	History,
@@ -187,6 +188,7 @@ export const iconRegistry = {
 		download: icon('download', 'Download', 'actions', Download),
 		edit: icon('edit', 'Edit', 'actions', Edit),
 		filter: icon('filter', 'Filter', 'actions', ListFilter),
+		newFolder: icon('newFolder', 'New folder', 'actions', FolderPlus),
 		info: icon('info', 'Info', 'actions', Info),
 		loading: icon('loading', 'Loading', 'actions', Loader2),
 		locate: icon('locate', 'Locate', 'actions', LocateFixed),
@@ -301,6 +303,7 @@ export const MoreHorizontal = iconRegistry.arrows.moreHorizontal.icon;
 export const MoreHorizontalIcon = iconRegistry.arrows.moreHorizontal.icon;
 export const MosquitoIcon = iconRegistry.simmer.mosquito.icon;
 export const FilterIcon = iconRegistry.actions.filter.icon;
+export const NewFolderIcon = iconRegistry.actions.newFolder.icon;
 export const NorthIcon = iconRegistry.arrows.north.icon;
 export const OctagonXIcon = iconRegistry.generic.error.icon;
 export const PanelLeftIcon = iconRegistry.arrows.panelLeft.icon;

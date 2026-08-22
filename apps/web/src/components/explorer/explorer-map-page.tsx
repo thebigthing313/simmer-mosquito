@@ -86,6 +86,7 @@ export function ExplorerMapPage<TRow>({
 	results,
 	footer,
 	map,
+	menuItems,
 	onResetFilters,
 }: {
 	readonly panel: ExplorerPanel;
@@ -94,6 +95,11 @@ export function ExplorerMapPage<TRow>({
 	readonly filters: ReactNode;
 	/** How many filters are off their default, so a collapsed panel can say so. */
 	readonly activeFilterCount: number;
+	/**
+	 * Extra entries for the panel's overflow menu, under the create action. For a
+	 * surface whose work is not only "add one of these".
+	 */
+	readonly menuItems?: ReactNode;
 	/**
 	 * Put every filter back to its default. Sits in the panel's overflow menu, and
 	 * is left out by a surface whose filters have no default to go back to.
@@ -149,6 +155,7 @@ export function ExplorerMapPage<TRow>({
 							activeFilterCount={activeFilterCount}
 							footer={footer}
 							heading={heading}
+							menuItems={menuItems}
 							onCollapse={() => setCollapsed(true)}
 							onResetFilters={onResetFilters}
 							panel={panel}
@@ -185,6 +192,7 @@ function ResultsPanel<TRow>({
 	onCollapse,
 	panel,
 	activeFilterCount,
+	menuItems,
 	onResetFilters,
 }: {
 	readonly heading: ExplorerHeading;
@@ -193,6 +201,7 @@ function ResultsPanel<TRow>({
 	readonly onCollapse: () => void;
 	readonly panel: ExplorerPanel;
 	readonly activeFilterCount: number;
+	readonly menuItems: ReactNode;
 	readonly onResetFilters?: (() => void) | undefined;
 }) {
 	const {
@@ -224,6 +233,7 @@ function ResultsPanel<TRow>({
 				}}
 				icon={heading.icon}
 				isLoading={heading.isLoading}
+				menuItems={menuItems}
 				noun={heading.noun}
 				onResetFilters={onResetFilters}
 				// The count lives in the pager when there is one. Without a pager the
