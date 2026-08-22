@@ -1,8 +1,6 @@
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
-	ChevronDownIcon,
-	ChevronLeftIcon,
 	FilterIcon,
 	type iconRegistry,
 	PanelLeftIcon,
@@ -130,7 +128,6 @@ export function ExplorerMapPage<TRow>({
 					<ResultsPanel
 						footer={footer}
 						heading={heading}
-						isNarrow={panel.isNarrow}
 						onCollapse={() => setCollapsed(true)}
 						results={results}
 					/>
@@ -151,13 +148,11 @@ function ResultsPanel<TRow>({
 	heading,
 	results,
 	footer,
-	isNarrow,
 	onCollapse,
 }: {
 	readonly heading: ExplorerHeading;
 	readonly results: ExplorerResults<TRow>;
 	readonly footer: ReactNode;
-	readonly isNarrow: boolean;
 	readonly onCollapse: () => void;
 }) {
 	const { rows, renderRow, emptyTitle, emptyDescription, skeletonClassName } = results;
@@ -167,8 +162,10 @@ function ResultsPanel<TRow>({
 			<ExplorerHeader
 				collapse={{
 					onCollapse,
+					// The same X the filters panel above it closes with. Two panels in one
+					// column, put away the same way.
 					label: 'Hide results',
-					icon: isNarrow ? ChevronDownIcon : ChevronLeftIcon,
+					icon: XIcon,
 				}}
 				create={heading.create}
 				icon={heading.icon}

@@ -65,7 +65,9 @@ export function ExplorerHeader({
 	/**
 	 * What the header sits on. `page` is the opaque bar a scrolling page needs.
 	 * `chrome` paints nothing, for the map frame's panel, which already carries
-	 * the translucent surface the map's own controls wear.
+	 * the translucent surface the map's own controls wear. It also drops the
+	 * count from this row: that panel ends in a footer stating the same number
+	 * beside the page, and the pill it collapses into carries it too.
 	 */
 	readonly surface?: 'page' | 'chrome';
 }) {
@@ -73,8 +75,8 @@ export function ExplorerHeader({
 	// In the map frame this header is one of two panels stacked in a 380px column,
 	// and the other one spends 8px on its own header. At the page padding it was
 	// spending 73px of the rail on a title the breadcrumb already carries.
-	// Truncates rather than wraps: in a rail the count and the create button are
-	// fixed-width, so a long title is the thing that has to give.
+	// Truncates rather than wraps: in a rail the create button is fixed-width, so
+	// a long title is the thing that has to give.
 	const heading = cn(
 		'truncate font-semibold text-foreground leading-none',
 		isChrome ? 'text-base' : 'text-lg',
@@ -98,7 +100,7 @@ export function ExplorerHeader({
 					</div>
 				)}
 				<div className="flex shrink-0 items-center gap-2.5">
-					<ResultMeta isLoading={isLoading} noun={noun} total={total} />
+					{isChrome ? null : <ResultMeta isLoading={isLoading} noun={noun} total={total} />}
 					{create === undefined ? null : (
 						<WriteOnly minimum={create.minimum ?? 'collector'}>
 							<Button asChild size="sm">
