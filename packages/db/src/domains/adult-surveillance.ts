@@ -647,9 +647,12 @@ export interface SafeCollectionDisplayRow {
 	readonly collectionMethodId: string;
 	readonly collectedAt: string | null;
 	readonly collectionDate: string | null;
+	readonly collectionTimingMode: CollectionTimingMode;
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;
+	/** Resolved by precedence; see {@link CollectionStatus}. */
+	readonly status: CollectionStatus;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
@@ -685,6 +688,35 @@ function collectionEffectiveDateExpr(timeZone: string): RawBuilder<unknown> {
 	);
 }
 
+/**
+ * The four states a collection can be in, resolved server-side by precedence so
+ * the map colour and the result rail can never disagree about what one is.
+ *
+ * `pending` first, because it says the record is not finished: the trap is still
+ * out and there is nothing to report a problem or a count about yet. It reads
+ * the row's own `collection_timing_mode` rather than the agency's current
+ * setting, because a null `collected_at` means "not emptied" only under exact
+ * timestamps. Under date-plus-duration every finished collection has one, and a
+ * status keyed off the column alone would paint the whole surface pending.
+ */
+export type CollectionStatus = 'pending' | 'problem' | 'zero_result' | 'collected';
+
+export const collectionStatusValues: readonly CollectionStatus[] = [
+	'pending',
+	'problem',
+	'zero_result',
+	'collected',
+];
+
+const collectionStatusExpression = sql`
+	case
+		when c.collection_timing_mode = 'exact_timestamps' and c.collected_at is null then 'pending'
+		when c.has_problem then 'problem'
+		when c.is_zero_result then 'zero_result'
+		else 'collected'
+	end
+`;
+
 const collectionDisplayColumns = sql`
 	c.id,
 	c.organization_id as "organizationId",
@@ -696,9 +728,11 @@ const collectionDisplayColumns = sql`
 	c.collection_method_id as "collectionMethodId",
 	c.collected_at::text as "collectedAt",
 	c.collection_date::text as "collectionDate",
+	c.collection_timing_mode as "collectionTimingMode",
 	c.has_problem as "hasProblem",
 	c.is_zero_result as "isZeroResult",
 	c.has_bycatch as "hasBycatch",
+	(${collectionStatusExpression}) as "status",
 	c.set_by_profile_id as "setByProfileId",
 	c.collected_by_profile_id as "collectedByProfileId",
 	c.created_at as "createdAt",
@@ -736,7 +770,7 @@ function collectionSurface(
 		from: sql`collections c`,
 		alias: 'c',
 		geom: sql`c.geom`,
-		properties: [sql`c.id`, sql`c.has_problem as "hasProblem"`],
+		properties: [sql`c.id`, sql`(${collectionStatusExpression}) as "status"`],
 		filterWhere: (filters) => collectionFilterWhere(filters, effectiveDate),
 		display: {
 			columns: collectionDisplayColumns,

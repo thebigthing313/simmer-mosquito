@@ -24,7 +24,12 @@ import {
 	useSelectedMapRecord,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { type CollectionTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
+import {
+	COLLECTION_STATUS_COLORS,
+	type CollectionTileFilters,
+	MAP_CREATE_TARGETS,
+	MapCanvas,
+} from '../../../components/map';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
@@ -36,9 +41,11 @@ import {
 	useSearchFilters,
 } from '../../../lib/search-filters';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
-import { CollectionFlagBadges, collectionEffectiveDate } from '../-adult-display';
+import { BycatchBadge, collectionEffectiveDate } from '../-adult-display';
 import { CollectionMapCard } from '../-collection-map-card';
 import { addDaysToDateString, todayInTimeZone } from '../-overview-data';
+import type { CollectionStatusValue } from './-legend';
+import { collectionLegend, collectionStatusLabel } from './-legend';
 
 interface CollectionSite {
 	readonly id: string;
@@ -51,6 +58,8 @@ interface CollectionSite {
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;
+	/** Resolved server-side by precedence, and what the map paints this by. */
+	readonly status: CollectionStatusValue;
 	readonly setByProfileId: string | null;
 	readonly collectedByProfileId: string | null;
 }
@@ -145,6 +154,7 @@ function CollectionsExplorerRoute() {
 		}),
 		[methodIds, problemOnly, regionIds, dateFrom, dateTo],
 	);
+	const legend = useMemo(() => collectionLegend(problemOnly), [problemOnly]);
 	const params = useMemo(
 		() =>
 			mapQueryParams({
@@ -261,6 +271,7 @@ function CollectionsExplorerRoute() {
 						collectionLayer={collectionLayer}
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
+						legend={legend}
 						onMapReady={handleMapReady}
 					/>
 					{selected === null ? null : (
@@ -316,9 +327,12 @@ function CollectionListItem({
 	const effectiveDate = collectionEffectiveDate(row, timeZone);
 	return (
 		<ExplorerRow
-			badges={
-				<CollectionFlagBadges className="flex shrink-0 items-center gap-1.5" collection={row} />
-			}
+			/*
+			 * Bycatch only. Trap out, Problem reported and Zero result are the
+			 * collection's status, which the dot at the left of the row now draws in
+			 * the colour the map paints it and the key names.
+			 */
+			badges={<BycatchBadge hasBycatch={row.hasBycatch} />}
 			date={effectiveDate === null ? null : formatListDate(effectiveDate)}
 			detailLabel={`View details for ${label}`}
 			detailLink={{ to: '/adult-surveillance/collections/$id', params: { id: row.id } }}
@@ -327,10 +341,22 @@ function CollectionListItem({
 			personnel={setByName}
 			selectLabel={`Show ${label} on the map`}
 			subtitle={methodName}
+			swatch={collectionSwatch(row.status)}
 			title={label}
 			titleLink={{ to: '/adult-surveillance/collections/$id', params: { id: row.id } }}
 		/>
 	);
+}
+
+/** The status colour this collection draws in, so the row matches the map. */
+function collectionSwatch(status: CollectionStatusValue): {
+	readonly color: string;
+	readonly label: string;
+} {
+	return {
+		color: COLLECTION_STATUS_COLORS[status] ?? COLLECTION_STATUS_COLORS.collected ?? '',
+		label: collectionStatusLabel(status),
+	};
 }
 
 /** Who handled this collection: whoever collected it, else whoever set it. */

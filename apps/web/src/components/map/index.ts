@@ -1,6 +1,6 @@
 export type { BiocontrolTileFilters } from './biocontrol-tiles';
 export type { ChemicalTileFilters } from './chemical-tiles';
-export type { CollectionTileFilters } from './collection-tiles';
+export { COLLECTION_STATUS_COLORS, type CollectionTileFilters } from './collection-tiles';
 export { HABITAT_STATUS_COLORS, type HabitatTileFilters } from './habitat-tiles';
 export {
 	INSPECTION_DENSITY_COLORS,

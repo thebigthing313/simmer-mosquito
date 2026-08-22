@@ -88,6 +88,11 @@ export const mapDomain = {
 	 */
 	outreach: '#c4569e',
 	outreachLine: '#a84385',
+	/**
+	 * Left for a surface that needs one hue for "a collection" regardless of what
+	 * happened to it. The collections map itself paints them by status instead,
+	 * the way samples does, so nothing reads this today.
+	 */
 	collection: '#2f9e8f',
 	/** Connector lines between related records (inspection routes, habitat runs). */
 	connector: brand.blue,
