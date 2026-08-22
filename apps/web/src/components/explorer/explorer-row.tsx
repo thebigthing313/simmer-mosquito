@@ -169,18 +169,18 @@ export function ExplorerRow({
 					{subtitle === null || subtitle === undefined || subtitle === '' ? null : (
 						<span className="block truncate text-muted-foreground text-xs">{subtitle}</span>
 					)}
+					{hasPersonnel ? (
+						<span className="mt-0.5 block truncate text-muted-foreground text-xs">{personnel}</span>
+					) : null}
 					{/*
-					 * Who did the work and what state it is in share a line and wrap onto
-					 * two only when they have to. Given a line each, an inspection row ran
-					 * to four of them and the rail showed two and a half records.
+					 * A line of their own, under whoever did the work rather than beside
+					 * them. They shared a line and wrapped when they had to, which meant a
+					 * short name left the badges inline and a long one pushed them down: the
+					 * strip moved from row to row down the rail with nothing but name length
+					 * deciding, and read as a difference between the records.
 					 */}
-					{hasPersonnel || isStacked ? (
-						<div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-							{hasPersonnel ? (
-								<span className="min-w-0 truncate text-muted-foreground text-xs">{personnel}</span>
-							) : null}
-							{isStacked ? badges : null}
-						</div>
+					{isStacked && badges !== null ? (
+						<div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">{badges}</div>
 					) : null}
 					{tags === undefined || tags.length === 0 ? null : (
 						<TagChipRow className="mt-1" tags={tags} />
