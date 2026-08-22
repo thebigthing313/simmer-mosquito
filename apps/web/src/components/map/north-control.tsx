@@ -38,7 +38,14 @@ export function NorthControl({ map }: { readonly map: MapboxMap | null }) {
 	);
 }
 
-/** Track the map's bearing so the arrow stays pointed at true north. */
+/**
+ * Track the map's bearing so the arrow stays pointed at true north.
+ *
+ * On `move`, not `rotate`. Every camera change fires `move`, while `rotate`
+ * fires only for the paths Mapbox counts as a rotation, so a bearing that
+ * arrives through a fit or a jump can land without one and leave the arrow
+ * describing a camera the map no longer has.
+ */
 function useMapBearing(map: MapboxMap | null): number {
 	const [bearing, setBearing] = useState(0);
 
@@ -48,9 +55,9 @@ function useMapBearing(map: MapboxMap | null): number {
 		}
 		const sync = () => setBearing(map.getBearing());
 		sync();
-		map.on('rotate', sync);
+		map.on('move', sync);
 		return () => {
-			map.off('rotate', sync);
+			map.off('move', sync);
 		};
 	}, [map]);
 

@@ -48,7 +48,6 @@ import {
 	MessageSquare,
 	Minus,
 	Moon,
-	Navigation,
 	Network,
 	OctagonX,
 	PanelLeft,
@@ -96,6 +95,36 @@ export interface IconRegistryEntry {
 	readonly category: IconCategory;
 	readonly source: IconSource;
 	readonly icon: RegistryIcon;
+}
+
+/**
+ * A north arrow, drawn rather than borrowed.
+ *
+ * Both lucide candidates put their point on the north-east diagonal: the
+ * navigation arrowhead runs to (22,2) and the compass needle from (16.24,7.76)
+ * to (7.76,16.24). Rotated by the map's bearing, either one reads 45° off at
+ * every bearing, which is worse than no arrow: it disagrees with the map
+ * consistently enough to look deliberate.
+ *
+ * This is the cartographer's needle: one half filled, one half hollow, tip at
+ * true north up the vertical axis, so a rotation by `-bearing` points it at
+ * where north actually went.
+ */
+function NorthNeedleIcon(props: SVGProps<SVGSVGElement>) {
+	return createElement(
+		'svg',
+		{
+			viewBox: '0 0 24 24',
+			role: 'img',
+			fill: 'none',
+			stroke: 'currentColor',
+			strokeWidth: 1.6,
+			strokeLinejoin: 'round',
+			...props,
+		},
+		createElement('path', { d: 'M12 2.5 18.5 21 12 16.5 5.5 21Z' }),
+		createElement('path', { d: 'M12 2.5 18.5 21 12 16.5Z', fill: 'currentColor' }),
+	);
 }
 
 const BrandMarkSvgIcon = assetIcon('brandMarkSvg', brandMarkUrl);
@@ -181,7 +210,7 @@ export const iconRegistry = {
 		chevronUp: icon('chevronUp', 'Chevron up', 'arrows', ChevronUp),
 		chevronsDown: icon('chevronsDown', 'Chevrons down', 'arrows', ChevronsDown),
 		chevronsUp: icon('chevronsUp', 'Chevrons up', 'arrows', ChevronsUp),
-		north: icon('north', 'North', 'arrows', Navigation),
+		north: simmerIcon('north', 'North', 'arrows', NorthNeedleIcon),
 		moreHorizontal: icon('moreHorizontal', 'More horizontal', 'arrows', LucideMoreHorizontal),
 		panelLeft: icon('panelLeft', 'Panel left', 'arrows', PanelLeft),
 	},
