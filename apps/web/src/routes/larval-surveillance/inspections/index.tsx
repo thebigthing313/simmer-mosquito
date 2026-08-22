@@ -28,13 +28,7 @@ import {
 	useSelectedMapRecord,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import {
-	DensityBadge,
-	densityLabel,
-	hasAnyLifeStage,
-	LifeStageStrip,
-	WetnessBadge,
-} from '../../../components/larval-display';
+import { densityLabel, hasAnyLifeStage, LifeStageStrip } from '../../../components/larval-display';
 import {
 	INSPECTION_DENSITY_COLORS,
 	INSPECTION_DRY_COLOR,
@@ -528,17 +522,19 @@ function InspectionListItem({
 	const when = formatListDate(inspection.inspectionDate);
 	return (
 		<ExplorerRow
+			/*
+			 * Life stages only. The density pill beside them repeated the dot at the
+			 * left of the row, which is already the density and already the colour the
+			 * map paints this site. What stages were found is the one thing neither the
+			 * dot nor the key says.
+			 *
+			 * `null` rather than omitted on a site with no stages, so every row in the
+			 * rail keeps the same shape whether or not this one found anything.
+			 */
 			badges={
-				<>
-					{inspection.isWet ? (
-						<DensityBadge density={inspection.density} />
-					) : (
-						<WetnessBadge isWet={false} />
-					)}
-					{inspection.isWet && hasAnyLifeStage(inspection) ? (
-						<LifeStageStrip size="sm" stages={inspection} />
-					) : null}
-				</>
+				inspection.isWet && hasAnyLifeStage(inspection) ? (
+					<LifeStageStrip size="sm" stages={inspection} />
+				) : null
 			}
 			date={when}
 			detailLabel={`View details for the ${when} inspection of ${label}`}
