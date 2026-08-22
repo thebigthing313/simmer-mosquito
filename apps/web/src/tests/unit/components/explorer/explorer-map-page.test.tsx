@@ -137,7 +137,9 @@ function Page({
 describe('ExplorerMapPage', () => {
 	it('keeps the result count and the active filter count readable once the panel is collapsed', () => {
 		render(<Page />);
-		expect(screen.getByText('2 habitats')).toBeTruthy();
+		// Expanded, the count belongs to the panel's footer. A header that also
+		// carried it would state the same number twice in one panel.
+		expect(screen.queryByText('2 habitats')).toBeNull();
 
 		fireEvent.click(screen.getByRole('button', { name: 'Hide results' }));
 

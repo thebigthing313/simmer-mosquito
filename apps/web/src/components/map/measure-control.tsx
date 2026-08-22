@@ -8,6 +8,7 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { MAP_CHROME_SURFACE } from './chrome';
 import { MapControlButton, MapControlGroup } from './map-control';
 import {
 	type MapMeasureController,
@@ -45,7 +46,12 @@ export function MeasureControl({
 	const hasResults = measurements.length > 0 || draft !== null;
 
 	return (
-		<div className="pointer-events-auto w-60 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg border border-border/70 bg-background/85 shadow-md ring-1 ring-black/[0.03] backdrop-blur-sm supports-[backdrop-filter]:bg-background/75">
+		<div
+			className={cn(
+				'pointer-events-auto w-60 max-w-[calc(100vw-2rem)] overflow-hidden rounded-lg shadow-md',
+				MAP_CHROME_SURFACE,
+			)}
+		>
 			<div className="flex items-center justify-between gap-2 border-border/60 border-b px-2.5 py-1.5">
 				<span className="flex items-center gap-1.5 font-semibold text-foreground text-xs">
 					<RulerIcon aria-hidden="true" className="size-3.5" />

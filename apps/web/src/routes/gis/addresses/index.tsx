@@ -146,7 +146,7 @@ function AddressesExplorerRoute() {
 					<MapCanvas
 						contextMenu={{ create: [MAP_CREATE_TARGETS.address] }}
 						addressLayer={addressLayer}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						onMapReady={setMap}
 					/>

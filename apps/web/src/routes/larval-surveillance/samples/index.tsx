@@ -212,13 +212,14 @@ function SamplesExplorerRoute() {
 			}),
 		[bbox, filters],
 	);
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<SampleFeature>({
-		path: PATH,
-		rowsKey: 'samples',
-		label: 'Samples',
-		params,
-		enabled: bbox !== null,
-	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<SampleFeature>({
+			path: PATH,
+			rowsKey: 'samples',
+			label: 'Samples',
+			params,
+			enabled: bbox !== null,
+		});
 
 	const selected = useSelectedMapRecord<SampleFeature>({
 		path: PATH,
@@ -251,7 +252,7 @@ function SamplesExplorerRoute() {
 				<>
 					<MapCanvas
 						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						onMapReady={handleMapReady}
 						sampleLayer={sampleLayer}
@@ -306,7 +307,9 @@ function SamplesExplorerRoute() {
 				</ExplorerHeader>
 
 				<SampleResults
+					isError={isError}
 					isLoading={isLoading}
+					onRetry={retry}
 					nameById={nameById}
 					onSelect={setSelectedId}
 					rows={rows}
@@ -542,12 +545,16 @@ function ActiveFilters({
 function SampleResults({
 	rows,
 	isLoading,
+	isError,
+	onRetry,
 	selectedId,
 	nameById,
 	onSelect,
 }: {
 	readonly rows: readonly SampleFeature[];
 	readonly isLoading: boolean;
+	readonly isError: boolean;
+	readonly onRetry: () => void;
 	readonly selectedId: string | null;
 	readonly nameById: ReadonlyMap<string, string>;
 	readonly onSelect: (id: string) => void;
@@ -556,7 +563,9 @@ function SampleResults({
 		<ResultList
 			emptyDescription="Pan or zoom the map, widen the time window, or loosen the filters to bring samples into range."
 			emptyTitle="No samples in view"
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={onRetry}
 			rows={rows}
 			skeletonClassName="h-[64px]"
 		>

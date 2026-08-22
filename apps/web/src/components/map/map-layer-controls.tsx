@@ -12,6 +12,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useState } from 'react';
+import { MAP_CHROME_SURFACE } from './chrome';
 
 const LayersIcon = iconRegistry.entities.collection.icon;
 
@@ -123,7 +124,10 @@ export function MapLayerControls() {
 
 	return (
 		<Collapsible
-			className="w-[min(17rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-border/70 bg-background/80 shadow-md ring-1 ring-black/[0.03] backdrop-blur-sm supports-[backdrop-filter]:bg-background/70"
+			className={cn(
+				'w-[min(17rem,calc(100vw-2rem))] overflow-hidden rounded-lg shadow-md',
+				MAP_CHROME_SURFACE,
+			)}
 			onOpenChange={setPanelOpen}
 			open={panelOpen}
 		>

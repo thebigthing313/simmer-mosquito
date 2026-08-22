@@ -67,6 +67,11 @@ export function ExplorerRow({
 				aria-pressed={isSelected}
 				className={cn(
 					'absolute inset-0 size-full transition-colors',
+					// Inset, because the button is stretched over the row and an outset
+					// ring would be clipped by the list that scrolls it. Without this the
+					// row fell back to the browser's own 1px outline while every other
+					// control in the panel drew the 2px ring.
+					'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
 					/*
 					 * The ring is opaque. At `ring-primary/40` it composited toward the
 					 * row behind it — the very surface it has to stand against — which is
@@ -82,7 +87,7 @@ export function ExplorerRow({
 				{swatch === undefined ? null : (
 					<span
 						aria-hidden="true"
-						className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
+						className="size-2.5 shrink-0 rounded-full ring-1 ring-foreground/15"
 						style={{ backgroundColor: swatch.color }}
 						title={swatch.label}
 					/>

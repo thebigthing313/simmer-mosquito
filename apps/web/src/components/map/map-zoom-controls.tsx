@@ -1,19 +1,36 @@
-import { CompassIcon, MinusIcon, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import {
+	ChevronsDownIcon,
+	ChevronsUpIcon,
+	MinusIcon,
+	PlusIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useEffect, useState } from 'react';
 import { MapControlButton, MapControlDivider, MapControlGroup } from './map-control';
 
+/** How long a jump to either end of the zoom range takes. */
+const LIMIT_DURATION_MS = 500;
+
 /**
- * Zoom in / out plus a compass that resets bearing and pitch to north. The
- * compass needle tracks the live map rotation, so it doubles as an orientation
- * cue rather than a static button.
+ * The zoom column: both ends of the range, and a step either way between them.
+ *
+ * The ends read as one scale top to bottom, closest at the top. They matter on
+ * an agency-wide surface, where a reader who has followed one Habitat down to
+ * street level would otherwise press zoom out a dozen times to see the county
+ * again.
  */
 export function MapZoomControls({ map }: { readonly map: MapboxMap | null }) {
-	const bearing = useMapBearing(map);
 	const disabled = map === null;
 
 	return (
 		<MapControlGroup>
+			<MapControlButton
+				disabled={disabled}
+				label="Zoom all the way in"
+				onClick={() => map?.easeTo({ zoom: map.getMaxZoom(), duration: LIMIT_DURATION_MS })}
+			>
+				<ChevronsUpIcon />
+			</MapControlButton>
+			<MapControlDivider />
 			<MapControlButton disabled={disabled} label="Zoom in" onClick={() => map?.zoomIn()}>
 				<PlusIcon />
 			</MapControlButton>
@@ -24,33 +41,11 @@ export function MapZoomControls({ map }: { readonly map: MapboxMap | null }) {
 			<MapControlDivider />
 			<MapControlButton
 				disabled={disabled}
-				label="Reset to north"
-				onClick={() => map?.easeTo({ bearing: 0, pitch: 0, duration: 400 })}
+				label="Zoom all the way out"
+				onClick={() => map?.easeTo({ zoom: map.getMinZoom(), duration: LIMIT_DURATION_MS })}
 			>
-				<CompassIcon
-					className="transition-transform"
-					style={{ transform: `rotate(${-bearing}deg)` }}
-				/>
+				<ChevronsDownIcon />
 			</MapControlButton>
 		</MapControlGroup>
 	);
-}
-
-/** Track the map's bearing so the compass needle stays oriented to true north. */
-function useMapBearing(map: MapboxMap | null): number {
-	const [bearing, setBearing] = useState(0);
-
-	useEffect(() => {
-		if (map === null) {
-			return;
-		}
-		const sync = () => setBearing(map.getBearing());
-		sync();
-		map.on('rotate', sync);
-		return () => {
-			map.off('rotate', sync);
-		};
-	}, [map]);
-
-	return bearing;
 }

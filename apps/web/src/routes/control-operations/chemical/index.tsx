@@ -159,15 +159,14 @@ function ApplicationsExplorerRoute() {
 		[filters],
 	);
 
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<ApplicationSite>(
-		{
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<ApplicationSite>({
 			path: PATH,
 			rowsKey: 'applications',
 			label: 'Applications',
 			params,
 			normalizeRow: normalizeApplication,
-		},
-	);
+		});
 
 	const selected = useSelectedMapRecord<ApplicationSite>({
 		path: PATH,
@@ -200,7 +199,7 @@ function ApplicationsExplorerRoute() {
 					<MapCanvas
 						contextMenu={{ create: [MAP_CREATE_TARGETS.chemical] }}
 						chemicalLayer={chemicalLayer}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						onMapReady={handleMapReady}
 					/>
@@ -287,7 +286,9 @@ function ApplicationsExplorerRoute() {
 
 				<ApplicationResults
 					insecticideNameById={insecticideNameById}
+					isError={isError}
 					isLoading={isLoading}
+					onRetry={retry}
 					methodNameById={methodNameById}
 					onSelect={setSelectedId}
 					rows={rows}
@@ -324,6 +325,8 @@ function normalizeApplication(row: ApplicationSite): ApplicationSite {
 function ApplicationResults({
 	rows,
 	isLoading,
+	isError,
+	onRetry,
 	selectedId,
 	insecticideNameById,
 	methodNameById,
@@ -332,6 +335,8 @@ function ApplicationResults({
 }: {
 	readonly rows: readonly ApplicationSite[];
 	readonly isLoading: boolean;
+	readonly isError: boolean;
+	readonly onRetry: () => void;
 	readonly selectedId: string | null;
 	readonly insecticideNameById: ReadonlyMap<string, string>;
 	readonly methodNameById: ReadonlyMap<string, string>;
@@ -342,7 +347,9 @@ function ApplicationResults({
 		<ResultList
 			emptyDescription="Widen the time window or loosen the filters to bring treatments into range."
 			emptyTitle="No applications in range"
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={onRetry}
 			rows={rows}
 		>
 			{(row) => (

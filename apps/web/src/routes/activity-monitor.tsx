@@ -114,7 +114,7 @@ function ActivityMonitorRoute() {
 				<>
 					<MapCanvas
 						activityLayer={selection.activityLayer}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData={view.bounds}
 						onMapReady={selection.onMapReady}
 					/>

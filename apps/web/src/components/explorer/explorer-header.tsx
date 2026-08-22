@@ -1,6 +1,7 @@
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { type iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import type { MinimumRole } from '../../lib/write-access';
@@ -36,6 +37,7 @@ export function ExplorerHeader({
 	create,
 	collapse,
 	children,
+	surface = 'page',
 }: {
 	readonly title: string;
 	readonly icon?: RegistryIcon | undefined;
@@ -60,20 +62,45 @@ export function ExplorerHeader({
 	 * gives its filters a panel of their own.
 	 */
 	readonly children?: ReactNode;
+	/**
+	 * What the header sits on. `page` is the opaque bar a scrolling page needs.
+	 * `chrome` paints nothing, for the map frame's panel, which already carries
+	 * the translucent surface the map's own controls wear. It also drops the
+	 * count from this row: that panel ends in a footer stating the same number
+	 * beside the page, and the pill it collapses into carries it too.
+	 */
+	readonly surface?: 'page' | 'chrome';
 }) {
+	const isChrome = surface === 'chrome';
+	// In the map frame this header is one of two panels stacked in a 380px column,
+	// and the other one spends 8px on its own header. At the page padding it was
+	// spending 73px of the rail on a title the breadcrumb already carries.
+	// Truncates rather than wraps: in a rail the create button is fixed-width, so
+	// a long title is the thing that has to give.
+	const heading = cn(
+		'truncate font-semibold text-foreground leading-none',
+		isChrome ? 'text-base' : 'text-lg',
+	);
+
 	return (
-		<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
+		<div
+			className={stickyHeader({
+				surface,
+				gap: isChrome ? 'snug' : 'default',
+				padding: isChrome ? 'compact' : 'default',
+			})}
+		>
 			<div className="flex items-center justify-between gap-3">
 				{Icon === undefined ? (
-					<h1 className="font-semibold text-foreground text-lg leading-none">{title}</h1>
+					<h1 className={heading}>{title}</h1>
 				) : (
-					<div className="flex items-center gap-2">
-						<Icon aria-hidden="true" className="size-5 text-muted-foreground" />
-						<h1 className="font-semibold text-foreground text-lg leading-none">{title}</h1>
+					<div className="flex min-w-0 items-center gap-2">
+						<Icon aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
+						<h1 className={heading}>{title}</h1>
 					</div>
 				)}
-				<div className="flex items-center gap-2.5">
-					<ResultMeta isLoading={isLoading} noun={noun} total={total} />
+				<div className="flex shrink-0 items-center gap-2.5">
+					{isChrome ? null : <ResultMeta isLoading={isLoading} noun={noun} total={total} />}
 					{create === undefined ? null : (
 						<WriteOnly minimum={create.minimum ?? 'collector'}>
 							<Button asChild size="sm">

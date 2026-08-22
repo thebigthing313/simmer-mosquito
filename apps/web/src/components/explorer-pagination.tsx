@@ -4,9 +4,9 @@ import {
 	PaginationEllipsis,
 	PaginationItem,
 	PaginationLink,
-	PaginationNext,
-	PaginationPrevious,
 } from '@simmer-mosquito/ui-web/components/ui/pagination';
+import { ChevronLeftIcon, ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { formatCount } from '../lib/format-count';
 
 /**
  * Controlled page-through footer for the map-explorer result rails. Driven by
@@ -29,7 +29,7 @@ export function ExplorerPagination({
 	if (pageCount <= 1) {
 		return (
 			<p className="m-0 text-muted-foreground text-xs">
-				{total} {noun}
+				{formatCount(total)} {noun}
 			</p>
 		);
 	}
@@ -38,53 +38,67 @@ export function ExplorerPagination({
 	const atEnd = page >= pageCount - 1;
 
 	return (
-		<div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
-			<p className="m-0 text-muted-foreground text-xs">
-				Page {page + 1} of {pageCount} · {total} {noun}
-			</p>
-			<Pagination className="mx-0 w-auto justify-end">
-				<PaginationContent>
-					<PaginationItem>
-						<PaginationPrevious
-							aria-disabled={atStart}
-							className={atStart ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-							onClick={() => {
-								if (!atStart) {
-									onPageChange(page - 1);
-								}
-							}}
-						/>
-					</PaginationItem>
-					{explorerPageEntries(page, pageCount).map((entry) =>
-						entry.page === null ? (
-							<PaginationItem key={entry.key}>
-								<PaginationEllipsis />
-							</PaginationItem>
-						) : (
-							<PaginationItem key={entry.key}>
-								<PaginationLink
-									className="cursor-pointer"
-									isActive={entry.page === page}
-									onClick={() => onPageChange(entry.page as number)}
-								>
-									{entry.page + 1}
-								</PaginationLink>
-							</PaginationItem>
-						),
-					)}
-					<PaginationItem>
-						<PaginationNext
-							aria-disabled={atEnd}
-							className={atEnd ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
-							onClick={() => {
-								if (!atEnd) {
-									onPageChange(page + 1);
-								}
-							}}
-						/>
-					</PaginationItem>
-				</PaginationContent>
-			</Pagination>
+		// A container query, not a viewport one. This footer sits in rails from
+		// 380px to the width of a page, and the question "do the page numbers fit"
+		// is about the rail, not the window. Read against the viewport, the numbers
+		// and the word "Next" ran past the map panel's edge, which clips them.
+		<div className="@container">
+			<div className="flex items-center justify-between gap-2">
+				<p className="m-0 truncate text-muted-foreground text-xs">
+					Page {page + 1} of {pageCount} · {formatCount(total)} {noun}
+				</p>
+				<Pagination className="mx-0 w-auto justify-end">
+					<PaginationContent>
+						<PaginationItem>
+							<PaginationLink
+								aria-disabled={atStart}
+								aria-label="Go to previous page"
+								className={atStart ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+								onClick={() => {
+									if (!atStart) {
+										onPageChange(page - 1);
+									}
+								}}
+							>
+								<ChevronLeftIcon aria-hidden="true" />
+							</PaginationLink>
+						</PaginationItem>
+						{explorerPageEntries(page, pageCount).map((entry) =>
+							entry.page === null ? (
+								// Hidden rather than dropped: the same pager in a page-width
+								// rail still shows every number it has room for.
+								<PaginationItem className="hidden @xl:block" key={entry.key}>
+									<PaginationEllipsis />
+								</PaginationItem>
+							) : (
+								<PaginationItem className="hidden @xl:block" key={entry.key}>
+									<PaginationLink
+										className="cursor-pointer"
+										isActive={entry.page === page}
+										onClick={() => onPageChange(entry.page as number)}
+									>
+										{entry.page + 1}
+									</PaginationLink>
+								</PaginationItem>
+							),
+						)}
+						<PaginationItem>
+							<PaginationLink
+								aria-disabled={atEnd}
+								aria-label="Go to next page"
+								className={atEnd ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+								onClick={() => {
+									if (!atEnd) {
+										onPageChange(page + 1);
+									}
+								}}
+							>
+								<ChevronRightIcon aria-hidden="true" />
+							</PaginationLink>
+						</PaginationItem>
+					</PaginationContent>
+				</Pagination>
+			</div>
 		</div>
 	);
 }

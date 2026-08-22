@@ -15,10 +15,13 @@ import { MapContextMenu, type MapContextMenuConfig } from './map-context-menu';
 import { MapFallback } from './map-fallback';
 import { type MapInset, NO_MAP_INSET } from './map-inset';
 import { MapLayerControls } from './map-layer-controls';
+import { MapLegend, type MapLegendEntry } from './map-legend';
+import { MapReadout } from './map-readout';
 import { MapSearch } from './map-search';
 import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles';
 import { MapZoomControls } from './map-zoom-controls';
 import { MeasureControl, MeasureControlButton } from './measure-control';
+import { NorthControl } from './north-control';
 import { buildOutreachExtentUrl } from './outreach-tiles';
 import { buildRegionExtentUrl } from './region-tiles';
 import { buildSampleExtentUrl } from './sample-tiles';
@@ -70,6 +73,12 @@ export interface MapControlsConfig {
 	readonly zoom?: boolean;
 	/** Ephemeral distance/area tools. Off by default — see {@link MeasureControl}. */
 	readonly measure?: boolean;
+	/**
+	 * Centre, bearing, zoom and scale along the bottom edge. Off by default: it
+	 * belongs on a map that is the page, not on the small ones inside forms and
+	 * cards, where it would take a quarter of the height. See {@link MapReadout}.
+	 */
+	readonly readout?: boolean;
 	readonly attribution?: boolean;
 }
 
@@ -83,6 +92,7 @@ export function MapCanvas({
 	className,
 	camera,
 	controls,
+	legend,
 	inset,
 	searchWidth,
 	contextMenu,
@@ -109,6 +119,11 @@ export function MapCanvas({
 	readonly className?: string;
 	readonly camera?: MapCamera;
 	readonly controls?: MapControlsConfig;
+	/**
+	 * What the marks on this map mean, drawn under the basemap switcher. Pass only
+	 * the entries the current filters can put on screen. See {@link MapLegend}.
+	 */
+	readonly legend?: readonly MapLegendEntry[] | undefined;
 	/**
 	 * What a page has floating over this canvas. The controls sit clear of it and
 	 * the camera frames into what is left, so a full-page map with a results panel
@@ -189,6 +204,7 @@ export function MapCanvas({
 		// embedded in a form or a card has no room for another cluster.
 		measure: controls?.measure ?? false,
 		attribution: controls?.attribution ?? true,
+		readout: controls?.readout ?? false,
 	};
 
 	const { map, isLoaded, hasToken, error } = useMapboxMap({
@@ -302,7 +318,7 @@ export function MapCanvas({
 								<MapSearch map={map} width={searchWidth} />
 							</div>
 						) : null}
-						{show.basemap || show.layers ? (
+						{show.basemap || show.layers || legend !== undefined ? (
 							<div
 								className="pointer-events-auto absolute top-4 flex flex-col items-end gap-3"
 								style={{ right: EDGE + clear.right }}
@@ -311,45 +327,71 @@ export function MapCanvas({
 									<BasemapSwitcher onChange={setBasemapId} value={basemapId} />
 								) : null}
 								{show.layers ? <MapLayerControls /> : null}
+								{legend === undefined ? null : <MapLegend entries={legend} />}
+							</div>
+						) : null}
+						{show.readout ? (
+							// Centred on the map the panels leave uncovered, not on the canvas,
+							// and clear of both bottom corners: Mapbox puts its logo in one and
+							// the attribution and info buttons in the other.
+							<div
+								className="pointer-events-none absolute flex justify-center"
+								style={{
+									left: EDGE + clear.left,
+									right: EDGE + clear.right,
+									bottom: EDGE + clear.bottom,
+								}}
+							>
+								<MapReadout map={map} />
 							</div>
 						) : null}
 						{show.measure || show.geolocate || show.zoom ? (
-							// One bottom-right stack, reading down in order of how often it is
-							// reached for: measure, then locate, then zoom. The taller offset
-							// clears the attribution chip; without it, sit nearer the corner.
+							// One right-edge stack, reading down in order of how often it is
+							// reached for: measure, then locate, then zoom. It sits at the
+							// middle of whatever strip of map the panels leave uncovered,
+							// rather than in the corner, where Mapbox's own attribution and
+							// info buttons live.
 							<div
-								className="pointer-events-auto absolute flex flex-col items-end gap-2"
+								className="pointer-events-none absolute flex items-center"
 								style={{
 									right: EDGE + clear.right,
-									bottom: bottomOffset(show.attribution, clear),
+									top: clear.top,
+									bottom: clear.bottom,
 								}}
 							>
-								{show.measure ? (
-									<>
-										{measureOpen ? (
-											<MeasureControl
-												controller={measure}
-												onClose={() => {
-													measure.clear();
-													setMeasureOpen(false);
+								<div className="pointer-events-auto flex flex-col items-end gap-2">
+									{show.measure ? (
+										<>
+											{measureOpen ? (
+												<MeasureControl
+													controller={measure}
+													onClose={() => {
+														measure.clear();
+														setMeasureOpen(false);
+													}}
+												/>
+											) : null}
+											<MeasureControlButton
+												active={measureOpen}
+												onClick={() => {
+													// Closing takes the shapes with it: a measurement is a
+													// question, and the answer does not outlive the asking.
+													if (measureOpen) {
+														measure.clear();
+													}
+													setMeasureOpen((open) => !open);
 												}}
 											/>
-										) : null}
-										<MeasureControlButton
-											active={measureOpen}
-											onClick={() => {
-												// Closing takes the shapes with it: a measurement is a
-												// question, and the answer does not outlive the asking.
-												if (measureOpen) {
-													measure.clear();
-												}
-												setMeasureOpen((open) => !open);
-											}}
-										/>
-									</>
-								) : null}
-								{show.geolocate ? <GeolocateControl map={map} /> : null}
-								{show.zoom ? <MapZoomControls map={map} /> : null}
+										</>
+									) : null}
+									{show.geolocate ? <GeolocateControl map={map} /> : null}
+									{show.zoom ? (
+										<>
+											<MapZoomControls map={map} />
+											<NorthControl map={map} />
+										</>
+									) : null}
+								</div>
 							</div>
 						) : null}
 					</div>
@@ -361,14 +403,6 @@ export function MapCanvas({
 
 /** Gap (px) between a floating control group and the map edge, matching `*-4`. */
 const EDGE = 16;
-/** Taller, to clear the Mapbox attribution chip along the bottom. */
-const ATTRIBUTION_EDGE = 44;
-
-/** How far up a bottom control group sits, over the attribution chip and any chrome. */
-function bottomOffset(hasAttribution: boolean, clear: MapInset): number {
-	return (hasAttribution ? ATTRIBUTION_EDGE : EDGE) + clear.bottom;
-}
-
 /** The tile layers a canvas can frame, in the order a shared canvas resolves them. */
 interface ExtentFitLayers {
 	readonly habitatLayer: HabitatTileLayerConfig | undefined;

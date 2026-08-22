@@ -143,12 +143,13 @@ function OutreachExplorerRoute() {
 		[filters],
 	);
 
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<OutreachSite>({
-		path: PATH,
-		rowsKey: 'outreachActions',
-		label: 'Outreach',
-		params,
-	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<OutreachSite>({
+			path: PATH,
+			rowsKey: 'outreachActions',
+			label: 'Outreach',
+			params,
+		});
 
 	const selected = useSelectedMapRecord<OutreachSite>({
 		path: PATH,
@@ -179,7 +180,7 @@ function OutreachExplorerRoute() {
 						contextMenu={{
 							create: [MAP_CREATE_TARGETS.outreach, MAP_CREATE_TARGETS.serviceRequest],
 						}}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						onMapReady={handleMapReady}
 						outreachLayer={outreachLayer}
@@ -252,7 +253,9 @@ function OutreachExplorerRoute() {
 				</ExplorerHeader>
 
 				<OutreachResults
+					isError={isError}
 					isLoading={isLoading}
+					onRetry={retry}
 					methodNameById={methodNameById}
 					onSelect={setSelectedId}
 					personnelNameById={personnel.nameById}
@@ -279,6 +282,8 @@ function OutreachExplorerRoute() {
 function OutreachResults({
 	rows,
 	isLoading,
+	isError,
+	onRetry,
 	selectedId,
 	methodNameById,
 	personnelNameById,
@@ -286,6 +291,8 @@ function OutreachResults({
 }: {
 	readonly rows: readonly OutreachSite[];
 	readonly isLoading: boolean;
+	readonly isError: boolean;
+	readonly onRetry: () => void;
 	readonly selectedId: string | null;
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly personnelNameById: ReadonlyMap<string, string>;
@@ -295,7 +302,9 @@ function OutreachResults({
 		<ResultList
 			emptyDescription="Widen the time window or loosen the filters to bring outreach actions into range."
 			emptyTitle="No outreach in range"
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={onRetry}
 			rows={rows}
 		>
 			{(row) => (

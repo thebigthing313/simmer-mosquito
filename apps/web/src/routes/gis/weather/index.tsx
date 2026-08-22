@@ -130,7 +130,7 @@ function WeatherStationsRoute() {
 				<>
 					<MapCanvas
 						contextMenu={{}}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData={bounds}
 						geoJson={geoJson}
 						geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: setFocusedId }}

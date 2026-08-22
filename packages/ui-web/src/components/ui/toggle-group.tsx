@@ -33,6 +33,13 @@ function ToggleGroup({
 			data-variant={variant}
 			data-size={size}
 			data-spacing={spacing}
+			/*
+			 * Radix renders `role="group"` for both types while a single-select
+			 * group's items each get `role="radio"`. Radios inside a plain group are
+			 * not a set: a screen reader reads them one at a time and never says
+			 * "1 of 3", because only a radiogroup makes them count.
+			 */
+			role={props.type === 'single' ? 'radiogroup' : undefined}
 			style={{ '--gap': spacing } as React.CSSProperties}
 			className={cn(
 				'group/toggle-group flex w-fit items-center gap-[--spacing(var(--gap))] rounded-md data-[spacing=default]:data-[variant=outline]:shadow-xs',

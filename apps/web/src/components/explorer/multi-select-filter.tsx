@@ -57,8 +57,9 @@ export function MultiSelectFilter({
 			<PopoverTrigger asChild>
 				<Button
 					aria-label={`Filter by ${label}`}
-					className="h-8 justify-between font-normal"
-					size="sm"
+					// No width of its own: inline in a wrapping row it sizes to its label,
+					// and in a FilterGrid cell the grid stretches it to the column.
+					className="justify-between px-3 font-normal"
 					variant="outline"
 				>
 					<span className="truncate">{label}</span>

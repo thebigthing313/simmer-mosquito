@@ -18,7 +18,7 @@ function DataExplorerRoute() {
 						MAP_CREATE_TARGETS.serviceRequest,
 					],
 				}}
-				controls={{ measure: true }}
+				controls={{ measure: true, readout: true }}
 			/>
 		</OutletFullPageMap>
 	);

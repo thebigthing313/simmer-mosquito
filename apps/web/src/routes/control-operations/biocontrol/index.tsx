@@ -159,12 +159,13 @@ function BiocontrolExplorerRoute() {
 		[filters],
 	);
 
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<BiocontrolSite>({
-		path: PATH,
-		rowsKey: 'biocontrolActions',
-		label: 'Biocontrol',
-		params,
-	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<BiocontrolSite>({
+			path: PATH,
+			rowsKey: 'biocontrolActions',
+			label: 'Biocontrol',
+			params,
+		});
 
 	// `habitats` syncs on demand, so resolve only the referenced ids as a bounded
 	// live subset rather than reading the whole collection eagerly.
@@ -204,7 +205,7 @@ function BiocontrolExplorerRoute() {
 					<MapCanvas
 						contextMenu={{ create: [MAP_CREATE_TARGETS.biocontrol] }}
 						biocontrolLayer={biocontrolLayer}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						onMapReady={handleMapReady}
 					/>
@@ -285,7 +286,9 @@ function BiocontrolExplorerRoute() {
 
 				<BiocontrolResults
 					habitatNameById={habitatNameById}
+					isError={isError}
 					isLoading={isLoading}
+					onRetry={retry}
 					methodNameById={methodNameById}
 					onSelect={setSelectedId}
 					personnelNameById={personnel.nameById}
@@ -313,6 +316,8 @@ function BiocontrolExplorerRoute() {
 function BiocontrolResults({
 	rows,
 	isLoading,
+	isError,
+	onRetry,
 	selectedId,
 	methodNameById,
 	personnelNameById,
@@ -322,6 +327,8 @@ function BiocontrolResults({
 }: {
 	readonly rows: readonly BiocontrolSite[];
 	readonly isLoading: boolean;
+	readonly isError: boolean;
+	readonly onRetry: () => void;
 	readonly selectedId: string | null;
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly personnelNameById: ReadonlyMap<string, string>;
@@ -333,7 +340,9 @@ function BiocontrolResults({
 		<ResultList
 			emptyDescription="Widen the time window or loosen the filters to bring biocontrol releases into range."
 			emptyTitle="No releases in range"
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={onRetry}
 			rows={rows}
 		>
 			{(row) => (

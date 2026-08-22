@@ -153,12 +153,13 @@ function CollectionsExplorerRoute() {
 		[filters],
 	);
 
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<CollectionSite>({
-		path: PATH,
-		rowsKey: 'collections',
-		label: 'Collections',
-		params,
-	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<CollectionSite>({
+			path: PATH,
+			rowsKey: 'collections',
+			label: 'Collections',
+			params,
+		});
 
 	const selected = useSelectedMapRecord<CollectionSite>({
 		path: PATH,
@@ -189,7 +190,7 @@ function CollectionsExplorerRoute() {
 					<MapCanvas
 						contextMenu={{ create: [MAP_CREATE_TARGETS.collection, MAP_CREATE_TARGETS.trap] }}
 						collectionLayer={collectionLayer}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						onMapReady={handleMapReady}
 					/>
@@ -251,7 +252,9 @@ function CollectionsExplorerRoute() {
 				</ExplorerHeader>
 
 				<CollectionResults
+					isError={isError}
 					isLoading={isLoading}
+					onRetry={retry}
 					methodNameById={methodNameById}
 					onSelect={setSelectedId}
 					personnelNameById={personnel.nameById}
@@ -279,6 +282,8 @@ function CollectionsExplorerRoute() {
 function CollectionResults({
 	rows,
 	isLoading,
+	isError,
+	onRetry,
 	selectedId,
 	trapNameById,
 	methodNameById,
@@ -287,6 +292,8 @@ function CollectionResults({
 }: {
 	readonly rows: readonly CollectionSite[];
 	readonly isLoading: boolean;
+	readonly isError: boolean;
+	readonly onRetry: () => void;
 	readonly selectedId: string | null;
 	readonly trapNameById: ReadonlyMap<string, string>;
 	readonly methodNameById: ReadonlyMap<string, string>;
@@ -297,7 +304,9 @@ function CollectionResults({
 		<ResultList
 			emptyDescription="Widen the time window or loosen the filters to bring collections into range."
 			emptyTitle="No collections in range"
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={onRetry}
 			rows={rows}
 		>
 			{(row) => (

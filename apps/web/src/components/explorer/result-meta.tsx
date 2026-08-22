@@ -1,3 +1,4 @@
+import { formatCount } from '../../lib/format-count';
 /**
  * The count beside an explorer's title.
  *
@@ -20,9 +21,13 @@ export function ResultMeta({
 	readonly noun?: { readonly one: string; readonly many: string } | undefined;
 }) {
 	if (isLoading && total === 0) {
-		return <span className="text-muted-foreground text-sm">Loading…</span>;
+		return <span className="whitespace-nowrap text-muted-foreground text-sm">Loading…</span>;
 	}
-	return <span className="text-muted-foreground text-sm">{resultLabel(total, noun)}</span>;
+	return (
+		<span className="whitespace-nowrap text-muted-foreground text-sm">
+			{resultLabel(total, noun)}
+		</span>
+	);
 }
 
 function resultLabel(
@@ -30,10 +35,10 @@ function resultLabel(
 	noun: { readonly one: string; readonly many: string } | undefined,
 ): string {
 	if (noun === undefined) {
-		return total === 0 ? 'None in view' : `${total} in view`;
+		return total === 0 ? 'None in view' : `${formatCount(total)} in view`;
 	}
 	if (total === 0) {
 		return 'None';
 	}
-	return total === 1 ? `1 ${noun.one}` : `${total} ${noun.many}`;
+	return total === 1 ? `1 ${noun.one}` : `${formatCount(total)} ${noun.many}`;
 }

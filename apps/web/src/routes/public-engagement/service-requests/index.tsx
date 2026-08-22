@@ -263,7 +263,7 @@ function ServiceRequestsExplorerRoute() {
 						contextMenu={{
 							create: [MAP_CREATE_TARGETS.serviceRequest, MAP_CREATE_TARGETS.outreach],
 						}}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData={mappedBounds}
 						geoJson={geoJson}
 						geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: setFocusedId }}

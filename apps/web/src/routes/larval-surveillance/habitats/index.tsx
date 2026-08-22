@@ -17,6 +17,7 @@ import {
 	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
 	mapQueryParams,
 	SegmentedFilter,
@@ -44,9 +45,8 @@ import {
 	useSearchFilters,
 } from '../../../lib/search-filters';
 import { HabitatMapCard } from '../../-habitat-map-card';
-
-type StatusFilter = 'all' | 'active' | 'inactive';
-type AccessFilter = 'all' | 'accessible' | 'inaccessible';
+import type { AccessFilter, StatusFilter } from './-legend';
+import { habitatLegend } from './-legend';
 
 const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
 const ACCESS_VALUES: readonly AccessFilter[] = ['all', 'accessible', 'inaccessible'];
@@ -153,6 +153,8 @@ function HabitatsExplorerRoute() {
 		[status, access, typeIds, tagIds, regionIds, search],
 	);
 
+	const legend = useMemo(() => habitatLegend(status, access), [status, access]);
+
 	const bbox = useMapBoundsParam(map);
 	const params = useMemo(
 		() =>
@@ -167,13 +169,14 @@ function HabitatsExplorerRoute() {
 			}),
 		[bbox, filters],
 	);
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<HabitatListRow>({
-		path: PATH,
-		rowsKey: 'habitats',
-		label: 'Habitats',
-		params,
-		enabled: bbox !== null,
-	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<HabitatListRow>({
+			path: PATH,
+			rowsKey: 'habitats',
+			label: 'Habitats',
+			params,
+			enabled: bbox !== null,
+		});
 	// Tags for the rows actually on screen, so the subset request stays small.
 	const pageHabitatIds = useMemo(() => rows.map((habitat) => habitat.id), [rows]);
 	const { byId: tagsByHabitatId } = useEntityTags('habitat', pageHabitatIds);
@@ -236,7 +239,7 @@ function HabitatsExplorerRoute() {
 						/>
 					</div>
 
-					<div className="grid grid-cols-2 gap-2">
+					<FilterGrid>
 						<MultiSelectFilter
 							label="Habitat type"
 							empty="No habitat types"
@@ -258,7 +261,7 @@ function HabitatsExplorerRoute() {
 							selected={regionIds}
 							onChange={setRegionIds}
 						/>
-					</div>
+					</FilterGrid>
 
 					{activeFilterCount > 0 ? (
 						<ActiveFilters
@@ -302,9 +305,10 @@ function HabitatsExplorerRoute() {
 				<>
 					<MapCanvas
 						contextMenu={{ create: [MAP_CREATE_TARGETS.habitat, MAP_CREATE_TARGETS.inspection] }}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						habitatLayer={habitatLayer}
+						legend={legend}
 						inset={panel.inset}
 						onMapReady={handleMapReady}
 						searchWidth={panel.width}
@@ -322,6 +326,8 @@ function HabitatsExplorerRoute() {
 			panel={panel}
 			results={{
 				rows,
+				isError,
+				onRetry: retry,
 				skeletonClassName: 'h-[58px]',
 				emptyTitle: 'No habitats in view',
 				emptyDescription:

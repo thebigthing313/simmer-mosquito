@@ -1,8 +1,6 @@
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
-	ChevronDownIcon,
-	ChevronLeftIcon,
 	FilterIcon,
 	type iconRegistry,
 	PanelLeftIcon,
@@ -11,6 +9,7 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
 import { OutletFullPageMap } from '../app-shell/outlet/full-page-map';
+import { MAP_CHROME_SURFACE } from '../map/chrome';
 import { type ExplorerCreateAction, ExplorerHeader } from './explorer-header';
 import { ResultList } from './result-list';
 import { ResultMeta } from './result-meta';
@@ -18,9 +17,15 @@ import type { ExplorerPanel } from './use-explorer-panel';
 
 type RegistryIcon = typeof iconRegistry.entities.sample.icon;
 
-/** The floating-panel shell both panels in the column wear. */
-const PANEL_SHELL =
-	'pointer-events-auto flex flex-col overflow-hidden rounded-xl border border-border/60 bg-background/95 shadow-lg backdrop-blur-sm';
+/**
+ * The floating-panel shell both panels in the column wear. It carries the same
+ * translucent surface as the map's own controls, so the column reads as chrome
+ * over the map rather than a second page laid on top of it.
+ */
+const PANEL_SHELL = cn(
+	'pointer-events-auto flex flex-col overflow-hidden rounded-xl shadow-lg',
+	MAP_CHROME_SURFACE,
+);
 
 /** What the panel says it is holding, expanded or collapsed. */
 export interface ExplorerHeading {
@@ -43,6 +48,10 @@ export interface ExplorerResults<TRow> {
 	readonly emptyDescription: string;
 	/** The placeholder's height, matched to the row it stands in for. */
 	readonly skeletonClassName?: string | undefined;
+	/** The request failed. Replaces the empty state, which would misread as "none match". */
+	readonly isError?: boolean | undefined;
+	/** Runs the request again, behind the failure state's retry. */
+	readonly onRetry?: (() => void) | undefined;
 }
 
 /**
@@ -123,7 +132,6 @@ export function ExplorerMapPage<TRow>({
 					<ResultsPanel
 						footer={footer}
 						heading={heading}
-						isNarrow={panel.isNarrow}
 						onCollapse={() => setCollapsed(true)}
 						results={results}
 					/>
@@ -144,29 +152,31 @@ function ResultsPanel<TRow>({
 	heading,
 	results,
 	footer,
-	isNarrow,
 	onCollapse,
 }: {
 	readonly heading: ExplorerHeading;
 	readonly results: ExplorerResults<TRow>;
 	readonly footer: ReactNode;
-	readonly isNarrow: boolean;
 	readonly onCollapse: () => void;
 }) {
-	const { rows, renderRow, emptyTitle, emptyDescription, skeletonClassName } = results;
+	const { rows, renderRow, emptyTitle, emptyDescription, skeletonClassName, isError, onRetry } =
+		results;
 
 	return (
 		<div className={cn(PANEL_SHELL, 'min-h-0 flex-1')}>
 			<ExplorerHeader
 				collapse={{
 					onCollapse,
+					// The same X the filters panel above it closes with. Two panels in one
+					// column, put away the same way.
 					label: 'Hide results',
-					icon: isNarrow ? ChevronDownIcon : ChevronLeftIcon,
+					icon: XIcon,
 				}}
 				create={heading.create}
 				icon={heading.icon}
 				isLoading={heading.isLoading}
 				noun={heading.noun}
+				surface="chrome"
 				title={heading.title}
 				total={heading.total}
 			/>
@@ -174,7 +184,9 @@ function ResultsPanel<TRow>({
 			<ResultList
 				emptyDescription={emptyDescription}
 				emptyTitle={emptyTitle}
+				isError={isError ?? false}
 				isLoading={heading.isLoading}
+				onRetry={onRetry}
 				rows={rows}
 				{...(skeletonClassName === undefined ? {} : { skeletonClassName })}
 			>
@@ -212,7 +224,7 @@ function FiltersPanel({
 	if (!isOpen) {
 		return (
 			<Button
-				className="pointer-events-auto self-start rounded-full border-border/60 bg-background/95 shadow-lg backdrop-blur-sm"
+				className={cn('pointer-events-auto self-start rounded-full shadow-lg', MAP_CHROME_SURFACE)}
 				onClick={() => onOpenChange(true)}
 				size="sm"
 				variant="outline"
@@ -249,7 +261,7 @@ function FiltersPanel({
 					<XIcon aria-hidden="true" />
 				</Button>
 			</div>
-			<div className="grid gap-2 overflow-y-auto p-3">{children}</div>
+			<div className="grid gap-3 overflow-y-auto p-3">{children}</div>
 		</div>
 	);
 }
@@ -272,7 +284,12 @@ function CollapsedPanel({
 }) {
 	const Icon = heading.icon;
 	return (
-		<div className="pointer-events-auto flex items-center gap-2 rounded-full border border-border/60 bg-background/95 py-1.5 pr-1.5 pl-3 shadow-lg backdrop-blur-sm">
+		<div
+			className={cn(
+				'pointer-events-auto flex items-center gap-2 rounded-full py-1.5 pr-1.5 pl-3 shadow-lg',
+				MAP_CHROME_SURFACE,
+			)}
+		>
 			{Icon === undefined ? null : (
 				<Icon aria-hidden="true" className="size-4 text-muted-foreground" />
 			)}
