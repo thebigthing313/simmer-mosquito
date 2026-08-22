@@ -38,11 +38,17 @@ export function ResultList<TRow>({
 }) {
 	if (isLoading && rows.length === 0) {
 		return (
-			<div className="grid gap-px overflow-y-auto p-2">
-				{RESULT_SKELETON_KEYS.map((key) => (
-					<Skeleton className={skeletonClassName} key={key} />
-				))}
-			</div>
+			// The same ScrollArea the rows arrive into. A plain `overflow-y-auto` here
+			// meant the panel wore the browser's scrollbar while it loaded and the
+			// styled one once it had rows, so the rail shifted under the pointer at
+			// the moment the reader was waiting on it.
+			<ScrollArea className="min-h-0 flex-1" type="auto">
+				<div className="grid gap-px p-2">
+					{RESULT_SKELETON_KEYS.map((key) => (
+						<Skeleton className={skeletonClassName} key={key} />
+					))}
+				</div>
+			</ScrollArea>
 		);
 	}
 
