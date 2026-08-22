@@ -19,7 +19,10 @@ export function createFakeMap() {
 	const layers = new Map<string, LayerSpecification>();
 	const handlers = new Map<string, Set<(event: unknown) => void>>();
 	const cameraCalls: CameraCall[] = [];
-	const canvas = { style: { cursor: '' } };
+	const canvas = { style: { cursor: '' }, clientWidth: 1000, clientHeight: 800 };
+	// A flat 0.001 degrees per pixel from the origin: enough for a test to say
+	// which pixels were unprojected, which is the whole question.
+	const DEGREES_PER_PIXEL = 0.001;
 	let removed = false;
 	let doubleClickZoomEnabled = true;
 
@@ -64,6 +67,21 @@ export function createFakeMap() {
 		},
 		getCanvas: () => canvas,
 		getZoom: () => 10,
+		unproject([x, y]: [number, number]) {
+			assertLive();
+			return { lng: x * DEGREES_PER_PIXEL, lat: -y * DEGREES_PER_PIXEL };
+		},
+		/**
+		 * Deliberately narrower than the canvas, the way mapbox answers once the
+		 * map carries viewport padding. Anything reading the viewport off this
+		 * rather than off the canvas gets the padded strip.
+		 */
+		getBounds: () => ({
+			getEast: () => 0.4,
+			getNorth: () => 0,
+			getSouth: () => -0.8,
+			getWest: () => 0.2,
+		}),
 		flyTo(options: CameraOptions) {
 			assertLive();
 			cameraCalls.push({ kind: 'flyTo', ...readCamera(options) });

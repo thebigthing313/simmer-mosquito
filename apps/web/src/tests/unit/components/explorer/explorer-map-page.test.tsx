@@ -69,6 +69,7 @@ const { useExplorerPanel } = await import('../../../../components/explorer/use-e
 const { useFlyToSelection } = await import('../../../../components/explorer/use-fly-to-selection');
 const { useMapExtentFit } = await import('../../../../components/map/use-map-extent-fit');
 const { useMapPadding } = await import('../../../../components/map/use-map-padding');
+const { useMapBoundsParam } = await import('../../../../components/explorer/use-map-bounds');
 const { createFakeMap } = await import('../map/fake-map');
 
 afterEach(() => {
@@ -300,6 +301,33 @@ describe('the inset the panel hands the map', () => {
 		expect(lastCall(fake, 'easeTo')?.padding).toEqual({ top: 0, right: 0, bottom: 222, left: 0 });
 
 		probe.unmount();
+	});
+
+	// Mapbox subtracts viewport padding from getBounds, so once the canvas owns
+	// padding a list keyed on it would drop every record behind the panel and
+	// change its own count on a collapse. Measured at 215 records against 129 on
+	// one Habitat viewport before this was read off the canvas instead.
+	it('asks the list for the whole canvas, not the strip beside the panel', () => {
+		const container = document.createElement('div');
+		document.body.append(container);
+		const root = createRoot(container);
+		const seen: (string | null)[] = [];
+
+		function Probe() {
+			seen.push(useMapBoundsParam(fake.map as MapboxMap));
+			return null;
+		}
+		act(() => {
+			root.render(<Probe />);
+		});
+
+		// The full 1000x800 canvas, not the 0.2..0.4 box getBounds reports.
+		expect(seen.at(-1)).toBe('0,-0.8,1,0');
+
+		act(() => {
+			root.unmount();
+		});
+		container.remove();
 	});
 
 	it('keeps the side column while the stage is wide enough to leave a usable map', () => {
