@@ -15,6 +15,7 @@ import { MapContextMenu, type MapContextMenuConfig } from './map-context-menu';
 import { MapFallback } from './map-fallback';
 import { type MapInset, NO_MAP_INSET } from './map-inset';
 import { MapLayerControls } from './map-layer-controls';
+import { MapLegend, type MapLegendEntry } from './map-legend';
 import { MapReadout } from './map-readout';
 import { MapSearch } from './map-search';
 import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles';
@@ -91,6 +92,7 @@ export function MapCanvas({
 	className,
 	camera,
 	controls,
+	legend,
 	inset,
 	searchWidth,
 	contextMenu,
@@ -117,6 +119,11 @@ export function MapCanvas({
 	readonly className?: string;
 	readonly camera?: MapCamera;
 	readonly controls?: MapControlsConfig;
+	/**
+	 * What the marks on this map mean, drawn under the basemap switcher. Pass only
+	 * the entries the current filters can put on screen. See {@link MapLegend}.
+	 */
+	readonly legend?: readonly MapLegendEntry[] | undefined;
 	/**
 	 * What a page has floating over this canvas. The controls sit clear of it and
 	 * the camera frames into what is left, so a full-page map with a results panel
@@ -311,7 +318,7 @@ export function MapCanvas({
 								<MapSearch map={map} width={searchWidth} />
 							</div>
 						) : null}
-						{show.basemap || show.layers ? (
+						{show.basemap || show.layers || legend !== undefined ? (
 							<div
 								className="pointer-events-auto absolute top-4 flex flex-col items-end gap-3"
 								style={{ right: EDGE + clear.right }}
@@ -320,6 +327,7 @@ export function MapCanvas({
 									<BasemapSwitcher onChange={setBasemapId} value={basemapId} />
 								) : null}
 								{show.layers ? <MapLayerControls /> : null}
+								{legend === undefined ? null : <MapLegend entries={legend} />}
 							</div>
 						) : null}
 						{show.readout ? (

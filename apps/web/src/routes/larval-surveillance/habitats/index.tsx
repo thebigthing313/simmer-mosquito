@@ -32,7 +32,13 @@ import {
 	useTagOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { type HabitatTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
+import {
+	HABITAT_STATUS_COLORS,
+	type HabitatTileFilters,
+	MAP_CREATE_TARGETS,
+	MapCanvas,
+	type MapLegendEntry,
+} from '../../../components/map';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { habitats } from '../../../lib/collections/habitats';
 import {
@@ -153,6 +159,30 @@ function HabitatsExplorerRoute() {
 		}),
 		[status, access, typeIds, tagIds, regionIds, search],
 	);
+
+	/**
+	 * The key, cut down to the colours the current filters can actually draw.
+	 *
+	 * The paint expression reads inaccessible first, then active, so an
+	 * inaccessible habitat is red whether or not it is also active. Status All
+	 * with Access Accessible therefore paints green and grey and no red, and a
+	 * key that still listed red would be describing dots that are not there.
+	 */
+	const legend = useMemo<readonly MapLegendEntry[]>(() => {
+		const entries: MapLegendEntry[] = [];
+		if (access !== 'inaccessible') {
+			if (status !== 'inactive') {
+				entries.push({ color: HABITAT_STATUS_COLORS.active, label: 'Active' });
+			}
+			if (status !== 'active') {
+				entries.push({ color: HABITAT_STATUS_COLORS.inactive, label: 'Inactive' });
+			}
+		}
+		if (access !== 'accessible') {
+			entries.push({ color: HABITAT_STATUS_COLORS.inaccessible, label: 'Inaccessible' });
+		}
+		return entries;
+	}, [status, access]);
 
 	const bbox = useMapBoundsParam(map);
 	const params = useMemo(
@@ -307,6 +337,7 @@ function HabitatsExplorerRoute() {
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						habitatLayer={habitatLayer}
+						legend={legend}
 						inset={panel.inset}
 						onMapReady={handleMapReady}
 						searchWidth={panel.width}
