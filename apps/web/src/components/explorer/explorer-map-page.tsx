@@ -40,6 +40,13 @@ export interface ExplorerHeading {
 
 /** The rows, and what stands in for them when there are none. */
 export interface ExplorerResults<TRow> {
+	/**
+	 * The whole scroll area, for a panel whose records are not a flat list — the
+	 * Regions folder tree, the Activity Monitor's day-grouped log. Given this, the
+	 * frame draws it in place of the rows and every field below is ignored: a
+	 * caller with its own body owns its own empty and loading states too.
+	 */
+	readonly body?: ReactNode | undefined;
 	readonly rows: readonly TRow[];
 	readonly renderRow: (row: TRow) => ReactNode;
 	/** What is missing, e.g. `No habitats in view`. */
@@ -159,8 +166,16 @@ function ResultsPanel<TRow>({
 	readonly footer: ReactNode;
 	readonly onCollapse: () => void;
 }) {
-	const { rows, renderRow, emptyTitle, emptyDescription, skeletonClassName, isError, onRetry } =
-		results;
+	const {
+		body,
+		rows,
+		renderRow,
+		emptyTitle,
+		emptyDescription,
+		skeletonClassName,
+		isError,
+		onRetry,
+	} = results;
 
 	return (
 		<div className={cn(PANEL_SHELL, 'min-h-0 flex-1')}>
@@ -181,17 +196,21 @@ function ResultsPanel<TRow>({
 				total={heading.total}
 			/>
 
-			<ResultList
-				emptyDescription={emptyDescription}
-				emptyTitle={emptyTitle}
-				isError={isError ?? false}
-				isLoading={heading.isLoading}
-				onRetry={onRetry}
-				rows={rows}
-				{...(skeletonClassName === undefined ? {} : { skeletonClassName })}
-			>
-				{renderRow}
-			</ResultList>
+			{body === undefined ? (
+				<ResultList
+					emptyDescription={emptyDescription}
+					emptyTitle={emptyTitle}
+					isError={isError ?? false}
+					isLoading={heading.isLoading}
+					onRetry={onRetry}
+					rows={rows}
+					{...(skeletonClassName === undefined ? {} : { skeletonClassName })}
+				>
+					{renderRow}
+				</ResultList>
+			) : (
+				<div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
+			)}
 
 			{footer === undefined ? null : <div className="border-border/50 border-t p-3">{footer}</div>}
 		</div>

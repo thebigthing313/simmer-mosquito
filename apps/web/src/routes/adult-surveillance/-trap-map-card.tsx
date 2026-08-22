@@ -14,6 +14,7 @@ import {
 	MapCardDetail,
 	MapCardEyebrow,
 } from '../../components/map/map-card';
+import type { MapInset } from '../../components/map/map-inset';
 import { TagBadge } from '../../components/tag-badge';
 import { trapDisplayName } from '../../hooks/queries/trap-view';
 import { useRecordTags } from '../../hooks/queries/use-record-tags';
@@ -29,9 +30,12 @@ const TrapEntityIcon = iconRegistry.entities.trap.icon;
  */
 export function TrapMapCard({
 	id,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
 	const { trap } = useTrap(id);
@@ -39,7 +43,7 @@ export function TrapMapCard({
 
 	if (trap === undefined) {
 		return (
-			<MapCard onClose={onClose} title="Trap">
+			<MapCard inset={inset} onClose={onClose} title="Trap">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -61,6 +65,7 @@ export function TrapMapCard({
 				</>
 			}
 			eyebrow={<MapCardEyebrow type="Trap" />}
+			inset={inset}
 			onClose={onClose}
 			title={trapDisplayName(trap)}
 			viewDetailLink={(content) => (

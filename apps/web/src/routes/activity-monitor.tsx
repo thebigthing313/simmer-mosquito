@@ -15,17 +15,18 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ComponentType, type ReactNode, useCallback, useMemo, useState } from 'react';
-import { MapSplitPage } from '../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../components/date-range-filter';
 import {
-	ExplorerHeader,
+	ExplorerMapPage,
 	ExplorerRow,
 	useDateRangeFilters,
+	useExplorerPanel,
 	useFlyToSelection,
 	usePersonnelOptions,
 } from '../components/explorer';
 import { DensityBadge, WetnessBadge } from '../components/larval-display';
 import { MapCanvas } from '../components/map';
+import type { MapInset } from '../components/map/map-inset';
 import { useAuthSnapshot } from '../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../lib/local-date';
@@ -108,27 +109,16 @@ function ActivityMonitorRoute() {
 	const { view } = selection;
 	const reach = activityReach(activity.data, view.items.length);
 
+	const panel = useExplorerPanel();
+	// The window always names a person and a date range, so nothing here is ever
+	// "off its default" the way an explorer's filters are.
+	const activeFilterCount = 0;
+
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						activityLayer={selection.activityLayer}
-						controls={{ layers: false, measure: true, readout: true }}
-						fitToData={view.bounds}
-						onMapReady={selection.onMapReady}
-					/>
-					<ActivityFocusCard entry={view.selected} onClose={selection.clear} />
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<ExplorerHeader
-					isLoading={activity.isLoading}
-					noun={{ one: 'entry', many: 'entries' }}
-					title="Activity Monitor"
-					total={view.items.length}
-				>
 					<ProfilePicker
 						onChange={filters.setProfile}
 						options={personnel.options}
@@ -136,22 +126,51 @@ function ActivityMonitorRoute() {
 					/>
 					<DateRangeFilter {...filters.dateRange} />
 					<FamilyCounts counts={view.counts} />
-				</ExplorerHeader>
-
-				<ActivityPanel
-					days={view.days}
-					error={activity.error}
-					isLoading={activity.isLoading}
-					lookups={lookups}
-					onSelect={selection.select}
-					profileId={filters.window.profileId}
-					selectedKey={selection.selectedKey}
-					timeZone={filters.timeZone}
-					total={reach.total}
-					truncated={reach.truncated}
-				/>
-			</div>
-		</MapSplitPage>
+				</>
+			}
+			heading={{
+				title: 'Activity Monitor',
+				total: view.items.length,
+				isLoading: activity.isLoading,
+				noun: { one: 'entry', many: 'entries' },
+			}}
+			map={
+				<>
+					<MapCanvas
+						activityLayer={selection.activityLayer}
+						controls={{ layers: false, measure: true, readout: true }}
+						fitToData={view.bounds}
+						inset={panel.inset}
+						onMapReady={selection.onMapReady}
+						searchWidth={panel.width}
+					/>
+					<ActivityFocusCard entry={view.selected} inset={panel.inset} onClose={selection.clear} />
+				</>
+			}
+			panel={panel}
+			results={{
+				// A log grouped by day, not a flat list: the panel draws its own body,
+				// including the cap notice. See {@link ExplorerResults}.
+				body: (
+					<ActivityPanel
+						days={view.days}
+						error={activity.error}
+						isLoading={activity.isLoading}
+						lookups={lookups}
+						onSelect={selection.select}
+						profileId={filters.window.profileId}
+						selectedKey={selection.selectedKey}
+						timeZone={filters.timeZone}
+						total={reach.total}
+						truncated={reach.truncated}
+					/>
+				),
+				rows: [],
+				renderRow: () => null,
+				emptyTitle: 'No activity in range',
+				emptyDescription: 'Pick another person, or widen the time window.',
+			}}
+		/>
 	);
 }
 
@@ -706,11 +725,12 @@ function ActivityLoading() {
 
 // --- record dispatch ----------------------------------------------------------
 //
-// Nine self-fetching cards, all sharing the `{ id, onClose }` signature, so the
-// union carries ids alone and each card resolves its own content.
+// Nine self-fetching cards, all sharing the `{ id, inset, onClose }` signature,
+// so the union carries ids alone and each card resolves its own content.
 
 interface ActivityCardProps {
 	readonly id: string;
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }
 
@@ -742,14 +762,17 @@ const ACTIVITY_DETAIL_ROUTE = {
 
 function ActivityFocusCard({
 	entry,
+	inset,
 	onClose,
 }: {
 	readonly entry: ActivityEntry | null;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
 	if (entry === null) {
 		return null;
 	}
 	const CardForCategory = ACTIVITY_MAP_CARD[entry.category];
-	return <CardForCategory id={entry.id} onClose={onClose} />;
+	return <CardForCategory id={entry.id} inset={inset} onClose={onClose} />;
 }

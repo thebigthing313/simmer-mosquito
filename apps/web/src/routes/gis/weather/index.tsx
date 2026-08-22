@@ -1,22 +1,17 @@
 import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { ChevronRightIcon, iconRegistry, SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import {
+	ActiveFilterBar,
+	ExplorerMapPage,
+	ExplorerRow,
+	FilterChip,
+	useExplorerPanel,
+} from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
-import { WriteOnly } from '../../../components/write-only';
 import type { WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { useWeatherStations } from '../../../hooks/queries/use-weather-stations';
 import {
@@ -43,7 +38,7 @@ export const Route = createFileRoute('/gis/weather/')({
 });
 
 const WeatherIcon = iconRegistry.domains.weather.icon;
-const AddIcon = iconRegistry.actions.add.icon;
+const RESULT_NOUN = { one: 'station', many: 'stations' };
 
 /** A station whose synced centroid is usable as a map coordinate. */
 interface PlottedStation {
@@ -68,6 +63,7 @@ function WeatherStationsRoute() {
 
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
+	const panel = useExplorerPanel();
 
 	const stations = useMemo(() => {
 		const term = search.trim().toLowerCase();
@@ -124,8 +120,35 @@ function WeatherStationsRoute() {
 		});
 	}, [map, focused]);
 
+	const activeFilterCount = search.trim().length > 0 ? 1 : 0;
+
 	return (
-		<MapSplitPage
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
+				<>
+					<SearchField
+						label="Search weather stations"
+						onChange={setSearch}
+						placeholder="Search stations…"
+						value={searchInput}
+					/>
+
+					{activeFilterCount > 0 ? (
+						<ActiveFilterBar onClearAll={() => commitSearch('')}>
+							<FilterChip label={`Search: ${search}`} onRemove={() => commitSearch('')} />
+						</ActiveFilterBar>
+					) : null}
+				</>
+			}
+			heading={{
+				title: 'Weather Stations',
+				icon: WeatherIcon,
+				total: stations.length,
+				isLoading: false,
+				noun: RESULT_NOUN,
+				create: { to: '/gis/weather/create', label: 'Add Station', minimum: 'manager' },
+			}}
 			map={
 				<>
 					<MapCanvas
@@ -134,66 +157,37 @@ function WeatherStationsRoute() {
 						fitToData={bounds}
 						geoJson={geoJson}
 						geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: setFocusedId }}
+						inset={panel.inset}
 						onMapReady={setMap}
+						searchWidth={panel.width}
 					/>
 					{focusedId === null ? null : (
-						<WeatherStationMapCard id={focusedId} onClose={() => setFocusedId(null)} />
+						<WeatherStationMapCard
+							id={focusedId}
+							inset={panel.inset}
+							onClose={() => setFocusedId(null)}
+						/>
 					)}
 				</>
 			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-					<div className="flex flex-wrap items-start justify-between gap-2">
-						<div className="grid gap-1">
-							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
-								Weather Stations
-							</h1>
-							<p className="m-0 text-muted-foreground text-sm">
-								Stations feeding the agency's surveillance and control records.
-							</p>
-						</div>
-						<WriteOnly minimum="manager">
-							<Button asChild size="sm">
-								<Link to="/gis/weather/create">
-									<AddIcon aria-hidden="true" />
-									Add Station
-								</Link>
-							</Button>
-						</WriteOnly>
-					</div>
-					<div className="relative">
-						<SearchIcon
-							aria-hidden="true"
-							className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-						/>
-						<Input
-							aria-label="Search weather stations"
-							className="pl-9"
-							onChange={(event) => setSearch(event.target.value)}
-							placeholder="Search stations…"
-							type="search"
-							value={searchInput}
-						/>
-					</div>
-				</div>
-
-				{stations.length === 0 ? (
-					<StationsEmpty hasFilter={search.trim().length > 0} />
-				) : (
-					<ul className="min-h-0 flex-1 overflow-y-auto p-2">
-						{stations.map((station) => (
-							<StationRowItem
-								isFocused={station.id === focusedId}
-								key={station.id}
-								onFocus={() => setFocusedId(station.id)}
-								station={station}
-							/>
-						))}
-					</ul>
-				)}
-			</div>
-		</MapSplitPage>
+			panel={panel}
+			results={{
+				rows: stations,
+				emptyTitle: activeFilterCount > 0 ? 'No stations match' : 'No weather stations',
+				emptyDescription:
+					activeFilterCount > 0
+						? 'Try a different name or code.'
+						: 'Add a station to start recording readings against it.',
+				renderRow: (station) => (
+					<StationRowItem
+						isFocused={station.id === focusedId}
+						key={station.id}
+						onFocus={() => setFocusedId(station.id)}
+						station={station}
+					/>
+				),
+			}}
+		/>
 	);
 }
 
@@ -212,54 +206,18 @@ function StationRowItem({
 		.join(' · ');
 
 	return (
-		<li
-			className={cn(
-				'group flex items-center gap-1.5 rounded-md py-1.5 pr-1 pl-2',
-				isFocused ? 'bg-primary/8' : 'hover:bg-muted/50',
-			)}
-		>
-			<button
-				className="min-w-0 flex-1 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-default"
-				disabled={!hasPoint}
-				onClick={onFocus}
-				title={hasPoint ? 'Show on the Map' : 'This station has no synced coordinates'}
-				type="button"
-			>
-				<span className="block truncate font-medium text-foreground text-sm hover:text-primary">
-					{station.name}
-				</span>
-				<span className="block text-muted-foreground text-xs leading-snug">{detail}</span>
-			</button>
-			<StationStatusBadge isActive={station.isActive} />
-			<Link
-				aria-label={`View details for ${station.name}`}
-				className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				params={{ id: station.id }}
-				title="View Station Details"
-				to="/gis/weather/$id"
-			>
-				<ChevronRightIcon aria-hidden="true" className="size-4" />
-			</Link>
-		</li>
-	);
-}
-
-function StationsEmpty({ hasFilter }: { readonly hasFilter: boolean }) {
-	return (
-		<div className="flex flex-1 items-center justify-center p-6">
-			<Empty className="min-h-[200px] border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<WeatherIcon aria-hidden="true" />
-					</EmptyMedia>
-					<EmptyTitle>{hasFilter ? 'No Stations Match' : 'No Weather Stations'}</EmptyTitle>
-					<EmptyDescription>
-						{hasFilter
-							? 'Try a different name or code.'
-							: 'Add a station to start recording readings against it.'}
-					</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
-		</div>
+		<ExplorerRow
+			badges={<StationStatusBadge isActive={station.isActive} />}
+			detailLabel={`View details for ${station.name}`}
+			detailLink={{ to: '/gis/weather/$id', params: { id: station.id } }}
+			isSelected={isFocused}
+			// A station with no synced centroid has nothing to show on the map, so the
+			// row stays a link to its record rather than offering a camera move.
+			onSelect={hasPoint ? onFocus : undefined}
+			selectLabel={`Show ${station.name} on the map`}
+			subtitle={detail}
+			title={station.name}
+			titleLink={{ to: '/gis/weather/$id', params: { id: station.id } }}
+		/>
 	);
 }

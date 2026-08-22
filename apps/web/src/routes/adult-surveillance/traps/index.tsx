@@ -1,23 +1,23 @@
 import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { CheckCircle2Icon, CircleIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { CheckCircle2Icon, CircleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
 	ActiveFilterBar,
-	ExplorerHeader,
+	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
 	mapQueryParams,
-	ResultList,
 	SegmentedFilter,
 	toggle,
 	useCollectionMethodOptions,
+	useExplorerPanel,
 	useFlyToSelection,
 	usePagedMapResource,
 	useRegionOptions,
@@ -82,6 +82,7 @@ export const Route = createFileRoute('/adult-surveillance/traps/')({
 
 const RESULT_NOUN = { one: 'trap', many: 'traps' };
 const PATH = '/map/traps';
+const TrapEntityIcon = iconRegistry.entities.trap.icon;
 
 function TrapsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a trap
@@ -112,6 +113,7 @@ function TrapsExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 
 	const { options: methodOptions, nameById: methodNameById } = useCollectionMethodOptions();
 	const regions = useRegionOptions();
@@ -161,42 +163,24 @@ function TrapsExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const hasActiveFilters =
-		status !== 'active' || methodIds.size > 0 || regionIds.size > 0 || search.length > 0;
+	const activeFilterCount =
+		(status === 'active' ? 0 : 1) + methodIds.size + regionIds.size + (search.length > 0 ? 1 : 0);
 	const clearAll = useCallback(() => {
 		clearSearchInput();
 		reset();
 	}, [clearSearchInput, reset]);
+	// Both halves: the field the operator is looking at, and the committed term on
+	// the URL that is actually cutting the list.
+	const clearSearch = useCallback(() => {
+		clearSearchInput();
+		commitSearch('');
+	}, [clearSearchInput, commitSearch]);
 
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.trap] }}
-						controls={{ layers: false, measure: true, readout: true }}
-						fitToData
-						onMapReady={handleMapReady}
-						trapLayer={trapLayer}
-					/>
-					{selected === null ? null : (
-						<TrapMapCard id={selected.id} onClose={() => setSelectedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<ExplorerHeader
-					create={{
-						to: '/adult-surveillance/traps/create',
-						label: 'Add Trap',
-						minimum: 'manager',
-					}}
-					isLoading={isLoading}
-					noun={RESULT_NOUN}
-					title="Traps"
-					total={total}
-				>
 					<SearchField
 						label="Search traps by name or code"
 						onChange={setSearchInput}
@@ -211,7 +195,7 @@ function TrapsExplorerRoute() {
 						value={status}
 					/>
 
-					<div className="grid grid-cols-2 gap-2">
+					<FilterGrid>
 						<MultiSelectFilter
 							empty="No collection methods"
 							label="Method"
@@ -226,15 +210,18 @@ function TrapsExplorerRoute() {
 							options={regions.options}
 							selected={regionIds}
 						/>
-					</div>
+					</FilterGrid>
 
-					{hasActiveFilters ? (
+					{activeFilterCount > 0 ? (
 						<ActiveFilterBar onClearAll={clearAll}>
 							{status !== 'active' ? (
 								<FilterChip
 									label={`Status: ${status === 'all' ? 'All' : 'Inactive'}`}
 									onRemove={() => setStatus('active')}
 								/>
+							) : null}
+							{search.length > 0 ? (
+								<FilterChip label={`Search: ${query.search}`} onRemove={clearSearch} />
 							) : null}
 							{[...methodIds].map((id) => (
 								<FilterChip
@@ -252,29 +239,63 @@ function TrapsExplorerRoute() {
 							))}
 						</ActiveFilterBar>
 					) : null}
-				</ExplorerHeader>
-
-				<TrapResults
-					isError={isError}
-					isLoading={isLoading}
-					onRetry={retry}
-					methodNameById={methodNameById}
-					onSelect={setSelectedId}
-					rows={rows}
-					selectedId={selectedId}
+				</>
+			}
+			footer={
+				<ExplorerPagination
+					noun="traps"
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
 				/>
-
-				<div className="border-border/50 border-t p-3">
-					<ExplorerPagination
-						noun="traps"
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={total}
+			}
+			heading={{
+				title: 'Traps',
+				icon: TrapEntityIcon,
+				total,
+				isLoading,
+				noun: RESULT_NOUN,
+				create: {
+					to: '/adult-surveillance/traps/create',
+					label: 'Add Trap',
+					minimum: 'manager',
+				},
+			}}
+			map={
+				<>
+					<MapCanvas
+						contextMenu={{ create: [MAP_CREATE_TARGETS.trap] }}
+						controls={{ layers: false, measure: true, readout: true }}
+						fitToData
+						inset={panel.inset}
+						onMapReady={handleMapReady}
+						searchWidth={panel.width}
+						trapLayer={trapLayer}
 					/>
-				</div>
-			</div>
-		</MapSplitPage>
+					{selected === null ? null : (
+						<TrapMapCard id={selected.id} inset={panel.inset} onClose={() => setSelectedId(null)} />
+					)}
+				</>
+			}
+			panel={panel}
+			results={{
+				rows,
+				isError,
+				onRetry: retry,
+				emptyTitle: 'No traps match',
+				emptyDescription: 'Loosen the filters, or add a trap to start collecting.',
+				renderRow: (trap) => (
+					<TrapListItem
+						isSelected={trap.id === selectedId}
+						key={trap.id}
+						methodName={methodNameById.get(trap.collectionMethodId) ?? 'Unknown method'}
+						onSelect={setSelectedId}
+						trap={trap}
+					/>
+				),
+			}}
+		/>
 	);
 }
 
@@ -285,47 +306,6 @@ const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: s
 	{ value: 'active', label: 'Active' },
 	{ value: 'inactive', label: 'Inactive' },
 ];
-
-// --- results ----------------------------------------------------------------
-
-function TrapResults({
-	rows,
-	isLoading,
-	isError,
-	onRetry,
-	selectedId,
-	methodNameById,
-	onSelect,
-}: {
-	readonly rows: readonly TrapSite[];
-	readonly isLoading: boolean;
-	readonly isError: boolean;
-	readonly onRetry: () => void;
-	readonly selectedId: string | null;
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly onSelect: (id: string) => void;
-}) {
-	return (
-		<ResultList
-			emptyDescription="Loosen the filters, or add a trap to start collecting."
-			emptyTitle="No traps match"
-			isError={isError}
-			isLoading={isLoading}
-			onRetry={onRetry}
-			rows={rows}
-		>
-			{(trap) => (
-				<TrapListItem
-					isSelected={trap.id === selectedId}
-					key={trap.id}
-					methodName={methodNameById.get(trap.collectionMethodId) ?? 'Unknown method'}
-					onSelect={onSelect}
-					trap={trap}
-				/>
-			)}
-		</ResultList>
-	);
-}
 
 function TrapListItem({
 	trap,

@@ -1,20 +1,8 @@
 import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
 	activeDatePresetId,
 	type DatePreset,
@@ -23,16 +11,18 @@ import {
 } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
+	ExplorerMapPage,
+	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	type FilterOption,
 	MultiSelectFilter,
-	RESULT_SKELETON_KEYS,
 	SegmentedFilter,
 	useControlMethodNames,
+	useExplorerPanel,
 	usePersonnelOptions,
 } from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
-import { WriteOnly } from '../../../components/write-only';
 import {
 	CONTROL_TYPES,
 	controlTypeLabel,
@@ -55,6 +45,7 @@ import {
 import { RequestStatusBadge } from '../-operations-display';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
+const RESULT_NOUN = { one: 'request', many: 'requests' };
 
 type StatusFilter = 'all' | 'open' | 'resolved';
 
@@ -115,6 +106,7 @@ function RequestsForControlRoute() {
 	const status = filters.status;
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 	const [map, setMap] = useState<MapboxMap | null>(null);
 
 	const { requests, isLoading } = useRequestedControlActions(filters.from, filters.to);
@@ -193,42 +185,15 @@ function RequestsForControlRoute() {
 		[filters.from, filters.to, today],
 	);
 
-	const hasChips = filters.types.size > 0 || filters.people.size > 0;
+	// Open is the default, so only All or Resolved counts as something the operator
+	// set. Counting the default would put a "1 filter" badge on an untouched page.
+	const activeFilterCount = (status === 'open' ? 0 : 1) + filters.types.size + filters.people.size;
 
 	return (
-		<MapSplitPage
-			map={
-				<MapCanvas
-					contextMenu={{}}
-					controls={{ layers: false, measure: true, readout: true }}
-					fitToData={bounds}
-					geoJson={geoJson}
-					geoJsonInteraction={{ selectedId, onSelectFeature: setSelectedId }}
-					onMapReady={setMap}
-				/>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-					<div className="flex items-center justify-between gap-3">
-						<div className="flex items-baseline gap-2">
-							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
-								Requests for Control
-							</h1>
-							<span className="text-muted-foreground text-sm">
-								{visible.length === 1 ? '1 request' : `${visible.length} requests`}
-							</span>
-						</div>
-						<WriteOnly>
-							<Button asChild size="sm">
-								<Link to="/operations/requests-for-control/create">
-									<PlusIcon aria-hidden="true" data-icon="inline-start" />
-									New Request
-								</Link>
-							</Button>
-						</WriteOnly>
-					</div>
-
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
+				<>
 					<DateRangeFilter
 						activePresetId={activePresetId}
 						from={filters.from}
@@ -246,7 +211,7 @@ function RequestsForControlRoute() {
 						value={status}
 					/>
 
-					<div className="flex flex-wrap gap-2">
+					<FilterGrid>
 						<MultiSelectFilter
 							empty="No control types"
 							label="Control type"
@@ -261,10 +226,16 @@ function RequestsForControlRoute() {
 							options={personnelOptions}
 							selected={filters.people}
 						/>
-					</div>
+					</FilterGrid>
 
-					{hasChips ? (
+					{activeFilterCount > 0 ? (
 						<ActiveFilterBar onClearAll={reset}>
+							{status === 'open' ? null : (
+								<FilterChip
+									label={`Status: ${status === 'all' ? 'All' : 'Resolved'}`}
+									onRemove={() => setFilters({ status: 'open' })}
+								/>
+							)}
 							{[...filters.types].map((id) => (
 								<FilterChip
 									key={`type-${id}`}
@@ -289,18 +260,55 @@ function RequestsForControlRoute() {
 							))}
 						</ActiveFilterBar>
 					) : null}
-				</div>
-
-				<RequestResults
-					isLoading={isLoading}
-					methodNameById={methodNameById}
-					onSelect={setSelectedId}
-					personnelNameById={nameById}
-					requests={visible}
-					selectedId={selectedId}
+				</>
+			}
+			heading={{
+				title: 'Requests for Control',
+				icon: RequestIcon,
+				total: visible.length,
+				isLoading,
+				noun: RESULT_NOUN,
+				create: { to: '/operations/requests-for-control/create', label: 'New Request' },
+			}}
+			map={
+				<MapCanvas
+					contextMenu={{}}
+					controls={{ layers: false, measure: true, readout: true }}
+					fitToData={bounds}
+					geoJson={geoJson}
+					geoJsonInteraction={{ selectedId, onSelectFeature: setSelectedId }}
+					inset={panel.inset}
+					onMapReady={setMap}
+					searchWidth={panel.width}
 				/>
-			</div>
-		</MapSplitPage>
+			}
+			panel={panel}
+			results={{
+				rows: visible,
+				emptyTitle: 'No requests in range',
+				emptyDescription:
+					'Widen the time window or loosen the filters to bring requests into range.',
+				skeletonClassName: 'h-[68px]',
+				renderRow: (request) => (
+					<RequestRow
+						isSelected={request.id === selectedId}
+						key={request.id}
+						methodName={
+							request.recommendedMethodId === null
+								? null
+								: (methodNameById.get(request.recommendedMethodId) ?? null)
+						}
+						onSelect={setSelectedId}
+						request={request}
+						requesterName={
+							request.requestedByProfileId === null
+								? null
+								: (nameById.get(request.requestedByProfileId) ?? null)
+						}
+					/>
+				),
+			}}
+		/>
 	);
 }
 
@@ -326,73 +334,6 @@ function matchesFilters(request: RequestListing, filters: RequestFilters): boole
 	return true;
 }
 
-function RequestResults({
-	requests,
-	isLoading,
-	selectedId,
-	methodNameById,
-	personnelNameById,
-	onSelect,
-}: {
-	readonly requests: readonly RequestListing[];
-	readonly isLoading: boolean;
-	readonly selectedId: string | null;
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly personnelNameById: ReadonlyMap<string, string>;
-	readonly onSelect: (id: string) => void;
-}) {
-	if (isLoading) {
-		return (
-			<div className="grid gap-2 p-4">
-				{RESULT_SKELETON_KEYS.map((key) => (
-					<Skeleton className="h-[68px] rounded-lg" key={key} />
-				))}
-			</div>
-		);
-	}
-
-	if (requests.length === 0) {
-		return (
-			<div className="p-4">
-				<Empty className="min-h-[240px] border border-border/40 bg-muted/30">
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<RequestIcon aria-hidden="true" />
-						</EmptyMedia>
-						<EmptyTitle>No Requests in Range</EmptyTitle>
-						<EmptyDescription>
-							Widen the time window or loosen the filters to bring requests into range.
-						</EmptyDescription>
-					</EmptyHeader>
-				</Empty>
-			</div>
-		);
-	}
-
-	return (
-		<ul className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-4">
-			{requests.map((request) => (
-				<RequestRow
-					isSelected={request.id === selectedId}
-					key={request.id}
-					methodName={
-						request.recommendedMethodId === null
-							? null
-							: (methodNameById.get(request.recommendedMethodId) ?? null)
-					}
-					onSelect={onSelect}
-					request={request}
-					requesterName={
-						request.requestedByProfileId === null
-							? null
-							: (personnelNameById.get(request.requestedByProfileId) ?? null)
-					}
-				/>
-			))}
-		</ul>
-	);
-}
-
 function RequestRow({
 	request,
 	methodName,
@@ -408,45 +349,26 @@ function RequestRow({
 }) {
 	const subject = requestDisplayName(request);
 	const timeZone = useOrganizationTimeZone();
+	const detail = [
+		controlTypeLabel(request.controlType),
+		methodName,
+		formatRequestedAt(request.requestedAt, timeZone),
+	]
+		.filter((part): part is string => part !== null)
+		.join(' · ');
 
 	return (
-		<li
-			className={cn(
-				'relative rounded-lg border bg-card transition-colors',
-				isSelected ? 'border-primary/60 bg-primary/5' : 'border-border/60 hover:border-border',
-			)}
-		>
-			{/* Full-card target selects on the map; the chevron opens the record. */}
-			<button
-				aria-label={`Show ${subject} on the map`}
-				className="absolute inset-0 z-0 cursor-pointer rounded-lg"
-				onClick={() => onSelect(request.id)}
-				type="button"
-			/>
-			<div className="pointer-events-none relative z-10 flex items-start gap-3 p-3">
-				<div className="min-w-0 flex-1">
-					<div className="flex flex-wrap items-center gap-2">
-						<span className="font-medium text-foreground text-sm">{subject}</span>
-						<RequestStatusBadge status={requestStatus(request)} />
-					</div>
-					<p className="m-0 mt-1 text-muted-foreground text-xs">
-						{controlTypeLabel(request.controlType)}
-						{methodName === null ? '' : ` · ${methodName}`}
-						{` · ${formatRequestedAt(request.requestedAt, timeZone)}`}
-					</p>
-					<p className="m-0 mt-1 text-muted-foreground text-xs">
-						{requesterName ?? 'No requester recorded'}
-					</p>
-				</div>
-				<Link
-					aria-label="Open request"
-					className="pointer-events-auto z-20 shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-					params={{ id: request.id }}
-					to="/operations/requests-for-control/$id"
-				>
-					<ChevronRightIcon aria-hidden="true" className="size-4" />
-				</Link>
-			</div>
-		</li>
+		<ExplorerRow
+			badges={<RequestStatusBadge status={requestStatus(request)} />}
+			detailLabel="Open request"
+			detailLink={{ to: '/operations/requests-for-control/$id', params: { id: request.id } }}
+			isSelected={isSelected}
+			onSelect={() => onSelect(request.id)}
+			personnel={requesterName ?? 'No requester recorded'}
+			selectLabel={`Show ${subject} on the map`}
+			subtitle={detail}
+			title={subject}
+			titleLink={{ to: '/operations/requests-for-control/$id', params: { id: request.id } }}
+		/>
 	);
 }

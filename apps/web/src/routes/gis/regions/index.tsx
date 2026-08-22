@@ -1,5 +1,4 @@
-import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
+import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
@@ -22,7 +21,6 @@ import {
 	ChevronRightIcon,
 	GripVerticalIcon,
 	iconRegistry,
-	PlusIcon,
 	SearchIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -30,7 +28,12 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import {
+	ActiveFilterBar,
+	ExplorerMapPage,
+	FilterChip,
+	useExplorerPanel,
+} from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
@@ -74,6 +77,7 @@ export const Route = createFileRoute('/gis/regions/')({
 });
 
 const RegionIcon = iconRegistry.entities.region.icon;
+const RESULT_NOUN = { one: 'region', many: 'regions' };
 const ImportIcon = iconRegistry.actions.upload.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
@@ -110,6 +114,7 @@ function RegionsExplorerRoute() {
 	);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
+	const panel = useExplorerPanel();
 	// `null` = closed; a folder row = edit it; `'new'` = create one.
 	const [folderDialog, setFolderDialog] = useState<RegionFolderListing | 'new' | null>(null);
 
@@ -263,111 +268,139 @@ function RegionsExplorerRoute() {
 	const dnd = useRegionDnd(moveRegion);
 	const rename = useRegionRename(renameRegion);
 
-	return (
-		<MapSplitPage
-			map={
-				<>
-					{/*
-					 * Frame the ticked regions as the visible set changes — except while
-					 * one is focused, since focusing also ticks it and the region card
-					 * already frames that single boundary.
-					 */}
-					<MapCanvas
-						contextMenu={{}}
-						controls={{ layers: false, measure: true, readout: true }}
-						fitToData={focusedId === null}
-						onMapReady={setMap}
-						regionLayer={regionLayer}
-					/>
-					{focusedId === null ? null : (
-						<RegionMapCard id={focusedId} map={map} onClose={() => setFocusedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ layout: 'stack', gap: 'tight', padding: 'default' })}>
-					<div className="flex items-center justify-between gap-2">
-						<h1 className="m-0 font-semibold text-foreground text-lg leading-none">Regions</h1>
-						<div className="flex items-center gap-2">
-							<WriteOnly minimum="manager">
-								<Button onClick={() => setFolderDialog('new')} size="sm" variant="outline">
-									New Folder
-								</Button>
-								<Button asChild size="sm" variant="outline">
-									<Link to="/gis/regions/import">
-										<ImportIcon aria-hidden="true" data-icon="inline-start" />
-										Import
-									</Link>
-								</Button>
-								<Button asChild size="sm">
-									<Link to="/gis/regions/create">
-										<PlusIcon aria-hidden="true" data-icon="inline-start" />
-										Create
-									</Link>
-								</Button>
-							</WriteOnly>
-						</div>
-					</div>
-					<SearchInput
-						aria-label="Search regions and folders"
-						onChange={(event) => setSearch(event.target.value)}
-						placeholder="Search regions and folders"
-						value={search}
-					/>
-				</div>
+	const activeFilterCount = search.trim().length > 0 ? 1 : 0;
 
-				{!isReady ? (
-					<RegionsSkeleton />
-				) : regions.length === 0 && sortedFolders.length === 0 ? (
-					<RegionsEmpty />
-				) : !hasMatches ? (
-					<RegionsNoMatches query={search.trim()} />
-				) : (
-					<div className="min-h-0 flex-1 overflow-y-auto p-2">
-						{filtered.folders.map(({ folder, regions: folderRegions }) => (
-							<FolderNode
+	return (
+		<>
+			<ExplorerMapPage
+				activeFilterCount={activeFilterCount}
+				filters={
+					<>
+						<SearchField
+							label="Search regions and folders"
+							onChange={setSearch}
+							placeholder="Search regions and folders"
+							value={search}
+						/>
+
+						{activeFilterCount > 0 ? (
+							<ActiveFilterBar onClearAll={() => commitSearch('')}>
+								<FilterChip label={`Search: ${search}`} onRemove={() => commitSearch('')} />
+							</ActiveFilterBar>
+						) : null}
+					</>
+				}
+				heading={{
+					title: 'Regions',
+					icon: RegionIcon,
+					total: regions.length,
+					isLoading: !isReady,
+					noun: RESULT_NOUN,
+					create: { to: '/gis/regions/create', label: 'Create', minimum: 'manager' },
+				}}
+				map={
+					<>
+						{/*
+						 * Frame the ticked regions as the visible set changes — except while
+						 * one is focused, since focusing also ticks it and the region card
+						 * already frames that single boundary.
+						 */}
+						<MapCanvas
+							contextMenu={{}}
+							controls={{ layers: false, measure: true, readout: true }}
+							fitToData={focusedId === null}
+							inset={panel.inset}
+							onMapReady={setMap}
+							regionLayer={regionLayer}
+							searchWidth={panel.width}
+						/>
+						{focusedId === null ? null : (
+							<RegionMapCard
+								id={focusedId}
+								inset={panel.inset}
+								map={map}
+								onClose={() => setFocusedId(null)}
+							/>
+						)}
+					</>
+				}
+				panel={panel}
+				results={{
+					// A tree, not a list: folders hold regions and rows are dragged between
+					// them, so this panel draws its own body. See {@link ExplorerResults}.
+					body: !isReady ? (
+						<RegionsSkeleton />
+					) : regions.length === 0 && sortedFolders.length === 0 ? (
+						<RegionsEmpty />
+					) : !hasMatches ? (
+						<RegionsNoMatches query={search.trim()} />
+					) : (
+						<div className="p-2">
+							{/*
+							 * Filing controls, at the top of the tree they act on. The panel's
+							 * own header has room for one button in 380px, and Create takes it.
+							 */}
+							<WriteOnly minimum="manager">
+								<div className="flex items-center gap-2 px-1 pb-2">
+									<Button onClick={() => setFolderDialog('new')} size="sm" variant="outline">
+										New Folder
+									</Button>
+									<Button asChild size="sm" variant="outline">
+										<Link to="/gis/regions/import">
+											<ImportIcon aria-hidden="true" data-icon="inline-start" />
+											Import
+										</Link>
+									</Button>
+								</div>
+							</WriteOnly>
+							{filtered.folders.map(({ folder, regions: folderRegions }) => (
+								<FolderNode
+									dnd={dnd}
+									// A search already narrowed the tree, so show what it found.
+									expanded={query.length > 0 || expandedIds.has(folder.id)}
+									focusedId={focusedId}
+									folder={folder}
+									key={folder.id}
+									onEdit={() => setFolderDialog(folder)}
+									onFocusRegion={focusRegion}
+									onToggleExpand={(open) => toggleExpand(folder.id, open)}
+									onToggleFolder={(on) =>
+										toggleFolder(
+											folderRegions.map((r) => r.id),
+											on,
+										)
+									}
+									onToggleRegion={toggleRegion}
+									regions={folderRegions}
+									rename={rename}
+									visibleIds={visibleIds}
+								/>
+							))}
+							<UnfiledGroup
 								dnd={dnd}
-								// A search already narrowed the tree, so show what it found.
-								expanded={query.length > 0 || expandedIds.has(folder.id)}
 								focusedId={focusedId}
-								folder={folder}
-								key={folder.id}
-								onEdit={() => setFolderDialog(folder)}
 								onFocusRegion={focusRegion}
-								onToggleExpand={(open) => toggleExpand(folder.id, open)}
-								onToggleFolder={(on) =>
-									toggleFolder(
-										folderRegions.map((r) => r.id),
-										on,
-									)
-								}
 								onToggleRegion={toggleRegion}
-								regions={folderRegions}
+								regions={filtered.unfiled}
 								rename={rename}
+								showHeader={sortedFolders.length > 0}
 								visibleIds={visibleIds}
 							/>
-						))}
-						<UnfiledGroup
-							dnd={dnd}
-							focusedId={focusedId}
-							onFocusRegion={focusRegion}
-							onToggleRegion={toggleRegion}
-							regions={filtered.unfiled}
-							rename={rename}
-							showHeader={sortedFolders.length > 0}
-							visibleIds={visibleIds}
-						/>
-					</div>
-				)}
-			</div>
+						</div>
+					),
+					rows: [],
+					renderRow: () => null,
+					emptyTitle: 'No regions yet',
+					emptyDescription: 'Draw or import a boundary to start filing work by area.',
+				}}
+			/>
 			{folderDialog === null ? null : (
 				<RegionFolderDialog
 					folder={folderDialog === 'new' ? null : folderDialog}
 					onClose={() => setFolderDialog(null)}
 				/>
 			)}
-		</MapSplitPage>
+		</>
 	);
 }
 

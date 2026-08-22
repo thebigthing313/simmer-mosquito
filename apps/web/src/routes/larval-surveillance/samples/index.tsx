@@ -18,19 +18,19 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
-	ExplorerHeader,
+	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
 	mapQueryParams,
-	ResultList,
 	ToggleFilter,
 	toggle,
 	useDateRangeFilters,
+	useExplorerPanel,
 	useFlyToSelection,
 	useMapBoundsParam,
 	usePagedMapResource,
@@ -56,6 +56,7 @@ import {
 } from '../-overview-data';
 import { SampleMapCard } from '../-sample-map-card';
 import { type SampleFilters, sampleFilterCodecs } from '../-samples-search';
+import { sampleLegend } from './-legend';
 
 const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
@@ -181,6 +182,7 @@ function SamplesExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
 	const { nameById, options } = useSpeciesOptions();
@@ -237,8 +239,14 @@ function SamplesExplorerRoute() {
 	);
 
 	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
-	const hasActiveFilters =
-		!isDefaultRange || status !== 'all' || speciesIds.size > 0 || nonMosquito || regionIds.size > 0;
+	const legend = useMemo(() => sampleLegend(status), [status]);
+
+	const activeFilterCount =
+		(isDefaultRange ? 0 : 1) +
+		(status === 'all' ? 0 : 1) +
+		speciesIds.size +
+		regionIds.size +
+		(nonMosquito ? 1 : 0);
 
 	const resetDates = useCallback(
 		() => setFilters({ from: defaultFrom, to: today }),
@@ -247,29 +255,15 @@ function SamplesExplorerRoute() {
 	const clearAll = reset;
 
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
-						controls={{ layers: false, measure: true, readout: true }}
-						fitToData
-						onMapReady={handleMapReady}
-						sampleLayer={sampleLayer}
-					/>
-					{selected === null ? null : (
-						<SampleMapCard id={selected.id} onClose={() => setSelectedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<ExplorerHeader icon={SampleIcon} isLoading={isLoading} title="Samples" total={total}>
 					<DateRangeFilter {...dateRange} />
 
 					<StatusFilter onChange={setStatus} value={status} />
 
-					<div className="flex flex-wrap items-center gap-2">
+					<FilterGrid>
 						<SpeciesFilter onChange={setSpeciesIds} options={options} selected={speciesIds} />
 						<MultiSelectFilter
 							empty="No regions"
@@ -283,9 +277,9 @@ function SamplesExplorerRoute() {
 							onChange={setNonMosquito}
 							value={nonMosquito}
 						/>
-					</div>
+					</FilterGrid>
 
-					{hasActiveFilters ? (
+					{activeFilterCount > 0 ? (
 						<ActiveFilters
 							from={dateFrom}
 							isDefaultRange={isDefaultRange}
@@ -304,29 +298,64 @@ function SamplesExplorerRoute() {
 							to={dateTo}
 						/>
 					) : null}
-				</ExplorerHeader>
-
-				<SampleResults
-					isError={isError}
-					isLoading={isLoading}
-					onRetry={retry}
-					nameById={nameById}
-					onSelect={setSelectedId}
-					rows={rows}
-					selectedId={selectedId}
+				</>
+			}
+			footer={
+				<ExplorerPagination
+					noun="samples"
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
 				/>
-
-				<div className="border-border/50 border-t p-3">
-					<ExplorerPagination
-						noun="samples"
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={total}
+			}
+			heading={{
+				title: 'Samples',
+				icon: SampleIcon,
+				total,
+				isLoading,
+			}}
+			map={
+				<>
+					<MapCanvas
+						inset={panel.inset}
+						searchWidth={panel.width}
+						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
+						controls={{ layers: false, measure: true, readout: true }}
+						fitToData
+						legend={legend}
+						onMapReady={handleMapReady}
+						sampleLayer={sampleLayer}
 					/>
-				</div>
-			</div>
-		</MapSplitPage>
+					{selected === null ? null : (
+						<SampleMapCard
+							id={selected.id}
+							inset={panel.inset}
+							onClose={() => setSelectedId(null)}
+						/>
+					)}
+				</>
+			}
+			panel={panel}
+			results={{
+				rows,
+				isError,
+				onRetry: retry,
+				skeletonClassName: 'h-[64px]',
+				emptyTitle: 'No samples in view',
+				emptyDescription:
+					'Pan or zoom the map, widen the time window, or loosen the filters to bring samples into range.',
+				renderRow: (sample) => (
+					<SampleListItem
+						isSelected={sample.id === selectedId}
+						key={sample.id}
+						nameById={nameById}
+						onSelect={setSelectedId}
+						sample={sample}
+					/>
+				),
+			}}
+		/>
 	);
 }
 
@@ -541,46 +570,6 @@ function ActiveFilters({
 }
 
 // --- results list -----------------------------------------------------------
-
-function SampleResults({
-	rows,
-	isLoading,
-	isError,
-	onRetry,
-	selectedId,
-	nameById,
-	onSelect,
-}: {
-	readonly rows: readonly SampleFeature[];
-	readonly isLoading: boolean;
-	readonly isError: boolean;
-	readonly onRetry: () => void;
-	readonly selectedId: string | null;
-	readonly nameById: ReadonlyMap<string, string>;
-	readonly onSelect: (id: string) => void;
-}) {
-	return (
-		<ResultList
-			emptyDescription="Pan or zoom the map, widen the time window, or loosen the filters to bring samples into range."
-			emptyTitle="No samples in view"
-			isError={isError}
-			isLoading={isLoading}
-			onRetry={onRetry}
-			rows={rows}
-			skeletonClassName="h-[64px]"
-		>
-			{(sample) => (
-				<SampleListItem
-					isSelected={sample.id === selectedId}
-					key={sample.id}
-					nameById={nameById}
-					onSelect={onSelect}
-					sample={sample}
-				/>
-			)}
-		</ResultList>
-	);
-}
 
 function SampleListItem({
 	sample,

@@ -3,6 +3,7 @@ import { ContactIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { MapCardAddress } from '../../components/linked-address';
 import { MapCard, MapCardDetail, MapCardEyebrow, MapCardText } from '../../components/map/map-card';
+import type { MapInset } from '../../components/map/map-inset';
 import { TagBadge } from '../../components/tag-badge';
 import { resolveLinkedContact } from '../../hooks/queries/contact-view';
 import { useRecordTags } from '../../hooks/queries/use-record-tags';
@@ -23,9 +24,12 @@ import { RequestStatusBadge } from './-public-engagement-ui';
  */
 export function ServiceRequestMapCard({
 	id,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
 	const { request } = useServiceRequest(id);
@@ -33,7 +37,7 @@ export function ServiceRequestMapCard({
 
 	if (request === undefined) {
 		return (
-			<MapCard className="max-w-[440px]" onClose={onClose} title="Service Request">
+			<MapCard className="max-w-[440px]" inset={inset} onClose={onClose} title="Service Request">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -58,6 +62,7 @@ export function ServiceRequestMapCard({
 			}
 			className="max-w-[440px]"
 			eyebrow={<MapCardEyebrow date={request.requestDate} type="Service request" />}
+			inset={inset}
 			onClose={onClose}
 			title={serviceRequestTitle(request)}
 			viewDetailLink={(content) => (

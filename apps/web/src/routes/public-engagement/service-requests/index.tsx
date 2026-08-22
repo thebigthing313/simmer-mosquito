@@ -1,6 +1,6 @@
 import { toDbEntityType } from '@simmer-mosquito/domain';
 import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
+import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -12,43 +12,33 @@ import {
 	CommandList,
 } from '@simmer-mosquito/ui-web/components/ui/command';
 import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import {
 	CheckIcon,
 	ChevronDownIcon,
-	ChevronRightIcon,
-	ContactIcon,
 	iconRegistry,
-	MapPinnedIcon,
-	PlusIcon,
-	SearchIcon,
 	TagIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { inArray, useLiveQuery } from '@tanstack/react-db';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
+	ActiveFilterBar,
+	ExplorerMapPage,
+	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
+	SegmentedFilter,
 	toggle,
 	useEntityTags,
+	useExplorerPanel,
 	useRegionMembership,
 	useRegionOptions,
 	useTagOptions,
@@ -56,7 +46,6 @@ import {
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
 import { TagBadge } from '../../../components/tag-badge';
-import { WriteOnly } from '../../../components/write-only';
 import type { Address } from '../../../hooks/queries/address-view';
 import type { ContactSummary } from '../../../hooks/queries/contact-view';
 import type { Tag } from '../../../hooks/queries/tag-view';
@@ -85,6 +74,12 @@ import { RequestStatusBadge } from '../-public-engagement-ui';
 import { ServiceRequestMapCard } from '../-service-request-map-card';
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
+const RESULT_NOUN = { one: 'request', many: 'requests' };
+const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: string }[] = [
+	{ value: 'open', label: 'Open' },
+	{ value: 'closed', label: 'Closed' },
+	{ value: 'all', label: 'All' },
+];
 const requestsGcTimeMs = 30_000;
 const PAGE_SIZE = 25;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
@@ -154,6 +149,7 @@ function ServiceRequestsExplorerRoute() {
 	const [page, setPage] = useState(0);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
+	const panel = useExplorerPanel();
 
 	// Tag filter is applied through a targeted query keyed on the (few) selected
 	// tag ids — it resolves the set of request ids carrying any selected tag,
@@ -255,69 +251,34 @@ function ServiceRequestsExplorerRoute() {
 		selectedTagIds.size > 0 ||
 		selectedRegionIds.size > 0;
 
+	// Open is the default, so only Closed or All counts as something the operator
+	// set. Counting the default would put a "1 filter" badge on an untouched page.
+	const activeFilterCount =
+		(search.trim().length > 0 ? 1 : 0) +
+		(status === 'open' ? 0 : 1) +
+		selectedTagIds.size +
+		selectedRegionIds.size;
+
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						contextMenu={{
-							create: [MAP_CREATE_TARGETS.serviceRequest, MAP_CREATE_TARGETS.outreach],
-						}}
-						controls={{ layers: false, measure: true, readout: true }}
-						fitToData={mappedBounds}
-						geoJson={geoJson}
-						geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: setFocusedId }}
-						onMapReady={setMap}
+					<SearchField
+						label="Search service requests"
+						onChange={setSearch}
+						placeholder="Search requests…"
+						value={search}
 					/>
-					{focused === null ? null : (
-						<ServiceRequestMapCard id={focused.id} onClose={() => setFocusedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-					<div className="flex flex-wrap items-center justify-between gap-2">
-						<div className="grid gap-1">
-							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
-								Service Requests
-							</h1>
-							<p className="m-0 text-muted-foreground text-sm">
-								Requests from the public, mapped to their reported location.
-							</p>
-						</div>
-						<WriteOnly minimum="manager">
-							<Button asChild size="sm">
-								<Link to="/public-engagement/service-requests/create">
-									<PlusIcon aria-hidden="true" data-icon="inline-start" />
-									New Request
-								</Link>
-							</Button>
-						</WriteOnly>
-					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<ToggleGroup
-							aria-label="Status filter"
-							onValueChange={(next) => {
-								if (next === 'all' || next === 'open' || next === 'closed') {
-									setStatus(next);
-								}
-							}}
-							size="sm"
-							type="single"
-							value={status}
-							variant="outline"
-						>
-							<ToggleGroupItem className="px-3 text-xs" value="open">
-								Open
-							</ToggleGroupItem>
-							<ToggleGroupItem className="px-3 text-xs" value="closed">
-								Closed
-							</ToggleGroupItem>
-							<ToggleGroupItem className="px-3 text-xs" value="all">
-								All
-							</ToggleGroupItem>
-						</ToggleGroup>
+
+					<SegmentedFilter
+						label="Status"
+						onChange={setStatus}
+						options={STATUS_OPTIONS}
+						value={status}
+					/>
+
+					<FilterGrid>
 						{hasTagFilter ? (
 							<TagFilter
 								onChange={setSelectedTagIds}
@@ -332,23 +293,23 @@ function ServiceRequestsExplorerRoute() {
 							options={regions.options}
 							selected={selectedRegionIds}
 						/>
-						<div className="relative min-w-[12rem] flex-1">
-							<SearchIcon
-								aria-hidden="true"
-								className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-							/>
-							<Input
-								aria-label="Search service requests"
-								className="pl-9"
-								onChange={(event) => setSearch(event.target.value)}
-								placeholder="Search requests…"
-								type="search"
-								value={search}
-							/>
-						</div>
-					</div>
-					{selectedTagIds.size > 0 || selectedRegionIds.size > 0 ? (
-						<div className="flex flex-wrap items-center gap-1.5">
+					</FilterGrid>
+
+					{activeFilterCount > 0 ? (
+						<ActiveFilterBar
+							// One patch, one navigation: two calls would each read the same
+							// prior search and the second would undo the first.
+							onClearAll={() => setFilters({ tags: new Set(), regions: new Set(), status: 'open' })}
+						>
+							{status === 'open' ? null : (
+								<FilterChip
+									label={`Status: ${status === 'all' ? 'All' : 'Closed'}`}
+									onRemove={() => setStatus('open')}
+								/>
+							)}
+							{search.trim().length > 0 ? (
+								<FilterChip label={`Search: ${search}`} onRemove={() => setSearch('')} />
+							) : null}
 							{availableTags
 								.filter((tag) => selectedTagIds.has(tag.id))
 								.map((tag) => (
@@ -365,54 +326,78 @@ function ServiceRequestsExplorerRoute() {
 									onRemove={() => setSelectedRegionIds(toggle(selectedRegionIds, id))}
 								/>
 							))}
-							<button
-								className="rounded-sm px-1.5 py-0.5 text-muted-foreground text-xs hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								// One patch, one navigation: two calls would each read the same
-								// prior search and the second would undo the first.
-								onClick={() => setFilters({ tags: new Set(), regions: new Set() })}
-								type="button"
-							>
-								Clear
-							</button>
-						</div>
+						</ActiveFilterBar>
 					) : null}
-				</div>
-
-				{!isReady || !regionMembership.isReady ? (
-					<RequestsSkeleton />
-				) : filtered.length === 0 ? (
-					<RequestsEmpty hasFilter={hasFilter} />
-				) : (
-					<div className="flex min-h-0 flex-1 flex-col">
-						<ul className="min-h-0 flex-1 overflow-y-auto p-2">
-							{visible.map((request) => (
-								<RequestRowItem
-									address={parties.addressById.get(request.addressId) ?? null}
-									contact={parties.contactById.get(request.contactId) ?? null}
-									detailsLoading={detailsLoading}
-									isFocused={request.id === focusedId}
-									key={request.id}
-									onFocus={() => setFocusedId(request.id)}
-									request={request}
-									tags={tagsByRequestId.byId.get(request.id) ?? EMPTY_TAGS}
-								/>
-							))}
-						</ul>
-						{pageCount > 1 ? (
-							<div className="border-border/50 border-t p-3">
-								<ExplorerPagination
-									noun="requests"
-									onPageChange={setPage}
-									page={page}
-									pageCount={pageCount}
-									total={filtered.length}
-								/>
-							</div>
-						) : null}
-					</div>
-				)}
-			</div>
-		</MapSplitPage>
+				</>
+			}
+			footer={
+				pageCount > 1 ? (
+					<ExplorerPagination
+						noun="requests"
+						onPageChange={setPage}
+						page={page}
+						pageCount={pageCount}
+						total={filtered.length}
+					/>
+				) : undefined
+			}
+			heading={{
+				title: 'Service Requests',
+				icon: RequestIcon,
+				total: filtered.length,
+				isLoading: !isReady || !regionMembership.isReady,
+				noun: RESULT_NOUN,
+				create: {
+					to: '/public-engagement/service-requests/create',
+					label: 'New Request',
+					minimum: 'manager',
+				},
+			}}
+			map={
+				<>
+					<MapCanvas
+						contextMenu={{
+							create: [MAP_CREATE_TARGETS.serviceRequest, MAP_CREATE_TARGETS.outreach],
+						}}
+						controls={{ layers: false, measure: true, readout: true }}
+						fitToData={mappedBounds}
+						geoJson={geoJson}
+						geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: setFocusedId }}
+						inset={panel.inset}
+						onMapReady={setMap}
+						searchWidth={panel.width}
+					/>
+					{focused === null ? null : (
+						<ServiceRequestMapCard
+							id={focused.id}
+							inset={panel.inset}
+							onClose={() => setFocusedId(null)}
+						/>
+					)}
+				</>
+			}
+			panel={panel}
+			results={{
+				rows: visible,
+				emptyTitle: hasFilter ? 'No requests match' : 'No service requests yet',
+				emptyDescription: hasFilter
+					? 'Try a different filter or search term.'
+					: 'Log a service request to start tracking public reports.',
+				skeletonClassName: 'h-16',
+				renderRow: (request) => (
+					<RequestRowItem
+						address={parties.addressById.get(request.addressId) ?? null}
+						contact={parties.contactById.get(request.contactId) ?? null}
+						detailsLoading={detailsLoading}
+						isFocused={request.id === focusedId}
+						key={request.id}
+						onFocus={() => setFocusedId(request.id)}
+						request={request}
+						tags={tagsByRequestId.byId.get(request.id) ?? EMPTY_TAGS}
+					/>
+				),
+			}}
+		/>
 	);
 }
 
@@ -557,84 +542,35 @@ function RequestRowItem({
 		address === null
 			? null
 			: formatAddressLine(address).trim() || address.displayName?.trim() || null;
+	const title = serviceRequestTitle(request);
+	// The contact and the address arrive together from an on-demand subset keyed on
+	// the visible page, so while that is in flight the row says so once rather than
+	// printing "Loading…" in both halves of one line.
+	const subtitle = detailsLoading
+		? 'Loading…'
+		: [contactLabel ?? 'No contact', addressLabel]
+				.filter((part): part is string => part !== null)
+				.join(' · ');
 
 	return (
-		<li
-			className={cn(
-				'group flex items-start gap-1.5 rounded-md py-2 pr-1 pl-2',
-				isFocused ? 'bg-primary/8' : 'hover:bg-muted/50',
-			)}
-		>
-			<button
-				className="min-w-0 flex-1 space-y-1.5 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				onClick={onFocus}
-				title="Show on the Map"
-				type="button"
-			>
-				<span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-					<span className="min-w-0 truncate font-medium text-foreground text-sm hover:text-primary">
-						{serviceRequestTitle(request)}
-					</span>
-					<RequestStatusBadge open={isServiceRequestOpen(request)} />
-					{tags.map((tag) => (
-						<TagBadge key={tag.id} tag={tag} />
-					))}
-				</span>
-				<span className="flex items-start gap-1.5 text-muted-foreground text-xs">
-					<ContactIcon aria-hidden="true" className="mt-0.5 size-3 shrink-0" />
-					<span className={cn('min-w-0 truncate', contactLabel === null && 'italic')}>
-						{contactLabel ?? (detailsLoading ? 'Loading…' : 'No contact')}
-					</span>
-				</span>
-				{addressLabel === null && !detailsLoading ? null : (
-					<span className="flex items-start gap-1.5 text-muted-foreground text-xs">
-						<MapPinnedIcon aria-hidden="true" className="mt-0.5 size-3 shrink-0" />
-						<span className="min-w-0">
-							{addressLabel ?? <span className="italic">Loading…</span>}
-						</span>
-					</span>
-				)}
-			</button>
-			<Link
-				aria-label={`View ${serviceRequestTitle(request)}`}
-				className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				params={{ id: request.id }}
-				title="View Request Details"
-				to="/public-engagement/service-requests/$id"
-			>
-				<ChevronRightIcon aria-hidden="true" className="size-4" />
-			</Link>
-		</li>
-	);
-}
-
-function RequestsSkeleton() {
-	return (
-		<div className="grid gap-2 p-4">
-			{[0, 1, 2, 3, 4].map((index) => (
-				<Skeleton className="h-16" key={index} />
-			))}
-		</div>
-	);
-}
-
-function RequestsEmpty({ hasFilter }: { readonly hasFilter: boolean }) {
-	return (
-		<div className="flex flex-1 items-center justify-center p-6">
-			<Empty className="min-h-[200px] border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<RequestIcon aria-hidden="true" />
-					</EmptyMedia>
-					<EmptyTitle>{hasFilter ? 'No Requests Match' : 'No Service Requests Yet'}</EmptyTitle>
-					<EmptyDescription>
-						{hasFilter
-							? 'Try a different filter or search term.'
-							: 'Log a service request to start tracking public reports.'}
-					</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
-		</div>
+		<ExplorerRow
+			badges={<RequestStatusBadge open={isServiceRequestOpen(request)} />}
+			detailLabel={`View ${title}`}
+			detailLink={{
+				to: '/public-engagement/service-requests/$id',
+				params: { id: request.id },
+			}}
+			isSelected={isFocused}
+			onSelect={onFocus}
+			selectLabel={`Show ${title} on the map`}
+			subtitle={subtitle}
+			tags={tags}
+			title={title}
+			titleLink={{
+				to: '/public-engagement/service-requests/$id',
+				params: { id: request.id },
+			}}
+		/>
 	);
 }
 

@@ -1,21 +1,22 @@
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
-	ExplorerHeader,
+	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
 	mapQueryParams,
-	ResultList,
 	ToggleFilter,
 	toggle,
 	useCollectionMethodOptions,
 	useDateRangeFilters,
+	useExplorerPanel,
 	useFlyToSelection,
 	usePagedMapResource,
 	usePersonnelOptions,
@@ -70,6 +71,8 @@ const COLLECTION_FILTER_CODECS: FilterCodecs<CollectionFilters> = {
 	regions: idSetParam,
 };
 
+const CollectionEntityIcon = iconRegistry.entities.collection.icon;
+
 export const Route = createFileRoute('/adult-surveillance/collections/')({
 	component: CollectionsExplorerRoute,
 	validateSearch: searchValidator(COLLECTION_FILTER_CODECS),
@@ -122,6 +125,7 @@ function CollectionsExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
 	const { options: methodOptions, nameById: methodNameById } = useCollectionMethodOptions();
@@ -175,42 +179,21 @@ function CollectionsExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const hasActiveFilters =
-		dateFrom !== defaultFrom ||
-		dateTo !== today ||
-		methodIds.size > 0 ||
-		problemOnly ||
-		regionIds.size > 0;
+	const activeFilterCount =
+		(dateFrom === defaultFrom && dateTo === today ? 0 : 1) +
+		methodIds.size +
+		regionIds.size +
+		(problemOnly ? 1 : 0);
 	const clearAll = reset;
 
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.collection, MAP_CREATE_TARGETS.trap] }}
-						collectionLayer={collectionLayer}
-						controls={{ layers: false, measure: true, readout: true }}
-						fitToData
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<CollectionMapCard id={selected.id} onClose={() => setSelectedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<ExplorerHeader
-					create={{ to: '/adult-surveillance/collections/create', label: 'Record' }}
-					isLoading={isLoading}
-					noun={RESULT_NOUN}
-					title="Collections"
-					total={total}
-				>
 					<DateRangeFilter {...dateRange} />
 
-					<div className="flex flex-wrap items-center gap-2">
+					<FilterGrid>
 						<MultiSelectFilter
 							empty="No collection methods"
 							label="Method"
@@ -226,9 +209,9 @@ function CollectionsExplorerRoute() {
 							selected={regionIds}
 						/>
 						<ToggleFilter label="Problems only" onChange={setProblemOnly} value={problemOnly} />
-					</div>
+					</FilterGrid>
 
-					{hasActiveFilters ? (
+					{activeFilterCount > 0 ? (
 						<ActiveFilterBar onClearAll={clearAll}>
 							{[...methodIds].map((id) => (
 								<FilterChip
@@ -249,78 +232,66 @@ function CollectionsExplorerRoute() {
 							) : null}
 						</ActiveFilterBar>
 					) : null}
-				</ExplorerHeader>
-
-				<CollectionResults
-					isError={isError}
-					isLoading={isLoading}
-					onRetry={retry}
-					methodNameById={methodNameById}
-					onSelect={setSelectedId}
-					personnelNameById={personnel.nameById}
-					rows={rows}
-					selectedId={selectedId}
-					trapNameById={trapNameById}
+				</>
+			}
+			footer={
+				<ExplorerPagination
+					noun="collections"
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
 				/>
-
-				<div className="border-border/50 border-t p-3">
-					<ExplorerPagination
-						noun="collections"
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={total}
+			}
+			heading={{
+				title: 'Collections',
+				icon: CollectionEntityIcon,
+				total,
+				isLoading,
+				noun: RESULT_NOUN,
+				create: { to: '/adult-surveillance/collections/create', label: 'Record' },
+			}}
+			map={
+				<>
+					<MapCanvas
+						inset={panel.inset}
+						searchWidth={panel.width}
+						contextMenu={{ create: [MAP_CREATE_TARGETS.collection, MAP_CREATE_TARGETS.trap] }}
+						collectionLayer={collectionLayer}
+						controls={{ layers: false, measure: true, readout: true }}
+						fitToData
+						onMapReady={handleMapReady}
 					/>
-				</div>
-			</div>
-		</MapSplitPage>
-	);
-}
-
-// --- results ----------------------------------------------------------------
-
-function CollectionResults({
-	rows,
-	isLoading,
-	isError,
-	onRetry,
-	selectedId,
-	trapNameById,
-	methodNameById,
-	personnelNameById,
-	onSelect,
-}: {
-	readonly rows: readonly CollectionSite[];
-	readonly isLoading: boolean;
-	readonly isError: boolean;
-	readonly onRetry: () => void;
-	readonly selectedId: string | null;
-	readonly trapNameById: ReadonlyMap<string, string>;
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly personnelNameById: ReadonlyMap<string, string>;
-	readonly onSelect: (id: string) => void;
-}) {
-	return (
-		<ResultList
-			emptyDescription="Widen the time window or loosen the filters to bring collections into range."
-			emptyTitle="No collections in range"
-			isError={isError}
-			isLoading={isLoading}
-			onRetry={onRetry}
-			rows={rows}
-		>
-			{(row) => (
-				<CollectionListItem
-					isSelected={row.id === selectedId}
-					key={row.id}
-					methodName={methodNameById.get(row.collectionMethodId) ?? 'Unknown method'}
-					onSelect={onSelect}
-					row={row}
-					setByName={collectionPersonnelName(row, personnelNameById)}
-					trapName={row.trapId === null ? null : (trapNameById.get(row.trapId) ?? 'Unknown trap')}
-				/>
-			)}
-		</ResultList>
+					{selected === null ? null : (
+						<CollectionMapCard
+							id={selected.id}
+							inset={panel.inset}
+							onClose={() => setSelectedId(null)}
+						/>
+					)}
+				</>
+			}
+			panel={panel}
+			results={{
+				rows,
+				isError,
+				onRetry: retry,
+				emptyTitle: 'No collections in range',
+				emptyDescription:
+					'Widen the time window or loosen the filters to bring collections into range.',
+				renderRow: (row) => (
+					<CollectionListItem
+						isSelected={row.id === selectedId}
+						key={row.id}
+						methodName={methodNameById.get(row.collectionMethodId) ?? 'Unknown method'}
+						onSelect={setSelectedId}
+						row={row}
+						setByName={collectionPersonnelName(row, personnel.nameById)}
+						trapName={row.trapId === null ? null : (trapNameById.get(row.trapId) ?? 'Unknown trap')}
+					/>
+				),
+			}}
+		/>
 	);
 }
 

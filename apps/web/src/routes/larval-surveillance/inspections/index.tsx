@@ -1,23 +1,24 @@
 import type { LarvalDensity } from '@simmer-mosquito/sync';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
-	ExplorerHeader,
+	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
 	mapQueryParams,
-	ResultList,
 	SegmentedFilter,
 	ToggleFilter,
 	toggle,
 	useDateRangeFilters,
+	useExplorerPanel,
 	useFlyToSelection,
 	useHabitatTypeOptions,
 	useMapBoundsParam,
@@ -52,6 +53,9 @@ import {
 	formatMonthDay,
 	todayInTimeZone,
 } from '../-overview-data';
+import { inspectionLegend, type WetFilter } from './-legend';
+
+const InspectionEntityIcon = iconRegistry.entities.inspection.icon;
 
 export const Route = createFileRoute('/larval-surveillance/inspections/')({
 	component: InspectionsExplorerRoute,
@@ -87,8 +91,6 @@ interface InspectionSite {
 	readonly hasFourthInstar: boolean;
 	readonly hasPupae: boolean;
 }
-
-type WetFilter = 'all' | 'wet' | 'dry';
 
 /** The window the explorer opens with, and the reset target for "Clear all". */
 const DEFAULT_WINDOW_DAYS = 30;
@@ -166,6 +168,7 @@ function InspectionsExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 
 	const { options: habitatTypes, nameById: typeNameById } = useHabitatTypeOptions();
 
@@ -227,14 +230,16 @@ function InspectionsExplorerRoute() {
 	);
 
 	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
-	const hasActiveFilters =
-		!isDefaultRange ||
-		wetness !== 'all' ||
-		densities.size > 0 ||
-		positiveOnly ||
-		typeIds.size > 0 ||
-		inspectorIds.size > 0 ||
-		regionIds.size > 0;
+	const legend = useMemo(() => inspectionLegend(wetness, densities), [wetness, densities]);
+
+	const activeFilterCount =
+		(isDefaultRange ? 0 : 1) +
+		(wetness === 'all' ? 0 : 1) +
+		densities.size +
+		(positiveOnly ? 1 : 0) +
+		typeIds.size +
+		inspectorIds.size +
+		regionIds.size;
 
 	const resetDates = useCallback(
 		() => setFilters({ from: defaultFrom, to: today }),
@@ -244,29 +249,10 @@ function InspectionsExplorerRoute() {
 	const clearAll = reset;
 
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection, MAP_CREATE_TARGETS.habitat] }}
-						controls={{ layers: false, measure: true, readout: true }}
-						fitToData
-						inspectionLayer={inspectionLayer}
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<InspectionMapCard id={selected.id} onClose={() => setSelectedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<ExplorerHeader
-					create={{ to: '/larval-surveillance/inspections/create', label: 'Record' }}
-					isLoading={isLoading}
-					title="Inspections"
-					total={total}
-				>
 					<DateRangeFilter {...dateRange} />
 
 					<SegmentedFilter
@@ -278,7 +264,7 @@ function InspectionsExplorerRoute() {
 
 					<DensityFilter onChange={setDensities} selected={densities} />
 
-					<div className="flex flex-wrap items-center gap-2">
+					<FilterGrid>
 						<ToggleFilter
 							label="Larvae found only"
 							onChange={setPositiveOnly}
@@ -305,9 +291,9 @@ function InspectionsExplorerRoute() {
 							options={regions.options}
 							selected={regionIds}
 						/>
-					</div>
+					</FilterGrid>
 
-					{hasActiveFilters ? (
+					{activeFilterCount > 0 ? (
 						<ActiveFilters
 							densities={densities}
 							from={dateFrom}
@@ -331,29 +317,65 @@ function InspectionsExplorerRoute() {
 							wetness={wetness}
 						/>
 					) : null}
-				</ExplorerHeader>
-
-				<InspectionResults
-					isError={isError}
-					isLoading={isLoading}
-					onRetry={retry}
-					onSelect={setSelectedId}
-					rows={rows}
-					selectedId={selectedId}
-					typeNameById={typeNameById}
+				</>
+			}
+			footer={
+				<ExplorerPagination
+					noun="inspections"
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
 				/>
-
-				<div className="border-border/50 border-t p-3">
-					<ExplorerPagination
-						noun="inspections"
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={total}
+			}
+			heading={{
+				title: 'Inspections',
+				icon: InspectionEntityIcon,
+				total,
+				isLoading,
+				create: { to: '/larval-surveillance/inspections/create', label: 'Record' },
+			}}
+			map={
+				<>
+					<MapCanvas
+						inset={panel.inset}
+						searchWidth={panel.width}
+						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection, MAP_CREATE_TARGETS.habitat] }}
+						controls={{ layers: false, measure: true, readout: true }}
+						fitToData
+						inspectionLayer={inspectionLayer}
+						legend={legend}
+						onMapReady={handleMapReady}
 					/>
-				</div>
-			</div>
-		</MapSplitPage>
+					{selected === null ? null : (
+						<InspectionMapCard
+							id={selected.id}
+							inset={panel.inset}
+							onClose={() => setSelectedId(null)}
+						/>
+					)}
+				</>
+			}
+			panel={panel}
+			results={{
+				rows,
+				isError,
+				onRetry: retry,
+				skeletonClassName: 'h-[64px]',
+				emptyTitle: 'No inspections in view',
+				emptyDescription:
+					'Pan or zoom the map, widen the time window, or loosen the filters to bring inspections into range.',
+				renderRow: (inspection) => (
+					<InspectionListItem
+						inspection={inspection}
+						isSelected={inspection.id === selectedId}
+						key={inspection.id}
+						onSelect={setSelectedId}
+						typeName={resolveTypeName(inspection, typeNameById)}
+					/>
+				),
+			}}
+		/>
 	);
 }
 
@@ -487,46 +509,6 @@ function ActiveFilters({
 				/>
 			))}
 		</ActiveFilterBar>
-	);
-}
-
-function InspectionResults({
-	rows,
-	isLoading,
-	isError,
-	onRetry,
-	selectedId,
-	typeNameById,
-	onSelect,
-}: {
-	readonly rows: readonly InspectionSite[];
-	readonly isLoading: boolean;
-	readonly isError: boolean;
-	readonly onRetry: () => void;
-	readonly selectedId: string | null;
-	readonly typeNameById: ReadonlyMap<string, string>;
-	readonly onSelect: (id: string) => void;
-}) {
-	return (
-		<ResultList
-			emptyDescription="Pan or zoom the map, widen the time window, or loosen the filters to bring inspections into range."
-			emptyTitle="No inspections in view"
-			isError={isError}
-			isLoading={isLoading}
-			onRetry={onRetry}
-			rows={rows}
-			skeletonClassName="h-[64px]"
-		>
-			{(inspection) => (
-				<InspectionListItem
-					inspection={inspection}
-					isSelected={inspection.id === selectedId}
-					key={inspection.id}
-					onSelect={onSelect}
-					typeName={resolveTypeName(inspection, typeNameById)}
-				/>
-			)}
-		</ResultList>
 	);
 }
 

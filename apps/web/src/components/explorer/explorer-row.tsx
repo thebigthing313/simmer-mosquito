@@ -58,31 +58,39 @@ export function ExplorerRow({
 	readonly detailLabel: string;
 	readonly isSelected: boolean;
 	readonly selectLabel: string;
-	readonly onSelect: () => void;
+	/**
+	 * Show this record on the map. Omit it for a record that has no coordinates to
+	 * show — a station whose centroid has not synced, an address that never
+	 * geocoded. The row then draws without the stretched button rather than with a
+	 * control that does nothing, and its links still work.
+	 */
+	readonly onSelect?: (() => void) | undefined;
 }) {
 	return (
 		<li className="relative">
-			<button
-				aria-label={selectLabel}
-				aria-pressed={isSelected}
-				className={cn(
-					'absolute inset-0 size-full transition-colors',
-					// Inset, because the button is stretched over the row and an outset
-					// ring would be clipped by the list that scrolls it. Without this the
-					// row fell back to the browser's own 1px outline while every other
-					// control in the panel drew the 2px ring.
-					'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
-					/*
-					 * The ring is opaque. At `ring-primary/40` it composited toward the
-					 * row behind it — the very surface it has to stand against — which is
-					 * what DESIGN.md's Solid Indicator Rule exists to stop. The 8% wash
-					 * stays: that is a fill, not the indicator.
-					 */
-					isSelected ? 'bg-primary/8 ring-1 ring-primary ring-inset' : 'hover:bg-muted/50',
-				)}
-				onClick={onSelect}
-				type="button"
-			/>
+			{onSelect === undefined ? null : (
+				<button
+					aria-label={selectLabel}
+					aria-pressed={isSelected}
+					className={cn(
+						'absolute inset-0 size-full transition-colors',
+						// Inset, because the button is stretched over the row and an outset
+						// ring would be clipped by the list that scrolls it. Without this the
+						// row fell back to the browser's own 1px outline while every other
+						// control in the panel drew the 2px ring.
+						'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
+						/*
+						 * The ring is opaque. At `ring-primary/40` it composited toward the
+						 * row behind it — the very surface it has to stand against — which is
+						 * what DESIGN.md's Solid Indicator Rule exists to stop. The 8% wash
+						 * stays: that is a fill, not the indicator.
+						 */
+						isSelected ? 'bg-primary/8 ring-1 ring-primary ring-inset' : 'hover:bg-muted/50',
+					)}
+					onClick={onSelect}
+					type="button"
+				/>
+			)}
 			<div className="pointer-events-none relative flex items-center gap-3 px-4 py-3">
 				{swatch === undefined ? null : (
 					<span

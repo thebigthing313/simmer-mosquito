@@ -98,6 +98,7 @@ function Page({
 	rows = ROWS,
 	isLoading = false,
 	activeFilterCount = 2,
+	body,
 	create = { to: '/larval-surveillance/habitats/create', label: 'Add Habitat' } as
 		| { readonly to: string; readonly label: string; readonly minimum?: MinimumRole }
 		| undefined,
@@ -105,6 +106,7 @@ function Page({
 	readonly rows?: readonly Row[];
 	readonly isLoading?: boolean;
 	readonly activeFilterCount?: number;
+	readonly body?: ReactNode;
 	readonly create?:
 		| { readonly to: string; readonly label: string; readonly minimum?: MinimumRole }
 		| undefined;
@@ -125,6 +127,7 @@ function Page({
 			map={<p>map surface</p>}
 			panel={panel}
 			results={{
+				...(body === undefined ? {} : { body }),
 				rows,
 				emptyTitle: 'No habitats in view',
 				emptyDescription: 'Loosen the filters to bring habitats into range.',
@@ -164,6 +167,23 @@ describe('ExplorerMapPage', () => {
 
 		fireEvent.click(filtersButton);
 		expect(screen.getByText('filter controls')).toBeTruthy();
+	});
+
+	// The Regions tree and the Activity Monitor's day-grouped log are not flat
+	// lists, so they hand the panel a body instead of rows.
+	it('draws a caller-supplied body in place of the rows', () => {
+		render(<Page body={<p>folder tree</p>} />);
+
+		expect(screen.getByText('folder tree')).toBeTruthy();
+		// The rows are ignored rather than drawn underneath it, and so is the empty
+		// state a caller with its own body is responsible for.
+		expect(screen.queryByText('Culvert 12')).toBeNull();
+		expect(screen.queryByText('No habitats in view')).toBeNull();
+		// Everything else the frame owns still stands: the header, the filters, the
+		// pager and the collapse.
+		expect(screen.getByText('filter controls')).toBeTruthy();
+		expect(screen.getByText('pager')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Hide results' })).toBeTruthy();
 	});
 
 	it('gives the panel back from the same control it was collapsed with', () => {
