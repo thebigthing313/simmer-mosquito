@@ -87,7 +87,7 @@ export function ExplorerRow({
 				{swatch === undefined ? null : (
 					<span
 						aria-hidden="true"
-						className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
+						className="size-2.5 shrink-0 rounded-full ring-1 ring-foreground/15"
 						style={{ backgroundColor: swatch.color }}
 						title={swatch.label}
 					/>
