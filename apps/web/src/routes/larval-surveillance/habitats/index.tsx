@@ -1,12 +1,5 @@
 import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import {
-	AlertTriangleIcon,
-	CheckCircle2Icon,
-	CircleIcon,
-	ComponentIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { ComponentIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -32,7 +25,12 @@ import {
 	useTagOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { type HabitatTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
+import {
+	HABITAT_STATUS_COLORS,
+	type HabitatTileFilters,
+	MAP_CREATE_TARGETS,
+	MapCanvas,
+} from '../../../components/map';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { habitats } from '../../../lib/collections/habitats';
 import {
@@ -456,7 +454,6 @@ function HabitatListItem({
 }) {
 	return (
 		<ExplorerRow
-			badges={<StatusBadge habitat={habitat} />}
 			detailLabel={`View details for ${habitatName(habitat)}`}
 			detailLink={{ to: '/larval-surveillance/habitats/$id', params: { id: habitat.id } }}
 			isSelected={isSelected}
@@ -471,51 +468,25 @@ function HabitatListItem({
 	);
 }
 
-/** The dot colour a habitat draws in: inaccessible, inactive, or working. */
+/**
+ * The dot colour a habitat draws in, read from what the map paints it.
+ *
+ * It carried a status pill beside it as well, which said the same thing twice in
+ * a row that has ~200px for the habitat's name. The dot and the key above it are
+ * the status now, so the dot has to be the map's own colour: the same expression
+ * order too, inaccessible before active, or a habitat that is both draws red on
+ * the map and green in the rail.
+ */
 function habitatSwatch(habitat: HabitatListRow): {
 	readonly color: string;
 	readonly label: string;
 } {
 	if (habitat.isInaccessible) {
-		return { color: 'var(--danger)', label: 'Inaccessible' };
+		return { color: HABITAT_STATUS_COLORS.inaccessible, label: 'Inaccessible' };
 	}
 	return habitat.isActive
-		? { color: 'var(--success)', label: 'Active' }
-		: { color: 'var(--muted-foreground)', label: 'Inactive' };
-}
-
-function StatusBadge({ habitat }: { readonly habitat: HabitatListRow }) {
-	if (habitat.isInaccessible) {
-		return (
-			<Badge tone="danger" variant="outline">
-				<AlertTriangleIcon aria-hidden="true" />
-				Inaccessible
-			</Badge>
-		);
-	}
-	if (habitat.isActive) {
-		return (
-			<Badge tone="success" variant="outline">
-				<CheckCircle2Icon aria-hidden="true" />
-				Active
-			</Badge>
-		);
-	}
-	return (
-		<Badge tone="neutral" variant="outline">
-			<CircleIcon aria-hidden="true" />
-			Inactive
-		</Badge>
-	);
-}
-
-function _StatusDot({ habitat }: { readonly habitat: HabitatListRow }) {
-	const color = habitat.isInaccessible
-		? 'bg-[var(--danger)]'
-		: habitat.isActive
-			? 'bg-[var(--success)]'
-			: 'bg-muted-foreground/50';
-	return <span aria-hidden="true" className={cn('size-2 shrink-0 rounded-full', color)} />;
+		? { color: HABITAT_STATUS_COLORS.active, label: 'Active' }
+		: { color: HABITAT_STATUS_COLORS.inactive, label: 'Inactive' };
 }
 
 // --- data hooks -------------------------------------------------------------

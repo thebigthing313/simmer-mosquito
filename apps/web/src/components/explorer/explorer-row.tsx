@@ -117,12 +117,19 @@ export function ExplorerRow({
 				)}
 			>
 				{swatch === undefined ? null : (
+					/*
+					 * Labelled, not decorative. On the surfaces that dropped their status
+					 * pill the dot is the only thing left saying whether a record is active
+					 * or out of reach, and a `title` on an aria-hidden span reaches a mouse
+					 * and nothing else.
+					 */
 					<span
-						aria-hidden="true"
+						aria-label={swatch.label}
 						className={cn(
 							'size-2.5 shrink-0 rounded-full ring-1 ring-foreground/15',
 							isStacked && 'mt-1',
 						)}
+						role="img"
 						style={{ backgroundColor: swatch.color }}
 						title={swatch.label}
 					/>
