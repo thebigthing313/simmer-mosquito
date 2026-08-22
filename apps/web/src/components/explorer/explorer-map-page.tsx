@@ -257,7 +257,7 @@ function FiltersPanel({
 					<XIcon aria-hidden="true" />
 				</Button>
 			</div>
-			<div className="grid gap-2 overflow-y-auto p-3">{children}</div>
+			<div className="grid gap-3 overflow-y-auto p-3">{children}</div>
 		</div>
 	);
 }

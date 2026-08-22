@@ -17,6 +17,7 @@ import {
 	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
 	mapQueryParams,
 	SegmentedFilter,
@@ -236,7 +237,7 @@ function HabitatsExplorerRoute() {
 						/>
 					</div>
 
-					<div className="grid grid-cols-2 gap-2">
+					<FilterGrid>
 						<MultiSelectFilter
 							label="Habitat type"
 							empty="No habitat types"
@@ -258,7 +259,7 @@ function HabitatsExplorerRoute() {
 							selected={regionIds}
 							onChange={setRegionIds}
 						/>
-					</div>
+					</FilterGrid>
 
 					{activeFilterCount > 0 ? (
 						<ActiveFilters
