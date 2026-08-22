@@ -44,7 +44,11 @@ import {
 	useTagOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
+import {
+	MAP_CREATE_TARGETS,
+	MapCanvas,
+	SERVICE_REQUEST_STATUS_COLORS,
+} from '../../../components/map';
 import { TagBadge } from '../../../components/tag-badge';
 import type { Address } from '../../../hooks/queries/address-view';
 import type { ContactSummary } from '../../../hooks/queries/contact-view';
@@ -70,8 +74,9 @@ import {
 	isServiceRequestOpen,
 	serviceRequestTitle,
 } from '../-public-engagement-display';
-import { RequestStatusBadge } from '../-public-engagement-ui';
 import { ServiceRequestMapCard } from '../-service-request-map-card';
+import type { StatusFilter } from './-legend';
+import { serviceRequestLegend } from './-legend';
 
 const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const RESULT_NOUN = { one: 'request', many: 'requests' };
@@ -84,8 +89,6 @@ const requestsGcTimeMs = 30_000;
 const PAGE_SIZE = 25;
 const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 const EMPTY_TAGS: readonly Tag[] = [];
-
-type StatusFilter = 'all' | 'open' | 'closed';
 
 const STATUS_VALUES: readonly StatusFilter[] = ['all', 'open', 'closed'];
 
@@ -192,6 +195,8 @@ function ServiceRequestsExplorerRoute() {
 		});
 	}, [requests, status, search, selectedTagIds, taggedRequestIds, regionMembership]);
 
+	const legend = useMemo(() => serviceRequestLegend(status), [status]);
+
 	const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
 	// biome-ignore lint/correctness/useExhaustiveDependencies: reset paging when the filter set changes.
 	useEffect(() => {
@@ -218,7 +223,9 @@ function ServiceRequestsExplorerRoute() {
 				(request): GeoJSON.Feature => ({
 					type: 'Feature',
 					id: request.id,
-					properties: { id: request.id },
+					// These points are a plain overlay rather than vector tiles, so the
+					// colour travels on the feature and the layer's paint reads it back.
+					properties: { id: request.id, color: requestSwatch(request).color },
 					geometry: { type: 'Point', coordinates: [request.longitude, request.latitude] },
 				}),
 			);
@@ -369,6 +376,7 @@ function ServiceRequestsExplorerRoute() {
 						geoJson={geoJson}
 						geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: setFocusedId }}
 						inset={panel.inset}
+						legend={legend}
 						onMapReady={setMap}
 						searchWidth={panel.width}
 					/>
@@ -559,7 +567,6 @@ function RequestRowItem({
 
 	return (
 		<ExplorerRow
-			badges={<RequestStatusBadge open={isServiceRequestOpen(request)} />}
 			detailLabel={`View ${title}`}
 			detailLink={{
 				to: '/public-engagement/service-requests/$id',
@@ -569,6 +576,12 @@ function RequestRowItem({
 			onSelect={onFocus}
 			selectLabel={`Show ${title} on the map`}
 			subtitle={subtitle}
+			/*
+			 * The dot is the status. It was a pill beside it saying the same thing, in
+			 * a rail where the request's subject shares its line with a contact and an
+			 * address.
+			 */
+			swatch={requestSwatch(request)}
 			tags={tags}
 			title={title}
 			titleLink={{
@@ -577,6 +590,16 @@ function RequestRowItem({
 			}}
 		/>
 	);
+}
+
+/** The colour this request draws in, so the row matches the map. */
+function requestSwatch(request: RequestListing): {
+	readonly color: string;
+	readonly label: string;
+} {
+	return isServiceRequestOpen(request)
+		? { color: SERVICE_REQUEST_STATUS_COLORS.open, label: 'Open' }
+		: { color: SERVICE_REQUEST_STATUS_COLORS.closed, label: 'Closed' };
 }
 
 function _toggle(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
