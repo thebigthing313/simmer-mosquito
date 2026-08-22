@@ -38,6 +38,9 @@ export interface MapCardProps {
 	readonly inset?: MapInset | undefined;
 }
 
+/** Gap (px) between the card and the map edge, matching the `*-4` it replaced. */
+const CARD_EDGE = 16;
+
 /**
  * The shared floating overlay card for map surfaces: a bottom-centered panel with
  * a title + exit button on top, a type-specific body, and a standard "View
@@ -45,9 +48,6 @@ export interface MapCardProps {
  * so the chrome, positioning, motion, and dismiss affordance stay identical;
  * only the body differs per record type (see the `*MapCard` components).
  */
-/** Gap (px) between the card and the map edge, matching the `*-4` it replaced. */
-const CARD_EDGE = 16;
-
 export function MapCard({
 	eyebrow,
 	title,

@@ -29,32 +29,37 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	Link: ({ children, ...rest }: { children?: ReactNode }) => <a {...rest}>{children}</a>,
 }));
 
-// jsdom has neither, and both the panel (viewport width) and the map hooks
-// (element size) read them.
-let isNarrowViewport = false;
-const mediaListeners = new Set<() => void>();
-vi.stubGlobal('matchMedia', (query: string) => ({
-	get matches() {
-		return isNarrowViewport;
-	},
-	media: query,
-	addEventListener: (_event: string, handler: () => void) => mediaListeners.add(handler),
-	removeEventListener: (_event: string, handler: () => void) => mediaListeners.delete(handler),
-}));
+// The panel measures the map stage and its own box, so jsdom needs an observer
+// that actually reports one. Every observed element reports the same size, which
+// is all these assertions distinguish.
+let observedBox = { width: 1000, height: 700 };
+type ObserverCallback = (entries: readonly { readonly contentRect: typeof observedBox }[]) => void;
+const liveObservers = new Set<ObserverCallback>();
+
 vi.stubGlobal(
 	'ResizeObserver',
 	class {
-		observe() {}
+		private readonly callback: ObserverCallback;
+		constructor(callback: ObserverCallback) {
+			this.callback = callback;
+		}
+		observe() {
+			liveObservers.add(this.callback);
+			this.callback([{ contentRect: observedBox }]);
+		}
 		unobserve() {}
-		disconnect() {}
+		disconnect() {
+			liveObservers.delete(this.callback);
+		}
 	},
 );
 
-function setViewport(narrow: boolean) {
-	isNarrowViewport = narrow;
+/** Resize every observed element, as a viewport change would. */
+function setObservedBox(box: { width: number; height: number }) {
+	observedBox = box;
 	act(() => {
-		for (const listener of [...mediaListeners]) {
-			listener();
+		for (const callback of [...liveObservers]) {
+			callback([{ contentRect: observedBox }]);
 		}
 	});
 }
@@ -63,13 +68,14 @@ const { ExplorerMapPage } = await import('../../../../components/explorer/explor
 const { useExplorerPanel } = await import('../../../../components/explorer/use-explorer-panel');
 const { useFlyToSelection } = await import('../../../../components/explorer/use-fly-to-selection');
 const { useMapExtentFit } = await import('../../../../components/map/use-map-extent-fit');
+const { useMapPadding } = await import('../../../../components/map/use-map-padding');
 const { createFakeMap } = await import('../map/fake-map');
 
 afterEach(() => {
 	cleanup();
 	signedInRole = 'admin';
-	isNarrowViewport = false;
-	mediaListeners.clear();
+	observedBox = { width: 1000, height: 700 };
+	liveObservers.clear();
 });
 
 interface Row {
@@ -202,7 +208,7 @@ describe('the inset the panel hands the map', () => {
 		fake = createFakeMap();
 	});
 
-	function mountProbe() {
+	function mountProbe({ selected }: { readonly selected: typeof SELECTED | null }) {
 		const container = document.createElement('div');
 		document.body.append(container);
 		const root = createRoot(container);
@@ -211,9 +217,10 @@ describe('the inset the panel hands the map', () => {
 		function Probe() {
 			const state = useExplorerPanel();
 			panel.current = state;
-			useFlyToSelection(fake.map as MapboxMap, SELECTED, state.inset);
+			useFlyToSelection(fake.map as MapboxMap, selected);
+			useMapPadding(fake.map as MapboxMap, true, state.inset);
 			useMapExtentFit(fake.map as MapboxMap, true, { bounds: BOX }, state.inset);
-			return null;
+			return <div ref={state.stageRef} />;
 		}
 
 		act(() => {
@@ -242,41 +249,64 @@ describe('the inset the panel hands the map', () => {
 		};
 	}
 
-	it('flies a selection into the half of the map the panel is not covering', () => {
-		const probe = mountProbe();
+	it('pads the map viewport by the side the panel is on', () => {
+		const probe = mountProbe({ selected: SELECTED });
 
-		const fly = lastCall(fake, 'flyTo');
-		expect(fly?.padding).toEqual({ top: 0, right: 0, bottom: 0, left: 396 });
+		expect(lastCall(fake, 'easeTo')?.padding).toEqual({ top: 0, right: 0, bottom: 0, left: 396 });
 
 		probe.unmount();
 	});
 
 	it('frames an extent clear of the panel, keeping the map its own breathing room', () => {
-		const probe = mountProbe();
+		const probe = mountProbe({ selected: SELECTED });
 
-		const fit = lastCall(fake, 'fitBounds');
-		expect(fit?.padding).toEqual({ top: 56, right: 56, bottom: 56, left: 452 });
+		expect(lastCall(fake, 'fitBounds')?.padding).toEqual({
+			top: 56,
+			right: 56,
+			bottom: 56,
+			left: 452,
+		});
 
 		probe.unmount();
 	});
 
-	it('gives the room back to the camera once the panel is collapsed', () => {
-		const probe = mountProbe();
+	// The bug this replaced: padding rode on the fly-to, so a reader who dropped
+	// the selection and *then* collapsed left the map framed for a panel that was
+	// no longer there, with no camera call due to put it back.
+	it('gives the room back on a collapse even when nothing is selected', () => {
+		const probe = mountProbe({ selected: null });
 
 		probe.collapse(true);
 
-		const fly = lastCall(fake, 'flyTo');
-		expect(fly?.padding).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
+		expect(lastCall(fake, 'easeTo')?.padding).toEqual({ top: 0, right: 0, bottom: 0, left: 0 });
 
 		probe.unmount();
 	});
 
-	it('pads the bottom instead of the side where the panel docks as a sheet', () => {
-		setViewport(true);
-		const probe = mountProbe();
+	it('leaves the selection fly-to carrying no padding of its own', () => {
+		const probe = mountProbe({ selected: SELECTED });
 
-		const fly = lastCall(fake, 'flyTo');
-		expect(fly?.padding).toEqual({ top: 0, right: 0, bottom: 260, left: 0 });
+		expect(lastCall(fake, 'flyTo')?.padding).toBeUndefined();
+
+		probe.unmount();
+	});
+
+	it('pads the bottom by the sheet it measured, where the stage is too narrow for a column', () => {
+		setObservedBox({ width: 500, height: 300 });
+		const probe = mountProbe({ selected: SELECTED });
+
+		expect(probe.panel.current?.isNarrow).toBe(true);
+		// 70% of the 300px stage, plus the gap under the sheet.
+		expect(lastCall(fake, 'easeTo')?.padding).toEqual({ top: 0, right: 0, bottom: 222, left: 0 });
+
+		probe.unmount();
+	});
+
+	it('keeps the side column while the stage is wide enough to leave a usable map', () => {
+		setObservedBox({ width: 800, height: 700 });
+		const probe = mountProbe({ selected: SELECTED });
+
+		expect(probe.panel.current?.isNarrow).toBe(false);
 
 		probe.unmount();
 	});

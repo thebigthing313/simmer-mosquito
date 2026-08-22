@@ -1,10 +1,6 @@
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	ChevronLeftIcon,
-	type iconRegistry,
-	PlusIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { type iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import type { MinimumRole } from '../../lib/write-access';
@@ -51,7 +47,14 @@ export function ExplorerHeader({
 	 * Put the whole panel away. Only the map frame passes one — a header above a
 	 * column has nothing to collapse into.
 	 */
-	readonly collapse?: { readonly onCollapse: () => void; readonly label: string } | undefined;
+	readonly collapse?:
+		| {
+				readonly onCollapse: () => void;
+				readonly label: string;
+				/** Points where the panel goes: aside on a side column, down on a sheet. */
+				readonly icon: RegistryIcon;
+		  }
+		| undefined;
 	/** The filter controls, stacked under the title row. */
 	readonly children: ReactNode;
 }) {
@@ -78,19 +81,32 @@ export function ExplorerHeader({
 							</Button>
 						</WriteOnly>
 					)}
-					{collapse === undefined ? null : (
-						<Button
-							aria-label={collapse.label}
-							onClick={collapse.onCollapse}
-							size="icon-sm"
-							variant="ghost"
-						>
-							<ChevronLeftIcon aria-hidden="true" />
-						</Button>
-					)}
+					{collapse === undefined ? null : <CollapseButton collapse={collapse} />}
 				</div>
 			</div>
 			{children}
 		</div>
+	);
+}
+
+function CollapseButton({
+	collapse,
+}: {
+	readonly collapse: {
+		readonly onCollapse: () => void;
+		readonly label: string;
+		readonly icon: RegistryIcon;
+	};
+}) {
+	const Icon = collapse.icon;
+	return (
+		<Button
+			aria-label={collapse.label}
+			onClick={collapse.onCollapse}
+			size="icon-sm"
+			variant="ghost"
+		>
+			<Icon aria-hidden="true" />
+		</Button>
 	);
 }

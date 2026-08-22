@@ -44,6 +44,7 @@ import {
 } from './use-inspection-tile-layer';
 import { type MapExtentFitSource, useMapExtentFit } from './use-map-extent-fit';
 import { useMapMeasure } from './use-map-measure';
+import { useMapPadding } from './use-map-padding';
 import { isMapLive, useMapboxMap } from './use-mapbox-map';
 import { type NearbyLayerConfig, useNearbyLayer } from './use-nearby-layer';
 import { type OutreachTileLayerConfig, useOutreachTileLayer } from './use-outreach-tile-layer';
@@ -211,6 +212,7 @@ export function MapCanvas({
 	// in hook order, so registering context first is what puts the record on top.
 	useContextGeoJsonLayer(map, isLoaded, contextGeoJson ?? null);
 	useGeoJsonLayer(map, isLoaded, geoJson ?? null, geoJsonInteraction);
+	useMapPadding(map, isLoaded, clear);
 	useMapExtentFit(
 		map,
 		isLoaded,

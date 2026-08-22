@@ -1,6 +1,11 @@
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { type iconRegistry, PanelLeftIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import {
+	ChevronDownIcon,
+	ChevronLeftIcon,
+	type iconRegistry,
+	PanelLeftIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
 import { OutletFullPageMap } from '../app-shell/outlet/full-page-map';
@@ -72,10 +77,10 @@ export function ExplorerMapPage<TRow>({
 	/** The map surface, given the same inset the panel reports. */
 	readonly map: ReactNode;
 }) {
-	const { isCollapsed, setCollapsed } = panel;
+	const { isCollapsed, setCollapsed, stageRef } = panel;
 
 	return (
-		<OutletFullPageMap>
+		<OutletFullPageMap ref={stageRef}>
 			{map}
 
 			{isCollapsed ? (
@@ -126,19 +131,26 @@ function ResultsPanel<TRow>({
 	readonly footer: ReactNode;
 	readonly onCollapse: () => void;
 }) {
-	const { isNarrow, width, peek } = panel;
+	const { isNarrow, width, sheetHeight } = panel;
 	const { rows, renderRow, emptyTitle, emptyDescription, skeletonClassName } = results;
 
 	return (
 		<div
 			className={cn(
 				'pointer-events-auto absolute z-10 flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-background/95 shadow-lg backdrop-blur-sm',
+				// A share of the stage on a sheet, so the filter stack above the rows
+				// cannot squeeze them out: an explorer with six filter controls needs
+				// more than a peek, and the map keeps the rest.
 				isNarrow ? 'inset-x-3 bottom-3' : 'top-4 bottom-4 left-4',
 			)}
-			style={isNarrow ? { height: peek } : { width }}
+			style={isNarrow ? { height: sheetHeight } : { width }}
 		>
 			<ExplorerHeader
-				collapse={{ onCollapse, label: 'Hide results' }}
+				collapse={{
+					onCollapse,
+					label: 'Hide results',
+					icon: isNarrow ? ChevronDownIcon : ChevronLeftIcon,
+				}}
 				create={heading.create}
 				icon={heading.icon}
 				isLoading={heading.isLoading}

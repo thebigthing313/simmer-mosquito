@@ -182,7 +182,7 @@ function HabitatsExplorerRoute() {
 	const fallbackSelected = useSelectedHabitat(selectedId, visibleById);
 	const selectedHabitat =
 		selectedId === null ? null : (visibleById.get(selectedId) ?? fallbackSelected ?? null);
-	useFlyToSelection(map, selectedHabitat, panel.inset);
+	useFlyToSelection(map, selectedHabitat);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
 	const habitatLayer = useMemo(
@@ -191,6 +191,7 @@ function HabitatsExplorerRoute() {
 	);
 
 	const activeFilterCount =
+		(search.length > 0 ? 1 : 0) +
 		(status === 'active' ? 0 : 1) +
 		(access === 'all' ? 0 : 1) +
 		typeIds.size +
@@ -200,6 +201,13 @@ function HabitatsExplorerRoute() {
 		clearSearchInput();
 		reset();
 	}, [clearSearchInput, reset]);
+	// Both halves: the field the operator is looking at, and the committed term
+	// on the URL that is actually cutting the list. Clearing only the field
+	// leaves the chip up and the results filtered.
+	const clearSearch = useCallback(() => {
+		clearSearchInput();
+		commitSearch('');
+	}, [clearSearchInput, commitSearch]);
 
 	return (
 		<ExplorerMapPage
@@ -254,6 +262,7 @@ function HabitatsExplorerRoute() {
 
 					{activeFilterCount > 0 ? (
 						<ActiveFilters
+							search={search}
 							status={status}
 							access={access}
 							typeIds={typeIds}
@@ -262,6 +271,7 @@ function HabitatsExplorerRoute() {
 							typeNameById={typeNameById}
 							tagById={tagById}
 							regionNameById={regions.nameById}
+							onClearSearch={clearSearch}
 							onClearStatus={() => setStatus('active')}
 							onClearAccess={() => setAccess('all')}
 							onToggleType={(id) => setTypeIds(toggle(typeIds, id))}
@@ -343,6 +353,7 @@ const ACCESS_OPTIONS: readonly { readonly value: AccessFilter; readonly label: s
 ];
 
 function ActiveFilters({
+	search,
 	status,
 	access,
 	typeIds,
@@ -351,6 +362,7 @@ function ActiveFilters({
 	typeNameById,
 	tagById,
 	regionNameById,
+	onClearSearch,
 	onClearStatus,
 	onClearAccess,
 	onToggleType,
@@ -358,6 +370,7 @@ function ActiveFilters({
 	onToggleRegion,
 	onClearAll,
 }: {
+	readonly search: string;
 	readonly status: StatusFilter;
 	readonly access: AccessFilter;
 	readonly typeIds: ReadonlySet<string>;
@@ -366,6 +379,7 @@ function ActiveFilters({
 	readonly typeNameById: ReadonlyMap<string, string>;
 	readonly tagById: ReadonlyMap<string, Tag>;
 	readonly regionNameById: ReadonlyMap<string, string>;
+	readonly onClearSearch: () => void;
 	readonly onClearStatus: () => void;
 	readonly onClearAccess: () => void;
 	readonly onToggleType: (id: string) => void;
@@ -375,6 +389,9 @@ function ActiveFilters({
 }) {
 	return (
 		<ActiveFilterBar onClearAll={onClearAll}>
+			{search.length > 0 ? (
+				<FilterChip label={`Search: ${search}`} onRemove={onClearSearch} />
+			) : null}
 			{status !== 'active' ? (
 				<FilterChip
 					label={`Status: ${status === 'all' ? 'All' : 'Inactive'}`}

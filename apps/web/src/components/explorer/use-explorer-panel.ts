@@ -1,16 +1,33 @@
-import { useCallback, useMemo, useState, useSyncExternalStore } from 'react';
+import { type RefCallback, useCallback, useMemo, useState } from 'react';
 import { type MapInset, NO_MAP_INSET } from '../map/map-inset';
 
 /** Gap between the panel and the map edge, and between the panel and the controls. */
 const PANEL_EDGE = 16;
-/** The panel's width on a wide viewport. Wide enough for a row's title and badges. */
+/** The panel's width on a wide stage. Wide enough for a row's title and badges. */
 const PANEL_WIDTH = 380;
-/** How much of the map the docked sheet covers on a narrow one, edge gap included. */
-const PANEL_PEEK = 260;
 /** The gap under the docked sheet, matching `bottom-3`. */
 const SHEET_EDGE = 12;
-/** Below this the panel docks to the bottom: a 380px column would be most of the screen. */
-const NARROW_QUERY = '(max-width: 767px)';
+/** Map left over beside the panel before a side column stops being worth it. */
+const MIN_MAP_WIDTH = 320;
+/**
+ * The share of the stage the docked sheet stands at.
+ *
+ * A share rather than a height, because an explorer stacks as many filter
+ * controls as its records need and a fixed peek is a number that is right for
+ * one of them. Declared here rather than as a class on the panel so the height
+ * and the map's inset cannot disagree.
+ */
+const SHEET_STAGE_FRACTION = 0.7;
+/**
+ * Below this the panel docks to the bottom as a sheet.
+ *
+ * Measured against the map stage rather than the window, because the workspace
+ * shell takes several hundred pixels of the window before the stage begins. A
+ * window query says "wide" at sizes where the side column would leave a sliver
+ * of map, and it also lets the fit margin ({@link useMapExtentFit}) exceed the
+ * canvas width, which is a frame Mapbox cannot compute at all.
+ */
+const NARROW_STAGE_WIDTH = PANEL_EDGE + PANEL_WIDTH + MIN_MAP_WIDTH;
 
 export interface ExplorerPanel {
 	readonly isCollapsed: boolean;
@@ -19,10 +36,12 @@ export interface ExplorerPanel {
 	readonly isNarrow: boolean;
 	/** The width in px the panel occupies while expanded, for its own layout. */
 	readonly width: number;
-	/** The height in px the docked sheet stands at on a narrow viewport. */
-	readonly peek: number;
+	/** The height in px the docked sheet stands at. Only read while narrow. */
+	readonly sheetHeight: number;
 	/** How much of the map the panel is covering right now. See {@link MapInset}. */
 	readonly inset: MapInset;
+	/** Attach to the map stage. Its size decides the layout and the sheet's height. */
+	readonly stageRef: RefCallback<HTMLElement>;
 }
 
 /**
@@ -33,13 +52,18 @@ export interface ExplorerPanel {
  * colleague, and a link that also carried "I had the panel shut" would open on a
  * map with no results on it.
  *
- * The route calls this rather than the frame, because the selection fly-to runs
- * above the frame and needs the same inset the frame gives the canvas. One value,
- * one owner, and no explorer computing it for itself.
+ * The route calls this rather than the frame, because a route reads the inset to
+ * place its own chrome (a focus card) over the same map. One value, one owner,
+ * and no explorer computing it for itself.
  */
 export function useExplorerPanel(): ExplorerPanel {
 	const [isCollapsed, setCollapsed] = useState(false);
-	const isNarrow = useMediaQuery(NARROW_QUERY);
+	const [stageRef, stage] = useMeasuredBox();
+
+	const isNarrow = stage !== null && stage.width < NARROW_STAGE_WIDTH;
+	// Both the sheet's height and the inset come off the stage, so the map is
+	// never told about a height the panel has not taken yet.
+	const sheetHeight = stage === null ? 0 : Math.round(stage.height * SHEET_STAGE_FRACTION);
 
 	const inset = useMemo<MapInset>(() => {
 		// Collapsed, the panel is a pill in a corner. It covers a few hundred square
@@ -48,43 +72,63 @@ export function useExplorerPanel(): ExplorerPanel {
 			return NO_MAP_INSET;
 		}
 		return isNarrow
-			? { ...NO_MAP_INSET, bottom: PANEL_PEEK }
+			? { ...NO_MAP_INSET, bottom: sheetHeight + SHEET_EDGE }
 			: { ...NO_MAP_INSET, left: PANEL_EDGE + PANEL_WIDTH };
-	}, [isCollapsed, isNarrow]);
+	}, [isCollapsed, isNarrow, sheetHeight]);
 
-	return {
-		isCollapsed,
-		setCollapsed,
-		isNarrow,
-		width: PANEL_WIDTH,
-		peek: PANEL_PEEK - SHEET_EDGE,
-		inset,
-	};
+	return { isCollapsed, setCollapsed, isNarrow, width: PANEL_WIDTH, sheetHeight, inset, stageRef };
+}
+
+interface MeasuredBox {
+	readonly width: number;
+	readonly height: number;
 }
 
 /**
- * Whether a media query matches, kept in sync with the viewport.
+ * An element's rendered size, kept current as it resizes.
  *
- * Guarded on `matchMedia` existing: the frame renders under jsdom in tests and
- * on a server-rendered first paint, neither of which has one, and a wide layout
- * is the right thing to assume when nobody has said otherwise.
+ * Null until the first observation, and callers read that as "not measured yet"
+ * rather than "zero". A layout chosen from an unmeasured box would flash the
+ * wrong one on every first paint.
  */
-function useMediaQuery(query: string): boolean {
-	const subscribe = useCallback(
-		(onChange: () => void) => {
-			const list = globalThis.matchMedia?.(query);
-			if (list === undefined) {
-				return () => undefined;
+function useMeasuredBox(): [RefCallback<HTMLElement>, MeasuredBox | null] {
+	const [box, setBox] = useState<MeasuredBox | null>(null);
+
+	const record = useCallback((width: number, height: number) => {
+		setBox((current) =>
+			current !== null && current.width === width && current.height === height
+				? current
+				: { width, height },
+		);
+	}, []);
+
+	const ref = useCallback(
+		(element: HTMLElement | null) => {
+			if (element === null) {
+				return;
 			}
-			list.addEventListener('change', onChange);
-			return () => list.removeEventListener('change', onChange);
+			// Read once here rather than waiting for the observer's first delivery.
+			// ResizeObserver reports after layout and before paint, so a document
+			// that has not painted yet — a background tab, a hidden pane — never
+			// hears from it, and a layout chosen from no measurement would flash the
+			// wrong one on the first frame everywhere else.
+			const rect = element.getBoundingClientRect();
+			record(rect.width, rect.height);
+
+			if (typeof ResizeObserver === 'undefined') {
+				return;
+			}
+			const observer = new ResizeObserver((entries) => {
+				const box = entries[0]?.contentRect;
+				if (box !== undefined) {
+					record(box.width, box.height);
+				}
+			});
+			observer.observe(element);
+			return () => observer.disconnect();
 		},
-		[query],
+		[record],
 	);
 
-	return useSyncExternalStore(
-		subscribe,
-		() => globalThis.matchMedia?.(query).matches ?? false,
-		() => false,
-	);
+	return [ref, box];
 }
