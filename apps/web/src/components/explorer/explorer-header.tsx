@@ -55,8 +55,11 @@ export function ExplorerHeader({
 				readonly icon: RegistryIcon;
 		  }
 		| undefined;
-	/** The filter controls, stacked under the title row. */
-	readonly children: ReactNode;
+	/**
+	 * The filter controls, stacked under the title row. Omitted where the surface
+	 * gives its filters a panel of their own.
+	 */
+	readonly children?: ReactNode;
 }) {
 	return (
 		<div className={stickyHeader({ gap: 'default', padding: 'default' })}>

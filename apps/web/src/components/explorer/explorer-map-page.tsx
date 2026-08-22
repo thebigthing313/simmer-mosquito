@@ -3,8 +3,10 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	ChevronDownIcon,
 	ChevronLeftIcon,
+	FilterIcon,
 	type iconRegistry,
 	PanelLeftIcon,
+	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
@@ -15,6 +17,10 @@ import { ResultMeta } from './result-meta';
 import type { ExplorerPanel } from './use-explorer-panel';
 
 type RegistryIcon = typeof iconRegistry.entities.sample.icon;
+
+/** The floating-panel shell both panels in the column wear. */
+const PANEL_SHELL =
+	'pointer-events-auto flex flex-col overflow-hidden rounded-xl border border-border/60 bg-background/95 shadow-lg backdrop-blur-sm';
 
 /** What the panel says it is holding, expanded or collapsed. */
 export interface ExplorerHeading {
@@ -96,14 +102,32 @@ export function ExplorerMapPage<TRow>({
 					/>
 				</div>
 			) : (
-				<ResultsPanel
-					filters={filters}
-					footer={footer}
-					heading={heading}
-					onCollapse={() => setCollapsed(true)}
-					panel={panel}
-					results={results}
-				/>
+				<div
+					className={cn(
+						'pointer-events-none absolute z-10 flex min-h-0 flex-col gap-2',
+						// `top-20`, not `top-4`: the map's place search owns the corner and
+						// stays there, so the column starts under it rather than pushing it
+						// sideways every time the panel opens.
+						panel.isNarrow ? 'inset-x-3 bottom-3' : 'top-20 bottom-4 left-4',
+					)}
+					style={panel.isNarrow ? { height: panel.sheetHeight } : { width: panel.width }}
+				>
+					<FiltersPanel
+						activeFilterCount={activeFilterCount}
+						isOpen={panel.isFiltersOpen}
+						onOpenChange={panel.setFiltersOpen}
+					>
+						{filters}
+					</FiltersPanel>
+
+					<ResultsPanel
+						footer={footer}
+						heading={heading}
+						isNarrow={panel.isNarrow}
+						onCollapse={() => setCollapsed(true)}
+						results={results}
+					/>
+				</div>
 			)}
 		</OutletFullPageMap>
 	);
@@ -117,34 +141,22 @@ export function ExplorerMapPage<TRow>({
  * that would drift.
  */
 function ResultsPanel<TRow>({
-	panel,
 	heading,
-	filters,
 	results,
 	footer,
+	isNarrow,
 	onCollapse,
 }: {
-	readonly panel: ExplorerPanel;
 	readonly heading: ExplorerHeading;
-	readonly filters: ReactNode;
 	readonly results: ExplorerResults<TRow>;
 	readonly footer: ReactNode;
+	readonly isNarrow: boolean;
 	readonly onCollapse: () => void;
 }) {
-	const { isNarrow, width, sheetHeight } = panel;
 	const { rows, renderRow, emptyTitle, emptyDescription, skeletonClassName } = results;
 
 	return (
-		<div
-			className={cn(
-				'pointer-events-auto absolute z-10 flex min-h-0 flex-col overflow-hidden rounded-xl border border-border/60 bg-background/95 shadow-lg backdrop-blur-sm',
-				// A share of the stage on a sheet, so the filter stack above the rows
-				// cannot squeeze them out: an explorer with six filter controls needs
-				// more than a peek, and the map keeps the rest.
-				isNarrow ? 'inset-x-3 bottom-3' : 'top-4 bottom-4 left-4',
-			)}
-			style={isNarrow ? { height: sheetHeight } : { width }}
-		>
+		<div className={cn(PANEL_SHELL, 'min-h-0 flex-1')}>
 			<ExplorerHeader
 				collapse={{
 					onCollapse,
@@ -157,9 +169,7 @@ function ResultsPanel<TRow>({
 				noun={heading.noun}
 				title={heading.title}
 				total={heading.total}
-			>
-				{filters}
-			</ExplorerHeader>
+			/>
 
 			<ResultList
 				emptyDescription={emptyDescription}
@@ -172,6 +182,74 @@ function ResultsPanel<TRow>({
 			</ResultList>
 
 			{footer === undefined ? null : <div className="border-border/50 border-t p-3">{footer}</div>}
+		</div>
+	);
+}
+
+/**
+ * The filter controls, in a panel of their own above the results.
+ *
+ * Separate from the results rather than stacked in its header, because the two
+ * are read at different rates: filters are set once and then left alone, while
+ * the rows are scrolled every time the map moves. Sharing one scroll container
+ * meant a reader working down a long list dragged the filter block off screen,
+ * and a reader adjusting filters lost their place in the rows.
+ *
+ * Minimised it is a button carrying the count, so putting the controls away
+ * never hides the fact that something is cutting the list.
+ */
+function FiltersPanel({
+	children,
+	activeFilterCount,
+	isOpen,
+	onOpenChange,
+}: {
+	readonly children: ReactNode;
+	readonly activeFilterCount: number;
+	readonly isOpen: boolean;
+	readonly onOpenChange: (open: boolean) => void;
+}) {
+	if (!isOpen) {
+		return (
+			<Button
+				className="pointer-events-auto self-start rounded-full border-border/60 bg-background/95 shadow-lg backdrop-blur-sm"
+				onClick={() => onOpenChange(true)}
+				size="sm"
+				variant="outline"
+			>
+				<FilterIcon aria-hidden="true" data-icon="inline-start" />
+				Filters
+				{activeFilterCount > 0 ? (
+					<Badge tone="neutral" variant="outline">
+						{activeFilterCount}
+					</Badge>
+				) : null}
+			</Button>
+		);
+	}
+
+	return (
+		<div className={cn(PANEL_SHELL, 'max-h-[45%] shrink-0')}>
+			<div className="flex items-center justify-between gap-3 border-border/50 border-b px-3 py-2">
+				<span className="flex items-center gap-1.5 font-semibold text-foreground text-sm">
+					<FilterIcon aria-hidden="true" className="size-4 text-muted-foreground" />
+					Filters
+					{activeFilterCount > 0 ? (
+						<Badge tone="neutral" variant="outline">
+							{activeFilterCount}
+						</Badge>
+					) : null}
+				</span>
+				<Button
+					aria-label="Hide filters"
+					onClick={() => onOpenChange(false)}
+					size="icon-sm"
+					variant="ghost"
+				>
+					<XIcon aria-hidden="true" />
+				</Button>
+			</div>
+			<div className="grid gap-2 overflow-y-auto p-3">{children}</div>
 		</div>
 	);
 }

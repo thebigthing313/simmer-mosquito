@@ -146,6 +146,24 @@ describe('ExplorerMapPage', () => {
 		expect(screen.queryByText('filter controls')).toBeNull();
 	});
 
+	// The filters sit in a panel of their own above the results, so that setting
+	// them and scrolling the rows are not the same scroll container.
+	it('puts the filter controls away behind a button that still carries the count', () => {
+		render(<Page />);
+		expect(screen.getByText('filter controls')).toBeTruthy();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Hide filters' }));
+
+		expect(screen.queryByText('filter controls')).toBeNull();
+		// The rows stay: putting the filters away is not putting the results away.
+		expect(screen.getByText('Culvert 12')).toBeTruthy();
+		const filtersButton = screen.getByRole('button', { name: /Filters/ });
+		expect(filtersButton.textContent).toContain('2');
+
+		fireEvent.click(filtersButton);
+		expect(screen.getByText('filter controls')).toBeTruthy();
+	});
+
 	it('gives the panel back from the same control it was collapsed with', () => {
 		render(<Page />);
 

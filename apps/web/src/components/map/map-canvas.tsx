@@ -288,10 +288,11 @@ export function MapCanvas({
 
 					<div className="pointer-events-none absolute inset-0">
 						{show.search ? (
-							<div
-								className="pointer-events-auto absolute top-4"
-								style={{ left: EDGE + clear.left }}
-							>
+							// Fixed to the corner, never shifted by the inset. A page with a
+							// panel down the left puts it *below* this box rather than beside
+							// it, so a control that is reached for while typing a place name
+							// does not move when the panel opens.
+							<div className="pointer-events-auto absolute top-4 left-4">
 								<MapSearch map={map} />
 							</div>
 						) : null}
@@ -306,39 +307,10 @@ export function MapCanvas({
 								{show.layers ? <MapLayerControls /> : null}
 							</div>
 						) : null}
-						{show.measure ? (
-							<div
-								className="pointer-events-auto absolute flex flex-col items-start gap-2"
-								style={{
-									left: EDGE + clear.left,
-									bottom: bottomOffset(show.attribution, clear),
-								}}
-							>
-								{measureOpen ? (
-									<MeasureControl
-										controller={measure}
-										onClose={() => {
-											measure.clear();
-											setMeasureOpen(false);
-										}}
-									/>
-								) : null}
-								<MeasureControlButton
-									active={measureOpen}
-									onClick={() => {
-										// Closing takes the shapes with it: a measurement is a
-										// question, and the answer does not outlive the asking.
-										if (measureOpen) {
-											measure.clear();
-										}
-										setMeasureOpen((open) => !open);
-									}}
-								/>
-							</div>
-						) : null}
-						{show.geolocate || show.zoom ? (
-							// The taller offset clears the attribution chip; without it, sit
-							// nearer the corner.
+						{show.measure || show.geolocate || show.zoom ? (
+							// One bottom-right stack, reading down in order of how often it is
+							// reached for: measure, then locate, then zoom. The taller offset
+							// clears the attribution chip; without it, sit nearer the corner.
 							<div
 								className="pointer-events-auto absolute flex flex-col items-end gap-2"
 								style={{
@@ -346,6 +318,30 @@ export function MapCanvas({
 									bottom: bottomOffset(show.attribution, clear),
 								}}
 							>
+								{show.measure ? (
+									<>
+										{measureOpen ? (
+											<MeasureControl
+												controller={measure}
+												onClose={() => {
+													measure.clear();
+													setMeasureOpen(false);
+												}}
+											/>
+										) : null}
+										<MeasureControlButton
+											active={measureOpen}
+											onClick={() => {
+												// Closing takes the shapes with it: a measurement is a
+												// question, and the answer does not outlive the asking.
+												if (measureOpen) {
+													measure.clear();
+												}
+												setMeasureOpen((open) => !open);
+											}}
+										/>
+									</>
+								) : null}
 								{show.geolocate ? <GeolocateControl map={map} /> : null}
 								{show.zoom ? <MapZoomControls map={map} /> : null}
 							</div>

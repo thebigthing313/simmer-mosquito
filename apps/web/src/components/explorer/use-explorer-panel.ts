@@ -32,6 +32,9 @@ const NARROW_STAGE_WIDTH = PANEL_EDGE + PANEL_WIDTH + MIN_MAP_WIDTH;
 export interface ExplorerPanel {
 	readonly isCollapsed: boolean;
 	readonly setCollapsed: (collapsed: boolean) => void;
+	/** Whether the filter controls are shown, or standing as their own button. */
+	readonly isFiltersOpen: boolean;
+	readonly setFiltersOpen: (open: boolean) => void;
 	/** True where the panel docks to the bottom as a sheet rather than a side column. */
 	readonly isNarrow: boolean;
 	/** The width in px the panel occupies while expanded, for its own layout. */
@@ -58,6 +61,7 @@ export interface ExplorerPanel {
  */
 export function useExplorerPanel(): ExplorerPanel {
 	const [isCollapsed, setCollapsed] = useState(false);
+	const [isFiltersOpen, setFiltersOpen] = useState(true);
 	const [stageRef, stage] = useMeasuredBox();
 
 	const isNarrow = stage !== null && stage.width < NARROW_STAGE_WIDTH;
@@ -76,7 +80,17 @@ export function useExplorerPanel(): ExplorerPanel {
 			: { ...NO_MAP_INSET, left: PANEL_EDGE + PANEL_WIDTH };
 	}, [isCollapsed, isNarrow, sheetHeight]);
 
-	return { isCollapsed, setCollapsed, isNarrow, width: PANEL_WIDTH, sheetHeight, inset, stageRef };
+	return {
+		isCollapsed,
+		setCollapsed,
+		isFiltersOpen,
+		setFiltersOpen,
+		isNarrow,
+		width: PANEL_WIDTH,
+		sheetHeight,
+		inset,
+		stageRef,
+	};
 }
 
 interface MeasuredBox {
