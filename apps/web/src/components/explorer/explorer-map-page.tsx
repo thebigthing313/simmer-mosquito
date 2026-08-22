@@ -48,6 +48,10 @@ export interface ExplorerResults<TRow> {
 	readonly emptyDescription: string;
 	/** The placeholder's height, matched to the row it stands in for. */
 	readonly skeletonClassName?: string | undefined;
+	/** The request failed. Replaces the empty state, which would misread as "none match". */
+	readonly isError?: boolean | undefined;
+	/** Runs the request again, behind the failure state's retry. */
+	readonly onRetry?: (() => void) | undefined;
 }
 
 /**
@@ -155,7 +159,8 @@ function ResultsPanel<TRow>({
 	readonly footer: ReactNode;
 	readonly onCollapse: () => void;
 }) {
-	const { rows, renderRow, emptyTitle, emptyDescription, skeletonClassName } = results;
+	const { rows, renderRow, emptyTitle, emptyDescription, skeletonClassName, isError, onRetry } =
+		results;
 
 	return (
 		<div className={cn(PANEL_SHELL, 'min-h-0 flex-1')}>
@@ -179,7 +184,9 @@ function ResultsPanel<TRow>({
 			<ResultList
 				emptyDescription={emptyDescription}
 				emptyTitle={emptyTitle}
+				isError={isError ?? false}
 				isLoading={heading.isLoading}
+				onRetry={onRetry}
 				rows={rows}
 				{...(skeletonClassName === undefined ? {} : { skeletonClassName })}
 			>

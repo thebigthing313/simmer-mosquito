@@ -203,13 +203,14 @@ function InspectionsExplorerRoute() {
 			}),
 		[bbox, filters],
 	);
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<InspectionSite>({
-		path: PATH,
-		rowsKey: 'inspections',
-		label: 'Inspections',
-		params,
-		enabled: bbox !== null,
-	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<InspectionSite>({
+			path: PATH,
+			rowsKey: 'inspections',
+			label: 'Inspections',
+			params,
+			enabled: bbox !== null,
+		});
 
 	const selected = useSelectedMapRecord<InspectionSite>({
 		path: PATH,
@@ -333,7 +334,9 @@ function InspectionsExplorerRoute() {
 				</ExplorerHeader>
 
 				<InspectionResults
+					isError={isError}
 					isLoading={isLoading}
+					onRetry={retry}
 					onSelect={setSelectedId}
 					rows={rows}
 					selectedId={selectedId}
@@ -490,12 +493,16 @@ function ActiveFilters({
 function InspectionResults({
 	rows,
 	isLoading,
+	isError,
+	onRetry,
 	selectedId,
 	typeNameById,
 	onSelect,
 }: {
 	readonly rows: readonly InspectionSite[];
 	readonly isLoading: boolean;
+	readonly isError: boolean;
+	readonly onRetry: () => void;
 	readonly selectedId: string | null;
 	readonly typeNameById: ReadonlyMap<string, string>;
 	readonly onSelect: (id: string) => void;
@@ -504,7 +511,9 @@ function InspectionResults({
 		<ResultList
 			emptyDescription="Pan or zoom the map, widen the time window, or loosen the filters to bring inspections into range."
 			emptyTitle="No inspections in view"
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={onRetry}
 			rows={rows}
 			skeletonClassName="h-[64px]"
 		>

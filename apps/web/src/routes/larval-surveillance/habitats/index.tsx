@@ -168,13 +168,14 @@ function HabitatsExplorerRoute() {
 			}),
 		[bbox, filters],
 	);
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<HabitatListRow>({
-		path: PATH,
-		rowsKey: 'habitats',
-		label: 'Habitats',
-		params,
-		enabled: bbox !== null,
-	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<HabitatListRow>({
+			path: PATH,
+			rowsKey: 'habitats',
+			label: 'Habitats',
+			params,
+			enabled: bbox !== null,
+		});
 	// Tags for the rows actually on screen, so the subset request stays small.
 	const pageHabitatIds = useMemo(() => rows.map((habitat) => habitat.id), [rows]);
 	const { byId: tagsByHabitatId } = useEntityTags('habitat', pageHabitatIds);
@@ -323,6 +324,8 @@ function HabitatsExplorerRoute() {
 			panel={panel}
 			results={{
 				rows,
+				isError,
+				onRetry: retry,
 				skeletonClassName: 'h-[58px]',
 				emptyTitle: 'No habitats in view',
 				emptyDescription:

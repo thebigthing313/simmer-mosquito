@@ -8,7 +8,7 @@ import {
 import { Loader2Icon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { type ReactNode, useEffect, useRef, useState } from 'react';
+import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react';
 import { MAP_CHROME_SURFACE } from './chrome';
 import { getMapboxToken } from './map-styles';
 import {
@@ -25,6 +25,12 @@ const DEBOUNCE_MS = 180;
 /**
  * Mapbox-powered place search. Debounces suggestions, keeps a session token
  * across the suggest→retrieve pair, and flies the map to the chosen result.
+ *
+ * It is a combobox, and the ARIA is what makes it one. The suggestions used to
+ * be buttons in a popover with no `role`, no `aria-expanded`, and no arrow-key
+ * handling: focus stayed in the input, Tab closed the list before reaching it,
+ * and a reader on a keyboard could type a place but never choose one. Focus
+ * stays in the input on purpose; `aria-activedescendant` is what moves.
  */
 export function MapSearch({
 	map,
@@ -43,6 +49,11 @@ export function MapSearch({
 	const [isLoading, setIsLoading] = useState(false);
 	const [selectingId, setSelectingId] = useState<string | null>(null);
 	const [error, setError] = useState<string | null>(null);
+	/** Which suggestion the arrow keys are on. -1 is none, and typing returns to it. */
+	const [activeIndex, setActiveIndex] = useState(-1);
+
+	const listId = useId();
+	const optionId = (index: number) => `${listId}-option-${index}`;
 
 	const requestId = useRef(0);
 	const retrieveController = useRef<AbortController | null>(null);
@@ -112,13 +123,60 @@ export function MapSearch({
 		return () => retrieveController.current?.abort();
 	}, []);
 
+	// A new set of suggestions starts unselected: the old index would point at a
+	// different place, and Enter would fly the map somewhere the reader never saw.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the results.
+	useEffect(() => {
+		setActiveIndex(-1);
+	}, [results]);
+
 	function resetSearch() {
 		retrieveController.current?.abort();
+		setActiveIndex(-1);
 		setSelectingId(null);
 		setQuery('');
 		setResults([]);
 		setError(null);
 		sessionToken.current = createSessionToken();
+	}
+
+	function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+			event.preventDefault();
+			if (!showResults) {
+				setOpen(true);
+				return;
+			}
+			if (results.length === 0) {
+				return;
+			}
+			const step = event.key === 'ArrowDown' ? 1 : -1;
+			setActiveIndex((previous) => {
+				const next = previous + step;
+				if (next < 0) {
+					return results.length - 1;
+				}
+				return next >= results.length ? 0 : next;
+			});
+			return;
+		}
+		if (event.key === 'Enter') {
+			const chosen = results[activeIndex];
+			if (chosen !== undefined) {
+				// Only when a suggestion is highlighted. Otherwise Enter belongs to the
+				// form the input sits in, and swallowing it would be a surprise.
+				event.preventDefault();
+				selectResult(chosen);
+			}
+			return;
+		}
+		if (event.key === 'Escape' && showResults) {
+			// Handled here rather than by the popover: focus never enters the popover,
+			// so Radix's own dismiss listener never sees the key.
+			event.preventDefault();
+			setOpen(false);
+			setActiveIndex(-1);
+		}
 	}
 
 	function selectResult(result: MapboxSearchResult) {
@@ -163,7 +221,12 @@ export function MapSearch({
 			<PopoverAnchor asChild>
 				<div className={shell.className} style={shell.style}>
 					<SearchInput
+						aria-activedescendant={activeIndex < 0 ? undefined : optionId(activeIndex)}
+						aria-autocomplete="list"
+						aria-controls={listId}
+						aria-expanded={showResults}
 						aria-label="Search for a location"
+						autoComplete="off"
 						className={cn('h-10 text-sm shadow-md', MAP_CHROME_SURFACE)}
 						disabled={!canSearch}
 						endAddon={
@@ -180,9 +243,19 @@ export function MapSearch({
 							setOpen(true);
 						}}
 						onFocus={() => setOpen(trimmedQuery.length > 0)}
+						onKeyDown={onKeyDown}
 						placeholder={canSearch ? 'Search for a location…' : 'Mapbox token required'}
+						role="combobox"
 						value={query}
 					/>
+					{/*
+					 * Announced from here rather than from the popover. The popover is
+					 * mounted at the moment its content changes, and a live region that
+					 * appears in the same frame as its text is not reliably read.
+					 */}
+					<span aria-live="polite" className="sr-only" role="status">
+						{searchStatus({ error, isLoading, query: trimmedQuery, results, showResults })}
+					</span>
 				</div>
 			</PopoverAnchor>
 			<PopoverContent
@@ -192,9 +265,13 @@ export function MapSearch({
 				onOpenAutoFocus={(event) => event.preventDefault()}
 			>
 				<SearchResults
+					activeIndex={activeIndex}
 					error={error}
 					isLoading={isLoading}
+					listId={listId}
+					onHover={setActiveIndex}
 					onSelect={selectResult}
+					optionId={optionId}
 					query={trimmedQuery}
 					results={results}
 					selectingId={selectingId}
@@ -204,17 +281,54 @@ export function MapSearch({
 	);
 }
 
-function SearchResults({
+/** What the live region says, so a reader who cannot see the list still hears it. */
+function searchStatus({
 	error,
 	isLoading,
+	query,
+	results,
+	showResults,
+}: {
+	readonly error: string | null;
+	readonly isLoading: boolean;
+	readonly query: string;
+	readonly results: readonly MapboxSearchResult[];
+	readonly showResults: boolean;
+}): string {
+	if (!showResults || query.length < MIN_QUERY_LENGTH) {
+		return '';
+	}
+	if (isLoading) {
+		return 'Searching';
+	}
+	if (error !== null) {
+		return error;
+	}
+	if (results.length === 0) {
+		return 'No places found';
+	}
+	return results.length === 1 ? '1 place found' : `${results.length} places found`;
+}
+
+function SearchResults({
+	activeIndex,
+	error,
+	isLoading,
+	listId,
+	onHover,
 	onSelect,
+	optionId,
 	query,
 	results,
 	selectingId,
 }: {
+	readonly activeIndex: number;
 	readonly error: string | null;
 	readonly isLoading: boolean;
+	readonly listId: string;
+	readonly onHover: (index: number) => void;
 	readonly onSelect: (result: MapboxSearchResult) => void;
+	readonly optionId: (index: number) => string;
 	readonly query: string;
 	readonly results: readonly MapboxSearchResult[];
 	readonly selectingId: string | null;
@@ -238,17 +352,36 @@ function SearchResults({
 	}
 
 	return (
-		<div className="grid max-h-72 gap-1 overflow-y-auto">
-			{results.map((result) => (
-				<button
+		// Options, not buttons. A button inside a listbox is a second interactive
+		// thing for a screen reader to describe, and the tab stop it brings is the
+		// one that used to close this list before anybody reached it.
+		<div
+			aria-label="Search results"
+			className="grid max-h-72 gap-1 overflow-y-auto"
+			id={listId}
+			role="listbox"
+		>
+			{results.map((result, index) => (
+				// The keyboard half of this control is on the combobox input, which is
+				// where focus stays. Enter there selects the active option; an option's
+				// own key handler would never fire, because an option never holds focus.
+				// biome-ignore lint/a11y/useKeyWithClickEvents: keyboard is on the input.
+				<div
+					aria-selected={index === activeIndex}
 					className={cn(
-						'grid min-h-11 w-full min-w-0 gap-0.5 rounded-sm px-2.5 py-2 text-left text-sm outline-none',
-						'hover:bg-accent/60 hover:text-accent-foreground focus-visible:bg-accent/60 focus-visible:text-accent-foreground',
+						'grid min-h-11 w-full min-w-0 cursor-default gap-0.5 rounded-sm px-2.5 py-2 text-left text-sm outline-none',
+						index === activeIndex && 'bg-accent/60 text-accent-foreground',
+						selectingId !== null && 'pointer-events-none opacity-60',
 					)}
-					disabled={selectingId !== null}
+					id={optionId(index)}
 					key={result.id}
 					onClick={() => onSelect(result)}
-					type="button"
+					onMouseMove={() => onHover(index)}
+					role="option"
+					// Not in the tab order: the input is the combobox's only tab stop and
+					// `aria-activedescendant` is what moves. -1 keeps it focusable enough
+					// for the linter and for a programmatic scroll into view.
+					tabIndex={-1}
 				>
 					<span className="flex min-w-0 items-center gap-2">
 						<span className="truncate font-semibold">{result.label}</span>
@@ -259,8 +392,8 @@ function SearchResults({
 							/>
 						) : null}
 					</span>
-					<span className="truncate text-xs text-muted-foreground">{result.description}</span>
-				</button>
+					<span className="truncate text-muted-foreground text-xs">{result.description}</span>
+				</div>
 			))}
 		</div>
 	);

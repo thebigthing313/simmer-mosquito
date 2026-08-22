@@ -151,7 +151,7 @@ function SourceReductionExplorerRoute() {
 		[filters],
 	);
 
-	const { rows, total, isLoading, page, pageCount, setPage } =
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
 		usePagedMapResource<SourceReductionSite>({
 			path: PATH,
 			rowsKey: 'sourceReductions',
@@ -269,7 +269,9 @@ function SourceReductionExplorerRoute() {
 
 				<SourceReductionResults
 					habitatNameById={habitatNameById}
+					isError={isError}
 					isLoading={isLoading}
+					onRetry={retry}
 					methodNameById={methodNameById}
 					onSelect={setSelectedId}
 					personnelNameById={personnel.nameById}
@@ -297,6 +299,8 @@ function SourceReductionExplorerRoute() {
 function SourceReductionResults({
 	rows,
 	isLoading,
+	isError,
+	onRetry,
 	selectedId,
 	methodNameById,
 	personnelNameById,
@@ -306,6 +310,8 @@ function SourceReductionResults({
 }: {
 	readonly rows: readonly SourceReductionSite[];
 	readonly isLoading: boolean;
+	readonly isError: boolean;
+	readonly onRetry: () => void;
 	readonly selectedId: string | null;
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly personnelNameById: ReadonlyMap<string, string>;
@@ -317,7 +323,9 @@ function SourceReductionResults({
 		<ResultList
 			emptyDescription="Widen the time window or loosen the filters to bring actions into range."
 			emptyTitle="No source reduction in range"
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={onRetry}
 			rows={rows}
 		>
 			{(row) => (

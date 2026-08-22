@@ -139,12 +139,13 @@ function TrapsExplorerRoute() {
 		[filters],
 	);
 
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<TrapSite>({
-		path: PATH,
-		rowsKey: 'traps',
-		label: 'Traps',
-		params,
-	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<TrapSite>({
+			path: PATH,
+			rowsKey: 'traps',
+			label: 'Traps',
+			params,
+		});
 
 	const selected = useSelectedMapRecord<TrapSite>({
 		path: PATH,
@@ -254,7 +255,9 @@ function TrapsExplorerRoute() {
 				</ExplorerHeader>
 
 				<TrapResults
+					isError={isError}
 					isLoading={isLoading}
+					onRetry={retry}
 					methodNameById={methodNameById}
 					onSelect={setSelectedId}
 					rows={rows}
@@ -288,12 +291,16 @@ const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: s
 function TrapResults({
 	rows,
 	isLoading,
+	isError,
+	onRetry,
 	selectedId,
 	methodNameById,
 	onSelect,
 }: {
 	readonly rows: readonly TrapSite[];
 	readonly isLoading: boolean;
+	readonly isError: boolean;
+	readonly onRetry: () => void;
 	readonly selectedId: string | null;
 	readonly methodNameById: ReadonlyMap<string, string>;
 	readonly onSelect: (id: string) => void;
@@ -302,7 +309,9 @@ function TrapResults({
 		<ResultList
 			emptyDescription="Loosen the filters, or add a trap to start collecting."
 			emptyTitle="No traps match"
+			isError={isError}
 			isLoading={isLoading}
+			onRetry={onRetry}
 			rows={rows}
 		>
 			{(trap) => (
