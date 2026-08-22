@@ -45,6 +45,8 @@ export const stickyHeader = cva('sticky top-0 z-10', {
 		},
 		padding: {
 			default: 'p-4',
+			/** For a header inside a floating panel, which pads tighter than a page. */
+			compact: 'px-3 py-2.5',
 			roomy: 'px-5 py-4',
 			tight: 'px-1 py-1',
 			none: '',
