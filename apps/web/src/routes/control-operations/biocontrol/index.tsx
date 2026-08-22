@@ -269,7 +269,7 @@ function BiocontrolExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun="releases"
+					noun={{ one: 'release', many: 'releases' }}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}

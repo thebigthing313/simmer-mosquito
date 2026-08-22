@@ -252,7 +252,7 @@ function SourceReductionExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun="source reductions"
+					noun={{ one: 'source reduction', many: 'source reductions' }}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}

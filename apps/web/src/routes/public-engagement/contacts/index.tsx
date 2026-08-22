@@ -117,7 +117,7 @@ function ContactsExplorerRoute() {
 						</ul>
 						{pageCount > 1 ? (
 							<ExplorerPagination
-								noun="contacts"
+								noun={{ one: 'contact', many: 'contacts' }}
 								onPageChange={setPage}
 								page={page}
 								pageCount={pageCount}

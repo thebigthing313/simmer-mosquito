@@ -236,7 +236,7 @@ function CollectionsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun="collections"
+					noun={{ one: 'collection', many: 'collections' }}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}

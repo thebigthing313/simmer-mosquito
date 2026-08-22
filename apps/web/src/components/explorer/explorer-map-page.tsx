@@ -191,6 +191,10 @@ function ResultsPanel<TRow>({
 				icon={heading.icon}
 				isLoading={heading.isLoading}
 				noun={heading.noun}
+				// The count lives in the pager when there is one. Without a pager the
+				// header is the only place left for it, and a rail that never states its
+				// size is a rail a reader has to scroll to the end of to size.
+				showTotal={footer === undefined}
 				surface="chrome"
 				title={heading.title}
 				total={heading.total}
@@ -280,7 +284,15 @@ function FiltersPanel({
 					<XIcon aria-hidden="true" />
 				</Button>
 			</div>
-			<div className="grid gap-3 overflow-y-auto p-3">{children}</div>
+			{/*
+			 * `overflow-x-hidden`, and `min-w-0` on every control. Grid items size to
+			 * their content, so one control a couple of pixels wider than the column
+			 * put a horizontal scrollbar across the whole filter panel. Sideways is
+			 * never where a filter column is meant to go.
+			 */}
+			<div className="grid gap-3 overflow-y-auto overflow-x-hidden p-3 [&>*]:min-w-0">
+				{children}
+			</div>
 		</div>
 	);
 }

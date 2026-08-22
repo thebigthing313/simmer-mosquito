@@ -175,7 +175,7 @@ function AddressesExplorerRoute() {
 			footer={
 				pageCount > 1 ? (
 					<ExplorerPagination
-						noun="addresses"
+						noun={{ one: 'address', many: 'addresses' }}
 						onPageChange={setPage}
 						page={page}
 						pageCount={pageCount}
@@ -242,10 +242,13 @@ function AddressRowItem({
 	readonly isFocused: boolean;
 	readonly onFocus: () => void;
 }) {
-	// An Address with no display name of its own is titled by its postal line, and
-	// the line then drops out of the subtitle rather than being printed twice.
+	// An Address's display name is usually its street line, and the postal line
+	// starts with that same street. Printed whole, every row read "1 11th Street"
+	// over "1 11th Street · Monroe Township, NJ 08831" and spent its second line
+	// repeating its first. The subtitle carries what the title has not said.
 	const line = fullAddress(address);
 	const name = address.displayName?.trim() || line || 'Unnamed address';
+	const rest = line.startsWith(name) ? line.slice(name.length).replace(/^\s*·\s*/, '') : line;
 	return (
 		<ExplorerRow
 			detailLabel={`View details for ${name}`}
@@ -253,7 +256,7 @@ function AddressRowItem({
 			isSelected={isFocused}
 			onSelect={onFocus}
 			selectLabel={`Show ${name} on the map`}
-			subtitle={name === line ? '' : line}
+			subtitle={rest}
 			title={name}
 			titleLink={{ to: '/gis/addresses/$id', params: { id: address.id } }}
 		/>

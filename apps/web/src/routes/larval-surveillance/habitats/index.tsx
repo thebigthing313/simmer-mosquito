@@ -287,7 +287,7 @@ function HabitatsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun="habitats"
+					noun={{ one: 'habitat', many: 'habitats' }}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}

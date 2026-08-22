@@ -333,7 +333,7 @@ function ServiceRequestsExplorerRoute() {
 			footer={
 				pageCount > 1 ? (
 					<ExplorerPagination
-						noun="requests"
+						noun={{ one: 'request', many: 'requests' }}
 						onPageChange={setPage}
 						page={page}
 						pageCount={pageCount}

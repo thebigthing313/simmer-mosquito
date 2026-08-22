@@ -6,7 +6,7 @@ import {
 	PaginationLink,
 } from '@simmer-mosquito/ui-web/components/ui/pagination';
 import { ChevronLeftIcon, ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { formatCount } from '../lib/format-count';
+import { type CountNoun, countLabel } from '../lib/format-count';
 
 /**
  * Controlled page-through footer for the map-explorer result rails. Driven by
@@ -23,15 +23,11 @@ export function ExplorerPagination({
 	readonly page: number;
 	readonly pageCount: number;
 	readonly total: number;
-	readonly noun: string;
+	readonly noun: CountNoun;
 	readonly onPageChange: (page: number) => void;
 }) {
 	if (pageCount <= 1) {
-		return (
-			<p className="m-0 text-muted-foreground text-xs">
-				{formatCount(total)} {noun}
-			</p>
-		);
+		return <p className="m-0 text-muted-foreground text-xs">{countLabel(total, noun)}</p>;
 	}
 
 	const atStart = page === 0;
@@ -45,7 +41,7 @@ export function ExplorerPagination({
 		<div className="@container">
 			<div className="flex items-center justify-between gap-2">
 				<p className="m-0 truncate text-muted-foreground text-xs">
-					Page {page + 1} of {pageCount} · {formatCount(total)} {noun}
+					Page {page + 1} of {pageCount} · {countLabel(total, noun)}
 				</p>
 				<Pagination className="mx-0 w-auto justify-end">
 					<PaginationContent>

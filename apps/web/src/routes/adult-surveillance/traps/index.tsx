@@ -243,7 +243,7 @@ function TrapsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun="traps"
+					noun={{ one: 'trap', many: 'traps' }}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}

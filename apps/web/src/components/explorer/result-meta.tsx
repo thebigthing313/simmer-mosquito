@@ -1,4 +1,4 @@
-import { formatCount } from '../../lib/format-count';
+import { type CountNoun, countLabel, formatCount } from '../../lib/format-count';
 /**
  * The count beside an explorer's title.
  *
@@ -18,7 +18,7 @@ export function ResultMeta({
 	 * viewport-driven explorers, which count what the map is showing rather than
 	 * a set of records and read "n in view".
 	 */
-	readonly noun?: { readonly one: string; readonly many: string } | undefined;
+	readonly noun?: CountNoun | undefined;
 }) {
 	if (isLoading && total === 0) {
 		return <span className="whitespace-nowrap text-muted-foreground text-sm">Loading…</span>;
@@ -30,15 +30,9 @@ export function ResultMeta({
 	);
 }
 
-function resultLabel(
-	total: number,
-	noun: { readonly one: string; readonly many: string } | undefined,
-): string {
+function resultLabel(total: number, noun: CountNoun | undefined): string {
 	if (noun === undefined) {
 		return total === 0 ? 'None in view' : `${formatCount(total)} in view`;
 	}
-	if (total === 0) {
-		return 'None';
-	}
-	return total === 1 ? `1 ${noun.one}` : `${formatCount(total)} ${noun.many}`;
+	return countLabel(total, noun);
 }

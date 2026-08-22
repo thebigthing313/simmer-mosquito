@@ -66,6 +66,23 @@ export function ExplorerRow({
 	 */
 	readonly onSelect?: (() => void) | undefined;
 }) {
+	/*
+	 * Where the badges go. Beside the title they are a tidy right-aligned pill;
+	 * under it they are a row of their own.
+	 *
+	 * The date column decides, because it is the 88px that makes the inline
+	 * version impossible. In a 380px rail a dated row spends 158px on the swatch,
+	 * the date, the chevron and the padding before the record gets a pixel, and
+	 * the badge group on the rich surfaces is another 175px — an inspection's
+	 * density badge plus its life-stage strip. That left the title column at
+	 * literally zero and the record drew with no name on it at all.
+	 *
+	 * Undated rows have the room, so they keep the pill.
+	 */
+	const isStacked = badges !== undefined && date !== undefined;
+	const hasPersonnel = personnel !== null && personnel !== undefined && personnel.length > 0;
+	const dateParts = splitDate(date);
+
 	return (
 		<li className="relative">
 			{onSelect === undefined ? null : (
@@ -91,11 +108,21 @@ export function ExplorerRow({
 					type="button"
 				/>
 			)}
-			<div className="pointer-events-none relative flex items-center gap-3 px-4 py-3">
+			<div
+				className={cn(
+					'pointer-events-none relative flex gap-3 px-4 py-3',
+					// A stacked row is taller than its date and its chevron, so those
+					// align to the first line rather than to the middle of the block.
+					isStacked ? 'items-start' : 'items-center',
+				)}
+			>
 				{swatch === undefined ? null : (
 					<span
 						aria-hidden="true"
-						className="size-2.5 shrink-0 rounded-full ring-1 ring-foreground/15"
+						className={cn(
+							'size-2.5 shrink-0 rounded-full ring-1 ring-foreground/15',
+							isStacked && 'mt-1',
+						)}
 						style={{ backgroundColor: swatch.color }}
 						title={swatch.label}
 					/>
@@ -104,10 +131,21 @@ export function ExplorerRow({
 				 * Reserved whether or not *this* record has a date, so a list mixing
 				 * dated and undated records keeps one left edge. A list where dates are
 				 * not part of the record at all omits the prop and gets its width back.
+				 *
+				 * The year sits under the day rather than beside it. `Aug 12, 2026` on
+				 * one line needs 88px, and in a 380px rail that was a quarter of the row
+				 * spent on a number that is the same for every record in a 30-day
+				 * window. Stacked, the column is 52px and the record keeps the 36.
 				 */}
 				{date === undefined ? null : (
-					<span className="w-[5.5rem] shrink-0 text-muted-foreground text-xs tabular-nums">
-						{date ?? ''}
+					<span
+						className={cn(
+							'w-[3.25rem] shrink-0 text-muted-foreground text-xs leading-tight tabular-nums',
+							isStacked && 'pt-0.5',
+						)}
+					>
+						<span className="block">{dateParts.head}</span>
+						{dateParts.year === null ? null : <span className="block">{dateParts.year}</span>}
 					</span>
 				)}
 				<span className="min-w-0 flex-1">
@@ -124,14 +162,24 @@ export function ExplorerRow({
 					{subtitle === null || subtitle === undefined || subtitle === '' ? null : (
 						<span className="block truncate text-muted-foreground text-xs">{subtitle}</span>
 					)}
-					{personnel === null || personnel === undefined || personnel.length === 0 ? null : (
-						<span className="block truncate text-muted-foreground text-xs">{personnel}</span>
-					)}
+					{/*
+					 * Who did the work and what state it is in share a line and wrap onto
+					 * two only when they have to. Given a line each, an inspection row ran
+					 * to four of them and the rail showed two and a half records.
+					 */}
+					{hasPersonnel || isStacked ? (
+						<div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+							{hasPersonnel ? (
+								<span className="min-w-0 truncate text-muted-foreground text-xs">{personnel}</span>
+							) : null}
+							{isStacked ? badges : null}
+						</div>
+					) : null}
 					{tags === undefined || tags.length === 0 ? null : (
 						<TagChipRow className="mt-1" tags={tags} />
 					)}
 				</span>
-				{badges === undefined ? null : (
+				{badges === undefined || isStacked ? null : (
 					<div className="flex shrink-0 items-center gap-1.5">{badges}</div>
 				)}
 				<Link
@@ -145,4 +193,26 @@ export function ExplorerRow({
 			</div>
 		</li>
 	);
+}
+
+/**
+ * `Aug 12, 2026` into its two lines, and `Aug 12` into one.
+ *
+ * The split is on the last comma because that is where `en-US`'s `MMM d, yyyy`
+ * puts it, and the callers that pass a day without a year have no comma to find.
+ * Anything else, including the `—` a caller shows for an unparseable date, comes
+ * back whole on the first line rather than being cut somewhere arbitrary.
+ */
+function splitDate(date: string | null | undefined): {
+	readonly head: string;
+	readonly year: string | null;
+} {
+	if (date === null || date === undefined) {
+		return { head: '', year: null };
+	}
+	const comma = date.lastIndexOf(', ');
+	if (comma === -1) {
+		return { head: date, year: null };
+	}
+	return { head: date.slice(0, comma), year: date.slice(comma + 2) };
 }

@@ -99,6 +99,7 @@ function Page({
 	isLoading = false,
 	activeFilterCount = 2,
 	body,
+	hasPager = true,
 	create = { to: '/larval-surveillance/habitats/create', label: 'Add Habitat' } as
 		| { readonly to: string; readonly label: string; readonly minimum?: MinimumRole }
 		| undefined,
@@ -107,6 +108,7 @@ function Page({
 	readonly isLoading?: boolean;
 	readonly activeFilterCount?: number;
 	readonly body?: ReactNode;
+	readonly hasPager?: boolean;
 	readonly create?:
 		| { readonly to: string; readonly label: string; readonly minimum?: MinimumRole }
 		| undefined;
@@ -116,7 +118,7 @@ function Page({
 		<ExplorerMapPage
 			activeFilterCount={activeFilterCount}
 			filters={<p>filter controls</p>}
-			footer={<p>pager</p>}
+			footer={hasPager ? <p>pager</p> : undefined}
 			heading={{
 				title: 'Habitats',
 				total: rows.length,
@@ -205,13 +207,28 @@ describe('ExplorerMapPage', () => {
 		expect(screen.getByText('map surface')).toBe(before);
 	});
 
+	// By accessible name, not by text: in this frame the control is the plus alone,
+	// and the label it used to spell out is what a screen reader reads instead.
 	it('offers the create control only at or above the floor its command needs', () => {
 		signedInRole = 'collector';
 		const { rerender } = render(<Page create={{ to: '/x', label: 'Add Habitat' }} />);
-		expect(screen.getByText('Add Habitat')).toBeTruthy();
+		expect(screen.getByLabelText('Add Habitat')).toBeTruthy();
+		// The words are gone: "Add Habitat" beside a title already reading "Habitats"
+		// spent 175px of a 380px panel saying it twice.
+		expect(screen.queryByText('Add Habitat')).toBeNull();
 
 		rerender(<Page create={{ to: '/x', label: 'Add Habitat', minimum: 'manager' }} />);
-		expect(screen.queryByText('Add Habitat')).toBeNull();
+		expect(screen.queryByLabelText('Add Habitat')).toBeNull();
+	});
+
+	// The pager states the count, so the header would be saying it twice. Without
+	// a pager the header is the only place left.
+	it('states the count in the header only when there is no pager under it', () => {
+		const { rerender } = render(<Page />);
+		expect(screen.queryByText('2 habitats')).toBeNull();
+
+		rerender(<Page hasPager={false} />);
+		expect(screen.getByText('2 habitats')).toBeTruthy();
 	});
 
 	it('shows neither rows nor a reason while the first page is still loading', () => {

@@ -269,7 +269,7 @@ function ApplicationsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun="applications"
+					noun={{ one: 'application', many: 'applications' }}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}

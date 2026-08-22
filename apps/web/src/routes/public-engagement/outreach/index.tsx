@@ -235,7 +235,7 @@ function OutreachExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun="actions"
+					noun={{ one: 'action', many: 'actions' }}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}

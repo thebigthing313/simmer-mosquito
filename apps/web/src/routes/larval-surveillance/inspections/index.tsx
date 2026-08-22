@@ -321,7 +321,7 @@ function InspectionsExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun="inspections"
+					noun={{ one: 'inspection', many: 'inspections' }}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}

@@ -302,7 +302,7 @@ function SamplesExplorerRoute() {
 			}
 			footer={
 				<ExplorerPagination
-					noun="samples"
+					noun={{ one: 'sample', many: 'samples' }}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
