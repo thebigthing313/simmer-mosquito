@@ -32,13 +32,13 @@ export interface BasemapStyle {
 const STREETS: BasemapStyle = {
 	id: 'streets',
 	label: 'Streets',
-	styleUrl: 'mapbox://styles/mapbox/streets-v12',
+	styleUrl: 'mapbox://styles/thebigthing313/cmsjd3mrr011f01s6dc775u0z',
 };
 
 const SATELLITE: BasemapStyle = {
 	id: 'satellite',
 	label: 'Satellite',
-	styleUrl: 'mapbox://styles/mapbox/satellite-streets-v12',
+	styleUrl: 'mapbox://styles/thebigthing313/cmsjd8raa00kf01s93gzw8ggf',
 };
 
 /** The basemaps we expose today. Order is the display order in the switcher. */
