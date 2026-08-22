@@ -265,8 +265,12 @@ function SourceReductionExplorerRoute() {
 				total,
 				isLoading,
 				noun: RESULT_NOUN,
-				create: { to: '/control-operations/source-reduction/create', label: 'Record' },
+				create: {
+					to: '/control-operations/source-reduction/create',
+					label: 'Record Source Reduction',
+				},
 			}}
+			onResetFilters={clearAll}
 			map={
 				<>
 					<MapCanvas

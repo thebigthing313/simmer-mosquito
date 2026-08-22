@@ -268,8 +268,9 @@ function RequestsForControlRoute() {
 				total: visible.length,
 				isLoading,
 				noun: RESULT_NOUN,
-				create: { to: '/operations/requests-for-control/create', label: 'New Request' },
+				create: { to: '/operations/requests-for-control/create', label: 'New Request for Control' },
 			}}
+			onResetFilters={reset}
 			map={
 				<MapCanvas
 					contextMenu={{}}

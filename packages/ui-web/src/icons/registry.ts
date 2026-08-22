@@ -57,6 +57,7 @@ import {
 	Plus,
 	Printer,
 	Puzzle,
+	RotateCcw,
 	Route,
 	Ruler,
 	Satellite,
@@ -192,6 +193,7 @@ export const iconRegistry = {
 		paste: icon('paste', 'Paste', 'actions', Clipboard),
 		pin: icon('pin', 'Pin', 'actions', Pin),
 		remove: icon('remove', 'Remove', 'actions', Minus),
+		reset: icon('reset', 'Reset', 'actions', RotateCcw),
 		save: icon('save', 'Save', 'actions', Save),
 		search: icon('search', 'Search', 'actions', Search),
 		searchCheck: icon('searchCheck', 'Search check', 'actions', SearchCheck),
@@ -306,6 +308,7 @@ export const PinIcon = iconRegistry.actions.pin.icon;
 export const PinOffIcon = iconRegistry.actions.unpin.icon;
 export const PlusIcon = iconRegistry.actions.add.icon;
 export const PuzzleIcon = iconRegistry.generic.puzzle.icon;
+export const ResetIcon = iconRegistry.actions.reset.icon;
 export const SaveIcon = iconRegistry.actions.save.icon;
 export const RulerIcon = iconRegistry.generic.ruler.icon;
 export const SatelliteIcon = iconRegistry.generic.satellite.icon;

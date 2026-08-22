@@ -282,8 +282,9 @@ function ApplicationsExplorerRoute() {
 				total,
 				isLoading,
 				noun: RESULT_NOUN,
-				create: { to: '/control-operations/chemical/create', label: 'Record' },
+				create: { to: '/control-operations/chemical/create', label: 'Record Application' },
 			}}
+			onResetFilters={clearAll}
 			map={
 				<>
 					<MapCanvas

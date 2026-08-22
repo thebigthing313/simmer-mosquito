@@ -149,6 +149,7 @@ function WeatherStationsRoute() {
 				noun: RESULT_NOUN,
 				create: { to: '/gis/weather/create', label: 'Add Station', minimum: 'manager' },
 			}}
+			onResetFilters={() => commitSearch('')}
 			map={
 				<>
 					<MapCanvas

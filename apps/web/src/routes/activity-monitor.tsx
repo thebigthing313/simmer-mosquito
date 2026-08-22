@@ -109,7 +109,9 @@ function ActivityMonitorRoute() {
 	const { view } = selection;
 	const reach = activityReach(activity.data, view.items.length);
 
-	const panel = useExplorerPanel();
+	// The person picker and the date window are this page, not a way of cutting
+	// it down, so the card they live in opens with it.
+	const panel = useExplorerPanel({ filtersOpen: true });
 	// The window always names a person and a date range, so nothing here is ever
 	// "off its default" the way an explorer's filters are.
 	const activeFilterCount = 0;

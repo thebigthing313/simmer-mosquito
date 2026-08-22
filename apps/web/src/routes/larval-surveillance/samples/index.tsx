@@ -315,6 +315,7 @@ function SamplesExplorerRoute() {
 				total,
 				isLoading,
 			}}
+			onResetFilters={clearAll}
 			map={
 				<>
 					<MapCanvas

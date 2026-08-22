@@ -282,8 +282,9 @@ function BiocontrolExplorerRoute() {
 				total,
 				isLoading,
 				noun: RESULT_NOUN,
-				create: { to: '/control-operations/biocontrol/create', label: 'Record' },
+				create: { to: '/control-operations/biocontrol/create', label: 'Record Release' },
 			}}
+			onResetFilters={clearAll}
 			map={
 				<>
 					<MapCanvas

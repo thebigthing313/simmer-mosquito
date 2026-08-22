@@ -249,8 +249,9 @@ function CollectionsExplorerRoute() {
 				total,
 				isLoading,
 				noun: RESULT_NOUN,
-				create: { to: '/adult-surveillance/collections/create', label: 'Record' },
+				create: { to: '/adult-surveillance/collections/create', label: 'Record Collection' },
 			}}
+			onResetFilters={clearAll}
 			map={
 				<>
 					<MapCanvas

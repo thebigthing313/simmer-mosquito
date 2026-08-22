@@ -189,8 +189,9 @@ function AddressesExplorerRoute() {
 				total: filtered.length,
 				isLoading,
 				noun: RESULT_NOUN,
-				create: { to: '/gis/addresses/create', label: 'Create' },
+				create: { to: '/gis/addresses/create', label: 'Create Address' },
 			}}
+			onResetFilters={clearAll}
 			map={
 				<>
 					<MapCanvas

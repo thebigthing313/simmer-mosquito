@@ -248,8 +248,9 @@ function OutreachExplorerRoute() {
 				total,
 				isLoading,
 				noun: RESULT_NOUN,
-				create: { to: '/public-engagement/outreach/create', label: 'Record' },
+				create: { to: '/public-engagement/outreach/create', label: 'Record Outreach' },
 			}}
+			onResetFilters={reset}
 			map={
 				<>
 					<MapCanvas

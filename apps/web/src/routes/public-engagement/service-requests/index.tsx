@@ -142,6 +142,14 @@ function ServiceRequestsExplorerRoute() {
 	);
 	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
 	const { input: search, setInput: setSearch } = useDebouncedTextFilter(query.search, commitSearch);
+	// Both halves: the field the operator is looking at, and the committed set on
+	// the URL that is actually cutting the list. One patch, one navigation, since
+	// two calls would each read the same prior search and the second would undo
+	// the first.
+	const clearAll = useCallback(() => {
+		setSearch('');
+		setFilters({ search: '', tags: new Set(), regions: new Set(), status: 'open' });
+	}, [setSearch, setFilters]);
 	const regions = useRegionOptions();
 	// Requests are filtered from rows already synced here, so region membership is
 	// answered against the boundaries directly rather than by the server.
@@ -296,11 +304,7 @@ function ServiceRequestsExplorerRoute() {
 					</FilterGrid>
 
 					{activeFilterCount > 0 ? (
-						<ActiveFilterBar
-							// One patch, one navigation: two calls would each read the same
-							// prior search and the second would undo the first.
-							onClearAll={() => setFilters({ tags: new Set(), regions: new Set(), status: 'open' })}
-						>
+						<ActiveFilterBar onClearAll={clearAll}>
 							{status === 'open' ? null : (
 								<FilterChip
 									label={`Status: ${status === 'all' ? 'All' : 'Closed'}`}
@@ -353,6 +357,7 @@ function ServiceRequestsExplorerRoute() {
 					minimum: 'manager',
 				},
 			}}
+			onResetFilters={clearAll}
 			map={
 				<>
 					<MapCanvas

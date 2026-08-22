@@ -262,6 +262,7 @@ function TrapsExplorerRoute() {
 					minimum: 'manager',
 				},
 			}}
+			onResetFilters={clearAll}
 			map={
 				<>
 					<MapCanvas

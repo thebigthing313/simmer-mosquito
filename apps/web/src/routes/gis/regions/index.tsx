@@ -296,8 +296,9 @@ function RegionsExplorerRoute() {
 					total: regions.length,
 					isLoading: !isReady,
 					noun: RESULT_NOUN,
-					create: { to: '/gis/regions/create', label: 'Create', minimum: 'manager' },
+					create: { to: '/gis/regions/create', label: 'Create Region', minimum: 'manager' },
 				}}
+				onResetFilters={() => commitSearch('')}
 				map={
 					<>
 						{/*

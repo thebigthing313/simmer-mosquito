@@ -299,8 +299,9 @@ function HabitatsExplorerRoute() {
 				icon: ComponentIcon,
 				total,
 				isLoading,
-				create: { to: '/larval-surveillance/habitats/create', label: 'Add Habitat' },
+				create: { to: '/larval-surveillance/habitats/create', label: 'Create Habitat' },
 			}}
+			onResetFilters={clearAll}
 			map={
 				<>
 					<MapCanvas

@@ -333,8 +333,9 @@ function InspectionsExplorerRoute() {
 				icon: InspectionEntityIcon,
 				total,
 				isLoading,
-				create: { to: '/larval-surveillance/inspections/create', label: 'Record' },
+				create: { to: '/larval-surveillance/inspections/create', label: 'Create Inspection' },
 			}}
+			onResetFilters={clearAll}
 			map={
 				<>
 					<MapCanvas

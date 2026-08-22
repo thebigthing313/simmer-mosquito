@@ -1,6 +1,18 @@
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { type iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
+import {
+	FilterIcon,
+	type iconRegistry,
+	MoreHorizontalIcon,
+	PlusIcon,
+	ResetIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, type LinkProps } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
@@ -13,9 +25,22 @@ type RegistryIcon = typeof iconRegistry.entities.sample.icon;
 /** The create control an explorer offers, hidden below its command's role floor. */
 export interface ExplorerCreateAction {
 	readonly to: NonNullable<LinkProps['to']>;
+	/**
+	 * What the control says. In the map frame it is a menu item rather than a
+	 * button, so it has to name the record on its own: "Record" beside a panel
+	 * titled Collections read fine and reads like nothing in a dropdown.
+	 */
 	readonly label: string;
 	/** Matches the floor of the command the form sends. Defaults to `collector`. */
 	readonly minimum?: MinimumRole;
+}
+
+/** The filter card's toggle, and what it has to report while the card is shut. */
+export interface ExplorerFilterToggle {
+	readonly isOpen: boolean;
+	readonly onToggle: () => void;
+	/** How many filters are off their default, so a shut card still says so. */
+	readonly activeCount: number;
 }
 
 /**
@@ -36,6 +61,8 @@ export function ExplorerHeader({
 	noun,
 	create,
 	collapse,
+	filterToggle,
+	onResetFilters,
 	children,
 	surface = 'page',
 	showTotal = false,
@@ -46,6 +73,10 @@ export function ExplorerHeader({
 	readonly isLoading: boolean;
 	readonly noun?: { readonly one: string; readonly many: string } | undefined;
 	readonly create?: ExplorerCreateAction | undefined;
+	/** The control that shows and hides the filter card. Only the map frame has one. */
+	readonly filterToggle?: ExplorerFilterToggle | undefined;
+	/** Put every filter back to its default. Sits in the menu beside create. */
+	readonly onResetFilters?: (() => void) | undefined;
 	/**
 	 * Put the whole panel away. Only the map frame passes one — a header above a
 	 * column has nothing to collapse into.
@@ -116,40 +147,36 @@ export function ExplorerHeader({
 						<h1 className={cn(heading, 'min-w-0')}>{title}</h1>
 					</div>
 				)}
-				<div className={cn('flex shrink-0 items-center', isChrome ? 'gap-1' : 'gap-2.5')}>
+				<div className={cn('flex shrink-0 items-center', isChrome ? 'gap-0.5' : 'gap-2.5')}>
 					{isChrome && !showTotal ? null : (
 						<ResultMeta isLoading={isLoading} noun={noun} total={total} />
 					)}
-					{create === undefined ? null : (
+					{/*
+					 * In the map frame the create action is a menu item rather than a button
+					 * of its own. "Add Trap" spent 175px of the panel, more than the title
+					 * beside it, to repeat a word the title had already said.
+					 *
+					 * A page-width header keeps the words and the fill: it has the room, and
+					 * there the button is the only thing telling a reader they can add one.
+					 */}
+					{isChrome || create === undefined ? null : (
 						<WriteOnly minimum={create.minimum ?? 'collector'}>
-							{/*
-							 * In the map frame the label goes and the plus stays, in the same
-							 * ghost icon button the collapse control wears. "Add Trap" spent
-							 * 175px of a 380px panel, more than the title beside it, to repeat
-							 * a word the title had already said, and a filled button that wide
-							 * pulled the eye off the map the panel is floating over.
-							 *
-							 * A page-width header keeps the words and the fill: it has the
-							 * room, and there the button is the only thing telling a reader
-							 * they can add one.
-							 */}
-							<Button
-								aria-label={isChrome ? create.label : undefined}
-								asChild
-								size={isChrome ? 'icon-sm' : 'sm'}
-								title={isChrome ? create.label : undefined}
-								variant={isChrome ? 'ghost' : 'default'}
-							>
+							<Button asChild size="sm">
 								<Link to={create.to}>
-									<PlusIcon
-										aria-hidden="true"
-										{...(isChrome ? {} : { 'data-icon': 'inline-start' })}
-									/>
-									{isChrome ? null : create.label}
+									<PlusIcon aria-hidden="true" data-icon="inline-start" />
+									{create.label}
 								</Link>
 							</Button>
 						</WriteOnly>
 					)}
+					{filterToggle === undefined ? null : <FilterToggleButton toggle={filterToggle} />}
+					{isChrome && (create !== undefined || onResetFilters !== undefined) ? (
+						<PanelMenu
+							create={create}
+							onResetFilters={onResetFilters}
+							resetDisabled={(filterToggle?.activeCount ?? 0) === 0}
+						/>
+					) : null}
 					{collapse === undefined ? null : <CollapseButton collapse={collapse} />}
 				</div>
 			</div>
@@ -177,5 +204,93 @@ function CollapseButton({
 		>
 			<Icon aria-hidden="true" />
 		</Button>
+	);
+}
+
+/**
+ * Show or hide the filter card, carrying the count while it is hidden.
+ *
+ * The count is the whole reason this is not a plain toggle. The card stands
+ * beside the results and is shut by default, so without a number on the control
+ * a reader who arrived on a filtered link cannot tell a surface with nothing in
+ * range from one whose filters excluded everything.
+ */
+function FilterToggleButton({ toggle }: { readonly toggle: ExplorerFilterToggle }) {
+	const { isOpen, onToggle, activeCount } = toggle;
+	// Named "Filters" in both states, with the state on `aria-pressed`. Naming it
+	// for the action instead would give it the same name as the card's own close,
+	// which is two controls a screen reader cannot tell apart.
+	const label = isOpen ? 'Hide filters' : 'Show filters';
+	return (
+		<Button
+			aria-label="Filters"
+			aria-pressed={isOpen}
+			className="relative"
+			onClick={onToggle}
+			size="icon-sm"
+			title={label}
+			variant={isOpen ? 'secondary' : 'ghost'}
+		>
+			<FilterIcon aria-hidden="true" />
+			{activeCount > 0 ? (
+				<span
+					aria-hidden="true"
+					className="-top-1 -right-1 absolute flex size-4 items-center justify-center rounded-full bg-primary font-medium text-[0.625rem] text-primary-foreground tabular-nums"
+				>
+					{activeCount > 9 ? '9+' : activeCount}
+				</span>
+			) : null}
+		</Button>
+	);
+}
+
+/**
+ * The panel's overflow menu: what this surface can create, and the way back to
+ * an unfiltered list.
+ *
+ * Both were controls of their own until the header ran out of room. Neither is
+ * reached often enough to hold a permanent seat in a panel that already has to
+ * show a title, a count, a filter toggle and a collapse.
+ */
+function PanelMenu({
+	create,
+	onResetFilters,
+	resetDisabled,
+}: {
+	readonly create: ExplorerCreateAction | undefined;
+	readonly onResetFilters: (() => void) | undefined;
+	readonly resetDisabled: boolean;
+}) {
+	return (
+		<DropdownMenu>
+			<DropdownMenuTrigger asChild>
+				<Button aria-label="More actions" size="icon-sm" title="More actions" variant="ghost">
+					<MoreHorizontalIcon aria-hidden="true" />
+				</Button>
+			</DropdownMenuTrigger>
+			<DropdownMenuContent align="end" className="min-w-48">
+				{create === undefined ? null : (
+					<WriteOnly minimum={create.minimum ?? 'collector'}>
+						<DropdownMenuItem asChild>
+							<Link to={create.to}>
+								<PlusIcon aria-hidden="true" />
+								{create.label}
+							</Link>
+						</DropdownMenuItem>
+					</WriteOnly>
+				)}
+				{onResetFilters === undefined ? null : (
+					/*
+					 * Disabled rather than hidden while nothing is filtered. A menu whose
+					 * items come and go is one a reader has to open to find out what is in
+					 * it, and this one has two.
+					 */
+					<DropdownMenuItem disabled={resetDisabled} onSelect={onResetFilters}>
+						<ResetIcon aria-hidden="true" />
+						Reset filters
+					</DropdownMenuItem>
+				)}
+			</DropdownMenuContent>
+		</DropdownMenu>
 	);
 }
