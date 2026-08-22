@@ -32,6 +32,7 @@ import {
 	Info,
 	Keyboard,
 	Layers,
+	ListFilter,
 	Loader2,
 	LocateFixed,
 	ArrowLeft as LucideArrowLeft,
@@ -152,6 +153,7 @@ export const iconRegistry = {
 		delete: icon('delete', 'Delete', 'actions', Trash2),
 		download: icon('download', 'Download', 'actions', Download),
 		edit: icon('edit', 'Edit', 'actions', Edit),
+		filter: icon('filter', 'Filter', 'actions', ListFilter),
 		info: icon('info', 'Info', 'actions', Info),
 		loading: icon('loading', 'Loading', 'actions', Loader2),
 		locate: icon('locate', 'Locate', 'actions', LocateFixed),
@@ -259,6 +261,7 @@ export const MoonIcon = iconRegistry.generic.moon.icon;
 export const MoreHorizontal = iconRegistry.arrows.moreHorizontal.icon;
 export const MoreHorizontalIcon = iconRegistry.arrows.moreHorizontal.icon;
 export const MosquitoIcon = iconRegistry.simmer.mosquito.icon;
+export const FilterIcon = iconRegistry.actions.filter.icon;
 export const OctagonXIcon = iconRegistry.generic.error.icon;
 export const PanelLeftIcon = iconRegistry.arrows.panelLeft.icon;
 export const PinIcon = iconRegistry.actions.pin.icon;

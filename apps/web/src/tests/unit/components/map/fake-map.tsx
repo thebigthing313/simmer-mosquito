@@ -18,7 +18,11 @@ export function createFakeMap() {
 	const sourceSpecs = new Map<string, Record<string, unknown>>();
 	const layers = new Map<string, LayerSpecification>();
 	const handlers = new Map<string, Set<(event: unknown) => void>>();
-	const canvas = { style: { cursor: '' } };
+	const cameraCalls: CameraCall[] = [];
+	const canvas = { style: { cursor: '' }, clientWidth: 1000, clientHeight: 800 };
+	// A flat 0.001 degrees per pixel from the origin: enough for a test to say
+	// which pixels were unprojected, which is the whole question.
+	const DEGREES_PER_PIXEL = 0.001;
 	let removed = false;
 	let doubleClickZoomEnabled = true;
 
@@ -62,6 +66,34 @@ export function createFakeMap() {
 			layers.delete(id);
 		},
 		getCanvas: () => canvas,
+		getZoom: () => 10,
+		unproject([x, y]: [number, number]) {
+			assertLive();
+			return { lng: x * DEGREES_PER_PIXEL, lat: -y * DEGREES_PER_PIXEL };
+		},
+		/**
+		 * Deliberately narrower than the canvas, the way mapbox answers once the
+		 * map carries viewport padding. Anything reading the viewport off this
+		 * rather than off the canvas gets the padded strip.
+		 */
+		getBounds: () => ({
+			getEast: () => 0.4,
+			getNorth: () => 0,
+			getSouth: () => -0.8,
+			getWest: () => 0.2,
+		}),
+		flyTo(options: CameraOptions) {
+			assertLive();
+			cameraCalls.push({ kind: 'flyTo', ...readCamera(options) });
+		},
+		easeTo(options: CameraOptions) {
+			assertLive();
+			cameraCalls.push({ kind: 'easeTo', ...readCamera(options) });
+		},
+		fitBounds(_bounds: unknown, options: CameraOptions) {
+			assertLive();
+			cameraCalls.push({ kind: 'fitBounds', ...readCamera(options) });
+		},
 		queryRenderedFeatures: vi.fn(() => [] as unknown[]),
 		doubleClickZoom: {
 			isEnabled: () => doubleClickZoomEnabled,
@@ -90,6 +122,8 @@ export function createFakeMap() {
 		sourceSpecs,
 		layers,
 		canvas,
+		/** Every camera move asked for, in order, with the padding it carried. */
+		cameraCalls: cameraCalls as readonly CameraCall[],
 		queryRenderedFeatures: map.queryRenderedFeatures,
 		isDoubleClickZoomEnabled: () => doubleClickZoomEnabled,
 		listenerCount: (event: string) => handlers.get(event)?.size ?? 0,
@@ -122,6 +156,27 @@ export function createFakeMap() {
 }
 
 export type FakeMap = ReturnType<typeof createFakeMap>;
+
+type CameraOptions = {
+	readonly padding?: unknown;
+	readonly zoom?: number;
+	readonly duration?: number;
+};
+
+/**
+ * One camera move, reduced to what a test asks about: which call it was and the
+ * padding it carried. Padding is the interesting half — it is how a map with
+ * chrome floating over it puts a record where the reader can see it.
+ */
+interface CameraCall {
+	readonly kind: 'flyTo' | 'easeTo' | 'fitBounds';
+	readonly padding: unknown;
+	readonly zoom: number | undefined;
+}
+
+function readCamera(options: CameraOptions | undefined): Omit<CameraCall, 'kind'> {
+	return { padding: options?.padding, zoom: options?.zoom };
+}
 
 // React only treats `act` as a real flush boundary when it is told it is in a
 // test environment; without this every `act` call warns and updates queued by an

@@ -1,3 +1,4 @@
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { ReactNode } from 'react';
@@ -55,5 +56,15 @@ export function ResultList<TRow>({
 		);
 	}
 
-	return <ul className="flex-1 divide-y divide-border/40 overflow-y-auto">{rows.map(children)}</ul>;
+	return (
+		// `w-full` on the list, because the Radix viewport wraps its children in a
+		// `display: table` element that otherwise shrink-wraps to the widest row and
+		// stops every `truncate` in the rows from having a width to truncate against.
+		// `auto`, not the Radix default of `hover`: the rail is nearly always longer
+		// than its panel, and a reader who cannot see a scrollbar until they happen
+		// to move the pointer over the list has no sign there are more rows.
+		<ScrollArea className="min-h-0 flex-1" type="auto">
+			<ul className="w-full divide-y divide-border/40">{rows.map(children)}</ul>
+		</ScrollArea>
+	);
 }

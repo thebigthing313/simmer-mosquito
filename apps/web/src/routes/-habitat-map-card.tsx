@@ -14,6 +14,7 @@ import {
 	MapCardLocation,
 	MapCardText,
 } from '../components/map/map-card';
+import type { MapInset } from '../components/map/map-inset';
 import { TagBadge } from '../components/tag-badge';
 import type { Habitat } from '../hooks/queries/habitat-view';
 import { useHabitat } from '../hooks/queries/use-habitat';
@@ -31,17 +32,20 @@ export function HabitatMapCard({
 	id,
 	onClose,
 	detailTo = '/larval-surveillance/habitats/$id',
+	inset,
 }: {
 	readonly id: string;
 	readonly onClose: () => void;
 	readonly detailTo?: '/larval-surveillance/habitats/$id';
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 }) {
 	const { habitat } = useHabitat(id);
 	const tags = useRecordTags(id);
 
 	if (habitat === undefined) {
 		return (
-			<MapCard onClose={onClose} title="Habitat">
+			<MapCard inset={inset} onClose={onClose} title="Habitat">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -67,6 +71,7 @@ export function HabitatMapCard({
 				</>
 			}
 			eyebrow={<MapCardEyebrow type="Habitat" />}
+			inset={inset}
 			onClose={onClose}
 			title={habitat.name}
 			viewDetailLink={(content) => (

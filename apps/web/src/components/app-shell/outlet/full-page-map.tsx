@@ -10,12 +10,15 @@ import type React from 'react';
 export function OutletFullPageMap({
 	children,
 	className,
+	ref,
 }: {
 	readonly children: React.ReactNode;
 	readonly className?: string;
+	/** The stage element, for callers that lay chrome out against its width. */
+	readonly ref?: React.RefCallback<HTMLDivElement> | undefined;
 }) {
 	return (
-		<div className={cn('relative h-full min-h-0 w-full overflow-hidden', className)}>
+		<div className={cn('relative h-full min-h-0 w-full overflow-hidden', className)} ref={ref}>
 			{children}
 		</div>
 	);

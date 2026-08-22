@@ -25,7 +25,17 @@ const DEBOUNCE_MS = 180;
  * Mapbox-powered place search. Debounces suggestions, keeps a session token
  * across the suggest→retrieve pair, and flies the map to the chosen result.
  */
-export function MapSearch({ map }: { readonly map: MapboxMap | null }) {
+export function MapSearch({
+	map,
+	width,
+}: {
+	readonly map: MapboxMap | null;
+	/**
+	 * Match a column of chrome this box sits at the top of, in px. Without one it
+	 * takes its own comfortable reading width.
+	 */
+	readonly width?: number | undefined;
+}) {
 	const [query, setQuery] = useState('');
 	const [open, setOpen] = useState(false);
 	const [results, setResults] = useState<readonly MapboxSearchResult[]>([]);
@@ -38,6 +48,12 @@ export function MapSearch({ map }: { readonly map: MapboxMap | null }) {
 	const sessionToken = useRef(createSessionToken());
 
 	const canSearch = getMapboxToken().trim().length > 0;
+	// One measurement for the box and the results under it, so the popover cannot
+	// end up a different width from the input it hangs off.
+	const shell =
+		width === undefined
+			? { className: 'w-[min(22rem,calc(100vw-7rem))]', style: undefined }
+			: { className: 'max-w-[calc(100vw-7rem)]', style: { width } };
 	const trimmedQuery = query.trim();
 	const showResults = open && trimmedQuery.length > 0;
 
@@ -144,7 +160,7 @@ export function MapSearch({ map }: { readonly map: MapboxMap | null }) {
 	return (
 		<Popover onOpenChange={setOpen} open={showResults}>
 			<PopoverAnchor asChild>
-				<div className="w-[min(22rem,calc(100vw-7rem))]">
+				<div className={shell.className} style={shell.style}>
 					<SearchInput
 						aria-label="Search for a location"
 						className="h-10 border-border/70 bg-background/85 text-sm shadow-md ring-1 ring-black/[0.03] backdrop-blur-sm supports-[backdrop-filter]:bg-background/75"
@@ -170,7 +186,8 @@ export function MapSearch({ map }: { readonly map: MapboxMap | null }) {
 			</PopoverAnchor>
 			<PopoverContent
 				align="start"
-				className="w-[min(22rem,calc(100vw-7rem))] p-1"
+				className={cn(shell.className, 'p-1')}
+				style={shell.style}
 				onOpenAutoFocus={(event) => event.preventDefault()}
 			>
 				<SearchResults

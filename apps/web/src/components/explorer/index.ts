@@ -9,6 +9,7 @@
  */
 
 export { ExplorerHeader } from './explorer-header';
+export { ExplorerMapPage } from './explorer-map-page';
 export { ExplorerRow } from './explorer-row';
 export { ActiveFilterBar, FilterChip } from './filter-chips';
 export { type FilterOption, MultiSelectFilter, toggle } from './multi-select-filter';
@@ -27,6 +28,7 @@ export {
 } from './use-control-method-options';
 export { useDateRangeFilters } from './use-date-range-filters';
 export { useEntityTags } from './use-entity-tags';
+export { useExplorerPanel } from './use-explorer-panel';
 export { useFlyToSelection } from './use-fly-to-selection';
 export { useHabitatTypeOptions } from './use-habitat-type-options';
 export { useMapBoundsParam } from './use-map-bounds';

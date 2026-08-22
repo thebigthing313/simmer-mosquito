@@ -34,6 +34,7 @@ export function ExplorerHeader({
 	isLoading,
 	noun,
 	create,
+	collapse,
 	children,
 }: {
 	readonly title: string;
@@ -42,8 +43,23 @@ export function ExplorerHeader({
 	readonly isLoading: boolean;
 	readonly noun?: { readonly one: string; readonly many: string } | undefined;
 	readonly create?: ExplorerCreateAction | undefined;
-	/** The filter controls, stacked under the title row. */
-	readonly children: ReactNode;
+	/**
+	 * Put the whole panel away. Only the map frame passes one — a header above a
+	 * column has nothing to collapse into.
+	 */
+	readonly collapse?:
+		| {
+				readonly onCollapse: () => void;
+				readonly label: string;
+				/** Points where the panel goes: aside on a side column, down on a sheet. */
+				readonly icon: RegistryIcon;
+		  }
+		| undefined;
+	/**
+	 * The filter controls, stacked under the title row. Omitted where the surface
+	 * gives its filters a panel of their own.
+	 */
+	readonly children?: ReactNode;
 }) {
 	return (
 		<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
@@ -68,9 +84,32 @@ export function ExplorerHeader({
 							</Button>
 						</WriteOnly>
 					)}
+					{collapse === undefined ? null : <CollapseButton collapse={collapse} />}
 				</div>
 			</div>
 			{children}
 		</div>
+	);
+}
+
+function CollapseButton({
+	collapse,
+}: {
+	readonly collapse: {
+		readonly onCollapse: () => void;
+		readonly label: string;
+		readonly icon: RegistryIcon;
+	};
+}) {
+	const Icon = collapse.icon;
+	return (
+		<Button
+			aria-label={collapse.label}
+			onClick={collapse.onCollapse}
+			size="icon-sm"
+			variant="ghost"
+		>
+			<Icon aria-hidden="true" />
+		</Button>
 	);
 }
