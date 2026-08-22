@@ -60,9 +60,14 @@ export function MapCard({
 }: MapCardProps) {
 	const clear = inset ?? NO_MAP_INSET;
 	return (
+		// Bounded top as well as bottom, and the card sits at the bottom of that
+		// box. Anchoring only the bottom edge is what let a tall card run off the
+		// top of the stage and get cut by the canvas's `overflow-hidden` once a
+		// docked results sheet pushed it up.
 		<div
-			className="pointer-events-none absolute z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2"
+			className="pointer-events-none absolute z-10 flex items-end justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2"
 			style={{
+				top: CARD_EDGE + clear.top,
 				left: CARD_EDGE + clear.left,
 				right: CARD_EDGE + clear.right,
 				bottom: CARD_EDGE + clear.bottom,
@@ -70,11 +75,11 @@ export function MapCard({
 		>
 			<article
 				className={cn(
-					'pointer-events-auto w-full max-w-[460px] rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm',
+					'pointer-events-auto flex max-h-full w-full max-w-[460px] flex-col rounded-lg border border-border/60 bg-card/95 p-4 shadow-lg backdrop-blur-sm',
 					className,
 				)}
 			>
-				<div className="flex items-start justify-between gap-3">
+				<div className="flex shrink-0 items-start justify-between gap-3">
 					<div className="grid min-w-0 gap-0.5">
 						{eyebrow == null ? null : <div className="min-w-0">{eyebrow}</div>}
 						<h2 className="truncate font-semibold text-base text-foreground leading-tight">
@@ -87,13 +92,15 @@ export function MapCard({
 				</div>
 
 				{badges == null ? null : (
-					<div className="mt-3 flex flex-wrap items-center gap-1.5">{badges}</div>
+					<div className="mt-3 flex shrink-0 flex-wrap items-center gap-1.5">{badges}</div>
 				)}
 
-				{children == null ? null : <div className="mt-3">{children}</div>}
+				{/* The one part that gives: squeezed against a sheet, the body scrolls
+				    and the title and the way through stay reachable. */}
+				{children == null ? null : <div className="mt-3 min-h-0 overflow-y-auto">{children}</div>}
 
 				{viewDetailLink == null ? null : (
-					<div className="mt-4 flex justify-end">
+					<div className="mt-4 flex shrink-0 justify-end">
 						<Button asChild size="sm" variant="outline">
 							{viewDetailLink(
 								<>
