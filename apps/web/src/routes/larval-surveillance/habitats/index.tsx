@@ -307,6 +307,7 @@ function HabitatsExplorerRoute() {
 						habitatLayer={habitatLayer}
 						inset={panel.inset}
 						onMapReady={handleMapReady}
+						searchWidth={panel.width}
 					/>
 					{selectedHabitat === null ? null : (
 						<HabitatMapCard

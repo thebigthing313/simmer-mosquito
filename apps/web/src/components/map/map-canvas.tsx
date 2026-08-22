@@ -84,6 +84,7 @@ export function MapCanvas({
 	camera,
 	controls,
 	inset,
+	searchWidth,
 	contextMenu,
 	habitatLayer,
 	regionLayer,
@@ -114,6 +115,11 @@ export function MapCanvas({
 	 * over it does not put its own chrome or a selected record underneath.
 	 */
 	readonly inset?: MapInset | undefined;
+	/**
+	 * Width in px for the place-search box, where the page stands it at the top of
+	 * a column of its own chrome and the three want one edge.
+	 */
+	readonly searchWidth?: number | undefined;
 	/**
 	 * Give the map a right-click menu — the clicked coordinate, and the records
 	 * this surface can start there. Omitted means no menu at all, which is what
@@ -293,7 +299,7 @@ export function MapCanvas({
 							// it, so a control that is reached for while typing a place name
 							// does not move when the panel opens.
 							<div className="pointer-events-auto absolute top-4 left-4">
-								<MapSearch map={map} />
+								<MapSearch map={map} width={searchWidth} />
 							</div>
 						) : null}
 						{show.basemap || show.layers ? (
