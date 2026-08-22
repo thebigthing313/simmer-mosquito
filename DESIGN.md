@@ -375,6 +375,15 @@ every scroll for an effect nobody could see. Blur is earned only where something
 genuinely moves behind glass, which is the floating map controls over live
 basemap tiles, and nowhere else.
 
+One header is excepted, and it is excepted by painting *less* rather than more.
+`stickyHeader`'s `chrome` surface carries a border and no background, for a
+header inside a floating panel that already paints the translucent map-chrome
+surface underneath it. A second fill there composites denser than the panel
+around it and reads as a separate white bar. It is safe only where nothing
+scrolls beneath the header, which on the map frame's result panel is true
+because the rows scroll inside their own `ScrollArea` below it. Anywhere content
+passes under a pinned header, the rule stands as written.
+
 ### Inputs / fields
 - **Style:** Surface background, Border Strong stroke, 8px radius, 40px minimum
   height, 9px by 11px padding. The stroke owes 3:1 against its surface; it is a

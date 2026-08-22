@@ -6,8 +6,8 @@ import { FilterLabel } from './filter-layout';
  * named, full-width row of segments.
  *
  * The name sits above the options rather than in a gutter beside them. A gutter
- * gave the panel three left edges — the search box at one, the segments at
- * another, the popover filters at a third — and it was sized for "Status" while
+ * gave the panel three left edges: the search box at one, the segments at
+ * another, the popover filters at a third. It was also sized for "Status" while
  * the labels next to it ran to "Habitat type". Above, the segments get the whole
  * width, which is what lets an option read at the same size as the rest of the
  * panel instead of being shrunk to fit beside its own label.

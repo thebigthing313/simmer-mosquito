@@ -6,6 +6,7 @@ import {
 	PaginationLink,
 } from '@simmer-mosquito/ui-web/components/ui/pagination';
 import { ChevronLeftIcon, ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { formatCount } from '../lib/format-count';
 
 /**
  * Controlled page-through footer for the map-explorer result rails. Driven by
@@ -28,7 +29,7 @@ export function ExplorerPagination({
 	if (pageCount <= 1) {
 		return (
 			<p className="m-0 text-muted-foreground text-xs">
-				{count(total)} {noun}
+				{formatCount(total)} {noun}
 			</p>
 		);
 	}
@@ -44,7 +45,7 @@ export function ExplorerPagination({
 		<div className="@container">
 			<div className="flex items-center justify-between gap-2">
 				<p className="m-0 truncate text-muted-foreground text-xs">
-					Page {page + 1} of {pageCount} · {count(total)} {noun}
+					Page {page + 1} of {pageCount} · {formatCount(total)} {noun}
 				</p>
 				<Pagination className="mx-0 w-auto justify-end">
 					<PaginationContent>
@@ -100,11 +101,6 @@ export function ExplorerPagination({
 			</div>
 		</div>
 	);
-}
-
-/** Thousands separated: a rail that says 14245 makes the reader count digits. */
-function count(value: number): string {
-	return value.toLocaleString('en-US');
 }
 
 interface ExplorerPageEntry {

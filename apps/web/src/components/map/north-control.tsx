@@ -9,7 +9,7 @@ import { MapControlButton, MapControlGroup } from './map-control';
  * The arrow points at north on screen, so it is a reading of the camera before
  * it is a button: a rotated map says so without the reader having to try
  * anything. Hovering or focusing swaps it for a compass, which is what pressing
- * it does — put the camera back to north and flat.
+ * it does: put the camera back to north and flat.
  */
 export function NorthControl({ map }: { readonly map: MapboxMap | null }) {
 	const bearing = useMapBearing(map);

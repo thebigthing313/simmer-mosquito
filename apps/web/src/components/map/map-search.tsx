@@ -53,6 +53,7 @@ export function MapSearch({
 	const [activeIndex, setActiveIndex] = useState(-1);
 
 	const listId = useId();
+	const panelId = `${listId}-panel`;
 	const optionId = (index: number) => `${listId}-option-${index}`;
 
 	const requestId = useRef(0);
@@ -68,6 +69,9 @@ export function MapSearch({
 			: { className: 'max-w-[calc(100vw-7rem)]', style: { width } };
 	const trimmedQuery = query.trim();
 	const showResults = open && trimmedQuery.length > 0;
+	// One decision, read by the panel and by the input's ARIA. Deciding it twice
+	// is how `aria-owns` ends up naming a listbox that is not on screen.
+	const panel = searchPanel({ error, isLoading, query: trimmedQuery, results });
 
 	useEffect(() => {
 		if (!showResults || trimmedQuery.length < MIN_QUERY_LENGTH || !canSearch) {
@@ -140,42 +144,46 @@ export function MapSearch({
 		sessionToken.current = createSessionToken();
 	}
 
-	function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
-		if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
-			event.preventDefault();
-			if (!showResults) {
-				setOpen(true);
-				return;
-			}
-			if (results.length === 0) {
-				return;
-			}
-			const step = event.key === 'ArrowDown' ? 1 : -1;
-			setActiveIndex((previous) => {
-				const next = previous + step;
-				if (next < 0) {
-					return results.length - 1;
-				}
-				return next >= results.length ? 0 : next;
-			});
+	function onArrowKey(key: 'ArrowDown' | 'ArrowUp') {
+		if (!showResults) {
+			setOpen(true);
 			return;
 		}
-		if (event.key === 'Enter') {
-			const chosen = results[activeIndex];
-			if (chosen !== undefined) {
-				// Only when a suggestion is highlighted. Otherwise Enter belongs to the
-				// form the input sits in, and swallowing it would be a surprise.
+		if (results.length > 0) {
+			setActiveIndex((previous) =>
+				stepIndex(previous, key === 'ArrowDown' ? 1 : -1, results.length),
+			);
+		}
+	}
+
+	function onKeyDown(event: KeyboardEvent<HTMLInputElement>) {
+		switch (event.key) {
+			case 'ArrowDown':
+			case 'ArrowUp':
+				event.preventDefault();
+				onArrowKey(event.key);
+				return;
+			case 'Enter': {
+				const chosen = results[activeIndex];
+				if (chosen === undefined) {
+					// Only when a suggestion is highlighted. Otherwise Enter belongs to
+					// the form the input sits in, and swallowing it would be a surprise.
+					return;
+				}
 				event.preventDefault();
 				selectResult(chosen);
+				return;
 			}
-			return;
-		}
-		if (event.key === 'Escape' && showResults) {
-			// Handled here rather than by the popover: focus never enters the popover,
-			// so Radix's own dismiss listener never sees the key.
-			event.preventDefault();
-			setOpen(false);
-			setActiveIndex(-1);
+			case 'Escape':
+				if (showResults) {
+					// Handled here rather than by the popover: focus never enters the
+					// popover, so Radix's own dismiss listener never sees the key.
+					event.preventDefault();
+					setOpen(false);
+					setActiveIndex(-1);
+				}
+				return;
+			default:
 		}
 	}
 
@@ -223,8 +231,17 @@ export function MapSearch({
 					<SearchInput
 						aria-activedescendant={activeIndex < 0 ? undefined : optionId(activeIndex)}
 						aria-autocomplete="list"
-						aria-controls={listId}
+						aria-controls={showResults ? panelId : undefined}
 						aria-expanded={showResults}
+						/*
+						 * `aria-owns`, because the popover portals to the end of the body.
+						 * `aria-activedescendant` resolves only against a descendant of the
+						 * focused element or a subtree it owns, so without this the active
+						 * option is unresolvable and the whole keyboard path is invisible
+						 * to a screen reader. Only while options exist: owning an id that
+						 * is not on screen is its own broken state.
+						 */
+						aria-owns={panel === 'list' ? listId : undefined}
 						aria-label="Search for a location"
 						autoComplete="off"
 						className={cn('h-10 text-sm shadow-md', MAP_CHROME_SURFACE)}
@@ -254,25 +271,25 @@ export function MapSearch({
 					 * appears in the same frame as its text is not reliably read.
 					 */}
 					<span aria-live="polite" className="sr-only" role="status">
-						{searchStatus({ error, isLoading, query: trimmedQuery, results, showResults })}
+						{showResults ? searchStatus(panel, error, results) : ''}
 					</span>
 				</div>
 			</PopoverAnchor>
 			<PopoverContent
 				align="start"
 				className={cn(shell.className, 'p-1')}
-				style={shell.style}
+				id={panelId}
 				onOpenAutoFocus={(event) => event.preventDefault()}
+				style={shell.style}
 			>
 				<SearchResults
 					activeIndex={activeIndex}
 					error={error}
-					isLoading={isLoading}
 					listId={listId}
 					onHover={setActiveIndex}
 					onSelect={selectResult}
 					optionId={optionId}
-					query={trimmedQuery}
+					panel={panel}
 					results={results}
 					selectingId={selectingId}
 				/>
@@ -281,62 +298,97 @@ export function MapSearch({
 	);
 }
 
-/** What the live region says, so a reader who cannot see the list still hears it. */
-function searchStatus({
+/** The next active option, wrapping at both ends. -1 (none) steps to either end. */
+export function stepIndex(previous: number, step: number, length: number): number {
+	const next = previous + step;
+	if (next < 0) {
+		return length - 1;
+	}
+	return next >= length ? 0 : next;
+}
+
+/** Which of the five things the popover can show. Decided once, in the parent. */
+type SearchPanel = 'hint' | 'loading' | 'error' | 'empty' | 'list';
+
+function searchPanel({
 	error,
 	isLoading,
 	query,
 	results,
-	showResults,
 }: {
 	readonly error: string | null;
 	readonly isLoading: boolean;
 	readonly query: string;
 	readonly results: readonly MapboxSearchResult[];
-	readonly showResults: boolean;
-}): string {
-	if (!showResults || query.length < MIN_QUERY_LENGTH) {
-		return '';
+}): SearchPanel {
+	if (query.length < MIN_QUERY_LENGTH) {
+		return 'hint';
 	}
 	if (isLoading) {
-		return 'Searching';
+		return 'loading';
 	}
 	if (error !== null) {
-		return error;
+		return 'error';
 	}
-	if (results.length === 0) {
-		return 'No places found';
+	return results.length === 0 ? 'empty' : 'list';
+}
+
+/** What the live region says, so a reader who cannot see the list still hears it. */
+function searchStatus(
+	panel: SearchPanel,
+	error: string | null,
+	results: readonly MapboxSearchResult[],
+): string {
+	switch (panel) {
+		case 'hint':
+			return '';
+		case 'loading':
+			return 'Searching';
+		case 'error':
+			return error ?? '';
+		case 'empty':
+			return 'No places found';
+		default:
+			return results.length === 1 ? '1 place found' : `${results.length} places found`;
 	}
-	return results.length === 1 ? '1 place found' : `${results.length} places found`;
 }
 
 function SearchResults({
 	activeIndex,
 	error,
-	isLoading,
 	listId,
 	onHover,
 	onSelect,
 	optionId,
-	query,
+	panel,
 	results,
 	selectingId,
 }: {
 	readonly activeIndex: number;
 	readonly error: string | null;
-	readonly isLoading: boolean;
 	readonly listId: string;
 	readonly onHover: (index: number) => void;
 	readonly onSelect: (result: MapboxSearchResult) => void;
 	readonly optionId: (index: number) => string;
-	readonly query: string;
+	readonly panel: SearchPanel;
 	readonly results: readonly MapboxSearchResult[];
 	readonly selectingId: string | null;
 }) {
-	if (query.length < MIN_QUERY_LENGTH) {
+	// Keep the highlighted option in the scroller. Arrowing past the fold
+	// otherwise moves a highlight nobody can see, which is the same as no
+	// highlight at all.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: keyed on the active option.
+	useEffect(() => {
+		if (activeIndex < 0) {
+			return;
+		}
+		document.getElementById(optionId(activeIndex))?.scrollIntoView({ block: 'nearest' });
+	}, [activeIndex]);
+
+	if (panel === 'hint') {
 		return <SearchMessage>Type at least {MIN_QUERY_LENGTH} characters</SearchMessage>;
 	}
-	if (isLoading) {
+	if (panel === 'loading') {
 		return (
 			<SearchMessage>
 				<Loader2Icon aria-hidden="true" className="size-4 animate-spin" />
@@ -344,10 +396,10 @@ function SearchResults({
 			</SearchMessage>
 		);
 	}
-	if (error !== null) {
+	if (panel === 'error') {
 		return <SearchMessage>{error}</SearchMessage>;
 	}
-	if (results.length === 0) {
+	if (panel === 'empty') {
 		return <SearchMessage>No places found</SearchMessage>;
 	}
 
@@ -379,8 +431,7 @@ function SearchResults({
 					onMouseMove={() => onHover(index)}
 					role="option"
 					// Not in the tab order: the input is the combobox's only tab stop and
-					// `aria-activedescendant` is what moves. -1 keeps it focusable enough
-					// for the linter and for a programmatic scroll into view.
+					// `aria-activedescendant` is what moves.
 					tabIndex={-1}
 				>
 					<span className="flex min-w-0 items-center gap-2">

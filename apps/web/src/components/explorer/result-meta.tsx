@@ -1,3 +1,4 @@
+import { formatCount } from '../../lib/format-count';
 /**
  * The count beside an explorer's title.
  *
@@ -34,15 +35,10 @@ function resultLabel(
 	noun: { readonly one: string; readonly many: string } | undefined,
 ): string {
 	if (noun === undefined) {
-		return total === 0 ? 'None in view' : `${count(total)} in view`;
+		return total === 0 ? 'None in view' : `${formatCount(total)} in view`;
 	}
 	if (total === 0) {
 		return 'None';
 	}
-	return total === 1 ? `1 ${noun.one}` : `${count(total)} ${noun.many}`;
-}
-
-/** Thousands separated: a rail that says 14245 makes the reader count digits. */
-function count(value: number): string {
-	return value.toLocaleString('en-US');
+	return total === 1 ? `1 ${noun.one}` : `${formatCount(total)} ${noun.many}`;
 }

@@ -10,6 +10,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { formatCount } from '../../lib/format-count';
 import { MAP_CHROME_SURFACE } from './chrome';
 import { formatLatLng } from './map-point-search';
 
@@ -38,7 +39,7 @@ interface ReadoutState {
  * copy button rather than asking anyone to transcribe six decimal places.
  *
  * Bearing and zoom are here because the map can be in a state a reader did not
- * choose — a stray two-finger twist rotates it, and a fit-to-data jumps the
+ * choose: a stray two-finger twist rotates it, and a fit-to-data jumps the
  * zoom. A number is how they tell.
  *
  * Every field is pinned to the width of its longest value and the digits are
@@ -199,23 +200,18 @@ function roundedDistance(
 	if (system === 'metric') {
 		if (maxMeters >= 1000) {
 			const km = niceNumber(maxMeters / 1000);
-			return { meters: km * 1000, label: `${count(km)} km` };
+			return { meters: km * 1000, label: `${formatCount(km, 2)} km` };
 		}
 		const m = Math.max(niceNumber(maxMeters), 1);
-		return { meters: m, label: `${count(m)} m` };
+		return { meters: m, label: `${formatCount(m, 2)} m` };
 	}
 	const feet = maxMeters * FEET_PER_METER;
 	if (feet >= FEET_PER_MILE) {
 		const miles = niceNumber(feet / FEET_PER_MILE);
-		return { meters: miles * METERS_PER_MILE, label: `${count(miles)} mi` };
+		return { meters: miles * METERS_PER_MILE, label: `${formatCount(miles, 2)} mi` };
 	}
 	const chosen = Math.max(niceNumber(feet), 1);
-	return { meters: chosen / FEET_PER_METER, label: `${count(chosen)} ft` };
-}
-
-/** Thousands separated, no trailing zeros: 1,000 rather than 1,000.00. */
-function count(value: number): string {
-	return value.toLocaleString('en-US', { maximumFractionDigits: 2 });
+	return { meters: chosen / FEET_PER_METER, label: `${formatCount(chosen, 2)} ft` };
 }
 
 /** The largest of 1, 2 or 5 times a power of ten that is no bigger than `value`. */
