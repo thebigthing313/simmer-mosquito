@@ -1,7 +1,5 @@
 import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { CheckCircle2Icon, CircleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
@@ -24,7 +22,12 @@ import {
 	useSelectedMapRecord,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { MAP_CREATE_TARGETS, MapCanvas, type TrapTileFilters } from '../../../components/map';
+import {
+	MAP_CREATE_TARGETS,
+	MapCanvas,
+	TRAP_STATUS_COLORS,
+	type TrapTileFilters,
+} from '../../../components/map';
 import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import {
 	choiceParam,
@@ -36,6 +39,8 @@ import {
 	useSearchFilters,
 } from '../../../lib/search-filters';
 import { TrapMapCard } from '../-trap-map-card';
+import type { StatusFilter } from './-legend';
+import { trapLegend } from './-legend';
 
 interface TrapSite {
 	readonly id: string;
@@ -49,8 +54,6 @@ interface TrapSite {
 	readonly description: string | null;
 	readonly isActive: boolean;
 }
-
-type StatusFilter = 'all' | 'active' | 'inactive';
 
 const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
 
@@ -129,6 +132,7 @@ function TrapsExplorerRoute() {
 		}),
 		[methodIds, status, regionIds, search],
 	);
+	const legend = useMemo(() => trapLegend(status), [status]);
 	const params = useMemo(
 		() =>
 			mapQueryParams({
@@ -270,6 +274,7 @@ function TrapsExplorerRoute() {
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						inset={panel.inset}
+						legend={legend}
 						onMapReady={handleMapReady}
 						searchWidth={panel.width}
 						trapLayer={trapLayer}
@@ -321,45 +326,23 @@ function TrapListItem({
 }) {
 	return (
 		<ExplorerRow
-			badges={<StatusBadge isActive={trap.isActive} />}
 			detailLabel={`View details for ${trapDisplayName(trap)}`}
 			detailLink={{ to: '/adult-surveillance/traps/$id', params: { id: trap.id } }}
 			isSelected={isSelected}
 			onSelect={() => onSelect(trap.id)}
 			selectLabel={`Show ${trapDisplayName(trap)} on the map`}
 			subtitle={methodName}
+			/*
+			 * The dot is the status now, so it has to be the colour the map paints
+			 * this trap. It was on --success/--muted-foreground, close enough to look
+			 * right beside a pill that spelled it out and never the map's own colours.
+			 */
 			swatch={{
-				color: trap.isActive ? 'var(--success)' : 'var(--muted-foreground)',
+				color: trap.isActive ? TRAP_STATUS_COLORS.active : TRAP_STATUS_COLORS.inactive,
 				label: trap.isActive ? 'Active' : 'Inactive',
 			}}
 			title={trapDisplayName(trap)}
 			titleLink={{ to: '/adult-surveillance/traps/$id', params: { id: trap.id } }}
-		/>
-	);
-}
-
-function StatusBadge({ isActive }: { readonly isActive: boolean }) {
-	return isActive ? (
-		<Badge tone="success" variant="outline">
-			<CheckCircle2Icon aria-hidden="true" />
-			Active
-		</Badge>
-	) : (
-		<Badge tone="neutral" variant="outline">
-			<CircleIcon aria-hidden="true" />
-			Inactive
-		</Badge>
-	);
-}
-
-function _StatusDot({ isActive }: { readonly isActive: boolean }) {
-	return (
-		<span
-			aria-hidden="true"
-			className={cn(
-				'size-2 shrink-0 rounded-full',
-				isActive ? 'bg-[var(--success)]' : 'bg-muted-foreground/50',
-			)}
 		/>
 	);
 }

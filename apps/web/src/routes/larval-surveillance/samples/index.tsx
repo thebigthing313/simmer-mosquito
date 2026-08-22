@@ -103,16 +103,11 @@ interface SampleFeature {
 
 type StatusFilterValue = 'all' | SampleStatus;
 
-interface StatusMeta {
-	readonly label: string;
-	readonly tone: 'success' | 'info' | 'neutral' | 'warning';
-}
-
-const STATUS_META: Record<SampleStatus, StatusMeta> = {
-	identified: { label: 'Identified', tone: 'success' },
-	awaiting: { label: 'Awaiting ID', tone: 'info' },
-	zero_larvae: { label: 'No larvae', tone: 'neutral' },
-	unidentifiable: { label: 'Unidentifiable', tone: 'warning' },
+const STATUS_LABEL: Record<SampleStatus, string> = {
+	identified: 'Identified',
+	awaiting: 'Awaiting ID',
+	zero_larvae: 'No larvae',
+	unidentifiable: 'Unidentifiable',
 };
 
 // Ordered awaiting → identified → closed-out so the chips read as a workflow, and
@@ -383,7 +378,7 @@ function StatusFilter({
 						color={SAMPLE_STATUS_COLORS[option]}
 						isActive={value === option}
 						key={option}
-						label={STATUS_META[option].label}
+						label={STATUS_LABEL[option]}
 						onClick={() => onChange(value === option ? 'all' : option)}
 					/>
 				))}
@@ -544,7 +539,7 @@ function ActiveFilters({
 			{status !== 'all' ? (
 				<FilterChip
 					color={SAMPLE_STATUS_COLORS[status]}
-					label={STATUS_META[status].label}
+					label={STATUS_LABEL[status]}
 					onRemove={onClearStatus}
 				/>
 			) : null}
@@ -586,14 +581,18 @@ function SampleListItem({
 	const label = sampleName(sample);
 	return (
 		<ExplorerRow
+			/*
+			 * Species only. The status pill repeated the dot at the left of the row,
+			 * which is already the status and already the colour the map paints this
+			 * sample. What was found in it is the one thing neither says.
+			 *
+			 * `null` rather than omitted for a sample that has no results yet, so every
+			 * row in the rail keeps the same shape.
+			 */
 			badges={
 				sample.status === 'identified' ? (
 					<SpeciesResults limit={RESULT_CHIP_LIMIT} nameById={nameById} sample={sample} />
-				) : (
-					<Badge tone={STATUS_META[sample.status].tone} variant="outline">
-						{STATUS_META[sample.status].label}
-					</Badge>
-				)
+				) : null
 			}
 			date={formatListDate(sample.inspectionDate)}
 			detailLabel={`View details for ${label}`}
@@ -613,7 +612,7 @@ function sampleSwatch(sample: SampleFeature): { readonly color: string; readonly
 	const color = SAMPLE_STATUS_COLORS[sample.status];
 	return {
 		color: color ?? 'var(--muted-foreground)',
-		label: STATUS_META[sample.status].label,
+		label: STATUS_LABEL[sample.status],
 	};
 }
 
@@ -684,7 +683,7 @@ function _StatusDot({ status }: { readonly status: SampleStatus }) {
 			aria-hidden="true"
 			className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
 			style={{ backgroundColor: SAMPLE_STATUS_COLORS[status] }}
-			title={STATUS_META[status].label}
+			title={STATUS_LABEL[status]}
 		/>
 	);
 }

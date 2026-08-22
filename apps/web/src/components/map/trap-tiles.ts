@@ -29,13 +29,25 @@ export const TRAP_SOURCE_ID = 'traps';
 const _TRAP_SOURCE_LAYER = 'traps';
 
 /**
- * Map paint colors. Traps carry an `isActive` feature property, so points read
- * their status straight off the map — active green, inactive gray. Kept as
- * literals: GL paint can't read CSS custom props.
+ * What each trap status paints, and the only place it is written down.
+ *
+ * The key and the result rail import this rather than restating the colours.
+ * DESIGN.md calls that the Legend Truth Rule: a hand-typed swatch drifted into
+ * describing a colour that was not on the map and stayed wrong, because a
+ * legend looks correct as long as it looks plausible.
  */
-const colors = {
+export const TRAP_STATUS_COLORS = {
 	active: mapLifecycle.active,
 	inactive: mapLifecycle.inactive,
+} as const;
+
+/**
+ * Map paint colors. Traps carry an `isActive` feature property, so points read
+ * their status straight off the map. Kept as literals: GL paint can't read CSS
+ * custom props.
+ */
+const colors = {
+	...TRAP_STATUS_COLORS,
 	pointStroke: mapInteraction.pointStroke,
 	selected: mapInteraction.selected,
 } as const;

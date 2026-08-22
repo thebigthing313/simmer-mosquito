@@ -14,5 +14,5 @@ export { mapPointSearchSchema, pointFromSearch } from './map-point-search';
 export type { OutreachTileFilters } from './outreach-tiles';
 export { SAMPLE_STATUS_COLORS, type SampleTileFilters } from './sample-tiles';
 export type { SourceReductionTileFilters } from './source-reduction-tiles';
-export type { TrapTileFilters } from './trap-tiles';
+export { TRAP_STATUS_COLORS, type TrapTileFilters } from './trap-tiles';
 export type { RouteStopFeature } from './use-route-layer';
