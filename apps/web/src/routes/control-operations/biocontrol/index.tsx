@@ -204,7 +204,7 @@ function BiocontrolExplorerRoute() {
 					<MapCanvas
 						contextMenu={{ create: [MAP_CREATE_TARGETS.biocontrol] }}
 						biocontrolLayer={biocontrolLayer}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						onMapReady={handleMapReady}
 					/>

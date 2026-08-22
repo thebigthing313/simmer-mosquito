@@ -74,7 +74,9 @@ export function MapControlButton({
 				<Button
 					aria-label={label}
 					className={cn(
-						'size-9 rounded-none text-foreground/75 transition-colors hover:bg-accent/60 hover:text-foreground',
+						// `group` so a control can swap what it draws on hover, the way the
+						// north arrow turns into the compass it resets to.
+						'group size-9 rounded-none text-foreground/75 transition-colors hover:bg-accent/60 hover:text-foreground',
 						active && 'text-primary hover:text-primary',
 					)}
 					disabled={disabled}

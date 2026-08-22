@@ -274,7 +274,7 @@ function RegionsExplorerRoute() {
 					 */}
 					<MapCanvas
 						contextMenu={{}}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData={focusedId === null}
 						onMapReady={setMap}
 						regionLayer={regionLayer}

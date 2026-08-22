@@ -8,6 +8,8 @@ import {
 	CheckCircle2,
 	ChevronDown,
 	ChevronLeft,
+	ChevronsDown,
+	ChevronsUp,
 	ChevronUp,
 	Circle,
 	CircleCheck,
@@ -46,6 +48,7 @@ import {
 	MessageSquare,
 	Minus,
 	Moon,
+	Navigation,
 	Network,
 	OctagonX,
 	PanelLeft,
@@ -176,6 +179,9 @@ export const iconRegistry = {
 		chevronLeft: icon('chevronLeft', 'Chevron left', 'arrows', ChevronLeft),
 		chevronRight: icon('chevronRight', 'Chevron right', 'arrows', LucideChevronRight),
 		chevronUp: icon('chevronUp', 'Chevron up', 'arrows', ChevronUp),
+		chevronsDown: icon('chevronsDown', 'Chevrons down', 'arrows', ChevronsDown),
+		chevronsUp: icon('chevronsUp', 'Chevrons up', 'arrows', ChevronsUp),
+		north: icon('north', 'North', 'arrows', Navigation),
 		moreHorizontal: icon('moreHorizontal', 'More horizontal', 'arrows', LucideMoreHorizontal),
 		panelLeft: icon('panelLeft', 'Panel left', 'arrows', PanelLeft),
 	},
@@ -237,6 +243,8 @@ export const ChevronLeftIcon = iconRegistry.arrows.chevronLeft.icon;
 export const ChevronRight = iconRegistry.arrows.chevronRight.icon;
 export const ChevronRightIcon = iconRegistry.arrows.chevronRight.icon;
 export const ChevronUpIcon = iconRegistry.arrows.chevronUp.icon;
+export const ChevronsDownIcon = iconRegistry.arrows.chevronsDown.icon;
+export const ChevronsUpIcon = iconRegistry.arrows.chevronsUp.icon;
 export const CircleCheckIcon = iconRegistry.generic.success.icon;
 export const CircleIcon = iconRegistry.generic.circle.icon;
 export const CompassIcon = iconRegistry.generic.compass.icon;
@@ -262,6 +270,7 @@ export const MoreHorizontal = iconRegistry.arrows.moreHorizontal.icon;
 export const MoreHorizontalIcon = iconRegistry.arrows.moreHorizontal.icon;
 export const MosquitoIcon = iconRegistry.simmer.mosquito.icon;
 export const FilterIcon = iconRegistry.actions.filter.icon;
+export const NorthIcon = iconRegistry.arrows.north.icon;
 export const OctagonXIcon = iconRegistry.generic.error.icon;
 export const PanelLeftIcon = iconRegistry.arrows.panelLeft.icon;
 export const PinIcon = iconRegistry.actions.pin.icon;

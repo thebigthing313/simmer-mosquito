@@ -179,7 +179,7 @@ function OutreachExplorerRoute() {
 						contextMenu={{
 							create: [MAP_CREATE_TARGETS.outreach, MAP_CREATE_TARGETS.serviceRequest],
 						}}
-						controls={{ layers: false, measure: true }}
+						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						onMapReady={handleMapReady}
 						outreachLayer={outreachLayer}

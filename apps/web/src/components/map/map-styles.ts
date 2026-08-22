@@ -21,6 +21,16 @@ export const DEFAULT_MAP_CAMERA: MapCamera = {
 	pitch: 0,
 };
 
+/**
+ * How far in any SIMMER map will go.
+ *
+ * Mapbox's own ceiling is 22, which is several steps past where either basemap
+ * has imagery: the last few zooms upscale one tile and the reader is looking at
+ * a blur that still says it is a map. 19 is roughly a rooftop, which is as fine
+ * as a Habitat or a trap site is ever placed.
+ */
+export const MAX_MAP_ZOOM = 19;
+
 export type BasemapId = 'streets' | 'satellite';
 
 export interface BasemapStyle {
