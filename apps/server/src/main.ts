@@ -56,6 +56,7 @@ import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
 import { registerPublicEngagementRecordRoutes } from './public-engagement-records-commands/index.js';
 import { registerRecordDeletionRoutes } from './record-deletion.js';
+import { COMPRESSED_READ_PREFIXES, compressReads } from './response-compression.js';
 import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 import { registerTableCommandSurface } from './table-commands/index.js';
@@ -132,6 +133,14 @@ for (const surface of CORS_SURFACES) {
 			allowMethods: [...surface.methods],
 		}),
 	);
+}
+
+// The map and shape reads, gzipped. Registered before the tenancy headers below
+// so it wraps them: it appends `accept-encoding` to the `vary` they set, and
+// appending only works from the outside. `response-compression.ts` has the
+// measurements and says why it is not `hono/compress`.
+for (const prefix of COMPRESSED_READ_PREFIXES) {
+	app.use(prefix, compressReads);
 }
 
 // Organization-scoped reads on URLs that are byte-identical across tenants.
