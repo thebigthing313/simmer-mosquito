@@ -65,81 +65,30 @@ function WeatherStationsRoute() {
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const panel = useExplorerPanel();
 
-	const stations = useMemo(() => {
-		const term = search.trim().toLowerCase();
-		// Already alphabetical off the query; only the search narrows it here.
-		return rows.filter((station) =>
-			term.length === 0
-				? true
-				: [station.name, station.sourceCode, weatherSourceTypeLabel(station.sourceType)].some(
-						(part) => (part ?? '').toLowerCase().includes(term),
-					),
-		);
-	}, [rows, search]);
-
-	const plotted = useMemo(
-		() =>
-			stations.flatMap((station): PlottedStation[] => {
-				const { id, latitude: lat, longitude: lng } = station;
-				return typeof lat === 'number' && typeof lng === 'number' ? [{ id, lat, lng }] : [];
-			}),
-		[stations],
-	);
-
-	const geoJson = useMemo((): GeoJSON.GeoJSON | null => {
-		if (plotted.length === 0) {
-			return null;
-		}
-		return {
-			type: 'FeatureCollection',
-			features: plotted.map(
-				(station): GeoJSON.Feature => ({
-					type: 'Feature',
-					id: station.id,
-					properties: { id: station.id },
-					geometry: { type: 'Point', coordinates: [station.lng, station.lat] },
-				}),
-			),
-		};
-	}, [plotted]);
+	// Already alphabetical off the query; only the search narrows it here.
+	const stations = useMemo(() => matchingStations(rows, search), [rows, search]);
+	const plotted = useMemo(() => plottedStations(stations), [stations]);
+	const geoJson = useMemo(() => stationFeatures(plotted), [plotted]);
 
 	// The points come from local rows, so the camera frames the filtered set from
 	// the list rather than asking the server for an extent.
 	const bounds = useMemo(() => boundsFromCoordinates(plotted), [plotted]);
 
-	// Fly to a station when it becomes focused, from either the list or the map.
-	const focused = plotted.find((station) => station.id === focusedId) ?? null;
-	useEffect(() => {
-		if (map === null || focused === null) {
-			return;
-		}
-		map.flyTo({
-			center: [focused.lng, focused.lat],
-			zoom: Math.max(map.getZoom(), 12),
-			duration: 600,
-		});
-	}, [map, focused]);
+	useFlyToStation(map, plotted.find((station) => station.id === focusedId) ?? null);
 
-	const activeFilterCount = search.trim().length > 0 ? 1 : 0;
+	const isFiltered = search.trim().length > 0;
+	const activeFilterCount = isFiltered ? 1 : 0;
 
 	return (
 		<ExplorerMapPage
 			activeFilterCount={activeFilterCount}
 			filters={
-				<>
-					<SearchField
-						label="Search weather stations"
-						onChange={setSearch}
-						placeholder="Search stations…"
-						value={searchInput}
-					/>
-
-					{activeFilterCount > 0 ? (
-						<ActiveFilterBar onClearAll={() => commitSearch('')}>
-							<FilterChip label={`Search: ${search}`} onRemove={() => commitSearch('')} />
-						</ActiveFilterBar>
-					) : null}
-				</>
+				<StationFilters
+					onClear={() => commitSearch('')}
+					onChange={setSearch}
+					search={search}
+					value={searchInput}
+				/>
 			}
 			heading={{
 				title: 'Weather Stations',
@@ -151,34 +100,19 @@ function WeatherStationsRoute() {
 			}}
 			onResetFilters={() => commitSearch('')}
 			map={
-				<>
-					<MapCanvas
-						contextMenu={{}}
-						controls={{ layers: false, measure: true, readout: true }}
-						fitToData={bounds}
-						geoJson={geoJson}
-						geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: setFocusedId }}
-						inset={panel.inset}
-						onMapReady={setMap}
-						searchWidth={panel.width}
-					/>
-					{focusedId === null ? null : (
-						<WeatherStationMapCard
-							id={focusedId}
-							inset={panel.inset}
-							onClose={() => setFocusedId(null)}
-						/>
-					)}
-				</>
+				<StationMap
+					bounds={bounds}
+					focusedId={focusedId}
+					geoJson={geoJson}
+					onMapReady={setMap}
+					onSelect={setFocusedId}
+					panel={panel}
+				/>
 			}
 			panel={panel}
 			results={{
 				rows: stations,
-				emptyTitle: activeFilterCount > 0 ? 'No stations match' : 'No weather stations',
-				emptyDescription:
-					activeFilterCount > 0
-						? 'Try a different name or code.'
-						: 'Add a station to start recording readings against it.',
+				...emptyState(isFiltered),
 				renderRow: (station) => (
 					<StationRowItem
 						isFocused={station.id === focusedId}
@@ -189,6 +123,138 @@ function WeatherStationsRoute() {
 				),
 			}}
 		/>
+	);
+}
+
+/** What an empty rail says, which depends on whether a filter emptied it. */
+function emptyState(isFiltered: boolean): {
+	readonly emptyTitle: string;
+	readonly emptyDescription: string;
+} {
+	return isFiltered
+		? { emptyTitle: 'No stations match', emptyDescription: 'Try a different name or code.' }
+		: {
+				emptyTitle: 'No weather stations',
+				emptyDescription: 'Add a station to start recording readings against it.',
+			};
+}
+
+/** Fly to a station when it becomes focused, from either the list or the map. */
+function useFlyToStation(map: MapboxMap | null, focused: PlottedStation | null) {
+	useEffect(() => {
+		if (map === null || focused === null) {
+			return;
+		}
+		map.flyTo({
+			center: [focused.lng, focused.lat],
+			zoom: Math.max(map.getZoom(), 12),
+			duration: 600,
+		});
+	}, [map, focused]);
+}
+
+/** The map, and the card for whichever station is focused. */
+function StationMap({
+	bounds,
+	focusedId,
+	geoJson,
+	onMapReady,
+	onSelect,
+	panel,
+}: {
+	readonly bounds: ReturnType<typeof boundsFromCoordinates>;
+	readonly focusedId: string | null;
+	readonly geoJson: GeoJSON.GeoJSON | null;
+	readonly onMapReady: (map: MapboxMap) => void;
+	readonly onSelect: (id: string | null) => void;
+	readonly panel: ReturnType<typeof useExplorerPanel>;
+}) {
+	return (
+		<>
+			<MapCanvas
+				contextMenu={{}}
+				controls={{ layers: false, measure: true, readout: true }}
+				fitToData={bounds}
+				geoJson={geoJson}
+				geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: onSelect }}
+				inset={panel.inset}
+				onMapReady={onMapReady}
+				searchWidth={panel.width}
+			/>
+			{focusedId === null ? null : (
+				<WeatherStationMapCard id={focusedId} inset={panel.inset} onClose={() => onSelect(null)} />
+			)}
+		</>
+	);
+}
+
+/** The stations whose name, code or source type carries the search term. */
+function matchingStations(
+	rows: readonly WeatherStation[],
+	search: string,
+): readonly WeatherStation[] {
+	const term = search.trim().toLowerCase();
+	if (term.length === 0) {
+		return rows;
+	}
+	return rows.filter((station) =>
+		[station.name, station.sourceCode, weatherSourceTypeLabel(station.sourceType)].some((part) =>
+			(part ?? '').toLowerCase().includes(term),
+		),
+	);
+}
+
+/** The ones that have somewhere to be drawn. */
+function plottedStations(stations: readonly WeatherStation[]): readonly PlottedStation[] {
+	return stations.flatMap((station): PlottedStation[] => {
+		const { id, latitude: lat, longitude: lng } = station;
+		return typeof lat === 'number' && typeof lng === 'number' ? [{ id, lat, lng }] : [];
+	});
+}
+
+function stationFeatures(plotted: readonly PlottedStation[]): GeoJSON.GeoJSON | null {
+	if (plotted.length === 0) {
+		return null;
+	}
+	return {
+		type: 'FeatureCollection',
+		features: plotted.map(
+			(station): GeoJSON.Feature => ({
+				type: 'Feature',
+				id: station.id,
+				properties: { id: station.id },
+				geometry: { type: 'Point', coordinates: [station.lng, station.lat] },
+			}),
+		),
+	};
+}
+
+/** The one control this surface filters by, and the chip that undoes it. */
+function StationFilters({
+	onChange,
+	onClear,
+	search,
+	value,
+}: {
+	readonly onChange: (next: string) => void;
+	readonly onClear: () => void;
+	readonly search: string;
+	readonly value: string;
+}) {
+	return (
+		<>
+			<SearchField
+				label="Search weather stations"
+				onChange={onChange}
+				placeholder="Search stations…"
+				value={value}
+			/>
+			{search.trim().length === 0 ? null : (
+				<ActiveFilterBar onClearAll={onClear}>
+					<FilterChip label={`Search: ${search}`} onRemove={onClear} />
+				</ActiveFilterBar>
+			)}
+		</>
 	);
 }
 

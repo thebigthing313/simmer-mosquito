@@ -92,21 +92,21 @@ const EMPTY_TAGS: readonly Tag[] = [];
 
 const STATUS_VALUES: readonly StatusFilter[] = ['all', 'open', 'closed'];
 
-interface RequestFilters {
+interface RequestFilterSet {
 	readonly status: StatusFilter;
 	readonly search: string;
 	readonly tags: ReadonlySet<string>;
 	readonly regions: ReadonlySet<string>;
 }
 
-const REQUEST_FILTER_DEFAULTS: RequestFilters = {
+const REQUEST_FILTER_DEFAULTS: RequestFilterSet = {
 	status: 'open',
 	search: '',
 	tags: new Set(),
 	regions: new Set(),
 };
 
-const REQUEST_FILTER_CODECS: FilterCodecs<RequestFilters> = {
+const REQUEST_FILTER_CODECS: FilterCodecs<RequestFilterSet> = {
 	status: choiceParam(STATUS_VALUES, REQUEST_FILTER_DEFAULTS.status),
 	search: textParam,
 	tags: idSetParam,
@@ -169,31 +169,18 @@ function ServiceRequestsExplorerRoute() {
 	const selectedRegionKey = [...selectedRegionIds].sort().join(',');
 	const taggedRequestIds = useRequestIdsForTags(selectedTagIds);
 
-	const filtered = useMemo(() => {
-		const query = search.trim().toLowerCase();
-		return requests.filter((request) => {
-			const open = isServiceRequestOpen(request);
-			if (status === 'open' && !open) {
-				return false;
-			}
-			if (status === 'closed' && open) {
-				return false;
-			}
-			if (selectedTagIds.size > 0 && !taggedRequestIds.has(request.id)) {
-				return false;
-			}
-			if (!regionMembership.contains({ lng: request.longitude, lat: request.latitude })) {
-				return false;
-			}
-			if (query.length === 0) {
-				return true;
-			}
-			return (
-				serviceRequestTitle(request).toLowerCase().includes(query) ||
-				request.details.toLowerCase().includes(query)
-			);
-		});
-	}, [requests, status, search, selectedTagIds, taggedRequestIds, regionMembership]);
+	const filtered = useMemo(
+		() =>
+			requests.filter((request) =>
+				matchesRequest(request, {
+					containsPoint: regionMembership.contains,
+					search: search.trim().toLowerCase(),
+					status,
+					taggedRequestIds: selectedTagIds.size === 0 ? null : taggedRequestIds,
+				}),
+			),
+		[requests, status, search, selectedTagIds, taggedRequestIds, regionMembership],
+	);
 
 	const legend = useMemo(() => serviceRequestLegend(status), [status]);
 
@@ -216,33 +203,12 @@ function ServiceRequestsExplorerRoute() {
 	const tagsByRequestId = useEntityTags(toDbEntityType('serviceRequest'), visibleRequestIds);
 	const detailsLoading = !parties.isReady || !tagsByRequestId.isReady;
 
-	const geoJson = useMemo<GeoJSON.GeoJSON | null>(() => {
-		const features = filtered
-			.filter((request) => Number.isFinite(request.latitude) && Number.isFinite(request.longitude))
-			.map(
-				(request): GeoJSON.Feature => ({
-					type: 'Feature',
-					id: request.id,
-					// These points are a plain overlay rather than vector tiles, so the
-					// colour travels on the feature and the layer's paint reads it back.
-					properties: { id: request.id, color: requestSwatch(request).color },
-					geometry: { type: 'Point', coordinates: [request.longitude, request.latitude] },
-				}),
-			);
-		return features.length === 0 ? null : { type: 'FeatureCollection', features };
-	}, [filtered]);
-
+	const geoJson = useMemo(() => requestFeatures(filtered), [filtered]);
 	// These points come from local rows, so the camera frames the filtered set
 	// straight from the list rather than asking the server for an extent.
 	const mappedBounds = useMemo(
 		() =>
-			boundsFromCoordinates(
-				filtered
-					.filter(
-						(request) => Number.isFinite(request.latitude) && Number.isFinite(request.longitude),
-					)
-					.map((request) => ({ lng: request.longitude, lat: request.latitude })),
-			),
+			boundsFromCoordinates(mappable(filtered).map((r) => ({ lng: r.longitude, lat: r.latitude }))),
 		[filtered],
 	);
 
@@ -259,7 +225,6 @@ function ServiceRequestsExplorerRoute() {
 		});
 	}, [map, focused]);
 
-	const hasTagFilter = availableTags.length > 0 || selectedTagIds.size > 0;
 	const hasFilter =
 		search.trim().length > 0 ||
 		status !== 'all' ||
@@ -278,68 +243,20 @@ function ServiceRequestsExplorerRoute() {
 		<ExplorerMapPage
 			activeFilterCount={activeFilterCount}
 			filters={
-				<>
-					<SearchField
-						label="Search service requests"
-						onChange={setSearch}
-						placeholder="Search requests…"
-						value={search}
-					/>
-
-					<SegmentedFilter
-						label="Status"
-						onChange={setStatus}
-						options={STATUS_OPTIONS}
-						value={status}
-					/>
-
-					<FilterGrid>
-						{hasTagFilter ? (
-							<TagFilter
-								onChange={setSelectedTagIds}
-								options={availableTags}
-								selected={selectedTagIds}
-							/>
-						) : null}
-						<MultiSelectFilter
-							empty="No regions"
-							label="Region"
-							onChange={setSelectedRegionIds}
-							options={regions.options}
-							selected={selectedRegionIds}
-						/>
-					</FilterGrid>
-
-					{activeFilterCount > 0 ? (
-						<ActiveFilterBar onClearAll={clearAll}>
-							{status === 'open' ? null : (
-								<FilterChip
-									label={`Status: ${status === 'all' ? 'All' : 'Closed'}`}
-									onRemove={() => setStatus('open')}
-								/>
-							)}
-							{search.trim().length > 0 ? (
-								<FilterChip label={`Search: ${search}`} onRemove={() => setSearch('')} />
-							) : null}
-							{availableTags
-								.filter((tag) => selectedTagIds.has(tag.id))
-								.map((tag) => (
-									<RemovableTagChip
-										key={tag.id}
-										onRemove={() => setSelectedTagIds(toggle(selectedTagIds, tag.id))}
-										tag={tag}
-									/>
-								))}
-							{[...selectedRegionIds].map((id) => (
-								<FilterChip
-									key={`region-${id}`}
-									label={regions.nameById.get(id) ?? 'Unknown region'}
-									onRemove={() => setSelectedRegionIds(toggle(selectedRegionIds, id))}
-								/>
-							))}
-						</ActiveFilterBar>
-					) : null}
-				</>
+				<RequestFilters
+					activeFilterCount={activeFilterCount}
+					availableTags={availableTags}
+					onClearAll={clearAll}
+					regions={regions}
+					search={search}
+					selectedRegionIds={selectedRegionIds}
+					selectedTagIds={selectedTagIds}
+					setSearch={setSearch}
+					setSelectedRegionIds={setSelectedRegionIds}
+					setSelectedTagIds={setSelectedTagIds}
+					setStatus={setStatus}
+					status={status}
+				/>
 			}
 			footer={
 				pageCount > 1 ? (
@@ -412,6 +329,226 @@ function ServiceRequestsExplorerRoute() {
 			}}
 		/>
 	);
+}
+
+/** The filter card's contents: the four controls and the chips that undo them. */
+function RequestFilters({
+	activeFilterCount,
+	availableTags,
+	onClearAll,
+	regions,
+	search,
+	selectedRegionIds,
+	selectedTagIds,
+	setSearch,
+	setSelectedRegionIds,
+	setSelectedTagIds,
+	setStatus,
+	status,
+}: {
+	readonly activeFilterCount: number;
+	readonly availableTags: readonly Tag[];
+	readonly onClearAll: () => void;
+	readonly regions: ReturnType<typeof useRegionOptions>;
+	readonly search: string;
+	readonly selectedRegionIds: ReadonlySet<string>;
+	readonly selectedTagIds: ReadonlySet<string>;
+	readonly setSearch: (next: string) => void;
+	readonly setSelectedRegionIds: (next: ReadonlySet<string>) => void;
+	readonly setSelectedTagIds: (next: ReadonlySet<string>) => void;
+	readonly setStatus: (next: StatusFilter) => void;
+	readonly status: StatusFilter;
+}) {
+	const hasTagFilter = availableTags.length > 0 || selectedTagIds.size > 0;
+	return (
+		<>
+			<SearchField
+				label="Search service requests"
+				onChange={setSearch}
+				placeholder="Search requests…"
+				value={search}
+			/>
+
+			<SegmentedFilter
+				label="Status"
+				onChange={setStatus}
+				options={STATUS_OPTIONS}
+				value={status}
+			/>
+
+			<FilterGrid>
+				{hasTagFilter ? (
+					<TagFilter
+						onChange={setSelectedTagIds}
+						options={availableTags}
+						selected={selectedTagIds}
+					/>
+				) : null}
+				<MultiSelectFilter
+					empty="No regions"
+					label="Region"
+					onChange={setSelectedRegionIds}
+					options={regions.options}
+					selected={selectedRegionIds}
+				/>
+			</FilterGrid>
+
+			<RequestFilterChips
+				activeFilterCount={activeFilterCount}
+				availableTags={availableTags}
+				onClearAll={onClearAll}
+				regions={regions}
+				search={search}
+				selectedRegionIds={selectedRegionIds}
+				selectedTagIds={selectedTagIds}
+				setSearch={setSearch}
+				setSelectedRegionIds={setSelectedRegionIds}
+				setSelectedTagIds={setSelectedTagIds}
+				setStatus={setStatus}
+				status={status}
+			/>
+		</>
+	);
+}
+
+/** What is currently narrowing the list, each chip removing its own filter. */
+function RequestFilterChips({
+	activeFilterCount,
+	availableTags,
+	onClearAll,
+	regions,
+	search,
+	selectedRegionIds,
+	selectedTagIds,
+	setSearch,
+	setSelectedRegionIds,
+	setSelectedTagIds,
+	setStatus,
+	status,
+}: {
+	readonly activeFilterCount: number;
+	readonly availableTags: readonly Tag[];
+	readonly onClearAll: () => void;
+	readonly regions: ReturnType<typeof useRegionOptions>;
+	readonly search: string;
+	readonly selectedRegionIds: ReadonlySet<string>;
+	readonly selectedTagIds: ReadonlySet<string>;
+	readonly setSearch: (next: string) => void;
+	readonly setSelectedRegionIds: (next: ReadonlySet<string>) => void;
+	readonly setSelectedTagIds: (next: ReadonlySet<string>) => void;
+	readonly setStatus: (next: StatusFilter) => void;
+	readonly status: StatusFilter;
+}) {
+	if (activeFilterCount === 0) {
+		return null;
+	}
+	return (
+		<ActiveFilterBar onClearAll={onClearAll}>
+			<StatusChip onReset={() => setStatus('open')} status={status} />
+			<SearchChip onClear={() => setSearch('')} search={search} />
+			{availableTags
+				.filter((tag) => selectedTagIds.has(tag.id))
+				.map((tag) => (
+					<RemovableTagChip
+						key={tag.id}
+						onRemove={() => setSelectedTagIds(toggle(selectedTagIds, tag.id))}
+						tag={tag}
+					/>
+				))}
+			{[...selectedRegionIds].map((id) => (
+				<FilterChip
+					key={`region-${id}`}
+					label={regions.nameById.get(id) ?? 'Unknown region'}
+					onRemove={() => setSelectedRegionIds(toggle(selectedRegionIds, id))}
+				/>
+			))}
+		</ActiveFilterBar>
+	);
+}
+
+/** Open is the default, so only Closed or All is worth a chip. */
+function StatusChip({
+	onReset,
+	status,
+}: {
+	readonly onReset: () => void;
+	readonly status: StatusFilter;
+}) {
+	if (status === 'open') {
+		return null;
+	}
+	return <FilterChip label={`Status: ${status === 'all' ? 'All' : 'Closed'}`} onRemove={onReset} />;
+}
+
+function SearchChip({
+	onClear,
+	search,
+}: {
+	readonly onClear: () => void;
+	readonly search: string;
+}) {
+	if (search.trim().length === 0) {
+		return null;
+	}
+	return <FilterChip label={`Search: ${search}`} onRemove={onClear} />;
+}
+
+/** Whether one request survives the filter set the operator has on. */
+function matchesRequest(
+	request: RequestListing,
+	criteria: {
+		readonly containsPoint: (point: { readonly lng: number; readonly lat: number }) => boolean;
+		readonly search: string;
+		readonly status: StatusFilter;
+		/** The ids carrying a selected tag, or `null` when no tag filter is on. */
+		readonly taggedRequestIds: ReadonlySet<string> | null;
+	},
+): boolean {
+	const open = isServiceRequestOpen(request);
+	if (criteria.status === 'open' && !open) {
+		return false;
+	}
+	if (criteria.status === 'closed' && open) {
+		return false;
+	}
+	if (criteria.taggedRequestIds !== null && !criteria.taggedRequestIds.has(request.id)) {
+		return false;
+	}
+	if (!criteria.containsPoint({ lng: request.longitude, lat: request.latitude })) {
+		return false;
+	}
+	if (criteria.search.length === 0) {
+		return true;
+	}
+	return (
+		serviceRequestTitle(request).toLowerCase().includes(criteria.search) ||
+		request.details.toLowerCase().includes(criteria.search)
+	);
+}
+
+/** The requests that have somewhere to be drawn. */
+function mappable(requests: readonly RequestListing[]): readonly RequestListing[] {
+	return requests.filter(
+		(request) => Number.isFinite(request.latitude) && Number.isFinite(request.longitude),
+	);
+}
+
+/**
+ * The overlay the map draws.
+ *
+ * These points are a plain GeoJSON overlay rather than vector tiles, so the
+ * colour travels on the feature and the layer's paint reads it back.
+ */
+function requestFeatures(requests: readonly RequestListing[]): GeoJSON.GeoJSON | null {
+	const features = mappable(requests).map(
+		(request): GeoJSON.Feature => ({
+			type: 'Feature',
+			id: request.id,
+			properties: { id: request.id, color: requestSwatch(request).color },
+			geometry: { type: 'Point', coordinates: [request.longitude, request.latitude] },
+		}),
+	);
+	return features.length === 0 ? null : { type: 'FeatureCollection', features };
 }
 
 /** Dedupe + sort an id list into a stable array reference for query deps. */
@@ -550,20 +687,8 @@ function RequestRowItem({
 	readonly isFocused: boolean;
 	readonly onFocus: () => void;
 }) {
-	const contactLabel = contact === null ? null : contactDisplayName(contact);
-	const addressLabel =
-		address === null
-			? null
-			: formatAddressLine(address).trim() || address.displayName?.trim() || null;
 	const title = serviceRequestTitle(request);
-	// The contact and the address arrive together from an on-demand subset keyed on
-	// the visible page, so while that is in flight the row says so once rather than
-	// printing "Loading…" in both halves of one line.
-	const subtitle = detailsLoading
-		? 'Loading…'
-		: [contactLabel ?? 'No contact', addressLabel]
-				.filter((part): part is string => part !== null)
-				.join(' · ');
+	const subtitle = rowSubtitle({ address, contact, detailsLoading });
 
 	return (
 		<ExplorerRow
@@ -590,6 +715,40 @@ function RequestRowItem({
 			}}
 		/>
 	);
+}
+
+/**
+ * Who reported it and where.
+ *
+ * The contact and the address arrive together from an on-demand subset keyed on
+ * the visible page, so while that is in flight the row says so once rather than
+ * printing "Loading…" in both halves of one line.
+ */
+function rowSubtitle({
+	address,
+	contact,
+	detailsLoading,
+}: {
+	readonly address: Address | null;
+	readonly contact: ContactSummary | null;
+	readonly detailsLoading: boolean;
+}): string {
+	if (detailsLoading) {
+		return 'Loading…';
+	}
+	const parts = [
+		contact === null ? 'No contact' : contactDisplayName(contact),
+		addressLabel(address),
+	];
+	return parts.filter((part): part is string => part !== null).join(' · ');
+}
+
+/** The address line, falling back to whatever name the record carries. */
+function addressLabel(address: Address | null): string | null {
+	if (address === null) {
+		return null;
+	}
+	return formatAddressLine(address).trim() || address.displayName?.trim() || null;
 }
 
 /** The colour this request draws in, so the row matches the map. */

@@ -120,8 +120,8 @@ export function ExplorerMapPage<TRow>({
 			{isCollapsed ? (
 				// Top centre, not the corner it collapsed from: the corners belong to the
 				// map's own controls, which have just moved back into the room the panel
-				// gave up. It also keeps the inset honest — a pill up here covers nothing
-				// the camera needs to steer around.
+				// gave up. It also keeps the inset honest, since a pill up here covers
+				// nothing the camera needs to steer around.
 				<div className="pointer-events-none absolute inset-x-0 top-4 z-10 flex justify-center">
 					<CollapsedPanel
 						activeFilterCount={activeFilterCount}
@@ -130,51 +130,88 @@ export function ExplorerMapPage<TRow>({
 					/>
 				</div>
 			) : (
-				<div
-					className={cn(
-						'pointer-events-none absolute z-10 flex min-h-0 gap-2',
-						// `top-20`, not `top-4`: the map's place search owns the corner and
-						// stays there, so the column starts under it rather than pushing it
-						// sideways every time the panel opens.
-						//
-						// A row on a wide stage: the results take the full height under the
-						// search box and the filter card stands to their right. Stacked, the
-						// filters cost the rail half of what it had, and an explorer's rows
-						// are the thing the reader came for.
-						panel.isNarrow
-							? 'inset-x-3 bottom-3 flex-col-reverse'
-							: 'top-20 bottom-4 left-4 flex-row items-stretch',
-					)}
-					style={panel.isNarrow ? { height: panel.sheetHeight } : undefined}
-				>
-					<div
-						className="flex min-h-0 flex-1 flex-col"
-						style={panel.isNarrow ? undefined : { width: panel.width }}
-					>
-						<ResultsPanel
-							activeFilterCount={activeFilterCount}
-							footer={footer}
-							heading={heading}
-							menuItems={menuItems}
-							onCollapse={() => setCollapsed(true)}
-							onResetFilters={onResetFilters}
-							panel={panel}
-							results={results}
-						/>
-					</div>
-
-					{panel.isFiltersOpen ? (
-						<FiltersCard
-							activeFilterCount={activeFilterCount}
-							onClose={() => panel.setFiltersOpen(false)}
-							style={panel.isNarrow ? undefined : { width: panel.filtersWidth }}
-						>
-							{filters}
-						</FiltersCard>
-					) : null}
-				</div>
+				<OpenPanels
+					activeFilterCount={activeFilterCount}
+					filters={filters}
+					footer={footer}
+					heading={heading}
+					menuItems={menuItems}
+					onResetFilters={onResetFilters}
+					panel={panel}
+					results={results}
+				/>
 			)}
 		</OutletFullPageMap>
+	);
+}
+
+/**
+ * The results and, when it is open, the filter card beside them.
+ *
+ * A row on a wide stage: the results take the full height under the map's place
+ * search and the filter card stands to their right. Stacked, the filters cost
+ * the rail half of what it had, and an explorer's rows are the thing the reader
+ * came for. On a narrow one the pair docks to the bottom as a sheet.
+ */
+function OpenPanels<TRow>({
+	activeFilterCount,
+	filters,
+	footer,
+	heading,
+	menuItems,
+	onResetFilters,
+	panel,
+	results,
+}: {
+	readonly activeFilterCount: number;
+	readonly filters: ReactNode;
+	readonly footer: ReactNode;
+	readonly heading: ExplorerHeading;
+	readonly menuItems: ReactNode;
+	readonly onResetFilters: (() => void) | undefined;
+	readonly panel: ExplorerPanel;
+	readonly results: ExplorerResults<TRow>;
+}) {
+	const { isNarrow } = panel;
+	return (
+		<div
+			className={cn(
+				'pointer-events-none absolute z-10 flex min-h-0 gap-2',
+				// `top-20`, not `top-4`: the map's place search owns the corner and stays
+				// there, so the column starts under it rather than pushing it sideways
+				// every time the panel opens.
+				isNarrow
+					? 'inset-x-3 bottom-3 flex-col-reverse'
+					: 'top-20 bottom-4 left-4 flex-row items-stretch',
+			)}
+			style={isNarrow ? { height: panel.sheetHeight } : undefined}
+		>
+			<div
+				className="flex min-h-0 flex-1 flex-col"
+				style={isNarrow ? undefined : { width: panel.width }}
+			>
+				<ResultsPanel
+					activeFilterCount={activeFilterCount}
+					footer={footer}
+					heading={heading}
+					menuItems={menuItems}
+					onCollapse={() => panel.setCollapsed(true)}
+					onResetFilters={onResetFilters}
+					panel={panel}
+					results={results}
+				/>
+			</div>
+
+			{panel.isFiltersOpen ? (
+				<FiltersCard
+					activeFilterCount={activeFilterCount}
+					onClose={() => panel.setFiltersOpen(false)}
+					style={isNarrow ? undefined : { width: panel.filtersWidth }}
+				>
+					{filters}
+				</FiltersCard>
+			) : null}
+		</div>
 	);
 }
 

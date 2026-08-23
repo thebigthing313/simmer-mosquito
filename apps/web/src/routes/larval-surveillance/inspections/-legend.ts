@@ -38,19 +38,17 @@ export function inspectionLegend(
 	wetness: WetFilter,
 	densities: ReadonlySet<LarvalDensity>,
 ): readonly MapLegendEntry[] {
-	const entries: MapLegendEntry[] = [];
-	if (wetness !== 'dry') {
-		for (const density of DENSITY_ORDER) {
-			if (densities.size === 0 || densities.has(density)) {
-				entries.push({
-					color: INSPECTION_DENSITY_COLORS[density] ?? INSPECTION_DRY_COLOR,
-					label: legendLabel(density),
-				});
-			}
-		}
-	}
-	if (wetness !== 'wet') {
-		entries.push({ color: INSPECTION_DRY_COLOR, label: 'Dry' });
-	}
-	return entries;
+	const wet = wetness === 'dry' ? [] : shownDensities(densities);
+	const dry = wetness === 'wet' ? [] : [{ color: INSPECTION_DRY_COLOR, label: 'Dry' }];
+	return [...wet, ...dry];
+}
+
+/** The bands the density filter leaves on the map, in ramp order. */
+function shownDensities(densities: ReadonlySet<LarvalDensity>): readonly MapLegendEntry[] {
+	const shown =
+		densities.size === 0 ? DENSITY_ORDER : DENSITY_ORDER.filter((d) => densities.has(d));
+	return shown.map((density) => ({
+		color: INSPECTION_DENSITY_COLORS[density],
+		label: legendLabel(density),
+	}));
 }

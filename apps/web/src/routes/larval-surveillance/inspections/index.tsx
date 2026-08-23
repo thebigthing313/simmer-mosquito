@@ -26,6 +26,9 @@ import {
 	usePersonnelOptions,
 	useRegionOptions,
 	useSelectedMapRecord,
+	whenAny,
+	whenOn,
+	whenText,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { densityLabel, hasAnyLifeStage, LifeStageStrip } from '../../../components/larval-display';
@@ -35,12 +38,16 @@ import {
 	type InspectionTileFilters,
 	MAP_CREATE_TARGETS,
 	MapCanvas,
+	type MapLegendEntry,
 } from '../../../components/map';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
 import { InspectionMapCard } from '../-inspection-map-card';
-import { type InspectionFilters, inspectionFilterCodecs } from '../-inspections-search';
+import {
+	type InspectionFilters as InspectionSearchFilters,
+	inspectionFilterCodecs,
+} from '../-inspections-search';
 import {
 	addDaysToDateString,
 	formatListDate,
@@ -100,19 +107,150 @@ const WETNESS_OPTIONS: readonly { readonly value: WetFilter; readonly label: str
 // Ordered low → high so the filter chips read as the map's heat ramp legend.
 const DENSITY_ORDER: readonly LarvalDensity[] = ['none', 'light', 'medium', 'heavy', 'very_heavy'];
 
-function InspectionsExplorerRoute() {
+/**
+ * The window the surface opens on, in the agency's zone.
+ *
+ * A fixed number of days back from today rather than a calendar month, so the
+ * page opens on the same amount of work whenever it is opened.
+ */
+function useDefaultWindow(): { readonly defaultFrom: string; readonly today: string } {
 	const timeZone = useOrganizationTimeZone();
 	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-
 	const defaultFrom = useMemo(
 		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
 		[today],
 	);
+	return { defaultFrom, today };
+}
 
-	// The filter state lives in the URL, so a deep link from the overview's "view
-	// on map" actions, a shared link, and Back out of a record all land on the
-	// same view.
-	const filterDefaults = useMemo<InspectionFilters>(
+/** The three catalogs the filter controls read from. */
+function useInspectionFilterOptions(): InspectionFilterOptions {
+	const habitatTypes = useHabitatTypeOptions();
+	const personnel = usePersonnelOptions();
+	const regions = useRegionOptions();
+	return {
+		habitatTypes: habitatTypes.options,
+		personnel,
+		regions,
+		typeNameById: habitatTypes.nameById,
+	};
+}
+
+/**
+ * The page of inspections in view, and whichever one is selected.
+ *
+ * The selected record is fetched on its own when it is not on the page in hand,
+ * so a deep link to a record outside the current window still opens with the map
+ * flown to it.
+ */
+function useInspectionResults({
+	filters,
+	map,
+	selectedId,
+}: {
+	readonly filters: InspectionTileFilters;
+	readonly map: MapboxMap | null;
+	readonly selectedId: string | null;
+}) {
+	const bbox = useMapBoundsParam(map);
+	const params = useMemo(() => inspectionQueryParams(bbox, filters), [bbox, filters]);
+	const paged = usePagedMapResource<InspectionSite>({
+		path: PATH,
+		rowsKey: 'inspections',
+		label: 'Inspections',
+		params,
+		enabled: bbox !== null,
+	});
+	const selected = useSelectedMapRecord<InspectionSite>({
+		path: PATH,
+		rowKey: 'inspection',
+		rows: paged.rows,
+		selectedId,
+	});
+	useFlyToSelection(map, selected);
+	return { paged, selected };
+}
+
+const RESULT_NOUN = { one: 'inspection', many: 'inspections' };
+
+/** What an empty or loading rail draws, which is the same whatever is filtered. */
+const INSPECTION_RESULTS_COPY = {
+	skeletonClassName: 'h-[64px]',
+	emptyTitle: 'No inspections in view',
+	emptyDescription:
+		'Pan or zoom the map, widen the time window, or loosen the filters to bring inspections into range.',
+} as const;
+
+/** The panel's title row: what the surface is, and how much of it matched. */
+function inspectionsHeading(total: number, isLoading: boolean) {
+	return {
+		title: 'Inspections',
+		icon: InspectionEntityIcon,
+		total,
+		isLoading,
+		noun: RESULT_NOUN,
+		create: { to: '/larval-surveillance/inspections/create', label: 'Create Inspection' },
+	} as const;
+}
+
+/** What the reader has narrowed by, as the tile layer wants it. */
+function inspectionTileFilters(set: InspectionFilterState): InspectionTileFilters {
+	return {
+		...(set.wetness === 'all' ? {} : { isWet: set.wetness === 'wet' }),
+		...whenAny('densities', set.densities),
+		...whenOn('positiveOnly', set.positiveOnly),
+		...whenAny('habitatTypeIds', set.typeIds),
+		...whenAny('inspectedByProfileIds', set.inspectorIds),
+		...whenAny('regionIds', set.regionIds),
+		...whenText('dateFrom', set.dateFrom),
+		...whenText('dateTo', set.dateTo),
+	};
+}
+
+/** The same filters as the list endpoint's query string. */
+function inspectionQueryParams(bbox: string | null, filters: InspectionTileFilters) {
+	return mapQueryParams({
+		bbox,
+		isWet: filters.isWet,
+		density: filters.densities,
+		positive: filters.positiveOnly,
+		habitatTypeId: filters.habitatTypeIds,
+		inspectedBy: filters.inspectedByProfileIds,
+		regionId: filters.regionIds,
+		dateFrom: filters.dateFrom,
+		dateTo: filters.dateTo,
+	});
+}
+
+/**
+ * How many filters are off their default.
+ *
+ * The date range counts as one whichever way it was moved, and the default
+ * window counts as none: an untouched page is not a filtered one.
+ */
+function countActiveFilters(set: InspectionFilterState, isDefaultRange: boolean): number {
+	return (
+		(isDefaultRange ? 0 : 1) +
+		(set.wetness === 'all' ? 0 : 1) +
+		set.densities.size +
+		(set.positiveOnly ? 1 : 0) +
+		set.typeIds.size +
+		set.inspectorIds.size +
+		set.regionIds.size
+	);
+}
+
+/**
+ * The filter set, held on the URL.
+ *
+ * A deep link from the overview's "view on map" actions, a shared link, and
+ * Back out of a record all land on the same view, so the state cannot live in
+ * the component. What the component wants back is a plain value and a setter per
+ * filter, and building those out of one patch function is the bulk of what this
+ * route would otherwise do before it renders anything.
+ */
+function useInspectionFilterState(defaultFrom: string, today: string) {
+	const filterDefaults = useMemo<InspectionSearchFilters>(
 		() => ({
 			from: defaultFrom,
 			to: today,
@@ -130,18 +268,10 @@ function InspectionsExplorerRoute() {
 		setFilters,
 		reset,
 	} = useSearchFilters(filterDefaults, inspectionFilterCodecs);
-	const dateFrom = query.from;
-	const dateTo = query.to;
-	const wetness = query.water;
-	const densities = query.density as ReadonlySet<LarvalDensity>;
-	const positiveOnly = query.positive;
-	const typeIds = query.types;
-	const inspectorIds = query.inspectors;
-	const regionIds = query.regions;
 	const setWetness = useCallback((next: WetFilter) => setFilters({ water: next }), [setFilters]);
 	const setDensities = useCallback(
 		(next: ReadonlySet<LarvalDensity>) =>
-			setFilters({ density: next as InspectionFilters['density'] }),
+			setFilters({ density: next as InspectionSearchFilters['density'] }),
 		[setFilters],
 	);
 	const setPositiveOnly = useCallback(
@@ -160,217 +290,320 @@ function InspectionsExplorerRoute() {
 		(next: ReadonlySet<string>) => setFilters({ regions: next }),
 		[setFilters],
 	);
+	const state: InspectionFilterState = {
+		dateFrom: query.from,
+		dateTo: query.to,
+		densities: query.density as ReadonlySet<LarvalDensity>,
+		inspectorIds: query.inspectors,
+		positiveOnly: query.positive,
+		regionIds: query.regions,
+		typeIds: query.types,
+		wetness: query.water,
+	};
+	const set: InspectionFilterSetters = {
+		setDensities,
+		setInspectorIds,
+		setPositiveOnly,
+		setRegionIds,
+		setTypeIds,
+		setWetness,
+	};
+	return { reset, set, setFilters, state };
+}
+
+/** What the reader has narrowed the list by. */
+interface InspectionFilterState {
+	readonly dateFrom: string;
+	readonly dateTo: string;
+	readonly densities: ReadonlySet<LarvalDensity>;
+	readonly inspectorIds: ReadonlySet<string>;
+	readonly positiveOnly: boolean;
+	readonly regionIds: ReadonlySet<string>;
+	readonly typeIds: ReadonlySet<string>;
+	readonly wetness: WetFilter;
+}
+
+/** One setter per filter, each patching the URL. */
+interface InspectionFilterSetters {
+	readonly setDensities: (next: ReadonlySet<LarvalDensity>) => void;
+	readonly setInspectorIds: (next: ReadonlySet<string>) => void;
+	readonly setPositiveOnly: (next: boolean) => void;
+	readonly setRegionIds: (next: ReadonlySet<string>) => void;
+	readonly setTypeIds: (next: ReadonlySet<string>) => void;
+	readonly setWetness: (next: WetFilter) => void;
+}
+
+/** The catalogs the filter controls offer, and the names their chips read by. */
+interface InspectionFilterOptions {
+	readonly habitatTypes: ReturnType<typeof useHabitatTypeOptions>['options'];
+	readonly personnel: ReturnType<typeof usePersonnelOptions>;
+	readonly regions: ReturnType<typeof useRegionOptions>;
+	readonly typeNameById: ReadonlyMap<string, string>;
+}
+
+function InspectionsExplorerRoute() {
+	const { defaultFrom, today } = useDefaultWindow();
+	const { reset, set, setFilters, state } = useInspectionFilterState(defaultFrom, today);
+	const { dateFrom, dateTo, densities, wetness } = state;
+
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
-	const { options: habitatTypes, nameById: typeNameById } = useHabitatTypeOptions();
-
-	const filters = useMemo<InspectionTileFilters>(
-		() => ({
-			...(wetness === 'all' ? {} : { isWet: wetness === 'wet' }),
-			...(densities.size > 0 ? { densities: [...densities] } : {}),
-			...(positiveOnly ? { positiveOnly: true } : {}),
-			...(typeIds.size > 0 ? { habitatTypeIds: [...typeIds] } : {}),
-			...(inspectorIds.size > 0 ? { inspectedByProfileIds: [...inspectorIds] } : {}),
-			...(regionIds.size > 0 ? { regionIds: [...regionIds] } : {}),
-			...(dateFrom === '' ? {} : { dateFrom }),
-			...(dateTo === '' ? {} : { dateTo }),
-		}),
-		[wetness, densities, positiveOnly, typeIds, inspectorIds, regionIds, dateFrom, dateTo],
-	);
-
+	const filterOptions = useInspectionFilterOptions();
+	const filters = useMemo(() => inspectionTileFilters(state), [state]);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
-
-	const personnel = usePersonnelOptions();
-	const regions = useRegionOptions();
-	const bbox = useMapBoundsParam(map);
-	const params = useMemo(
-		() =>
-			mapQueryParams({
-				bbox,
-				isWet: filters.isWet,
-				density: filters.densities,
-				positive: filters.positiveOnly,
-				habitatTypeId: filters.habitatTypeIds,
-				inspectedBy: filters.inspectedByProfileIds,
-				regionId: filters.regionIds,
-				dateFrom: filters.dateFrom,
-				dateTo: filters.dateTo,
-			}),
-		[bbox, filters],
-	);
-	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
-		usePagedMapResource<InspectionSite>({
-			path: PATH,
-			rowsKey: 'inspections',
-			label: 'Inspections',
-			params,
-			enabled: bbox !== null,
-		});
-
-	const selected = useSelectedMapRecord<InspectionSite>({
-		path: PATH,
-		rowKey: 'inspection',
-		rows,
-		selectedId,
-	});
-	useFlyToSelection(map, selected);
-
+	const { paged, selected } = useInspectionResults({ filters, map, selectedId });
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } = paged;
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
 	const inspectionLayer = useMemo(
 		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
 		[filters, selectedId],
 	);
-
-	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
 	const legend = useMemo(() => inspectionLegend(wetness, densities), [wetness, densities]);
 
-	const activeFilterCount =
-		(isDefaultRange ? 0 : 1) +
-		(wetness === 'all' ? 0 : 1) +
-		densities.size +
-		(positiveOnly ? 1 : 0) +
-		typeIds.size +
-		inspectorIds.size +
-		regionIds.size;
-
+	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
+	const activeFilterCount = countActiveFilters(state, isDefaultRange);
 	const resetDates = useCallback(
 		() => setFilters({ from: defaultFrom, to: today }),
 		[setFilters, defaultFrom, today],
 	);
-
 	const clearAll = reset;
 
 	return (
 		<ExplorerMapPage
 			activeFilterCount={activeFilterCount}
 			filters={
-				<>
-					<DateRangeFilter {...dateRange} />
-
-					<SegmentedFilter
-						label="Water"
-						onChange={setWetness}
-						options={WETNESS_OPTIONS}
-						value={wetness}
-					/>
-
-					<DensityFilter onChange={setDensities} selected={densities} />
-
-					<FilterGrid>
-						<ToggleFilter
-							label="Larvae found only"
-							onChange={setPositiveOnly}
-							value={positiveOnly}
-						/>
-						<MultiSelectFilter
-							empty="No habitat types"
-							label="Habitat type"
-							onChange={setTypeIds}
-							options={habitatTypes}
-							selected={typeIds}
-						/>
-						<MultiSelectFilter
-							empty="No people"
-							label="Inspector"
-							onChange={setInspectorIds}
-							options={personnel.options}
-							selected={inspectorIds}
-						/>
-						<MultiSelectFilter
-							empty="No regions"
-							label="Region"
-							onChange={setRegionIds}
-							options={regions.options}
-							selected={regionIds}
-						/>
-					</FilterGrid>
-
-					{activeFilterCount > 0 ? (
-						<ActiveFilters
-							densities={densities}
-							from={dateFrom}
-							inspectorIds={inspectorIds}
-							isDefaultRange={isDefaultRange}
-							onClearAll={clearAll}
-							onClearPositive={() => setPositiveOnly(false)}
-							onClearWetness={() => setWetness('all')}
-							onResetDates={resetDates}
-							onToggleDensity={(value) => setDensities(toggle(densities, value))}
-							onToggleInspector={(id) => setInspectorIds(toggle(inspectorIds, id))}
-							onToggleRegion={(id) => setRegionIds(toggle(regionIds, id))}
-							onToggleType={(id) => setTypeIds(toggle(typeIds, id))}
-							personnelNameById={personnel.nameById}
-							positiveOnly={positiveOnly}
-							regionIds={regionIds}
-							regionNameById={regions.nameById}
-							to={dateTo}
-							typeIds={typeIds}
-							typeNameById={typeNameById}
-							wetness={wetness}
-						/>
-					) : null}
-				</>
+				<InspectionFilters
+					activeFilterCount={activeFilterCount}
+					dateRange={dateRange}
+					isDefaultRange={isDefaultRange}
+					onClearAll={clearAll}
+					onResetDates={resetDates}
+					options={filterOptions}
+					set={set}
+					state={state}
+				/>
 			}
 			footer={
 				<ExplorerPagination
-					noun={{ one: 'inspection', many: 'inspections' }}
+					noun={RESULT_NOUN}
 					onPageChange={setPage}
 					page={page}
 					pageCount={pageCount}
 					total={total}
 				/>
 			}
-			heading={{
-				title: 'Inspections',
-				icon: InspectionEntityIcon,
-				total,
-				isLoading,
-				create: { to: '/larval-surveillance/inspections/create', label: 'Create Inspection' },
-			}}
 			onResetFilters={clearAll}
+			heading={inspectionsHeading(total, isLoading)}
 			map={
-				<>
-					<MapCanvas
-						inset={panel.inset}
-						searchWidth={panel.width}
-						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection, MAP_CREATE_TARGETS.habitat] }}
-						controls={{ layers: false, measure: true, readout: true }}
-						fitToData
-						inspectionLayer={inspectionLayer}
-						legend={legend}
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<InspectionMapCard
-							id={selected.id}
-							inset={panel.inset}
-							onClose={() => setSelectedId(null)}
-						/>
-					)}
-				</>
+				<InspectionMap
+					inspectionLayer={inspectionLayer}
+					legend={legend}
+					onSelect={setSelectedId}
+					onMapReady={handleMapReady}
+					panel={panel}
+					selected={selected}
+				/>
 			}
 			panel={panel}
 			results={{
+				...INSPECTION_RESULTS_COPY,
 				rows,
 				isError,
 				onRetry: retry,
-				skeletonClassName: 'h-[64px]',
-				emptyTitle: 'No inspections in view',
-				emptyDescription:
-					'Pan or zoom the map, widen the time window, or loosen the filters to bring inspections into range.',
 				renderRow: (inspection) => (
 					<InspectionListItem
 						inspection={inspection}
-						isSelected={inspection.id === selectedId}
 						key={inspection.id}
 						onSelect={setSelectedId}
-						typeName={resolveTypeName(inspection, typeNameById)}
+						selectedId={selectedId}
+						typeNameById={filterOptions.typeNameById}
 					/>
 				),
 			}}
 		/>
+	);
+}
+
+/** The map, and the card for whichever inspection is selected. */
+function InspectionMap({
+	inspectionLayer,
+	legend,
+	onSelect,
+	onMapReady,
+	panel,
+	selected,
+}: {
+	readonly inspectionLayer:
+		| NonNullable<Parameters<typeof MapCanvas>[0]['inspectionLayer']>
+		| undefined;
+	readonly legend: readonly MapLegendEntry[] | undefined;
+	readonly onSelect: (id: string | null) => void;
+	readonly onMapReady: (map: MapboxMap) => void;
+	readonly panel: ReturnType<typeof useExplorerPanel>;
+	readonly selected: InspectionSite | null;
+}) {
+	return (
+		<>
+			<MapCanvas
+				contextMenu={{ create: [MAP_CREATE_TARGETS.inspection, MAP_CREATE_TARGETS.habitat] }}
+				controls={{ layers: false, measure: true, readout: true }}
+				fitToData
+				inset={panel.inset}
+				{...(inspectionLayer === undefined ? {} : { inspectionLayer })}
+				{...(legend === undefined ? {} : { legend })}
+				onMapReady={onMapReady}
+				searchWidth={panel.width}
+			/>
+			{selected === null ? null : (
+				<InspectionMapCard id={selected.id} inset={panel.inset} onClose={() => onSelect(null)} />
+			)}
+		</>
+	);
+}
+
+/**
+ * The chip row, or nothing when no filter is set.
+ *
+ * It takes the filter values and their setters rather than a callback per chip,
+ * so the card above it hands over what it already holds instead of building
+ * twelve closures on every render.
+ */
+function InspectionActiveFilters({
+	activeFilterCount,
+	isDefaultRange,
+	onClearAll,
+	onResetDates,
+	options,
+	set,
+	state,
+}: {
+	readonly activeFilterCount: number;
+	readonly isDefaultRange: boolean;
+	readonly onClearAll: () => void;
+	readonly onResetDates: () => void;
+	readonly options: InspectionFilterOptions;
+	readonly set: InspectionFilterSetters;
+	readonly state: InspectionFilterState;
+}) {
+	if (activeFilterCount === 0) {
+		return null;
+	}
+	const { densities, inspectorIds, regionIds, typeIds } = state;
+	return (
+		<ActiveFilters
+			densities={densities}
+			from={state.dateFrom}
+			inspectorIds={inspectorIds}
+			isDefaultRange={isDefaultRange}
+			onClearAll={onClearAll}
+			onClearPositive={() => set.setPositiveOnly(false)}
+			onClearWetness={() => set.setWetness('all')}
+			onResetDates={onResetDates}
+			onToggleDensity={(value) => set.setDensities(toggle(densities, value))}
+			onToggleInspector={(id) => set.setInspectorIds(toggle(inspectorIds, id))}
+			onToggleRegion={(id) => set.setRegionIds(toggle(regionIds, id))}
+			onToggleType={(id) => set.setTypeIds(toggle(typeIds, id))}
+			personnelNameById={options.personnel.nameById}
+			positiveOnly={state.positiveOnly}
+			regionIds={regionIds}
+			regionNameById={options.regions.nameById}
+			to={state.dateTo}
+			typeIds={typeIds}
+			typeNameById={options.typeNameById}
+			wetness={state.wetness}
+		/>
+	);
+}
+
+/** The four multi-selects, which have no state of their own to hold. */
+function InspectionFilterGrid({
+	options,
+	set,
+	state,
+}: {
+	readonly options: InspectionFilterOptions;
+	readonly set: InspectionFilterSetters;
+	readonly state: InspectionFilterState;
+}) {
+	return (
+		<FilterGrid>
+			<ToggleFilter
+				label="Larvae found only"
+				onChange={set.setPositiveOnly}
+				value={state.positiveOnly}
+			/>
+			<MultiSelectFilter
+				empty="No habitat types"
+				label="Habitat type"
+				onChange={set.setTypeIds}
+				options={options.habitatTypes}
+				selected={state.typeIds}
+			/>
+			<MultiSelectFilter
+				empty="No people"
+				label="Inspector"
+				onChange={set.setInspectorIds}
+				options={options.personnel.options}
+				selected={state.inspectorIds}
+			/>
+			<MultiSelectFilter
+				empty="No regions"
+				label="Region"
+				onChange={set.setRegionIds}
+				options={options.regions.options}
+				selected={state.regionIds}
+			/>
+		</FilterGrid>
+	);
+}
+
+/** The filter card's contents, and the chips that undo what is set. */
+function InspectionFilters({
+	activeFilterCount,
+	dateRange,
+	isDefaultRange,
+	onClearAll,
+	onResetDates,
+	options,
+	set,
+	state,
+}: {
+	readonly activeFilterCount: number;
+	readonly dateRange: ReturnType<typeof useDateRangeFilters>;
+	readonly isDefaultRange: boolean;
+	readonly onClearAll: () => void;
+	readonly onResetDates: () => void;
+	readonly options: InspectionFilterOptions;
+	readonly set: InspectionFilterSetters;
+	readonly state: InspectionFilterState;
+}) {
+	return (
+		<>
+			<DateRangeFilter {...dateRange} />
+
+			<SegmentedFilter
+				label="Water"
+				onChange={set.setWetness}
+				options={WETNESS_OPTIONS}
+				value={state.wetness}
+			/>
+
+			<DensityFilter onChange={set.setDensities} selected={state.densities} />
+
+			<InspectionFilterGrid options={options} set={set} state={state} />
+
+			<InspectionActiveFilters
+				activeFilterCount={activeFilterCount}
+				isDefaultRange={isDefaultRange}
+				onClearAll={onClearAll}
+				onResetDates={onResetDates}
+				options={options}
+				set={set}
+				state={state}
+			/>
+		</>
 	);
 }
 
@@ -509,15 +742,17 @@ function ActiveFilters({
 
 function InspectionListItem({
 	inspection,
-	typeName,
-	isSelected,
+	typeNameById,
+	selectedId,
 	onSelect,
 }: {
 	readonly inspection: InspectionSite;
-	readonly typeName: string;
-	readonly isSelected: boolean;
+	readonly typeNameById: ReadonlyMap<string, string>;
+	readonly selectedId: string | null;
 	readonly onSelect: (id: string) => void;
 }) {
+	const isSelected = inspection.id === selectedId;
+	const typeName = resolveTypeName(inspection, typeNameById);
 	const label = siteLabel(inspection);
 	const when = formatListDate(inspection.inspectionDate);
 	return (

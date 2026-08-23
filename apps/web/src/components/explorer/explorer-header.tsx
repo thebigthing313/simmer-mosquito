@@ -36,6 +36,14 @@ export interface ExplorerCreateAction {
 	readonly minimum?: MinimumRole;
 }
 
+/** Put the whole panel away. Only the map frame has one. */
+export interface CollapseAction {
+	readonly onCollapse: () => void;
+	readonly label: string;
+	/** Points where the panel goes: aside on a side column, down on a sheet. */
+	readonly icon: RegistryIcon;
+}
+
 /** The filter card's toggle, and what it has to report while the card is shut. */
 export interface ExplorerFilterToggle {
 	readonly isOpen: boolean;
@@ -89,14 +97,7 @@ export function ExplorerHeader({
 	 * Put the whole panel away. Only the map frame passes one — a header above a
 	 * column has nothing to collapse into.
 	 */
-	readonly collapse?:
-		| {
-				readonly onCollapse: () => void;
-				readonly label: string;
-				/** Points where the panel goes: aside on a side column, down on a sheet. */
-				readonly icon: RegistryIcon;
-		  }
-		| undefined;
+	readonly collapse?: CollapseAction | undefined;
 	/**
 	 * The filter controls, stacked under the title row. Omitted where the surface
 	 * gives its filters a panel of their own.
@@ -119,15 +120,6 @@ export function ExplorerHeader({
 	readonly showTotal?: boolean;
 }) {
 	const isChrome = surface === 'chrome';
-	// In the map frame this header is one of two panels stacked in a 380px column,
-	// and the other one spends 8px on its own header. At the page padding it was
-	// spending 73px of the rail on a title the breadcrumb already carries.
-	// Truncates rather than wraps: in a rail the create button is fixed-width, so
-	// a long title is the thing that has to give.
-	const heading = cn(
-		'truncate font-semibold text-foreground leading-none',
-		isChrome ? 'text-base' : 'text-lg',
-	);
 
 	return (
 		<div
@@ -147,39 +139,18 @@ export function ExplorerHeader({
 			 * for Control, Service Requests, Weather Stations, Address Book.
 			 */}
 			<div className="flex min-w-0 items-center justify-between gap-3">
-				{Icon === undefined ? (
-					<h1 className={cn(heading, 'min-w-0')}>{title}</h1>
-				) : (
-					<div className="flex min-w-0 items-center gap-2">
-						<Icon aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
-						<h1 className={cn(heading, 'min-w-0')}>{title}</h1>
-					</div>
-				)}
+				<HeaderTitle icon={Icon} isChrome={isChrome} title={title} />
 				<div className={cn('flex shrink-0 items-center', isChrome ? 'gap-0.5' : 'gap-2.5')}>
-					{isChrome && !showTotal ? null : (
-						<ResultMeta isLoading={isLoading} noun={noun} total={total} />
-					)}
-					{/*
-					 * In the map frame the create action is a menu item rather than a button
-					 * of its own. "Add Trap" spent 175px of the panel, more than the title
-					 * beside it, to repeat a word the title had already said.
-					 *
-					 * A page-width header keeps the words and the fill: it has the room, and
-					 * there the button is the only thing telling a reader they can add one.
-					 */}
-					{isChrome || create === undefined ? null : (
-						<WriteOnly minimum={create.minimum ?? 'collector'}>
-							<Button asChild size="sm">
-								<Link to={create.to}>
-									<PlusIcon aria-hidden="true" data-icon="inline-start" />
-									{create.label}
-								</Link>
-							</Button>
-						</WriteOnly>
-					)}
-					{filterToggle === undefined ? null : <FilterToggleButton toggle={filterToggle} />}
-					{isChrome &&
-					(create !== undefined || menuItems !== undefined || onResetFilters !== undefined) ? (
+					<HeaderCount
+						isChrome={isChrome}
+						isLoading={isLoading}
+						noun={noun}
+						showTotal={showTotal}
+						total={total}
+					/>
+					<CreateButton create={create} isChrome={isChrome} />
+					<FilterToggleButton toggle={filterToggle} />
+					{isChrome ? (
 						<PanelMenu
 							create={create}
 							menuItems={menuItems}
@@ -187,7 +158,7 @@ export function ExplorerHeader({
 							resetDisabled={(filterToggle?.activeCount ?? 0) === 0}
 						/>
 					) : null}
-					{collapse === undefined ? null : <CollapseButton collapse={collapse} />}
+					<CollapseButton collapse={collapse} />
 				</div>
 			</div>
 			{children}
@@ -195,15 +166,99 @@ export function ExplorerHeader({
 	);
 }
 
-function CollapseButton({
-	collapse,
+/**
+ * How many records matched.
+ *
+ * A `chrome` panel ends in a footer stating the same number, and the pill it
+ * collapses into carries it too, so the row leaves it out unless the panel has
+ * no pager under it and asks for it back.
+ */
+function HeaderCount({
+	isChrome,
+	isLoading,
+	noun,
+	showTotal,
+	total,
 }: {
-	readonly collapse: {
-		readonly onCollapse: () => void;
-		readonly label: string;
-		readonly icon: RegistryIcon;
-	};
+	readonly isChrome: boolean;
+	readonly isLoading: boolean;
+	readonly noun: { readonly one: string; readonly many: string } | undefined;
+	readonly showTotal: boolean;
+	readonly total: number;
 }) {
+	if (isChrome && !showTotal) {
+		return null;
+	}
+	return <ResultMeta isLoading={isLoading} noun={noun} total={total} />;
+}
+
+/**
+ * The surface's name, with its icon where it has one.
+ *
+ * In the map frame this header is one of two panels stacked in a 380px column,
+ * and the other one spends 8px on its own header. At the page padding it was
+ * spending 73px of the rail on a title the breadcrumb already carries.
+ * Truncates rather than wraps: in a rail the create button is fixed-width, so a
+ * long title is the thing that has to give.
+ */
+function HeaderTitle({
+	icon: Icon,
+	isChrome,
+	title,
+}: {
+	readonly icon: RegistryIcon | undefined;
+	readonly isChrome: boolean;
+	readonly title: string;
+}) {
+	const heading = cn(
+		'min-w-0 truncate font-semibold text-foreground leading-none',
+		isChrome ? 'text-base' : 'text-lg',
+	);
+	if (Icon === undefined) {
+		return <h1 className={heading}>{title}</h1>;
+	}
+	return (
+		<div className="flex min-w-0 items-center gap-2">
+			<Icon aria-hidden="true" className="size-5 shrink-0 text-muted-foreground" />
+			<h1 className={heading}>{title}</h1>
+		</div>
+	);
+}
+
+/**
+ * The create action as a button, on a page-width header only.
+ *
+ * In the map frame it is a menu item instead. "Add Trap" spent 175px of the
+ * panel, more than the title beside it, to repeat a word the title had already
+ * said. A page-width header keeps the words and the fill: it has the room, and
+ * there the button is the only thing telling a reader they can add one.
+ */
+function CreateButton({
+	create,
+	isChrome,
+}: {
+	readonly create: ExplorerCreateAction | undefined;
+	readonly isChrome: boolean;
+}) {
+	if (isChrome || create === undefined) {
+		return null;
+	}
+	return (
+		<WriteOnly minimum={create.minimum ?? 'collector'}>
+			<Button asChild size="sm">
+				<Link to={create.to}>
+					<PlusIcon aria-hidden="true" data-icon="inline-start" />
+					{create.label}
+				</Link>
+			</Button>
+		</WriteOnly>
+	);
+}
+
+function CollapseButton({ collapse }: { readonly collapse: CollapseAction | undefined }) {
+	if (collapse === undefined) {
+		return null;
+	}
 	const Icon = collapse.icon;
 	return (
 		<Button
@@ -225,7 +280,10 @@ function CollapseButton({
  * a reader who arrived on a filtered link cannot tell a surface with nothing in
  * range from one whose filters excluded everything.
  */
-function FilterToggleButton({ toggle }: { readonly toggle: ExplorerFilterToggle }) {
+function FilterToggleButton({ toggle }: { readonly toggle: ExplorerFilterToggle | undefined }) {
+	if (toggle === undefined) {
+		return null;
+	}
 	const { isOpen, onToggle, activeCount } = toggle;
 	// Named "Filters" in both states, with the state on `aria-pressed`. Naming it
 	// for the action instead would give it the same name as the card's own close,
@@ -277,6 +335,12 @@ function PanelMenu({
 	readonly resetDisabled: boolean;
 }) {
 	const hasWrites = create !== undefined || menuItems !== undefined;
+	// Nothing to hold, so no trigger. A surface with no create action, no extra
+	// entries and no filters to reset would otherwise draw a menu that opens on
+	// an empty card.
+	if (!hasWrites && onResetFilters === undefined) {
+		return null;
+	}
 	return (
 		<DropdownMenu>
 			<DropdownMenuTrigger asChild>

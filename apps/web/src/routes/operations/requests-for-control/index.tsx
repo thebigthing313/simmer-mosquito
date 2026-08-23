@@ -118,72 +118,20 @@ function RequestsForControlRoute() {
 		[requests, filters],
 	);
 
-	const mapped = useMemo(
-		() => visible.filter((request) => Number.isFinite(request.lat) && Number.isFinite(request.lng)),
-		[visible],
-	);
-
-	const geoJson = useMemo<GeoJSON.GeoJSON | null>(() => {
-		const features = mapped.map(
-			(request): GeoJSON.Feature => ({
-				type: 'Feature',
-				id: request.id,
-				properties: { id: request.id },
-				geometry: { type: 'Point', coordinates: [request.lng, request.lat] },
-			}),
-		);
-		return features.length === 0 ? null : { type: 'FeatureCollection', features };
-	}, [mapped]);
-
+	const mapped = useMemo(() => mappable(visible), [visible]);
+	const geoJson = useMemo(() => requestFeatures(mapped), [mapped]);
 	// The points come from local rows, so the camera frames the filtered set from
 	// the list rather than asking the server for an extent.
 	const bounds = useMemo(
 		() => boundsFromCoordinates(mapped.map((request) => ({ lng: request.lng, lat: request.lat }))),
 		[mapped],
 	);
+	useFlyToRequest(
+		map,
+		selectedId === null ? null : (visible.find((r) => r.id === selectedId) ?? null),
+	);
 
-	const selected = selectedId === null ? null : (visible.find((r) => r.id === selectedId) ?? null);
-
-	useEffect(() => {
-		if (map === null || selected === null) {
-			return;
-		}
-		map.flyTo({
-			center: [selected.lng, selected.lat],
-			zoom: Math.max(map.getZoom(), 14),
-			duration: 600,
-		});
-	}, [map, selected]);
-
-	const handleFromChange = useCallback(
-		(next: string) => {
-			setFilters({
-				from: next,
-				...(next !== '' && filters.to !== '' && next > filters.to ? { to: next } : {}),
-			});
-		},
-		[setFilters, filters.to],
-	);
-	const handleToChange = useCallback(
-		(next: string) => {
-			setFilters({
-				to: next,
-				...(next !== '' && filters.from !== '' && next < filters.from ? { from: next } : {}),
-			});
-		},
-		[setFilters, filters.from],
-	);
-	const applyPreset = useCallback(
-		(preset: DatePreset) => {
-			const range = datePresetRange(preset, today);
-			setFilters({ from: range.from, to: range.to });
-		},
-		[setFilters, today],
-	);
-	const activePresetId = useMemo(
-		() => activeDatePresetId(filters.from, filters.to, today),
-		[filters.from, filters.to, today],
-	);
+	const dateRange = useRequestDateRange(filters, setFilters, today);
 
 	// Open is the default, so only All or Resolved counts as something the operator
 	// set. Counting the default would put a "1 filter" badge on an untouched page.
@@ -193,74 +141,15 @@ function RequestsForControlRoute() {
 		<ExplorerMapPage
 			activeFilterCount={activeFilterCount}
 			filters={
-				<>
-					<DateRangeFilter
-						activePresetId={activePresetId}
-						from={filters.from}
-						onApplyPreset={applyPreset}
-						onFromChange={handleFromChange}
-						onToChange={handleToChange}
-						to={filters.to}
-						today={today}
-					/>
-
-					<SegmentedFilter
-						label="Status"
-						onChange={(next: StatusFilter) => setFilters({ status: next })}
-						options={STATUS_OPTIONS}
-						value={status}
-					/>
-
-					<FilterGrid>
-						<MultiSelectFilter
-							empty="No control types"
-							label="Control type"
-							onChange={(next) => setFilters({ types: next })}
-							options={CONTROL_TYPE_OPTIONS}
-							selected={filters.types}
-						/>
-						<MultiSelectFilter
-							empty="No profiles"
-							label="Requested by"
-							onChange={(next) => setFilters({ people: next })}
-							options={personnelOptions}
-							selected={filters.people}
-						/>
-					</FilterGrid>
-
-					{activeFilterCount > 0 ? (
-						<ActiveFilterBar onClearAll={reset}>
-							{status === 'open' ? null : (
-								<FilterChip
-									label={`Status: ${status === 'all' ? 'All' : 'Resolved'}`}
-									onRemove={() => setFilters({ status: 'open' })}
-								/>
-							)}
-							{[...filters.types].map((id) => (
-								<FilterChip
-									key={`type-${id}`}
-									label={controlTypeLabel(id)}
-									onRemove={() => {
-										const next = new Set(filters.types);
-										next.delete(id);
-										setFilters({ types: next });
-									}}
-								/>
-							))}
-							{[...filters.people].map((id) => (
-								<FilterChip
-									key={`person-${id}`}
-									label={nameById.get(id) ?? 'Unknown profile'}
-									onRemove={() => {
-										const next = new Set(filters.people);
-										next.delete(id);
-										setFilters({ people: next });
-									}}
-								/>
-							))}
-						</ActiveFilterBar>
-					) : null}
-				</>
+				<RequestControlFilters
+					activeFilterCount={activeFilterCount}
+					dateRange={dateRange}
+					filters={filters}
+					nameById={nameById}
+					onClearAll={reset}
+					personnelOptions={personnelOptions}
+					setFilters={setFilters}
+				/>
 			}
 			heading={{
 				title: 'Requests for Control',
@@ -292,25 +181,211 @@ function RequestsForControlRoute() {
 				skeletonClassName: 'h-[68px]',
 				renderRow: (request) => (
 					<RequestRow
-						isSelected={request.id === selectedId}
 						key={request.id}
-						methodName={
-							request.recommendedMethodId === null
-								? null
-								: (methodNameById.get(request.recommendedMethodId) ?? null)
-						}
+						methodNameById={methodNameById}
 						onSelect={setSelectedId}
+						personNameById={nameById}
 						request={request}
-						requesterName={
-							request.requestedByProfileId === null
-								? null
-								: (nameById.get(request.requestedByProfileId) ?? null)
-						}
+						selectedId={selectedId}
 					/>
 				),
 			}}
 		/>
 	);
+}
+
+/** A name from a catalog, for a column that may not point at one. */
+function lookup(names: ReadonlyMap<string, string>, id: string | null): string | null {
+	return id === null ? null : (names.get(id) ?? null);
+}
+
+/** The requests that have somewhere to be drawn. */
+function mappable(requests: readonly RequestListing[]): readonly RequestListing[] {
+	return requests.filter((request) => Number.isFinite(request.lat) && Number.isFinite(request.lng));
+}
+
+function requestFeatures(mapped: readonly RequestListing[]): GeoJSON.GeoJSON | null {
+	const features = mapped.map(
+		(request): GeoJSON.Feature => ({
+			type: 'Feature',
+			id: request.id,
+			properties: { id: request.id },
+			geometry: { type: 'Point', coordinates: [request.lng, request.lat] },
+		}),
+	);
+	return features.length === 0 ? null : { type: 'FeatureCollection', features };
+}
+
+/** Fly to a request when it becomes selected, from either the list or the map. */
+function useFlyToRequest(map: MapboxMap | null, selected: RequestListing | null) {
+	useEffect(() => {
+		if (map === null || selected === null) {
+			return;
+		}
+		map.flyTo({
+			center: [selected.lng, selected.lat],
+			zoom: Math.max(map.getZoom(), 14),
+			duration: 600,
+		});
+	}, [map, selected]);
+}
+
+/**
+ * The date range, and the two handlers that keep it in order.
+ *
+ * Moving one end past the other drags the other with it rather than leaving an
+ * empty range on the URL.
+ */
+function useRequestDateRange(
+	filters: RequestFilters,
+	setFilters: (patch: Partial<RequestFilters>) => void,
+	today: string,
+) {
+	const onFromChange = useCallback(
+		(next: string) => {
+			setFilters({
+				from: next,
+				...(next !== '' && filters.to !== '' && next > filters.to ? { to: next } : {}),
+			});
+		},
+		[setFilters, filters.to],
+	);
+	const onToChange = useCallback(
+		(next: string) => {
+			setFilters({
+				to: next,
+				...(next !== '' && filters.from !== '' && next < filters.from ? { from: next } : {}),
+			});
+		},
+		[setFilters, filters.from],
+	);
+	const onApplyPreset = useCallback(
+		(preset: DatePreset) => {
+			const range = datePresetRange(preset, today);
+			setFilters({ from: range.from, to: range.to });
+		},
+		[setFilters, today],
+	);
+	const activePresetId = useMemo(
+		() => activeDatePresetId(filters.from, filters.to, today),
+		[filters.from, filters.to, today],
+	);
+	return {
+		activePresetId,
+		from: filters.from,
+		onApplyPreset,
+		onFromChange,
+		onToChange,
+		to: filters.to,
+		today,
+	};
+}
+
+/** The filter card's contents, and the chips that undo what is set. */
+function RequestControlFilters({
+	activeFilterCount,
+	dateRange,
+	filters,
+	nameById,
+	onClearAll,
+	personnelOptions,
+	setFilters,
+}: {
+	readonly activeFilterCount: number;
+	readonly dateRange: ReturnType<typeof useRequestDateRange>;
+	readonly filters: RequestFilters;
+	readonly nameById: ReadonlyMap<string, string>;
+	readonly onClearAll: () => void;
+	readonly personnelOptions: ReturnType<typeof usePersonnelOptions>['options'];
+	readonly setFilters: (patch: Partial<RequestFilters>) => void;
+}) {
+	return (
+		<>
+			<DateRangeFilter {...dateRange} />
+
+			<SegmentedFilter
+				label="Status"
+				onChange={(next: StatusFilter) => setFilters({ status: next })}
+				options={STATUS_OPTIONS}
+				value={filters.status}
+			/>
+
+			<FilterGrid>
+				<MultiSelectFilter
+					empty="No control types"
+					label="Control type"
+					onChange={(next) => setFilters({ types: next })}
+					options={CONTROL_TYPE_OPTIONS}
+					selected={filters.types}
+				/>
+				<MultiSelectFilter
+					empty="No profiles"
+					label="Requested by"
+					onChange={(next) => setFilters({ people: next })}
+					options={personnelOptions}
+					selected={filters.people}
+				/>
+			</FilterGrid>
+
+			<RequestControlChips
+				activeFilterCount={activeFilterCount}
+				filters={filters}
+				nameById={nameById}
+				onClearAll={onClearAll}
+				setFilters={setFilters}
+			/>
+		</>
+	);
+}
+
+/** What is currently narrowing the list, each chip removing its own filter. */
+function RequestControlChips({
+	activeFilterCount,
+	filters,
+	nameById,
+	onClearAll,
+	setFilters,
+}: {
+	readonly activeFilterCount: number;
+	readonly filters: RequestFilters;
+	readonly nameById: ReadonlyMap<string, string>;
+	readonly onClearAll: () => void;
+	readonly setFilters: (patch: Partial<RequestFilters>) => void;
+}) {
+	if (activeFilterCount === 0) {
+		return null;
+	}
+	return (
+		<ActiveFilterBar onClearAll={onClearAll}>
+			{filters.status === 'open' ? null : (
+				<FilterChip
+					label={`Status: ${filters.status === 'all' ? 'All' : 'Resolved'}`}
+					onRemove={() => setFilters({ status: 'open' })}
+				/>
+			)}
+			{[...filters.types].map((id) => (
+				<FilterChip
+					key={`type-${id}`}
+					label={controlTypeLabel(id)}
+					onRemove={() => setFilters({ types: without(filters.types, id) })}
+				/>
+			))}
+			{[...filters.people].map((id) => (
+				<FilterChip
+					key={`person-${id}`}
+					label={nameById.get(id) ?? 'Unknown profile'}
+					onRemove={() => setFilters({ people: without(filters.people, id) })}
+				/>
+			))}
+		</ActiveFilterBar>
+	);
+}
+
+/** The same set without one id. */
+function without(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
+	const next = new Set(set);
+	next.delete(id);
+	return next;
 }
 
 /**
@@ -337,17 +412,20 @@ function matchesFilters(request: RequestListing, filters: RequestFilters): boole
 
 function RequestRow({
 	request,
-	methodName,
-	requesterName,
-	isSelected,
+	methodNameById,
+	personNameById,
+	selectedId,
 	onSelect,
 }: {
 	readonly request: RequestListing;
-	readonly methodName: string | null;
-	readonly requesterName: string | null;
-	readonly isSelected: boolean;
+	readonly methodNameById: ReadonlyMap<string, string>;
+	readonly personNameById: ReadonlyMap<string, string>;
+	readonly selectedId: string | null;
 	readonly onSelect: (id: string) => void;
 }) {
+	const isSelected = request.id === selectedId;
+	const methodName = lookup(methodNameById, request.recommendedMethodId);
+	const requesterName = lookup(personNameById, request.requestedByProfileId);
 	const subject = requestDisplayName(request);
 	const timeZone = useOrganizationTimeZone();
 	const detail = [
