@@ -104,9 +104,10 @@ export function useExplorerPanel(options?: {
 		if (isNarrow) {
 			return { ...NO_MAP_INSET, bottom: sheetHeight + SHEET_EDGE };
 		}
-		// Only the results rail. The filter card is opened to set something and then
-		// shut again, and counting it would re-frame the camera twice on every visit
-		// to it — once away from the records the reader is looking at, once back.
+		// Only the results rail. The filter card pops up over the map and is meant
+		// to leave the camera where it is: it is opened to set something and shut
+		// again, and counting it would re-frame twice on every visit, once away from
+		// the records the reader is looking at and once back.
 		return { ...NO_MAP_INSET, left: PANEL_EDGE + PANEL_WIDTH };
 	}, [isCollapsed, isNarrow, sheetHeight]);
 

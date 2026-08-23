@@ -56,7 +56,10 @@ const colors = {
  * The status colours, keyed by the status the server resolves, exported so the
  * key, the result rail's dot and the map ramp read from one place.
  */
-export const COLLECTION_STATUS_COLORS: Readonly<Record<string, string>> = {
+/** The status the server resolves for a collection, by precedence. */
+export type CollectionStatus = 'pending' | 'problem' | 'zero_result' | 'collected';
+
+export const COLLECTION_STATUS_COLORS: Readonly<Record<CollectionStatus, string>> = {
 	collected: colors.collected,
 	pending: colors.pending,
 	zero_result: colors.zeroResult,

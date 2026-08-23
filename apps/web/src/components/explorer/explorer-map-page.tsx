@@ -41,7 +41,7 @@ export interface ExplorerHeading {
 /** The rows, and what stands in for them when there are none. */
 export interface ExplorerResults<TRow> {
 	/**
-	 * The whole scroll area, for a panel whose records are not a flat list — the
+	 * The whole scroll area, for a panel whose records are not a flat list: the
 	 * Regions folder tree, the Activity Monitor's day-grouped log. Given this, the
 	 * frame draws it in place of the rows and every field below is ignored: a
 	 * caller with its own body owns its own empty and loading states too.

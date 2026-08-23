@@ -323,7 +323,7 @@ function RegionsExplorerRoute() {
 				map={
 					<>
 						{/*
-						 * Frame the ticked regions as the visible set changes — except while
+						 * Frame the ticked regions as the visible set changes, except while
 						 * one is focused, since focusing also ticks it and the region card
 						 * already frames that single boundary.
 						 */}

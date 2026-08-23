@@ -60,8 +60,8 @@ export function ExplorerRow({
 	readonly selectLabel: string;
 	/**
 	 * Show this record on the map. Omit it for a record that has no coordinates to
-	 * show — a station whose centroid has not synced, an address that never
-	 * geocoded. The row then draws without the stretched button rather than with a
+	 * show, such as a station whose centroid has not synced or an address that
+	 * never geocoded. The row then draws without the stretched button rather than with a
 	 * control that does nothing, and its links still work.
 	 */
 	readonly onSelect?: (() => void) | undefined;
@@ -73,7 +73,7 @@ export function ExplorerRow({
 	 * The date column decides, because it is the 88px that makes the inline
 	 * version impossible. In a 380px rail a dated row spends 158px on the swatch,
 	 * the date, the chevron and the padding before the record gets a pixel, and
-	 * the badge group on the rich surfaces is another 175px — an inspection's
+	 * the badge group on the rich surfaces is another 175px, an inspection's
 	 * density badge plus its life-stage strip. That left the title column at
 	 * literally zero and the record drew with no name on it at all.
 	 *
@@ -98,7 +98,7 @@ export function ExplorerRow({
 						'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-inset',
 						/*
 						 * The ring is opaque. At `ring-primary/40` it composited toward the
-						 * row behind it — the very surface it has to stand against — which is
+						 * row behind it, the very surface it has to stand against, which is
 						 * what DESIGN.md's Solid Indicator Rule exists to stop. The 8% wash
 						 * stays: that is a fill, not the indicator.
 						 */

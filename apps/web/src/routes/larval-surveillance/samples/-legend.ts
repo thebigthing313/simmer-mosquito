@@ -1,15 +1,18 @@
 import { type MapLegendEntry, SAMPLE_STATUS_COLORS } from '../../../components/map';
 import type { SampleStatusValue } from '../-samples-search';
 
+/** A sample's status, with the filter's "all" taken off. */
+export type SampleStatus = Exclude<SampleStatusValue, 'all'>;
+
 /** Ordered awaiting → identified → closed-out, the way the filter chips read. */
-const STATUS_ORDER: readonly Exclude<SampleStatusValue, 'all'>[] = [
+export const SAMPLE_STATUS_ORDER: readonly SampleStatus[] = [
 	'awaiting',
 	'identified',
 	'zero_larvae',
 	'unidentifiable',
 ];
 
-const STATUS_LABEL: Record<Exclude<SampleStatusValue, 'all'>, string> = {
+const STATUS_LABEL: Record<SampleStatus, string> = {
 	identified: 'Identified',
 	awaiting: 'Awaiting ID',
 	zero_larvae: 'No larvae',
@@ -23,12 +26,12 @@ const STATUS_LABEL: Record<Exclude<SampleStatusValue, 'all'>, string> = {
  * colour on the map. A key still listing the other three would be describing
  * dots that are not there.
  */
+/** What one sample reads as in the chips, the rail and the key. */
+export function sampleStatusLabel(status: SampleStatus): string {
+	return STATUS_LABEL[status];
+}
+
 export function sampleLegend(status: SampleStatusValue): readonly MapLegendEntry[] {
-	const shown = status === 'all' ? STATUS_ORDER : [status];
-	// `SAMPLE_STATUS_COLORS` is keyed by the server's status strings, so a status
-	// the ramp does not paint drops out rather than being listed uncoloured.
-	return shown.flatMap((value): MapLegendEntry[] => {
-		const color = SAMPLE_STATUS_COLORS[value];
-		return color === undefined ? [] : [{ color, label: STATUS_LABEL[value] }];
-	});
+	const shown: readonly SampleStatus[] = status === 'all' ? SAMPLE_STATUS_ORDER : [status];
+	return shown.map((value) => ({ color: SAMPLE_STATUS_COLORS[value], label: STATUS_LABEL[value] }));
 }

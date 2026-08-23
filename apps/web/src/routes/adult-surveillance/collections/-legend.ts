@@ -1,7 +1,11 @@
-import { COLLECTION_STATUS_COLORS, type MapLegendEntry } from '../../../components/map';
+import {
+	COLLECTION_STATUS_COLORS,
+	type CollectionStatus,
+	type MapLegendEntry,
+} from '../../../components/map';
 
 /** The status the server resolves for a collection, by precedence. */
-export type CollectionStatusValue = 'pending' | 'problem' | 'zero_result' | 'collected';
+export type CollectionStatusValue = CollectionStatus;
 
 /** Ordered out → back, the way a round reads. */
 const STATUS_ORDER: readonly CollectionStatusValue[] = [
@@ -31,10 +35,8 @@ export function collectionStatusLabel(status: CollectionStatusValue): string {
  */
 export function collectionLegend(problemOnly: boolean): readonly MapLegendEntry[] {
 	const shown: readonly CollectionStatusValue[] = problemOnly ? ['problem'] : STATUS_ORDER;
-	// `COLLECTION_STATUS_COLORS` is keyed by the server's status strings, so a
-	// status the ramp does not paint drops out rather than being listed uncoloured.
-	return shown.flatMap((value): MapLegendEntry[] => {
-		const color = COLLECTION_STATUS_COLORS[value];
-		return color === undefined ? [] : [{ color, label: STATUS_LABEL[value] }];
-	});
+	return shown.map((value) => ({
+		color: COLLECTION_STATUS_COLORS[value],
+		label: STATUS_LABEL[value],
+	}));
 }

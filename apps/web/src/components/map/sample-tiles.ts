@@ -56,7 +56,10 @@ const colors = {
  * explorer's status-filter chips and the map ramp read from a single source of
  * truth — the filter chips double as the map's legend.
  */
-export const SAMPLE_STATUS_COLORS: Readonly<Record<string, string>> = {
+/** The status the server resolves for a sample. */
+export type SampleStatus = 'identified' | 'awaiting' | 'zero_larvae' | 'unidentifiable';
+
+export const SAMPLE_STATUS_COLORS: Readonly<Record<SampleStatus, string>> = {
 	identified: colors.identified,
 	awaiting: colors.awaiting,
 	zero_larvae: colors.zeroLarvae,

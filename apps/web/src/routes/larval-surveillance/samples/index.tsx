@@ -56,7 +56,8 @@ import {
 } from '../-overview-data';
 import { SampleMapCard } from '../-sample-map-card';
 import { type SampleFilters, sampleFilterCodecs } from '../-samples-search';
-import { sampleLegend } from './-legend';
+import type { SampleStatus } from './-legend';
+import { SAMPLE_STATUS_ORDER, sampleLegend, sampleStatusLabel } from './-legend';
 
 const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
@@ -75,7 +76,6 @@ interface SampleSpeciesResult {
 // A sample's resolved lifecycle state. The server commits to one status by
 // precedence (an identified result wins over any closed-out reason), so the map
 // color and the list badge always agree.
-type SampleStatus = 'identified' | 'awaiting' | 'zero_larvae' | 'unidentifiable';
 
 /**
  * One sample as returned by `/map/samples` — the parent inspection's owned-geometry
@@ -102,22 +102,6 @@ interface SampleFeature {
 }
 
 type StatusFilterValue = 'all' | SampleStatus;
-
-const STATUS_LABEL: Record<SampleStatus, string> = {
-	identified: 'Identified',
-	awaiting: 'Awaiting ID',
-	zero_larvae: 'No larvae',
-	unidentifiable: 'Unidentifiable',
-};
-
-// Ordered awaiting → identified → closed-out so the chips read as a workflow, and
-// each carries the map's status color so the filter row doubles as the legend.
-const STATUS_ORDER: readonly SampleStatus[] = [
-	'awaiting',
-	'identified',
-	'zero_larvae',
-	'unidentifiable',
-];
 
 /** The window the explorer opens with, and the reset target for "Clear all". */
 const DEFAULT_WINDOW_DAYS = 30;
@@ -373,12 +357,12 @@ function StatusFilter({
 			<span className="w-14 shrink-0 pt-1 font-medium text-muted-foreground text-xs">Status</span>
 			<div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
 				<StatusChip isActive={value === 'all'} label="All" onClick={() => onChange('all')} />
-				{STATUS_ORDER.map((option) => (
+				{SAMPLE_STATUS_ORDER.map((option) => (
 					<StatusChip
 						color={SAMPLE_STATUS_COLORS[option]}
 						isActive={value === option}
 						key={option}
-						label={STATUS_LABEL[option]}
+						label={sampleStatusLabel(option)}
 						onClick={() => onChange(value === option ? 'all' : option)}
 					/>
 				))}
@@ -539,7 +523,7 @@ function ActiveFilters({
 			{status !== 'all' ? (
 				<FilterChip
 					color={SAMPLE_STATUS_COLORS[status]}
-					label={STATUS_LABEL[status]}
+					label={sampleStatusLabel(status)}
 					onRemove={onClearStatus}
 				/>
 			) : null}
@@ -612,7 +596,7 @@ function sampleSwatch(sample: SampleFeature): { readonly color: string; readonly
 	const color = SAMPLE_STATUS_COLORS[sample.status];
 	return {
 		color: color ?? 'var(--muted-foreground)',
-		label: STATUS_LABEL[sample.status],
+		label: sampleStatusLabel(sample.status),
 	};
 }
 
@@ -683,7 +667,7 @@ function _StatusDot({ status }: { readonly status: SampleStatus }) {
 			aria-hidden="true"
 			className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
 			style={{ backgroundColor: SAMPLE_STATUS_COLORS[status] }}
-			title={STATUS_LABEL[status]}
+			title={sampleStatusLabel(status)}
 		/>
 	);
 }
