@@ -12,6 +12,18 @@ export type WetFilter = 'all' | 'wet' | 'dry';
 const DENSITY_ORDER: readonly LarvalDensity[] = ['none', 'light', 'medium', 'heavy', 'very_heavy'];
 
 /**
+ * What a band reads as in the key.
+ *
+ * Everywhere else `none` is a density on a record that was already found to hold
+ * water, and the record says so beside it. In the key there is nothing beside
+ * it, and a dot labelled None sits next to one labelled Dry with nothing to tell
+ * a reader that the first one is water with no larvae in it.
+ */
+function legendLabel(density: LarvalDensity): string {
+	return density === 'none' ? 'Wet only' : densityLabel(density);
+}
+
+/**
  * The key, cut down to the colours the current filters can actually draw.
  *
  * The paint expression reads wetness first: a dry site is the neutral tone
@@ -32,7 +44,7 @@ export function inspectionLegend(
 			if (densities.size === 0 || densities.has(density)) {
 				entries.push({
 					color: INSPECTION_DENSITY_COLORS[density] ?? INSPECTION_DRY_COLOR,
-					label: densityLabel(density),
+					label: legendLabel(density),
 				});
 			}
 		}
