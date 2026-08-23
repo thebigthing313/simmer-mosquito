@@ -88,7 +88,6 @@ export const mapDomain = {
 	 */
 	outreach: '#c4569e',
 	outreachLine: '#a84385',
-	collection: '#2f9e8f',
 	/** Connector lines between related records (inspection routes, habitat runs). */
 	connector: brand.blue,
 } as const;

@@ -9,6 +9,7 @@ import {
 	MapCardDetail,
 	MapCardEyebrow,
 } from '../../../components/map/map-card';
+import type { MapInset } from '../../../components/map/map-inset';
 import { TagBadge } from '../../../components/tag-badge';
 import { useAddress } from '../../../hooks/queries/use-address';
 import { useRecordTags } from '../../../hooks/queries/use-record-tags';
@@ -23,10 +24,13 @@ import { useAddressGeometry } from './-address-data';
 export function AddressMapCard({
 	id,
 	map,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
 	readonly map: MapboxMap | null;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
 	const { address } = useAddress(id);
@@ -46,7 +50,7 @@ export function AddressMapCard({
 
 	if (address === undefined) {
 		return (
-			<MapCard className="max-w-[420px]" onClose={onClose} title="Address">
+			<MapCard className="max-w-[420px]" inset={inset} onClose={onClose} title="Address">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -64,6 +68,7 @@ export function AddressMapCard({
 			}
 			className="max-w-[420px]"
 			eyebrow={<MapCardEyebrow type="Address" />}
+			inset={inset}
 			onClose={onClose}
 			title={address.displayName}
 			viewDetailLink={(content) => (

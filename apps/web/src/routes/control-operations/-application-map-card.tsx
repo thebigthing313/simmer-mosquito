@@ -8,6 +8,7 @@ import {
 	MapCardEyebrow,
 	MapCardLocation,
 } from '../../components/map/map-card';
+import type { MapInset } from '../../components/map/map-inset';
 import { useApplication } from '../../hooks/queries/use-application';
 import { useApplicationBatchNames } from '../../hooks/queries/use-application-batch-names';
 import { formatMeasure } from './-control-display';
@@ -23,9 +24,12 @@ const MethodIcon = iconRegistry.entities.application.icon;
  */
 export function ApplicationMapCard({
 	id,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
 	const { application } = useApplication(id);
@@ -33,7 +37,7 @@ export function ApplicationMapCard({
 
 	if (application === undefined) {
 		return (
-			<MapCard onClose={onClose} title="Application">
+			<MapCard inset={inset} onClose={onClose} title="Application">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -48,6 +52,7 @@ export function ApplicationMapCard({
 	return (
 		<MapCard
 			eyebrow={<MapCardEyebrow date={application.actionDate} type="Application" />}
+			inset={inset}
 			onClose={onClose}
 			title={application.productName}
 			viewDetailLink={(content) => (

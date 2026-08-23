@@ -1,4 +1,5 @@
 import { mapDensity, mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
+import type { LarvalDensity } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -60,9 +61,9 @@ const colors = {
 /**
  * The density heat colors, keyed by the `larval_density` enum, plus the dry tone.
  * Exported so the explorer's density-filter chips and the map ramp read from a
- * single source of truth — the filter chips double as the map's legend.
+ * single source of truth: the filter chips double as the map's legend.
  */
-export const INSPECTION_DENSITY_COLORS: Readonly<Record<string, string>> = {
+export const INSPECTION_DENSITY_COLORS: Readonly<Record<LarvalDensity, string>> = {
 	none: colors.none,
 	light: colors.light,
 	medium: colors.medium,

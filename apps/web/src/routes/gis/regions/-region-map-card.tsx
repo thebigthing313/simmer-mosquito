@@ -4,6 +4,7 @@ import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect } from 'react';
 import { MapCard, MapCardEyebrow, MapCardText } from '../../../components/map/map-card';
+import type { MapInset } from '../../../components/map/map-inset';
 import { TagBadge } from '../../../components/tag-badge';
 import { useRecordTags } from '../../../hooks/queries/use-record-tags';
 import { useRegion } from '../../../hooks/queries/use-region';
@@ -17,10 +18,13 @@ import { useRegionGeometry } from '../../../hooks/use-region-geometry';
 export function RegionMapCard({
 	id,
 	map,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
 	readonly map: MapboxMap | null;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
 	const { region } = useRegion(id);
@@ -49,7 +53,7 @@ export function RegionMapCard({
 
 	if (region === undefined) {
 		return (
-			<MapCard className="max-w-[420px]" onClose={onClose} title="Region">
+			<MapCard className="max-w-[420px]" inset={inset} onClose={onClose} title="Region">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -67,6 +71,7 @@ export function RegionMapCard({
 			}
 			className="max-w-[420px]"
 			eyebrow={<MapCardEyebrow type="Region" />}
+			inset={inset}
 			onClose={onClose}
 			title={region.name}
 			viewDetailLink={(content) => (

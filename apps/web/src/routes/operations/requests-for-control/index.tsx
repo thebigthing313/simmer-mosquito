@@ -1,20 +1,8 @@
 import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
 	activeDatePresetId,
 	type DatePreset,
@@ -23,16 +11,18 @@ import {
 } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
+	ExplorerMapPage,
+	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	type FilterOption,
 	MultiSelectFilter,
-	RESULT_SKELETON_KEYS,
 	SegmentedFilter,
 	useControlMethodNames,
+	useExplorerPanel,
 	usePersonnelOptions,
 } from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
-import { WriteOnly } from '../../../components/write-only';
 import {
 	CONTROL_TYPES,
 	controlTypeLabel,
@@ -55,6 +45,7 @@ import {
 import { RequestStatusBadge } from '../-operations-display';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
+const RESULT_NOUN = { one: 'request', many: 'requests' };
 
 type StatusFilter = 'all' | 'open' | 'resolved';
 
@@ -115,6 +106,7 @@ function RequestsForControlRoute() {
 	const status = filters.status;
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 	const [map, setMap] = useState<MapboxMap | null>(null);
 
 	const { requests, isLoading } = useRequestedControlActions(filters.from, filters.to);
@@ -126,32 +118,106 @@ function RequestsForControlRoute() {
 		[requests, filters],
 	);
 
-	const mapped = useMemo(
-		() => visible.filter((request) => Number.isFinite(request.lat) && Number.isFinite(request.lng)),
-		[visible],
-	);
-
-	const geoJson = useMemo<GeoJSON.GeoJSON | null>(() => {
-		const features = mapped.map(
-			(request): GeoJSON.Feature => ({
-				type: 'Feature',
-				id: request.id,
-				properties: { id: request.id },
-				geometry: { type: 'Point', coordinates: [request.lng, request.lat] },
-			}),
-		);
-		return features.length === 0 ? null : { type: 'FeatureCollection', features };
-	}, [mapped]);
-
+	const mapped = useMemo(() => mappable(visible), [visible]);
+	const geoJson = useMemo(() => requestFeatures(mapped), [mapped]);
 	// The points come from local rows, so the camera frames the filtered set from
 	// the list rather than asking the server for an extent.
 	const bounds = useMemo(
 		() => boundsFromCoordinates(mapped.map((request) => ({ lng: request.lng, lat: request.lat }))),
 		[mapped],
 	);
+	useFlyToRequest(
+		map,
+		selectedId === null ? null : (visible.find((r) => r.id === selectedId) ?? null),
+	);
 
-	const selected = selectedId === null ? null : (visible.find((r) => r.id === selectedId) ?? null);
+	const dateRange = useRequestDateRange(filters, setFilters, today);
 
+	// Open is the default, so only All or Resolved counts as something the operator
+	// set. Counting the default would put a "1 filter" badge on an untouched page.
+	const activeFilterCount = (status === 'open' ? 0 : 1) + filters.types.size + filters.people.size;
+
+	return (
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
+				<RequestControlFilters
+					activeFilterCount={activeFilterCount}
+					dateRange={dateRange}
+					filters={filters}
+					nameById={nameById}
+					onClearAll={reset}
+					personnelOptions={personnelOptions}
+					setFilters={setFilters}
+				/>
+			}
+			heading={{
+				title: 'Requests for Control',
+				icon: RequestIcon,
+				total: visible.length,
+				isLoading,
+				noun: RESULT_NOUN,
+				create: { to: '/operations/requests-for-control/create', label: 'New Request for Control' },
+			}}
+			onResetFilters={reset}
+			map={
+				<MapCanvas
+					contextMenu={{}}
+					controls={{ layers: false, measure: true, readout: true }}
+					fitToData={bounds}
+					geoJson={geoJson}
+					geoJsonInteraction={{ selectedId, onSelectFeature: setSelectedId }}
+					inset={panel.inset}
+					onMapReady={setMap}
+					searchWidth={panel.width}
+				/>
+			}
+			panel={panel}
+			results={{
+				rows: visible,
+				emptyTitle: 'No requests in range',
+				emptyDescription:
+					'Widen the time window or loosen the filters to bring requests into range.',
+				skeletonClassName: 'h-[68px]',
+				renderRow: (request) => (
+					<RequestRow
+						key={request.id}
+						methodNameById={methodNameById}
+						onSelect={setSelectedId}
+						personNameById={nameById}
+						request={request}
+						selectedId={selectedId}
+					/>
+				),
+			}}
+		/>
+	);
+}
+
+/** A name from a catalog, for a column that may not point at one. */
+function lookup(names: ReadonlyMap<string, string>, id: string | null): string | null {
+	return id === null ? null : (names.get(id) ?? null);
+}
+
+/** The requests that have somewhere to be drawn. */
+function mappable(requests: readonly RequestListing[]): readonly RequestListing[] {
+	return requests.filter((request) => Number.isFinite(request.lat) && Number.isFinite(request.lng));
+}
+
+function requestFeatures(mapped: readonly RequestListing[]): GeoJSON.GeoJSON | null {
+	const features = mapped.map(
+		(request): GeoJSON.Feature => ({
+			type: 'Feature',
+			id: request.id,
+			properties: { id: request.id },
+			geometry: { type: 'Point', coordinates: [request.lng, request.lat] },
+		}),
+	);
+	return features.length === 0 ? null : { type: 'FeatureCollection', features };
+}
+
+/** Fly to a request when it becomes selected, from either the list or the map. */
+function useFlyToRequest(map: MapboxMap | null, selected: RequestListing | null) {
 	useEffect(() => {
 		if (map === null || selected === null) {
 			return;
@@ -162,8 +228,20 @@ function RequestsForControlRoute() {
 			duration: 600,
 		});
 	}, [map, selected]);
+}
 
-	const handleFromChange = useCallback(
+/**
+ * The date range, and the two handlers that keep it in order.
+ *
+ * Moving one end past the other drags the other with it rather than leaving an
+ * empty range on the URL.
+ */
+function useRequestDateRange(
+	filters: RequestFilters,
+	setFilters: (patch: Partial<RequestFilters>) => void,
+	today: string,
+) {
+	const onFromChange = useCallback(
 		(next: string) => {
 			setFilters({
 				from: next,
@@ -172,7 +250,7 @@ function RequestsForControlRoute() {
 		},
 		[setFilters, filters.to],
 	);
-	const handleToChange = useCallback(
+	const onToChange = useCallback(
 		(next: string) => {
 			setFilters({
 				to: next,
@@ -181,7 +259,7 @@ function RequestsForControlRoute() {
 		},
 		[setFilters, filters.from],
 	);
-	const applyPreset = useCallback(
+	const onApplyPreset = useCallback(
 		(preset: DatePreset) => {
 			const range = datePresetRange(preset, today);
 			setFilters({ from: range.from, to: range.to });
@@ -192,116 +270,122 @@ function RequestsForControlRoute() {
 		() => activeDatePresetId(filters.from, filters.to, today),
 		[filters.from, filters.to, today],
 	);
+	return {
+		activePresetId,
+		from: filters.from,
+		onApplyPreset,
+		onFromChange,
+		onToChange,
+		to: filters.to,
+		today,
+	};
+}
 
-	const hasChips = filters.types.size > 0 || filters.people.size > 0;
-
+/** The filter card's contents, and the chips that undo what is set. */
+function RequestControlFilters({
+	activeFilterCount,
+	dateRange,
+	filters,
+	nameById,
+	onClearAll,
+	personnelOptions,
+	setFilters,
+}: {
+	readonly activeFilterCount: number;
+	readonly dateRange: ReturnType<typeof useRequestDateRange>;
+	readonly filters: RequestFilters;
+	readonly nameById: ReadonlyMap<string, string>;
+	readonly onClearAll: () => void;
+	readonly personnelOptions: ReturnType<typeof usePersonnelOptions>['options'];
+	readonly setFilters: (patch: Partial<RequestFilters>) => void;
+}) {
 	return (
-		<MapSplitPage
-			map={
-				<MapCanvas
-					contextMenu={{}}
-					controls={{ layers: false, measure: true, readout: true }}
-					fitToData={bounds}
-					geoJson={geoJson}
-					geoJsonInteraction={{ selectedId, onSelectFeature: setSelectedId }}
-					onMapReady={setMap}
+		<>
+			<DateRangeFilter {...dateRange} />
+
+			<SegmentedFilter
+				label="Status"
+				onChange={(next: StatusFilter) => setFilters({ status: next })}
+				options={STATUS_OPTIONS}
+				value={filters.status}
+			/>
+
+			<FilterGrid>
+				<MultiSelectFilter
+					empty="No control types"
+					label="Control type"
+					onChange={(next) => setFilters({ types: next })}
+					options={CONTROL_TYPE_OPTIONS}
+					selected={filters.types}
 				/>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-					<div className="flex items-center justify-between gap-3">
-						<div className="flex items-baseline gap-2">
-							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
-								Requests for Control
-							</h1>
-							<span className="text-muted-foreground text-sm">
-								{visible.length === 1 ? '1 request' : `${visible.length} requests`}
-							</span>
-						</div>
-						<WriteOnly>
-							<Button asChild size="sm">
-								<Link to="/operations/requests-for-control/create">
-									<PlusIcon aria-hidden="true" data-icon="inline-start" />
-									New Request
-								</Link>
-							</Button>
-						</WriteOnly>
-					</div>
-
-					<DateRangeFilter
-						activePresetId={activePresetId}
-						from={filters.from}
-						onApplyPreset={applyPreset}
-						onFromChange={handleFromChange}
-						onToChange={handleToChange}
-						to={filters.to}
-						today={today}
-					/>
-
-					<SegmentedFilter
-						label="Status"
-						onChange={(next: StatusFilter) => setFilters({ status: next })}
-						options={STATUS_OPTIONS}
-						value={status}
-					/>
-
-					<div className="flex flex-wrap gap-2">
-						<MultiSelectFilter
-							empty="No control types"
-							label="Control type"
-							onChange={(next) => setFilters({ types: next })}
-							options={CONTROL_TYPE_OPTIONS}
-							selected={filters.types}
-						/>
-						<MultiSelectFilter
-							empty="No profiles"
-							label="Requested by"
-							onChange={(next) => setFilters({ people: next })}
-							options={personnelOptions}
-							selected={filters.people}
-						/>
-					</div>
-
-					{hasChips ? (
-						<ActiveFilterBar onClearAll={reset}>
-							{[...filters.types].map((id) => (
-								<FilterChip
-									key={`type-${id}`}
-									label={controlTypeLabel(id)}
-									onRemove={() => {
-										const next = new Set(filters.types);
-										next.delete(id);
-										setFilters({ types: next });
-									}}
-								/>
-							))}
-							{[...filters.people].map((id) => (
-								<FilterChip
-									key={`person-${id}`}
-									label={nameById.get(id) ?? 'Unknown profile'}
-									onRemove={() => {
-										const next = new Set(filters.people);
-										next.delete(id);
-										setFilters({ people: next });
-									}}
-								/>
-							))}
-						</ActiveFilterBar>
-					) : null}
-				</div>
-
-				<RequestResults
-					isLoading={isLoading}
-					methodNameById={methodNameById}
-					onSelect={setSelectedId}
-					personnelNameById={nameById}
-					requests={visible}
-					selectedId={selectedId}
+				<MultiSelectFilter
+					empty="No profiles"
+					label="Requested by"
+					onChange={(next) => setFilters({ people: next })}
+					options={personnelOptions}
+					selected={filters.people}
 				/>
-			</div>
-		</MapSplitPage>
+			</FilterGrid>
+
+			<RequestControlChips
+				activeFilterCount={activeFilterCount}
+				filters={filters}
+				nameById={nameById}
+				onClearAll={onClearAll}
+				setFilters={setFilters}
+			/>
+		</>
 	);
+}
+
+/** What is currently narrowing the list, each chip removing its own filter. */
+function RequestControlChips({
+	activeFilterCount,
+	filters,
+	nameById,
+	onClearAll,
+	setFilters,
+}: {
+	readonly activeFilterCount: number;
+	readonly filters: RequestFilters;
+	readonly nameById: ReadonlyMap<string, string>;
+	readonly onClearAll: () => void;
+	readonly setFilters: (patch: Partial<RequestFilters>) => void;
+}) {
+	if (activeFilterCount === 0) {
+		return null;
+	}
+	return (
+		<ActiveFilterBar onClearAll={onClearAll}>
+			{filters.status === 'open' ? null : (
+				<FilterChip
+					label={`Status: ${filters.status === 'all' ? 'All' : 'Resolved'}`}
+					onRemove={() => setFilters({ status: 'open' })}
+				/>
+			)}
+			{[...filters.types].map((id) => (
+				<FilterChip
+					key={`type-${id}`}
+					label={controlTypeLabel(id)}
+					onRemove={() => setFilters({ types: without(filters.types, id) })}
+				/>
+			))}
+			{[...filters.people].map((id) => (
+				<FilterChip
+					key={`person-${id}`}
+					label={nameById.get(id) ?? 'Unknown profile'}
+					onRemove={() => setFilters({ people: without(filters.people, id) })}
+				/>
+			))}
+		</ActiveFilterBar>
+	);
+}
+
+/** The same set without one id. */
+function without(set: ReadonlySet<string>, id: string): ReadonlySet<string> {
+	const next = new Set(set);
+	next.delete(id);
+	return next;
 }
 
 /**
@@ -326,127 +410,44 @@ function matchesFilters(request: RequestListing, filters: RequestFilters): boole
 	return true;
 }
 
-function RequestResults({
-	requests,
-	isLoading,
-	selectedId,
-	methodNameById,
-	personnelNameById,
-	onSelect,
-}: {
-	readonly requests: readonly RequestListing[];
-	readonly isLoading: boolean;
-	readonly selectedId: string | null;
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly personnelNameById: ReadonlyMap<string, string>;
-	readonly onSelect: (id: string) => void;
-}) {
-	if (isLoading) {
-		return (
-			<div className="grid gap-2 p-4">
-				{RESULT_SKELETON_KEYS.map((key) => (
-					<Skeleton className="h-[68px] rounded-lg" key={key} />
-				))}
-			</div>
-		);
-	}
-
-	if (requests.length === 0) {
-		return (
-			<div className="p-4">
-				<Empty className="min-h-[240px] border border-border/40 bg-muted/30">
-					<EmptyHeader>
-						<EmptyMedia variant="icon">
-							<RequestIcon aria-hidden="true" />
-						</EmptyMedia>
-						<EmptyTitle>No Requests in Range</EmptyTitle>
-						<EmptyDescription>
-							Widen the time window or loosen the filters to bring requests into range.
-						</EmptyDescription>
-					</EmptyHeader>
-				</Empty>
-			</div>
-		);
-	}
-
-	return (
-		<ul className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-4">
-			{requests.map((request) => (
-				<RequestRow
-					isSelected={request.id === selectedId}
-					key={request.id}
-					methodName={
-						request.recommendedMethodId === null
-							? null
-							: (methodNameById.get(request.recommendedMethodId) ?? null)
-					}
-					onSelect={onSelect}
-					request={request}
-					requesterName={
-						request.requestedByProfileId === null
-							? null
-							: (personnelNameById.get(request.requestedByProfileId) ?? null)
-					}
-				/>
-			))}
-		</ul>
-	);
-}
-
 function RequestRow({
 	request,
-	methodName,
-	requesterName,
-	isSelected,
+	methodNameById,
+	personNameById,
+	selectedId,
 	onSelect,
 }: {
 	readonly request: RequestListing;
-	readonly methodName: string | null;
-	readonly requesterName: string | null;
-	readonly isSelected: boolean;
+	readonly methodNameById: ReadonlyMap<string, string>;
+	readonly personNameById: ReadonlyMap<string, string>;
+	readonly selectedId: string | null;
 	readonly onSelect: (id: string) => void;
 }) {
+	const isSelected = request.id === selectedId;
+	const methodName = lookup(methodNameById, request.recommendedMethodId);
+	const requesterName = lookup(personNameById, request.requestedByProfileId);
 	const subject = requestDisplayName(request);
 	const timeZone = useOrganizationTimeZone();
+	const detail = [
+		controlTypeLabel(request.controlType),
+		methodName,
+		formatRequestedAt(request.requestedAt, timeZone),
+	]
+		.filter((part): part is string => part !== null)
+		.join(' · ');
 
 	return (
-		<li
-			className={cn(
-				'relative rounded-lg border bg-card transition-colors',
-				isSelected ? 'border-primary/60 bg-primary/5' : 'border-border/60 hover:border-border',
-			)}
-		>
-			{/* Full-card target selects on the map; the chevron opens the record. */}
-			<button
-				aria-label={`Show ${subject} on the map`}
-				className="absolute inset-0 z-0 cursor-pointer rounded-lg"
-				onClick={() => onSelect(request.id)}
-				type="button"
-			/>
-			<div className="pointer-events-none relative z-10 flex items-start gap-3 p-3">
-				<div className="min-w-0 flex-1">
-					<div className="flex flex-wrap items-center gap-2">
-						<span className="font-medium text-foreground text-sm">{subject}</span>
-						<RequestStatusBadge status={requestStatus(request)} />
-					</div>
-					<p className="m-0 mt-1 text-muted-foreground text-xs">
-						{controlTypeLabel(request.controlType)}
-						{methodName === null ? '' : ` · ${methodName}`}
-						{` · ${formatRequestedAt(request.requestedAt, timeZone)}`}
-					</p>
-					<p className="m-0 mt-1 text-muted-foreground text-xs">
-						{requesterName ?? 'No requester recorded'}
-					</p>
-				</div>
-				<Link
-					aria-label="Open request"
-					className="pointer-events-auto z-20 shrink-0 rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
-					params={{ id: request.id }}
-					to="/operations/requests-for-control/$id"
-				>
-					<ChevronRightIcon aria-hidden="true" className="size-4" />
-				</Link>
-			</div>
-		</li>
+		<ExplorerRow
+			badges={<RequestStatusBadge status={requestStatus(request)} />}
+			detailLabel="Open request"
+			detailLink={{ to: '/operations/requests-for-control/$id', params: { id: request.id } }}
+			isSelected={isSelected}
+			onSelect={() => onSelect(request.id)}
+			personnel={requesterName ?? 'No requester recorded'}
+			selectLabel={`Show ${subject} on the map`}
+			subtitle={detail}
+			title={subject}
+			titleLink={{ to: '/operations/requests-for-control/$id', params: { id: request.id } }}
+		/>
 	);
 }

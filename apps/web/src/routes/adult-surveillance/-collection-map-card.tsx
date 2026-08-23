@@ -8,6 +8,7 @@ import {
 	MapCardDetail,
 	MapCardEyebrow,
 } from '../../components/map/map-card';
+import type { MapInset } from '../../components/map/map-inset';
 import { trapDisplayName } from '../../hooks/queries/trap-view';
 import { useAdultCollection } from '../../hooks/queries/use-adult-collection';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
@@ -23,9 +24,12 @@ const CollectionEntityIcon = iconRegistry.entities.collection.icon;
  */
 export function CollectionMapCard({
 	id,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
 	const { collection } = useAdultCollection(id);
@@ -33,7 +37,7 @@ export function CollectionMapCard({
 
 	if (collection === undefined) {
 		return (
-			<MapCard onClose={onClose} title="Collection">
+			<MapCard inset={inset} onClose={onClose} title="Collection">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -47,6 +51,7 @@ export function CollectionMapCard({
 	return (
 		<MapCard
 			eyebrow={<MapCardEyebrow date={effectiveDate ?? undefined} type="Collection" />}
+			inset={inset}
 			onClose={onClose}
 			title={collectionTitle(collection)}
 			viewDetailLink={(content) => (

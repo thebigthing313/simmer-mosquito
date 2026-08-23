@@ -1,13 +1,12 @@
-import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
+import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import {
 	Collapsible,
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/collapsible';
+import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import {
 	Empty,
 	EmptyDescription,
@@ -22,7 +21,7 @@ import {
 	ChevronRightIcon,
 	GripVerticalIcon,
 	iconRegistry,
-	PlusIcon,
+	NewFolderIcon,
 	SearchIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -30,7 +29,12 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import {
+	ActiveFilterBar,
+	ExplorerMapPage,
+	FilterChip,
+	useExplorerPanel,
+} from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
@@ -74,8 +78,306 @@ export const Route = createFileRoute('/gis/regions/')({
 });
 
 const RegionIcon = iconRegistry.entities.region.icon;
+const RESULT_NOUN = { one: 'region', many: 'regions' };
 const ImportIcon = iconRegistry.actions.upload.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
+
+/** The one control this surface filters by, and the chip that undoes it. */
+function RegionFilters({
+	onChange,
+	onClear,
+	search,
+}: {
+	readonly onChange: (next: string) => void;
+	readonly onClear: () => void;
+	readonly search: string;
+}) {
+	return (
+		<>
+			<SearchField
+				label="Search regions and folders"
+				onChange={onChange}
+				placeholder="Search regions and folders"
+				value={search}
+			/>
+			{search.trim().length === 0 ? null : (
+				<ActiveFilterBar onClearAll={onClear}>
+					<FilterChip label={`Search: ${search}`} onRemove={onClear} />
+				</ActiveFilterBar>
+			)}
+		</>
+	);
+}
+
+/** The map, and the card for whichever region is focused. */
+function RegionsMap({
+	focusedId,
+	map,
+	onMapReady,
+	onSelect,
+	panel,
+	regionLayer,
+}: {
+	readonly focusedId: string | null;
+	readonly map: MapboxMap | null;
+	readonly onMapReady: (instance: MapboxMap) => void;
+	readonly onSelect: (id: string | null) => void;
+	readonly panel: ReturnType<typeof useExplorerPanel>;
+	readonly regionLayer: NonNullable<Parameters<typeof MapCanvas>[0]['regionLayer']>;
+}) {
+	return (
+		<>
+			{/*
+			 * Frame the ticked regions as the visible set changes, except while one is
+			 * focused, since focusing also ticks it and the region card already frames
+			 * that single boundary.
+			 */}
+			<MapCanvas
+				contextMenu={{}}
+				controls={{ layers: false, measure: true, readout: true }}
+				fitToData={focusedId === null}
+				inset={panel.inset}
+				onMapReady={onMapReady}
+				regionLayer={regionLayer}
+				searchWidth={panel.width}
+			/>
+			{focusedId === null ? null : (
+				<RegionMapCard
+					id={focusedId}
+					inset={panel.inset}
+					map={map}
+					onClose={() => onSelect(null)}
+				/>
+			)}
+		</>
+	);
+}
+
+/** What the tree rows do, bound once and passed down whole. */
+interface RegionTreeHandlers {
+	readonly onEditFolder: (folder: RegionFolderListing) => void;
+	readonly onFocusRegion: (id: string) => void;
+	readonly onToggleExpand: (folderId: string, open: boolean) => void;
+	readonly onToggleFolder: (regionIds: readonly string[], on: boolean) => void;
+	readonly onToggleRegion: (id: string, on: boolean) => void;
+}
+
+/** What the tree rows draw by: what is ticked, open, focused and being renamed. */
+interface RegionTreeView {
+	readonly dnd: ReturnType<typeof useRegionDnd>;
+	readonly expandedIds: ReadonlySet<string>;
+	readonly focusedId: string | null;
+	readonly query: string;
+	readonly rename: ReturnType<typeof useRegionRename>;
+	readonly visibleIds: ReadonlySet<string>;
+}
+
+/** The panel's body: a skeleton, one of two empty states, or the tree itself. */
+function RegionTreeBody({
+	filtered,
+	hasMatches,
+	isEmpty,
+	isReady,
+	on,
+	search,
+	showUnfiledHeader,
+	view,
+}: {
+	readonly filtered: ReturnType<typeof searchTree>;
+	readonly hasMatches: boolean;
+	readonly isEmpty: boolean;
+	readonly isReady: boolean;
+	readonly on: RegionTreeHandlers;
+	readonly search: string;
+	readonly showUnfiledHeader: boolean;
+	readonly view: RegionTreeView;
+}) {
+	if (!isReady) {
+		return <RegionsSkeleton />;
+	}
+	if (isEmpty) {
+		return <RegionsEmpty />;
+	}
+	if (!hasMatches) {
+		return <RegionsNoMatches query={search.trim()} />;
+	}
+	return (
+		<div className="p-2">
+			{filtered.folders.map((match) => (
+				<FolderBranch key={match.folder.id} match={match} on={on} view={view} />
+			))}
+			<UnfiledGroup
+				dnd={view.dnd}
+				focusedId={view.focusedId}
+				onFocusRegion={on.onFocusRegion}
+				onToggleRegion={on.onToggleRegion}
+				regions={filtered.unfiled}
+				rename={view.rename}
+				showHeader={showUnfiledHeader}
+				visibleIds={view.visibleIds}
+			/>
+		</div>
+	);
+}
+
+/** One folder and its regions, with the handlers bound to that folder. */
+function FolderBranch({
+	match,
+	on,
+	view,
+}: {
+	readonly match: FolderMatch;
+	readonly on: RegionTreeHandlers;
+	readonly view: RegionTreeView;
+}) {
+	const { folder, regions } = match;
+	return (
+		<FolderNode
+			dnd={view.dnd}
+			// A search already narrowed the tree, so show what it found.
+			expanded={view.query.length > 0 || view.expandedIds.has(folder.id)}
+			focusedId={view.focusedId}
+			folder={folder}
+			onEdit={() => on.onEditFolder(folder)}
+			onFocusRegion={on.onFocusRegion}
+			onToggleExpand={(open) => on.onToggleExpand(folder.id, open)}
+			onToggleFolder={(isOn) =>
+				on.onToggleFolder(
+					regions.map((r) => r.id),
+					isOn,
+				)
+			}
+			onToggleRegion={on.onToggleRegion}
+			regions={regions}
+			rename={view.rename}
+			visibleIds={view.visibleIds}
+		/>
+	);
+}
+
+/** The same set with these ids added or removed. */
+function withIds(
+	set: ReadonlySet<string>,
+	ids: readonly string[],
+	on: boolean,
+): ReadonlySet<string> {
+	const next = new Set(set);
+	for (const id of ids) {
+		if (on) {
+			next.add(id);
+		} else {
+			next.delete(id);
+		}
+	}
+	return next;
+}
+
+/** The regions under each folder, and the ones filed nowhere. */
+function groupByFolder(regions: readonly RegionListing[]): {
+	readonly byFolder: ReadonlyMap<string, readonly RegionListing[]>;
+	readonly root: readonly RegionListing[];
+} {
+	const byFolder = new Map<string, RegionListing[]>();
+	const root: RegionListing[] = [];
+	for (const region of regions) {
+		if (region.folderId === null) {
+			root.push(region);
+			continue;
+		}
+		const bucket = byFolder.get(region.folderId);
+		if (bucket === undefined) {
+			byFolder.set(region.folderId, [region]);
+		} else {
+			bucket.push(region);
+		}
+	}
+	return { byFolder, root };
+}
+
+/** One folder and whichever of its regions the search kept. */
+interface FolderMatch {
+	readonly folder: RegionFolderListing;
+	readonly regions: readonly RegionListing[];
+}
+
+/**
+ * The tree, narrowed by the search term.
+ *
+ * Search spans both levels: a folder hit keeps all of its regions, since you
+ * searched for the folder and so want its contents, and a region hit keeps just
+ * that region under its folder. Folders that end up with nothing drop out.
+ */
+function searchTree(
+	sortedFolders: readonly RegionFolderListing[],
+	grouped: ReturnType<typeof groupByFolder>,
+	query: string,
+): { readonly folders: readonly FolderMatch[]; readonly unfiled: readonly RegionListing[] } {
+	if (query.length === 0) {
+		return {
+			folders: sortedFolders.map((folder) => ({
+				folder,
+				regions: grouped.byFolder.get(folder.id) ?? [],
+			})),
+			unfiled: grouped.root,
+		};
+	}
+	const hit = (value: string | null): boolean => value?.toLowerCase().includes(query) === true;
+	const matched: FolderMatch[] = [];
+	for (const folder of sortedFolders) {
+		const folderRegions = grouped.byFolder.get(folder.id) ?? [];
+		const folderHit = hit(folder.name) || hit(folder.description);
+		const kept = folderHit ? folderRegions : folderRegions.filter((region) => hit(region.name));
+		if (folderHit || kept.length > 0) {
+			matched.push({ folder, regions: kept });
+		}
+	}
+	return { folders: matched, unfiled: grouped.root.filter((region) => hit(region.name)) };
+}
+
+/**
+ * The two writes the tree makes in place.
+ *
+ * Both are guarded on the current row rather than sent blindly. Renaming a
+ * region to the name it already has is a command with nothing to change, which
+ * the domain refuses, and a drag that lands a region back in its own folder is
+ * the same. The `null` folder means unfiled, which is why the move guard
+ * compares the value rather than asking whether one arrived.
+ */
+function useRegionEdits(
+	mutations: ReturnType<typeof useRegionMutations>,
+	regionsRef: { readonly current: readonly RegionListing[] },
+) {
+	const renameRegion = useCallback(
+		async (id: string, rawName: string) => {
+			const name = rawName.trim();
+			const current = regionsRef.current.find((region) => region.id === id);
+			if (current === undefined || name.length === 0 || name === current.name) {
+				return;
+			}
+			try {
+				await mutations.rename(id, name);
+			} catch {
+				// Optimistic mutation rolled back; the tree already shows the synced name.
+			}
+		},
+		[mutations, regionsRef],
+	);
+	const moveRegion = useCallback(
+		async (id: string, folderId: string | null) => {
+			const current = regionsRef.current.find((region) => region.id === id);
+			if (current === undefined || current.folderId === folderId) {
+				return;
+			}
+			try {
+				await mutations.move(id, folderId);
+			} catch {
+				// Optimistic mutation rolled back; the tree already shows the prior folder.
+			}
+		},
+		[mutations, regionsRef],
+	);
+	return { moveRegion, renameRegion };
+}
 
 function RegionsExplorerRoute() {
 	// `region_folders` is eager but no longer preloaded at boot — it left the
@@ -110,6 +412,7 @@ function RegionsExplorerRoute() {
 	);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
+	const panel = useExplorerPanel();
 	// `null` = closed; a folder row = edit it; `'new'` = create one.
 	const [folderDialog, setFolderDialog] = useState<RegionFolderListing | 'new' | null>(null);
 
@@ -117,55 +420,13 @@ function RegionsExplorerRoute() {
 		() => [...folders].sort((a, b) => a.name.localeCompare(b.name)),
 		[folders],
 	);
-	const regionsByFolder = useMemo(() => {
-		const byFolder = new Map<string, RegionListing[]>();
-		const root: RegionListing[] = [];
-		for (const region of regions) {
-			if (region.folderId === null) {
-				root.push(region);
-			} else {
-				const bucket = byFolder.get(region.folderId);
-				if (bucket === undefined) {
-					byFolder.set(region.folderId, [region]);
-				} else {
-					bucket.push(region);
-				}
-			}
-		}
-		return { byFolder, root };
-	}, [regions]);
+	const regionsByFolder = useMemo(() => groupByFolder(regions), [regions]);
 
-	/*
-	 * Search spans both levels of the tree: a folder hit keeps all of its regions
-	 * (you searched for the folder, so you want its contents), a region hit keeps
-	 * just that region under its folder. Folders that end up with nothing drop out.
-	 */
 	const query = search.trim().toLowerCase();
-	const filtered = useMemo(() => {
-		const hit = (value: string | null): boolean => value?.toLowerCase().includes(query) === true;
-		if (query.length === 0) {
-			return {
-				folders: sortedFolders.map((folder) => ({
-					folder,
-					regions: regionsByFolder.byFolder.get(folder.id) ?? ([] as readonly RegionListing[]),
-				})),
-				unfiled: regionsByFolder.root as readonly RegionListing[],
-			};
-		}
-		const matchedFolders: { folder: RegionFolderListing; regions: readonly RegionListing[] }[] = [];
-		for (const folder of sortedFolders) {
-			const folderRegions = regionsByFolder.byFolder.get(folder.id) ?? [];
-			const folderHit = hit(folder.name) || hit(folder.description);
-			const kept = folderHit ? folderRegions : folderRegions.filter((region) => hit(region.name));
-			if (folderHit || kept.length > 0) {
-				matchedFolders.push({ folder, regions: kept });
-			}
-		}
-		return {
-			folders: matchedFolders,
-			unfiled: regionsByFolder.root.filter((region) => hit(region.name)),
-		};
-	}, [query, sortedFolders, regionsByFolder]);
+	const filtered = useMemo(
+		() => searchTree(sortedFolders, regionsByFolder, query),
+		[query, sortedFolders, regionsByFolder],
+	);
 	const hasMatches = filtered.folders.length > 0 || filtered.unfiled.length > 0;
 
 	const visibleArray = useMemo(() => [...visibleIds], [visibleIds]);
@@ -179,195 +440,115 @@ function RegionsExplorerRoute() {
 		}),
 		[serverUrl, visibleArray, focusedId],
 	);
-	const toggleRegion = useCallback((id: string, on: boolean) => {
-		setVisibleIds((prev) => {
-			const next = new Set(prev);
-			if (on) {
-				next.add(id);
-			} else {
-				next.delete(id);
-			}
-			return next;
-		});
-	}, []);
-
-	const toggleFolder = useCallback((regionIds: readonly string[], on: boolean) => {
-		setVisibleIds((prev) => {
-			const next = new Set(prev);
-			for (const id of regionIds) {
-				if (on) {
-					next.add(id);
-				} else {
-					next.delete(id);
-				}
-			}
-			return next;
-		});
-	}, []);
-
-	const toggleExpand = useCallback((folderId: string, open: boolean) => {
-		setExpandedIds((prev) => {
-			const next = new Set(prev);
-			if (open) {
-				next.add(folderId);
-			} else {
-				next.delete(folderId);
-			}
-			return next;
-		});
-	}, []);
-
+	const toggleRegion = useCallback(
+		(id: string, on: boolean) => setVisibleIds((prev) => withIds(prev, [id], on)),
+		[],
+	);
+	const toggleFolder = useCallback(
+		(regionIds: readonly string[], on: boolean) =>
+			setVisibleIds((prev) => withIds(prev, regionIds, on)),
+		[],
+	);
+	const toggleExpand = useCallback(
+		(folderId: string, open: boolean) => setExpandedIds((prev) => withIds(prev, [folderId], open)),
+		[],
+	);
 	// Focusing a region also switches it on, so the map has something to fly to.
 	const focusRegion = useCallback((id: string) => {
-		setVisibleIds((prev) => (prev.has(id) ? prev : new Set(prev).add(id)));
+		setVisibleIds((prev) => withIds(prev, [id], true));
 		setFocusedId(id);
 	}, []);
 
-	// An inline rename is `updateRegionDetails` and nothing else. Guarded on the
-	// current row rather than sent blindly: renaming a region to the name it
-	// already has is a command with nothing to change, which the domain refuses.
-	const renameRegion = useCallback(
-		async (id: string, rawName: string) => {
-			const name = rawName.trim();
-			const current = regionsRef.current.find((region) => region.id === id);
-			if (current === undefined || name.length === 0 || name === current.name) {
-				return;
-			}
-			try {
-				await mutations.rename(id, name);
-			} catch {
-				// Optimistic mutation rolled back; the tree already shows the synced name.
-			}
-		},
-		[mutations],
-	);
-
-	// A drag between folders is `moveRegionToFolder`, and `null` unfiles it —
-	// which is why the guard compares the value rather than asking whether one
-	// arrived.
-	const moveRegion = useCallback(
-		async (id: string, folderId: string | null) => {
-			const current = regionsRef.current.find((region) => region.id === id);
-			if (current === undefined || current.folderId === folderId) {
-				return;
-			}
-			try {
-				await mutations.move(id, folderId);
-			} catch {
-				// Optimistic mutation rolled back; the tree already shows the prior folder.
-			}
-		},
-		[mutations],
-	);
+	const { moveRegion, renameRegion } = useRegionEdits(mutations, regionsRef);
 
 	const dnd = useRegionDnd(moveRegion);
 	const rename = useRegionRename(renameRegion);
+	const treeHandlers: RegionTreeHandlers = {
+		onEditFolder: setFolderDialog,
+		onFocusRegion: focusRegion,
+		onToggleExpand: toggleExpand,
+		onToggleFolder: toggleFolder,
+		onToggleRegion: toggleRegion,
+	};
+	const treeView: RegionTreeView = { dnd, expandedIds, focusedId, query, rename, visibleIds };
+
+	const activeFilterCount = search.trim().length > 0 ? 1 : 0;
 
 	return (
-		<MapSplitPage
-			map={
-				<>
-					{/*
-					 * Frame the ticked regions as the visible set changes — except while
-					 * one is focused, since focusing also ticks it and the region card
-					 * already frames that single boundary.
-					 */}
-					<MapCanvas
-						contextMenu={{}}
-						controls={{ layers: false, measure: true, readout: true }}
-						fitToData={focusedId === null}
+		<>
+			<ExplorerMapPage
+				activeFilterCount={activeFilterCount}
+				filters={
+					<RegionFilters onChange={setSearch} onClear={() => commitSearch('')} search={search} />
+				}
+				/*
+				 * Filing and importing sit with Create Region rather than as buttons over
+				 * the tree. All three write regions, none is reached often, and a row of
+				 * them across the top of a 400px panel cost two rows of the tree they act
+				 * on every time the page was opened.
+				 */
+				menuItems={
+					<WriteOnly minimum="manager">
+						<DropdownMenuItem onSelect={() => setFolderDialog('new')}>
+							<NewFolderIcon aria-hidden="true" />
+							New Folder
+						</DropdownMenuItem>
+						<DropdownMenuItem asChild>
+							<Link to="/gis/regions/import">
+								<ImportIcon aria-hidden="true" />
+								Import Regions
+							</Link>
+						</DropdownMenuItem>
+					</WriteOnly>
+				}
+				heading={{
+					title: 'Regions',
+					icon: RegionIcon,
+					total: regions.length,
+					isLoading: !isReady,
+					noun: RESULT_NOUN,
+					create: { to: '/gis/regions/create', label: 'Create Region', minimum: 'manager' },
+				}}
+				onResetFilters={() => commitSearch('')}
+				map={
+					<RegionsMap
+						focusedId={focusedId}
+						map={map}
 						onMapReady={setMap}
+						onSelect={setFocusedId}
+						panel={panel}
 						regionLayer={regionLayer}
 					/>
-					{focusedId === null ? null : (
-						<RegionMapCard id={focusedId} map={map} onClose={() => setFocusedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ layout: 'stack', gap: 'tight', padding: 'default' })}>
-					<div className="flex items-center justify-between gap-2">
-						<h1 className="m-0 font-semibold text-foreground text-lg leading-none">Regions</h1>
-						<div className="flex items-center gap-2">
-							<WriteOnly minimum="manager">
-								<Button onClick={() => setFolderDialog('new')} size="sm" variant="outline">
-									New Folder
-								</Button>
-								<Button asChild size="sm" variant="outline">
-									<Link to="/gis/regions/import">
-										<ImportIcon aria-hidden="true" data-icon="inline-start" />
-										Import
-									</Link>
-								</Button>
-								<Button asChild size="sm">
-									<Link to="/gis/regions/create">
-										<PlusIcon aria-hidden="true" data-icon="inline-start" />
-										Create
-									</Link>
-								</Button>
-							</WriteOnly>
-						</div>
-					</div>
-					<SearchInput
-						aria-label="Search regions and folders"
-						onChange={(event) => setSearch(event.target.value)}
-						placeholder="Search regions and folders"
-						value={search}
-					/>
-				</div>
-
-				{!isReady ? (
-					<RegionsSkeleton />
-				) : regions.length === 0 && sortedFolders.length === 0 ? (
-					<RegionsEmpty />
-				) : !hasMatches ? (
-					<RegionsNoMatches query={search.trim()} />
-				) : (
-					<div className="min-h-0 flex-1 overflow-y-auto p-2">
-						{filtered.folders.map(({ folder, regions: folderRegions }) => (
-							<FolderNode
-								dnd={dnd}
-								// A search already narrowed the tree, so show what it found.
-								expanded={query.length > 0 || expandedIds.has(folder.id)}
-								focusedId={focusedId}
-								folder={folder}
-								key={folder.id}
-								onEdit={() => setFolderDialog(folder)}
-								onFocusRegion={focusRegion}
-								onToggleExpand={(open) => toggleExpand(folder.id, open)}
-								onToggleFolder={(on) =>
-									toggleFolder(
-										folderRegions.map((r) => r.id),
-										on,
-									)
-								}
-								onToggleRegion={toggleRegion}
-								regions={folderRegions}
-								rename={rename}
-								visibleIds={visibleIds}
-							/>
-						))}
-						<UnfiledGroup
-							dnd={dnd}
-							focusedId={focusedId}
-							onFocusRegion={focusRegion}
-							onToggleRegion={toggleRegion}
-							regions={filtered.unfiled}
-							rename={rename}
-							showHeader={sortedFolders.length > 0}
-							visibleIds={visibleIds}
+				}
+				panel={panel}
+				results={{
+					// A tree, not a list: folders hold regions and rows are dragged between
+					// them, so this panel draws its own body. See {@link ExplorerResults}.
+					body: (
+						<RegionTreeBody
+							filtered={filtered}
+							hasMatches={hasMatches}
+							isEmpty={regions.length === 0 && sortedFolders.length === 0}
+							isReady={isReady}
+							on={treeHandlers}
+							search={search}
+							showUnfiledHeader={sortedFolders.length > 0}
+							view={treeView}
 						/>
-					</div>
-				)}
-			</div>
+					),
+					rows: [],
+					renderRow: () => null,
+					emptyTitle: 'No regions yet',
+					emptyDescription: 'Draw or import a boundary to start filing work by area.',
+				}}
+			/>
 			{folderDialog === null ? null : (
 				<RegionFolderDialog
 					folder={folderDialog === 'new' ? null : folderDialog}
 					onClose={() => setFolderDialog(null)}
 				/>
 			)}
-		</MapSplitPage>
+		</>
 	);
 }
 

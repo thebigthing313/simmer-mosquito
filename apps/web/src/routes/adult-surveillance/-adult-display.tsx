@@ -171,6 +171,26 @@ export function isPendingCollection(collection: {
 	return collection.collectionTimingMode === 'exact_timestamps' && collection.collectedAt === null;
 }
 
+/**
+ * Bycatch, alone.
+ *
+ * The other three flags are the collection's status, and where a surface draws
+ * that status some other way, this is what is left. A collection with bycatch in
+ * it is an ordinary collection that also caught something else.
+ */
+export function BycatchBadge({ hasBycatch }: { readonly hasBycatch: boolean }) {
+	return hasBycatch ? (
+		<Badge tone={BYCATCH_FLAG.tone} variant="outline">
+			{BYCATCH_FLAG.label}
+		</Badge>
+	) : null;
+}
+
+const BYCATCH_FLAG: { readonly label: string; readonly tone: Tone } = {
+	label: 'Bycatch',
+	tone: 'info',
+};
+
 /** The prominent result flags on a collection, in the order they should read. */
 export function CollectionFlagBadges({
 	collection,
@@ -215,7 +235,7 @@ function collectionFlagList(
 		flags.push({ label: 'Zero result', tone: 'neutral' });
 	}
 	if (collection.hasBycatch) {
-		flags.push({ label: 'Bycatch', tone: 'info' });
+		flags.push(BYCATCH_FLAG);
 	}
 	return flags;
 }

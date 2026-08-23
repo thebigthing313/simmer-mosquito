@@ -15,7 +15,19 @@ function ScrollArea({
 		>
 			<ScrollAreaPrimitive.Viewport
 				data-slot="scroll-area-viewport"
-				className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-1"
+				/*
+				 * `[&>div]:block` overrides the `display: table` Radix wraps the content
+				 * in. A table sizes to its widest row, so content that would otherwise
+				 * truncate instead pushed the row wider than the viewport, and since the
+				 * viewport is `overflow-x: hidden` the overflow was not scrollable at all.
+				 * It was simply cut off: the result rails lost their status badge and
+				 * their detail chevron off the right edge, on every explorer.
+				 *
+				 * The table earns its keep only for a viewport that scrolls sideways, and
+				 * nothing here does. A future horizontal scroller re-enables it locally
+				 * rather than reverting this.
+				 */
+				className="size-full rounded-[inherit] transition-[color,box-shadow] outline-none focus-visible:ring-[3px] focus-visible:ring-ring focus-visible:outline-1 [&>div]:!block"
 			>
 				{children}
 			</ScrollAreaPrimitive.Viewport>

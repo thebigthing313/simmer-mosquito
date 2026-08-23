@@ -27,6 +27,7 @@ import {
 	EyeOff,
 	Fish,
 	FlaskConical,
+	FolderPlus,
 	GripVertical,
 	Hammer,
 	History,
@@ -57,6 +58,7 @@ import {
 	Plus,
 	Printer,
 	Puzzle,
+	RotateCcw,
 	Route,
 	Ruler,
 	Satellite,
@@ -186,12 +188,14 @@ export const iconRegistry = {
 		download: icon('download', 'Download', 'actions', Download),
 		edit: icon('edit', 'Edit', 'actions', Edit),
 		filter: icon('filter', 'Filter', 'actions', ListFilter),
+		newFolder: icon('newFolder', 'New folder', 'actions', FolderPlus),
 		info: icon('info', 'Info', 'actions', Info),
 		loading: icon('loading', 'Loading', 'actions', Loader2),
 		locate: icon('locate', 'Locate', 'actions', LocateFixed),
 		paste: icon('paste', 'Paste', 'actions', Clipboard),
 		pin: icon('pin', 'Pin', 'actions', Pin),
 		remove: icon('remove', 'Remove', 'actions', Minus),
+		reset: icon('reset', 'Reset', 'actions', RotateCcw),
 		save: icon('save', 'Save', 'actions', Save),
 		search: icon('search', 'Search', 'actions', Search),
 		searchCheck: icon('searchCheck', 'Search check', 'actions', SearchCheck),
@@ -299,6 +303,7 @@ export const MoreHorizontal = iconRegistry.arrows.moreHorizontal.icon;
 export const MoreHorizontalIcon = iconRegistry.arrows.moreHorizontal.icon;
 export const MosquitoIcon = iconRegistry.simmer.mosquito.icon;
 export const FilterIcon = iconRegistry.actions.filter.icon;
+export const NewFolderIcon = iconRegistry.actions.newFolder.icon;
 export const NorthIcon = iconRegistry.arrows.north.icon;
 export const OctagonXIcon = iconRegistry.generic.error.icon;
 export const PanelLeftIcon = iconRegistry.arrows.panelLeft.icon;
@@ -306,6 +311,7 @@ export const PinIcon = iconRegistry.actions.pin.icon;
 export const PinOffIcon = iconRegistry.actions.unpin.icon;
 export const PlusIcon = iconRegistry.actions.add.icon;
 export const PuzzleIcon = iconRegistry.generic.puzzle.icon;
+export const ResetIcon = iconRegistry.actions.reset.icon;
 export const SaveIcon = iconRegistry.actions.save.icon;
 export const RulerIcon = iconRegistry.generic.ruler.icon;
 export const SatelliteIcon = iconRegistry.generic.satellite.icon;

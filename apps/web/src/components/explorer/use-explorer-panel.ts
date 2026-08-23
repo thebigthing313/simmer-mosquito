@@ -4,7 +4,16 @@ import { type MapInset, NO_MAP_INSET } from '../map/map-inset';
 /** Gap between the panel and the map edge, and between the panel and the controls. */
 const PANEL_EDGE = 16;
 /** The panel's width on a wide stage. Wide enough for a row's title and badges. */
-const PANEL_WIDTH = 380;
+const PANEL_WIDTH = 400;
+/**
+ * The filter card's width, standing to the right of the results.
+ *
+ * Set by the widest control any explorer puts in it: the date range, which is a
+ * label, two date buttons and the word "to" on one line, and needs 377px. Below
+ * that it is the card's `overflow-x-hidden` that hides the second date rather
+ * than anything telling the reader it did not fit.
+ */
+const FILTERS_WIDTH = 380;
 /** The gap under the docked sheet, matching `bottom-3`. */
 const SHEET_EDGE = 12;
 /** Map left over beside the panel before a side column stops being worth it. */
@@ -39,6 +48,8 @@ export interface ExplorerPanel {
 	readonly isNarrow: boolean;
 	/** The width in px the panel occupies while expanded, for its own layout. */
 	readonly width: number;
+	/** The width in px of the filter card beside it, read only while it is open. */
+	readonly filtersWidth: number;
 	/** The height in px the docked sheet stands at. Only read while narrow. */
 	readonly sheetHeight: number;
 	/** How much of the map the panel is covering right now. See {@link MapInset}. */
@@ -59,9 +70,24 @@ export interface ExplorerPanel {
  * place its own chrome (a focus card) over the same map. One value, one owner,
  * and no explorer computing it for itself.
  */
-export function useExplorerPanel(): ExplorerPanel {
+export function useExplorerPanel(options?: {
+	/**
+	 * Start with the filter card open. For a surface whose filters *are* the page
+	 * rather than a way of narrowing it: the Activity Monitor has nothing to show
+	 * until someone picks a person, so a shut card there hides the only control
+	 * that makes the page do anything.
+	 */
+	readonly filtersOpen?: boolean;
+}): ExplorerPanel {
 	const [isCollapsed, setCollapsed] = useState(false);
-	const [isFiltersOpen, setFiltersOpen] = useState(true);
+	/*
+	 * Shut to begin with. The filters are a card that stands beside the results
+	 * rather than a block stacked above them, so leaving them open would cover a
+	 * second column of map before the reader has asked for anything. The control
+	 * that opens them carries the active count, so a filtered list never looks
+	 * unfiltered while they are away.
+	 */
+	const [isFiltersOpen, setFiltersOpen] = useState(options?.filtersOpen ?? false);
 	const [stageRef, stage] = useMeasuredBox();
 
 	const isNarrow = stage !== null && stage.width < NARROW_STAGE_WIDTH;
@@ -75,9 +101,14 @@ export function useExplorerPanel(): ExplorerPanel {
 		if (isCollapsed) {
 			return NO_MAP_INSET;
 		}
-		return isNarrow
-			? { ...NO_MAP_INSET, bottom: sheetHeight + SHEET_EDGE }
-			: { ...NO_MAP_INSET, left: PANEL_EDGE + PANEL_WIDTH };
+		if (isNarrow) {
+			return { ...NO_MAP_INSET, bottom: sheetHeight + SHEET_EDGE };
+		}
+		// Only the results rail. The filter card pops up over the map and is meant
+		// to leave the camera where it is: it is opened to set something and shut
+		// again, and counting it would re-frame twice on every visit, once away from
+		// the records the reader is looking at and once back.
+		return { ...NO_MAP_INSET, left: PANEL_EDGE + PANEL_WIDTH };
 	}, [isCollapsed, isNarrow, sheetHeight]);
 
 	return {
@@ -87,6 +118,7 @@ export function useExplorerPanel(): ExplorerPanel {
 		setFiltersOpen,
 		isNarrow,
 		width: PANEL_WIDTH,
+		filtersWidth: FILTERS_WIDTH,
 		sheetHeight,
 		inset,
 		stageRef,

@@ -8,6 +8,7 @@ import {
 	MapCardEyebrow,
 	MapCardLocation,
 } from '../../components/map/map-card';
+import type { MapInset } from '../../components/map/map-inset';
 import { useBiocontrolAction } from '../../hooks/queries/use-biocontrol-action';
 import { ContextBadge, formatMeasure } from './-control-display';
 
@@ -19,16 +20,19 @@ const UnitIcon = iconRegistry.entities.unit.icon;
  */
 export function BiocontrolMapCard({
 	id,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
 	const { action } = useBiocontrolAction(id);
 
 	if (action === undefined) {
 		return (
-			<MapCard onClose={onClose} title="Biocontrol">
+			<MapCard inset={inset} onClose={onClose} title="Biocontrol">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -41,6 +45,7 @@ export function BiocontrolMapCard({
 		<MapCard
 			badges={<ContextBadge habitatId={action.habitatId} inspectionId={action.inspectionId} />}
 			eyebrow={<MapCardEyebrow date={action.actionDate} type="Biocontrol" />}
+			inset={inset}
 			onClose={onClose}
 			title={action.methodName}
 			viewDetailLink={(content) => (

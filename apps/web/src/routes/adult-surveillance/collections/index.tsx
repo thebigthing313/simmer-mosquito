@@ -1,21 +1,22 @@
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
-	ExplorerHeader,
+	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
 	mapQueryParams,
-	ResultList,
 	ToggleFilter,
 	toggle,
 	useCollectionMethodOptions,
 	useDateRangeFilters,
+	useExplorerPanel,
 	useFlyToSelection,
 	usePagedMapResource,
 	usePersonnelOptions,
@@ -23,7 +24,12 @@ import {
 	useSelectedMapRecord,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { type CollectionTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
+import {
+	COLLECTION_STATUS_COLORS,
+	type CollectionTileFilters,
+	MAP_CREATE_TARGETS,
+	MapCanvas,
+} from '../../../components/map';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
@@ -35,9 +41,11 @@ import {
 	useSearchFilters,
 } from '../../../lib/search-filters';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
-import { CollectionFlagBadges, collectionEffectiveDate } from '../-adult-display';
+import { BycatchBadge, collectionEffectiveDate } from '../-adult-display';
 import { CollectionMapCard } from '../-collection-map-card';
 import { addDaysToDateString, todayInTimeZone } from '../-overview-data';
+import type { CollectionStatusValue } from './-legend';
+import { collectionLegend, collectionStatusLabel } from './-legend';
 
 interface CollectionSite {
 	readonly id: string;
@@ -50,6 +58,8 @@ interface CollectionSite {
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;
+	/** Resolved server-side by precedence, and what the map paints this by. */
+	readonly status: CollectionStatusValue;
 	readonly setByProfileId: string | null;
 	readonly collectedByProfileId: string | null;
 }
@@ -69,6 +79,8 @@ const COLLECTION_FILTER_CODECS: FilterCodecs<CollectionFilters> = {
 	problems: flagParam,
 	regions: idSetParam,
 };
+
+const CollectionEntityIcon = iconRegistry.entities.collection.icon;
 
 export const Route = createFileRoute('/adult-surveillance/collections/')({
 	component: CollectionsExplorerRoute,
@@ -122,6 +134,7 @@ function CollectionsExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
 	const { options: methodOptions, nameById: methodNameById } = useCollectionMethodOptions();
@@ -141,6 +154,7 @@ function CollectionsExplorerRoute() {
 		}),
 		[methodIds, problemOnly, regionIds, dateFrom, dateTo],
 	);
+	const legend = useMemo(() => collectionLegend(problemOnly), [problemOnly]);
 	const params = useMemo(
 		() =>
 			mapQueryParams({
@@ -175,42 +189,21 @@ function CollectionsExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const hasActiveFilters =
-		dateFrom !== defaultFrom ||
-		dateTo !== today ||
-		methodIds.size > 0 ||
-		problemOnly ||
-		regionIds.size > 0;
+	const activeFilterCount =
+		(dateFrom === defaultFrom && dateTo === today ? 0 : 1) +
+		methodIds.size +
+		regionIds.size +
+		(problemOnly ? 1 : 0);
 	const clearAll = reset;
 
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.collection, MAP_CREATE_TARGETS.trap] }}
-						collectionLayer={collectionLayer}
-						controls={{ layers: false, measure: true, readout: true }}
-						fitToData
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<CollectionMapCard id={selected.id} onClose={() => setSelectedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<ExplorerHeader
-					create={{ to: '/adult-surveillance/collections/create', label: 'Record' }}
-					isLoading={isLoading}
-					noun={RESULT_NOUN}
-					title="Collections"
-					total={total}
-				>
 					<DateRangeFilter {...dateRange} />
 
-					<div className="flex flex-wrap items-center gap-2">
+					<FilterGrid>
 						<MultiSelectFilter
 							empty="No collection methods"
 							label="Method"
@@ -226,9 +219,9 @@ function CollectionsExplorerRoute() {
 							selected={regionIds}
 						/>
 						<ToggleFilter label="Problems only" onChange={setProblemOnly} value={problemOnly} />
-					</div>
+					</FilterGrid>
 
-					{hasActiveFilters ? (
+					{activeFilterCount > 0 ? (
 						<ActiveFilterBar onClearAll={clearAll}>
 							{[...methodIds].map((id) => (
 								<FilterChip
@@ -249,78 +242,68 @@ function CollectionsExplorerRoute() {
 							) : null}
 						</ActiveFilterBar>
 					) : null}
-				</ExplorerHeader>
-
-				<CollectionResults
-					isError={isError}
-					isLoading={isLoading}
-					onRetry={retry}
-					methodNameById={methodNameById}
-					onSelect={setSelectedId}
-					personnelNameById={personnel.nameById}
-					rows={rows}
-					selectedId={selectedId}
-					trapNameById={trapNameById}
+				</>
+			}
+			footer={
+				<ExplorerPagination
+					noun={{ one: 'collection', many: 'collections' }}
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
 				/>
-
-				<div className="border-border/50 border-t p-3">
-					<ExplorerPagination
-						noun="collections"
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={total}
+			}
+			heading={{
+				title: 'Collections',
+				icon: CollectionEntityIcon,
+				total,
+				isLoading,
+				noun: RESULT_NOUN,
+				create: { to: '/adult-surveillance/collections/create', label: 'Record Collection' },
+			}}
+			onResetFilters={clearAll}
+			map={
+				<>
+					<MapCanvas
+						inset={panel.inset}
+						searchWidth={panel.width}
+						contextMenu={{ create: [MAP_CREATE_TARGETS.collection, MAP_CREATE_TARGETS.trap] }}
+						collectionLayer={collectionLayer}
+						controls={{ layers: false, measure: true, readout: true }}
+						fitToData
+						legend={legend}
+						onMapReady={handleMapReady}
 					/>
-				</div>
-			</div>
-		</MapSplitPage>
-	);
-}
-
-// --- results ----------------------------------------------------------------
-
-function CollectionResults({
-	rows,
-	isLoading,
-	isError,
-	onRetry,
-	selectedId,
-	trapNameById,
-	methodNameById,
-	personnelNameById,
-	onSelect,
-}: {
-	readonly rows: readonly CollectionSite[];
-	readonly isLoading: boolean;
-	readonly isError: boolean;
-	readonly onRetry: () => void;
-	readonly selectedId: string | null;
-	readonly trapNameById: ReadonlyMap<string, string>;
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly personnelNameById: ReadonlyMap<string, string>;
-	readonly onSelect: (id: string) => void;
-}) {
-	return (
-		<ResultList
-			emptyDescription="Widen the time window or loosen the filters to bring collections into range."
-			emptyTitle="No collections in range"
-			isError={isError}
-			isLoading={isLoading}
-			onRetry={onRetry}
-			rows={rows}
-		>
-			{(row) => (
-				<CollectionListItem
-					isSelected={row.id === selectedId}
-					key={row.id}
-					methodName={methodNameById.get(row.collectionMethodId) ?? 'Unknown method'}
-					onSelect={onSelect}
-					row={row}
-					setByName={collectionPersonnelName(row, personnelNameById)}
-					trapName={row.trapId === null ? null : (trapNameById.get(row.trapId) ?? 'Unknown trap')}
-				/>
-			)}
-		</ResultList>
+					{selected === null ? null : (
+						<CollectionMapCard
+							id={selected.id}
+							inset={panel.inset}
+							onClose={() => setSelectedId(null)}
+						/>
+					)}
+				</>
+			}
+			panel={panel}
+			results={{
+				rows,
+				isError,
+				onRetry: retry,
+				emptyTitle: 'No collections in range',
+				emptyDescription:
+					'Widen the time window or loosen the filters to bring collections into range.',
+				renderRow: (row) => (
+					<CollectionListItem
+						isSelected={row.id === selectedId}
+						key={row.id}
+						methodName={methodNameById.get(row.collectionMethodId) ?? 'Unknown method'}
+						onSelect={setSelectedId}
+						row={row}
+						setByName={collectionPersonnelName(row, personnel.nameById)}
+						trapName={row.trapId === null ? null : (trapNameById.get(row.trapId) ?? 'Unknown trap')}
+					/>
+				),
+			}}
+		/>
 	);
 }
 
@@ -344,9 +327,12 @@ function CollectionListItem({
 	const effectiveDate = collectionEffectiveDate(row, timeZone);
 	return (
 		<ExplorerRow
-			badges={
-				<CollectionFlagBadges className="flex shrink-0 items-center gap-1.5" collection={row} />
-			}
+			/*
+			 * Bycatch only. Trap out, Problem reported and Zero result are the
+			 * collection's status, which the dot at the left of the row now draws in
+			 * the colour the map paints it and the key names.
+			 */
+			badges={<BycatchBadge hasBycatch={row.hasBycatch} />}
 			date={effectiveDate === null ? null : formatListDate(effectiveDate)}
 			detailLabel={`View details for ${label}`}
 			detailLink={{ to: '/adult-surveillance/collections/$id', params: { id: row.id } }}
@@ -355,10 +341,22 @@ function CollectionListItem({
 			personnel={setByName}
 			selectLabel={`Show ${label} on the map`}
 			subtitle={methodName}
+			swatch={collectionSwatch(row.status)}
 			title={label}
 			titleLink={{ to: '/adult-surveillance/collections/$id', params: { id: row.id } }}
 		/>
 	);
+}
+
+/** The status colour this collection draws in, so the row matches the map. */
+function collectionSwatch(status: CollectionStatusValue): {
+	readonly color: string;
+	readonly label: string;
+} {
+	return {
+		color: COLLECTION_STATUS_COLORS[status] ?? COLLECTION_STATUS_COLORS.collected ?? '',
+		label: collectionStatusLabel(status),
+	};
 }
 
 /** Who handled this collection: whoever collected it, else whoever set it. */

@@ -14,9 +14,9 @@ export { ExplorerRow } from './explorer-row';
 export { ActiveFilterBar, FilterChip } from './filter-chips';
 export { FilterGrid } from './filter-layout';
 export { type FilterOption, MultiSelectFilter, toggle } from './multi-select-filter';
-export { ResultList } from './result-list';
 export { RESULT_SKELETON_KEYS } from './result-skeleton';
 export { SegmentedFilter } from './segmented-filter';
+export { whenAny, whenOn, whenText } from './tile-filter-params';
 export { ToggleFilter } from './toggle-filter';
 export { useCollectionMethodOptions } from './use-collection-method-options';
 export {

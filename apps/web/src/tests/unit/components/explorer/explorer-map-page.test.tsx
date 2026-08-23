@@ -98,6 +98,10 @@ function Page({
 	rows = ROWS,
 	isLoading = false,
 	activeFilterCount = 2,
+	body,
+	hasCreate = true,
+	hasPager = true,
+	hasReset = true,
 	create = { to: '/larval-surveillance/habitats/create', label: 'Add Habitat' } as
 		| { readonly to: string; readonly label: string; readonly minimum?: MinimumRole }
 		| undefined,
@@ -105,6 +109,10 @@ function Page({
 	readonly rows?: readonly Row[];
 	readonly isLoading?: boolean;
 	readonly activeFilterCount?: number;
+	readonly body?: ReactNode;
+	readonly hasCreate?: boolean;
+	readonly hasPager?: boolean;
+	readonly hasReset?: boolean;
 	readonly create?:
 		| { readonly to: string; readonly label: string; readonly minimum?: MinimumRole }
 		| undefined;
@@ -114,17 +122,19 @@ function Page({
 		<ExplorerMapPage
 			activeFilterCount={activeFilterCount}
 			filters={<p>filter controls</p>}
-			footer={<p>pager</p>}
+			footer={hasPager ? <p>pager</p> : undefined}
 			heading={{
 				title: 'Habitats',
 				total: rows.length,
 				isLoading,
 				noun: { one: 'habitat', many: 'habitats' },
-				create: create as never,
+				create: (hasCreate ? create : undefined) as never,
 			}}
 			map={<p>map surface</p>}
+			onResetFilters={hasReset ? () => {} : undefined}
 			panel={panel}
 			results={{
+				...(body === undefined ? {} : { body }),
 				rows,
 				emptyTitle: 'No habitats in view',
 				emptyDescription: 'Loosen the filters to bring habitats into range.',
@@ -145,33 +155,63 @@ describe('ExplorerMapPage', () => {
 
 		expect(screen.getByText('2 habitats')).toBeTruthy();
 		expect(screen.getByText('2 filters')).toBeTruthy();
-		expect(screen.queryByText('filter controls')).toBeNull();
 	});
 
-	// The filters sit in a panel of their own above the results, so that setting
-	// them and scrolling the rows are not the same scroll container.
-	it('puts the filter controls away behind a button that still carries the count', () => {
+	// The filters sit in a card beside the results, so that setting them and
+	// scrolling the rows are not the same scroll container, and so the rail keeps
+	// the full height of the stage.
+	it('opens the filter card from the header and shuts it again', () => {
 		render(<Page />);
-		expect(screen.getByText('filter controls')).toBeTruthy();
-
-		fireEvent.click(screen.getByRole('button', { name: 'Hide filters' }));
-
+		// Shut to begin with: the card covers a second column of map, and nothing
+		// has asked for it yet.
 		expect(screen.queryByText('filter controls')).toBeNull();
-		// The rows stay: putting the filters away is not putting the results away.
-		expect(screen.getByText('Culvert 12')).toBeTruthy();
-		const filtersButton = screen.getByRole('button', { name: /Filters/ });
-		expect(filtersButton.textContent).toContain('2');
 
-		fireEvent.click(filtersButton);
+		fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
 		expect(screen.getByText('filter controls')).toBeTruthy();
+		// The rows stay through both: the card is beside them, not over them.
+		expect(screen.getByText('Culvert 12')).toBeTruthy();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+		expect(screen.queryByText('filter controls')).toBeNull();
+		expect(screen.getByText('Culvert 12')).toBeTruthy();
+	});
+
+	// Shut, the toggle is the only thing on screen that knows the list is cut
+	// down. Without the number a reader cannot tell a surface with nothing in
+	// range from one whose filters excluded everything.
+	it('carries the active filter count on the toggle while the card is shut', () => {
+		const { rerender } = render(<Page />);
+		expect(screen.getByRole('button', { name: 'Filters' }).textContent).toContain('2');
+
+		rerender(<Page activeFilterCount={0} />);
+		expect(screen.getByRole('button', { name: 'Filters' }).textContent).toBe('');
+	});
+
+	// The Regions tree and the Activity Monitor's day-grouped log are not flat
+	// lists, so they hand the panel a body instead of rows.
+	it('draws a caller-supplied body in place of the rows', () => {
+		render(<Page body={<p>folder tree</p>} />);
+
+		expect(screen.getByText('folder tree')).toBeTruthy();
+		// The rows are ignored rather than drawn underneath it, and so is the empty
+		// state a caller with its own body is responsible for.
+		expect(screen.queryByText('Culvert 12')).toBeNull();
+		expect(screen.queryByText('No habitats in view')).toBeNull();
+		// Everything else the frame owns still stands: the header, the pager and the
+		// collapse. The filter card is shut, as it is on any first render.
+		expect(screen.getByText('pager')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Hide results' })).toBeTruthy();
 	});
 
 	it('gives the panel back from the same control it was collapsed with', () => {
 		render(<Page />);
 
+		fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
 		fireEvent.click(screen.getByRole('button', { name: 'Hide results' }));
 		fireEvent.click(screen.getByRole('button', { name: 'Show results' }));
 
+		// The filter card was open when the panel went away and is open again with
+		// it: a collapse is putting the panel down, not clearing what was set.
 		expect(screen.getByText('filter controls')).toBeTruthy();
 		expect(screen.getByText('Culvert 12')).toBeTruthy();
 	});
@@ -185,13 +225,36 @@ describe('ExplorerMapPage', () => {
 		expect(screen.getByText('map surface')).toBe(before);
 	});
 
-	it('offers the create control only at or above the floor its command needs', () => {
+	// The create action is a menu item in this frame rather than a button of its
+	// own, so the floor has to hold inside the menu too.
+	it('offers the create control only at or above the floor its command needs', async () => {
 		signedInRole = 'collector';
-		const { rerender } = render(<Page create={{ to: '/x', label: 'Add Habitat' }} />);
-		expect(screen.getByText('Add Habitat')).toBeTruthy();
+		const { rerender } = render(<Page create={{ to: '/x', label: 'Create Habitat' }} />);
+		fireEvent.pointerDown(
+			screen.getByRole('button', { name: 'More actions' }),
+			new PointerEvent('pointerdown', { bubbles: true, ctrlKey: false, button: 0 }),
+		);
+		expect(await screen.findByText('Create Habitat')).toBeTruthy();
 
-		rerender(<Page create={{ to: '/x', label: 'Add Habitat', minimum: 'manager' }} />);
-		expect(screen.queryByText('Add Habitat')).toBeNull();
+		rerender(<Page create={{ to: '/x', label: 'Create Habitat', minimum: 'manager' }} />);
+		expect(screen.queryByText('Create Habitat')).toBeNull();
+	});
+
+	// Nothing to create and nothing to reset is a menu with nothing in it.
+	it('leaves the menu out when the surface has neither action', () => {
+		render(<Page hasCreate={false} hasReset={false} />);
+
+		expect(screen.queryByRole('button', { name: 'More actions' })).toBeNull();
+	});
+
+	// The pager states the count, so the header would be saying it twice. Without
+	// a pager the header is the only place left.
+	it('states the count in the header only when there is no pager under it', () => {
+		const { rerender } = render(<Page />);
+		expect(screen.queryByText('2 habitats')).toBeNull();
+
+		rerender(<Page hasPager={false} />);
+		expect(screen.getByText('2 habitats')).toBeTruthy();
 	});
 
 	it('shows neither rows nor a reason while the first page is still loading', () => {
@@ -273,7 +336,7 @@ describe('the inset the panel hands the map', () => {
 	it('pads the map viewport by the side the panel is on', () => {
 		const probe = mountProbe({ selected: SELECTED });
 
-		expect(lastCall(fake, 'easeTo')?.padding).toEqual({ top: 0, right: 0, bottom: 0, left: 396 });
+		expect(lastCall(fake, 'easeTo')?.padding).toEqual({ top: 0, right: 0, bottom: 0, left: 416 });
 
 		probe.unmount();
 	});
@@ -285,7 +348,7 @@ describe('the inset the panel hands the map', () => {
 			top: 56,
 			right: 56,
 			bottom: 56,
-			left: 452,
+			left: 472,
 		});
 
 		probe.unmount();

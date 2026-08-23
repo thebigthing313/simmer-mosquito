@@ -583,7 +583,7 @@ function InspectionHistory({
 				</Table>
 			</ScrollArea>
 			<ExplorerPagination
-				noun="inspections"
+				noun={{ one: 'inspection', many: 'inspections' }}
 				onPageChange={setPage}
 				page={page}
 				pageCount={pageCount}
@@ -638,7 +638,7 @@ function SampleHistory({ samples }: { readonly samples: readonly HabitatHistoryS
 				</Table>
 			</ScrollArea>
 			<ExplorerPagination
-				noun="samples"
+				noun={{ one: 'sample', many: 'samples' }}
 				onPageChange={setPage}
 				page={page}
 				pageCount={pageCount}
@@ -716,7 +716,7 @@ function ApplicationHistory({
 				</Table>
 			</ScrollArea>
 			<ExplorerPagination
-				noun="applications"
+				noun={{ one: 'application', many: 'applications' }}
 				onPageChange={setPage}
 				page={page}
 				pageCount={pageCount}

@@ -7,6 +7,7 @@ import {
 	MapCardDetail,
 	MapCardEyebrow,
 } from '../../../components/map/map-card';
+import type { MapInset } from '../../../components/map/map-inset';
 import { useWeatherStation } from '../../../hooks/queries/use-weather-station';
 import { weatherSourceTypeLabel } from './-weather-display';
 import { StationStatusBadge } from './-weather-ui';
@@ -20,16 +21,19 @@ const WeatherIcon = iconRegistry.domains.weather.icon;
  */
 export function WeatherStationMapCard({
 	id,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
 	const { station } = useWeatherStation(id);
 
 	if (station === undefined) {
 		return (
-			<MapCard className="max-w-[420px]" onClose={onClose} title="Weather Station">
+			<MapCard className="max-w-[420px]" inset={inset} onClose={onClose} title="Weather Station">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -45,6 +49,7 @@ export function WeatherStationMapCard({
 			badges={<StationStatusBadge isActive={station.isActive} />}
 			className="max-w-[420px]"
 			eyebrow={<MapCardEyebrow type="Weather station" />}
+			inset={inset}
 			onClose={onClose}
 			title={station.name}
 			viewDetailLink={(content) => (

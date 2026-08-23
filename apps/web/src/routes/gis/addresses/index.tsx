@@ -1,36 +1,22 @@
-import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import {
-	ChevronRightIcon,
-	iconRegistry,
-	PlusIcon,
-	SearchIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { createFileRoute, Link } from '@tanstack/react-router';
+import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
+	ActiveFilterBar,
+	ExplorerMapPage,
+	ExplorerRow,
 	FilterChip,
 	MultiSelectFilter,
 	toggle,
+	useExplorerPanel,
 	useRegionMembership,
 	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
-import { WriteOnly } from '../../../components/write-only';
 import {
 	type AddressListing,
 	useOrganizationAddresses,
@@ -62,6 +48,7 @@ export const Route = createFileRoute('/gis/addresses/')({
 });
 
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
+const RESULT_NOUN = { one: 'address', many: 'addresses' };
 const _addressesGcTimeMs = 30_000;
 const PAGE_SIZE = 25;
 
@@ -89,6 +76,7 @@ function AddressesExplorerRoute() {
 	const [page, setPage] = useState(0);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
+	const panel = useExplorerPanel();
 
 	const filtered = useMemo(() => {
 		const query = search.trim().toLowerCase();
@@ -139,106 +127,110 @@ function AddressesExplorerRoute() {
 		}),
 		[serverUrl, focusedId, trimmedSearch, regionKey],
 	);
+	const activeFilterCount = (search.trim().length > 0 ? 1 : 0) + regionIds.size;
+	const clearAll = useCallback(() => {
+		setFilters({ search: '', regions: new Set() });
+	}, [setFilters]);
+
+	// The rows come from synced records rather than a paged request, so the frame
+	// is told "loading" only until the collection and the boundaries are both in.
+	const isLoading = !isReady || !regionMembership.isReady;
+
 	return (
-		<MapSplitPage
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
+				<>
+					<SearchField
+						label="Search addresses"
+						onChange={setSearch}
+						placeholder="Search addresses…"
+						value={searchInput}
+					/>
+
+					<MultiSelectFilter
+						empty="No regions"
+						label="Region"
+						onChange={setRegionIds}
+						options={regions.options}
+						selected={regionIds}
+					/>
+
+					{activeFilterCount > 0 ? (
+						<ActiveFilterBar onClearAll={clearAll}>
+							{search.trim().length > 0 ? (
+								<FilterChip label={`Search: ${search}`} onRemove={() => commitSearch('')} />
+							) : null}
+							{[...regionIds].map((id) => (
+								<FilterChip
+									key={`region-${id}`}
+									label={regions.nameById.get(id) ?? 'Unknown region'}
+									onRemove={() => setRegionIds(toggle(regionIds, id))}
+								/>
+							))}
+						</ActiveFilterBar>
+					) : null}
+				</>
+			}
+			footer={
+				pageCount > 1 ? (
+					<ExplorerPagination
+						noun={{ one: 'address', many: 'addresses' }}
+						onPageChange={setPage}
+						page={page}
+						pageCount={pageCount}
+						total={filtered.length}
+					/>
+				) : undefined
+			}
+			heading={{
+				title: 'Address Book',
+				icon: AddressIcon,
+				total: filtered.length,
+				isLoading,
+				noun: RESULT_NOUN,
+				create: { to: '/gis/addresses/create', label: 'Create Address' },
+			}}
+			onResetFilters={clearAll}
 			map={
 				<>
 					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.address] }}
 						addressLayer={addressLayer}
+						contextMenu={{ create: [MAP_CREATE_TARGETS.address] }}
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
+						inset={panel.inset}
 						onMapReady={setMap}
+						searchWidth={panel.width}
 					/>
 					{focusedId === null ? null : (
-						<AddressMapCard id={focusedId} map={map} onClose={() => setFocusedId(null)} />
+						<AddressMapCard
+							id={focusedId}
+							inset={panel.inset}
+							map={map}
+							onClose={() => setFocusedId(null)}
+						/>
 					)}
 				</>
 			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
-					<div className="flex flex-wrap items-center justify-between gap-2">
-						<div className="grid gap-1">
-							<h1 className="m-0 font-semibold text-foreground text-lg leading-none">
-								Address Book
-							</h1>
-							<p className="m-0 text-muted-foreground text-sm">
-								Geocoded addresses shared across surveillance and control work.
-							</p>
-						</div>
-						<WriteOnly>
-							<Button asChild size="sm">
-								<Link to="/gis/addresses/create">
-									<PlusIcon aria-hidden="true" data-icon="inline-start" />
-									Create
-								</Link>
-							</Button>
-						</WriteOnly>
-					</div>
-					<div className="relative">
-						<SearchIcon
-							aria-hidden="true"
-							className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-						/>
-						<Input
-							aria-label="Search addresses"
-							className="pl-9"
-							onChange={(event) => setSearch(event.target.value)}
-							placeholder="Search addresses…"
-							type="search"
-							value={searchInput}
-						/>
-					</div>
-					<div className="flex flex-wrap items-center gap-2">
-						<MultiSelectFilter
-							empty="No regions"
-							label="Region"
-							onChange={setRegionIds}
-							options={regions.options}
-							selected={regionIds}
-						/>
-						{[...regionIds].map((id) => (
-							<FilterChip
-								key={`region-${id}`}
-								label={regions.nameById.get(id) ?? 'Unknown region'}
-								onRemove={() => setRegionIds(toggle(regionIds, id))}
-							/>
-						))}
-					</div>
-				</div>
-
-				{!isReady || !regionMembership.isReady ? (
-					<AddressesSkeleton />
-				) : filtered.length === 0 ? (
-					<AddressesEmpty hasFilter={search.trim().length > 0 || regionIds.size > 0} />
-				) : (
-					<div className="flex min-h-0 flex-1 flex-col">
-						<ul className="min-h-0 flex-1 overflow-y-auto p-2">
-							{visible.map((address) => (
-								<AddressRowItem
-									address={address}
-									isFocused={address.id === focusedId}
-									key={address.id}
-									onFocus={() => setFocusedId(address.id)}
-								/>
-							))}
-						</ul>
-						{pageCount > 1 ? (
-							<div className="border-border/50 border-t p-3">
-								<ExplorerPagination
-									noun="addresses"
-									onPageChange={setPage}
-									page={page}
-									pageCount={pageCount}
-									total={filtered.length}
-								/>
-							</div>
-						) : null}
-					</div>
-				)}
-			</div>
-		</MapSplitPage>
+			panel={panel}
+			results={{
+				rows: visible,
+				emptyTitle: activeFilterCount > 0 ? 'No addresses match' : 'No addresses yet',
+				emptyDescription:
+					activeFilterCount > 0
+						? 'Try a different search term or region.'
+						: 'Create an address to build the shared address book.',
+				renderRow: (address) => (
+					<AddressRowItem
+						address={address}
+						isFocused={address.id === focusedId}
+						key={address.id}
+						onFocus={() => setFocusedId(address.id)}
+					/>
+				),
+			}}
+		/>
 	);
 }
 
@@ -251,36 +243,24 @@ function AddressRowItem({
 	readonly isFocused: boolean;
 	readonly onFocus: () => void;
 }) {
+	// An Address's display name is usually its street line, and the postal line
+	// starts with that same street. Printed whole, every row read "1 11th Street"
+	// over "1 11th Street · Monroe Township, NJ 08831" and spent its second line
+	// repeating its first. The subtitle carries what the title has not said.
+	const line = fullAddress(address);
+	const name = address.displayName?.trim() || line || 'Unnamed address';
+	const rest = line.startsWith(name) ? line.slice(name.length).replace(/^\s*·\s*/, '') : line;
 	return (
-		<li
-			className={cn(
-				'group flex items-center gap-1.5 rounded-md py-1.5 pr-1 pl-2',
-				isFocused ? 'bg-primary/8' : 'hover:bg-muted/50',
-			)}
-		>
-			<button
-				className="min-w-0 flex-1 rounded-sm text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				onClick={onFocus}
-				title="Show on the Map"
-				type="button"
-			>
-				<span className="block truncate font-medium text-foreground text-sm hover:text-primary">
-					{address.displayName}
-				</span>
-				<span className="block text-muted-foreground text-xs leading-snug">
-					{fullAddress(address) || '—'}
-				</span>
-			</button>
-			<Link
-				aria-label={`View details for ${address.displayName}`}
-				className="flex size-6 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				params={{ id: address.id }}
-				title="View Address Details"
-				to="/gis/addresses/$id"
-			>
-				<ChevronRightIcon aria-hidden="true" className="size-4" />
-			</Link>
-		</li>
+		<ExplorerRow
+			detailLabel={`View details for ${name}`}
+			detailLink={{ to: '/gis/addresses/$id', params: { id: address.id } }}
+			isSelected={isFocused}
+			onSelect={onFocus}
+			selectLabel={`Show ${name} on the map`}
+			subtitle={rest}
+			title={name}
+			titleLink={{ to: '/gis/addresses/$id', params: { id: address.id } }}
+		/>
 	);
 }
 
@@ -302,34 +282,4 @@ function joinParts(parts: readonly (string | null | undefined)[], separator: str
 		.map((part) => part?.trim() ?? '')
 		.filter((part) => part.length > 0)
 		.join(separator);
-}
-
-function AddressesSkeleton() {
-	return (
-		<div className="grid gap-2 p-4">
-			{[0, 1, 2, 3, 4].map((index) => (
-				<Skeleton className="h-12" key={index} />
-			))}
-		</div>
-	);
-}
-
-function AddressesEmpty({ hasFilter }: { readonly hasFilter: boolean }) {
-	return (
-		<div className="flex flex-1 items-center justify-center p-6">
-			<Empty className="min-h-[200px] border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<AddressIcon aria-hidden="true" />
-					</EmptyMedia>
-					<EmptyTitle>{hasFilter ? 'No Addresses Match' : 'No Addresses Yet'}</EmptyTitle>
-					<EmptyDescription>
-						{hasFilter
-							? 'Try a different search term or region.'
-							: 'Create an address to build the shared address book.'}
-					</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
-		</div>
-	);
 }

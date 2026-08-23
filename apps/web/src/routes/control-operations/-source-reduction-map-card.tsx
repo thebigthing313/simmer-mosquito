@@ -8,6 +8,7 @@ import {
 	MapCardEyebrow,
 	MapCardLocation,
 } from '../../components/map/map-card';
+import type { MapInset } from '../../components/map/map-inset';
 import { useSourceReduction } from '../../hooks/queries/use-source-reduction';
 import { formatMeasure } from './-control-display';
 
@@ -20,16 +21,19 @@ const UnitIcon = iconRegistry.entities.unit.icon;
  */
 export function SourceReductionMapCard({
 	id,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
 	const { action } = useSourceReduction(id);
 
 	if (action === undefined) {
 		return (
-			<MapCard onClose={onClose} title="Source Reduction">
+			<MapCard inset={inset} onClose={onClose} title="Source Reduction">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -41,6 +45,7 @@ export function SourceReductionMapCard({
 	return (
 		<MapCard
 			eyebrow={<MapCardEyebrow date={action.actionDate} type="Source reduction" />}
+			inset={inset}
 			onClose={onClose}
 			title={action.methodName}
 			viewDetailLink={(content) => (

@@ -15,6 +15,7 @@ import {
 	MapCardEyebrow,
 	MapCardLocation,
 } from '../../components/map/map-card';
+import type { MapInset } from '../../components/map/map-inset';
 import type { SampleStatus } from '../../hooks/queries/sample-view';
 import { useSample } from '../../hooks/queries/use-sample';
 import { useSampleIdentifications } from '../../hooks/queries/use-sample-identifications';
@@ -39,9 +40,12 @@ const STATUS_META: Record<
  */
 export function SampleMapCard({
 	id,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
 	const { sample } = useSample(id);
@@ -49,7 +53,7 @@ export function SampleMapCard({
 
 	if (sample === undefined) {
 		return (
-			<MapCard onClose={onClose} title="Sample">
+			<MapCard inset={inset} onClose={onClose} title="Sample">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -80,6 +84,7 @@ export function SampleMapCard({
 				</Badge>
 			}
 			eyebrow={<MapCardEyebrow date={sample.inspectionDate ?? undefined} type="Sample" />}
+			inset={inset}
 			onClose={onClose}
 			title={sample.name ?? `Sample ${sample.id.slice(0, 8)}`}
 			viewDetailLink={(content) => (
