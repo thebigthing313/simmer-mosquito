@@ -64,15 +64,17 @@ multipart input before a candidate is offered. If a table ever relaxes that
 check, this rule needs revisiting before that migration lands.
 
 **Membership is computed on read and never stored.** Measured on production
-against one agency with 345 live regions and 113,571 vertices. An ordinary
-detail page costs 0.048 ms, and the region detail page, the only area-versus-area
-read, costs 1.7 ms on average and 26.7 ms at worst. Cost tracks bounding-box
-candidates times their vertex count, not library size, and the explicit `&&`
-carries `regions_geom_gist_idx`. A cache would be a second copy of an answer the
-database gives in microseconds, invalidated by every region edit and every
-geometry write, and it would go stale silently, which is the failure this system
-keeps producing. `ST_Subdivide` on a materialized region-parts table stays the
-escape hatch and is not built.
+rather than assumed: an ordinary detail page costs microseconds, and the one
+area-versus-area read costs tens of milliseconds at worst. Cost tracks
+bounding-box candidates times their vertex count rather than library size, so a
+bigger region library does not change that. The numbers and the caveats on them
+are in the spec.
+
+A cache would be a second copy of an answer the database gives in microseconds,
+invalidated by every region edit and every geometry write, and it would go stale
+silently, which is the failure this system keeps producing. If the cost ever
+stops being negligible, `ST_Subdivide` on a materialized region-parts table is
+the escape hatch. It is not built.
 
 **The rule gets two implementations, held together by one corpus.** SQL answers
 for web, because web is online-only. A TypeScript implementation in
@@ -89,21 +91,17 @@ until a count in a report is wrong.
 
 ## Consequences
 
-- The multiselect changes what it returns for six of the ten tables it filters.
-  `addresses`, `traps` and `collections` are point-typed and cannot be reached
-  by the change. It ships as a `Changed:` changeset on `apps/web` carrying a
-  measured blast radius, not as a `Fixed:`. A user who has been filtering by
-  district for months got answers that were defensible under the old rule.
-- The predicate is for a standalone read. The planner underestimates its
-  selectivity by roughly 38x, which is harmless for a one-record lookup where a
-  nested loop is right either way, and would pick the wrong strategy if this
+- Saved district filters can return different records. Six of the nine tables
+  the multiselect filters can change answer; the three point-typed ones cannot
+  be reached by the rule change. That is a change and not a fix, because the old
+  answers were defensible under the rule this amends.
+- The predicate is for a standalone read of one record. The planner
+  underestimates its selectivity badly enough to pick the wrong strategy if it
   were composed into a larger join.
-- The two implementations can disagree in the field, and the first person to
-  find out will be someone looking at the same record on a phone and a laptop.
-  The corpus is twenty-two cases; agency-drawn polygons are not the corpus. The
-  spec names the reconciliation rule.
-- GEOS is not reachable on the client. Hermes exposes no `WebAssembly` global,
-  so the option of running the same code on both sides does not exist, and the
-  TypeScript half is hand-rolled on top of `robust-predicates`.
+- The two implementations can disagree in the field. A corpus is a fixed set of
+  cases and agency-drawn polygons are not that set, so the server is the
+  reconciler and a reported disagreement is a corpus bug first.
+- GEOS is not reachable on the client, so the TypeScript half is hand-rolled
+  rather than shared with the code PostGIS runs.
 - The empty answer is a real answer. A trap in no spray zone is an operational
-  fact, not a gap, and the panel says so rather than apologising for it.
+  fact, not a gap.
