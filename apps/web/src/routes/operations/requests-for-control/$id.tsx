@@ -21,6 +21,7 @@ import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { useControlMethodNames } from '../../../components/explorer';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
@@ -133,7 +134,14 @@ function RequestDetailContent({
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<RequestLocationCard habitatName={habitatName} request={request} />
+					<div className="grid content-start gap-3">
+						<RequestLocationCard habitatName={habitatName} request={request} />
+						<RecordRegionsBand
+							noun="request"
+							recordId={request.id}
+							recordType="requested_control_actions"
+						/>
+					</div>
 					<RequestMissionsCard requestId={request.id} />
 					<DangerZoneCard
 						name={subject}

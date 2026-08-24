@@ -36,6 +36,7 @@ import {
 } from '../../../components/larval-display';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
@@ -176,7 +177,14 @@ function InspectionDetailContent({ inspection }: { readonly inspection: Inspecti
 			<InspectionHeader inspection={inspection} />
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
+					<div className="grid content-start gap-3">
+						<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
+						<RecordRegionsBand
+							noun="inspection"
+							recordId={inspection.id}
+							recordType="inspections"
+						/>
+					</div>
 					<InspectionSamplesCard inspectionId={inspection.id} isWet={inspection.isWet} />
 					<LinkedControlActionsCard inspectionId={inspection.id} />
 					<DangerZoneCard

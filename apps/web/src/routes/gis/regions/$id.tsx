@@ -15,6 +15,7 @@ import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
@@ -89,10 +90,13 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 			</div>
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<RegionBoundaryCard
-					geojson={geometryQuery.data?.geojson ?? null}
-					isLoading={geometryQuery.isLoading}
-				/>
+				<div className="grid content-start gap-3">
+					<RegionBoundaryCard
+						geojson={geometryQuery.data?.geojson ?? null}
+						isLoading={geometryQuery.isLoading}
+					/>
+					<RecordRegionsBand noun="region" recordId={region.id} recordType="regions" />
+				</div>
 				<div className="grid content-start gap-5">
 					<RegionDetailsCard description={region.description} folderName={folderName} />
 					<DangerZoneCard

@@ -20,6 +20,7 @@ import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
@@ -109,7 +110,14 @@ function OutreachDetailContent({ action }: { readonly action: OutreachAction }) 
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<OutreachLocationCard action={action} />
+					<div className="grid content-start gap-3">
+						<OutreachLocationCard action={action} />
+						<RecordRegionsBand
+							noun="outreach action"
+							recordId={action.id}
+							recordType="outreach_actions"
+						/>
+					</div>
 					<DangerZoneCard
 						name={methodName}
 						noun="outreach action"

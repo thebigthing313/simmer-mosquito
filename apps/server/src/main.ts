@@ -56,6 +56,7 @@ import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
 import { registerPublicEngagementRecordRoutes } from './public-engagement-records-commands/index.js';
 import { registerRecordDeletionRoutes } from './record-deletion.js';
+import { registerRegionMembershipRoutes } from './region-membership.js';
 import { COMPRESSED_READ_PREFIXES, compressReads } from './response-compression.js';
 import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
@@ -377,6 +378,11 @@ registerServiceRequestNearbyRoutes(app, {
 });
 
 registerRecordDeletionRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerRegionMembershipRoutes(app, {
 	db,
 	authContextMiddleware,
 });

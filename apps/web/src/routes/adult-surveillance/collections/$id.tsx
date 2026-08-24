@@ -61,6 +61,7 @@ import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { newRecordId } from '../../../hooks/mutations/shared';
@@ -223,7 +224,14 @@ function CollectionDetailContent({
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<CollectionLocationCard collection={collection} />
+					<div className="grid content-start gap-3">
+						<CollectionLocationCard collection={collection} />
+						<RecordRegionsBand
+							noun="collection"
+							recordId={collection.id}
+							recordType="collections"
+						/>
+					</div>
 					<ResultsCard canEdit={canEdit} collection={collection} />
 					<DangerZoneCard
 						name={title}

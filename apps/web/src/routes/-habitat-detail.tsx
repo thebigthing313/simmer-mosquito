@@ -53,6 +53,7 @@ import { ExplorerPagination } from '../components/explorer-pagination';
 import { DensityBadge, LifeStageStrip } from '../components/larval-display';
 import { LinkedAddressValueById } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
+import { RecordRegionsBand } from '../components/map/record-regions-band';
 import { RecordUnavailable } from '../components/record';
 import { WriteOnly } from '../components/write-only';
 import { useHabitatMutations } from '../hooks/mutations/use-habitat-mutations';
@@ -154,6 +155,10 @@ function HabitatDetailContent({ habitat }: { readonly habitat: Habitat }) {
 			<HabitatDetailHeader habitat={habitat} />
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
+					{/* The only page whose map card is half the main column, so the band
+					    goes under the pair rather than inside the left half: the spec
+					    puts it at the full width of the main column, and at 328px a
+					    folder row wraps where six chips are meant to fit on one line. */}
 					<div className="grid gap-5 lg:grid-cols-2">
 						<HabitatLocationCard geometry={resolvedGeometry} isPending={isGeometryPending} />
 						<HabitatDetailsCard
@@ -162,6 +167,7 @@ function HabitatDetailContent({ habitat }: { readonly habitat: Habitat }) {
 							isGeometryPending={isGeometryPending}
 						/>
 					</div>
+					<RecordRegionsBand noun="habitat" recordId={habitat.id} recordType="habitats" />
 					<Suspense fallback={<HistorySkeleton />}>
 						<HabitatHistoryCard habitatId={habitat.id} />
 					</Suspense>

@@ -145,6 +145,7 @@ function applicationFilterWhere(filters: ApplicationMapFilters | undefined): Raw
 	clauses.push(
 		...regionMembershipClauses({
 			geom: sql`a.geom`,
+			geomType: sql`a.geom_type`,
 			organizationId: sql`a.organization_id`,
 			regionIds: filters?.regionIds,
 		}),
@@ -281,6 +282,7 @@ function sourceReductionFilterWhere(
 	clauses.push(
 		...regionMembershipClauses({
 			geom: sql`sr.geom`,
+			geomType: sql`sr.geom_type`,
 			organizationId: sql`sr.organization_id`,
 			regionIds: filters?.regionIds,
 		}),
@@ -414,6 +416,7 @@ function biocontrolFilterWhere(filters: BiocontrolMapFilters | undefined): RawBu
 	clauses.push(
 		...regionMembershipClauses({
 			geom: sql`ba.geom`,
+			geomType: sql`ba.geom_type`,
 			organizationId: sql`ba.organization_id`,
 			regionIds: filters?.regionIds,
 		}),
@@ -549,6 +552,7 @@ function outreachFilterWhere(filters: OutreachMapFilters | undefined): RawBuilde
 	clauses.push(
 		...regionMembershipClauses({
 			geom: sql`oa.geom`,
+			geomType: sql`oa.geom_type`,
 			organizationId: sql`oa.organization_id`,
 			regionIds: filters?.regionIds,
 		}),

@@ -45,6 +45,7 @@ import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
@@ -182,7 +183,14 @@ function ApplicationDetailContent({
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<ApplicationLocationCard application={application} habitatName={habitatName} />
+					<div className="grid content-start gap-3">
+						<ApplicationLocationCard application={application} habitatName={habitatName} />
+						<RecordRegionsBand
+							noun="application"
+							recordId={application.id}
+							recordType="applications"
+						/>
+					</div>
 					<ApplicationBatchesCard
 						application={application}
 						canEdit={canEdit}

@@ -314,6 +314,7 @@ function habitatFilterWhere(filters: HabitatMvtTileFilters | undefined): RawBuil
 	whereClauses.push(
 		...regionMembershipClauses({
 			geom: sql`h.geom`,
+			geomType: sql`h.geom_type`,
 			organizationId: sql`h.organization_id`,
 			regionIds: filters?.regionIds,
 		}),
