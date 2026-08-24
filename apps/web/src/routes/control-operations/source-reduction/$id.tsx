@@ -20,6 +20,7 @@ import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
@@ -138,10 +139,17 @@ function SourceReductionDetailContent({
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<SourceReductionLocationCard
-						habitatName={habitatName}
-						sourceReduction={sourceReduction}
-					/>
+					<div className="grid content-start gap-3">
+						<SourceReductionLocationCard
+							habitatName={habitatName}
+							sourceReduction={sourceReduction}
+						/>
+						<RecordRegionsBand
+							noun="source reduction action"
+							recordId={sourceReduction.id}
+							recordType="source_reductions"
+						/>
+					</div>
 					<DangerZoneCard
 						name={methodName}
 						noun="source reduction"

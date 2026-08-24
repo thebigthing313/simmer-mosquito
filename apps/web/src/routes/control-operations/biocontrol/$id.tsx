@@ -20,6 +20,7 @@ import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
@@ -124,7 +125,14 @@ function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<ReleaseLocationCard action={action} habitatName={habitatName} />
+					<div className="grid content-start gap-3">
+						<ReleaseLocationCard action={action} habitatName={habitatName} />
+						<RecordRegionsBand
+							noun="biocontrol action"
+							recordId={action.id}
+							recordType="biocontrol_actions"
+						/>
+					</div>
 					<DangerZoneCard
 						name={methodName}
 						noun="biocontrol action"

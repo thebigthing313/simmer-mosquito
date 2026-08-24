@@ -1,3 +1,4 @@
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import {
 	AlertDialog,
@@ -22,6 +23,8 @@ import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useState } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
@@ -78,7 +81,17 @@ function WeatherStationContent({ station }: { readonly station: WeatherStation }
 		<>
 			<StationHeader isOwned={isOwned} station={station} />
 			<div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
-				<WeatherSummariesCard isStationActive={station.isActive} stationId={station.id} />
+				<div className="grid min-w-0 content-start gap-5">
+					<div className="grid content-start gap-3">
+						<StationLocationCard station={station} />
+						<RecordRegionsBand
+							noun="weather station"
+							recordId={station.id}
+							recordType="weather_sources"
+						/>
+					</div>
+					<WeatherSummariesCard isStationActive={station.isActive} stationId={station.id} />
+				</div>
 				<div className="grid content-start gap-5">
 					<StationDetailsCard station={station} />
 					{isOwned ? (
@@ -89,6 +102,34 @@ function WeatherStationContent({ station }: { readonly station: WeatherStation }
 				</div>
 			</div>
 		</>
+	);
+}
+
+/**
+ * The station's point on a map.
+ *
+ * The rail here is 18rem against 22rem on every other detail page, so a map in
+ * it would render narrower than anywhere else for no reason; the card goes at
+ * the top of the main column instead, with the regions band under it.
+ *
+ * `weather_sources.geom` is `geometry(Point, 4326)` NOT NULL, and point tables
+ * never touch the display endpoint, so this is three props against data
+ * `useWeatherStation` already carries. No server half and no sync change.
+ */
+function StationLocationCard({ station }: { readonly station: WeatherStation }) {
+	return (
+		<RecordLocationCard
+			description={`${station.latitude.toFixed(5)}, ${station.longitude.toFixed(5)}`}
+			emptyDescription="This weather station has no location to display."
+			geojson={
+				{
+					type: 'Point',
+					coordinates: [station.longitude, station.latitude],
+				} as GeoJsonGeometry
+			}
+			geomType={station.geometryKind}
+			height="h-[280px]"
+		/>
 	);
 }
 

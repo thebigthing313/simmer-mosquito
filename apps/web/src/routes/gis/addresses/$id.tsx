@@ -15,6 +15,7 @@ import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
@@ -102,12 +103,15 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 			</div>
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<AddressLocationCard
-					geojson={geometryQuery.data?.geojson ?? null}
-					isLoading={geometryQuery.isLoading}
-					lat={geometryQuery.data?.lat ?? null}
-					lng={geometryQuery.data?.lng ?? null}
-				/>
+				<div className="grid content-start gap-3">
+					<AddressLocationCard
+						geojson={geometryQuery.data?.geojson ?? null}
+						isLoading={geometryQuery.isLoading}
+						lat={geometryQuery.data?.lat ?? null}
+						lng={geometryQuery.data?.lng ?? null}
+					/>
+					<RecordRegionsBand noun="address" recordId={address.id} recordType="addresses" />
+				</div>
 				<div className="grid content-start gap-5">
 					<AddressDetailsCard address={address} />
 					<DangerZoneCard

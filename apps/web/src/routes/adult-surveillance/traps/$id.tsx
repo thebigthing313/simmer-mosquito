@@ -57,6 +57,7 @@ import {
 } from '../../../components/date-range-filter';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
@@ -155,7 +156,10 @@ function TrapDetailContent({ trap }: { readonly trap: Trap }) {
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<TrapLocationCard point={{ lat: trap.latitude, lng: trap.longitude }} />
+					<div className="grid content-start gap-3">
+						<TrapLocationCard point={{ lat: trap.latitude, lng: trap.longitude }} />
+						<RecordRegionsBand noun="trap" recordId={trap.id} recordType="traps" />
+					</div>
 					<TrapCollectionsCard trapId={trap.id} />
 					<DangerZoneCard
 						name={trapDisplayName(trap)}

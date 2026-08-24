@@ -31,6 +31,7 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { MapCanvas } from '../../../components/map';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { RecordUnavailable } from '../../../components/record';
@@ -207,6 +208,16 @@ function ServiceRequestDetailContent({ request }: { readonly request: ServiceReq
 
 				<div className="min-h-0 flex-1 overflow-y-auto">
 					<div className="grid content-start gap-5 p-4">
+						{/* The map pane is full height, so nothing sits under it: the band
+						    becomes the first item in the scrolling side panel instead. Not
+						    beside NearbyPanel, which would read as a subsection of
+						    nearby-context — regions are a fixed boundary the record falls
+						    inside, and nearby is a live proximity query. */}
+						<RecordRegionsBand
+							noun="service request"
+							recordId={request.id}
+							recordType="service_requests"
+						/>
 						<RequestDetailsCard receivedByName={receivedByName} request={request} />
 						<RequestPartiesCard addressId={request.addressId} contactId={request.contactId} />
 						<NearbyPanel

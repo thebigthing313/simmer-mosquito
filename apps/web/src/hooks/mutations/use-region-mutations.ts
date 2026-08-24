@@ -41,10 +41,12 @@
 
 import { type GeoJsonPolygon, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { type Region, settleWrite } from '@simmer-mosquito/sync';
+import { useQueryClient } from '@tanstack/react-query';
 import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { regions } from '../../lib/collections/regions';
 import { useAuthSnapshot } from '../use-auth-snapshot';
+import { invalidateAllRecordRegions } from '../use-record-regions';
 import { optimisticStamp } from './shared';
 
 /** A Region as its form holds one, before the boundary. */
@@ -153,6 +155,14 @@ export interface RegionMutations {
 
 export function useRegionMutations(): RegionMutations {
 	const auth = useAuthSnapshot();
+	// Every region write clears the whole `record-regions` prefix. A redrawn
+	// boundary changes which regions hold any record at all, and a rename or a
+	// move changes what the band says about a record it still holds, so the five
+	// writes are one case rather than two. Region writes happen in one place, so
+	// the page causing the staleness is the page that clears it — precisely, and
+	// for one client. Chasing the other clients is what a materialized membership
+	// table would be for, and ADR 0015 ruled that out.
+	const queryClient = useQueryClient();
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 	const organizationId = identity?.organizationId ?? null;
 	const actorProfileId = identity?.profileId ?? null;
@@ -168,7 +178,7 @@ export function useRegionMutations(): RegionMutations {
 			}
 
 			const now = optimisticStamp();
-			return mutateCollection(regions, {
+			const write = mutateCollection(regions, {
 				operation: 'insert',
 				intent: 'foundation.createRegion',
 				row: {
@@ -188,8 +198,18 @@ export function useRegionMutations(): RegionMutations {
 				} satisfies Region,
 				arguments: { geometry },
 			});
+			// This one hands the write back rather than awaiting it, so the clear
+			// hangs off the persisted promise. Clearing before the server commits
+			// would refetch the answer from before the region existed. A failed
+			// write left nothing stale, so its rejection is nothing to act on and
+			// the caller is the one reporting it.
+			void write.isPersisted.promise.then(
+				() => invalidateAllRecordRegions(queryClient),
+				() => undefined,
+			);
+			return write;
 		},
-		[organizationId, actorProfileId],
+		[organizationId, actorProfileId, queryClient],
 	);
 
 	const save = useCallback(
@@ -217,8 +237,9 @@ export function useRegionMutations(): RegionMutations {
 					...(plan.arguments === undefined ? {} : { arguments: plan.arguments }),
 				}),
 			);
+			invalidateAllRecordRegions(queryClient);
 		},
-		[actorProfileId],
+		[actorProfileId, queryClient],
 	);
 
 	const rename = useCallback(
@@ -235,8 +256,9 @@ export function useRegionMutations(): RegionMutations {
 					},
 				}),
 			);
+			invalidateAllRecordRegions(queryClient);
 		},
-		[actorProfileId],
+		[actorProfileId, queryClient],
 	);
 
 	const move = useCallback(
@@ -253,19 +275,24 @@ export function useRegionMutations(): RegionMutations {
 					},
 				}),
 			);
+			invalidateAllRecordRegions(queryClient);
 		},
-		[actorProfileId],
+		[actorProfileId, queryClient],
 	);
 
-	const remove = useCallback(async (regionId: string) => {
-		await settleWrite(
-			mutateCollection(regions, {
-				operation: 'delete',
-				intent: 'foundation.deleteRegion',
-				key: regionId,
-			}),
-		);
-	}, []);
+	const remove = useCallback(
+		async (regionId: string) => {
+			await settleWrite(
+				mutateCollection(regions, {
+					operation: 'delete',
+					intent: 'foundation.deleteRegion',
+					key: regionId,
+				}),
+			);
+			invalidateAllRecordRegions(queryClient);
+		},
+		[queryClient],
+	);
 
 	return {
 		create,
