@@ -102,8 +102,7 @@ commentable or taggable in v1.
 
 Deleting a folder soft-deletes the folder. If it contains non-deleted regions,
 the command requires acknowledgement and detaches those regions by setting
-`region_folder_id = null`. Folder create/update/delete invalidates region
-intersection cache for the affected folder.
+`region_folder_id = null`.
 
 ## Regions
 
@@ -125,19 +124,20 @@ geometry within the same folder, including the uncategorized bucket, but
 does not block. Topology validation is limited to PostGIS geometry validity.
 
 `updateRegionGeometry` requires acknowledgement that region boundaries may
-change future reporting/cache results. It stores the command geometry directly
-on the region and invalidates affected cache rows.
+change future reporting. It stores the command geometry directly on the region.
 
-`deleteRegion` requires acknowledgement, soft-deletes the region, soft-deletes
-direct region comments/tags, and invalidates affected cache rows. Region delete
-is not blocked by cached intersections. There is no v1 region merge command.
+`deleteRegion` requires acknowledgement, soft-deletes the region, and
+soft-deletes direct region comments/tags. There is no v1 region merge command.
 
-## Region intersection cache
+## Region membership
 
-Region intersection cache has no public commands. It is derived from owned
-locatable-row geometry against a region folder. Region and folder mutations
-should delete or invalidate affected folder cache rows. Uncategorized regions
-are not cached.
+Which regions contain a record is computed on read and never stored, so there is
+nothing for a region or folder mutation to invalidate. A redrawn boundary
+changes every answer the moment it is committed. Unfiled regions are answered
+like any other, in their own group. See ADR 0015 and
+`docs/region-membership-spec.md`.
+
+This replaces the region intersection cache this document used to describe.
 
 ## Global Taxonomy
 
