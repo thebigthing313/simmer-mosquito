@@ -293,6 +293,9 @@ importers:
       '@mapbox/vector-tile':
         specifier: ^3.0.0
         version: 3.0.0
+      '@simmer-mosquito/mapping':
+        specifier: workspace:*
+        version: link:../mapping
       '@types/pg':
         specifier: ^8.15.0
         version: 8.20.0

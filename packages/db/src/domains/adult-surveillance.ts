@@ -567,6 +567,7 @@ function trapFilterWhere(filters: TrapMapFilters | undefined): RawBuilder<boolea
 	clauses.push(
 		...regionMembershipClauses({
 			geom: sql`t.geom`,
+			geomType: sql`t.geom_type`,
 			organizationId: sql`t.organization_id`,
 			regionIds: filters?.regionIds,
 		}),
@@ -803,6 +804,7 @@ function collectionFilterWhere(
 	clauses.push(
 		...regionMembershipClauses({
 			geom: sql`c.geom`,
+			geomType: sql`c.geom_type`,
 			organizationId: sql`c.organization_id`,
 			regionIds: filters?.regionIds,
 		}),

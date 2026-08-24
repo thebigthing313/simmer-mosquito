@@ -4,3 +4,7 @@
 export { syncBaselineUnits } from '../seeds/sync-baseline.js';
 export { createCompileOnlyDb } from './compile-only-db.js';
 export { describeDbIntegration, type TestDbContext, withTestDb } from './db-integration.js';
+// The migration set as text, for the coverage tests that hold a hand-kept list to
+// the schema. `packages/db` cannot host them: they read the generated row schemas
+// in `packages/sync`, which sits above it.
+export { readUpMigrations, type UpMigration } from './migration-sql.js';

@@ -346,6 +346,7 @@ function addressFilterWhere(filters: AddressMvtTileFilters | undefined): RawBuil
 	whereClauses.push(
 		...regionMembershipClauses({
 			geom: sql`a.geom`,
+			geomType: sql`a.geom_type`,
 			organizationId: sql`a.organization_id`,
 			regionIds: filters?.regionIds,
 		}),

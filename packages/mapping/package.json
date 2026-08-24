@@ -8,6 +8,10 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
 		},
+		"./test-corpus": {
+			"types": "./dist/test-corpus.d.ts",
+			"import": "./dist/test-corpus.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.js",
