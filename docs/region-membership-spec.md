@@ -51,16 +51,18 @@ correctly.
 The branch reads `geom_type`, a generated stored column, rather than calling
 `ST_GeometryType`. It cannot drift, and reading it is free.
 
-`ST_Intersects AND NOT ST_Touches` is exactly equivalent to the polygon branch
-and costs two GEOS calls. Keep it as the corpus cross-check, not as the shipped
-expression.
-
 ### The helper
 
-`regionMembershipClause` in `packages/db/src/domains/map-region-filter.ts` gains
-a **required** third argument, `geomType`, and branches internally. Required
-rather than optional with a fallback: TypeScript then forces every call site to
-supply it, and a new call site cannot get the wrong branch by omission.
+**Both** functions in `packages/db/src/domains/map-region-filter.ts` gain a
+required `geomType` argument. `regionMembershipClause` is the singular that holds
+the SQL and branches internally, and `regionMembershipClauses` is the wrapper all
+ten call sites actually call. Adding it to the singular alone forces nothing: the
+wrapper absorbs it, the ten sites compile unchanged, and they take whatever
+default the wrapper passes.
+
+Required rather than optional with a fallback, because TypeScript then forces all
+ten call sites to supply it and an eleventh cannot get the wrong branch by
+omission.
 
 Its doc comment keeps the crossing-line example and loses the "intersection, not
 containment" framing, which becomes half-wrong once area versus area excludes
@@ -99,7 +101,7 @@ members, one per geom-bearing table:
 `requested_control_actions`, `mission_items`, `service_requests`,
 `notification_registrations`, `weather_sources`.
 
-`DeletableRecordType` is not reusable. It is 32 members and wrong in both
+`DeletableRecordType` is not reusable. It is 31 members and wrong in both
 directions: it includes `sample`, `route`, `assignment`, `contact`, `mission`
 and every catalog, none of which carry `geom`, and it misses mission items,
 notification registrations and weather sources, which do.
@@ -113,9 +115,12 @@ and nobody notices, because it looks like data.
 ### Tenancy
 
 The record is looked up with the caller's `organization_id` before it is read at
-all, and the region set scopes to the record's own `organization_id` column the
-way `regionMembershipClause` already does, so a region id from another agency
-cannot widen the answer.
+all, and the region set scopes to the **caller's** `organization_id`, so a region
+id from another agency cannot widen the answer.
+
+For fourteen of the 15 tables that is the same value as the record's own column,
+which is what the shipped `regionMembershipClause` scopes to. The fifteenth is
+why the two are written down separately rather than treated as one.
 
 All 15 tables carry `organization_id`, `deleted_at`, `geom_type` and `geom`
 directly, read off production's `information_schema`. None derive tenancy
@@ -126,17 +131,22 @@ through a foreign key, so the gate is one shape.
 stations `gis/weather/$id.tsx` already branches on with `isOwned`. Its record
 gate is `organization_id = :caller or organization_id is null`.
 
-That does not weaken the probe defence: a null-org row is owned by nobody, not
+That does not weaken the probe defence. A null-org row is owned by nobody, not
 by another agency, and is already visible to every agency by design. The region
-side is untouched, because `regions.organization_id` is NOT NULL, so a null-org
-record is answered with the caller's own regions. Operationally that is the
-point, since an agency subscribes to a provider station to find out which of
-their districts it sits in.
+side needs no exception, because `regions.organization_id` is NOT NULL and the
+region set already scopes to the caller, so a null-org record is answered with
+the caller's own regions. Operationally that is the point, since an agency
+subscribes to a provider station to find out which of their districts it sits
+in.
 
-The coverage test gains a case for it: a `weather_sources` row with a null
-`organization_id` answers `found: true` for an agency unrelated to it. The other
-fourteen tables can never expose this, so without the case the narrow gate reads
-correct and regresses silently.
+The coverage test gains a case for it. A `weather_sources` row with a null
+`organization_id`, sitting inside a region owned by an agency unrelated to it,
+answers `found: true` **with that agency's region in `groups`**. Asserting
+`found: true` alone is not enough, because a region set scoped to the record's
+column rather than the caller's answers `found: true` with an empty `groups`,
+and the panel then reads "inside none of your regions" on every shared station
+forever. The other fourteen tables can never expose either failure, so without
+this case both read correct and regress silently.
 
 ### Response
 
@@ -241,11 +251,13 @@ Created and Updated most of a screen down at ten.
 **The endpoint answers for 15 tables. 13 surfaces ask.** Both numbers matter,
 and the drift is in reading "all 15 geom tables" as a promise of 15 panels.
 
-Twelve detail pages already render `RecordLocationCard` in the main column and
-take the band directly under it: `addresses`, `applications`,
+Eleven geom-bearing detail pages already render `RecordLocationCard` in the main
+column and take the band directly under it: `addresses`, `applications`,
 `biocontrol_actions`, `collections`, `habitats` (via `-habitat-detail.tsx`),
 `inspections`, `outreach_actions`, `regions`, `requested_control_actions`,
-`source_reductions`, `traps`, and `weather_sources` once it gains a card.
+`source_reductions`, and `traps`. Twelve route files render the card, and the
+twelfth is `samples`, which owns no `geom` and so is not in this set.
+`weather_sources` becomes the twelfth that is, once it gains a card.
 
 `weather_sources` gains a `RecordLocationCard` on the same branch as the band.
 Its `geom` is `geometry(Point, 4326)` NOT NULL, and point tables never touch the
@@ -259,8 +271,8 @@ narrower than on any other page for no reason.
 `service_requests` is a `MapSplitPage`. The map pane is full height, so nothing
 sits under it, and the band becomes the first item in the scrolling side panel,
 above `RequestDetailsCard`. Not next to `NearbyPanel`, which would read as a
-subsection of nearby-context: regions are a fixed boundary the record falls
-inside, nearby is a live proximity query.
+subsection of nearby-context. They answer different questions. Regions are a
+fixed boundary the record falls inside, and nearby is a live proximity query.
 
 `mission_items` and `notification_registrations` have no detail page and are out
 of the feature. The endpoint still answers for them, because the whitelist is
@@ -269,7 +281,16 @@ held to the geom tables by test.
 ## The corpus
 
 A hand-written `.ts` module in `packages/mapping`, behind a `./test-corpus`
-subpath export, read by both halves of the predicate. `packages/db` takes it as
+subpath export, read by both halves of the predicate.
+
+**The corpus ships with the SQL half. The TypeScript half waits for mobile.**
+`apps/mobile` is not on `staging`, so the TypeScript predicate has no consumer
+today, and a computational geometry library with no caller rots before its first
+use. The corpus still earns its place on branch 1, because the multiselect
+migration is a second call site with shipped behaviour changing under it, and the
+corpus is what says the change was the intended one.
+
+`packages/db` takes it as
 a devDependency plus a tsconfig `references` entry;
 `scripts/check-build-graph.mjs` counts `devDependencies`, so that import is
 legal.
@@ -321,6 +342,11 @@ Expected answers are hand-written and reviewed, never generated, and the header
 says so. If PostGIS writes the expectations, the corpus can only confirm PostGIS
 agrees with itself, and the TypeScript side inherits whatever PostGIS does at
 the edges rather than the rule the team decided.
+
+`ST_Intersects AND NOT ST_Touches` is exactly equivalent to the polygon branch
+and costs two GEOS calls, so it is the corpus cross-check rather than the shipped
+expression. A case where the two disagree is a bug in the pattern, not in the
+data.
 
 ### How it runs
 
@@ -386,9 +412,9 @@ and saved habits may now produce different counts.
 That is correct only by accident of those two column types. If either becomes
 `geometry(Geometry, 4326)` the way habitats did, `useRegionMembership` keeps
 answering from a centroid and silently diverges from the server, and the client
-cannot detect it from the `LngLat` it was handed. So: a test asserting both
-tables are point-typed, reading the column type from the generated row schemas,
-in the same coverage family as the whitelist test.
+cannot detect it from the `LngLat` it was handed. So a test asserts both tables
+are point-typed, reading the column type from the generated row schemas, in the
+same coverage family as the whitelist test.
 
 ## Mobile
 
@@ -425,7 +451,7 @@ it, because its boundary cases use shared literals. Agency-drawn geometry would.
 dependency: Unlicense, zero dependencies, 1.0 KB gzip for `orient2d`. Roughly
 250 to 450 new lines on top of the existing 75. The argument that decides it is
 that a hand-rolled implementation agrees with `geometryContainsLngLat` by
-construction rather than by argument: there is one place where "does a hole's
+construction rather than by argument. There is one place where "does a hole's
 edge count as inside" is decided, and every dimension reads it.
 
 Scope, given the region side is always one polygon with optional holes. Point
@@ -461,7 +487,7 @@ wrong boolean on one record with nothing to make it visible.
 
 The server is the reconciler. A device's answer is a local read for working
 offline, not a second authority, so when a device is online the panel reads the
-endpoint. A reported disagreement is a corpus bug first: the case that
+endpoint. A reported disagreement is a corpus bug first, so the case that
 reproduces it is added to the corpus before either implementation is touched,
 and both halves then have to pass it.
 

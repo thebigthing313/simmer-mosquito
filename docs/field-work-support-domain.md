@@ -1316,8 +1316,6 @@ Region deletion:
 
 - soft-deletes direct region comments
 - soft-deletes direct region tag items
-- refreshes or removes GIS intersection cache entries through a GIS/cache
-  concern
 - does not block on notification registrations or operational records in the
   current schema because they own geometry snapshots and do not reference
   `region_id`

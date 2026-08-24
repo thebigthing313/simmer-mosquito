@@ -64,9 +64,9 @@ multipart input before a candidate is offered. If a table ever relaxes that
 check, this rule needs revisiting before that migration lands.
 
 **Membership is computed on read and never stored.** Measured on production
-against one agency with 345 live regions and 113,571 vertices: an ordinary
+against one agency with 345 live regions and 113,571 vertices. An ordinary
 detail page costs 0.048 ms, and the region detail page, the only area-versus-area
-surface, costs 1.7 ms on average and 26.7 ms at worst. Cost tracks bounding-box
+read, costs 1.7 ms on average and 26.7 ms at worst. Cost tracks bounding-box
 candidates times their vertex count, not library size, and the explicit `&&`
 carries `regions_geom_gist_idx`. A cache would be a second copy of an answer the
 database gives in microseconds, invalidated by every region edit and every
@@ -92,7 +92,7 @@ until a count in a report is wrong.
 - The multiselect changes what it returns for six of the ten tables it filters.
   `addresses`, `traps` and `collections` are point-typed and cannot be reached
   by the change. It ships as a `Changed:` changeset on `apps/web` carrying a
-  measured blast radius, not as a `Fixed:`: a user who has been filtering by
+  measured blast radius, not as a `Fixed:`. A user who has been filtering by
   district for months got answers that were defensible under the old rule.
 - The predicate is for a standalone read. The planner underestimates its
   selectivity by roughly 38x, which is harmless for a one-record lookup where a
