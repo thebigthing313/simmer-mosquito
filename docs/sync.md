@@ -36,7 +36,7 @@ Twenty-four eager, twenty-six on-demand.
 | Area | Eager | On-demand | Excluded |
 | --- | --- | --- | --- |
 | Identity | `organizations` (the agency's own row), `memberships`, `profiles` for selected org | none | `users` |
-| Foundation | `units`, `species`, `organization_species`, `collection_methods`, `collection_lures`, `habitat_types`, `region_folders` | `regions`, `addresses` | `genera`, region intersection cache data |
+| Foundation | `units`, `species`, `organization_species`, `collection_methods`, `collection_lures`, `habitat_types`, `region_folders` | `regions`, `addresses` | `genera` |
 | Adult surveillance | `traps` | `collections`, `collection_species` | none |
 | Larval surveillance | none | `habitats`, `inspections`, `samples`, `sample_species` | none |
 | Field-work support | `tags`, `routes` | `tag_items`, `comments`, `additional_personnel`, `route_items`, `assignments`, `assignment_items` | none |
@@ -85,9 +85,9 @@ from it; the workflow that will need them is not built.
   what a client *receives*: the invite dialog sends `invited_email` and
   `/commands/memberships` writes it, which is why
   `scripts/check-command-columns.mjs` reads the same list.
-- Region intersection cache data is derived GIS data and is not part of normal
-  app sync unless a specific reporting/GIS screen proves it needs direct client
-  access.
+- Region membership is computed on read and never stored, so there is no table
+  to sync. `GET /records/:recordType/:recordId/regions` answers it. See ADR 0015
+  and `docs/region-membership-spec.md`.
 - `route_items` is on-demand because large habitat catalogs can make route
   membership very large, and the same habitat may appear in multiple routes.
 - `requested_control_actions` is on-demand because the app should not assume it
