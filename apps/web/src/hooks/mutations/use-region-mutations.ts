@@ -159,7 +159,7 @@ export function useRegionMutations(): RegionMutations {
 	// boundary changes which regions hold any record at all, and a rename or a
 	// move changes what the band says about a record it still holds, so the five
 	// writes are one case rather than two. Region writes happen in one place, so
-	// the page causing the staleness is the page that clears it — precisely, and
+	// the page causing the staleness is the page that clears it, precisely and
 	// for one client. Chasing the other clients is what a materialized membership
 	// table would be for, and ADR 0015 ruled that out.
 	const queryClient = useQueryClient();

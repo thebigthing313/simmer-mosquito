@@ -26,8 +26,8 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
 // corpus exists to catch.
 //
 // One `it()` and one `withTestDb`. The harness applies the whole migration set
-// per call — about a second against a local container and nine against a remote
-// one — so twenty-two blocks would be twenty-two migration runs. Seed once,
+// per call, about a second against a local container and nine against a remote
+// one, so twenty-two blocks would be twenty-two migration runs. Seed once,
 // assert once, and name the failing case in the diff rather than in the block
 // title.
 

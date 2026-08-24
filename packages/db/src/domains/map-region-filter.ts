@@ -50,8 +50,8 @@ export function regionMembershipClause(input: {
 	// as `r`, and this clause has to be safe to drop into any of them.
 	//
 	// The explicit `&&` is what reaches `regions_geom_gist_idx`. `ST_Relate` does
-	// not include an index call of its own — relationships like Disjoint hold for
-	// geometries that do not intersect — so without it every live region pays a
+	// not include an index call of its own, because relationships like Disjoint
+	// hold for geometries that do not intersect, so without it every live region pays a
 	// full GEOS relate. `deleted_at is null` is load-bearing for the same reason
 	// as well as for correctness: that index is partial on it.
 	return sql<boolean>`exists (
@@ -72,8 +72,8 @@ export function regionMembershipClause(input: {
 /**
  * The branch itself, without the region set around it.
  *
- * Split out so the detail-page read can scope the region set its own way — every
- * live region of the caller's agency rather than a chosen few — and still run the
+ * Split out so the detail-page read can scope the region set its own way, every
+ * live region of the caller's agency rather than a chosen few, and still run the
  * same test the multiselect runs. Two surfaces answering the same question
  * differently about one record is the failure ADR 0015 exists to prevent.
  *

@@ -8,8 +8,8 @@ import { expect, it } from 'vitest';
  * The predicate itself is proved by the corpus in `packages/db`. This is the
  * other half: the gates around it. A record another agency owns, a soft-deleted
  * one and an unknown id all have to be indistinguishable, a region another agency
- * owns must never widen an answer, and `weather_sources` — the only one of the
- * fifteen whose `organization_id` is nullable — has to answer with the caller's
+ * owns must never widen an answer. And `weather_sources`, the only one of the
+ * fifteen whose `organization_id` is nullable, has to answer with the caller's
  * regions rather than with an empty list.
  */
 

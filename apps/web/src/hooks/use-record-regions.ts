@@ -71,7 +71,7 @@ export interface RecordRegions {
  * mean a call in every geometry-writing mutation across thirteen record types,
  * where the fourteenth surface's omission is silent and looks like data. Coming
  * back to a detail page remounts the band, so refetching there covers every
- * write path at the cost of one query per visit — and ADR 0015 measured an
+ * write path at the cost of one query per visit, and ADR 0015 measured an
  * ordinary detail page's read at 0.048 ms. The cached answer still renders
  * immediately; only the correction is a round-trip behind.
  */
@@ -112,7 +112,7 @@ function recordRegionsQueryKey(
  * any record at all.
  *
  * Region edits happen in one place, the GIS region pages, so the page causing
- * the staleness is the page that clears it — precisely, and for one client.
+ * the staleness is the page that clears it, precisely and for one client.
  * Chasing the other clients is what a materialized membership table would be
  * for, and ADR 0015 ruled that out.
  */

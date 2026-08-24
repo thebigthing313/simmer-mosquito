@@ -1,4 +1,5 @@
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Card, CardContent } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -18,7 +19,7 @@ const UNFILED_LABEL = 'No folder';
  * Six chips is roughly one line at the band's width.
  *
  * On production every folder holds exactly one region for a point record, so the
- * expander only ever fires on the region detail page — which is where one
+ * expander only ever fires on the region detail page, which is where one
  * municipality overlaps 38 sections.
  */
 const CHIPS_BEFORE_COLLAPSE = 6;
@@ -34,9 +35,9 @@ const CHIPS_BEFORE_COLLAPSE = 6;
  *
  * No total count. The rows are the answer, and a tally above them is a second
  * thing to read that says less. Only folders with a hit appear, plus a "No
- * folder" row when unfiled regions match, and nothing enforces that folders
- * partition space — `region_folder_id` is nullable and two regions in one folder
- * may cover the same point — so a folder row renders N chips rather than one.
+ * folder" row when unfiled regions match. Nothing enforces that folders
+ * partition space: `region_folder_id` is nullable and two regions in one folder
+ * may cover the same point, so a folder row renders N chips rather than one.
  */
 export function RecordRegionsBand({
 	recordType,
@@ -66,7 +67,7 @@ export function RecordRegionsBand({
 		);
 	}
 
-	// `found: false` renders nothing at all — no band, no message, no error. If the
+	// `found: false` renders nothing at all: no band, no message, no error. If the
 	// record is gone the page around this is already showing something it should
 	// not, and a band announcing "not found" under a rendered record contradicts
 	// the page it sits in. That race belongs to the page's own error handling.
@@ -132,13 +133,14 @@ function FolderRow({ group }: { readonly group: RecordRegionGroup }) {
 				</Badge>
 			))}
 			{overflow > 0 ? (
-				<button
-					className="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+				<Button
+					className="h-auto p-0 text-muted-foreground text-xs"
 					onClick={() => setExpanded((value) => !value)}
-					type="button"
+					size="xs"
+					variant="link"
 				>
 					{expanded ? 'Show fewer' : `and ${overflow} more`}
-				</button>
+				</Button>
 			) : null}
 		</div>
 	);

@@ -155,17 +155,19 @@ function HabitatDetailContent({ habitat }: { readonly habitat: Habitat }) {
 			<HabitatDetailHeader habitat={habitat} />
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
+					{/* The only page whose map card is half the main column, so the band
+					    goes under the pair rather than inside the left half: the spec
+					    puts it at the full width of the main column, and at 328px a
+					    folder row wraps where six chips are meant to fit on one line. */}
 					<div className="grid gap-5 lg:grid-cols-2">
-						<div className="grid content-start gap-3">
-							<HabitatLocationCard geometry={resolvedGeometry} isPending={isGeometryPending} />
-							<RecordRegionsBand noun="habitat" recordId={habitat.id} recordType="habitats" />
-						</div>
+						<HabitatLocationCard geometry={resolvedGeometry} isPending={isGeometryPending} />
 						<HabitatDetailsCard
 							geometry={resolvedGeometry}
 							habitat={habitat}
 							isGeometryPending={isGeometryPending}
 						/>
 					</div>
+					<RecordRegionsBand noun="habitat" recordId={habitat.id} recordType="habitats" />
 					<Suspense fallback={<HistorySkeleton />}>
 						<HabitatHistoryCard habitatId={habitat.id} />
 					</Suspense>

@@ -20,5 +20,8 @@
 		"test": "vitest run src --passWithNoTests",
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
-	"types": "./dist/index.d.ts"
+	"types": "./dist/index.d.ts",
+	"devDependencies": {
+		"jsts": "^2.12.1"
+	}
 }

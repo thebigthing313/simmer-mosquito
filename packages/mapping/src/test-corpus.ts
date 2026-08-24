@@ -1,7 +1,7 @@
 /**
  * The region-membership corpus: geometry pairs and the answer each one must get.
  *
- * ADR 0015 gives one membership rule two implementations — SQL for web, and a
+ * ADR 0015 gives one membership rule two implementations: SQL for web, and a
  * TypeScript predicate for mobile when `apps/mobile` arrives. Neither is the
  * source of truth. This file is. Both halves are held to it, so a disagreement
  * between them is a failing case here rather than a field report.
@@ -10,6 +10,11 @@
  * out of PostGIS. A corpus PostGIS wrote could only confirm that PostGIS agrees
  * with itself, and the TypeScript half would inherit whatever GEOS does at the
  * edges instead of the rule the team decided.
+ *
+ * They are checked twice all the same. `test-corpus.oracle.test.ts` runs them
+ * through `jsts`, a devDependency that never ships, and the SQL half runs them
+ * through PostGIS. Checking is not the same as writing: an expectation somebody
+ * fat-fingers is caught, and the rule stays the one that was decided.
  *
  * The rule, restated once: a record is inside a region when their geometries
  * meet, except that area against area needs their **interiors** to meet.
@@ -28,7 +33,7 @@
  * implementation, and the corpus would become an argument about tolerance;
  * built this way the boundary cases are exact and no tolerance is needed at all.
  * The single exception is `line-crossing-boundary`, whose crossing point is
- * derived — and that case answers true under every rule, so precision never
+ * derived, and that case answers true under every rule, so precision never
  * decides it.
  *
  * The hole is first-class rather than a variant. `ImportPolygonGeometry` is

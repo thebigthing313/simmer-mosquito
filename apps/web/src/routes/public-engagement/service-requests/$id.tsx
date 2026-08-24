@@ -211,7 +211,7 @@ function ServiceRequestDetailContent({ request }: { readonly request: ServiceReq
 						{/* The map pane is full height, so nothing sits under it: the band
 						    becomes the first item in the scrolling side panel instead. Not
 						    beside NearbyPanel, which would read as a subsection of
-						    nearby-context — regions are a fixed boundary the record falls
+						    nearby-context. Regions are a fixed boundary the record falls
 						    inside, and nearby is a live proximity query. */}
 						<RecordRegionsBand
 							noun="service request"

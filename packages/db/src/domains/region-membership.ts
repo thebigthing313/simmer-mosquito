@@ -171,9 +171,11 @@ async function readGroups(
 	const selfExclusion =
 		input.recordType === 'regions' ? sql`and rf.id is distinct from rec.id` : sql``;
 
-	// A soft-deleted folder leaves its regions in the unfiled group rather than
-	// dropping them. The region is live and still contains the record, and the
-	// answer is about regions.
+	// Deleting a folder soft-deletes the folder and leaves `region_folder_id`
+	// pointing at it, so a live region can name a dead folder. The join drops the
+	// name and the region falls into the unfiled group, which is what the rest of
+	// the app already shows: `region_folders` syncs with soft-deleted rows filtered
+	// upstream, so `use-region.ts` left-joins the same miss to a null folder name.
 	const result = await sql<RegionRow>`
 		select
 			rf.id as region_id,
