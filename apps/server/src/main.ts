@@ -114,6 +114,17 @@ if (env.geocodioApiKey === null) {
 	);
 }
 
+// The same reason as the geocoder key above, one level worse: unset, this does
+// not turn off a button, it turns off the whole operator console. Every
+// `/admin/*` route refuses, and every `operator`-kind command is denied, because
+// there is no organization to compare a session against. That is the safe
+// reading and it stays, but it should not be silent.
+if (env.simmerOperatorOrganizationId === null) {
+	console.warn(
+		'[operator] SIMMER_OPERATOR_ORG_ID is not set — every /admin/* route will answer 403 operator_not_configured and no session can be an operator. Set it to the WorkOS organization that is SIMMER in this environment.',
+	);
+}
+
 const authContextMiddleware = createAuthContextMiddleware({
 	auth: sessionProvider,
 	localIdentityResolver,

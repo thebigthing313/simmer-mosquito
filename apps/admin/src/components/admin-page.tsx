@@ -12,7 +12,7 @@ import {
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
-import { adminLogoutUrl, isOperatorRequiredError } from '../api';
+import { adminLogoutUrl, isOperatorNotConfiguredError, isOperatorRequiredError } from '../api';
 
 /**
  * The console's page frame, and the one failure state that is its own.
@@ -55,12 +55,15 @@ export function AdminPage({
 /**
  * What a page shows when its read failed.
  *
- * The operator refusal gets its own answer rather than being rendered as an
- * error string. It is not a fault the operator can retry past — the fix is to
- * sign in as SIMMER rather than as an agency, or to be added to the SIMMER
- * organization — so the screen says that and offers the only action that helps.
+ * The two operator refusals get their own answers rather than being rendered as
+ * error strings. Neither is a fault the operator can retry past, and they take
+ * opposite fixes, which is why the server sends two codes rather than one.
  */
 export function AdminError({ error }: { readonly error: unknown }) {
+	if (isOperatorNotConfiguredError(error)) {
+		return <OperatorNotConfigured />;
+	}
+
 	if (isOperatorRequiredError(error)) {
 		return <OperatorRequired />;
 	}
@@ -79,6 +82,11 @@ export function AdminError({ error }: { readonly error: unknown }) {
 	);
 }
 
+/**
+ * Signed in, but not as SIMMER. The fix is to sign in as SIMMER rather than as
+ * an agency, or to be added to the SIMMER organization, so the screen says that
+ * and offers the only action that helps.
+ */
 function OperatorRequired() {
 	return (
 		<Empty className="border-border/60">
@@ -97,6 +105,37 @@ function OperatorRequired() {
 					<a href={adminLogoutUrl()}>Sign out</a>
 				</Button>
 			</EmptyContent>
+		</Empty>
+	);
+}
+
+/**
+ * The server has no `SIMMER_OPERATOR_ORG_ID`, so it refuses everyone.
+ *
+ * The counterpart of the `VITE_SIMMER_OPERATOR_ORG_ID` refusal in
+ * `routes/-auth.tsx`, and it names its variable for the same reason: the two are
+ * set on different services and are easy to set only one of. Miss the server
+ * one and sign-in works, so the operator is looking at a console that behaves
+ * as though there is nothing on the platform.
+ *
+ * No sign-out button here, unlike {@link OperatorRequired}. Signing back in
+ * changes nothing when the server cannot tell an operator from anyone else, and
+ * offering the action would send the operator around a loop that cannot end.
+ */
+function OperatorNotConfigured() {
+	return (
+		<Empty className="border-warning/30 bg-attention/20">
+			<EmptyHeader>
+				<EmptyMedia variant="icon">
+					<WarningIcon aria-hidden="true" />
+				</EmptyMedia>
+				<EmptyTitle>Server Not Configured</EmptyTitle>
+				<EmptyDescription>
+					The SIMMER server has no operator organization configured, so it refuses every request
+					from this console. Set SIMMER_OPERATOR_ORG_ID on the server service to the WorkOS
+					organization that is SIMMER in this environment, and redeploy.
+				</EmptyDescription>
+			</EmptyHeader>
 		</Empty>
 	);
 }

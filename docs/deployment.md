@@ -398,6 +398,26 @@ redeploy, and that it is deliberately *not* server-side. If `/auth/sign-in`
 enforced it, it would also strip the picker from `apps/web`, where an operator
 who genuinely holds an agency membership still needs to choose.
 
+#### Set both, and set them to the same organization
+
+`VITE_SIMMER_OPERATOR_ORG_ID` here and `SIMMER_OPERATOR_ORG_ID` on the server are
+a pair, on two different services, and each is useless without the other. They
+fail in different places, so a deployment that has only one looks like two
+unrelated problems:
+
+- **Miss the console's.** Sign-in stops at the organization challenge and says
+  which variable to set. Nothing to diagnose.
+- **Miss the server's.** Sign-in succeeds, and then every `/admin/*` route
+  answers `403 operator_not_configured`. The console renders "Server Not
+  Configured" and names the variable, and the server logs the same thing once at
+  boot. Both are new; before them the refusal was indistinguishable from "you are
+  not an operator", and the console told operators to sign back in as SIMMER on a
+  deployment where no session could be one.
+
+The unset server value still refuses everyone, which is deliberate: an
+unconfigured deployment has no operators rather than all of them. Only the
+reporting changed.
+
 It does **not** need a Mapbox token: the console has no maps by design. Geometry
 comes from KML/KMZ/GeoJSON files and typed coordinates (see
 `apps/admin/src/components/geometry-input.tsx`), so `mapbox-gl` stays out of a

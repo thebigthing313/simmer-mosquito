@@ -152,12 +152,31 @@ export function createOperatorAuthContextMiddleware(options: {
 			options.setAuthCookie(context, session.sealedSession);
 		}
 
-		// A session with no organization at all fails this too: `null === null` is
-		// never reached, because an unset `operatorOrganizationId` refuses first.
-		if (
-			options.operatorOrganizationId === null ||
-			session.workosOrganizationId !== options.operatorOrganizationId
-		) {
+		/*
+		 * Two refusals, not one, because they have different fixes and only the
+		 * server can tell them apart.
+		 *
+		 * `operator_required` means the session is real and is not SIMMER's. The
+		 * console answers it by offering a sign-out, because signing back in as
+		 * SIMMER is what helps.
+		 *
+		 * `operator_not_configured` means `SIMMER_OPERATOR_ORG_ID` is unset, so
+		 * there is no organization to compare against and nobody can be an
+		 * operator here. Signing in again cannot fix that, and the console used to
+		 * tell the operator to try, because both branches answered
+		 * `operator_required` and the console had no way to know which one it hit.
+		 * The status stays 403 either way: the unset case still refuses everyone,
+		 * which is the safe reading (see `AuthContext.isOperator`).
+		 *
+		 * A session with no organization at all lands in the first branch only when
+		 * the variable is set; unset refuses first, so `null === null` is never
+		 * reached.
+		 */
+		if (options.operatorOrganizationId === null) {
+			return context.json({ error: 'operator_not_configured' }, 403);
+		}
+
+		if (session.workosOrganizationId !== options.operatorOrganizationId) {
 			return context.json({ error: 'operator_required' }, 403);
 		}
 

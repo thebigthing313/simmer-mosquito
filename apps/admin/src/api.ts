@@ -16,12 +16,15 @@ export type { AuthMe, AuthOrganizationChoice } from '@simmer-mosquito/auth/brows
  * A failed `/admin/*` request, carrying the server's machine-readable `error`
  * code alongside the human message.
  *
- * The code matters for exactly one case, but it is the case that decides whether
- * the console works at all: `operator_required` is a 403 from
- * `createOperatorAuthContextMiddleware` meaning "signed in, but not as SIMMER".
- * A plain `Error` flattens that into a string, and
+ * The code matters for two cases, and they are the ones that decide whether the
+ * console works at all. Both are 403s from
+ * `createOperatorAuthContextMiddleware`. `operator_required` means "signed in,
+ * but not as SIMMER". `operator_not_configured` means the server has no
+ * `SIMMER_OPERATOR_ORG_ID`, so it cannot tell an operator from anyone else and
+ * refuses everybody. A plain `Error` flattens both into a string, and
  * "operator_required" rendered in a red box is not an explanation. Pages read
- * {@link isOperatorRequiredError} instead and say what happened.
+ * {@link isOperatorRequiredError} and {@link isOperatorNotConfiguredError}
+ * instead and say what happened.
  */
 class AdminApiError extends Error {
 	readonly code: string | null;
@@ -38,6 +41,19 @@ class AdminApiError extends Error {
 /** True when the signed-in account is not on the server's operator allowlist. */
 export function isOperatorRequiredError(error: unknown): boolean {
 	return error instanceof AdminApiError && error.code === 'operator_required';
+}
+
+/**
+ * True when the *server* has no SIMMER organization configured.
+ *
+ * The mirror of the `VITE_SIMMER_OPERATOR_ORG_ID` refusal this app raises before
+ * sign-in, for the other half of the pair. Both variables have to be set and
+ * name the same organization; miss the server one and the console signs in fine,
+ * then gets refused by every read, and the only thing that can name the variable
+ * is the code the server sends back.
+ */
+export function isOperatorNotConfiguredError(error: unknown): boolean {
+	return error instanceof AdminApiError && error.code === 'operator_not_configured';
 }
 
 /** One declaration, in `packages/domain`; re-exported for this app's call sites. */
