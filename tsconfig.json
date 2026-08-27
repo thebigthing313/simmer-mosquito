@@ -36,6 +36,9 @@
 		},
 		{
 			"path": "./apps/preview"
+		},
+		{
+			"path": "./apps/mobile"
 		}
 	]
 }

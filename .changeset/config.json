@@ -9,6 +9,7 @@
 	"updateInternalDependencies": "patch",
 	"privatePackages": { "version": true, "tag": false },
 	"ignore": [
+		"@simmer-mosquito/mobile",
 		"@simmer-mosquito/server",
 		"@simmer-mosquito/preview",
 		"@simmer-mosquito/auth",

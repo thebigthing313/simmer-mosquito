@@ -13,11 +13,10 @@ import type {
 	SignUpResult,
 	VerifyEmailResult,
 } from '@simmer-mosquito/auth';
-import { WORKOS_SESSION_COOKIE_NAME } from '@simmer-mosquito/auth';
 import type { Context, Hono } from 'hono';
-import { getCookie } from 'hono/cookie';
 import type { AuthMailer } from './auth-email.js';
 import type { AuthVariables } from './auth-middleware.js';
+import { readSealedSession } from './auth-session-transport.js';
 
 /**
  * The subset of `createWorkOsAuth` the in-app (bring-your-own-UI) auth pages
@@ -202,7 +201,8 @@ export function registerAuthUserRoutes(
 	 *
 	 * Deliberately not behind `authContextMiddleware`: the caller may currently be
 	 * in an organization with no SIMMER identity at all, which that middleware
-	 * refuses. The sealed cookie is the credential, and the membership check is
+	 * refuses. The sealed session is the credential — cookie or bearer, see
+	 * `auth-session-transport.ts` — and the membership check is
 	 * WorkOS's — a refresh against an organization the user does not belong to
 	 * fails there, before SIMMER sees it.
 	 */
@@ -213,7 +213,7 @@ export function registerAuthUserRoutes(
 		}
 
 		const result = await auth.switchOrganization({
-			sealedSession: getCookie(context, WORKOS_SESSION_COOKIE_NAME),
+			sealedSession: readSealedSession(context),
 			workosOrganizationId: payload.value.organizationId,
 		});
 

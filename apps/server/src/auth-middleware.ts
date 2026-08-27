@@ -1,8 +1,6 @@
 import type { AuthUser } from '@simmer-mosquito/auth';
-import { WORKOS_SESSION_COOKIE_NAME } from '@simmer-mosquito/auth';
 import type { ActiveLocalAuthIdentity } from '@simmer-mosquito/db';
 import type { Context, MiddlewareHandler } from 'hono';
-import { getCookie } from 'hono/cookie';
 import { createMiddleware } from 'hono/factory';
 import {
 	type AuthContext,
@@ -11,6 +9,7 @@ import {
 	resolveAuthContext,
 	toAuthFailureBody,
 } from './auth-context.js';
+import { readSealedSession } from './auth-session-transport.js';
 
 export interface AuthVariables {
 	readonly authContext: AuthContext;
@@ -40,7 +39,7 @@ export function createAuthContextMiddleware(options: {
 }) {
 	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
 		const result = await resolveAuthContext({
-			sealedSession: getCookie(context, WORKOS_SESSION_COOKIE_NAME),
+			sealedSession: readSealedSession(context),
 			auth: options.auth,
 			localIdentityResolver: options.localIdentityResolver,
 			operatorOrganizationId: options.operatorOrganizationId ?? null,
@@ -136,9 +135,7 @@ export function createOperatorAuthContextMiddleware(options: {
 	) => void;
 }) {
 	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
-		const session = await options.auth.authenticateSession(
-			getCookie(context, WORKOS_SESSION_COOKIE_NAME),
-		);
+		const session = await options.auth.authenticateSession(readSealedSession(context));
 
 		if (!session.authenticated) {
 			return context.json(

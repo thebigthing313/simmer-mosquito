@@ -1,0 +1,41 @@
+{
+	// Extends the workspace base rather than `expo/tsconfig.base`, and restates
+	// the handful of Expo-specific options below.
+	//
+	// Expo's base is written for the classic compiler and ships pinned to
+	// TypeScript 6; this workspace is on TypeScript 7 and `tsc` is the only
+	// compiler (see CLAUDE.md). More to the point, the base does not turn on
+	// `exactOptionalPropertyTypes`, `noUncheckedIndexedAccess`, or
+	// `noImplicitOverride`, so extending it would quietly make this the one
+	// project in the repo held to a lower standard. `lib` and `moduleResolution`
+	// below are copied from Expo's base deliberately — those two it is right about.
+	"extends": "../../tsconfig.base.json",
+	"compilerOptions": {
+		"jsx": "react-jsx",
+		// `DOM` is what Expo's own base uses: React Native implements a browser-ish
+		// subset (fetch, URL, console) with no `lib` of its own to describe it.
+		"lib": ["ES2022", "DOM"],
+		"module": "ESNext",
+		"moduleResolution": "Bundler",
+		// React Native ships separate entry points for a lot of packages. Without
+		// this condition, resolution picks the browser or node one and the types
+		// stop describing what Metro will actually bundle.
+		"customConditions": ["react-native"],
+		"noEmit": true,
+		"allowJs": true,
+		// Outside `dist` for the same reason `apps/web` does it: build metadata
+		// names every local source path, and under `node_modules` Nx does not treat
+		// a file that changes on every build as a cache input.
+		"tsBuildInfoFile": "node_modules/.cache/tsconfig.tsbuildinfo",
+		"types": ["expo/types"]
+	},
+	"include": ["src/**/*.ts", "src/**/*.tsx"],
+	"references": [
+		{
+			"path": "../../packages/auth"
+		},
+		{
+			"path": "../../packages/design-tokens"
+		}
+	]
+}
