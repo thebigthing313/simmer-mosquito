@@ -1,5 +1,18 @@
 # What the TypeScript region predicate is built on
 
+Status: Current, and about work that is not built.
+
+> Its recommendation was adopted into `docs/region-membership-spec.md` under
+> "Mobile": hand-roll the predicate in `packages/mapping` with
+> `robust-predicates` as the one runtime dependency, because that agrees with
+> `geometryContainsLngLat` by construction rather than by argument. The spec
+> compresses the comparison to the three libraries it rules out. This is the full
+> version, including the ones it does not mention. Mobile's TypeScript half is
+> still specced and unbuilt, so nothing here has been contradicted by code yet.
+> The Hermes claim has a shelf life: it rests on `facebook/hermes` issue #429
+> being open and React Native release notes through 0.87 containing no "wasm".
+> The check is one line on a device, `typeof global.WebAssembly`.
+
 Research for [#266](https://github.com/thebigthing313/simmer-mosquito/issues/266),
 part of [#242](https://github.com/thebigthing313/simmer-mosquito/issues/242).
 Checked in August 2026. Every version number, size and date below was read from

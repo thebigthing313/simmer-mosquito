@@ -1,5 +1,22 @@
 # cmdk for server-ranked, grouped, asynchronous results
 
+Status: Built by
+[#276](https://github.com/thebigthing313/simmer-mosquito/pull/276). Current,
+with one exception.
+
+> **Point 5's remedy is not the one taken.** The diagnosis holds and was
+> confirmed on the built palette: with no `Dialog.Trigger`, Radix's close handler
+> suppresses its own focus fallback and Escape drops focus on `<body>`. The fix
+> below, render a `Dialog.Trigger`, is not what shipped, because the trigger
+> button lives in `packages/ui-web`, in a different tree, and reaches the dialog
+> through a context. `apps/web/src/components/search/search-palette.tsx`
+> preventDefaults `onCloseAutoFocus` and focuses a ref carried through that
+> context instead. Everything else in "Summary of what this forces" shipped as
+> written, including `shouldFilter={false}` alongside `filter={() => 1}`,
+> explicit stable item values, and one query key per query string. Point 6's
+> `role="status"` count, which the doc calls a defensible addition rather than an
+> APG requirement, was taken.
+
 Research for issue #253, part of the map in #250. Nothing here is built and no
 product code changed. Every claim is read off one of four primary sources, and
 where a claim is derived from reading code rather than observed in a browser, it

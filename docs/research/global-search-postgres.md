@@ -1,5 +1,40 @@
 # Postgres options for mixed identifier and prose search
 
+Status: Superseded in its specifics by
+[#276](https://github.com/thebigthing313/simmer-mosquito/pull/276). The corpus
+shape it recommends shipped. The schema, the text configuration, the filter and
+the ranking did not.
+
+> **Read `packages/db/migrations/202608260001_search_documents.sql` and
+> `packages/db/src/domains/search.ts` before acting on this.** What survives is
+> the recommendation and the argument for it: one central `search_documents`
+> table maintained by a trigger per source table, indexed with `btree_gin` so
+> `organization_id` sits inside the GIN index, bought at the price of write
+> amplification across roughly 30 tables. Five things below are wrong against
+> what was built.
+>
+> - Columns and key. `identifier` / `body` / `document` keyed
+>   `(entity_type, entity_id)` shipped as `search_text text[]` /
+>   `search_text_joined` / `search_vector`, keyed `(source_table, source_id)`.
+> - The vector is not a generated stored column. A trigger function assembles it
+>   from a per-table column list.
+> - Text configuration. The doc puts identifiers in a `simple` vector and prose
+>   in an `english` one, at the end of "tsvector versus pg_trgm". Both weights
+>   shipped as `english`.
+> - The filter, same section. The doc makes `ilike '%q%'` the filter and
+>   `word_similarity` the ranking signal. It shipped the other way round:
+>   `word_similarity` is the filter, at 0.6, set per transaction rather than per
+>   session because a session GUC on a pooled connection outlives the request
+>   that set it.
+> - Ranking, in "Ranking, and whether scores compare". The doc suggests
+>   normalization option 32. The built call passes flag 1. Flag 32 is
+>   order-preserving with flag 0 and carries no length term, and on the real
+>   corpus it puts a 1015-character comment above a 14-character habitat name.
+>
+> The short-query rule is narrowed rather than wrong. The doc asks the palette to
+> hold its first two keystrokes. What shipped holds only the `fuzzy` and `prefix`
+> branches below three characters, and serves `exact` and `text` at any length.
+
 Answers [#252](https://github.com/thebigthing313/simmer-mosquito/issues/252), a
 child of the global search map [#250](https://github.com/thebigthing313/simmer-mosquito/issues/250).
 

@@ -1,5 +1,21 @@
 # The region membership predicate, per geometry dimension
 
+Status: Built by
+[#269](https://github.com/thebigthing313/simmer-mosquito/pull/269) and accepted
+as [ADR 0015](../adr/0015-region-membership-is-computed-interior-intersection.md).
+Current.
+
+> The predicate below shipped as written. `packages/db/src/domains/map-region-filter.ts`
+> carries the same `&&` for the GiST index, the same
+> `st_relate(region, record, 'T********')` for a polygon record and the same
+> `st_intersects` for every other dimension, and serves both the Region
+> multiselect and `GET /records/:recordType/:recordId/regions`. The two claims
+> this doc hands to #244 for a live database were settled there; the answers are
+> in `packages/db/src/tests/integration/domains/region-membership.integration.test.ts`
+> and `apps/server/src/tests/integration/region-membership.integration.test.ts`.
+> `docs/region-membership-spec.md` is the built shape. This is the reasoning
+> behind its predicate.
+
 Research for issue #243, part of the map in #242. Nothing here is built. No
 database was queried: every claim below is either read off the PostGIS 3.5
 manual or read off this repo's migrations and domain validators, and the two
