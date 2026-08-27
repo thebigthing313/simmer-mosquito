@@ -6,6 +6,11 @@
 #   web    https://localhost:5175
 #   admin  https://localhost:5176
 #   server https://localhost:3002
+#
+# `apps/mobile` is deliberately not here. Expo's CLI is interactive and prints a
+# QR code that a narrow mprocs pane mangles into something unscannable, so run it
+# in its own terminal with `pnpm dev:mobile` — alongside `pnpm dev`, since the
+# app still needs the local server.
 procs:
   server:
     shell: pnpm.cmd dev:server

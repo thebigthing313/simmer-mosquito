@@ -89,9 +89,17 @@ design-system workshop flows. It is not a production product surface. It imports
 workspace packages directly so changes in `packages/design-tokens` and
 `packages/ui-web` are visible during local preview development.
 
-`apps/mobile` is planned as an Expo managed React Native app using TanStack DB,
-ElectricSQL, SecureStore-backed auth, and later local persistence/offline
-transactions.
+`apps/mobile` is the Expo managed React Native field app (SDK 57, expo-router).
+It currently exists as a scaffold: it signs in against the same `/auth/*`
+endpoints the web apps use, holds the resulting sealed session in SecureStore
+rather than a cookie (ADR 0013), and renders the resolved `AuthContext`. TanStack
+DB, ElectricSQL, local persistence, offline transactions, and the map are all
+still ahead of it — the mobile matrix in `docs/sync.md` describes the plan, not
+the app.
+
+It has no `packages/ui-mobile` yet. Components are app-local until a second
+consumer justifies the package, which is the same promotion rule `AGENTS.md`
+applies to `packages/ui-web`.
 
 Mobile offline support is automatic and scoped, not a manual global switch. The
 field app should persist the field-critical baseline for the selected
@@ -101,9 +109,9 @@ database.
 
 `apps/server` is the Hono control plane. It owns WorkOS callbacks, web/admin
 session cookies, reusable AuthContext resolution, SIMMER operator control-plane
-endpoints, future mobile session exchange, Electric shape authorization, command
-endpoints, authenticated map vector tile reads, and server-authorized Postgres
-writes.
+endpoints, the mobile bearer session transport, Electric shape authorization,
+command endpoints, authenticated map vector tile reads, and server-authorized
+Postgres writes.
 
 ## Packages
 
@@ -264,7 +272,8 @@ SIMMER uses server-side authorization, not Postgres RLS.
 The server resolves an `AuthContext` from either:
 
 - WorkOS sealed session cookie for web.
-- Future mobile app session token from SecureStore.
+- The same sealed session presented as an `Authorization: Bearer` credential by
+  `apps/mobile`, held in SecureStore. Not a second token format — see ADR 0013.
 
 That context includes the WorkOS user, SIMMER user, selected organization,
 profile, membership, and role. It authorizes sync shapes and command endpoints.
@@ -345,7 +354,7 @@ Apps run as local pnpm/Nx processes:
 - `pnpm dev:server`
 - `pnpm dev:admin`
 - `pnpm dev:web`
-- future mobile Expo commands
+- `pnpm dev:mobile` (Expo, in its own terminal — see `apps/mobile/README.md`)
 
 Daily development should not require Railway local tooling.
 

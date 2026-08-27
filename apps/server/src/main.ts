@@ -17,7 +17,7 @@ import {
 	upsertWorkOsIdentity,
 } from '@simmer-mosquito/db';
 import { Hono } from 'hono';
-import { deleteCookie, getCookie, setCookie } from 'hono/cookie';
+import { deleteCookie, type setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
 import { registerAdminFoundationRoutes } from './admin-foundations.js';
 import { registerAdminInvitationRoutes } from './admin-invitations.js';
@@ -34,6 +34,11 @@ import {
 	createAuthContextMiddleware,
 	createOperatorAuthContextMiddleware,
 } from './auth-middleware.js';
+import {
+	readSealedSession,
+	SESSION_RESPONSE_HEADER,
+	writeSealedSession,
+} from './auth-session-transport.js';
 import { registerAuthUserRoutes } from './auth-user-commands.js';
 import { PRIVATE_READ_PREFIXES, privateNoStore } from './cache-headers.js';
 import { isRecord } from './command-payload.js';
@@ -128,6 +133,11 @@ for (const surface of CORS_SURFACES) {
 			origin: allowedCorsOrigins(),
 			credentials: true,
 			allowMethods: [...surface.methods],
+			// A token client reads its rotated sealed session off the response.
+			// React Native does not enforce CORS so the field app never needs this,
+			// but Expo's web target runs the same code in a browser, where an
+			// unexposed header is simply invisible.
+			exposeHeaders: [SESSION_RESPONSE_HEADER],
 		}),
 	);
 }
@@ -185,7 +195,7 @@ app.get('/auth/callback', async (context) => {
 
 app.get('/auth/me', async (context) => {
 	const result = await resolveAuthContext({
-		sealedSession: getCookie(context, WORKOS_SESSION_COOKIE_NAME),
+		sealedSession: readSealedSession(context),
 		auth: sessionProvider,
 		localIdentityResolver,
 	});
@@ -407,7 +417,7 @@ if (env.nodeEnv !== 'production') {
 // logout), best-effort revokes the WorkOS session, then returns to the app —
 // staying on our own domain rather than bouncing through WorkOS-hosted logout.
 app.on(['GET', 'POST'], '/auth/logout', async (context) => {
-	await auth.revokeSession(getCookie(context, WORKOS_SESSION_COOKIE_NAME));
+	await auth.revokeSession(readSealedSession(context));
 
 	deleteCookie(context, WORKOS_SESSION_COOKIE_NAME, {
 		path: '/',
@@ -526,21 +536,19 @@ async function finalizeWorkOsSession(
 	return { organizationRequired: localIdentity.organizationId === null };
 }
 
+/**
+ * Hand the sealed session back to whoever asked for it.
+ *
+ * Still named for the cookie because that is what it is for every web caller,
+ * but a token client (`apps/mobile`) also gets the value in a response header —
+ * see `auth-session-transport.ts` for why the two transports have to stay one
+ * function.
+ */
 function setAuthCookie(
 	context: Parameters<typeof setCookie>[0],
 	sealedSession: string | undefined,
 ): void {
-	if (sealedSession === undefined) {
-		return;
-	}
-
-	setCookie(context, WORKOS_SESSION_COOKIE_NAME, sealedSession, {
-		httpOnly: true,
-		maxAge: 60 * 60 * 24 * 30,
-		path: '/',
-		sameSite: 'Lax',
-		secure: env.nodeEnv === 'production',
-	});
+	writeSealedSession(context, sealedSession, { secure: env.nodeEnv === 'production' });
 }
 
 function isOperatorEmail(email: string): boolean {

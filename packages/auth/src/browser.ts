@@ -1,5 +1,10 @@
 /**
- * The browser half of SIMMER's authentication contract.
+ * The client half of SIMMER's authentication contract.
+ *
+ * Still exported as `./browser` — that is where every existing import points —
+ * but it is no longer browser-only: `apps/mobile` uses the same client under
+ * React Native, differing solely in how it carries its session (see
+ * {@link SessionTransport}). Nothing here touches `window` or the DOM.
  *
  * `packages/auth` (the package root) is the server's WorkOS boundary. This entry
  * point is its counterpart in the other direction: the typed client for the
@@ -139,6 +144,37 @@ export interface InvitationLookup {
 	readonly state: 'pending' | 'accepted' | 'expired' | 'revoked';
 }
 
+/**
+ * Where a client that has no cookie jar keeps its sealed session.
+ *
+ * The web apps do not pass one: the browser holds the session in an httpOnly
+ * cookie and this client never sees it. `apps/mobile` does, backed by Expo
+ * SecureStore, because React Native has no cookie store worth depending on —
+ * `docs/architecture.md` has reserved that shape since before the app existed.
+ *
+ * All three operations are async because the only real implementation is.
+ */
+export interface SessionTransport {
+	readonly read: () => Promise<string | null>;
+	readonly write: (sealedSession: string) => Promise<void>;
+	readonly clear: () => Promise<void>;
+}
+
+/*
+ * Derived from `fetch` rather than written as `RequestInit`/`Response`, because
+ * this module is compiled without `lib.dom` (`packages/auth` is `types: ["node"]`)
+ * and consumed by React Native, whose `fetch` types come from somewhere else
+ * again. Reading the shapes off the function that is actually in scope is the
+ * one spelling that holds in all three.
+ */
+type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
+type FetchResponse = Awaited<ReturnType<typeof fetch>>;
+
+/** A request declares itself a token client with this header; the server answers in kind. */
+const SESSION_CLIENT_HEADER = 'x-simmer-client';
+const TOKEN_CLIENT = 'token';
+const SESSION_RESPONSE_HEADER = 'x-simmer-session';
+
 /** Everything the client can do, bound to one server origin. */
 export interface AuthClient {
 	readonly getAuthMe: () => Promise<AuthMe>;
@@ -175,20 +211,63 @@ export interface AuthClient {
 		readonly firstName?: string;
 		readonly lastName?: string;
 	}) => Promise<AcceptInvitationOutcome>;
+	/**
+	 * End the session from inside the app.
+	 *
+	 * The web apps do not use this — they log out through a top-level navigation
+	 * to `/auth/logout` so the redirect lands them somewhere. A token client has
+	 * no navigation to do and no cookie for the server to clear, so for it the
+	 * local `clear()` is the logout; the request is a best-effort revoke.
+	 */
+	readonly signOut: () => Promise<void>;
 }
 
-export function createAuthClient(options: { readonly serverUrl: string }): AuthClient {
+export function createAuthClient(options: {
+	readonly serverUrl: string;
+	readonly session?: SessionTransport;
+}): AuthClient {
 	const { serverUrl } = options;
+	const session = options.session ?? null;
+
+	/**
+	 * Every `/auth/*` request, with whichever credential this client carries.
+	 *
+	 * The return trip matters as much as the outgoing one. WorkOS rotates sealed
+	 * sessions, and the server hands the new value back the same way it received
+	 * the old one: a `Set-Cookie` a browser applies for free, or a response
+	 * header only a token client is told about. Capturing it here — rather than
+	 * at the sign-in call site — is what makes rotation invisible to callers,
+	 * and is the difference between a mobile session that lasts and one that
+	 * dies at its first refresh with nothing nearby to explain why.
+	 */
+	async function authFetch(path: string, init: FetchInit = {}): Promise<FetchResponse> {
+		const credential = session === null ? null : await session.read();
+
+		const response = await fetch(`${serverUrl}${path}`, {
+			...init,
+			credentials: 'include',
+			headers: {
+				accept: 'application/json',
+				...init.headers,
+				...(session === null ? {} : { [SESSION_CLIENT_HEADER]: TOKEN_CLIENT }),
+				...(credential === null ? {} : { authorization: `Bearer ${credential}` }),
+			},
+		});
+
+		const rotated = response.headers.get(SESSION_RESPONSE_HEADER);
+		if (session !== null && rotated !== null && rotated !== '') {
+			await session.write(rotated);
+		}
+
+		return response;
+	}
 
 	/**
 	 * The current session. A 401 body still carries `authenticated: false`, which
 	 * is an answer rather than a failure — only an unreadable response throws.
 	 */
 	async function getAuthMe(): Promise<AuthMe> {
-		const response = await fetch(`${serverUrl}/auth/me`, {
-			credentials: 'include',
-			headers: { accept: 'application/json' },
-		});
+		const response = await authFetch('/auth/me');
 
 		const body = (await response.json()) as AuthMe;
 		if (response.ok || body.authenticated === false) {
@@ -337,17 +416,8 @@ export function createAuthClient(options: { readonly serverUrl: string }): AuthC
 		return { status: 'error', reason: readReason(data, 'Unable to reset your password.') };
 	}
 
-	async function fetchInvitation(
-		token: string,
-		targetUrl = serverUrl,
-	): Promise<InvitationLookup | null> {
-		const response = await fetch(
-			`${targetUrl}/auth/invitation?token=${encodeURIComponent(token)}`,
-			{
-				credentials: 'include',
-				headers: { accept: 'application/json' },
-			},
-		);
+	async function fetchInvitation(token: string): Promise<InvitationLookup | null> {
+		const response = await authFetch(`/auth/invitation?token=${encodeURIComponent(token)}`);
 		const data = (await response.json().catch(() => ({}))) as {
 			readonly invitation?: InvitationLookup | null;
 		};
@@ -392,13 +462,9 @@ export function createAuthClient(options: { readonly serverUrl: string }): AuthC
 		path: string,
 		body: unknown,
 	): Promise<{ readonly httpOk: boolean; readonly data: Record<string, unknown> }> {
-		const response = await fetch(`${serverUrl}${path}`, {
+		const response = await authFetch(path, {
 			method: 'POST',
-			credentials: 'include',
-			headers: {
-				accept: 'application/json',
-				'content-type': 'application/json',
-			},
+			headers: { 'content-type': 'application/json' },
 			body: JSON.stringify(body),
 		});
 
@@ -448,6 +514,18 @@ export function createAuthClient(options: { readonly serverUrl: string }): AuthC
 		};
 	}
 
+	async function signOut(): Promise<void> {
+		try {
+			await authFetch('/auth/logout', { method: 'POST' });
+		} catch {
+			// Best effort. The server-side WorkOS revoke is worth attempting, but a
+			// user who is offline or on a dead network still gets to sign out of the
+			// app in front of them — the stored credential below is what gates it.
+		}
+
+		await session?.clear();
+	}
+
 	function readReason(data: Record<string, unknown>, fallback: string): string {
 		return typeof data.reason === 'string' && data.reason.trim() !== '' ? data.reason : fallback;
 	}
@@ -460,6 +538,7 @@ export function createAuthClient(options: { readonly serverUrl: string }): AuthC
 		resetPassword,
 		selectOrganization,
 		signIn,
+		signOut,
 		signUp,
 		switchOrganization,
 		verifyEmail,

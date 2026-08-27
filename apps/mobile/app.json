@@ -1,0 +1,22 @@
+{
+	"expo": {
+		"name": "SIMMER",
+		"slug": "simmer-mosquito",
+		"version": "0.1.0",
+		"orientation": "portrait",
+		"scheme": "simmer",
+		"userInterfaceStyle": "automatic",
+		"newArchEnabled": true,
+		"ios": {
+			"supportsTablet": true,
+			"bundleIdentifier": "com.simmermosquito.app"
+		},
+		"android": {
+			"package": "com.simmermosquito.app"
+		},
+		"plugins": ["expo-router"],
+		"experiments": {
+			"typedRoutes": false
+		}
+	}
+}

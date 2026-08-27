@@ -17,6 +17,7 @@
 		"dev:server": "nx dev @simmer-mosquito/server",
 		"dev:admin": "nx dev @simmer-mosquito/admin",
 		"dev:caddy": "caddy run --config Caddyfile.local --adapter caddyfile",
+		"dev:mobile": "nx dev @simmer-mosquito/mobile",
 		"dev:preview": "nx dev @simmer-mosquito/preview",
 		"dev:web": "nx dev @simmer-mosquito/web",
 		"fallow": "node scripts/fallow.mjs",
