@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	adminLogoutUrl,
+	isAdminRefusal,
 	isOperatorNotConfiguredError,
 	isOperatorRequiredError,
 	listAdminAgencies,
@@ -68,5 +69,33 @@ describe('operator refusals', () => {
 			required: isOperatorRequiredError(unconfigured),
 			notConfigured: isOperatorNotConfiguredError(unconfigured),
 		}).toEqual({ required: false, notConfigured: true });
+	});
+});
+
+/**
+ * What the query client retries. A 403 is an answer and asking again cannot
+ * change it, so retrying one only delays the screen that explains it; a 500 or
+ * a dropped connection can succeed on a second try, so those still retry.
+ */
+describe('retrying a failed admin read', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	async function failWith(status: number) {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify({ error: 'nope' }), { status })),
+		);
+		return listAdminAgencies('https://api.simmer-data.com').catch((error: unknown) => error);
+	}
+
+	it('treats a refusal as final and a fault as worth retrying', async () => {
+		expect({
+			refused: isAdminRefusal(await failWith(403)),
+			notFound: isAdminRefusal(await failWith(404)),
+			faulted: isAdminRefusal(await failWith(500)),
+			offline: isAdminRefusal(new Error('Failed to fetch')),
+		}).toEqual({ refused: true, notFound: true, faulted: false, offline: false });
 	});
 });

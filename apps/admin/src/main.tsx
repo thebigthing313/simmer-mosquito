@@ -16,6 +16,7 @@ import '@fontsource/poppins/latin-700.css';
 import '@fontsource/poppins/latin-ext-700.css';
 import '@fontsource/poppins/latin-800.css';
 import '@fontsource/poppins/latin-ext-800.css';
+import { isAdminRefusal } from './api';
 import { appAuthController } from './app-auth';
 import { routeTree } from './routeTree.gen';
 import '@simmer-mosquito/ui-web/styles.css';
@@ -25,6 +26,10 @@ const queryClient = new QueryClient({
 	defaultOptions: {
 		queries: {
 			refetchOnWindowFocus: false,
+			// A refusal is an answer, so asking again three times only delays it.
+			// The operator refusals are 403s, and under the default the console
+			// showed a spinner for about six seconds before naming what was wrong.
+			retry: (failureCount, error) => !isAdminRefusal(error) && failureCount < 3,
 			staleTime: 5000,
 		},
 	},
