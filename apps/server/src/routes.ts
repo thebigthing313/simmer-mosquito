@@ -170,3 +170,5 @@ export function registerAllRoutes(app: Hono<{ Variables: AuthVariables }>, deps:
 		operatorAuthContextMiddleware,
 	});
 }
+
+// Probe for the changeset gate. This branch is never merged.
