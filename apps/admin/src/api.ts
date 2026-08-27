@@ -44,6 +44,20 @@ export function isOperatorRequiredError(error: unknown): boolean {
 }
 
 /**
+ * True when the server answered a refusal rather than a fault: any 4xx.
+ *
+ * Retrying one cannot change the answer. Both operator refusals are 403s, and
+ * react-query's default of three retries with backoff meant the console sat on
+ * a loading state for about six seconds before saying what was wrong. The
+ * message is the whole point of the screen, so it should not arrive last.
+ *
+ * 5xx and a dropped connection still retry: those can succeed on a second try.
+ */
+export function isAdminRefusal(error: unknown): boolean {
+	return error instanceof AdminApiError && error.status >= 400 && error.status < 500;
+}
+
+/**
  * True when the *server* has no SIMMER organization configured.
  *
  * The mirror of the `VITE_SIMMER_OPERATOR_ORG_ID` refusal this app raises before
