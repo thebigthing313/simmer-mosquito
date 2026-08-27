@@ -94,7 +94,7 @@ workspace packages directly so changes in `packages/design-tokens` and
 `apps/mobile` is the Expo managed React Native field app (SDK 57, expo-router).
 It currently exists as a scaffold: it signs in against the same `/auth/*`
 endpoints the web apps use, holds the resulting sealed session in SecureStore
-rather than a cookie (ADR 0013), and renders the resolved `AuthContext`. TanStack
+rather than a cookie (ADR 0016), and renders the resolved `AuthContext`. TanStack
 DB, ElectricSQL, local persistence, offline transactions, and the map are all
 still ahead of it — the mobile matrix in `docs/sync.md` describes the plan, not
 the app.
@@ -273,7 +273,7 @@ The server resolves an `AuthContext` from either:
 
 - WorkOS sealed session cookie for web.
 - The same sealed session presented as an `Authorization: Bearer` credential by
-  `apps/mobile`, held in SecureStore. Not a second token format — see ADR 0013.
+  `apps/mobile`, held in SecureStore. Not a second token format. See ADR 0016.
 
 That context includes the WorkOS user, SIMMER user, selected organization,
 profile, membership, and role. It authorizes sync shapes and command endpoints.
