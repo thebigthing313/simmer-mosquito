@@ -58,6 +58,7 @@ import { registerPublicEngagementRecordRoutes } from './public-engagement-record
 import { registerRecordDeletionRoutes } from './record-deletion.js';
 import { registerRegionMembershipRoutes } from './region-membership.js';
 import { COMPRESSED_READ_PREFIXES, compressReads } from './response-compression.js';
+import { registerSearchRoutes } from './search.js';
 import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
 import { registerTableCommandSurface } from './table-commands/index.js';
@@ -368,6 +369,11 @@ registerPublicEngagementRecordRoutes(app, {
 });
 
 registerMapTileRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
+registerSearchRoutes(app, {
 	db,
 	authContextMiddleware,
 });

@@ -36,8 +36,21 @@ import type { MiddlewareHandler } from 'hono';
  * `/sync/*` is deliberately absent: `proxyElectricShape` forces the same two
  * headers itself, because it has to *replace* Electric's
  * `public, max-age=604800` rather than add to nothing.
+ *
+ * `/search` is here for the same reason `/map/*` is, and one more: the response
+ * varies by which agency the caller is currently in, and one login can belong to
+ * several. The organization id is nowhere in the URL, so two agencies hit
+ * byte-identical URLs. Freshness across keystrokes is client memory, not an HTTP
+ * cache.
+ *
+ * It is `'/search'` and not `'/search*'`. Hono treats `*` as a wildcard only
+ * where it is a whole path segment or a trailing `/*`; anywhere else it is
+ * escaped to a literal asterisk, so `'/search*'` registers middleware that
+ * matches nothing and never runs. A prefix that silently covers no route is the
+ * worst shape this list can take, which is why `cache-headers.test.ts` now
+ * drives a request at every entry rather than only asserting the array.
  */
-export const PRIVATE_READ_PREFIXES = ['/map/*', '/records/*'] as const;
+export const PRIVATE_READ_PREFIXES = ['/map/*', '/records/*', '/search'] as const;
 
 export const privateNoStore: MiddlewareHandler = async (context, next) => {
 	await next();

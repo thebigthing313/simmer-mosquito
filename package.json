@@ -11,6 +11,7 @@
 		"check": "biome check .",
 		"check:build-graph": "node scripts/check-build-graph.mjs",
 		"check:command-columns": "node scripts/check-command-columns.mjs",
+		"check:search-corpus": "node scripts/check-search-corpus.mjs",
 		"check:write-references": "node scripts/check-write-references.mjs",
 		"check:write": "biome check --write .",
 		"db:migrate": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql up",

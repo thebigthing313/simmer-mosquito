@@ -56,6 +56,14 @@ jobs:
       - name: Write references
         run: pnpm check:write-references
 
+      # The search index is a second copy of the corpus tables' text, read back
+      # over an endpoint with no column list of its own. This asserts every
+      # indexed field is a real column, that none of them is a column sync
+      # withholds, and that the declaration and the migration's triggers name
+      # the same tables.
+      - name: Search corpus
+        run: pnpm check:search-corpus
+
       - name: Typecheck
         run: pnpm typecheck
 
@@ -294,16 +302,25 @@ jobs:
       - name: Build workspace
         run: pnpm build
 
-      # The migration set creates both extensions `if not exists`, which against
+      # The migration set creates four extensions `if not exists`, which against
       # a fresh database would create them inside whichever throwaway schema got
       # there first — and take them with it when that schema is dropped. Staging
       # has them in `public` already; the container is given the same starting
       # point, so the migrations are the no-op they are everywhere else.
+      #
+      # `pg_extension` is keyed by name across the whole database, so this is
+      # worse than wasteful. The second schema's `if not exists` finds the name
+      # already taken and skips, and then the migration fails on the first thing
+      # the extension owns: `gin_trgm_ops` lives in the *first* schema and is not
+      # on the second one's `search_path`. Every extension any migration creates
+      # belongs on this list.
       - name: Prepare the database
         run: |
           psql "$TEST_DATABASE_URL" -v ON_ERROR_STOP=1 \
             -c 'create extension if not exists postgis' \
-            -c 'create extension if not exists pgcrypto'
+            -c 'create extension if not exists pgcrypto' \
+            -c 'create extension if not exists pg_trgm' \
+            -c 'create extension if not exists btree_gin'
 
       # Runs the package scripts directly rather than through nx: these suites
       # skip themselves when the URL is missing, so a cached "pass" from a run

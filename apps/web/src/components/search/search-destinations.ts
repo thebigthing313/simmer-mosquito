@@ -1,0 +1,194 @@
+import type { CommentTargetType, CorpusTable, SearchResult } from '@simmer-mosquito/domain';
+import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import type { LinkProps } from '@tanstack/react-router';
+
+/**
+ * Where a search result goes, and what it is drawn as.
+ *
+ * **The server never sends a route.** It sends a table and an id.
+ * `LinkProps['to']` is generated from this app's `routeTree.gen.ts`, so putting
+ * a route on the wire would make `apps/server` depend on web's route tree, and
+ * `apps/mobile` has a different route table entirely. The cost of owning the map
+ * here is two hand-kept objects; the return is that renaming a route is a
+ * typecheck failure in this file rather than a dead link found in production.
+ */
+type DetailRoute = NonNullable<LinkProps['to']>;
+
+/**
+ * The eleven corpus tables that resolve to one fixed route.
+ *
+ * `routes` is absent: it resolves to the trap tree or the habitat tree depending
+ * on its `route_type`, which is the one per-table rule that cannot be a constant.
+ */
+const RECORD_ROUTES: Record<Exclude<CorpusTable, 'routes'>, DetailRoute> = {
+	habitats: '/larval-surveillance/habitats/$id',
+	traps: '/adult-surveillance/traps/$id',
+	service_requests: '/public-engagement/service-requests/$id',
+	contacts: '/public-engagement/contacts/$id',
+	addresses: '/gis/addresses/$id',
+	regions: '/gis/regions/$id',
+	assignments: '/operations/assignments/$id',
+	missions: '/operations/missions/$id',
+	requested_control_actions: '/operations/requests-for-control/$id',
+	samples: '/larval-surveillance/samples/$id',
+	weather_sources: '/gis/weather/$id',
+};
+
+const HABITAT_ROUTE_TREE: DetailRoute = '/larval-surveillance/habitats/routes/$id';
+const TRAP_ROUTE_TREE: DetailRoute = '/adult-surveillance/traps/routes/$id';
+
+/**
+ * Where a comment's *target* lives, for all seventeen target types.
+ *
+ * Only seven of the seventeen occur in production today. The map still covers
+ * every one, because a comment can be written on any of them tomorrow and a
+ * missing entry would be a row that navigates nowhere.
+ *
+ * `route` is absent for the same reason it is absent above, and worse: a comment
+ * document deliberately does not borrow anything from its target, so the
+ * `route_type` is not on the wire at all. It is resolved from the synced
+ * `routes` collection instead — see {@link searchResultDestination}.
+ */
+const COMMENT_TARGET_ROUTES: Record<Exclude<CommentTargetType, 'route'>, DetailRoute> = {
+	address: '/gis/addresses/$id',
+	region: '/gis/regions/$id',
+	trap: '/adult-surveillance/traps/$id',
+	collection: '/adult-surveillance/collections/$id',
+	habitat: '/larval-surveillance/habitats/$id',
+	inspection: '/larval-surveillance/inspections/$id',
+	sample: '/larval-surveillance/samples/$id',
+	application: '/control-operations/chemical/$id',
+	sourceReduction: '/control-operations/source-reduction/$id',
+	outreachAction: '/public-engagement/outreach/$id',
+	biocontrolAction: '/control-operations/biocontrol/$id',
+	contact: '/public-engagement/contacts/$id',
+	serviceRequest: '/public-engagement/service-requests/$id',
+	assignment: '/operations/assignments/$id',
+	requestedControlAction: '/operations/requests-for-control/$id',
+	mission: '/operations/missions/$id',
+};
+
+export interface SearchDestination {
+	readonly to: DetailRoute;
+	readonly params: { readonly id: string };
+}
+
+/**
+ * The record or comment a result resolves to.
+ *
+ * `resolveRouteType` answers what kind of route an id names, from the synced
+ * `routes` collection. It is only consulted for a comment written on a route: a
+ * route result carries its own type on the wire. An unknown id falls back to the
+ * habitat tree, which is the pre-existing shape of that collection's `routeType`
+ * default and is wrong only for a comment on a trap route the collection has not
+ * loaded — an eagerly synced table, so in practice never.
+ */
+export function searchResultDestination(
+	result: SearchResult,
+	resolveRouteType: (routeId: string) => string | undefined,
+): SearchDestination | undefined {
+	if (result.kind === 'record') {
+		if (result.table === 'routes') {
+			return {
+				to: result.routeType === 'trap' ? TRAP_ROUTE_TREE : HABITAT_ROUTE_TREE,
+				params: { id: result.id },
+			};
+		}
+
+		return { to: RECORD_ROUTES[result.table], params: { id: result.id } };
+	}
+
+	if (result.kind === 'comment') {
+		if (result.targetType === 'route') {
+			return {
+				to: resolveRouteType(result.targetId) === 'trap' ? TRAP_ROUTE_TREE : HABITAT_ROUTE_TREE,
+				params: { id: result.targetId },
+			};
+		}
+
+		return { to: COMMENT_TARGET_ROUTES[result.targetType], params: { id: result.targetId } };
+	}
+
+	// A route and an action both carry the navigation item's own `to`, which the
+	// caller already holds; neither goes through this map.
+	return undefined;
+}
+
+/**
+ * The glyph a result row draws.
+ *
+ * Keyed wider than the corpus on purpose: an action row draws the icon of the
+ * record it creates, and six of the fourteen created things are not corpus
+ * tables. Two maps would duplicate those six and drift.
+ */
+type SearchIconKey =
+	| CorpusTable
+	| 'inspections'
+	| 'collections'
+	| 'applications'
+	| 'source_reductions'
+	| 'biocontrol_actions'
+	| 'outreach_actions';
+
+const SEARCH_ICONS: Record<SearchIconKey, RegistryIcon> = {
+	habitats: iconRegistry.entities.habitat.icon,
+	traps: iconRegistry.entities.trap.icon,
+	service_requests: iconRegistry.entities.serviceRequest.icon,
+	contacts: iconRegistry.entities.contact.icon,
+	addresses: iconRegistry.entities.address.icon,
+	regions: iconRegistry.entities.region.icon,
+	routes: iconRegistry.entities.route.icon,
+	assignments: iconRegistry.entities.assignment.icon,
+	missions: iconRegistry.entities.mission.icon,
+	requested_control_actions: iconRegistry.entities.requestedControlAction.icon,
+	samples: iconRegistry.entities.sample.icon,
+	weather_sources: iconRegistry.entities.weatherSource.icon,
+	inspections: iconRegistry.entities.inspection.icon,
+	collections: iconRegistry.entities.collection.icon,
+	applications: iconRegistry.entities.application.icon,
+	source_reductions: iconRegistry.entities.sourceReductionAction.icon,
+	biocontrol_actions: iconRegistry.entities.biocontrolAction.icon,
+	outreach_actions: iconRegistry.entities.outreachAction.icon,
+};
+
+/**
+ * The thing each promoted navigation item creates.
+ *
+ * Twelve of the fifteen carry `iconRegistry.actions.add.icon` on the nav item
+ * itself, so inheriting it would draw a block of identical plus signs separated
+ * only by the trailing noun. Drawing the entity instead makes the action and the
+ * records it creates read as one thing.
+ */
+const ACTION_ICON_KEYS: Record<string, SearchIconKey> = {
+	'habitats-create': 'habitats',
+	'inspections-create': 'inspections',
+	'traps-create': 'traps',
+	'collections-create': 'collections',
+	'chemical-create': 'applications',
+	'source-reduction-create': 'source_reductions',
+	'biocontrol-create': 'biocontrol_actions',
+	'service-requests-create': 'service_requests',
+	'outreach-create': 'outreach_actions',
+	'contacts-create': 'contacts',
+	'regions-create': 'regions',
+	'regions-import': 'regions',
+	'requests-for-control-create': 'requested_control_actions',
+	'assignments-create': 'assignments',
+	'missions-create': 'missions',
+};
+
+/** The glyph for one result row, whatever kind it is. */
+export function searchResultIcon(result: SearchResult): RegistryIcon {
+	switch (result.kind) {
+		case 'record':
+			return SEARCH_ICONS[result.table];
+		case 'comment':
+			return iconRegistry.actions.comment.icon;
+		case 'action': {
+			const key = ACTION_ICON_KEYS[result.id];
+			return key === undefined ? iconRegistry.actions.add.icon : SEARCH_ICONS[key];
+		}
+		case 'route':
+			return iconRegistry.arrows.arrowRight.icon;
+	}
+}

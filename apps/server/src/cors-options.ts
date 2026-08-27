@@ -40,6 +40,12 @@ export const CORS_SURFACES: readonly CorsSurface[] = [
 	{ prefix: '/map/*', methods: READ_METHODS },
 	{ prefix: '/geocoder/*', methods: READ_METHODS },
 	{ prefix: '/records/*', methods: READ_METHODS },
+	// One exact path, not a prefix: `/search` is the whole surface, and the
+	// results page's filter and paging ride in the query string. It is
+	// cross-origin in every environment — the SPA is a static host and the API is
+	// its own origin — so without this the palette's fetch fails in the browser
+	// and nowhere else.
+	{ prefix: '/search', methods: READ_METHODS },
 	// The per-table command surface. One prefix for all of it, agency tables and
 	// operator tables alike — CORS is about which origin may ask, and the door a
 	// table sits behind is decided by its middleware, not by its path.
@@ -72,12 +78,18 @@ export const CORS_SURFACES: readonly CorsSurface[] = [
  * Longest prefix wins, so `/organization-settings/*` is not shadowed by
  * `/organization/*` — which it would be under a first-match rule, and which is
  * the kind of thing that only shows up as a refused PATCH from one origin.
+ *
+ * The comparison strips the trailing `*` from both sides. It used to strip it
+ * from one and subtract a character from the other, which agreed for every entry
+ * ending in `/*` and would have been off by one for an exact path like
+ * `/search`.
  */
 export function corsSurfaceFor(path: string): CorsSurface | null {
 	let best: CorsSurface | null = null;
 	for (const surface of CORS_SURFACES) {
 		const base = surface.prefix.replace(/\*$/, '');
-		if (path.startsWith(base) && (best === null || base.length > best.prefix.length - 1)) {
+		const bestBase = best === null ? '' : best.prefix.replace(/\*$/, '');
+		if (path.startsWith(base) && base.length > bestBase.length) {
 			best = surface;
 		}
 	}

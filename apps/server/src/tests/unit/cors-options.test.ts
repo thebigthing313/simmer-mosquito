@@ -25,6 +25,7 @@ import { registerProfileCommandRoutes } from '../../profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from '../../public-engagement-commands.js';
 import { registerPublicEngagementRecordRoutes } from '../../public-engagement-records-commands/index.js';
 import { registerRecordDeletionRoutes } from '../../record-deletion.js';
+import { registerSearchRoutes } from '../../search.js';
 import { registerServiceRequestNearbyRoutes } from '../../service-request-nearby.js';
 import { registerSyncShapeRoutes } from '../../sync-shapes.js';
 import { registerTableCommandSurface } from '../../table-commands/index.js';
@@ -164,6 +165,7 @@ function registeredRoutes(): [string, string][] {
 		operatorAuthContextMiddleware: authContextMiddleware,
 	});
 	registerMapTileRoutes(app, options);
+	registerSearchRoutes(app, { db, authContextMiddleware });
 	registerServiceRequestNearbyRoutes(app, { db, authContextMiddleware });
 	registerRecordDeletionRoutes(app, { db, authContextMiddleware });
 	registerGeocoderRoutes(app, { apiKey: null, authContextMiddleware });

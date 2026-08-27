@@ -41,7 +41,7 @@ import type { MiddlewareHandler } from 'hono';
 /**
  * Prefixes whose responses are compressed.
  *
- * The two private read prefixes, plus `/sync/*`, which `PRIVATE_READ_PREFIXES`
+ * Every private read prefix, plus `/sync/*`, which `PRIVATE_READ_PREFIXES`
  * deliberately excludes for a different reason: the Electric proxy replaces
  * upstream headers rather than adding to nothing, so it forces its own
  * `cache-control` and `vary` inside the handler. `/sync/*` is here on its own
@@ -53,7 +53,7 @@ import type { MiddlewareHandler } from 'hono';
  * Write endpoints are absent: a request body is not a response, and these are
  * POSTs whose answers are an id and a status.
  */
-export const COMPRESSED_READ_PREFIXES = ['/map/*', '/records/*', '/sync/*'] as const;
+export const COMPRESSED_READ_PREFIXES = ['/map/*', '/records/*', '/search', '/sync/*'] as const;
 
 /**
  * Below this, the gzip header and trailer cost more than the saving, and the
