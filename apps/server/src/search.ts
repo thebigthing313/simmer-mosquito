@@ -131,11 +131,56 @@ type ParsedSearchQuery =
 	| { readonly ok: false; readonly reason: string };
 
 function readSearchQuery(searchParams: URLSearchParams): ParsedSearchQuery {
-	// Trimmed and whitespace-collapsed, and refused above the cap rather than
-	// truncated: a silently truncated query returns results for a phrase the
-	// person did not type. The palette's input carries the same cap as
-	// `maxLength`, so this branch only ever answers a caller that went around it.
-	const raw = searchParams.get('q') ?? '';
+	const query = readQueryText(searchParams.get('q') ?? '');
+	if (!query.ok) {
+		return query;
+	}
+
+	const limit = readBoundedInteger(searchParams.get('limit'), {
+		name: 'Limit',
+		min: 1,
+		max: SEARCH_MAX_LIMIT,
+		required: true,
+	});
+	if (!limit.ok) {
+		return limit;
+	}
+
+	const offset = readBoundedInteger(searchParams.get('offset'), {
+		name: 'Offset',
+		min: 0,
+		max: SEARCH_MAX_OFFSET,
+		required: false,
+	});
+	if (!offset.ok) {
+		return offset;
+	}
+
+	const documentClass = readDocumentClass(searchParams.get('class'));
+	if (!documentClass.ok) {
+		return documentClass;
+	}
+
+	return {
+		ok: true,
+		query: query.value,
+		limit: limit.value,
+		offset: offset.value,
+		documentClass: documentClass.value,
+	};
+}
+
+type Parsed<TValue> =
+	| { readonly ok: true; readonly value: TValue }
+	| { readonly ok: false; readonly reason: string };
+
+/**
+ * Trimmed and whitespace-collapsed, and refused above the cap rather than
+ * truncated: a silently truncated query returns results for a phrase the person
+ * did not type. The palette's input carries the same cap as `maxLength`, so the
+ * refusal only ever answers a caller that went around it.
+ */
+function readQueryText(raw: string): Parsed<string> {
 	const query = raw.trim().replace(/\s+/gu, ' ');
 	if (query.length < SEARCH_QUERY_MIN_LENGTH) {
 		return { ok: false, reason: 'A search query is required.' };
@@ -146,31 +191,49 @@ function readSearchQuery(searchParams: URLSearchParams): ParsedSearchQuery {
 			reason: `A search query may be at most ${SEARCH_QUERY_MAX_LENGTH} characters.`,
 		};
 	}
+	return { ok: true, value: query };
+}
 
-	// Required and with no default. The palette cannot know its server budget
-	// until the group caps are applied, so making the caller state it keeps that
-	// decision on the client rather than frozen in a server default.
-	const rawLimit = searchParams.get('limit');
-	if (rawLimit === null) {
-		return { ok: false, reason: 'A limit is required.' };
-	}
-	const limit = Number(rawLimit);
-	if (!Number.isInteger(limit) || limit < 1 || limit > SEARCH_MAX_LIMIT) {
-		return { ok: false, reason: `Limit must be a whole number from 1 to ${SEARCH_MAX_LIMIT}.` };
+/**
+ * `limit` is required and has no default: the palette cannot know its server
+ * budget until the group caps are applied, so making the caller state it keeps
+ * that decision on the client rather than frozen in a server default. `offset`
+ * defaults to the start of the list.
+ */
+function readBoundedInteger(
+	raw: string | null,
+	bounds: {
+		readonly name: string;
+		readonly min: number;
+		readonly max: number;
+		readonly required: boolean;
+	},
+): Parsed<number> {
+	if (raw === null) {
+		return bounds.required
+			? { ok: false, reason: `A ${bounds.name.toLowerCase()} is required.` }
+			: { ok: true, value: bounds.min };
 	}
 
-	const rawOffset = searchParams.get('offset');
-	const offset = rawOffset === null ? 0 : Number(rawOffset);
-	if (!Number.isInteger(offset) || offset < 0 || offset > SEARCH_MAX_OFFSET) {
-		return { ok: false, reason: `Offset must be a whole number from 0 to ${SEARCH_MAX_OFFSET}.` };
+	const value = Number(raw);
+	if (!Number.isInteger(value) || value < bounds.min || value > bounds.max) {
+		return {
+			ok: false,
+			reason: `${bounds.name} must be a whole number from ${bounds.min} to ${bounds.max}.`,
+		};
 	}
 
-	const rawClass = searchParams.get('class');
-	if (rawClass !== null && rawClass !== 'records' && rawClass !== 'comments') {
+	return { ok: true, value };
+}
+
+function readDocumentClass(raw: string | null): Parsed<SearchDocumentClass | undefined> {
+	if (raw === null) {
+		return { ok: true, value: undefined };
+	}
+	if (raw !== 'records' && raw !== 'comments') {
 		return { ok: false, reason: 'Class must be records or comments.' };
 	}
-
-	return { ok: true, query, limit, offset, documentClass: rawClass ?? undefined };
+	return { ok: true, value: raw };
 }
 
 /**
@@ -232,103 +295,123 @@ interface ComposedRecord {
 	readonly context: string | undefined;
 }
 
-function composeRecord(table: CorpusTable, row: SearchDocumentRow): ComposedRecord {
-	const fields = row.fields;
-	const short = row.sourceId.slice(0, 8);
+/** What one table's fields compose into. `short` is the id's first eight characters. */
+type RecordComposer = (fields: Record<string, string>, short: string) => ComposedRecord;
 
-	switch (table) {
-		case 'habitats':
-			return {
-				title: text(fields.habitat_name) ?? `Habitat ${short}`,
-				titleField: 'habitat_name',
-				context: text(fields.description),
-			};
-		case 'traps': {
-			const name = text(fields.trap_name);
-			return {
-				title: name ?? text(fields.trap_code) ?? `Trap ${short}`,
-				titleField: name === undefined ? 'trap_code' : 'trap_name',
-				context: name === undefined ? text(fields.description) : text(fields.trap_code),
-			};
-		}
-		case 'service_requests': {
-			// `display_name` is a sequential integer the server assigns after the
-			// write commits, and `serviceRequestTitle` in `apps/web` reads it the same
-			// way: `#1042`, or a short id where it has not landed yet.
-			const number = text(fields.display_name);
-			return {
-				title: number === undefined ? short : `#${number}`,
-				titleField: 'display_name',
-				context: text(fields.details),
-			};
-		}
-		case 'contacts': {
-			// Identity-strength order, matching `contactDisplayName` in `apps/web`.
-			const order = ['contact_name', 'company', 'email', 'preferred_phone'] as const;
-			const titleField = order.find((field) => text(fields[field]) !== undefined);
-			return {
-				title: titleField === undefined ? `Contact ${short}` : (text(fields[titleField]) as string),
-				titleField: titleField ?? '',
-				context:
-					titleField === 'contact_name'
-						? (text(fields.company) ?? text(fields.email))
-						: text(fields.email),
-			};
-		}
-		case 'addresses':
-			return {
-				title: text(fields.display_name) ?? `Address ${short}`,
-				titleField: 'display_name',
-				context: joinNonEmpty([text(fields.locality), text(fields.postal_code)], ' '),
-			};
-		case 'regions':
-			return {
-				title: text(fields.name) ?? `Region ${short}`,
-				titleField: 'name',
-				context: text(fields.description),
-			};
-		case 'routes':
-			return {
-				title: text(fields.route_name) ?? `Route ${short}`,
-				titleField: 'route_name',
-				// The kind of route is what tells a habitat route from a trap route,
-				// and it is the only thing a route carries besides its name.
-				context: routeTypeLabel(row.display.route_type),
-			};
-		case 'assignments':
-			return {
-				title: text(fields.assignment_name) ?? `Assignment ${short}`,
-				titleField: 'assignment_name',
-				context: undefined,
-			};
-		case 'missions':
-			return {
-				title: text(fields.mission_name) ?? `Mission ${short}`,
-				titleField: 'mission_name',
-				context: undefined,
-			};
-		case 'requested_control_actions':
-			// No identifier field at all, so the prose *is* the title.
-			return {
-				title: firstLine(fields.summary ?? `Request for control ${short}`),
-				titleField: 'summary',
-				context: undefined,
-			};
-		case 'samples':
-			return {
-				title: text(fields.display_name) ?? `Sample ${short}`,
-				titleField: 'display_name',
-				context: undefined,
-			};
-		case 'weather_sources': {
-			const name = text(fields.source_name);
-			return {
-				title: name ?? text(fields.source_code) ?? `Weather station ${short}`,
-				titleField: name === undefined ? 'source_code' : 'source_name',
-				context: name === undefined ? undefined : text(fields.source_code),
-			};
-		}
+/**
+ * One composer per corpus table, as a table rather than a switch.
+ *
+ * These are twelve independent rules with nothing shared between the arms, so a
+ * `switch` over them was one function carrying the cyclomatic complexity of all
+ * twelve at once and failing `pnpm fallow:health` on it. Keyed on `CorpusTable`,
+ * so a table joining the corpus fails to compile until it has a rule here.
+ */
+const RECORD_COMPOSERS: Record<CorpusTable, RecordComposer> = {
+	habitats: (fields, short) => ({
+		title: text(fields.habitat_name) ?? `Habitat ${short}`,
+		titleField: 'habitat_name',
+		context: text(fields.description),
+	}),
+
+	traps: (fields, short) => {
+		const name = text(fields.trap_name);
+		return {
+			title: name ?? text(fields.trap_code) ?? `Trap ${short}`,
+			titleField: name === undefined ? 'trap_code' : 'trap_name',
+			context: name === undefined ? text(fields.description) : text(fields.trap_code),
+		};
+	},
+
+	// `display_name` is a sequential integer the server assigns after the write
+	// commits, and `serviceRequestTitle` in `apps/web` reads it the same way:
+	// `#1042`, or a short id where it has not landed yet.
+	service_requests: (fields, short) => {
+		const number = text(fields.display_name);
+		return {
+			title: number === undefined ? short : `#${number}`,
+			titleField: 'display_name',
+			context: text(fields.details),
+		};
+	},
+
+	// Identity-strength order, matching `contactDisplayName` in `apps/web`.
+	contacts: (fields, short) => {
+		const order = ['contact_name', 'company', 'email', 'preferred_phone'] as const;
+		const titleField = order.find((field) => text(fields[field]) !== undefined);
+		return {
+			title: titleField === undefined ? `Contact ${short}` : (text(fields[titleField]) as string),
+			titleField: titleField ?? '',
+			context:
+				titleField === 'contact_name'
+					? (text(fields.company) ?? text(fields.email))
+					: text(fields.email),
+		};
+	},
+
+	addresses: (fields, short) => ({
+		title: text(fields.display_name) ?? `Address ${short}`,
+		titleField: 'display_name',
+		context: joinNonEmpty([text(fields.locality), text(fields.postal_code)], ' '),
+	}),
+
+	regions: (fields, short) => ({
+		title: text(fields.name) ?? `Region ${short}`,
+		titleField: 'name',
+		context: text(fields.description),
+	}),
+
+	// A route carries nothing but its name and what kind of route it is, and the
+	// kind is what tells a habitat route from a trap route. It rides in `display`,
+	// so the caller passes it in rather than reading it off `fields`.
+	routes: (fields, short) => ({
+		title: text(fields.route_name) ?? `Route ${short}`,
+		titleField: 'route_name',
+		context: undefined,
+	}),
+
+	assignments: (fields, short) => ({
+		title: text(fields.assignment_name) ?? `Assignment ${short}`,
+		titleField: 'assignment_name',
+		context: undefined,
+	}),
+
+	missions: (fields, short) => ({
+		title: text(fields.mission_name) ?? `Mission ${short}`,
+		titleField: 'mission_name',
+		context: undefined,
+	}),
+
+	// No identifier field at all, so the prose *is* the title.
+	requested_control_actions: (fields, short) => ({
+		title: firstLine(fields.summary ?? `Request for control ${short}`),
+		titleField: 'summary',
+		context: undefined,
+	}),
+
+	samples: (fields, short) => ({
+		title: text(fields.display_name) ?? `Sample ${short}`,
+		titleField: 'display_name',
+		context: undefined,
+	}),
+
+	weather_sources: (fields, short) => {
+		const name = text(fields.source_name);
+		return {
+			title: name ?? text(fields.source_code) ?? `Weather station ${short}`,
+			titleField: name === undefined ? 'source_code' : 'source_name',
+			context: name === undefined ? undefined : text(fields.source_code),
+		};
+	},
+};
+
+function composeRecord(table: CorpusTable, row: SearchDocumentRow): ComposedRecord {
+	const composed = RECORD_COMPOSERS[table](row.fields, row.sourceId.slice(0, 8));
+	if (table !== 'routes') {
+		return composed;
 	}
+
+	// The one rule that needs a column outside `fields`.
+	return { ...composed, context: routeTypeLabel(row.display.route_type) };
 }
 
 /**

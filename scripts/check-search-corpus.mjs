@@ -59,19 +59,45 @@ const OMITTED_COLUMNS = new Set(['geom', 'geojson', 'deleted_at', 'deleted_by_pr
 const EXPECTED_DOCUMENT_CLASSES = 13;
 
 function main() {
-	const failures = [];
-
 	const corpus = readCorpus();
-	const columnsByTable = readColumnsByTable();
-	const triggerTables = readTriggerTables();
-	const domainTables = readDomainCorpusTables();
+	const failures = [
+		...checkDocumentClassCount(corpus),
+		...checkDeclaredFields(corpus, readColumnsByTable()),
+		...checkTriggerParity(corpus, readTriggerTables()),
+		...checkDomainParity(corpus, readDomainCorpusTables()),
+	];
 
-	if (corpus.size !== EXPECTED_DOCUMENT_CLASSES) {
-		failures.push(
-			`SEARCH_CORPUS declares ${corpus.size} document classes; expected ${EXPECTED_DOCUMENT_CLASSES}. ` +
-				'Either a table joined or left the corpus, or this script stopped reading the declaration.',
-		);
+	if (failures.length > 0) {
+		console.error('Search corpus check failed:\n');
+		for (const failure of failures) {
+			console.error(`  - ${failure}`);
+		}
+		process.exitCode = 1;
+		return;
 	}
+
+	const fieldCount = [...corpus.values()].reduce((sum, fields) => sum + fields.length, 0);
+	console.log(
+		`Search corpus OK: ${corpus.size} document classes, ${fieldCount} indexed fields, ` +
+			`${readTriggerTables().size} tables with triggers.`,
+	);
+}
+
+/** A parse that stopped matching must fail, not pass over nothing. */
+function checkDocumentClassCount(corpus) {
+	if (corpus.size === EXPECTED_DOCUMENT_CLASSES) {
+		return [];
+	}
+
+	return [
+		`SEARCH_CORPUS declares ${corpus.size} document classes; expected ${EXPECTED_DOCUMENT_CLASSES}. ` +
+			'Either a table joined or left the corpus, or this script stopped reading the declaration.',
+	];
+}
+
+/** Rules 1 and 2: every declared field is a real column, and none is withheld. */
+function checkDeclaredFields(corpus, columnsByTable) {
+	const failures = [];
 
 	for (const [table, fields] of corpus) {
 		const columns = columnsByTable.get(table);
@@ -80,6 +106,7 @@ function main() {
 			continue;
 		}
 
+		const withheld = withheldColumnsFor(table);
 		for (const field of fields) {
 			if (!columns.has(field)) {
 				failures.push(`${table}.${field} is declared for search but is not a column of ${table}.`);
@@ -89,7 +116,7 @@ function main() {
 					`${table}.${field} is omitted from every row schema and must not be indexed for search.`,
 				);
 			}
-			if (withheldColumnsFor(table).has(field)) {
+			if (withheld.has(field)) {
 				failures.push(
 					`${table}.${field} is withheld from sync readers and must not be indexed for search: ` +
 						'the index is read back over an endpoint that has no column list of its own.',
@@ -97,6 +124,13 @@ function main() {
 			}
 		}
 	}
+
+	return failures;
+}
+
+/** Rule 3, both ways: a declaration with no trigger, and a trigger with no declaration. */
+function checkTriggerParity(corpus, triggerTables) {
+	const failures = [];
 
 	for (const table of corpus.keys()) {
 		if (!triggerTables.has(table)) {
@@ -111,31 +145,24 @@ function main() {
 		}
 	}
 
-	// The domain owns the twelve-table union the client renders and the order
-	// ties break in; `packages/db` owns the fields. They have to name the same
-	// tables, or the reader would rank a table the client has no route for.
-	const declaredRecords = [...corpus.keys()].filter((table) => table !== 'comments');
-	if (declaredRecords.join(',') !== domainTables.join(',')) {
-		failures.push(
-			`CORPUS_TABLES in packages/domain and SEARCH_CORPUS in packages/db name different tables ` +
-				`or a different order.\n  domain: ${domainTables.join(', ')}\n  db:     ${declaredRecords.join(', ')}`,
-		);
+	return failures;
+}
+
+/**
+ * The domain owns the twelve-table union the client renders and the order ties
+ * break in; `packages/db` owns the fields. They have to name the same tables in
+ * the same order, or the reader would rank a table the client has no route for.
+ */
+function checkDomainParity(corpus, domainTables) {
+	const declared = [...corpus.keys()].filter((table) => table !== 'comments');
+	if (declared.join(',') === domainTables.join(',')) {
+		return [];
 	}
 
-	if (failures.length > 0) {
-		console.error('Search corpus check failed:\n');
-		for (const failure of failures) {
-			console.error(`  - ${failure}`);
-		}
-		process.exitCode = 1;
-		return;
-	}
-
-	const fieldCount = [...corpus.values()].reduce((sum, fields) => sum + fields.length, 0);
-	console.log(
-		`Search corpus OK: ${corpus.size} document classes, ${fieldCount} indexed fields, ` +
-			`${triggerTables.size} tables with triggers.`,
-	);
+	return [
+		'CORPUS_TABLES in packages/domain and SEARCH_CORPUS in packages/db name different tables ' +
+			`or a different order.\n  domain: ${domainTables.join(', ')}\n  db:     ${declared.join(', ')}`,
+	];
 }
 
 /**

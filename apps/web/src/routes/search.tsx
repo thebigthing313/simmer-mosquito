@@ -12,7 +12,7 @@ import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
 import {
 	searchResultDestination,
 	searchResultIcon,
@@ -76,18 +76,7 @@ function SearchResultsRoute() {
 	const urlQuery = params.q ?? '';
 	const documentClass = params.class;
 
-	const [draft, setDraft] = useState(urlQuery);
-	useEffect(() => setDraft(urlQuery), [urlQuery]);
-	const typed = useDebouncedQuery(draft);
-
-	// The URL is the shareable state; the field is what is being typed. They meet
-	// on the debounce, so a link opened cold and a query typed here reach the
-	// same request.
-	useEffect(() => {
-		if (typed !== urlQuery) {
-			navigate({ to: '/search', search: (previous) => ({ ...previous, q: typed }), replace: true });
-		}
-	}, [typed, urlQuery, navigate]);
+	const [draft, setDraft] = useEditableQuery(urlQuery, navigate);
 
 	const list = useSearchResultList(urlQuery, documentClass);
 	const routeLookup = useLiveQuery((query) => query.from({ row: routesCollection }), []);
@@ -127,62 +116,22 @@ function SearchResultsRoute() {
 			</div>
 
 			<div className="flex gap-6 max-md:flex-col">
-				{/*
-				 * Three rows with exact counts. The count is what makes the rail worth
-				 * its width: it answers "is this query mostly comments" before any
-				 * scrolling. The counts are never narrowed by the filter, or the rail
-				 * could not show what the other row holds.
-				 */}
-				<nav aria-label="Filter results" className="flex shrink-0 flex-col gap-1 md:w-48">
-					<FilterRow
-						active={documentClass === undefined}
-						count={counts.records + counts.comments}
-						label="Everything"
-						onSelect={() => setClass(navigate, undefined)}
-					/>
-					<FilterRow
-						active={documentClass === 'records'}
-						count={counts.records}
-						label="Records"
-						onSelect={() => setClass(navigate, 'records')}
-					/>
-					<FilterRow
-						active={documentClass === 'comments'}
-						count={counts.comments}
-						label="Comments"
-						onSelect={() => setClass(navigate, 'comments')}
-					/>
-				</nav>
+				<FilterRail
+					counts={counts}
+					documentClass={documentClass}
+					onSelect={(next) => setClass(navigate, next)}
+				/>
 
-				<div className="flex min-w-0 flex-1 flex-col">
-					{failed ? (
-						// A strip above the list, same as the palette and for the same
-						// reason: a filter rail and a count are still on screen and still
-						// valid. `RouteErrorPage` stays for what it is for, a render that
-						// threw, not a request that failed.
-						<div className="mb-3 flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-muted-foreground text-sm">
-							<span>Records and comments are unavailable.</span>
-							<Button
-								onClick={() => {
-									void (first.isError ? first.refetch() : next.refetch());
-								}}
-								size="sm"
-								variant="ghost"
-							>
-								Try again
-							</Button>
-						</div>
-					) : null}
-
-					{loading
-						? [0, 1, 2, 3, 4].map((row) => (
-								<div className="flex items-center gap-3 border-b px-2 py-3" key={row}>
-									<Skeleton className="size-4 rounded" />
-									<Skeleton className="h-4 w-1/2" />
-								</div>
-							))
-						: null}
-
+				<ResultList
+					failed={failed}
+					hasMore={hasMore}
+					loading={loading}
+					loadingMore={next.isFetching}
+					onOpen={open}
+					onRetry={() => void (first.isError ? first.refetch() : next.refetch())}
+					rows={rows}
+					sentinel={sentinel}
+				>
 					{refused || emptyResult ? (
 						<EmptyState
 							documentClass={documentClass}
@@ -190,42 +139,7 @@ function SearchResultsRoute() {
 							reason={refused ? first.error?.message : undefined}
 						/>
 					) : null}
-
-					{/*
-					 * One-line rows, which put more of the ranked order in view and make
-					 * the type a column rather than a heading. A heading can repeat when
-					 * a class boundary falls mid-slice, which is honest; per-kind paging
-					 * would break the single `total` and `offset` contract.
-					 */}
-					<ul className="flex flex-col">
-						{rows.map((result) => {
-							const Icon = searchResultIcon(result);
-							return (
-								<li key={searchResultValue(result)}>
-									<button
-										className="flex w-full items-center gap-3 border-b px-2 py-3 text-left hover:bg-accent"
-										onClick={() => open(result)}
-										type="button"
-									>
-										<Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
-										<span className="truncate text-foreground text-sm">{result.title}</span>
-										{result.subtitle === undefined ? null : (
-											<span className="truncate text-muted-foreground text-xs">
-												{result.subtitle}
-											</span>
-										)}
-									</button>
-								</li>
-							);
-						})}
-					</ul>
-
-					{hasMore ? (
-						<div className="flex justify-center py-4" ref={sentinel}>
-							{next.isFetching ? <Spinner aria-label="Loading more results" /> : null}
-						</div>
-					) : null}
-				</div>
+				</ResultList>
 			</div>
 		</div>
 	);
@@ -319,19 +233,10 @@ function EmptyState({
  * the top of the list again.
  */
 function useSearchResultList(query: string, documentClass: SearchDocumentClass | undefined) {
-	const [pages, setPages] = useState<Record<number, readonly SearchResult[]>>({});
 	const [slices, setSlices] = useState(1);
-	const sentinel = useRef<HTMLDivElement>(null);
+	useEffect(() => setSlices(1), [query, documentClass]);
 
-	useEffect(() => {
-		setPages({});
-		setSlices(1);
-	}, [query, documentClass]);
-
-	// `keepPrevious: false`, so a query or filter change empties the list rather
-	// than leaving the previous answer under the new key. The page is specced to
-	// show skeletons and a zeroed rail there anyway, and a page accumulator
-	// cannot tell placeholder data from a fresh answer.
+	const nextOffset = (slices - 1) * PAGE_SIZE;
 	const first = useGlobalSearch({
 		query,
 		limit: PAGE_SIZE,
@@ -339,7 +244,6 @@ function useSearchResultList(query: string, documentClass: SearchDocumentClass |
 		documentClass,
 		keepPrevious: false,
 	});
-	const nextOffset = (slices - 1) * PAGE_SIZE;
 	const next = useGlobalSearch({
 		query,
 		limit: PAGE_SIZE,
@@ -348,9 +252,63 @@ function useSearchResultList(query: string, documentClass: SearchDocumentClass |
 		keepPrevious: false,
 	});
 
-	// Both halves of the echo are checked, not just the query. `offset` is on the
-	// wire for exactly this: it is what tells the second slice's answer apart
-	// from the first's.
+	const pages = useAccumulatedPages(query, documentClass, [first, next], nextOffset);
+	const rows = pages.rows;
+	const total = first.data?.total ?? 0;
+
+	/*
+	 * Four conditions, and three of them are stops rather than the obvious one.
+	 *
+	 * `rows.length < total` alone is not enough, because the sentinel effect
+	 * re-registers every time `next.isFetching` drops and `observe` fires
+	 * immediately for an element already in view. So a slice that never lands — a
+	 * failed request, or an offset past the endpoint's own cap — leaves
+	 * `rows.length` short of `total` forever and the sentinel walks the offset
+	 * upward one request at a time with nothing to show for it.
+	 *
+	 * A short page is the honest end of the list even when `total` disagrees,
+	 * which it can: `total` is counted when the first slice ran, and a record can
+	 * be deleted underneath a scroll.
+	 */
+	const hasMore =
+		rows.length < total &&
+		!pages.reachedEnd &&
+		!next.isError &&
+		slices * PAGE_SIZE <= SEARCH_MAX_OFFSET;
+
+	const sentinel = useGrowOnVisible(hasMore && !next.isFetching, () =>
+		setSlices((count) => count + 1),
+	);
+
+	return {
+		counts: first.data?.counts ?? { records: 0, comments: 0 },
+		first,
+		hasMore,
+		next,
+		rows,
+		sentinel,
+		total,
+	};
+}
+
+/**
+ * The slices loaded so far, accumulated rather than recomputed.
+ *
+ * Each slice is its own query key, so without this the list would hold the first
+ * slice and the current one and every slice between them would vanish as the
+ * next arrived. Both halves of the echo are checked, not just the query:
+ * `offset` is on the wire for exactly this, and it is what tells the second
+ * slice's answer apart from the first's.
+ */
+function useAccumulatedPages(
+	query: string,
+	documentClass: SearchDocumentClass | undefined,
+	[first, next]: readonly [ReturnType<typeof useGlobalSearch>, ReturnType<typeof useGlobalSearch>],
+	nextOffset: number,
+): { readonly rows: readonly SearchResult[]; readonly reachedEnd: boolean } {
+	const [pages, setPages] = useState<Record<number, readonly SearchResult[]>>({});
+	useEffect(() => setPages({}), [query, documentClass]);
+
 	const firstResults =
 		first.data?.query === query && first.data.offset === 0 ? first.data.results : undefined;
 	const nextResults =
@@ -368,53 +326,195 @@ function useSearchResultList(query: string, documentClass: SearchDocumentClass |
 		}
 	}, [nextResults, nextOffset]);
 
-	const rows = Object.keys(pages)
-		.map(Number)
-		.sort((left, right) => left - right)
-		.flatMap((offset) => pages[offset] ?? []);
-	const total = first.data?.total ?? 0;
-
-	/*
-	 * Four conditions, and three of them are stops rather than the obvious one.
-	 *
-	 * `rows.length < total` alone is not enough, because the sentinel effect
-	 * re-registers every time `next.isFetching` drops and `observe` fires
-	 * immediately for an element already in view. So a slice that never lands —
-	 * a failed request, or an offset past the endpoint's own cap — leaves
-	 * `rows.length` short of `total` forever and the sentinel walks the offset
-	 * upward one request at a time with nothing to show for it.
-	 *
-	 * A short page is the honest end of the list even when `total` disagrees,
-	 * which it can: `total` is counted at the moment the first slice ran, and a
-	 * record can be deleted underneath a scroll.
-	 */
 	const lastLoaded = pages[nextOffset];
-	const reachedEnd = lastLoaded !== undefined && lastLoaded.length < PAGE_SIZE;
-	const hasMore =
-		rows.length < total && !reachedEnd && !next.isError && slices * PAGE_SIZE <= SEARCH_MAX_OFFSET;
+	return {
+		rows: Object.keys(pages)
+			.map(Number)
+			.sort((left, right) => left - right)
+			.flatMap((offset) => pages[offset] ?? []),
+		reachedEnd: lastLoaded !== undefined && lastLoaded.length < PAGE_SIZE,
+	};
+}
+
+/** Calls `grow` whenever the returned sentinel scrolls into view and `armed` is true. */
+function useGrowOnVisible(armed: boolean, grow: () => void): RefObject<HTMLDivElement | null> {
+	const sentinel = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		const node = sentinel.current;
-		if (node === null || !hasMore || next.isFetching) {
+		if (node === null || !armed) {
 			return;
 		}
 
 		const observer = new IntersectionObserver((entries) => {
 			if (entries.some((entry) => entry.isIntersecting)) {
-				setSlices((count) => count + 1);
+				grow();
 			}
 		});
 		observer.observe(node);
 		return () => observer.disconnect();
-	}, [hasMore, next.isFetching]);
+		// `grow` is a fresh closure every render and re-observing on it would loop.
+	}, [armed]);
 
-	return {
-		counts: first.data?.counts ?? { records: 0, comments: 0 },
-		first,
-		hasMore,
-		next,
-		rows: rows as readonly SearchResult[],
-		sentinel,
-		total,
-	};
+	return sentinel;
+}
+
+/**
+ * The field and the URL, kept in step through the debounce.
+ *
+ * The URL is the shareable state and the field is what is being typed, so a link
+ * opened cold and a query typed here reach the same request. The navigation
+ * replaces rather than pushes, or Back would walk one keystroke at a time.
+ */
+function useEditableQuery(
+	urlQuery: string,
+	navigate: ReturnType<typeof useNavigate>,
+): [string, (value: string) => void] {
+	const [draft, setDraft] = useState(urlQuery);
+	useEffect(() => setDraft(urlQuery), [urlQuery]);
+	const typed = useDebouncedQuery(draft);
+
+	useEffect(() => {
+		if (typed !== urlQuery) {
+			navigate({ to: '/search', search: (previous) => ({ ...previous, q: typed }), replace: true });
+		}
+	}, [typed, urlQuery, navigate]);
+
+	return [draft, setDraft];
+}
+
+/**
+ * Everything / Records / Comments, each with an exact count.
+ *
+ * The count is what makes the rail worth its width: it answers "is this query
+ * mostly comments" before any scrolling. The counts are never narrowed by the
+ * filter, or the rail could not show what the other row holds.
+ */
+function FilterRail({
+	counts,
+	documentClass,
+	onSelect,
+}: {
+	readonly counts: { readonly records: number; readonly comments: number };
+	readonly documentClass: SearchDocumentClass | undefined;
+	readonly onSelect: (documentClass: SearchDocumentClass | undefined) => void;
+}) {
+	const rows = [
+		{ label: 'Everything', value: undefined, count: counts.records + counts.comments },
+		{ label: 'Records', value: 'records' as const, count: counts.records },
+		{ label: 'Comments', value: 'comments' as const, count: counts.comments },
+	];
+
+	return (
+		<nav aria-label="Filter results" className="flex shrink-0 flex-col gap-1 md:w-48">
+			{rows.map((row) => (
+				<FilterRow
+					active={documentClass === row.value}
+					count={row.count}
+					key={row.label}
+					label={row.label}
+					onSelect={() => onSelect(row.value)}
+				/>
+			))}
+		</nav>
+	);
+}
+
+/**
+ * The list itself: the failure strip, the first-query skeletons, the rows, and
+ * the sentinel that grows it.
+ *
+ * One-line rows, which put more of the ranked order in view and make the type a
+ * column rather than a heading. A heading can repeat when a class boundary falls
+ * mid-slice, which is honest; per-kind paging would break the single `total` and
+ * `offset` contract.
+ */
+function ResultList({
+	children,
+	failed,
+	hasMore,
+	loading,
+	loadingMore,
+	onOpen,
+	onRetry,
+	rows,
+	sentinel,
+}: {
+	readonly children: ReactNode;
+	readonly failed: boolean;
+	readonly hasMore: boolean;
+	readonly loading: boolean;
+	readonly loadingMore: boolean;
+	readonly onOpen: (result: SearchResult) => void;
+	readonly onRetry: () => void;
+	readonly rows: readonly SearchResult[];
+	readonly sentinel: RefObject<HTMLDivElement | null>;
+}) {
+	return (
+		<div className="flex min-w-0 flex-1 flex-col">
+			{/*
+			 * A strip above the list, same as the palette and for the same reason: a
+			 * filter rail and a count are still on screen and still valid.
+			 * `RouteErrorPage` stays for what it is for, a render that threw, not a
+			 * request that failed.
+			 */}
+			{failed ? (
+				<div className="mb-3 flex items-center justify-between gap-2 rounded-md border px-3 py-2 text-muted-foreground text-sm">
+					<span>Records and comments are unavailable.</span>
+					<Button onClick={onRetry} size="sm" variant="ghost">
+						Try again
+					</Button>
+				</div>
+			) : null}
+
+			{loading
+				? [0, 1, 2, 3, 4].map((row) => (
+						<div className="flex items-center gap-3 border-b px-2 py-3" key={row}>
+							<Skeleton className="size-4 rounded" />
+							<Skeleton className="h-4 w-1/2" />
+						</div>
+					))
+				: null}
+
+			{children}
+
+			<ul className="flex flex-col">
+				{rows.map((result) => (
+					<ResultRow key={searchResultValue(result)} onOpen={onOpen} result={result} />
+				))}
+			</ul>
+
+			{hasMore ? (
+				<div className="flex justify-center py-4" ref={sentinel}>
+					{loadingMore ? <Spinner aria-label="Loading more results" /> : null}
+				</div>
+			) : null}
+		</div>
+	);
+}
+
+function ResultRow({
+	onOpen,
+	result,
+}: {
+	readonly onOpen: (result: SearchResult) => void;
+	readonly result: SearchResult;
+}) {
+	const Icon = searchResultIcon(result);
+
+	return (
+		<li>
+			<button
+				className="flex w-full items-center gap-3 border-b px-2 py-3 text-left hover:bg-accent"
+				onClick={() => onOpen(result)}
+				type="button"
+			>
+				<Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+				<span className="truncate text-foreground text-sm">{result.title}</span>
+				{result.subtitle === undefined ? null : (
+					<span className="truncate text-muted-foreground text-xs">{result.subtitle}</span>
+				)}
+			</button>
+		</li>
+	);
 }

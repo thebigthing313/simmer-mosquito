@@ -20,30 +20,11 @@ import {
 	DialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { useLiveQuery } from '@tanstack/react-db';
 import { useNavigate } from '@tanstack/react-router';
-import { type RefObject, useEffect, useState } from 'react';
+import { type RefObject, useState } from 'react';
 import type { AuthMe } from '../../auth';
-import { routes as routesCollection } from '../../lib/collections/routes';
-import { shellSearchCandidates, type WebShellCandidate } from '../app-shell/navigation';
-import { searchResultDestination } from './search-destinations';
-import {
-	bucketServerResults,
-	capPaletteGroups,
-	matchCandidates,
-	type PaletteGroups,
-} from './search-matching';
 import { SearchResultRow } from './search-result-row';
-import { useDebouncedQuery, useGlobalSearch } from './use-global-search';
-
-/**
- * The server budget the palette asks for.
- *
- * Above its own ten-row list, because the group caps re-select from what comes
- * back: a query answering with sixteen records and four comments has to bring
- * enough of both for the caps to choose between them.
- */
-const PALETTE_SERVER_LIMIT = 30;
+import { type PaletteDestination, usePaletteContent } from './use-palette-content';
 
 /**
  * The command palette: pages, actions, records and comments over one input.
@@ -67,118 +48,9 @@ export function SearchPalette({
 }) {
 	const navigate = useNavigate();
 	const [query, setQuery] = useState('');
-	const debouncedQuery = useDebouncedQuery(query);
+	const content = usePaletteContent(auth, query);
+	const { debouncedQuery, dimmed, empty, failed, firstQuery, groups, offline, total } = content;
 
-	// cmdk compares selection by string, and its only recovery from a selection
-	// that vanished is an item-unregister cleanup guarded on a node captured at
-	// cleanup time and scheduled into a keyed slot. When several items unmount in
-	// one commit the last cleanup overwrites the slot and the reset never fires,
-	// so the value is controlled here and reset on every result swap instead.
-	const [value, setValue] = useState('');
-
-	const { routes: routeCandidates, actions: actionCandidates } = shellSearchCandidates(auth);
-	const routeLookup = useLiveQuery((query) => query.from({ row: routesCollection }), []);
-
-	const search = useGlobalSearch({ query: debouncedQuery, limit: PALETTE_SERVER_LIMIT });
-	// The answer on screen may be a previous query's, held by `placeholderData`.
-	// Only the server groups are allowed to say so by dimming: pages and actions
-	// were matched against the current keystroke.
-	// The debounce window counts as in flight for both of these. Nothing has been
-	// requested yet during it, so `isFetching` is false while the list on screen
-	// is already a keystroke behind.
-	const pending = search.isFetching || debouncedQuery !== query;
-	const answered = search.data?.query === query;
-	const dimmed = pending && !answered;
-
-	// Routes and actions match the *un-debounced* value, so the list never goes
-	// empty while the request catches up.
-	const pages = query === '' ? [] : matchCandidates(routeCandidates, query).map(toRouteResult);
-	const actions =
-		query === ''
-			? // The empty state is the whole action list, after the write floor
-				// filter, in navigation order. A palette that opens blank teaches
-				// nothing about what it can do; pages stay out because seventy-four
-				// destinations is not a list.
-				actionCandidates.map(toActionResult)
-			: matchCandidates(actionCandidates, query).map(toActionResult);
-
-	const server = bucketServerResults(search.data?.results ?? []);
-	const searched: PaletteGroups = {
-		pages,
-		actions,
-		records: query === '' ? [] : server.records,
-		comments: query === '' ? [] : server.comments,
-	};
-	// The caps are a budget for a *searched* list, where four kinds compete for
-	// ten rows. The empty state is one kind and the whole point of it is that the
-	// list is complete: every action the caller's floor allows, in navigation
-	// order, scrolling. Capped, it showed ten of fifteen and the missing five
-	// looked like they did not exist.
-	const groups = query === '' ? searched : capPaletteGroups(searched);
-
-	const orderedValues = [
-		...groups.pages,
-		...groups.actions,
-		...groups.records,
-		...groups.comments,
-	].map(searchResultValue);
-	const rowValues = orderedValues.join('|');
-	const firstValue = orderedValues[0] ?? '';
-
-	/*
-	 * The selection is reset to the *first row* on every result swap.
-	 *
-	 * The reset itself is needed because cmdk compares selection by string and its
-	 * own recovery from a selection whose row has unmounted is an item-unregister
-	 * cleanup guarded on a node captured at cleanup time and scheduled into a
-	 * keyed slot: when several items unmount in one commit the last cleanup
-	 * overwrites the slot and the reset never fires.
-	 *
-	 * Naming the first row rather than `''` is the half that was measured. With
-	 * `''`, cmdk auto-selects row 1 on the *first* result set and selects nothing
-	 * at all on the second, so after typing a second query no row is highlighted
-	 * and Enter does nothing. Naming the row keeps one selected across every swap.
-	 */
-	useEffect(() => {
-		setValue(firstValue);
-	}, [rowValues, firstValue]);
-
-	/*
-	 * `aria-activedescendant` is cmdk's, and it is absent on a fresh result set.
-	 *
-	 * Measured in the browser rather than assumed: on every fresh result set row 1
-	 * is visibly highlighted and the attribute is *absent* on the input, and it
-	 * becomes correct only after the first arrow key. cmdk resolves it through an
-	 * id map its items populate on mount, and a selection made in the same commit
-	 * as the mount misses that lookup with nothing to recompute it.
-	 *
-	 * Two fixes were tried and both are gone: naming the first row in `value`
-	 * does keep a row selected, which is why it is above, but it does not reach
-	 * the attribute; and writing the attribute onto the input by hand is clobbered
-	 * by the next render.
-	 *
-	 * Enter is unaffected throughout, because cmdk's Enter path queries the DOM
-	 * for `[cmdk-item][aria-selected="true"]` rather than reading its own state.
-	 * So this is a screen-reader defect and not a dead key, and what covers it
-	 * meanwhile is the status region below, which does announce the result count.
-	 * Fixing it properly is a change to cmdk.
-	 */
-
-	const total = search.data?.total ?? 0;
-	const failed = search.isError;
-	const offline = typeof navigator !== 'undefined' && navigator.onLine === false;
-	const firstQuery = query !== '' && pending && search.data === undefined;
-	// Guarded on `pending` and not on `isFetching`: for the 200ms the debounce is
-	// holding, no request has started, so `isFetching` is false and every
-	// navigational miss would flash "No matches" before the request goes out.
-	const empty =
-		query !== '' &&
-		!pending &&
-		!failed &&
-		groups.pages.length === 0 &&
-		groups.actions.length === 0 &&
-		groups.records.length === 0 &&
-		groups.comments.length === 0;
 	// Absent on failure, in flight and on no matches. On failure that leaves no
 	// route to the results page, which is right: the page would fail the same way.
 	const showViewAll = query !== '' && !failed && !firstQuery && !empty && total > 0;
@@ -191,7 +63,7 @@ export function SearchPalette({
 		setQuery('');
 	}
 
-	function go(destination: { readonly to: string; readonly params?: { readonly id: string } }) {
+	function go(destination: PaletteDestination) {
 		close();
 		// The shell models destinations as plain strings; the router's typed `to` is
 		// satisfied by an assertion at this one adapter seam, exactly as
@@ -200,22 +72,9 @@ export function SearchPalette({
 	}
 
 	function onSelectResult(result: SearchResult) {
-		if (result.kind === 'route' || result.kind === 'action') {
-			const candidate = [...routeCandidates, ...actionCandidates].find(
-				(entry) => entry.id === result.id,
-			);
-			if (candidate !== undefined) {
-				go({ to: candidate.to as string });
-			}
-			return;
-		}
-
-		const destination = searchResultDestination(
-			result,
-			(routeId) => (routeLookup.data ?? []).find((row) => row.id === routeId)?.route_type,
-		);
+		const destination = content.destinationOf(result);
 		if (destination !== undefined) {
-			go({ to: destination.to as string, params: destination.params });
+			go(destination);
 		}
 	}
 
@@ -250,7 +109,12 @@ export function SearchPalette({
 				 * fixed group order and the server's ranking inside each group are
 				 * bought together.
 				 */}
-				<Command filter={() => 1} onValueChange={setValue} shouldFilter={false} value={value}>
+				<Command
+					filter={() => 1}
+					onValueChange={content.setValue}
+					shouldFilter={false}
+					value={content.value}
+				>
 					<CommandInput
 						maxLength={SEARCH_QUERY_MAX_LENGTH}
 						onValueChange={setQuery}
@@ -269,94 +133,37 @@ export function SearchPalette({
 						{announcement({ query, failed, firstQuery, empty, total })}
 					</span>
 					<CommandList>
-						{failed ? (
-							// A strip, never a block. `ErrorReport` is wrong here: a stack
-							// disclosure and a copy button do not go in a 380px dropdown.
-							// Naming what failed matters precisely because the working half
-							// of the palette is still on screen and would otherwise read as
-							// a complete answer.
-							<div className="flex items-center justify-between gap-2 border-b px-3 py-2 text-xs text-muted-foreground">
-								<span>
-									{offline
-										? 'You are offline. Records and comments are unavailable.'
-										: 'Records and comments are unavailable.'}
-								</span>
-								{offline ? null : (
-									<Button onClick={() => void search.refetch()} size="sm" variant="ghost">
-										Try again
-									</Button>
-								)}
-							</div>
-						) : null}
+						{failed ? <UnavailableStrip offline={offline} onRetry={content.refetch} /> : null}
 
-						{groups.pages.length === 0 ? null : (
-							<CommandGroup heading="Pages">
-								{groups.pages.map((result) => (
-									<SearchResultRow
-										dimmed={false}
-										key={searchResultValue(result)}
-										onSelect={() => onSelectResult(result)}
-										result={result}
-										value={searchResultValue(result)}
-									/>
-								))}
-							</CommandGroup>
-						)}
+						<ResultGroup
+							dimmed={false}
+							heading="Pages"
+							onSelect={onSelectResult}
+							results={groups.pages}
+						/>
 
-						{groups.actions.length === 0 ? null : (
-							<CommandGroup heading="Actions">
-								{groups.actions.map((result) => (
-									<SearchResultRow
-										dimmed={false}
-										key={searchResultValue(result)}
-										onSelect={() => onSelectResult(result)}
-										result={result}
-										value={searchResultValue(result)}
-									/>
-								))}
-							</CommandGroup>
-						)}
+						<ResultGroup
+							dimmed={false}
+							heading="Actions"
+							onSelect={onSelectResult}
+							results={groups.actions}
+						/>
 
-						{firstQuery ? (
-							// One group, not two: which rows are records and which are
-							// comments is not known until the answer arrives.
-							<CommandGroup heading="Records">
-								{[0, 1, 2].map((row) => (
-									<div className="flex items-center gap-3 px-2 py-2" key={row}>
-										<Skeleton className="size-4 rounded" />
-										<Skeleton className="h-4 w-2/3" />
-									</div>
-								))}
-							</CommandGroup>
-						) : null}
+						{firstQuery ? <PendingRows /> : null}
 
-						{groups.records.length === 0 ? null : (
-							<CommandGroup heading="Records">
-								{groups.records.map((result) => (
-									<SearchResultRow
-										dimmed={dimmed}
-										key={searchResultValue(result)}
-										onSelect={() => onSelectResult(result)}
-										result={result}
-										value={searchResultValue(result)}
-									/>
-								))}
-							</CommandGroup>
-						)}
+						<ResultGroup
+							dimmed={dimmed}
+							heading="Records"
+							onSelect={onSelectResult}
+							results={groups.records}
+						/>
 
-						{groups.comments.length === 0 ? null : (
-							<CommandGroup heading="Comments">
-								{groups.comments.map((result) => (
-									<SearchResultRow
-										dimmed={dimmed}
-										key={searchResultValue(result)}
-										onSelect={() => onSelectResult(result)}
-										result={result}
-										value={searchResultValue(result)}
-									/>
-								))}
-							</CommandGroup>
-						)}
+						<ResultGroup
+							dimmed={dimmed}
+							heading="Comments"
+							onSelect={onSelectResult}
+							results={groups.comments}
+						/>
 
 						{/*
 						 * All or nothing, and behind an explicit `!isFetching` guard rather
@@ -399,21 +206,6 @@ export function SearchPalette({
 	);
 }
 
-function toRouteResult(candidate: WebShellCandidate): SearchResult {
-	return {
-		kind: 'route',
-		id: candidate.id,
-		title: candidate.label,
-		subtitle: candidate.domainLabel,
-	};
-}
-
-function toActionResult(candidate: WebShellCandidate): SearchResult {
-	// The row reads as the nav label verbatim — "Create Habitat" — under the
-	// domain entity icon of the record it creates.
-	return { kind: 'action', id: candidate.id, title: candidate.label };
-}
-
 function announcement(state: {
 	readonly query: string;
 	readonly failed: boolean;
@@ -434,4 +226,89 @@ function announcement(state: {
 		return 'No matches';
 	}
 	return `${state.total} results`;
+}
+
+/**
+ * One heading and its rows, absent entirely when it has none.
+ *
+ * No group announces its own emptiness: an empty `Records` heading is noise on
+ * every navigational query.
+ */
+function ResultGroup({
+	dimmed,
+	heading,
+	onSelect,
+	results,
+}: {
+	readonly dimmed: boolean;
+	readonly heading: string;
+	readonly onSelect: (result: SearchResult) => void;
+	readonly results: readonly SearchResult[];
+}) {
+	if (results.length === 0) {
+		return null;
+	}
+
+	return (
+		<CommandGroup heading={heading}>
+			{results.map((result) => (
+				<SearchResultRow
+					dimmed={dimmed}
+					key={searchResultValue(result)}
+					onSelect={() => onSelect(result)}
+					result={result}
+					value={searchResultValue(result)}
+				/>
+			))}
+		</CommandGroup>
+	);
+}
+
+/**
+ * The first query's placeholder: one group, not two, because which rows are
+ * records and which are comments is not known until the answer arrives.
+ */
+function PendingRows() {
+	return (
+		<CommandGroup heading="Records">
+			{[0, 1, 2].map((row) => (
+				<div className="flex items-center gap-3 px-2 py-2" key={row}>
+					<Skeleton className="size-4 rounded" />
+					<Skeleton className="h-4 w-2/3" />
+				</div>
+			))}
+		</CommandGroup>
+	);
+}
+
+/**
+ * A strip, never a block.
+ *
+ * `ErrorReport` is wrong here: a stack disclosure and a copy button do not go in
+ * a 380px dropdown. Naming what failed matters precisely because the working
+ * half of the palette is still on screen and would otherwise read as a complete
+ * answer. Offline gets the same strip with different copy and no retry, read off
+ * `navigator.onLine` the way `ErrorReport` already does.
+ */
+function UnavailableStrip({
+	offline,
+	onRetry,
+}: {
+	readonly offline: boolean;
+	readonly onRetry: () => void;
+}) {
+	return (
+		<div className="flex items-center justify-between gap-2 border-b px-3 py-2 text-muted-foreground text-xs">
+			<span>
+				{offline
+					? 'You are offline. Records and comments are unavailable.'
+					: 'Records and comments are unavailable.'}
+			</span>
+			{offline ? null : (
+				<Button onClick={onRetry} size="sm" variant="ghost">
+					Try again
+				</Button>
+			)}
+		</div>
+	);
 }
