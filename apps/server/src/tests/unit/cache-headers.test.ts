@@ -57,11 +57,34 @@ describe('private read headers', () => {
 		expect(response.headers.get('cache-control')).toBe('private, no-store');
 	});
 
+	/*
+	 * Every prefix, driven rather than asserted.
+	 *
+	 * Asserting the array's contents is not the same check. `'/search*'` sat in
+	 * this list and matched nothing: Hono treats `*` as a wildcard only where it
+	 * is a whole path segment or a trailing `/*`, and escapes it to a literal
+	 * anywhere else, so the middleware was registered and never ran. A prefix
+	 * that covers no route reads exactly like one that does, right up until the
+	 * response goes out with no `vary: cookie` on it.
+	 */
+	it('reaches a real route under every prefix', async () => {
+		const app = appWithPrivateReads();
+		app.get('/map/habitats', (context) => context.json({}));
+		app.get('/records/:recordType/:recordId/delete-impact', (context) => context.json({}));
+		app.get('/search', (context) => context.json({}));
+
+		for (const path of ['/map/habitats', '/records/habitat/abc/delete-impact', '/search?q=elm']) {
+			const response = await app.request(path);
+			expect(response.headers.get('cache-control'), path).toBe('private, no-store');
+			expect(response.headers.get('vary'), path).toBe('cookie');
+		}
+	});
+
 	// The write prefixes are not covered, and should not be: they are POSTs and
 	// PATCHes, which are not cached, and adding the middleware there would only
 	// make the list longer to read.
 	it('covers the read prefixes and nothing else', () => {
-		expect([...PRIVATE_READ_PREFIXES]).toEqual(['/map/*', '/records/*']);
+		expect([...PRIVATE_READ_PREFIXES]).toEqual(['/map/*', '/records/*', '/search']);
 	});
 });
 

@@ -56,6 +56,14 @@ jobs:
       - name: Write references
         run: pnpm check:write-references
 
+      # The search index is a second copy of the corpus tables' text, read back
+      # over an endpoint with no column list of its own. This asserts every
+      # indexed field is a real column, that none of them is a column sync
+      # withholds, and that the declaration and the migration's triggers name
+      # the same tables.
+      - name: Search corpus
+        run: pnpm check:search-corpus
+
       - name: Typecheck
         run: pnpm typecheck
 

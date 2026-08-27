@@ -51,6 +51,15 @@ excluded because `species` already carries the genus name every surface asks
 for. The three notification tables were declared in the old seam and never read
 from it; the workflow that will need them is not built.
 
+`search_documents` is in none of the three columns, because it is not a table a
+client reads at all. It is a derived index, maintained by triggers on the
+thirteen tables it is projected from and read only by `GET /search`. It has no
+collection module and no sync shape on purpose: Electric manages its own
+publication and adds a table when a shape asks for it, so a table nothing syncs
+never enters the replication stream and costs the slot nothing. What it holds is
+gated by `pnpm check:search-corpus`, which refuses any column sync itself
+withholds.
+
 ## Web notes
 
 - Server shape routes must force their authorized table, columns, and scope

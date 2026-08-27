@@ -2,6 +2,7 @@ import {
 	BreadcrumbLabelProvider,
 	OutletContentFallback,
 	OutletShell,
+	SearchTriggerProvider,
 	type ShellOrganization,
 	ShellProvider,
 	type ShellUser,
@@ -9,12 +10,13 @@ import {
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
-import { Suspense } from 'react';
+import { Suspense, useState } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { organizations } from '../../lib/collections/organizations';
 import { getToday } from '../../lib/get-today';
+import { SearchPalette } from '../search/search-palette';
 import {
 	shellDomainsForRole,
 	webAccountLinks,
@@ -41,6 +43,10 @@ function formatRole(role: string | null | undefined): string {
 export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	const navigate = useNavigate();
 	const { pathname } = useLocation();
+	// The palette is mounted here, beside the shell, because `AppHeader` takes no
+	// props and renders the trigger itself. `apps/admin` provides no such context,
+	// so its header simply loses the search field it never had a palette for.
+	const [searchOpen, setSearchOpen] = useState(false);
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
 
@@ -75,7 +81,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	};
 
 	return (
-		<>
+		<SearchTriggerProvider value={{ isOpen: searchOpen, onOpen: () => setSearchOpen(true) }}>
 			<ShellProvider
 				organizations={[currentOrganization]}
 				currentOrganization={currentOrganization}
@@ -112,7 +118,8 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 					</OutletShell>
 				</BreadcrumbLabelProvider>
 			</ShellProvider>
+			<SearchPalette auth={auth} onOpenChange={setSearchOpen} open={searchOpen} />
 			<Toaster richColors />
-		</>
+		</SearchTriggerProvider>
 	);
 }

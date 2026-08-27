@@ -19,6 +19,11 @@ export {
 	useBreadcrumbLabel,
 	useBreadcrumbLabels,
 } from './breadcrumb-labels';
+export {
+	SearchTriggerProvider,
+	type SearchTriggerValue,
+	useSearchTrigger,
+} from './header/search-trigger-context';
 export { OutletContentFallback } from './outlet/outlet-content-fallback';
 export { OutletShell } from './outlet/outlet-shell';
 export { OutletSimpleLayout } from './outlet/simple-layout';

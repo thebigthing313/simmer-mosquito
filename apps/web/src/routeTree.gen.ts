@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TodayRouteImport } from './routes/today'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as SearchRouteImport } from './routes/search'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MyOrganizationRouteImport } from './routes/my-organization'
@@ -148,6 +149,11 @@ const SignUpRoute = SignUpRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -856,6 +862,7 @@ export interface FileRoutesByFullPath {
   '/my-organization': typeof MyOrganizationRouteWithChildren
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
@@ -982,6 +989,7 @@ export interface FileRoutesByTo {
   '/landing': typeof LandingRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
@@ -1110,6 +1118,7 @@ export interface FileRoutesById {
   '/my-organization': typeof MyOrganizationRouteWithChildren
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
@@ -1239,6 +1248,7 @@ export interface FileRouteTypes {
     | '/my-organization'
     | '/profile'
     | '/reset-password'
+    | '/search'
     | '/sign-in'
     | '/sign-up'
     | '/today'
@@ -1365,6 +1375,7 @@ export interface FileRouteTypes {
     | '/landing'
     | '/profile'
     | '/reset-password'
+    | '/search'
     | '/sign-in'
     | '/sign-up'
     | '/today'
@@ -1492,6 +1503,7 @@ export interface FileRouteTypes {
     | '/my-organization'
     | '/profile'
     | '/reset-password'
+    | '/search'
     | '/sign-in'
     | '/sign-up'
     | '/today'
@@ -1620,6 +1632,7 @@ export interface RootRouteChildren {
   MyOrganizationRoute: typeof MyOrganizationRouteWithChildren
   ProfileRoute: typeof ProfileRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SearchRoute: typeof SearchRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   TodayRoute: typeof TodayRoute
@@ -1750,6 +1763,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -2656,6 +2676,7 @@ const rootRouteChildren: RootRouteChildren = {
   MyOrganizationRoute: MyOrganizationRouteWithChildren,
   ProfileRoute: ProfileRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SearchRoute: SearchRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   TodayRoute: TodayRoute,

@@ -111,7 +111,12 @@ type ScopeFor<TName extends keyof SimmerDatabase> =
  * Ordered as `SimmerDatabase` declares them, so this file and the schema can be
  * read side by side.
  */
-export const syncShapeScopes: { readonly [TName in keyof SimmerDatabase]: ScopeFor<TName> } = {
+// `satisfies` rather than an annotation, so a missing table is still a compile
+// error *and* each entry keeps its literal type. `search.ts` reads those
+// literals to assert that every table in the search corpus is organization
+// scoped; under an annotation every entry widens to `ScopeFor<TName>` and that
+// assertion could not see the difference between `'organization'` and `'global'`.
+export const syncShapeScopes = {
 	/*
 	 * A login, not a person in an agency. `users` has no `organization_id`, and
 	 * the rows an agency may see are the ones its memberships point at — a join,
@@ -203,7 +208,7 @@ export const syncShapeScopes: { readonly [TName in keyof SimmerDatabase]: ScopeF
 	weather_sources: 'organization-or-global',
 	weather_source_subscriptions: 'organization',
 	weather_summaries: 'organization-or-global-no-soft-delete',
-};
+} satisfies { readonly [TName in keyof SimmerDatabase]: ScopeFor<TName> };
 
 /**
  * The scope a table is served under, or a refusal naming why it is not.
