@@ -105,6 +105,19 @@ describe('createOperatorAuthContextMiddleware', () => {
 		}
 	});
 
+	it('names the unconfigured case apart from the wrong-organization one', async () => {
+		// Both refuse, and both are 403, but the fixes are opposites: one is
+		// answered by signing in as SIMMER, the other cannot be answered by signing
+		// in at all. The console renders the two codes as different screens, and
+		// under one code it told an operator to retry something that could not work.
+		const unconfigured = await operatorApp({
+			workosOrganizationId: SIMMER_ORG,
+			operatorOrganizationId: null,
+		}).request('/admin/organizations');
+
+		await expect(unconfigured.json()).resolves.toEqual({ error: 'operator_not_configured' });
+	});
+
 	it('resolves the local identity against the organization it admitted', async () => {
 		const localResolver = vi.fn<ResolveLocalIdentity>(async () => null);
 
