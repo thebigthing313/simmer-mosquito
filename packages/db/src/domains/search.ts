@@ -140,12 +140,16 @@ const TRIGRAM_MIN_QUERY_LENGTH = 3;
  * keystroke, so what this guards against is a plan regression turning the
  * palette into a stalled connection pool.
  *
- * Measured against staging, 47,861 documents in one agency: a whole query at
- * three characters or more runs in 3.4 to 3.8 ms, with all four branches
+ * Measured on a clone of production, 135,198 documents in one agency: a whole
+ * query at three characters or more runs in **6.7 ms**, with all four branches
  * bitmap-scanning their own index and OR-ing together. One and two character
- * queries scan, at 35.6 ms. Staging is a clone pruned to three years and about
- * 2.8x smaller than production, so read those as roughly 10 ms and 100 ms there.
- * The timeout is thirty times the worse of the two.
+ * queries scan the agency's documents instead, at **81 ms** and **89 ms**.
+ *
+ * The timeout is thirty times the worse of those, and the scan is one a person
+ * only reaches while typing the first two characters of a query that is
+ * debounced at 200 ms. Both numbers are warm-cache: the plan reports 7,000
+ * buffer hits and no reads, which is the steady state for a table queried on
+ * every keystroke, and not what the first query after a deploy will see.
  */
 const SEARCH_STATEMENT_TIMEOUT = '3s';
 
