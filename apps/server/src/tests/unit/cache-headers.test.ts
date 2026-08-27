@@ -1,6 +1,7 @@
 import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { PRIVATE_READ_PREFIXES, privateNoStore } from '../../cache-headers.js';
+import { prefixesWithNoRoutes } from './support/registered-routes.js';
 
 /**
  * Beside `sync-shapes.test.ts`'s assertion on the shape proxy, and for the same
@@ -58,7 +59,7 @@ describe('private read headers', () => {
 	});
 
 	/*
-	 * Every prefix, driven rather than asserted.
+	 * Every prefix, driven against the routes the server really registers.
 	 *
 	 * Asserting the array's contents is not the same check. `'/search*'` sat in
 	 * this list and matched nothing: Hono treats `*` as a wildcard only where it
@@ -66,8 +67,17 @@ describe('private read headers', () => {
 	 * anywhere else, so the middleware was registered and never ran. A prefix
 	 * that covers no route reads exactly like one that does, right up until the
 	 * response goes out with no `vary: cookie` on it.
+	 *
+	 * Driven against stub routes this file writes, it would only have caught a
+	 * prefix that fails to match a path someone remembered to stub. `registerAllRoutes`
+	 * is the list the server itself registers, so it also catches a prefix whose
+	 * routes were deleted or moved.
 	 */
 	it('reaches a real route under every prefix', async () => {
+		expect(await prefixesWithNoRoutes(PRIVATE_READ_PREFIXES)).toEqual([]);
+	});
+
+	it('sets both headers on a read under every prefix', async () => {
 		const app = appWithPrivateReads();
 		app.get('/map/habitats', (context) => context.json({}));
 		app.get('/records/:recordType/:recordId/delete-impact', (context) => context.json({}));

@@ -1,34 +1,12 @@
-import { createCompileOnlyDb } from '@simmer-mosquito/db/test-support';
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
-import { createMiddleware } from 'hono/factory';
 import { describe, expect, it } from 'vitest';
-import { registerAdminFoundationRoutes } from '../../admin-foundations.js';
-import { registerAdminInvitationRoutes } from '../../admin-invitations.js';
-import { registerAdultSurveillanceCommandRoutes } from '../../adult-surveillance-commands/index.js';
-import type { AuthVariables } from '../../auth-middleware.js';
-import { registerAuthUserRoutes } from '../../auth-user-commands.js';
-import { registerControlAssetCommandRoutes } from '../../control-asset-commands.js';
-import { registerControlMethodCommandRoutes } from '../../control-method-commands.js';
-import { registerControlOperationsCommandRoutes } from '../../control-operations-commands/index.js';
-import { registerControlProductCommandRoutes } from '../../control-product-commands.js';
 import { ADMIN_CORS_ALLOW_METHODS, CORS_SURFACES, corsSurfaceFor } from '../../cors-options.js';
-import { registerFieldWorkCommandRoutes } from '../../field-work-commands/index.js';
-import { registerFoundationCommandRoutes } from '../../foundation-commands/index.js';
-import { registerFoundationGeographyCommandRoutes } from '../../foundation-geography-commands/index.js';
-import { registerGeocoderRoutes } from '../../geocoder.js';
-import { registerLarvalSurveillanceCommandRoutes } from '../../larval-surveillance-commands/index.js';
-import { registerMapTileRoutes } from '../../map-tiles.js';
-import { registerMissionDispatchCommandRoutes } from '../../mission-dispatch-commands/index.js';
-import { registerOrganizationSettingsCommandRoutes } from '../../organization-settings-commands.js';
-import { registerProfileCommandRoutes } from '../../profile-commands.js';
-import { registerPublicEngagementCommandRoutes } from '../../public-engagement-commands.js';
-import { registerPublicEngagementRecordRoutes } from '../../public-engagement-records-commands/index.js';
-import { registerRecordDeletionRoutes } from '../../record-deletion.js';
-import { registerSearchRoutes } from '../../search.js';
-import { registerServiceRequestNearbyRoutes } from '../../service-request-nearby.js';
-import { registerSyncShapeRoutes } from '../../sync-shapes.js';
-import { registerTableCommandSurface } from '../../table-commands/index.js';
+import {
+	droppedAllEntryCount,
+	prefixesWithNoRoutes,
+	registeredRoutes,
+} from './support/registered-routes.js';
 
 /**
  * The check #118 asked for: every route the server registers is admitted by
@@ -48,7 +26,7 @@ import { registerTableCommandSurface } from '../../table-commands/index.js';
  * list of paths to keep in step — and walks what Hono ended up with.
  */
 describe('every registered route is admitted by a CORS surface', () => {
-	const routes = registeredRoutes();
+	const routes = registeredRoutes().map((route): [string, string] => [route.method, route.path]);
 
 	it('registers a recognisable number of routes, so an empty walk cannot pass', () => {
 		// Guards the assertion below: if the app failed to build, `routes` would
@@ -85,12 +63,30 @@ describe('every registered route is admitted by a CORS surface', () => {
 		expect(corsSurfaceFor('/organization/current')?.prefix).toBe('/organization/*');
 	});
 
-	it('claims no path it has no route for, and no route it has no path for', () => {
-		const claimed = new Set(routes.map((route) => corsSurfaceFor(route[1])?.prefix));
+	// Driven, not compared by name. A prefix that resolves under `corsSurfaceFor`
+	// is not the same as one Hono will match: `*` is a wildcard only as a whole
+	// path segment or a trailing `/*`, and `'/search*'` mounted middleware that
+	// never ran once. `registered-routes.ts` has the rest of it.
+	it('claims no prefix it has no route under', async () => {
+		expect(await prefixesWithNoRoutes(CORS_SURFACES.map((surface) => surface.prefix))).toEqual([]);
+	});
 
-		for (const surface of CORS_SURFACES) {
-			expect(claimed, `${surface.prefix} has no routes under it`).toContain(surface.prefix);
-		}
+	// The walk reads `app.routes`, where Hono writes `app.use(path, mw)` and
+	// `app.all(path, handler)` the same way, so it drops every `ALL` entry as
+	// middleware. No route module registers one, and if that changes this fails
+	// rather than letting a handler out of all three prefix checks.
+	it('drops no route it mistook for middleware', () => {
+		expect(droppedAllEntryCount()).toBe(0);
+	});
+
+	// The check above can fail. A prefix Hono will not match and a prefix with no
+	// routes under it are the two shapes it exists to catch, and `'/search*'` is
+	// the real one that shipped.
+	it('names a prefix that matches nothing', async () => {
+		expect(await prefixesWithNoRoutes(['/map/*', '/search*', '/nowhere/*'])).toEqual([
+			'/search*',
+			'/nowhere/*',
+		]);
 	});
 });
 
@@ -142,75 +138,4 @@ async function preflight(path: string, method: string, headers?: string): Promis
 			...(headers === undefined ? {} : { 'access-control-request-headers': headers }),
 		},
 	});
-}
-
-/**
- * Build the app the way `main.ts` does and read back what Hono registered.
- *
- * Everything injected here is inert — the point is which paths and verbs exist,
- * not what they do — but they are the real registration functions, so a route
- * added anywhere shows up without this file being edited.
- */
-function registeredRoutes(): [string, string][] {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	const db = createCompileOnlyDb();
-	const authContextMiddleware = createMiddleware<{ Variables: AuthVariables }>((_c, next) =>
-		next(),
-	);
-	const options = { db, authContextMiddleware } as never;
-
-	registerSyncShapeRoutes(app, {
-		electricUrl: null,
-		authContextMiddleware,
-		operatorAuthContextMiddleware: authContextMiddleware,
-	});
-	registerMapTileRoutes(app, options);
-	registerSearchRoutes(app, { db, authContextMiddleware });
-	registerServiceRequestNearbyRoutes(app, { db, authContextMiddleware });
-	registerRecordDeletionRoutes(app, { db, authContextMiddleware });
-	registerGeocoderRoutes(app, { apiKey: null, authContextMiddleware });
-	registerAdminFoundationRoutes(app, {
-		db,
-		operatorAuthContextMiddleware: authContextMiddleware as never,
-	});
-	registerAdminInvitationRoutes(app, {
-		db,
-		auth: {} as never,
-		operatorAuthContextMiddleware: authContextMiddleware as never,
-	});
-	registerAuthUserRoutes(app, {
-		auth: {} as never,
-		mailer: {} as never,
-		appOrigin: TEST_ORIGIN,
-		finalizeSession: (async () => ({ organizationRequired: false })) as never,
-	});
-	registerProfileCommandRoutes(app, { db, authContextMiddleware });
-	registerOrganizationSettingsCommandRoutes(app, { db, authContextMiddleware });
-	// The `/commands/{table}` surface. Registered here from the day it existed
-	// would have caught its own omission: it had no CORS prefix at all, which is
-	// invisible under local Caddy — same origin, no preflight — and a refused
-	// write everywhere the SPA and the API are separate hosts.
-	registerTableCommandSurface(app, {
-		db,
-		auth: {} as never,
-		authContextMiddleware,
-		operatorAuthContextMiddleware: authContextMiddleware,
-	});
-	registerFoundationCommandRoutes(app, options);
-	registerFoundationGeographyCommandRoutes(app, options);
-	registerLarvalSurveillanceCommandRoutes(app, options);
-	registerAdultSurveillanceCommandRoutes(app, options);
-	registerControlOperationsCommandRoutes(app, options);
-	registerControlAssetCommandRoutes(app, options);
-	registerControlMethodCommandRoutes(app, options);
-	registerControlProductCommandRoutes(app, options);
-	registerPublicEngagementCommandRoutes(app, options);
-	registerPublicEngagementRecordRoutes(app, options);
-	registerFieldWorkCommandRoutes(app, options);
-	registerMissionDispatchCommandRoutes(app, options);
-
-	// `ALL` entries are middleware registrations, not routes with a verb.
-	return app.routes
-		.filter((route) => route.method !== 'ALL')
-		.map((route): [string, string] => [route.method, route.path]);
 }

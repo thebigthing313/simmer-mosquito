@@ -3,6 +3,7 @@ import { Hono } from 'hono';
 import { describe, expect, it } from 'vitest';
 import { PRIVATE_READ_PREFIXES, privateNoStore } from '../../cache-headers.js';
 import { COMPRESSED_READ_PREFIXES, compressReads } from '../../response-compression.js';
+import { prefixesWithNoRoutes } from './support/registered-routes.js';
 
 /**
  * The map surface left the server raw: eleven tile layers and their list reads,
@@ -242,6 +243,14 @@ describe('read compression', () => {
 	it('covers the private read prefixes plus the shape proxy', () => {
 		expect([...COMPRESSED_READ_PREFIXES]).toEqual(['/map/*', '/records/*', '/search', '/sync/*']);
 		expect(COMPRESSED_READ_PREFIXES).toEqual(expect.arrayContaining([...PRIVATE_READ_PREFIXES]));
+	});
+
+	// Contents alone were the whole check here, and a list of strings cannot say
+	// whether Hono will match any of them. `'/search*'` sat in this list too and
+	// compressed nothing. `registered-routes.ts` drives each prefix at the routes
+	// the server registers.
+	it('reaches a real route under every prefix', async () => {
+		expect(await prefixesWithNoRoutes(COMPRESSED_READ_PREFIXES)).toEqual([]);
 	});
 });
 

@@ -2,7 +2,7 @@
  * Which cross-origin methods each route prefix admits.
  *
  * This is a hidden coupling and it is worth saying so plainly. `main.ts`
- * mounts CORS by path prefix; each of the 23 `register*Routes` modules chooses
+ * mounts CORS by path prefix; each of the 26 `register*Routes` modules chooses
  * its own paths internally. Nothing connects the two, so adding a route with a
  * verb its prefix does not admit fails only from a browser, only cross-origin,
  * and only in an environment where the SPA and the API are different origins —
@@ -13,9 +13,12 @@
  * `POST /map/habitats/by-ids`. And `/sync/*` needed its `POST` added by a
  * failing request rather than by a check, when the subset transport landed.
  *
- * `cors-options.test.ts` is the check. It stands up every route module and
- * asserts each registered `(method, path)` is admitted here, so the pair can
- * only disagree by someone deleting the test.
+ * `cors-options.test.ts` is the check. It calls `registerAllRoutes`, the same
+ * function `main.ts` calls rather than a copy of its calls, and asserts each
+ * registered `(method, path)` is admitted here. The copy is what this used to
+ * be, and a copy does not fail when it is missing a module. Two modules had
+ * never been walked, and `GET /search` shipped with no surface at all (#280).
+ * Adding a module to `routes.ts` is what puts it in front of this table.
  */
 
 export interface CorsSurface {
@@ -32,6 +35,10 @@ const READ_METHODS = ['GET', 'OPTIONS'];
 export const ADMIN_CORS_ALLOW_METHODS = ['GET', 'POST', 'PATCH', 'DELETE', 'OPTIONS'];
 
 export const CORS_SURFACES: readonly CorsSurface[] = [
+	// One exact path. Railway's healthcheck is server to server and needs no
+	// CORS, but a path no prefix claims is what `corsSurfaceFor` answers `null`
+	// for, and the walk refuses that rather than guessing it was deliberate.
+	{ prefix: '/health', methods: READ_METHODS },
 	{ prefix: '/auth/*', methods: ['GET', 'POST', 'OPTIONS'] },
 	{ prefix: '/admin/*', methods: ADMIN_CORS_ALLOW_METHODS },
 	// POST carries Electric subset snapshot params in the body (on-demand
