@@ -527,6 +527,19 @@ with docs as materialized (
 -- at three characters and up puts an index-servable trigram containment test in
 -- front of the per-field test, which no index can serve on its own. See
 -- `packages/db/src/domains/search.ts`.
+--
+-- To take those numbers again, once the corpus has grown: clone production with
+-- `scripts/clone-prod-db.ps1`, apply this migration to the clone with
+-- `DATABASE_URL` overridden to point at it, and `explain (analyze)` the reader's
+-- predicate.
+--
+-- One trap, and it is the whole reason this paragraph exists. **The
+-- organization id has to reach the planner as a literal.** Written as a
+-- subquery it is opaque, and Postgres sequentially scans whatever the branches
+-- would otherwise have done, so every one of them reads as unindexed. Pull it
+-- into a `psql` variable with `\gset` first. Reading a plan taken that way is
+-- what first suggested `exact` had no index, when what it had was a subquery in
+-- front of it.
 create index search_documents_vector_idx
 	on search_documents using gin (organization_id, search_vector);
 create index search_documents_trgm_idx
