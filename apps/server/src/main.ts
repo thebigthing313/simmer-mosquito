@@ -1,73 +1,27 @@
 import { serve } from '@hono/node-server';
-import {
-	type AuthenticatedSession,
-	createWorkOsAuth,
-	WORKOS_SESSION_COOKIE_NAME,
-} from '@simmer-mosquito/auth';
+import { type AuthenticatedSession, createWorkOsAuth } from '@simmer-mosquito/auth';
 import {
 	createDb,
-	getOperatorOrganization,
-	listOperatorOrganizations,
-	listOrganizationMemberships,
-	type OrganizationSubscriptionStatus,
 	resolveActiveLocalAuthIdentity,
-	type SafeOrganization,
-	type SafeOrganizationMembership,
-	upsertOperatorOrganization,
 	upsertWorkOsIdentity,
 } from '@simmer-mosquito/db';
 import { Hono } from 'hono';
-import { deleteCookie, type setCookie } from 'hono/cookie';
+import type { setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
-import { registerAdminFoundationRoutes } from './admin-foundations.js';
-import { registerAdminInvitationRoutes } from './admin-invitations.js';
-import { registerAdultSurveillanceCommandRoutes } from './adult-surveillance-commands/index.js';
-import {
-	resolveAuthContext,
-	toAuthFailureBody,
-	toAuthMeBody,
-	toPublicAuthContext,
-} from './auth-context.js';
+import { toPublicAuthContext } from './auth-context.js';
 import { createAuthMailer } from './auth-email.js';
 import {
 	type AuthVariables,
 	createAuthContextMiddleware,
 	createOperatorAuthContextMiddleware,
 } from './auth-middleware.js';
-import {
-	readSealedSession,
-	SESSION_RESPONSE_HEADER,
-	writeSealedSession,
-} from './auth-session-transport.js';
-import { registerAuthUserRoutes } from './auth-user-commands.js';
+import { SESSION_RESPONSE_HEADER, writeSealedSession } from './auth-session-transport.js';
 import { PRIVATE_READ_PREFIXES, privateNoStore } from './cache-headers.js';
-import { isRecord } from './command-payload.js';
-import { registerControlAssetCommandRoutes } from './control-asset-commands.js';
-import { registerControlMethodCommandRoutes } from './control-method-commands.js';
-import { registerControlOperationsCommandRoutes } from './control-operations-commands/index.js';
-import { registerControlProductCommandRoutes } from './control-product-commands.js';
 import { CORS_SURFACES } from './cors-options.js';
 import { createDevSessionProvider } from './dev-impersonation.js';
 import { readServerEnv } from './env.js';
-import { registerFieldWorkCommandRoutes } from './field-work-commands/index.js';
-import { registerFoundationCommandRoutes } from './foundation-commands/index.js';
-import { registerFoundationGeographyCommandRoutes } from './foundation-geography-commands/index.js';
-import { registerGeocoderRoutes } from './geocoder.js';
-import { registerLarvalSurveillanceCommandRoutes } from './larval-surveillance-commands/index.js';
-import { registerMapTileRoutes } from './map-tiles.js';
-import { registerMissionDispatchCommandRoutes } from './mission-dispatch-commands/index.js';
-import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
-import { registerProfileCommandRoutes } from './profile-commands.js';
-import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
-import { registerPublicEngagementRecordRoutes } from './public-engagement-records-commands/index.js';
-import { registerRecordDeletionRoutes } from './record-deletion.js';
-import { registerRegionMembershipRoutes } from './region-membership.js';
 import { COMPRESSED_READ_PREFIXES, compressReads } from './response-compression.js';
-import { registerSearchRoutes } from './search.js';
-import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
-import { registerSyncShapeRoutes } from './sync-shapes.js';
-import { registerTableCommandSurface } from './table-commands/index.js';
-import { registerWeatherImportRoute } from './weather-commands/index.js';
+import { registerAllRoutes } from './routes.js';
 
 const env = readServerEnv();
 const auth = createWorkOsAuth({
@@ -174,268 +128,18 @@ for (const prefix of PRIVATE_READ_PREFIXES) {
 	app.use(prefix, privateNoStore);
 }
 
-app.get('/health', (context) =>
-	context.json({
-		ok: true,
-		service: 'simmer-mosquito-server',
-		environment: env.nodeEnv,
-	}),
-);
-
-app.get('/auth/login', (context) => {
-	const returnTo = readAllowedReturnTo(context.req.query('returnTo'));
-	const authorizationUrl = new URL(auth.getAuthorizationUrl());
-	if (returnTo !== null) {
-		authorizationUrl.searchParams.set('state', returnTo);
-	}
-
-	return context.redirect(authorizationUrl.toString());
-});
-
-app.get('/auth/callback', async (context) => {
-	const code = context.req.query('code');
-
-	if (code === undefined || code.trim() === '') {
-		return context.json({ error: 'missing_code' }, 400);
-	}
-
-	const ipAddress = context.req.header('x-forwarded-for');
-	const userAgent = context.req.header('user-agent');
-	const session = await auth.authenticateCode({
-		code,
-		...(ipAddress === undefined ? {} : { ipAddress }),
-		...(userAgent === undefined ? {} : { userAgent }),
-	});
-
-	const { organizationRequired } = await finalizeWorkOsSession(context, session);
-
-	const redirectUrl = new URL(readAllowedReturnTo(context.req.query('state')) ?? env.appOrigin);
-	if (organizationRequired) {
-		redirectUrl.searchParams.set('auth', 'organization_required');
-	}
-
-	return context.redirect(redirectUrl.toString());
-});
-
-app.get('/auth/me', async (context) => {
-	const result = await resolveAuthContext({
-		sealedSession: readSealedSession(context),
-		auth: sessionProvider,
-		localIdentityResolver,
-	});
-
-	if (result.sealedSession !== undefined) {
-		setAuthCookie(context, result.sealedSession);
-	}
-
-	if (!result.ok) {
-		return context.json(toAuthFailureBody(result), result.status);
-	}
-
-	return context.json(toAuthMeBody(result.context));
-});
-
-app.get('/admin/organizations', operatorAuthContextMiddleware, async (context) => {
-	const organizations = await listOperatorOrganizations(db);
-
-	return context.json({
-		organizations: organizations.map(toAdminOrganizationResponse),
-	});
-});
-
-app.post('/admin/organizations', operatorAuthContextMiddleware, async (context) => {
-	const operatorContext = context.get('operatorContext');
-	const payloadResult = await readCreateOrganizationPayload(context.req);
-	if (!payloadResult.ok) {
-		return context.json(
-			{
-				error: 'invalid_payload',
-				reason: payloadResult.reason,
-			},
-			400,
-		);
-	}
-
-	const workosOrganization = await auth.createOrganization({
-		name: payloadResult.payload.name,
-	});
-
-	const organization = await upsertOperatorOrganization(db, {
-		workosOrganizationId: workosOrganization.workosOrganizationId,
-		name: workosOrganization.name,
-		slug: payloadResult.payload.slug,
-		subscriptionStatus: payloadResult.payload.subscriptionStatus,
-		billingMode: 'manual_invoice',
-		billingContactName: payloadResult.payload.billingContactName,
-		billingContactEmail: payloadResult.payload.billingContactEmail,
-		subscriptionNotes: payloadResult.payload.subscriptionNotes,
-		contact: payloadResult.payload.contact,
-		...(payloadResult.payload.linkRequesterAsOwner && operatorContext.localIdentity !== null
-			? {
-					ownerUserId: operatorContext.localIdentity.user.id,
-					ownerDisplayName: operatorContext.localIdentity.user.displayName,
-					ownerEmail: operatorContext.localIdentity.user.email,
-				}
-			: {}),
-	});
-
-	return context.json(toAdminOrganizationResponse(organization), 201);
-});
-
-app.get(
-	'/admin/organizations/:organizationId/memberships',
-	operatorAuthContextMiddleware,
-	async (context) => {
-		const organizationId = context.req.param('organizationId');
-		const organization = await getOperatorOrganization(db, organizationId);
-		if (organization === null) {
-			return context.json({ error: 'organization_not_found' }, 404);
-		}
-
-		const memberships = await listOrganizationMemberships(db, organizationId);
-
-		return context.json({
-			organization: toAdminOrganizationResponse(organization),
-			memberships: memberships.map(toAdminMembershipResponse),
-		});
-	},
-);
-
-registerAuthUserRoutes(app, {
+registerAllRoutes(app, {
+	db,
 	auth,
 	mailer: authMailer,
+	sessionProvider,
+	localIdentityResolver,
+	nodeEnv: env.nodeEnv,
 	appOrigin: env.appOrigin,
+	appOrigins: env.appOrigins,
+	setAuthCookie,
 	finalizeSession: finalizeWorkOsSession,
-});
-
-registerAdminInvitationRoutes(app, {
-	db,
-	auth,
-	operatorAuthContextMiddleware,
-});
-
-registerAdminFoundationRoutes(app, {
-	db,
-	operatorAuthContextMiddleware,
-});
-
-registerFoundationCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerFoundationGeographyCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerControlMethodCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerControlAssetCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerControlProductCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerOrganizationSettingsCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerProfileCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerPublicEngagementCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerLarvalSurveillanceCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerAdultSurveillanceCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerControlOperationsCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerFieldWorkCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerMissionDispatchCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerPublicEngagementRecordRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerMapTileRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerSearchRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerServiceRequestNearbyRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerRecordDeletionRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerRegionMembershipRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerGeocoderRoutes(app, {
-	apiKey: env.geocodioApiKey,
-	authContextMiddleware,
-});
-
-// The `/commands/{table}` surface, which the new sync collections write through.
-// Additive: the domain-shaped endpoints above are untouched, and both reach the
-// same commands, permissions and write transaction.
-registerTableCommandSurface(app, {
-	db,
-	auth,
-	authContextMiddleware,
-	operatorAuthContextMiddleware,
-});
-
-// The one weather command the table surface has no shape for, see the module.
-registerWeatherImportRoute(app, {
-	db,
-	authContextMiddleware,
-});
-
-registerSyncShapeRoutes(app, {
+	geocoderApiKey: env.geocodioApiKey,
 	electricUrl: env.electricUrl,
 	authContextMiddleware,
 	operatorAuthContextMiddleware,
@@ -455,20 +159,6 @@ if (env.nodeEnv !== 'production') {
 		context.json(toPublicAuthContext(context.get('authContext'))),
 	);
 }
-
-// Accept GET so the app can log out via a top-level navigation, plus POST for
-// form/programmatic callers. Clears the sealed-session cookie (the actual SIMMER
-// logout), best-effort revokes the WorkOS session, then returns to the app —
-// staying on our own domain rather than bouncing through WorkOS-hosted logout.
-app.on(['GET', 'POST'], '/auth/logout', async (context) => {
-	await auth.revokeSession(readSealedSession(context));
-
-	deleteCookie(context, WORKOS_SESSION_COOKIE_NAME, {
-		path: '/',
-	});
-
-	return context.redirect(readAllowedReturnTo(context.req.query('returnTo')) ?? env.appOrigin);
-});
 
 const server = serve(
 	{
@@ -595,178 +285,6 @@ function setAuthCookie(
 	writeSealedSession(context, sealedSession, { secure: env.nodeEnv === 'production' });
 }
 
-function readAllowedReturnTo(value: string | undefined): string | null {
-	if (value === undefined || value.trim() === '') {
-		return null;
-	}
-
-	try {
-		const url = new URL(value);
-		return env.appOrigins.includes(url.origin) ? url.toString() : null;
-	} catch {
-		return null;
-	}
-}
-
 function allowedCorsOrigins(): string[] {
 	return [...env.appOrigins];
-}
-
-interface CreateOrganizationPayload {
-	readonly name: string;
-	readonly slug: string | null;
-	readonly subscriptionStatus: OrganizationSubscriptionStatus;
-	readonly billingContactName: string | null;
-	readonly billingContactEmail: string | null;
-	readonly subscriptionNotes: string | null;
-	readonly contact: {
-		readonly mainContactEmail: string | null;
-		readonly phoneNumber: string | null;
-		readonly mailingCountry: string | null;
-		readonly mailingAddressLine1: string | null;
-		readonly mailingAddressLine2: string | null;
-		readonly mailingLocality: string | null;
-		readonly mailingRegion: string | null;
-		readonly mailingPostalCode: string | null;
-	};
-	readonly linkRequesterAsOwner: boolean;
-}
-
-type PayloadResult =
-	| {
-			readonly ok: true;
-			readonly payload: CreateOrganizationPayload;
-	  }
-	| {
-			readonly ok: false;
-			readonly reason: string;
-	  };
-
-async function readCreateOrganizationPayload(request: {
-	readonly json: () => Promise<unknown>;
-}): Promise<PayloadResult> {
-	let raw: unknown;
-	try {
-		raw = await request.json();
-	} catch {
-		return {
-			ok: false,
-			reason: 'Request body must be JSON.',
-		};
-	}
-
-	if (!isRecord(raw)) {
-		return {
-			ok: false,
-			reason: 'Request body must be an object.',
-		};
-	}
-
-	const name = readRequiredText(raw.name);
-	if (name === null) {
-		return {
-			ok: false,
-			reason: 'name is required.',
-		};
-	}
-
-	const subscriptionStatus = readSubscriptionStatus(raw.subscriptionStatus);
-	if (subscriptionStatus === null) {
-		return {
-			ok: false,
-			reason: 'subscriptionStatus must be trial, active, suspended, or canceled.',
-		};
-	}
-
-	const billingMode = readOptionalText(raw.billingMode) ?? 'manual_invoice';
-	if (billingMode !== 'manual_invoice') {
-		return {
-			ok: false,
-			reason: 'billingMode must be manual_invoice.',
-		};
-	}
-
-	return {
-		ok: true,
-		payload: {
-			name,
-			slug: readOptionalText(raw.slug),
-			subscriptionStatus,
-			billingContactName: readOptionalText(raw.billingContactName),
-			billingContactEmail: readOptionalText(raw.billingContactEmail),
-			subscriptionNotes: readOptionalText(raw.subscriptionNotes),
-			contact: {
-				mainContactEmail: readOptionalText(raw.mainContactEmail),
-				phoneNumber: readOptionalText(raw.phoneNumber),
-				mailingCountry: readOptionalText(raw.mailingCountry)?.toUpperCase() ?? null,
-				mailingAddressLine1: readOptionalText(raw.mailingAddressLine1),
-				mailingAddressLine2: readOptionalText(raw.mailingAddressLine2),
-				mailingLocality: readOptionalText(raw.mailingLocality),
-				mailingRegion: readOptionalText(raw.mailingRegion),
-				mailingPostalCode: readOptionalText(raw.mailingPostalCode),
-			},
-			linkRequesterAsOwner: raw.linkRequesterAsOwner === true,
-		},
-	};
-}
-
-function readSubscriptionStatus(value: unknown): OrganizationSubscriptionStatus | null {
-	if (value === undefined || value === null || value === '') {
-		return 'trial';
-	}
-
-	if (value === 'trial' || value === 'active' || value === 'suspended' || value === 'canceled') {
-		return value;
-	}
-
-	return null;
-}
-
-function readRequiredText(value: unknown): string | null {
-	const text = readOptionalText(value);
-	return text === null ? null : text;
-}
-
-function readOptionalText(value: unknown): string | null {
-	if (value === undefined || value === null) {
-		return null;
-	}
-
-	if (typeof value !== 'string') {
-		return null;
-	}
-
-	const trimmed = value.trim();
-	return trimmed.length === 0 ? null : trimmed;
-}
-
-function toAdminOrganizationResponse(organization: SafeOrganization) {
-	return {
-		id: organization.id,
-		workosOrganizationId: organization.workosOrganizationId,
-		name: organization.name,
-		slug: organization.slug,
-		subscription: organization.subscription,
-		contact: organization.contact,
-		ownerLinked: organization.ownerLinked,
-		createdAt: organization.createdAt,
-		updatedAt: organization.updatedAt,
-	};
-}
-
-function toAdminMembershipResponse(membership: SafeOrganizationMembership) {
-	return {
-		id: membership.id,
-		organizationId: membership.organizationId,
-		userId: membership.userId,
-		profileId: membership.profileId,
-		role: membership.role,
-		status: membership.status,
-		isDefault: membership.isDefault,
-		invitedEmail: membership.invitedEmail,
-		workosInvitationId: membership.workosInvitationId,
-		profile: membership.profile,
-		createdAt: membership.createdAt,
-		updatedAt: membership.updatedAt,
-	};
 }

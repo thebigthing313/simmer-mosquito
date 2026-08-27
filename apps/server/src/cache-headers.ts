@@ -47,8 +47,9 @@ import type { MiddlewareHandler } from 'hono';
  * where it is a whole path segment or a trailing `/*`; anywhere else it is
  * escaped to a literal asterisk, so `'/search*'` registers middleware that
  * matches nothing and never runs. A prefix that silently covers no route is the
- * worst shape this list can take, which is why `cache-headers.test.ts` now
- * drives a request at every entry rather than only asserting the array.
+ * worst shape this list can take, which is why `cache-headers.test.ts` drives
+ * every entry at the routes `registerAllRoutes` really registers, rather than
+ * only asserting the array.
  */
 export const PRIVATE_READ_PREFIXES = ['/map/*', '/records/*', '/search'] as const;
 
