@@ -28,6 +28,7 @@ const localIdentity: ActiveLocalAuthIdentity = {
 		workosOrganizationId: 'workos_org_123',
 		name: 'County Mosquito Control',
 		slug: 'county-mosquito',
+		settings: { timezone: 'America/New_York' },
 	},
 	profile: {
 		id: 'profile-1',
@@ -130,6 +131,67 @@ describe('resolveAuthContext', () => {
 				workosOrganizationId: 'workos_org_123',
 			},
 		});
+	});
+
+	/**
+	 * The operator half of a scope, resolved once here so a route serving both
+	 * kinds of caller can ask without a second middleware.
+	 *
+	 * The failure this guards is quiet in both directions: resolved always-false
+	 * locks SIMMER out of its own taxonomy, and resolved always-true hands every
+	 * agency admin the global catalog.
+	 */
+	async function resolveWith(options: {
+		readonly selectedOrganizationId: string;
+		readonly operatorOrganizationId?: string | null;
+	}) {
+		const result = await resolveAuthContext({
+			sealedSession: 'sealed',
+			auth: {
+				authenticateSession: async () => ({
+					authenticated: true,
+					user: workosUser,
+					workosOrganizationId: options.selectedOrganizationId,
+					sessionId: 'session-1',
+					role: 'admin',
+					sealedSession: 'refreshed',
+				}),
+			},
+			localIdentityResolver: { resolveActiveLocalAuthIdentity: async () => localIdentity },
+			...(options.operatorOrganizationId === undefined
+				? {}
+				: { operatorOrganizationId: options.operatorOrganizationId }),
+		});
+		if (!result.ok) {
+			throw new Error('Expected auth context.');
+		}
+		return result.context;
+	}
+
+	it('marks a session as an operator only when it selected the operator organization', async () => {
+		const operator = await resolveWith({
+			selectedOrganizationId: 'workos_org_simmer',
+			operatorOrganizationId: 'workos_org_simmer',
+		});
+		const agency = await resolveWith({
+			selectedOrganizationId: 'workos_org_123',
+			operatorOrganizationId: 'workos_org_simmer',
+		});
+
+		expect([operator.isOperator, agency.isOperator]).toEqual([true, false]);
+	});
+
+	it('has no operators at all when the operator organization is unset', async () => {
+		// The safe reading of an unconfigured deployment. `SIMMER_OPERATOR_ORG_ID`
+		// is absent on a fresh environment, and the alternative — treating everyone
+		// or the first organization as SIMMER — fails open.
+		const unset = await resolveWith({
+			selectedOrganizationId: 'workos_org_123',
+			operatorOrganizationId: null,
+		});
+		const absent = await resolveWith({ selectedOrganizationId: 'workos_org_123' });
+
+		expect([unset.isOperator, absent.isOperator]).toEqual([false, false]);
 	});
 
 	it('builds context from active local identity and uses SIMMER role', async () => {

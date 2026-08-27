@@ -1,6 +1,6 @@
-import type { TagRow } from '@simmer-mosquito/sync';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { CSSProperties } from 'react';
+import type { Tag } from '../hooks/queries/tag-view';
 import { hexWithAlpha } from '../lib/hex-color';
 
 /**
@@ -11,7 +11,7 @@ import { hexWithAlpha } from '../lib/hex-color';
  * that reads. A missing or malformed colour falls back to neutral rather than
  * rendering something unreadable.
  */
-function TagChip({ tag }: { readonly tag: TagRow }) {
+function TagChip({ tag }: { readonly tag: Tag }) {
 	const style = tagColorStyle(tag.color);
 	return (
 		<span
@@ -22,7 +22,7 @@ function TagChip({ tag }: { readonly tag: TagRow }) {
 			style={style ?? undefined}
 			title={tag.description ?? undefined}
 		>
-			{tag.tagName}
+			{tag.name}
 		</span>
 	);
 }
@@ -32,7 +32,7 @@ export function TagChipRow({
 	tags,
 	className,
 }: {
-	readonly tags: readonly TagRow[];
+	readonly tags: readonly Tag[];
 	readonly className?: string;
 }) {
 	if (tags.length === 0) {

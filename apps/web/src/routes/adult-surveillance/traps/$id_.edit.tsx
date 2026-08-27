@@ -1,16 +1,24 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type { CollectionLureRow, CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { RecordUnavailable } from '../../../components/record';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
+import {
+	type CatalogListing,
+	type SchemaCatalogListing,
+	useCollectionLureRoster,
+	useCollectionMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
+import { type TrapRecord, useTrapRecord } from '../../../hooks/queries/use-trap-record';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
-import { type DrawGeometry, noLureValue, TrapFormPage, type TrapFormValues } from './-trap-form';
+import {
+	type DrawGeometry,
+	TrapFormPage,
+	type TrapFormValues,
+	trapFieldsFrom,
+	trapFormValuesFrom,
+} from './-trap-form';
 
 export const Route = createFileRoute('/adult-surveillance/traps/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
@@ -27,62 +35,34 @@ export const Route = createFileRoute('/adult-surveillance/traps/$id_/edit')({
 
 function EditTrapRoute() {
 	const { id } = Route.useParams();
-	const { auth } = Route.useRouteContext();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
+	const methods = useCollectionMethodRoster();
+	const lures = useCollectionLureRoster();
+	const { trap, isReady, isError } = useTrapRecord(id);
 
-	// traps is an eager collection, so this resolves without a fetch.
-	const trapResult = useLiveQuery(
-		(query) =>
-			query
-				.from({ trap: webCollections.traps })
-				.where(({ trap }) => eq(trap.id, id))
-				.findOne(),
-		[id],
-	);
-	const trap = trapResult.data as TrapRow | undefined;
-
-	if (trapResult.isError) {
+	if (isError) {
 		return <RecordUnavailable layout="centered" noun="trap" reason="error" />;
 	}
-	if (!trapResult.isReady) {
+	if (!isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (trap === undefined) {
 		return <RecordUnavailable layout="centered" noun="trap" reason="not-found" />;
 	}
 
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-
-	return (
-		<EditTrapLoader
-			actorProfileId={actorProfileId}
-			canSubmit={organization !== null && actorProfileId !== null}
-			collectionLures={lures}
-			collectionMethods={methods}
-			trap={trap}
-		/>
-	);
+	return <EditTrapLoader collectionLures={lures} collectionMethods={methods} trap={trap} />;
 }
 
 function EditTrapLoader({
 	trap,
 	collectionMethods,
 	collectionLures,
-	actorProfileId,
-	canSubmit,
 }: {
-	readonly trap: TrapRow;
-	readonly collectionMethods: readonly CollectionMethodRow[];
-	readonly collectionLures: readonly CollectionLureRow[];
-	readonly actorProfileId: string | null;
-	readonly canSubmit: boolean;
+	readonly trap: TrapRecord;
+	readonly collectionMethods: readonly SchemaCatalogListing[];
+	readonly collectionLures: readonly CatalogListing[];
 }) {
 	const navigate = useNavigate();
+	const mutations = useTrapMutations();
 
 	const onSave = useCallback(
 		async ({
@@ -94,61 +74,34 @@ function EditTrapLoader({
 			readonly geometry: DrawGeometry | null;
 			readonly geometryChanged: boolean;
 		}) => {
-			const nextName = nullableText(values.trapName);
-			const nextCode = nullableText(values.trapCode);
-			const nextDescription = nullableText(values.description);
-			const nextMethodId = values.collectionMethodId;
-			const nextLureId = values.collectionLureId === noLureValue ? null : values.collectionLureId;
+			// The point and the address are independent: only state a location when the
+			// user actually refined the point. Naming the configuration command with the
+			// point the trap already has is a write with no edit behind it, and the
+			// centroid it would reseed is the one already on screen.
+			const shape =
+				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null;
+			const centroid = shape === null ? null : ownedCentroidFromGeoJson(shape);
+			if (shape !== null && centroid === null) {
+				throw new Error('Unable to determine the trap location.');
+			}
 
-			// The point (geometry) and the address are independent now: only send a
-			// location source (and reseed the optimistic centroid) when the user
-			// actually refined the point; the address is a plain field change.
-			const refinedPoint = geometryChanged && geometry !== null;
-			const locationSource = refinedPoint
-				? ({ kind: 'geometry', geometry: geometry as unknown as GeoJsonGeometry } as const)
-				: undefined;
-			const nextCentroid = refinedPoint
-				? ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry)
-				: null;
-
-			const now = new Date().toISOString();
-			// Inlined so TanStack DB infers the mutable draft type.
-			const applyEdits = (draft: TrapRow) => {
-				const writable = draft as { -readonly [K in keyof TrapRow]: TrapRow[K] };
-				writable.trapName = nextName;
-				writable.trapCode = nextCode;
-				writable.description = nextDescription;
-				writable.collectionMethodId = nextMethodId;
-				writable.collectionLureId = nextLureId;
-				writable.addressId = values.addressId;
-				writable.isActive = values.isActive;
-				if (nextCentroid !== null) {
-					writable.lat = nextCentroid.lat;
-					writable.lng = nextCentroid.lng;
-					writable.geomType = nextCentroid.geomType;
-				}
-				if (actorProfileId !== null) {
-					writable.updatedByProfileId = actorProfileId;
-				}
-				writable.updatedAt = now;
-			};
-
-			const transaction =
-				locationSource === undefined
-					? webCollections.traps.update(trap.id, applyEdits)
-					: webCollections.traps.update(trap.id, { metadata: { locationSource } }, applyEdits);
-			await settleWrite(transaction);
+			await mutations.save(
+				trap.id,
+				trapFieldsFrom(values),
+				trapFieldsFrom(trapFormValuesFrom(trap)),
+				shape === null || centroid === null ? null : { geometry: shape, centroid },
+			);
 			await navigate({ to: '/adult-surveillance/traps/$id', params: { id: trap.id } });
 		},
-		[trap, actorProfileId, navigate],
+		[trap, mutations, navigate],
 	);
 
 	return (
 		<TrapFormPage
-			canSubmit={canSubmit}
+			canSubmit={mutations.canWrite}
 			collectionLures={collectionLures}
 			collectionMethods={collectionMethods}
-			defaultValues={defaultsFromTrap(trap)}
+			defaultValues={trapFormValuesFrom(trap)}
 			header={{
 				title: 'Edit Trap',
 				description: 'Update this trap’s details, method, lure, or location.',
@@ -156,34 +109,13 @@ function EditTrapLoader({
 				backParams: { id: trap.id },
 				backLabel: 'Back to trap',
 			}}
-			initialGeometry={pointFromTrap(trap)}
+			initialGeometry={{ type: 'Point', coordinates: [trap.longitude, trap.latitude] }}
 			onSave={onSave}
 			organizationId={trap.organizationId}
 			requireLocation={false}
 			submitLabel="Save Changes"
 		/>
 	);
-}
-
-function pointFromTrap(trap: TrapRow): DrawGeometry {
-	return { type: 'Point', coordinates: [trap.lng, trap.lat] };
-}
-
-function defaultsFromTrap(trap: TrapRow): TrapFormValues {
-	return {
-		addressId: trap.addressId,
-		collectionMethodId: trap.collectionMethodId,
-		collectionLureId: trap.collectionLureId ?? noLureValue,
-		trapName: trap.trapName ?? '',
-		trapCode: trap.trapCode ?? '',
-		description: trap.description ?? '',
-		isActive: trap.isActive,
-	};
-}
-
-function nullableText(value: string): string | null {
-	const text = value.trim();
-	return text.length === 0 ? null : text;
 }
 
 function EditFormSkeleton() {

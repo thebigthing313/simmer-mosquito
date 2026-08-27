@@ -5,7 +5,12 @@ import { PrimarySidebarFooter } from './primary-sidebar-footer';
 import { PrimarySidebarHeader } from './primary-sidebar-header';
 import { PrimarySidebarToggle } from './primary-sidebar-toggle';
 
-const COLLAPSED_KEY = 'simmer.shell.primary-sidebar-collapsed';
+/**
+ * Exported because the workspace loading fallback reads it too: a boot skeleton
+ * that always draws the expanded rail makes the chrome jump 176px sideways the
+ * moment the real shell commits for anyone who works collapsed.
+ */
+export const PRIMARY_SIDEBAR_COLLAPSED_KEY = 'simmer.shell.primary-sidebar-collapsed';
 
 /**
  * The rail for the app's top-level domains. Brand at the top, domain switcher in
@@ -18,7 +23,7 @@ const COLLAPSED_KEY = 'simmer.shell.primary-sidebar-collapsed';
  * Collapsing is therefore opt-in, and the choice is remembered per browser.
  */
 export function PrimarySidebar() {
-	const [collapsed, setCollapsed] = usePersistentFlag(COLLAPSED_KEY, false);
+	const [collapsed, setCollapsed] = usePersistentFlag(PRIMARY_SIDEBAR_COLLAPSED_KEY, false);
 
 	return (
 		<aside

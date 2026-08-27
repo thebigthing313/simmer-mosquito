@@ -1,4 +1,5 @@
 export * from './additional-personnel.js';
+export * from './assignment-execution.js';
 export * from './assignments.js';
 export * from './comments.js';
 export * from './routes.js';
@@ -21,13 +22,23 @@ export type {
 	TagTarget,
 	TagTargetType,
 } from './shared.js';
-export { toDbEntityType } from './shared.js';
+export {
+	ADDITIONAL_PERSONNEL_TARGET_TYPES,
+	fromDbEntityType,
+	toDbEntityType,
+} from './shared.js';
 export * from './tags.js';
 
 import type {
 	AddAdditionalPersonnelCommand,
 	RemoveAdditionalPersonnelCommand,
 } from './additional-personnel.js';
+import type {
+	CollectTrapCollectionForAssignmentItemCommand,
+	RecordCollectedTrapCollectionForAssignmentItemCommand,
+	RecordHabitatInspectionForAssignmentItemCommand,
+	SetTrapCollectionForAssignmentItemCommand,
+} from './assignment-execution.js';
 import type {
 	AddAssignmentItemCommand,
 	CancelAssignmentCommand,
@@ -111,4 +122,8 @@ export type FieldWorkCommand =
 	| CompleteAssignmentItemCommand
 	| ReopenAssignmentItemCommand
 	| SkipAssignmentItemCommand
-	| UnskipAssignmentItemCommand;
+	| UnskipAssignmentItemCommand
+	| RecordHabitatInspectionForAssignmentItemCommand
+	| SetTrapCollectionForAssignmentItemCommand
+	| CollectTrapCollectionForAssignmentItemCommand
+	| RecordCollectedTrapCollectionForAssignmentItemCommand;

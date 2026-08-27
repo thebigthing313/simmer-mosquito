@@ -1,265 +1,34 @@
 import { describe, expect, it } from 'vitest';
-import { decodeShapeColumnName } from '../../decode-shape-column-name.js';
-import { encodeShapeColumnName } from '../../encode-shape-column-name.js';
-import {
-	addressesSyncDescriptor,
-	currentOrganizationSyncDescriptor,
-	electricShapeCollectionOptions,
-	insecticideBatchesSyncDescriptor,
-	membershipsSyncDescriptor,
-	profilesSyncDescriptor,
-	type SyncDescriptor,
-	unitsSyncDescriptor,
-	webCommandMutationDescriptors,
-	webReadOnlyTracerDescriptors,
-} from '../../index.js';
+import { tableSchemas } from '../../index.js';
 
-describe('sync descriptors', () => {
-	it('defines units as the first eager web sync shape', () => {
-		expect(unitsSyncDescriptor).toMatchObject({
-			id: 'units',
-			table: 'units',
-			endpointPath: '/sync/shapes/units',
-			syncMode: 'eager',
-		});
-		expect(unitsSyncDescriptor.columns).toEqual([
-			'id',
-			'code',
-			'unitName',
-			'abbreviation',
-			'unitType',
-			'unitSystem',
-			'createdAt',
-		]);
+describe('collection schemas', () => {
+	it('declares no server-only geometry column on any table', () => {
+		// Raw geometry is binary and `geojson` runs to megabytes a row; both are
+		// served by the `/map/*` endpoints instead. The trigger-maintained centroid
+		// (`lat`, `lng`, `geom_type`) may sync, which is why this names columns
+		// rather than refusing spatial tables outright.
+		//
+		// It reads the schemas because they are now what a shape's column list is
+		// made of. This walked the descriptors until they stopped deciding it.
+		const offending = Object.entries(tableSchemas).flatMap(([table, schema]) =>
+			Object.keys(schema.shape)
+				.filter((field) => field === 'geom' || field === 'geojson')
+				.map((field) => `${table}.${field}`),
+		);
+
+		expect(offending).toEqual([]);
 	});
 
-	it('defines profiles as selected-organization people sync', () => {
-		expect(profilesSyncDescriptor).toMatchObject({
-			id: 'profiles',
-			table: 'profiles',
-			endpointPath: '/sync/shapes/profiles',
-			syncMode: 'eager',
-		});
-		expect(profilesSyncDescriptor.columns).toEqual([
-			'id',
-			'organizationId',
-			'userId',
-			'displayName',
-			'email',
-			'isActive',
-			'createdAt',
-			'updatedAt',
-		]);
-	});
+	it('keeps the invitation columns off the memberships schema', () => {
+		// `memberships` streams eager to every signed-in agency user, viewers
+		// included, because the role ladder needs `role`, `status` and
+		// `profile_id`. An invited address belongs to somebody who has not
+		// accepted, and `workos_invitation_id` is a handle on a live grant in
+		// WorkOS. Both are read server-side inside the transaction that needs
+		// them, so nothing in a collection is owed either.
+		const fields = Object.keys(tableSchemas.memberships.shape);
 
-	it('defines memberships as selected-organization access sync', () => {
-		expect(membershipsSyncDescriptor).toMatchObject({
-			id: 'memberships',
-			table: 'memberships',
-			endpointPath: '/sync/shapes/memberships',
-			syncMode: 'eager',
-		});
-		expect(membershipsSyncDescriptor.columns).toEqual([
-			'id',
-			'organizationId',
-			'userId',
-			'profileId',
-			'role',
-			'status',
-			'isDefault',
-			'invitedEmail',
-			'workosInvitationId',
-			'createdAt',
-			'updatedAt',
-		]);
-	});
-
-	it('defines the current organization row without subscription fields', () => {
-		expect(currentOrganizationSyncDescriptor).toMatchObject({
-			id: 'current_organization',
-			table: 'organizations',
-			endpointPath: '/sync/shapes/organization',
-			syncMode: 'eager',
-		});
-		expect(currentOrganizationSyncDescriptor.columns).toEqual([
-			'id',
-			'workosOrganizationId',
-			'name',
-			'slug',
-			'mainContactEmail',
-			'phoneNumber',
-			'mailingCountry',
-			'mailingAddressLine1',
-			'mailingAddressLine2',
-			'mailingLocality',
-			'mailingRegion',
-			'mailingPostalCode',
-			'settings',
-			'updatedAt',
-			'updatedByProfileId',
-		]);
-		expect(currentOrganizationSyncDescriptor.columns).not.toContain('subscriptionStatus');
-		expect(currentOrganizationSyncDescriptor.columns).not.toContain('billingContactEmail');
-	});
-
-	it('creates Electric-backed collection options for descriptor-owned shapes', () => {
-		const options = electricShapeCollectionOptions({
-			descriptor: unitsSyncDescriptor,
-			url: 'https://example.test/sync/shapes/units',
-		});
-
-		expect(options.id).toBe('units');
-		expect(options.syncMode).toBe('eager');
-		expect(
-			options.getKey({
-				id: 'unit-1',
-				code: 'count',
-				unitName: 'Count',
-				abbreviation: 'ct',
-				unitType: 'count',
-				unitSystem: 'si',
-				createdAt: '2026-05-14T00:00:00.000Z',
-			}),
-		).toBe('unit-1');
-	});
-
-	it('maps numbered address columns between client and Electric column names', () => {
-		expect(encodeShapeColumnName('addressLine1')).toBe('address_line_1');
-		expect(encodeShapeColumnName('addressLine2')).toBe('address_line_2');
-		expect(encodeShapeColumnName('mailingAddressLine1')).toBe('mailing_address_line_1');
-		expect(encodeShapeColumnName('mailingAddressLine2')).toBe('mailing_address_line_2');
-		expect(decodeShapeColumnName('address_line_1')).toBe('addressLine1');
-		expect(decodeShapeColumnName('address_line_2')).toBe('addressLine2');
-		expect(decodeShapeColumnName('mailing_address_line_1')).toBe('mailingAddressLine1');
-		expect(decodeShapeColumnName('mailing_address_line_2')).toBe('mailingAddressLine2');
-	});
-
-	it('leaves all-caps SQL keywords untouched so Electric subset where clauses stay valid', () => {
-		// The Electric subset-where compiler emits `= ANY($1)` for inArray filters and
-		// re-maps identifier tokens through this encoder; ANY must not become _a_n_y.
-		expect(encodeShapeColumnName('ANY')).toBe('ANY');
-		expect(encodeShapeColumnName('AND')).toBe('AND');
-		expect(encodeShapeColumnName('LIKE')).toBe('LIKE');
-	});
-
-	it('keeps foundation lookup catalogs as command-backed tracer descriptors', () => {
-		expect(webCommandMutationDescriptors.map((descriptor) => descriptor.id)).toEqual([
-			'current_organization',
-			'addresses',
-			'collection_methods',
-			'collection_lures',
-			'habitat_types',
-			'habitats',
-			'tags',
-		]);
-	});
-
-	it('syncs address book records on demand with centroid coordinates', () => {
-		expect(addressesSyncDescriptor.syncMode).toBe('on-demand');
-		expect(addressesSyncDescriptor.columns).toEqual([
-			'id',
-			'organizationId',
-			'lat',
-			'lng',
-			'displayName',
-			'country',
-			'addressLine1',
-			'addressLine2',
-			'locality',
-			'region',
-			'postalCode',
-			'geocoderResponse',
-			'createdByProfileId',
-			'updatedByProfileId',
-			'createdAt',
-			'updatedAt',
-		]);
-	});
-
-	it('syncs insecticide batches on demand', () => {
-		expect(insecticideBatchesSyncDescriptor.syncMode).toBe('on-demand');
-		expect(insecticideBatchesSyncDescriptor.columns).toContain('organizationId');
-	});
-
-	it('omits server-only geometry columns from Electric shapes', () => {
-		// Raw/heavy geometry stays server-only and is served by /map/* endpoints.
-		// Trigger-maintained centroid columns (lat, lng, geomType) may sync.
-		for (const descriptor of [...webCommandMutationDescriptors, ...webReadOnlyTracerDescriptors]) {
-			expect(descriptor.columns).not.toContain('geom');
-			expect(descriptor.columns).not.toContain('geojson');
-		}
-	});
-
-	it('keeps the remaining web tracer descriptors read-only', () => {
-		expect(webReadOnlyTracerDescriptors.map((descriptor) => descriptor.id)).toEqual([
-			'units',
-			'profiles',
-			'memberships',
-			'genera',
-			'species',
-			'organization_species',
-			'application_methods',
-			'source_reduction_methods',
-			'outreach_methods',
-			'biocontrol_methods',
-			'vehicles',
-			'equipment',
-			'insecticides',
-			'insecticide_batches',
-			'notification_types',
-			'inspections',
-			'samples',
-			'sample_species',
-			'routes',
-			'region_folders',
-			'regions',
-			'traps',
-			'collections',
-			'collection_species',
-			'comments',
-			'tag_items',
-			'additional_personnel',
-			'route_items',
-			'assignments',
-			'assignment_items',
-			'formulations',
-			'formulation_insecticides',
-			'applications',
-			'application_batches',
-			'source_reductions',
-			'outreach_actions',
-			'biocontrol_actions',
-			'contacts',
-			'service_requests',
-			'requested_control_actions',
-			'missions',
-			'mission_items',
-			'notification_registrations',
-			'notification_registration_types',
-			'mission_notifications',
-			'weather_sources',
-			'weather_source_subscriptions',
-			'weather_summaries',
-		]);
-
-		for (const descriptor of webReadOnlyTracerDescriptors) {
-			expectReadOnlyCollectionOptions(descriptor as unknown as SyncDescriptor<AnyTestRow>);
-		}
+		expect(fields).not.toContain('invited_email');
+		expect(fields).not.toContain('workos_invitation_id');
 	});
 });
-
-interface AnyTestRow {
-	readonly [key: string]: unknown;
-	readonly id: string;
-}
-
-function expectReadOnlyCollectionOptions(descriptor: SyncDescriptor<unknown & AnyTestRow>): void {
-	const options = electricShapeCollectionOptions({
-		descriptor,
-		url: `https://example.test${descriptor.endpointPath}`,
-	}) as Record<string, unknown>;
-
-	expect(options.onInsert).toBeUndefined();
-	expect(options.onUpdate).toBeUndefined();
-	expect(options.onDelete).toBeUndefined();
-}

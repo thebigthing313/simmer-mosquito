@@ -2,9 +2,11 @@ import { createMissionCommand } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
+import { useMission } from '../../../hooks/queries/use-mission';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { isBelowRole } from '../../../lib/write-access';
-import { createMission, useMission } from '../-operations-data';
 import {
 	defaultMissionFormValues,
 	MISSION_FIELD_PATHS,
@@ -24,6 +26,7 @@ export const Route = createFileRoute('/operations/missions/create')({
 function CreateMissionRoute() {
 	const { auth } = Route.useRouteContext();
 	const navigate = useNavigate();
+	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
@@ -35,19 +38,17 @@ function CreateMissionRoute() {
 	useMission(missionId);
 
 	const organizationId = organization?.id ?? null;
+	const missionWrites = useMissionMutations();
 
 	const onSave = useCallback(
 		async (plan: MissionPlan) => {
 			if (organizationId === null || actorProfileId === null) {
 				throw new Error('Your organization and profile are still loading.');
 			}
-			await createMission({
-				missionId,
-				organizationId,
-				actorProfileId,
+			await missionWrites.create(missionId, {
 				controlType: plan.controlType,
-				scheduledStartAt: (plan.startAt as Date).toISOString(),
-				scheduledEndAt: plan.endAt?.toISOString() ?? null,
+				scheduledStartAt: plan.startAt as Date,
+				scheduledEndAt: plan.endAt,
 				missionName: plan.missionName,
 				plannedMethodId: plan.plannedMethodId,
 				assignedToProfileId: plan.assignedToProfileId,
@@ -56,13 +57,13 @@ function CreateMissionRoute() {
 			});
 			await navigate({ to: '/operations/missions' });
 		},
-		[organizationId, actorProfileId, missionId, navigate],
+		[organizationId, actorProfileId, missionId, missionWrites, navigate],
 	);
 
 	return (
 		<MissionFormPage
 			canSubmit={organizationId !== null && actorProfileId !== null}
-			defaultValues={useMemo(() => defaultMissionFormValues(), [])}
+			defaultValues={useMemo(() => defaultMissionFormValues(timeZone), [timeZone])}
 			errorTitle="Unable to Create Mission"
 			fieldPaths={MISSION_FIELD_PATHS}
 			header={{

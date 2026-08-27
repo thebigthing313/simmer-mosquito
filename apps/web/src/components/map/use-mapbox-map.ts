@@ -6,6 +6,7 @@ import {
 	basemapStyle,
 	DEFAULT_MAP_CAMERA,
 	getMapboxToken,
+	MAX_MAP_ZOOM,
 	type MapCamera,
 } from './map-styles';
 import { loadMapboxGl } from './mapbox-gl-loader';
@@ -122,6 +123,8 @@ export function useMapboxMap({
 				zoom: initialCamera.zoom,
 				bearing: initialCamera.bearing ?? 0,
 				pitch: initialCamera.pitch ?? 0,
+				// One ceiling for every way in: the buttons, the wheel, and a fly-to.
+				maxZoom: MAX_MAP_ZOOM,
 				// Start with no attribution; we add a compact one ourselves (when the
 				// caller wants it) in the bottom-right corner so it tucks in beneath the
 				// zoom + locate control stack.

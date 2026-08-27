@@ -1,36 +1,34 @@
-import type { CollectionMethodRow } from '@simmer-mosquito/sync';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import {
-	CheckCircle2Icon,
-	CircleIcon,
-	SearchIcon,
-	XIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import {
 	ActiveFilterBar,
-	ExplorerHeader,
+	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
 	mapQueryParams,
-	ResultList,
 	SegmentedFilter,
 	toggle,
+	useCollectionMethodOptions,
+	useExplorerPanel,
 	useFlyToSelection,
 	usePagedMapResource,
 	useRegionOptions,
 	useSelectedMapRecord,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { MAP_CREATE_TARGETS, MapCanvas, type TrapTileFilters } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import {
+	MAP_CREATE_TARGETS,
+	MapCanvas,
+	TRAP_STATUS_COLORS,
+	type TrapTileFilters,
+} from '../../../components/map';
+import { trapDisplayName } from '../../../hooks/queries/trap-view';
 import {
 	choiceParam,
 	type FilterCodecs,
@@ -40,9 +38,9 @@ import {
 	useDebouncedTextFilter,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
-import { trapDisplayName } from '../-adult-display';
 import { TrapMapCard } from '../-trap-map-card';
+import type { StatusFilter } from './-legend';
+import { trapLegend } from './-legend';
 
 interface TrapSite {
 	readonly id: string;
@@ -56,8 +54,6 @@ interface TrapSite {
 	readonly description: string | null;
 	readonly isActive: boolean;
 }
-
-type StatusFilter = 'all' | 'active' | 'inactive';
 
 const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
 
@@ -89,6 +85,7 @@ export const Route = createFileRoute('/adult-surveillance/traps/')({
 
 const RESULT_NOUN = { one: 'trap', many: 'traps' };
 const PATH = '/map/traps';
+const TrapEntityIcon = iconRegistry.entities.trap.icon;
 
 function TrapsExplorerRoute() {
 	// The filter state lives in the URL, so a shared link and Back out of a trap
@@ -119,16 +116,10 @@ function TrapsExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
+	const { options: methodOptions, nameById: methodNameById } = useCollectionMethodOptions();
 	const regions = useRegionOptions();
-
-	const methodNameById = useMemo(
-		() => new Map(methods.map((method) => [method.id, method.name])),
-		[methods],
-	);
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (no selection / no search) drop out.
@@ -141,6 +132,7 @@ function TrapsExplorerRoute() {
 		}),
 		[methodIds, status, regionIds, search],
 	);
+	const legend = useMemo(() => trapLegend(status), [status]);
 	const params = useMemo(
 		() =>
 			mapQueryParams({
@@ -153,12 +145,13 @@ function TrapsExplorerRoute() {
 		[filters],
 	);
 
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<TrapSite>({
-		path: PATH,
-		rowsKey: 'traps',
-		label: 'Traps',
-		params,
-	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<TrapSite>({
+			path: PATH,
+			rowsKey: 'traps',
+			label: 'Traps',
+			params,
+		});
 
 	const selected = useSelectedMapRecord<TrapSite>({
 		path: PATH,
@@ -174,43 +167,30 @@ function TrapsExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const hasActiveFilters =
-		status !== 'active' || methodIds.size > 0 || regionIds.size > 0 || search.length > 0;
+	const activeFilterCount =
+		(status === 'active' ? 0 : 1) + methodIds.size + regionIds.size + (search.length > 0 ? 1 : 0);
 	const clearAll = useCallback(() => {
 		clearSearchInput();
 		reset();
 	}, [clearSearchInput, reset]);
+	// Both halves: the field the operator is looking at, and the committed term on
+	// the URL that is actually cutting the list.
+	const clearSearch = useCallback(() => {
+		clearSearchInput();
+		commitSearch('');
+	}, [clearSearchInput, commitSearch]);
 
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.trap] }}
-						controls={{ layers: false, measure: true }}
-						fitToData
-						onMapReady={handleMapReady}
-						trapLayer={trapLayer}
+					<SearchField
+						label="Search traps by name or code"
+						onChange={setSearchInput}
+						placeholder="Search name or code…"
+						value={searchInput}
 					/>
-					{selected === null ? null : (
-						<TrapMapCard id={selected.id} onClose={() => setSelectedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<ExplorerHeader
-					create={{
-						to: '/adult-surveillance/traps/create',
-						label: 'Add Trap',
-						minimum: 'manager',
-					}}
-					isLoading={isLoading}
-					noun={RESULT_NOUN}
-					title="Traps"
-					total={total}
-				>
-					<SearchField onChange={setSearchInput} value={searchInput} />
 
 					<SegmentedFilter
 						label="Status"
@@ -219,12 +199,12 @@ function TrapsExplorerRoute() {
 						value={status}
 					/>
 
-					<div className="grid grid-cols-2 gap-2">
+					<FilterGrid>
 						<MultiSelectFilter
 							empty="No collection methods"
 							label="Method"
 							onChange={setMethodIds}
-							options={methods.map((method) => ({ id: method.id, label: method.name }))}
+							options={methodOptions}
 							selected={methodIds}
 						/>
 						<MultiSelectFilter
@@ -234,15 +214,18 @@ function TrapsExplorerRoute() {
 							options={regions.options}
 							selected={regionIds}
 						/>
-					</div>
+					</FilterGrid>
 
-					{hasActiveFilters ? (
+					{activeFilterCount > 0 ? (
 						<ActiveFilterBar onClearAll={clearAll}>
 							{status !== 'active' ? (
 								<FilterChip
 									label={`Status: ${status === 'all' ? 'All' : 'Inactive'}`}
 									onRemove={() => setStatus('active')}
 								/>
+							) : null}
+							{search.length > 0 ? (
+								<FilterChip label={`Search: ${query.search}`} onRemove={clearSearch} />
 							) : null}
 							{[...methodIds].map((id) => (
 								<FilterChip
@@ -260,27 +243,65 @@ function TrapsExplorerRoute() {
 							))}
 						</ActiveFilterBar>
 					) : null}
-				</ExplorerHeader>
-
-				<TrapResults
-					isLoading={isLoading}
-					methodNameById={methodNameById}
-					onSelect={setSelectedId}
-					rows={rows}
-					selectedId={selectedId}
+				</>
+			}
+			footer={
+				<ExplorerPagination
+					noun={{ one: 'trap', many: 'traps' }}
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
 				/>
-
-				<div className="border-border/50 border-t p-3">
-					<ExplorerPagination
-						noun="traps"
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={total}
+			}
+			heading={{
+				title: 'Traps',
+				icon: TrapEntityIcon,
+				total,
+				isLoading,
+				noun: RESULT_NOUN,
+				create: {
+					to: '/adult-surveillance/traps/create',
+					label: 'Add Trap',
+					minimum: 'manager',
+				},
+			}}
+			onResetFilters={clearAll}
+			map={
+				<>
+					<MapCanvas
+						contextMenu={{ create: [MAP_CREATE_TARGETS.trap] }}
+						controls={{ layers: false, measure: true, readout: true }}
+						fitToData
+						inset={panel.inset}
+						legend={legend}
+						onMapReady={handleMapReady}
+						searchWidth={panel.width}
+						trapLayer={trapLayer}
 					/>
-				</div>
-			</div>
-		</MapSplitPage>
+					{selected === null ? null : (
+						<TrapMapCard id={selected.id} inset={panel.inset} onClose={() => setSelectedId(null)} />
+					)}
+				</>
+			}
+			panel={panel}
+			results={{
+				rows,
+				isError,
+				onRetry: retry,
+				emptyTitle: 'No traps match',
+				emptyDescription: 'Loosen the filters, or add a trap to start collecting.',
+				renderRow: (trap) => (
+					<TrapListItem
+						isSelected={trap.id === selectedId}
+						key={trap.id}
+						methodName={methodNameById.get(trap.collectionMethodId) ?? 'Unknown method'}
+						onSelect={setSelectedId}
+						trap={trap}
+					/>
+				),
+			}}
+		/>
 	);
 }
 
@@ -291,76 +312,6 @@ const STATUS_OPTIONS: readonly { readonly value: StatusFilter; readonly label: s
 	{ value: 'active', label: 'Active' },
 	{ value: 'inactive', label: 'Inactive' },
 ];
-
-function SearchField({
-	value,
-	onChange,
-}: {
-	readonly value: string;
-	readonly onChange: (value: string) => void;
-}) {
-	return (
-		<div className="relative">
-			<SearchIcon
-				aria-hidden="true"
-				className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-			/>
-			<Input
-				aria-label="Search traps by name or code"
-				className="pl-9"
-				onChange={(event) => onChange(event.target.value)}
-				placeholder="Search name or code…"
-				type="search"
-				value={value}
-			/>
-			{value.length > 0 ? (
-				<button
-					aria-label="Clear search"
-					className="-translate-y-1/2 absolute top-1/2 right-2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					onClick={() => onChange('')}
-					type="button"
-				>
-					<XIcon aria-hidden="true" className="size-3.5" />
-				</button>
-			) : null}
-		</div>
-	);
-}
-
-// --- results ----------------------------------------------------------------
-
-function TrapResults({
-	rows,
-	isLoading,
-	selectedId,
-	methodNameById,
-	onSelect,
-}: {
-	readonly rows: readonly TrapSite[];
-	readonly isLoading: boolean;
-	readonly selectedId: string | null;
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly onSelect: (id: string) => void;
-}) {
-	return (
-		<ResultList
-			emptyDescription="Loosen the filters, or add a trap to start collecting."
-			emptyTitle="No traps match"
-			isLoading={isLoading}
-			rows={rows}
-		>
-			{(trap) => (
-				<TrapListItem
-					isSelected={trap.id === selectedId}
-					key={trap.id}
-					methodName={methodNameById.get(trap.collectionMethodId) ?? 'Unknown method'}
-					onSelect={onSelect}
-					trap={trap}
-				/>
-			)}
-		</ResultList>
-	);
-}
 
 function TrapListItem({
 	trap,
@@ -375,45 +326,23 @@ function TrapListItem({
 }) {
 	return (
 		<ExplorerRow
-			badges={<StatusBadge isActive={trap.isActive} />}
 			detailLabel={`View details for ${trapDisplayName(trap)}`}
 			detailLink={{ to: '/adult-surveillance/traps/$id', params: { id: trap.id } }}
 			isSelected={isSelected}
 			onSelect={() => onSelect(trap.id)}
 			selectLabel={`Show ${trapDisplayName(trap)} on the map`}
 			subtitle={methodName}
+			/*
+			 * The dot is the status now, so it has to be the colour the map paints
+			 * this trap. It was on --success/--muted-foreground, close enough to look
+			 * right beside a pill that spelled it out and never the map's own colours.
+			 */
 			swatch={{
-				color: trap.isActive ? 'var(--success)' : 'var(--muted-foreground)',
+				color: trap.isActive ? TRAP_STATUS_COLORS.active : TRAP_STATUS_COLORS.inactive,
 				label: trap.isActive ? 'Active' : 'Inactive',
 			}}
 			title={trapDisplayName(trap)}
 			titleLink={{ to: '/adult-surveillance/traps/$id', params: { id: trap.id } }}
-		/>
-	);
-}
-
-function StatusBadge({ isActive }: { readonly isActive: boolean }) {
-	return isActive ? (
-		<Badge tone="success" variant="outline">
-			<CheckCircle2Icon aria-hidden="true" />
-			Active
-		</Badge>
-	) : (
-		<Badge tone="neutral" variant="outline">
-			<CircleIcon aria-hidden="true" />
-			Inactive
-		</Badge>
-	);
-}
-
-function _StatusDot({ isActive }: { readonly isActive: boolean }) {
-	return (
-		<span
-			aria-hidden="true"
-			className={cn(
-				'size-2 shrink-0 rounded-full',
-				isActive ? 'bg-[var(--success)]' : 'bg-muted-foreground/50',
-			)}
 		/>
 	);
 }

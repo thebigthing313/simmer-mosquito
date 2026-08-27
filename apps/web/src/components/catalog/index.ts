@@ -24,7 +24,12 @@ export {
 	CatalogInactiveDisclosure,
 	CatalogNote,
 } from './catalog-detail-panel';
-export { commitCatalogWrite, toggleCatalogLifecycle } from './catalog-lifecycle';
+export {
+	type CatalogFormValues,
+	catalogFields,
+	catalogFormValues,
+} from './catalog-fields';
+export { commitCatalogSave, toggleCatalogActive } from './catalog-lifecycle';
 export { CatalogLifecycleButton } from './catalog-lifecycle-button';
 export { CatalogFilteredList, CatalogGroupHeader, CatalogPage } from './catalog-page';
 export {

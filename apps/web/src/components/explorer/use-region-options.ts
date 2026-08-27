@@ -1,8 +1,8 @@
-import type { RegionRow } from '@simmer-mosquito/sync';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
-import { webCollections } from '../../sync/webCollections';
+import { unmatchableId } from '../../hooks/queries/shared';
+import { useOrganizationIdentity } from '../../hooks/queries/use-organization-identity';
+import { regions } from '../../lib/collections/regions';
 import type { FilterOption } from './multi-select-filter';
 
 /**
@@ -23,30 +23,30 @@ export function useRegionOptions(): {
 	readonly options: readonly FilterOption[];
 	readonly nameById: ReadonlyMap<string, string>;
 } {
-	const { rows: organizationRows } = useCollectionRows(webCollections.currentOrganization);
-	const organizationId = organizationRows[0]?.id ?? '';
+	const organizationId = useOrganizationIdentity()?.id ?? unmatchableId;
 
 	const result = useLiveQuery(
 		{
 			gcTime: regionsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ region: webCollections.regions })
-					.where(({ region }) => eq(region.organizationId, organizationId))
-					.orderBy(({ region }) => region.name, 'asc'),
+					.from({ region: regions })
+					.where(({ region }) => eq(region.organization_id, organizationId))
+					.orderBy(({ region }) => region.name, 'asc')
+					.select(({ region }) => ({ id: region.id, label: region.name })),
 		},
 		[organizationId],
 	);
 
-	const regions = result.data as readonly RegionRow[] | undefined;
+	const options = result.data;
 
-	return useMemo(() => {
-		const rows = regions ?? [];
-		return {
-			options: rows.map((region) => ({ id: region.id, label: region.name })),
-			nameById: new Map(rows.map((region) => [region.id, region.name] as const)),
-		};
-	}, [regions]);
+	return useMemo(
+		() => ({
+			options,
+			nameById: new Map(options.map((region) => [region.id, region.label] as const)),
+		}),
+		[options],
+	);
 }
 
 // Regions are picked, unpicked, and re-picked while an operator narrows a map;

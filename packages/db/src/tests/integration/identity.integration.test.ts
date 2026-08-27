@@ -1,9 +1,11 @@
 import { expect, it } from 'vitest';
 import {
+	clearOrganizationInvitationStamp,
 	deactivateOrganizationMembershipWithTxid,
 	readMembershipRemovalTarget,
 	resolveActiveLocalAuthIdentity,
 	stageOrganizationInvitation,
+	stampOrganizationInvitation,
 	upsertWorkOsIdentity,
 } from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
@@ -242,6 +244,203 @@ describeDbIntegration('ending an organization membership', () => {
 				organizationId: organization.id,
 			});
 			expect(untouched.membership).toMatchObject({ status: 'invited' });
+		});
+	});
+});
+
+// The two halves of #202's ordering. The row is written with no invitation id,
+// because WorkOS must not mail a link before the row exists, and the id the send
+// returned is stamped on afterwards.
+describeDbIntegration('staging and stamping an invitation', () => {
+	it('stamps a WorkOS invitation id onto a Membership staged without one', async () => {
+		await withTestDb(async ({ db }) => {
+			const organization = await db
+				.insertInto('organizations')
+				.values({
+					workos_organization_id: 'workos_org_stamp',
+					name: 'Stamp District',
+				})
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			const staged = await stageOrganizationInvitation(db, {
+				organizationId: organization.id,
+				email: 'stamp@example.test',
+				displayName: 'Stamp Invitee',
+				role: 'collector',
+				workosInvitationId: null,
+			});
+
+			expect(staged).toMatchObject({
+				status: 'invited',
+				invitedEmail: 'stamp@example.test',
+				workosInvitationId: null,
+			});
+
+			const stamped = await stampOrganizationInvitation(db, {
+				id: staged.id,
+				organizationId: organization.id,
+				workosInvitationId: 'inv_stamped',
+			});
+
+			expect(stamped).toMatchObject({
+				id: staged.id,
+				status: 'invited',
+				workosInvitationId: 'inv_stamped',
+			});
+		});
+	});
+
+	// #218: a re-invitation revokes before it sends, and between the two the row
+	// must stop naming the link WorkOS no longer holds.
+	it('clears the stamp of an invitation that was revoked', async () => {
+		await withTestDb(async ({ db }) => {
+			const organization = await db
+				.insertInto('organizations')
+				.values({ workos_organization_id: 'workos_org_unstamp', name: 'Unstamp District' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			const staged = await stageOrganizationInvitation(db, {
+				organizationId: organization.id,
+				email: 'unstamp@example.test',
+				displayName: 'Unstamp Invitee',
+				role: 'collector',
+				workosInvitationId: 'inv_revoked',
+			});
+
+			await clearOrganizationInvitationStamp(db, {
+				id: staged.id,
+				organizationId: organization.id,
+			});
+
+			const row = await db
+				.selectFrom('memberships')
+				.select(['status', 'workos_invitation_id'])
+				.where('id', '=', staged.id)
+				.executeTakeFirstOrThrow();
+			expect(row).toMatchObject({ status: 'invited', workos_invitation_id: null });
+		});
+	});
+
+	it('refuses to clear the stamp of a Membership in another organization', async () => {
+		await withTestDb(async ({ db }) => {
+			const organization = await db
+				.insertInto('organizations')
+				.values({ workos_organization_id: 'workos_org_unstamp_owner', name: 'Unstamp Owner' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			const other = await db
+				.insertInto('organizations')
+				.values({ workos_organization_id: 'workos_org_unstamp_other', name: 'Unstamp Other' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			const staged = await stageOrganizationInvitation(db, {
+				organizationId: organization.id,
+				email: 'unstamp.scope@example.test',
+				displayName: 'Scoped Unstamp',
+				role: 'viewer',
+				workosInvitationId: 'inv_other_org',
+			});
+
+			await expect(
+				clearOrganizationInvitationStamp(db, { id: staged.id, organizationId: other.id }),
+			).rejects.toThrow();
+
+			const untouched = await db
+				.selectFrom('memberships')
+				.select('workos_invitation_id')
+				.where('id', '=', staged.id)
+				.executeTakeFirstOrThrow();
+			expect(untouched.workos_invitation_id).toBe('inv_other_org');
+		});
+	});
+
+	it('refuses to stamp a Membership in another organization', async () => {
+		await withTestDb(async ({ db }) => {
+			const organization = await db
+				.insertInto('organizations')
+				.values({ workos_organization_id: 'workos_org_stamp_owner', name: 'Stamp Owner' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+			const other = await db
+				.insertInto('organizations')
+				.values({ workos_organization_id: 'workos_org_stamp_other', name: 'Stamp Other' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			const staged = await stageOrganizationInvitation(db, {
+				organizationId: organization.id,
+				email: 'stamp.scope@example.test',
+				displayName: 'Scoped Invitee',
+				role: 'viewer',
+				workosInvitationId: null,
+			});
+
+			await expect(
+				stampOrganizationInvitation(db, {
+					id: staged.id,
+					organizationId: other.id,
+					workosInvitationId: 'inv_wrong_org',
+				}),
+			).rejects.toThrow();
+
+			const untouched = await readMembershipRemovalTarget(db, {
+				id: staged.id,
+				organizationId: organization.id,
+			});
+			expect(untouched.membership).toMatchObject({ status: 'invited' });
+		});
+	});
+	// Reordering the route so Postgres is written before WorkOS made this refusal
+	// load-bearing. Without it the insert branch stages a second Profile and a
+	// second Membership beside the live one, and provisioning prefers the active
+	// membership on every sign-in, so the invited row never leaves.
+	it('refuses an address that already has active access', async () => {
+		await withTestDb(async ({ db }) => {
+			const organization = await db
+				.insertInto('organizations')
+				.values({ workos_organization_id: 'workos_org_rejoin', name: 'Rejoin District' })
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			await stageOrganizationInvitation(db, {
+				organizationId: organization.id,
+				email: 'rejoin@example.test',
+				displayName: 'Robin Rejoin',
+				role: 'manager',
+				workosInvitationId: null,
+			});
+
+			await upsertWorkOsIdentity(db, {
+				workosUserId: 'workos_user_rejoin',
+				email: 'rejoin@example.test',
+				displayName: 'Robin Rejoin',
+				firstName: 'Robin',
+				lastName: 'Rejoin',
+				emailVerified: true,
+				workosOrganizationId: 'workos_org_rejoin',
+				workosOrganizationName: 'Rejoin District',
+				workosRole: null,
+			});
+
+			await expect(
+				stageOrganizationInvitation(db, {
+					organizationId: organization.id,
+					email: 'rejoin@example.test',
+					displayName: 'Robin Rejoin',
+					role: 'admin',
+					workosInvitationId: null,
+				}),
+			).rejects.toMatchObject({ code: 'already_a_member' });
+
+			const profiles = await db
+				.selectFrom('profiles')
+				.select(['id'])
+				.where('organization_id', '=', organization.id)
+				.execute();
+			expect(profiles).toHaveLength(1);
 		});
 	});
 });

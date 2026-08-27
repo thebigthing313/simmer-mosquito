@@ -283,6 +283,7 @@ function inspectionFilterWhere(
 	whereClauses.push(
 		...regionMembershipClauses({
 			geom: sql`i.geom`,
+			geomType: sql`i.geom_type`,
 			organizationId: sql`i.organization_id`,
 			regionIds: filters?.regionIds,
 		}),
@@ -523,6 +524,7 @@ function sampleFilterWhere(filters: SampleListFilters | undefined): RawBuilder<b
 	clauses.push(
 		...regionMembershipClauses({
 			geom: sql`i.geom`,
+			geomType: sql`i.geom_type`,
 			organizationId: sql`s.organization_id`,
 			regionIds: filters.regionIds,
 		}),

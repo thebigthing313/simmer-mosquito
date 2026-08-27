@@ -1,5 +1,4 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -11,17 +10,18 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
+import type { Region } from '../../../hooks/queries/region-view';
+import { useRegion } from '../../../hooks/queries/use-region';
 import { useRegionGeometry } from '../../../hooks/use-region-geometry';
-import { webCollections } from '../../../sync/webCollections';
 
 export const Route = createFileRoute('/gis/regions/$id')({
 	component: RouteComponent,
@@ -30,28 +30,15 @@ export const Route = createFileRoute('/gis/regions/$id')({
 const RegionIcon = iconRegistry.entities.region.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
-const regionGcTimeMs = 30_000;
-
 function RouteComponent() {
 	const { id } = Route.useParams();
 	return <RegionDetail regionId={id} />;
 }
 
 function RegionDetail({ regionId }: { readonly regionId: string }) {
-	// regions is on-demand; status-gated useLiveQuery (not the suspense variant)
-	// to avoid the post-unmount hang on on-demand collections.
-	const result = useLiveQuery(
-		{
-			gcTime: regionGcTimeMs,
-			query: (query) =>
-				query
-					.from({ region: webCollections.regions })
-					.where(({ region }) => eq(region.id, regionId))
-					.findOne(),
-		},
-		[regionId],
-	);
-	const region = result.data as RegionRow | undefined;
+	// The joined hook rather than `useRegionRecord`: this page names the folder,
+	// and the form is the one that needs its id.
+	const { region, isReady } = useRegion(regionId);
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -60,7 +47,7 @@ function RegionDetail({ regionId }: { readonly regionId: string }) {
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to Regions
 				</Link>
-				{!result.isReady ? (
+				{!isReady ? (
 					<RegionDetailSkeleton />
 				) : region === undefined ? (
 					<RecordUnavailable noun="region" reason="not-found" />
@@ -72,13 +59,10 @@ function RegionDetail({ regionId }: { readonly regionId: string }) {
 	);
 }
 
-function RegionDetailContent({ region }: { readonly region: RegionRow }) {
+function RegionDetailContent({ region }: { readonly region: Region }) {
 	useBreadcrumbLabel(region.id, region.name);
-	const { rows: folders } = useCollectionRows<RegionFolderRow>(webCollections.regionFolders);
-	const folderName =
-		region.regionFolderId === null
-			? null
-			: (folders.find((folder) => folder.id === region.regionFolderId)?.name ?? 'Unknown folder');
+	const mutations = useRegionMutations();
+	const folderName = region.folderName;
 
 	const geometryQuery = useRegionGeometry(region.id);
 
@@ -106,16 +90,19 @@ function RegionDetailContent({ region }: { readonly region: RegionRow }) {
 			</div>
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<RegionBoundaryCard
-					geojson={geometryQuery.data?.geojson ?? null}
-					isLoading={geometryQuery.isLoading}
-				/>
+				<div className="grid content-start gap-3">
+					<RegionBoundaryCard
+						geojson={geometryQuery.data?.geojson ?? null}
+						isLoading={geometryQuery.isLoading}
+					/>
+					<RecordRegionsBand noun="region" recordId={region.id} recordType="regions" />
+				</div>
 				<div className="grid content-start gap-5">
 					<RegionDetailsCard description={region.description} folderName={folderName} />
 					<DangerZoneCard
 						name={region.name}
 						noun="region"
-						onDelete={() => webCollections.regions.delete(region.id)}
+						onDelete={() => mutations.remove(region.id)}
 						recordId={region.id}
 						recordType="region"
 						returnTo="/gis/regions"

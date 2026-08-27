@@ -1,6 +1,5 @@
 import { createTrapCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { CollectionLureRow, CollectionMethodRow } from '@simmer-mosquito/sync';
 import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -16,11 +15,17 @@ import {
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { TrapFields } from '../../../hooks/mutations/use-trap-mutations';
+import type {
+	CatalogListing,
+	SchemaCatalogListing,
+} from '../../../hooks/queries/use-catalog-rosters';
+import type { TrapRecord } from '../../../hooks/queries/use-trap-record';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { AddressPicker } from '../-adult-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
-export const noLureValue = 'none';
+const noLureValue = 'none';
 
 /** Domain issue path → the form field holding it. */
 const TRAP_FIELD_PATHS: Readonly<Record<string, string>> = {
@@ -60,8 +65,8 @@ export interface TrapFormHeader {
 export interface TrapFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly collectionMethods: readonly CollectionMethodRow[];
-	readonly collectionLures: readonly CollectionLureRow[];
+	readonly collectionMethods: readonly SchemaCatalogListing[];
+	readonly collectionLures: readonly CatalogListing[];
 	readonly defaultValues: TrapFormValues;
 	/** The trap's point to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
@@ -364,9 +369,47 @@ function FormSection({
 	);
 }
 
+/**
+ * What the form holds, as the write seam takes it.
+ *
+ * Three conversions, and each of them is a decision the form made for its own
+ * reasons rather than the domain's: a text field cannot hold `null`, so an
+ * emptied one is a blank string; and Radix forbids an empty Select value, so
+ * "no lure" is a sentinel. Both spellings stop here.
+ */
+export function trapFieldsFrom(values: TrapFormValues): TrapFields {
+	return {
+		trapName: nullableText(values.trapName),
+		trapCode: nullableText(values.trapCode),
+		description: nullableText(values.description),
+		collectionMethodId: values.collectionMethodId,
+		collectionLureId: values.collectionLureId === noLureValue ? null : values.collectionLureId,
+		addressId: values.addressId,
+		isActive: values.isActive,
+	};
+}
+
+/** The form's values as this trap already stands, for the comparison a save makes. */
+export function trapFormValuesFrom(trap: TrapRecord): TrapFormValues {
+	return {
+		addressId: trap.addressId,
+		collectionMethodId: trap.collectionMethodId,
+		collectionLureId: trap.collectionLureId ?? noLureValue,
+		trapName: trap.trapName ?? '',
+		trapCode: trap.trapCode ?? '',
+		description: trap.description ?? '',
+		isActive: trap.isActive,
+	};
+}
+
 // --- helpers ----------------------------------------------------------------
 
-function lureOptions(lures: readonly CollectionLureRow[]) {
+function nullableText(value: string): string | null {
+	const text = value.trim();
+	return text.length === 0 ? null : text;
+}
+
+function lureOptions(lures: readonly CatalogListing[]) {
 	return [
 		{ label: 'No lure', value: noLureValue },
 		...lifecycleOptions(

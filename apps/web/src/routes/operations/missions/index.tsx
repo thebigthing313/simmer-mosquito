@@ -26,9 +26,25 @@ import {
 	type FilterOption,
 	MultiSelectFilter,
 	RESULT_SKELETON_KEYS,
+	useControlMethodNames,
 	usePersonnelOptions,
 } from '../../../components/explorer';
 import { WriteOnly } from '../../../components/write-only';
+import {
+	CONTROL_TYPES,
+	controlTypeLabel,
+	formatScheduledStart,
+	MISSION_STATUS_LABELS,
+	type MissionListing,
+	type MissionProgressCounts,
+	type MissionStatus,
+	missionDisplayName,
+	missionStatus,
+} from '../../../hooks/queries/operations-view';
+import { useMissionItemCounts } from '../../../hooks/queries/use-mission-item-counts';
+import { useMissions } from '../../../hooks/queries/use-missions';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
 import {
 	choiceSetParam,
 	dateParam,
@@ -37,22 +53,7 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { todayDateValue } from '../../control-operations/-control-display';
-import {
-	addDays,
-	CONTROL_TYPES,
-	controlTypeLabel,
-	formatScheduledStart,
-	MISSION_STATUS_LABELS,
-	type MissionProgressCounts,
-	type MissionStatus,
-	type MissionView,
-	missionDisplayName,
-	useAllControlMethodNames,
-	useMissionItemCounts,
-	useMissionStops,
-	useMissions,
-} from '../-operations-data';
+import { useMissionStopViews } from '../-operations-data';
 import { MissionStatusBadge, missionStopFeatures, stopSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
 
@@ -106,11 +107,12 @@ const DEFAULT_DAYS_BACK = 7;
 const DEFAULT_DAYS_AHEAD = 14;
 
 function MissionsRoute() {
-	const today = useMemo(() => todayDateValue(), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const filterDefaults = useMemo<MissionFilters>(
 		() => ({
-			from: addDays(today, -DEFAULT_DAYS_BACK),
-			to: addDays(today, DEFAULT_DAYS_AHEAD),
+			from: addCalendarDays(today, -DEFAULT_DAYS_BACK),
+			to: addCalendarDays(today, DEFAULT_DAYS_AHEAD),
 			statuses: new Set<MissionStatus>(),
 			types: new Set(),
 			people: new Set(),
@@ -125,7 +127,7 @@ function MissionsRoute() {
 
 	const { missions, isLoading } = useMissions(filters.from, filters.to);
 	const { options: personnelOptions, nameById } = usePersonnelOptions();
-	const methodNameById = useAllControlMethodNames();
+	const methodNameById = useControlMethodNames();
 
 	const assigneeOptions = useMemo<readonly FilterOption[]>(
 		() => [{ id: UNASSIGNED, label: 'Unassigned' }, ...personnelOptions],
@@ -150,7 +152,7 @@ function MissionsRoute() {
 	// Missions carry no geometry of their own — the map draws the union of the
 	// selected mission's stops, in dispatch order and as the shapes they were
 	// drawn as.
-	const { stops } = useMissionStops(effectiveId);
+	const { stops } = useMissionStopViews(effectiveId);
 	const features = useMemo(() => missionStopFeatures(stops), [stops]);
 
 	const handleFromChange = useCallback(
@@ -368,8 +370,8 @@ function MissionFilterBar({
  * status derives from three nullable timestamps rather than a column, and
  * "unassigned" matches a null one. An empty set means the filter is off.
  */
-function matchesFilters(mission: MissionView, filters: MissionFilters): boolean {
-	if (filters.statuses.size > 0 && !filters.statuses.has(mission.status)) {
+function matchesFilters(mission: MissionListing, filters: MissionFilters): boolean {
+	if (filters.statuses.size > 0 && !filters.statuses.has(missionStatus(mission))) {
 		return false;
 	}
 	if (filters.types.size > 0 && !filters.types.has(mission.controlType)) {
@@ -391,7 +393,7 @@ function MissionResults({
 	onSelect,
 	selectedId,
 }: {
-	readonly missions: readonly MissionView[];
+	readonly missions: readonly MissionListing[];
 	readonly countsById: ReadonlyMap<string, MissionProgressCounts>;
 	readonly hasFilters: boolean;
 	readonly isLoading: boolean;
@@ -475,14 +477,15 @@ function MissionRow({
 	isSelected,
 	onSelect,
 }: {
-	readonly mission: MissionView;
+	readonly mission: MissionListing;
 	readonly assigneeName: string | null;
 	readonly counts: MissionProgressCounts | null;
 	readonly methodName: string | null;
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
-	const name = missionDisplayName(mission);
+	const timeZone = useOrganizationTimeZone();
+	const name = missionDisplayName(mission, timeZone);
 
 	return (
 		<li
@@ -502,12 +505,12 @@ function MissionRow({
 				<div className="min-w-0 flex-1">
 					<div className="flex flex-wrap items-center gap-2">
 						<span className="font-medium text-foreground text-sm">{name}</span>
-						<MissionStatusBadge status={mission.status} />
+						<MissionStatusBadge status={missionStatus(mission)} />
 					</div>
 					<p className="m-0 mt-1 text-muted-foreground text-xs">
 						{controlTypeLabel(mission.controlType)}
 						{methodName === null ? '' : ` · ${methodName}`}
-						{` · ${formatScheduledStart(mission.scheduledStartAt)}`}
+						{` · ${formatScheduledStart(mission.scheduledStartAt, timeZone)}`}
 					</p>
 					<p className="m-0 mt-1 text-muted-foreground text-xs">
 						{assigneeName ?? 'Unassigned'} · {stopSummary(counts)}
@@ -531,23 +534,24 @@ function SelectedMissionCard({
 	assigneeName,
 	counts,
 }: {
-	readonly mission: MissionView;
+	readonly mission: MissionListing;
 	readonly assigneeName: string | null;
 	readonly counts: MissionProgressCounts | null;
 }) {
+	const timeZone = useOrganizationTimeZone();
 	return (
 		<div className="pointer-events-none absolute inset-x-4 top-4 flex justify-center sm:justify-start">
 			<div className="pointer-events-auto w-full max-w-sm rounded-lg border border-border/60 bg-card/95 p-3 shadow-lg backdrop-blur-sm">
 				<div className="flex items-start justify-between gap-3">
 					<div className="min-w-0">
 						<h2 className="m-0 truncate font-semibold text-foreground text-sm leading-tight">
-							{missionDisplayName(mission)}
+							{missionDisplayName(mission, timeZone)}
 						</h2>
 						<p className="m-0 text-muted-foreground text-xs">
 							{assigneeName ?? 'Unassigned'} · {stopSummary(counts)}
 						</p>
 					</div>
-					<MissionStatusBadge status={mission.status} />
+					<MissionStatusBadge status={missionStatus(mission)} />
 				</div>
 			</div>
 		</div>

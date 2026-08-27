@@ -1,9 +1,13 @@
-# SIMMER Sync Policy
+# SIMMER sync policy
 
-This document captures the initial sync policy for SIMMER web and mobile apps.
-It is the working table-level matrix for Electric-backed TanStack DB
-collections. Shape design, query predicates, and concrete collection
-implementation remain separate implementation work.
+This document is the table-level matrix for Electric-backed TanStack DB
+collections, and the policy behind it. It covers what each app baselines, what
+it loads from screen predicates, and where the pieces live.
+
+`apps/web` is migrated: all fifty of its tables read through
+`apps/web/src/lib/collections`, and every write names the domain command it
+means. `apps/mobile` has the same migration ahead of it, and its matrix below
+is a plan rather than a description.
 
 ## Principles
 
@@ -19,29 +23,45 @@ implementation remain separate implementation work.
   predicates instead of baselining the full table.
 - **Progressive** means the app should become usable from an initial subset,
   then continue filling a broader collection in the background.
+- Eager and on-demand are declared per app, not per package: each module under
+  `apps/web/src/lib/collections` passes `syncMode` to the collection factory.
+  The matrix below is what those fifty modules say, so a table that changes
+  mode changes it there and this table follows.
 - Web is online-only in v1. Mobile uses automatic scoped offline persistence.
 
-## Web Matrix
+## Web matrix
 
-| Area | Eager | On-demand / excluded |
-| --- | --- | --- |
-| Identity | `profiles` for selected org, label fields for all roles | `users` no sync; `organizations` no normal app collection; `memberships` API/control-plane |
-| Foundation | `units`, `genera`, `species`, `organization_species`, `collection_methods`, `collection_lures`, `habitat_types`, `region_folders` | `regions`, `addresses`, region intersection cache data |
-| Adult surveillance | `traps` | `collections`, `collection_species` |
-| Larval surveillance | none | `habitats`, `inspections`, `samples`, `sample_species` |
-| Field-work support | `tags`, `routes` | `tag_items`, `comments`, `additional_personnel`, `route_items`, `assignments`, `assignment_items` |
-| Control operations | `application_methods`, `source_reduction_methods`, `outreach_methods`, `biocontrol_methods`, `vehicles`, `equipment`, `insecticides`, `insecticide_batches`, `formulations`, `formulation_insecticides` | `applications`, `application_batches`, `source_reductions`, `outreach_actions`, `biocontrol_actions`, `requested_control_actions` |
-| Public engagement | `notification_types` | `contacts`, `service_requests`, `notification_registrations`, `notification_registration_types`, `mission_notifications` |
-| Mission dispatch | none | `missions`, `mission_items` |
-| Weather | `weather_sources` | `weather_source_subscriptions` excluded; `weather_summaries` on-demand |
+Twenty-four eager, twenty-six on-demand.
 
-## Web Notes
+| Area | Eager | On-demand | Excluded |
+| --- | --- | --- | --- |
+| Identity | `organizations` (the agency's own row), `memberships`, `profiles` for selected org | none | `users` |
+| Foundation | `units`, `species`, `organization_species`, `collection_methods`, `collection_lures`, `habitat_types`, `region_folders` | `regions`, `addresses` | `genera` |
+| Adult surveillance | `traps` | `collections`, `collection_species` | none |
+| Larval surveillance | none | `habitats`, `inspections`, `samples`, `sample_species` | none |
+| Field-work support | `tags`, `routes` | `tag_items`, `comments`, `additional_personnel`, `route_items`, `assignments`, `assignment_items` | none |
+| Control operations | `application_methods`, `source_reduction_methods`, `outreach_methods`, `biocontrol_methods`, `vehicles`, `equipment`, `insecticides`, `formulations`, `formulation_insecticides` | `applications`, `application_batches`, `insecticide_batches`, `source_reductions`, `outreach_actions`, `biocontrol_actions`, `requested_control_actions` | none |
+| Public engagement | `notification_types` | `contacts`, `service_requests` | `notification_registrations`, `notification_registration_types`, `mission_notifications` |
+| Mission dispatch | none | `missions`, `mission_items` | none |
+| Weather | `weather_sources` | `weather_summaries` | `weather_source_subscriptions` |
 
-- The first read-only tracer shapes are `units`, selected-organization
-  `profiles`, taxonomy, organization species, foundation lookup catalogs, tags,
-  and route headers. `packages/sync` defines shared row contracts and
-  descriptors, `apps/server` exposes authenticated Electric proxy routes, and
-  `apps/web` owns the concrete TanStack DB collection instances.
+**Excluded** here means no collection module exists, so nothing in `apps/web`
+reads the table through sync. `users` is read through the server. `genera` is
+excluded because `species` already carries the genus name every surface asks
+for. The three notification tables were declared in the old seam and never read
+from it; the workflow that will need them is not built.
+
+`search_documents` is in none of the three columns, because it is not a table a
+client reads at all. It is a derived index, maintained by triggers on the
+thirteen tables it is projected from and read only by `GET /search`. It has no
+collection module and no sync shape on purpose: Electric manages its own
+publication and adds a table when a shape asks for it, so a table nothing syncs
+never enters the replication stream and costs the slot nothing. What it holds is
+gated by `pnpm check:search-corpus`, which refuses any column sync itself
+withholds.
+
+## Web notes
+
 - Server shape routes must force their authorized table, columns, and scope
   server-side. The proxies preserve Electric stream parameters such as
   `offset`, `handle`, and `live`, but ignore caller-provided `table`, `columns`,
@@ -58,47 +78,56 @@ implementation remain separate implementation work.
   columns (`lat`, `lng`, `geom_type`) that Electric may stream, so pins and
   coordinate reads come straight off the synced row. The raw `geom` and the
   generated `geojson` stay server-only and are read through the `/map/*`
-  endpoints (`packages/sync` forbids `geom`/`geojson` in any shape descriptor).
-- Region intersection cache data is derived GIS data and is not part of normal
-  app sync unless a specific reporting/GIS screen proves it needs direct client
-  access.
+  endpoints. That exclusion is enforced by type rather than by convention:
+  `ClientOmitted` in `packages/sync/src/tests/unit/collections/tables/drift.test.ts`
+  drops `geom`, `geojson`, `deleted_at`, and `deleted_by_profile_id` from every
+  table's schema, and errors on any other column a schema fails to cover. A
+  table that withholds a fifth column declares it in `WITHHELD` in
+  `scripts/withheld-columns.mjs`, which generates both halves. See
+  `organizations`, which keeps its billing and subscription columns.
+- `memberships` is eager for the role ladder, and that reason covers `role`,
+  `status` and `profile_id` only. It withholds `invited_email` and
+  `workos_invitation_id`: an invited address belongs to somebody who has not
+  accepted yet, and `workos_invitation_id` is a handle on a live grant in
+  WorkOS. The handlers that need either read it server-side inside the
+  transaction, and the operator console reads both over REST. Withheld is about
+  what a client *receives*: the invite dialog sends `invited_email` and
+  `/commands/memberships` writes it, which is why
+  `scripts/check-command-columns.mjs` reads the same list.
+- Region membership is computed on read and never stored, so there is no table
+  to sync. `GET /records/:recordType/:recordId/regions` answers it. See ADR 0015
+  and `docs/region-membership-spec.md`.
 - `route_items` is on-demand because large habitat catalogs can make route
   membership very large, and the same habitat may appear in multiple routes.
 - `requested_control_actions` is on-demand because the app should not assume it
   can baseline the full organization rowset.
 
-## Read-only Web Tracer
+## The read path
 
-The first web sync tracer is intentionally read-only. It proves the normal
-authenticated read path:
+Every normal authenticated read runs:
 
 `Postgres -> Electric -> server-authorized shape proxy -> TanStack DB collection -> web UI`
 
-Shipped pieces:
+Who owns which leg:
 
-- `packages/db` owns repeatable sync baseline seed data for local/dev smoke
-  tests.
-- `packages/sync` owns row contracts, descriptor columns, key extraction, and
-  Electric collection option creation.
+- `packages/db` owns the migrations that are the source of truth for every
+  column, and repeatable sync baseline seed data for local/dev smoke tests.
+- `packages/sync` owns the per-table row schemas generated from those
+  migrations, key extraction, the collection factory, and the write path that
+  turns a mutation into a named domain command.
 - `apps/server` owns authenticated shape proxy routes and forces table,
   columns, and tenant scope server-side.
-- `apps/web` owns concrete collection singletons, the explicit eager baseline
-  preload bundle, and the current signed-in smoke rendering panels.
+- `apps/web` owns the fifty collection singletons under `src/lib/collections`,
+  their `syncMode`, and the surface-shaped read hooks under `src/hooks/queries`
+  that join them. Route components read hooks, not collections.
 
-Current command-backed tracer descriptor set:
+Writes take the mirror path. A mutation applied optimistically to a collection
+carries the domain command it means; the server validates that command, commits
+it in one Kysely transaction, and returns `pg_current_xact_id()` from the same
+transaction so Electric can confirm the optimistic write. The server never
+infers the command from which fields changed.
 
-- selected-organization `collection_methods`
-- selected-organization `collection_lures`
-- selected-organization `habitat_types`
-
-The foundation lookup catalogs are the first optimistic mutation tracers. Web
-inserts, updates, and deletes go through TanStack DB mutation handlers, then
-through authenticated server foundation command routes. The server validates the
-matching foundation domain command, commits with Kysely, and returns
-`pg_current_xact_id()` from the same transaction so Electric can confirm the
-optimistic write.
-
-### Mutation confirmation and transaction IDs
+## Mutation confirmation and transaction IDs
 
 TanStack DB applies collection mutations optimistically before the async
 mutation handler completes. The handler must always await the authoritative
@@ -153,33 +182,23 @@ synced read model has caught up." In most collection handlers, returning
 pending optimistic state after the committed write while Electric refreshes or
 canonicalizes the row later.
 
-Current read-only tracer descriptor set:
+A table with no write surface is read-only by having no commands mapped to it,
+not by a separate class of collection. `apps/server/src/table-commands` is
+where a table declares the intents its route accepts; a table absent from it
+accepts no writes at all.
 
-- global `units`
-- selected-organization `profiles`
-- global `genera`
-- global `species`
-- selected-organization `organization_species`
-- selected-organization `application_methods`
-- selected-organization `source_reduction_methods`
-- selected-organization `outreach_methods`
-- selected-organization `biocontrol_methods`
-- selected-organization `vehicles`
-- selected-organization `equipment`
-- selected-organization `notification_types`
-- selected-organization `tags`
-- selected-organization `routes`
+The two halves of a write are declared apart. The intent map says which
+commands the route accepts, and the domain module's `write*Command` says which
+it knows how to write, so `writer-coverage.test.ts` asserts they agree. Without
+it the gap is invisible: the map compiles, the route registers, the permission
+check passes, and the write falls through the writer's `switch` to a 500 that
+names neither half.
 
-Collections in the read-only set deliberately exclude TanStack DB optimistic
-mutation handlers, domain command endpoints, and Electric transaction-id
-confirmation. Their collection options should not provide `onInsert`,
-`onUpdate`, or `onDelete`.
-
-## Local Electric Testing Notes
+## Local Electric testing notes
 
 These notes cover the fully-local Docker mode. The recommended default is now
 Railway-backed local dev (server + frontends local, Postgres + Electric on the
-Railway `staging` environment) — see `docs/deployment.md` → "Local development".
+Railway `staging` environment). See `docs/deployment.md`, "Local development".
 
 - Docker Compose exposes Postgres on `localhost:55432`, not `localhost:5432`,
   so local `.env` files for this repo should use
@@ -201,24 +220,23 @@ Railway `staging` environment) — see `docs/deployment.md` → "Local developme
   `SIMMER_SYNC_BASELINE_ORGANIZATION_ID`. Use this to verify selected-org shapes
   do not leak org-owned rows across tenants. Global tables such as `units`,
   `genera`, and `species` intentionally return the same rows for every org.
-- Treat the current Kysely table types and applied migrations as the source of
-  truth for sync descriptor columns. Earlier domain drafts used fields such as
-  `organization_species.display_name_override` and lookup `sort_order`, but the
-  current schema removed those columns.
-- The read-only tracer currently proves direct Electric shape behavior and the
-  server proxy unit tests. A full browser smoke still requires an authenticated
-  WorkOS session because app shape routes are intentionally protected by the
-  selected-organization auth context.
+- The applied migrations are the source of truth for every synced column, and
+  the row schemas are generated from them by
+  `scripts/generate-table-schemas.mjs` rather than written by hand. A column a
+  migration adds, renames, or drops fails the drift check until the schema is
+  regenerated, so the two cannot disagree quietly.
+- A full browser smoke requires an authenticated WorkOS session, because app
+  shape routes are protected by the selected-organization auth context.
 
-## Deployed Electric Notes
+## Deployed Electric notes
 
 - Web clients never call Electric directly in any environment. They call the
   server's authenticated `/sync/shapes/*` routes, and the server proxies to
   Electric. The server forces the table/columns/where/params and strips any
   caller-supplied ones.
 - Electric networking differs per environment (see `docs/deployment.md`):
-  - **production** — private (`electric.railway.internal:3000`), `ELECTRIC_INSECURE=true`.
-  - **staging** — public domain, secured with `ELECTRIC_SECRET` (so a locally-run
+  - **production**: private (`electric.railway.internal:3000`), `ELECTRIC_INSECURE=true`.
+  - **staging**: public domain, secured with `ELECTRIC_SECRET` (so a locally-run
     server can reach it for Railway-backed local dev). `PORT=3000` is required on
     the service for the public domain to route.
 - The server reads `ELECTRIC_SECRET` and folds it into `ELECTRIC_URL` as a
@@ -235,10 +253,10 @@ Railway `staging` environment) — see `docs/deployment.md` → "Local developme
   either enable Auto-commit or explicitly commit after inserts/updates; otherwise
   rows may appear locally, then disappear when the connection refreshes.
 - Production and staging were smoke tested on 2026-05-16 by inserting committed
-  `public.units` rows and observing them render live in the signed-in web tracer
+  `public.units` rows and observing them render live in the signed-in web app
   without a manual page refresh.
 
-## Mobile Matrix
+## Mobile matrix
 
 Mobile offline persistence is automatic and scoped. The field app persists
 field-critical data after sign-in, then persists additional work-scoped data as
@@ -269,7 +287,7 @@ organization database.
 | Notifications | outside mobile field-work scope |
 | Weather | `weather_sources` may be eager; `weather_summaries` on-demand |
 
-## Mobile Notes
+## Mobile notes
 
 - Mobile history windows are based on domain operational dates, not audit
   `created_at` timestamps. Examples include collection dates/times, inspection
@@ -287,24 +305,34 @@ organization database.
   baseline `notification_registrations`, `notification_registration_types`, or
   `mission_notifications`.
 
-## Package Boundary
+## Package boundary
 
-The current expectation is that `packages/sync` owns shared row contracts and
-sync descriptors, while each frontend owns concrete collection instances.
+`packages/sync` owns what is true of a table everywhere; each frontend owns
+what is true of a table in that app. The split is what lets `apps/mobile` reach
+the same rows on a different sync policy without a second copy of the schema.
 
-`packages/sync` should provide:
+`packages/sync` provides:
 
-- row schemas and parsers;
-- `getKey` functions;
-- table and shape descriptors;
-- dependency relationships such as `address_id` plus owned geometry projection
-  columns;
-- web and mobile policy descriptors;
-- retention metadata for rolling windows;
+- per-table row schemas generated from the migrations, in
+  `src/collections/tables`, with `getKey` for each;
+- the collection factory in `src/collections/functions/sync-collection.ts`,
+  which takes the app's `syncMode` rather than declaring one;
+- the write path in `src/collections/functions` (`mutate-collection.ts`,
+  `command-request.ts`, and `command-transaction.ts`), which turns a mutation
+  into a named domain command and settles the response;
 - shared helpers for Electric transaction-id mutation handling.
 
-`apps/web` should create web collection singletons and own web preload bundles
-and route live-query preloads.
+`apps/web` owns:
+
+- the fifty collection singletons in `src/lib/collections`, one per table,
+  each naming its own `syncMode`;
+- the read seam in `src/hooks/queries`, one hook per surface, joining
+  collections and returning camelCase;
+- the explicit eager baseline preload bundle and route live-query preloads.
+
+What deliberately does **not** live in `packages/sync`: sync mode, preload
+policy, and retention windows. All three are app decisions, and a package that
+declared them would be making mobile's for it.
 
 The web eager baseline bundle must stay explicit. Components should subscribe to
 collection changes, but should not individually call `collection.preload()` as a

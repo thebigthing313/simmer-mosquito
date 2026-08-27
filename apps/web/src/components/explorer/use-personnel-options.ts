@@ -1,7 +1,6 @@
-import type { ProfileRow } from '@simmer-mosquito/sync';
+import { useLiveSuspenseQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
-import { webCollections } from '../../sync/webCollections';
+import { profiles } from '../../lib/collections/profiles';
 import type { FilterOption } from './multi-select-filter';
 
 /**
@@ -10,20 +9,36 @@ import type { FilterOption } from './multi-select-filter';
  * Every field record is attributed to someone — an inspector, an applicator, a
  * technician — and "what did this crew member do" is a question every explorer
  * gets asked. Profiles are eagerly synced, so this needs no fetch.
+ *
+ * The sort is in the query rather than the memo: `orderBy` is part of the compiled
+ * pipeline, so the rows arrive ordered and the memo only has to shape them. What
+ * is left in the memo is the id→name lookup, which a query cannot return.
+ *
+ * That does drop `localeCompare` for the pipeline's ordering, which differs on
+ * accented names — Ángela sorts before Alan rather than between Alan and Beth. It
+ * is the same ordering the other picker lists already use, and it is the price of
+ * a sort that happens once when a row arrives instead of on every render.
  */
 export function usePersonnelOptions(): {
 	readonly options: readonly FilterOption[];
 	readonly nameById: ReadonlyMap<string, string>;
 } {
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const result = useLiveSuspenseQuery(
+		(query) =>
+			query
+				.from({ profile: profiles })
+				.orderBy(({ profile }) => profile.display_name, 'asc')
+				.select(({ profile }) => ({ id: profile.id, label: profile.display_name })),
+		[],
+	);
 
-	return useMemo(() => {
-		const sorted = [...profiles].sort((first, second) =>
-			first.displayName.localeCompare(second.displayName),
-		);
-		return {
-			options: sorted.map((profile) => ({ id: profile.id, label: profile.displayName })),
-			nameById: new Map(sorted.map((profile) => [profile.id, profile.displayName] as const)),
-		};
-	}, [profiles]);
+	const people = result.data;
+
+	return useMemo(
+		() => ({
+			options: people,
+			nameById: new Map(people.map((profile) => [profile.id, profile.label] as const)),
+		}),
+		[people],
+	);
 }

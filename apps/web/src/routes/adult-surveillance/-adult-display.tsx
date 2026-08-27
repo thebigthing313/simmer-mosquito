@@ -1,51 +1,80 @@
-import type { SpeciesSex, SpeciesStatus, TrapRow } from '@simmer-mosquito/sync';
+import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
-import { formatDate } from './-overview-data';
+import { todayInTimeZone } from '../../lib/local-date';
+import { formatDate, formatWeekdayDate } from './-overview-data';
 
 // --- shared labels ----------------------------------------------------------
 
 /**
- * The one trap label used everywhere in the app: `Code - Name`, dropping the dash
- * when only one of the two is set (and falling back to a short id when neither
- * is). Selects, lists, detail headers, map cards and route stops all read the
- * same way, so a trap is recognisable by its code wherever it appears.
- */
-export function trapDisplayName(trap: {
-	readonly id: string;
-	readonly trapName: TrapRow['trapName'];
-	readonly trapCode: TrapRow['trapCode'];
-}): string {
-	const name = trap.trapName?.trim();
-	const code = trap.trapCode?.trim();
-	if (name && code) {
-		return `${code} - ${name}`;
-	}
-	return code || name || `Trap ${trap.id.slice(0, 8)}`;
-}
-
-/**
- * The date a collection is anchored to, or null when genuinely pending.
+ * The calendar day a collection is anchored to, `YYYY-MM-DD`, or null when
+ * genuinely pending.
  *
- * The two timing modes store the date in different columns: `exact_timestamps`
- * keeps it in `collectedAt` (null until the trap is retrieved — a real pending
- * state), while `collection_date_duration` keeps it in `collectionDate` and
- * always leaves `collectedAt` null. Reading only `collectedAt` mislabels every
- * date+duration collection as "Pending", so fall back to `collectionDate`.
+ * The two timing modes store it in different columns: `exact_timestamps` keeps
+ * an instant in `collectedAt` (null until the trap is retrieved — a real pending
+ * state), while `collection_date_duration` keeps a plain day in `collectionDate`
+ * and always leaves `collectedAt` null. Reading only `collectedAt` mislabels
+ * every date+duration collection as "Pending", so fall back to `collectionDate`.
+ *
+ * The instant becomes a day in the *agency's* zone, matching how the server
+ * windows and orders these rows (`collectionEffectiveDateExpr`). Returning the
+ * raw timestamp let every caller take its UTC prefix, so a trap emptied at
+ * 10:30pm read as the next day on screen while the server filed it under the day
+ * the crew worked — the two halves of the same record disagreeing.
+ *
+ * `collectedAt` is taken as a `Date` or a string because the two read paths spell
+ * it differently: the query hooks in `hooks/queries` hand up the `Date` the row
+ * schema parses, while the surfaces still on the old collections hand up the raw
+ * timestamp string. Both name the same instant, and this is the one function that
+ * has to know it.
  */
-export function collectionEffectiveDate(collection: {
-	readonly collectedAt: string | null;
-	readonly collectionDate: string | null;
-}): string | null {
-	return collection.collectedAt ?? collection.collectionDate;
+export function collectionEffectiveDate(
+	collection: {
+		readonly collectedAt: Date | string | null;
+		readonly collectionDate: string | null;
+	},
+	timeZone: string,
+): string | null {
+	const { collectedAt, collectionDate } = collection;
+	if (collectedAt === null) {
+		return collectionDate === null ? null : collectionDate.slice(0, 10);
+	}
+	const instant = collectedAt instanceof Date ? collectedAt : new Date(collectedAt);
+	if (!Number.isNaN(instant.getTime())) {
+		return todayInTimeZone(timeZone, instant);
+	}
+	// An unparseable string still carries its leading date, so it is worth reading;
+	// an invalid `Date` carries nothing, and guessing would be worse than a blank.
+	return typeof collectedAt === 'string' ? collectedAt.slice(0, 10) : null;
 }
 
 /** Title for a collection: its date as `M/D/YYYY`, or `Pending collection` when unretrieved. */
-export function collectionTitle(collection: {
-	readonly collectedAt: string | null;
-	readonly collectionDate: string | null;
-}): string {
-	const date = collectionEffectiveDate(collection);
+export function collectionTitle(
+	collection: {
+		readonly collectedAt: Date | string | null;
+		readonly collectionDate: string | null;
+	},
+	timeZone: string,
+): string {
+	const date = collectionEffectiveDate(collection, timeZone);
 	return date === null ? 'Pending collection' : formatDate(date);
+}
+
+/**
+ * A collection's date as a *row* reads it: `Wed, Aug 12, 2026`.
+ *
+ * Distinct from {@link collectionTitle}, which heads a page and a breadcrumb,
+ * where a weekday is noise. In a list the weekday is the point — a trap's run is
+ * weekly, so it says whether a gap is a missed visit or a weekend.
+ */
+export function collectionRowDate(
+	collection: {
+		readonly collectedAt: Date | string | null;
+		readonly collectionDate: string | null;
+	},
+	timeZone: string,
+): string {
+	const date = collectionEffectiveDate(collection, timeZone);
+	return date === null ? 'Pending collection' : formatWeekdayDate(date);
 }
 
 // Shared, read-only presentation for adult-surveillance values. Mirrors the
@@ -124,7 +153,43 @@ interface CollectionFlags {
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;
+	readonly collectedAt?: Date | string | null;
+	readonly collectionTimingMode?: string;
 }
+
+/**
+ * A trap that was set and has not been emptied yet.
+ *
+ * Only exact-timestamps collections can be in this state: one recorded as a
+ * date plus a duration is by definition already in hand, and its `collectedAt`
+ * is null for a different reason entirely.
+ */
+export function isPendingCollection(collection: {
+	readonly collectedAt: Date | string | null;
+	readonly collectionTimingMode: string;
+}): boolean {
+	return collection.collectionTimingMode === 'exact_timestamps' && collection.collectedAt === null;
+}
+
+/**
+ * Bycatch, alone.
+ *
+ * The other three flags are the collection's status, and where a surface draws
+ * that status some other way, this is what is left. A collection with bycatch in
+ * it is an ordinary collection that also caught something else.
+ */
+export function BycatchBadge({ hasBycatch }: { readonly hasBycatch: boolean }) {
+	return hasBycatch ? (
+		<Badge tone={BYCATCH_FLAG.tone} variant="outline">
+			{BYCATCH_FLAG.label}
+		</Badge>
+	) : null;
+}
+
+const BYCATCH_FLAG: { readonly label: string; readonly tone: Tone } = {
+	label: 'Bycatch',
+	tone: 'info',
+};
 
 /** The prominent result flags on a collection, in the order they should read. */
 export function CollectionFlagBadges({
@@ -153,6 +218,16 @@ function collectionFlagList(
 	collection: CollectionFlags,
 ): readonly { readonly label: string; readonly tone: Tone }[] {
 	const flags: { readonly label: string; readonly tone: Tone }[] = [];
+	// First, because it says the record is not finished: the other three describe
+	// specimens, and a trap that is still out has none yet.
+	if (
+		isPendingCollection({
+			collectedAt: collection.collectedAt ?? null,
+			collectionTimingMode: collection.collectionTimingMode ?? '',
+		})
+	) {
+		flags.push({ label: 'Trap out', tone: 'info' });
+	}
 	if (collection.hasProblem) {
 		flags.push({ label: 'Problem reported', tone: 'danger' });
 	}
@@ -160,7 +235,7 @@ function collectionFlagList(
 		flags.push({ label: 'Zero result', tone: 'neutral' });
 	}
 	if (collection.hasBycatch) {
-		flags.push({ label: 'Bycatch', tone: 'info' });
+		flags.push(BYCATCH_FLAG);
 	}
 	return flags;
 }

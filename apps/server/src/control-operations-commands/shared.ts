@@ -1,4 +1,12 @@
-import { type geojsonToGeom, localDateColumn, softDelete, updateRow } from '@simmer-mosquito/db';
+import {
+	assertWriteReferences,
+	checkedValues,
+	type geojsonToGeom,
+	localDateColumn,
+	type SelectedRow,
+	softDelete,
+	updateRow,
+} from '@simmer-mosquito/db';
 import type {
 	ControlActionContext,
 	ControlActionLocationSourceInput,
@@ -55,20 +63,35 @@ export async function insertApplicationBatch(
 		readonly insecticideBatchId: string;
 		readonly actorProfileId: string;
 	},
-): Promise<SafeApplicationBatch> {
+): Promise<ApplicationBatchRow> {
+	await assertWriteReferences(trx, {
+		organizationId: input.organizationId,
+		write: { kind: 'create' },
+		references: [
+			{
+				column: 'insecticide_batch_id',
+				catalog: 'insecticideBatch',
+				id: input.insecticideBatchId,
+				label: 'batch',
+			},
+		],
+	});
+
 	const row = await trx
 		.insertInto('application_batches')
-		.values({
-			id: input.id,
-			organization_id: input.organizationId,
-			application_id: input.applicationId,
-			insecticide_batch_id: input.insecticideBatchId,
-			created_by_profile_id: input.actorProfileId,
-			updated_by_profile_id: input.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, input.organizationId, {
+				id: input.id,
+				organization_id: input.organizationId,
+				application_id: input.applicationId,
+				insecticide_batch_id: input.insecticideBatchId,
+				created_by_profile_id: input.actorProfileId,
+				updated_by_profile_id: input.actorProfileId,
+			}),
+		)
 		.returning(applicationBatchReturnColumns)
 		.executeTakeFirstOrThrow();
-	return toSafeApplicationBatch(row);
+	return row;
 }
 
 // ===========================================================================
@@ -210,47 +233,7 @@ export const formulationReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeFormulation {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly formulationName: string;
-	readonly description: string | null;
-	readonly isActive: boolean;
-	readonly batchSize: number;
-	readonly batchUnitId: string;
-	readonly createdByProfileId: string | null;
-	readonly updatedByProfileId: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeFormulation(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly formulation_name: string;
-	readonly description: string | null;
-	readonly is_active: boolean;
-	readonly batch_size: number;
-	readonly batch_unit_id: string;
-	readonly created_by_profile_id: string | null;
-	readonly updated_by_profile_id: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeFormulation {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		formulationName: row.formulation_name,
-		description: row.description,
-		isActive: row.is_active,
-		batchSize: row.batch_size,
-		batchUnitId: row.batch_unit_id,
-		createdByProfileId: row.created_by_profile_id,
-		updatedByProfileId: row.updated_by_profile_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type FormulationRow = SelectedRow<'formulations', typeof formulationReturnColumns>;
 
 export const formulationInsecticideReturnColumns = [
 	'id',
@@ -265,44 +248,10 @@ export const formulationInsecticideReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeFormulationInsecticide {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly formulationId: string;
-	readonly insecticideId: string;
-	readonly amount: number;
-	readonly unitId: string;
-	readonly createdByProfileId: string | null;
-	readonly updatedByProfileId: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeFormulationInsecticide(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly formulation_id: string;
-	readonly insecticide_id: string;
-	readonly amount: number;
-	readonly unit_id: string;
-	readonly created_by_profile_id: string | null;
-	readonly updated_by_profile_id: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeFormulationInsecticide {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		formulationId: row.formulation_id,
-		insecticideId: row.insecticide_id,
-		amount: row.amount,
-		unitId: row.unit_id,
-		createdByProfileId: row.created_by_profile_id,
-		updatedByProfileId: row.updated_by_profile_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type FormulationInsecticideRow = SelectedRow<
+	'formulation_insecticides',
+	typeof formulationInsecticideReturnColumns
+>;
 
 export const applicationReturnColumns = [
 	'id',
@@ -328,29 +277,7 @@ export const applicationReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeApplication {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly metadata: unknown | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeApplication(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly metadata: unknown | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeApplication {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		metadata: row.metadata,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type ApplicationRow = SelectedRow<'applications', typeof applicationReturnColumns>;
 
 export const applicationBatchReturnColumns = [
 	'id',
@@ -361,32 +288,10 @@ export const applicationBatchReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeApplicationBatch {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly applicationId: string;
-	readonly insecticideBatchId: string;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeApplicationBatch(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly application_id: string;
-	readonly insecticide_batch_id: string;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeApplicationBatch {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		applicationId: row.application_id,
-		insecticideBatchId: row.insecticide_batch_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type ApplicationBatchRow = SelectedRow<
+	'application_batches',
+	typeof applicationBatchReturnColumns
+>;
 
 export const sourceReductionReturnColumns = [
 	'id',
@@ -396,29 +301,10 @@ export const sourceReductionReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeSourceReduction {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly metadata: unknown | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeSourceReduction(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly metadata: unknown | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeSourceReduction {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		metadata: row.metadata,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type SourceReductionRow = SelectedRow<
+	'source_reductions',
+	typeof sourceReductionReturnColumns
+>;
 
 export const outreachActionReturnColumns = [
 	'id',
@@ -428,29 +314,7 @@ export const outreachActionReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeOutreachAction {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly metadata: unknown | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeOutreachAction(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly metadata: unknown | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeOutreachAction {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		metadata: row.metadata,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type OutreachActionRow = SelectedRow<'outreach_actions', typeof outreachActionReturnColumns>;
 
 export const biocontrolActionReturnColumns = [
 	'id',
@@ -460,29 +324,10 @@ export const biocontrolActionReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeBiocontrolAction {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly metadata: unknown | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeBiocontrolAction(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly metadata: unknown | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeBiocontrolAction {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		metadata: row.metadata,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type BiocontrolActionRow = SelectedRow<
+	'biocontrol_actions',
+	typeof biocontrolActionReturnColumns
+>;
 
 export const requestedControlActionReturnColumns = [
 	'id',
@@ -502,32 +347,10 @@ export const requestedControlActionReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeRequestedControlAction {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly controlType: string;
-	readonly resolvedAt: Date | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeRequestedControlAction(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly control_type: string;
-	readonly resolved_at: Date | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeRequestedControlAction {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		controlType: row.control_type,
-		resolvedAt: row.resolved_at,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type RequestedControlActionRow = SelectedRow<
+	'requested_control_actions',
+	typeof requestedControlActionReturnColumns
+>;
 
 // ===========================================================================
 // Shared command + request helpers

@@ -10,7 +10,8 @@ import type { RouteOptions } from './shared.js';
  * Client issues plain optimistic POST/PATCH/DELETE per row; the server decomposes
  * each into the mission-dispatch domain command vocabulary. Mission and mission-
  * item lifecycle transitions are derived from changed timestamp fields in a PATCH;
- * mission items are reindexed on insert/move.
+ * a mission item takes a fractional `position` on insert, and a move rewrites
+ * only the rows it moved.
  *
  * NOTE: the cross-domain `record*ForMissionItem` commands (which create control
  * action records linked to a mission item) are intentionally not wired here —

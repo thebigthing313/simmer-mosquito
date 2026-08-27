@@ -1,4 +1,9 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	assertWriteReferences,
+	checkedValues,
+	sql,
+} from '@simmer-mosquito/db';
 import {
 	type AdultSurveillanceCommand,
 	createTrapCommand,
@@ -24,9 +29,9 @@ import {
 	invalidUpdate,
 	resolveLocationGeom,
 	runCommands,
-	type SafeTrap,
+	surveillanceCatalogReferences,
+	type TrapRow,
 	type TrapUpdateColumns,
-	toSafeTrap,
 	trapReturnColumns,
 	updateRow,
 } from './shared.js';
@@ -177,35 +182,43 @@ async function runTrapCommands(
 	);
 }
 
-async function writeTrapCommand(
+/** Exported for `table-commands/traps.ts` — see `writeHabitatCommand`. */
+export async function writeTrapCommand(
 	trx: AdultSurveillanceTransaction,
 	command: AdultSurveillanceCommand,
-): Promise<SafeTrap | null> {
+): Promise<TrapRow | null> {
 	switch (command.type) {
 		case 'adultSurveillance.createTrap': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
+				references: surveillanceCatalogReferences(command.payload),
+			});
 			const row = await trx
 				.insertInto('traps')
-				.values({
-					id: command.payload.trapId,
-					organization_id: command.payload.organizationId,
-					geom: await resolveLocationGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					collection_method_id: command.payload.collectionMethodId,
-					address_id: command.payload.addressId,
-					collection_lure_id: command.payload.collectionLureId,
-					trap_name: command.payload.trapName,
-					trap_code: command.payload.trapCode,
-					description: command.payload.description,
-					is_active: true,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.trapId,
+						organization_id: command.payload.organizationId,
+						geom: await resolveLocationGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						collection_method_id: command.payload.collectionMethodId,
+						address_id: command.payload.addressId,
+						collection_lure_id: command.payload.collectionLureId,
+						trap_name: command.payload.trapName,
+						trap_code: command.payload.trapCode,
+						description: command.payload.description,
+						is_active: true,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(trapReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeTrap(row);
+			return row;
 		}
 		case 'adultSurveillance.updateTrapDetails':
 			return updateTrap(trx, command.payload.trapId, command.payload.organizationId, {
@@ -221,6 +234,11 @@ async function writeTrapCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'adultSurveillance.updateTrapConfiguration':
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'update', table: 'traps', recordId: command.payload.trapId },
+				references: surveillanceCatalogReferences(command.payload.changes),
+			});
 			return updateTrap(trx, command.payload.trapId, command.payload.organizationId, {
 				...(command.payload.changes.locationSource !== undefined
 					? {
@@ -272,7 +290,7 @@ async function writeTrapCommand(
 				.where('deleted_at', 'is', null)
 				.returning(trapReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeTrap(row);
+			return row ?? null;
 		}
 		default:
 			throw new Error(`Unsupported trap command: ${command.type}`);
@@ -284,6 +302,6 @@ async function updateTrap(
 	trapId: string,
 	organizationId: string,
 	set: TrapUpdateColumns,
-): Promise<SafeTrap | null> {
-	return updateRow(trx, 'traps', trapId, organizationId, set, trapReturnColumns, toSafeTrap);
+): Promise<TrapRow | null> {
+	return updateRow(trx, 'traps', trapId, organizationId, set, trapReturnColumns);
 }

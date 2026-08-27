@@ -1,10 +1,3 @@
-import type {
-	AddressRow,
-	HabitatRow,
-	HabitatTypeRow,
-	InspectionRow,
-	ProfileRow,
-} from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	ComponentIcon,
@@ -13,7 +6,6 @@ import {
 	iconRegistry,
 	MosquitoIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { densityLabel, hasAnyLifeStage, LifeStageStrip } from '../../components/larval-display';
 import { MapCardAddress } from '../../components/linked-address';
@@ -23,99 +15,37 @@ import {
 	MapCardEyebrow,
 	MapCardLocation,
 } from '../../components/map/map-card';
+import type { MapInset } from '../../components/map/map-inset';
+import { resolveLinkedAddress } from '../../hooks/queries/address-view';
+import { useInspection } from '../../hooks/queries/use-inspection';
 import { addressCardLabel } from '../../lib/address-format';
 import { adhocLabel } from '../../lib/coordinate-label';
-import { webCollections } from '../../sync/webCollections';
 
-const gcTimeMs = 30_000;
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 const StagesIcon = iconRegistry.domains.larvalSurveillance.icon;
 
 /**
- * The map focus card for a larval inspection. Given the inspection id it resolves
- * the inspection off the on-demand collection, its habitat + address off the
- * on-demand collections, and its type + inspector off the eager lookups, then
- * renders the shared {@link MapCard}.
+ * The map focus card for a Habitat Inspection.
+ *
+ * Everything about the inspection arrives in one row from `useInspection` — the
+ * site, the type and the inspector are joined rather than looked up in sequence.
+ * The Address is the exception, resolved here because {@link MapCardAddress}
+ * resolves it too and one hook against one collection is one subset.
  */
 export function InspectionMapCard({
 	id,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
-	const inspectionResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ inspection: webCollections.inspections })
-					.where(({ inspection }) => eq(inspection.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const inspection = inspectionResult.data as InspectionRow | undefined;
-
-	const habitatId = inspection?.habitatId ?? UNMATCHABLE_ID;
-	const habitatResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ habitat: webCollections.habitats })
-					.where(({ habitat }) => eq(habitat.id, habitatId))
-					.findOne(),
-		},
-		[habitatId],
-	);
-	const habitat = habitatResult.data as HabitatRow | undefined;
-
-	const typeId = inspection?.habitatTypeId ?? UNMATCHABLE_ID;
-	const typeResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ type: webCollections.habitatTypes })
-					.where(({ type }) => eq(type.id, typeId))
-					.findOne(),
-		},
-		[typeId],
-	);
-	const habitatType = typeResult.data as HabitatTypeRow | undefined;
-
-	const inspectorId = inspection?.inspectedByProfileId ?? UNMATCHABLE_ID;
-	const inspectorResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ profile: webCollections.profiles })
-					.where(({ profile }) => eq(profile.id, inspectorId))
-					.findOne(),
-		},
-		[inspectorId],
-	);
-	const inspector = inspectorResult.data as ProfileRow | undefined;
-
-	const addressId = inspection?.addressId ?? UNMATCHABLE_ID;
-	const addressResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.id, addressId))
-					.findOne(),
-		},
-		[addressId],
-	);
-	const address = addressResult.data as AddressRow | undefined;
+	const { inspection } = useInspection(id);
 
 	if (inspection === undefined) {
 		return (
-			<MapCard onClose={onClose} title="Inspection">
+			<MapCard inset={inset} onClose={onClose} title="Inspection">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -124,20 +54,21 @@ export function InspectionMapCard({
 		);
 	}
 
-	const habitatName = habitat?.habitatName?.trim() ?? null;
-	const addressLabel = addressCardLabel(address);
+	// `habitatName` is null only for an Ad Hoc Inspection — a Habitat with no name
+	// of its own already reads out its coordinates. So the fallbacks below are what
+	// titles an inspection that happened at no Habitat: the Address it was linked
+	// to, or failing that its own centroid.
 	const siteLabel =
-		habitatName ||
-		addressLabel ||
-		(inspection.habitatId === null
-			? adhocLabel(inspection.lat, inspection.lng)
-			: `Habitat ${inspection.habitatId.slice(0, 8)}`);
+		inspection.habitatName ??
+		addressCardLabel(resolveLinkedAddress(inspection.address)) ??
+		adhocLabel(inspection.latitude, inspection.longitude);
 	const typeName =
-		inspection.habitatTypeId === null ? 'Unassigned type' : (habitatType?.name ?? 'Unknown type');
+		inspection.habitatTypeId === null ? 'Unassigned type' : (inspection.typeName ?? 'Unknown type');
 
 	return (
 		<MapCard
 			eyebrow={<MapCardEyebrow date={inspection.inspectionDate} type="Inspection" />}
+			inset={inset}
 			onClose={onClose}
 			title={
 				inspection.habitatId === null ? (
@@ -161,7 +92,7 @@ export function InspectionMapCard({
 			<div className="grid gap-1.5">
 				<MapCardDetail icon={ComponentIcon}>{typeName}</MapCardDetail>
 				<MapCardDetail icon={ContactIcon}>
-					{inspector?.displayName ?? <span className="italic">Unassigned</span>}
+					{inspection.inspectedByName ?? <span className="italic">Unassigned</span>}
 				</MapCardDetail>
 				<MapCardDetail icon={DropletIcon}>{inspection.isWet ? 'Wet' : 'Dry'}</MapCardDetail>
 				{inspection.isWet ? (
@@ -181,8 +112,14 @@ export function InspectionMapCard({
 						</MapCardDetail>
 					</>
 				) : null}
-				{inspection.addressId === null ? null : <MapCardAddress addressId={inspection.addressId} />}
-				<MapCardLocation geomType={inspection.geomType} lat={inspection.lat} lng={inspection.lng} />
+				{inspection.addressId === null ? null : (
+					<MapCardAddress address={inspection.address} addressId={inspection.addressId} />
+				)}
+				<MapCardLocation
+					geomType={inspection.geometryKind}
+					lat={inspection.latitude}
+					lng={inspection.longitude}
+				/>
 			</div>
 		</MapCard>
 	);

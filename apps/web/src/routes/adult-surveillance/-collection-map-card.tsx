@@ -1,7 +1,5 @@
-import type { AdultCollectionRow, CollectionMethodRow, TrapRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { MapCardAddress } from '../../components/linked-address';
 import {
@@ -10,71 +8,36 @@ import {
 	MapCardDetail,
 	MapCardEyebrow,
 } from '../../components/map/map-card';
-import { webCollections } from '../../sync/webCollections';
-import { CollectionFlagBadges, collectionEffectiveDate, trapDisplayName } from './-adult-display';
+import type { MapInset } from '../../components/map/map-inset';
+import { trapDisplayName } from '../../hooks/queries/trap-view';
+import { useAdultCollection } from '../../hooks/queries/use-adult-collection';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { CollectionFlagBadges, collectionEffectiveDate } from './-adult-display';
 
-const gcTimeMs = 30_000;
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 const CollectionEntityIcon = iconRegistry.entities.collection.icon;
 
 /**
- * The map focus card for an adult collection. Given the collection id it resolves
- * the collection off the on-demand collection (single-id lookups warm the subset),
- * its trap + method off the eager baseline collections, then renders the shared
- * {@link MapCard}. Drop `<CollectionMapCard id onClose />` beside any MapCanvas that
- * plots collections.
+ * The map focus card for an adult collection. One query brings the collection up
+ * with its trap, method and address already joined ({@link useAdultCollection}),
+ * so the card fills in as they arrive rather than in four steps. Drop
+ * `<CollectionMapCard id onClose />` beside any MapCanvas that plots collections.
  */
 export function CollectionMapCard({
 	id,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
-	const collectionResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ collection: webCollections.collections })
-					.where(({ collection }) => eq(collection.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const collection = collectionResult.data as AdultCollectionRow | undefined;
-
-	const trapId = collection?.trapId ?? UNMATCHABLE_ID;
-	const trapResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ trap: webCollections.traps })
-					.where(({ trap }) => eq(trap.id, trapId))
-					.findOne(),
-		},
-		[trapId],
-	);
-	const trap = trapResult.data as TrapRow | undefined;
-
-	const methodId = collection?.collectionMethodId ?? UNMATCHABLE_ID;
-	const methodResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ method: webCollections.collectionMethods })
-					.where(({ method }) => eq(method.id, methodId))
-					.findOne(),
-		},
-		[methodId],
-	);
-	const method = methodResult.data as CollectionMethodRow | undefined;
+	const { collection } = useAdultCollection(id);
+	const timeZone = useOrganizationTimeZone();
 
 	if (collection === undefined) {
 		return (
-			<MapCard onClose={onClose} title="Collection">
+			<MapCard inset={inset} onClose={onClose} title="Collection">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -83,20 +46,14 @@ export function CollectionMapCard({
 		);
 	}
 
-	const title =
-		collection.trapId === null
-			? 'Ad-hoc collection'
-			: trap === undefined
-				? 'Collection'
-				: trapDisplayName(trap);
-	const methodName = method?.name ?? 'Unknown method';
-	const effectiveDate = collectionEffectiveDate(collection);
+	const effectiveDate = collectionEffectiveDate(collection, timeZone);
 
 	return (
 		<MapCard
 			eyebrow={<MapCardEyebrow date={effectiveDate ?? undefined} type="Collection" />}
+			inset={inset}
 			onClose={onClose}
-			title={title}
+			title={collectionTitle(collection)}
 			viewDetailLink={(content) => (
 				<Link params={{ id: collection.id }} to="/adult-surveillance/collections/$id">
 					{content}
@@ -109,13 +66,36 @@ export function CollectionMapCard({
 					collection={collection}
 				/>
 				<div className="grid gap-1.5">
-					<MapCardDetail icon={CollectionEntityIcon}>{methodName}</MapCardDetail>
-					<MapCardAddress addressId={collection.addressId} />
+					<MapCardDetail icon={CollectionEntityIcon}>{collection.methodName}</MapCardDetail>
+					<MapCardAddress address={collection.address} addressId={collection.addressId} />
 					<MapCardDetail icon={LocateFixedIcon} mono>
-						{coordinateLabel(collection)}
+						{coordinateLabel({ lat: collection.latitude, lng: collection.longitude })}
 					</MapCardDetail>
 				</div>
 			</div>
 		</MapCard>
 	);
+}
+
+/**
+ * A collection is titled by the trap it came from — named for good when there is
+ * no trap, named in a moment when the join has not landed yet.
+ */
+function collectionTitle(collection: {
+	readonly trapId: string | null;
+	readonly resolvedTrapId: string | undefined;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+}): string {
+	if (collection.trapId === null) {
+		return 'Ad-hoc collection';
+	}
+	if (collection.resolvedTrapId === undefined) {
+		return 'Collection';
+	}
+	return trapDisplayName({
+		id: collection.trapId,
+		trapName: collection.trapName,
+		trapCode: collection.trapCode,
+	});
 }

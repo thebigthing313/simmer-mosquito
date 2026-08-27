@@ -1,4 +1,4 @@
-# ADR 0010: In-App (Bring-Your-Own-UI) Authentication Pages
+# ADR 0010: In-app (bring-your-own-UI) authentication pages
 
 Status: Accepted
 
@@ -12,8 +12,9 @@ app redirected to `getAuthorizationUrl({ provider: 'authkit' })`, users left the
 SIMMER origin to sign in on WorkOS-hosted pages, and were returned to
 `apps/server` `/auth/callback` to exchange the code for a sealed session cookie.
 
-Hosted AuthKit gave us auth quickly but ceded the entire sign-in/sign-up surface
-— layout, copy, brand, error states — to WorkOS's theming options. We want the
+Hosted AuthKit gave us auth quickly but ceded the entire sign-in and sign-up
+surface, meaning layout, copy, brand, and error states, to WorkOS's theming
+options. We want the
 authentication screens to be first-class product surfaces styled with the same
 `ui-web` primitives and design tokens as the rest of `apps/web`.
 

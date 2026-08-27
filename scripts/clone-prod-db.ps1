@@ -7,12 +7,19 @@
 # which is hard-coded below — it cannot be pointed at a remote host.
 #
 # Usage (PowerShell, from repo root):
-#   $env:PROD_DATABASE_URL = 'postgres://USER:PASS@HOST:PORT/DB?sslmode=require'
+#   $env:PROD_DATABASE_URL = 'postgres://USER:PASS@HOST:PORT/DB?sslmode=disable'
 #   ./scripts/clone-prod-db.ps1
 #
 # PROD_DATABASE_URL must be Railway's PUBLIC/TCP-proxy connection string
 # (e.g. ...proxy.rlwy.net:PORT), not the internal *.railway.internal host,
 # which is not reachable from your machine.
+#
+# `sslmode=disable`, and it is not a shortcut. The TCP proxy forwards raw bytes
+# and the Postgres behind it has SSL off, so `sslmode=require` fails the dump
+# with "server does not support SSL, but SSL was required" — after this script
+# has already dropped the local database, which is the worst point to fail at.
+# `DATABASE_URL` in `.env` carries the same `sslmode=disable` for the same
+# reason.
 
 [CmdletBinding()]
 param(

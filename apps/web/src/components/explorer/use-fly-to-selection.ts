@@ -11,6 +11,10 @@ const FLY_DURATION_MS = 700;
  * Ten explorers carried this effect. Half of them keyed it on the selected
  * object, which re-flies whenever a refetch hands back a new object for the
  * same record; keying on the coordinates is the version that does not.
+ *
+ * Nothing here says where on the canvas the record lands. A page with chrome
+ * floating over its map declares that once, as the canvas's viewport padding
+ * (see `useMapPadding`), and every camera call inherits it.
  */
 export function useFlyToSelection(
 	map: MapboxMap | null,

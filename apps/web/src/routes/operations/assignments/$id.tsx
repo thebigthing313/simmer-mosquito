@@ -19,12 +19,25 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
+import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { OrdinalBadge } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
+import { useAssignmentItemMutations } from '../../../hooks/mutations/use-assignment-item-mutations';
+import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-mutations';
+import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
+import {
+	assignmentDisplayName,
+	formatAssignmentDate,
+	formatDueAt,
+	type ProgressCounts,
+} from '../../../hooks/queries/assignment-view';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { operationalDayAsTimestamp, todayInTimeZone } from '../../../lib/local-date';
 import { useCommandRunner } from '../-command-runner';
 import { StopProgressSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
@@ -32,30 +45,19 @@ import { WorklistTabs } from '../-worklist-tabs';
 import {
 	type AssignmentStopView,
 	type AssignmentView,
-	assignmentDisplayName,
 	assignmentStopTone,
 	canCompleteAssignment,
-	cancelAssignment,
 	canProgressItems,
+	canRecordStopWork,
 	canStartAssignment,
-	completeAssignment,
-	completeAssignmentItem,
 	type ItemAction,
 	itemActionsFor,
-	type ProgressCounts,
-	reopenAssignment,
-	reopenAssignmentItem,
-	skipAssignmentItem,
-	startAssignment,
-	unskipAssignmentItem,
 	useAssigneeOptions,
 	useAssignment,
 	useAssignmentStops,
 } from './-assignment-data';
 import {
 	AssignmentStatusBadge,
-	formatAssignmentDate,
-	formatDueAt,
 	ItemProgressBadge,
 	TargetLink,
 	TargetTypePill,
@@ -82,9 +84,13 @@ function AssignmentRunRoute() {
 	const auth = useAuthSnapshot();
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 
+	const { start, complete, cancel, reopen } = useAssignmentMutations();
+	const items = useAssignmentItemMutations();
+
 	const { assignment, isReady } = useAssignment(id);
 	const { stops, features, counts, isLoading } = useAssignmentStops(id);
 	const { nameById } = useAssigneeOptions();
+	const timeZone = useOrganizationTimeZone();
 
 	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 	const [highlightId, setHighlightId] = useState<string | null>(null);
@@ -105,18 +111,17 @@ function AssignmentRunRoute() {
 				setSkipTarget(stop);
 				return;
 			}
-			const profileId = identity?.profileId ?? null;
 			void run(
 				() =>
 					action === 'complete'
-						? completeAssignmentItem(stop.assignmentItemId, profileId)
+						? items.complete(stop.assignmentItemId)
 						: action === 'unskip'
-							? unskipAssignmentItem(stop.assignmentItemId)
-							: reopenAssignmentItem(stop.assignmentItemId),
+							? items.unskip(stop.assignmentItemId)
+							: items.reopen(stop.assignmentItemId),
 				'Unable to update that stop.',
 			);
 		},
-		[identity, run],
+		[items, run],
 	);
 
 	const confirmSkip = useCallback(
@@ -126,23 +131,20 @@ function AssignmentRunRoute() {
 			if (target === null) {
 				return;
 			}
-			void run(
-				() => skipAssignmentItem(target.assignmentItemId, reason, identity?.profileId ?? null),
-				'Unable to skip that stop.',
-			);
+			void run(() => items.skip(target.assignmentItemId, reason), 'Unable to skip that stop.');
 		},
-		[skipTarget, identity, run],
+		[skipTarget, items, run],
 	);
 
 	const confirmCancel = useCallback(
 		(reason: string) => {
 			setCancelOpen(false);
 			void run(
-				() => cancelAssignment(id, reason.trim().length === 0 ? null : reason.trim()),
+				() => cancel(id, reason.trim().length === 0 ? null : reason.trim()),
 				'Unable to cancel this assignment.',
 			);
 		},
-		[id, run],
+		[id, run, cancel],
 	);
 
 	if (isReady && assignment === null) {
@@ -150,6 +152,8 @@ function AssignmentRunRoute() {
 	}
 
 	const itemsEnabled = assignment !== null && canProgressItems(assignment.status) && !busy;
+	// Wider than `itemsEnabled` on purpose: recording auto-starts the assignment.
+	const recordEnabled = assignment !== null && canRecordStopWork(assignment.status) && !busy;
 
 	return (
 		<>
@@ -193,9 +197,9 @@ function AssignmentRunRoute() {
 										<p className="m-0 mt-0.5 text-muted-foreground text-sm">
 											{formatAssignmentDate(assignment.assignmentDate)} ·{' '}
 											{assigneeName ?? 'Unassigned'}
-											{formatDueAt(assignment.dueAt) === null
+											{formatDueAt(assignment.dueAt, timeZone) === null
 												? ''
-												: ` · due ${formatDueAt(assignment.dueAt)}`}
+												: ` · due ${formatDueAt(assignment.dueAt, timeZone)}`}
 										</p>
 									</div>
 									<div className="flex shrink-0 items-center gap-2">
@@ -223,14 +227,10 @@ function AssignmentRunRoute() {
 										counts={counts}
 										onCancel={() => setCancelOpen(true)}
 										onComplete={() =>
-											void run(() => completeAssignment(id), 'Unable to complete this assignment.')
+											void run(() => complete(id), 'Unable to complete this assignment.')
 										}
-										onReopen={() =>
-											void run(() => reopenAssignment(id), 'Unable to reopen this assignment.')
-										}
-										onStart={() =>
-											void run(() => startAssignment(id), 'Unable to start this assignment.')
-										}
+										onReopen={() => void run(() => reopen(id), 'Unable to reopen this assignment.')}
+										onStart={() => void run(() => start(id), 'Unable to start this assignment.')}
 									/>
 								</WriteOnly>
 
@@ -257,6 +257,7 @@ function AssignmentRunRoute() {
 						<RunStopList
 							assignmentId={id}
 							enabled={itemsEnabled}
+							recordEnabled={recordEnabled}
 							highlightId={highlightId}
 							isLoading={isLoading}
 							onAction={itemAction}
@@ -368,6 +369,7 @@ function RunStopList({
 	assignmentId,
 	stops,
 	enabled,
+	recordEnabled,
 	isLoading,
 	selectedStopId,
 	highlightId,
@@ -378,6 +380,7 @@ function RunStopList({
 	readonly assignmentId: string;
 	readonly stops: readonly AssignmentStopView[];
 	readonly enabled: boolean;
+	readonly recordEnabled: boolean;
 	readonly isLoading: boolean;
 	readonly selectedStopId: string | null;
 	readonly highlightId: string | null;
@@ -427,7 +430,9 @@ function RunStopList({
 		<ol className="m-0 min-h-0 flex-1 list-none space-y-2 overflow-y-auto p-3">
 			{stops.map((stop) => (
 				<RunStopRow
+					assignmentId={assignmentId}
 					enabled={enabled}
+					recordEnabled={recordEnabled}
 					isHighlighted={stop.assignmentItemId === highlightId}
 					isSelected={stop.assignmentItemId === selectedStopId}
 					key={stop.assignmentItemId}
@@ -448,9 +453,132 @@ const ACTION_LABELS: Readonly<Record<ItemAction, string>> = {
 	reopen: 'Reopen',
 };
 
+/**
+ * The record a stop exists to produce.
+ *
+ * Recording it is the ordinary way to finish a stop — the server writes the
+ * record, links it, and completes the stop in one transaction. "Done" stays
+ * beside it for the corrections and for the stops that produce nothing
+ * linkable, which is every service request stop today.
+ */
+function RecordStopWorkButton({
+	stop,
+	assignmentId,
+	enabled,
+}: {
+	readonly stop: AssignmentStopView;
+	readonly assignmentId: string;
+	readonly enabled: boolean;
+}) {
+	// The stop's own target rides along, so the form opens on the place the crew
+	// was sent rather than asking them to find it again. Left out, the server
+	// would default it anyway — but the field is required client-side, so the
+	// crew re-picks it, and a wrong pick is a target mismatch rather than a typo.
+	const search = { assignmentItemId: stop.assignmentItemId, assignmentId };
+
+	if (stop.entityType === 'habitat') {
+		return (
+			<Button asChild={enabled} disabled={!enabled} size="sm" variant="default">
+				{enabled ? (
+					<Link
+						search={{ ...search, habitatId: stop.entityId }}
+						to="/larval-surveillance/inspections/create"
+					>
+						Record inspection
+					</Link>
+				) : (
+					<span>Record inspection</span>
+				)}
+			</Button>
+		);
+	}
+
+	if (stop.entityType === 'trap') {
+		// A trap with a collection already out on it is the second visit of two:
+		// the work here is emptying what somebody set, not setting a new one.
+		if (stop.pendingCollectionId !== null) {
+			return (
+				<CollectStopButton collectionId={stop.pendingCollectionId} enabled={enabled} stop={stop} />
+			);
+		}
+		return (
+			<Button asChild={enabled} disabled={!enabled} size="sm" variant="default">
+				{enabled ? (
+					<Link
+						search={{ ...search, trapId: stop.entityId }}
+						to="/adult-surveillance/collections/create"
+					>
+						Record collection
+					</Link>
+				) : (
+					<span>Record collection</span>
+				)}
+			</Button>
+		);
+	}
+
+	// Service request stops have no single record to point at, so they keep the
+	// two-step flow: handle the request, then mark the stop done.
+	return null;
+}
+
+/**
+ * Emptying the trap this stop was sent to, without leaving the worklist.
+ *
+ * The collection already exists, so there is no form to open — only the date to
+ * confirm. The write links the collection to this stop and completes it in one
+ * transaction, the same as the create path does for a first visit.
+ */
+function CollectStopButton({
+	stop,
+	collectionId,
+	enabled,
+}: {
+	readonly stop: AssignmentStopView;
+	readonly collectionId: string;
+	readonly enabled: boolean;
+}) {
+	const [open, setOpen] = useState(false);
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+	const timeZone = useOrganizationTimeZone();
+	const { collect } = useCollectionMutations();
+
+	return (
+		<>
+			<Button disabled={!enabled} onClick={() => setOpen(true)} size="sm" variant="default">
+				Collect
+			</Button>
+			<CollectCollectionDialog
+				defaultDate={todayInTimeZone(timeZone)}
+				onConfirm={(collectedAt) => {
+					setOpen(false);
+					void runAcknowledged((acknowledgements) =>
+						collect({
+							acknowledgements,
+							// The stop this visit closes — which is what makes the write a
+							// `fieldWork.*` command rather than an ordinary collect.
+							assignmentItemId: stop.assignmentItemId,
+							// Midday on the agency's clock, clamped back to now on the same
+							// day — the same stamp the collection forms use, and the one every
+							// surface reads the day back with.
+							collectedAt: operationalDayAsTimestamp(collectedAt, timeZone) ?? new Date(),
+							collectionId,
+						}),
+					);
+				}}
+				onOpenChange={setOpen}
+				open={open}
+			/>
+			{acknowledgeDialog}
+		</>
+	);
+}
+
 function RunStopRow({
 	stop,
+	assignmentId,
 	enabled,
+	recordEnabled,
 	isSelected,
 	isHighlighted,
 	onAction,
@@ -458,7 +586,9 @@ function RunStopRow({
 	onHover,
 }: {
 	readonly stop: AssignmentStopView;
+	readonly assignmentId: string;
 	readonly enabled: boolean;
+	readonly recordEnabled: boolean;
 	readonly isSelected: boolean;
 	readonly isHighlighted: boolean;
 	readonly onAction: (stop: AssignmentStopView, action: ItemAction) => void;
@@ -523,13 +653,20 @@ function RunStopRow({
 
 					<WriteOnly>
 						<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
+							{stop.progress === 'pending' ? (
+								<RecordStopWorkButton
+									assignmentId={assignmentId}
+									enabled={recordEnabled}
+									stop={stop}
+								/>
+							) : null}
 							{actions.map((action) => (
 								<Button
 									disabled={!enabled}
 									key={action}
 									onClick={() => onAction(stop, action)}
 									size="sm"
-									variant={action === 'complete' ? 'default' : 'outline'}
+									variant="outline"
 								>
 									{ACTION_LABELS[action]}
 								</Button>

@@ -1,11 +1,10 @@
-import type { CollectionMethodRow, OrganizationRow, TrapRow } from '@simmer-mosquito/sync';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { TableCell, TableHead, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import {
 	CatalogActionsHead,
 	CatalogDialogCancel,
@@ -15,23 +14,26 @@ import {
 	CatalogRecordDialog,
 	CatalogRowActions,
 	CatalogSection,
-	commitCatalogWrite,
-	toggleCatalogLifecycle,
+	catalogFields,
+	catalogFormValues,
+	commitCatalogSave,
+	toggleCatalogActive,
 	useCatalogDialogOpen,
 	useCatalogSearch,
 	useResetOnOpen,
 } from '../../components/catalog';
 import { CustomFieldsCell } from '../../components/custom-fields-cell';
 import { EmptyValue } from '../../components/empty-value';
-import { useActiveNamedCollectionRows } from '../../hooks/use-active-named-collection-rows';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
-import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { webCollections } from '../../sync/webCollections';
 import {
-	collectionMethodFormValues,
-	createAdultCollectionMethodFromValues,
-	updateAdultCollectionMethodFromValues,
-} from '../my-organization/-components/helpers';
+	type CatalogMutations,
+	useCollectionMethodMutations,
+} from '../../hooks/mutations/use-catalog-mutations';
+import { useActiveTrapCountsByMethod } from '../../hooks/queries/use-active-trap-counts-by-method';
+import {
+	type CollectionMethodRecord,
+	useCollectionMethodRecords,
+} from '../../hooks/queries/use-catalog-records';
+import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
 
 export const Route = createFileRoute('/adult-surveillance/collection-methods')({
 	component: CollectionMethodsRoute,
@@ -43,25 +45,7 @@ const TrapIcon = iconRegistry.entities.trap.icon;
 
 type UsageById = ReadonlyMap<string, number>;
 
-/**
- * Active-trap counts per collection method. Traps sync eagerly, so this is a local
- * aggregate rather than a server round-trip.
- */
-function useMethodTrapUsage(): UsageById {
-	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
-
-	return useMemo(() => {
-		const usage = new Map<string, number>();
-		for (const trap of traps) {
-			if (trap.isActive) {
-				usage.set(trap.collectionMethodId, (usage.get(trap.collectionMethodId) ?? 0) + 1);
-			}
-		}
-		return usage;
-	}, [traps]);
-}
-
-function matchesMethod(row: CollectionMethodRow, query: string): boolean {
+function matchesMethod(row: CollectionMethodRecord, query: string): boolean {
 	return (
 		row.name.toLowerCase().includes(query) || (row.description ?? '').toLowerCase().includes(query)
 	);
@@ -69,18 +53,17 @@ function matchesMethod(row: CollectionMethodRow, query: string): boolean {
 
 function CollectionMethodsRoute() {
 	const { auth } = Route.useRouteContext();
-	const { canManage, organization } = useOrganizationWorkspace(auth.snapshot);
-	const { activeRows, inactiveRows } = useActiveNamedCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-	const usageById = useMethodTrapUsage();
-	const search = useCatalogSearch(activeRows, inactiveRows, matchesMethod);
+	const { canManage } = useOrganizationWorkspace(auth.snapshot);
+	const { activeRecords, inactiveRecords } = useCollectionMethodRecords();
+	const mutations = useCollectionMethodMutations();
+	const usageById = useActiveTrapCountsByMethod();
+	const search = useCatalogSearch(activeRecords, inactiveRecords, matchesMethod);
 
 	// The header and the empty state offer the same way in, so they mount the
 	// same dialog rather than each spelling out its own trigger.
 	const addMethodDialog = (
 		<CollectionMethodDialog
-			organization={organization}
+			mutations={mutations}
 			trigger={
 				<Button type="button">
 					<AddIcon aria-hidden="true" />
@@ -122,7 +105,7 @@ function CollectionMethodsRoute() {
 							? 'No active collection methods match your search.'
 							: 'No active collection methods. Add one to start recording traps.'
 					}
-					organization={organization}
+					mutations={mutations}
 					rows={search.filteredActive}
 					title="Active"
 					tone="active"
@@ -132,7 +115,7 @@ function CollectionMethodsRoute() {
 					<CollectionMethodSection
 						canManage={canManage}
 						emptyLabel="No inactive collection methods match your search."
-						organization={organization}
+						mutations={mutations}
 						rows={search.filteredInactive}
 						title="Inactive"
 						tone="inactive"
@@ -147,7 +130,7 @@ function CollectionMethodsRoute() {
 function CollectionMethodSection({
 	canManage,
 	emptyLabel,
-	organization,
+	mutations,
 	rows,
 	title,
 	tone,
@@ -155,8 +138,8 @@ function CollectionMethodSection({
 }: {
 	readonly canManage: boolean;
 	readonly emptyLabel: string;
-	readonly organization: OrganizationRow | null;
-	readonly rows: readonly CollectionMethodRow[];
+	readonly mutations: CatalogMutations;
+	readonly rows: readonly CollectionMethodRecord[];
 	readonly title: string;
 	readonly tone: 'active' | 'inactive';
 	readonly usageById: UsageById;
@@ -197,7 +180,7 @@ function CollectionMethodSection({
 							<CollectionMethodRowActions
 								activeTrapCount={usageById.get(method.id) ?? 0}
 								method={method}
-								organization={organization}
+								mutations={mutations}
 							/>
 						</TableCell>
 					) : null}
@@ -231,11 +214,11 @@ function TrapsCount({ count }: { readonly count: number }) {
 function CollectionMethodRowActions({
 	activeTrapCount,
 	method,
-	organization,
+	mutations,
 }: {
 	readonly activeTrapCount: number;
-	readonly method: CollectionMethodRow;
-	readonly organization: OrganizationRow | null;
+	readonly method: CollectionMethodRecord;
+	readonly mutations: CatalogMutations;
 }) {
 	const [editOpen, setEditOpen] = useState(false);
 	// The server blocks deactivation while active traps still reference the method.
@@ -248,44 +231,38 @@ function CollectionMethodRowActions({
 				isActive={method.isActive}
 				name={method.name}
 				onEdit={() => setEditOpen(true)}
-				onToggle={() => toggleCollectionMethodActive(method)}
+				onToggle={() =>
+					toggleCatalogActive({
+						apply: (isActive) => mutations.setActive(method.id, isActive),
+						isActive: method.isActive,
+						name: method.name,
+					})
+				}
 				toggleDisabled={deactivateBlocked}
 				toggleHint={`In use by ${activeTrapCount} active ${activeTrapCount === 1 ? 'trap' : 'traps'}.`}
 			/>
 			<CollectionMethodDialog
 				method={method}
+				mutations={mutations}
 				onOpenChange={setEditOpen}
 				open={editOpen}
-				organization={organization}
 			/>
 		</>
 	);
 }
 
-function toggleCollectionMethodActive(method: CollectionMethodRow): void {
-	toggleCatalogLifecycle({
-		apply: (isActive) =>
-			updateAdultCollectionMethodFromValues(method, {
-				...collectionMethodFormValues(method),
-				isActive,
-			}),
-		isActive: method.isActive,
-		name: method.name,
-	});
-}
-
 function CollectionMethodDialog({
 	method,
+	mutations,
 	onOpenChange,
 	open: controlledOpen,
-	organization,
 	trigger,
 }: {
-	readonly method?: CollectionMethodRow | undefined;
+	readonly method?: CollectionMethodRecord | undefined;
+	readonly mutations: CatalogMutations;
 	/** Controlled open handler — pair with `open` when there is no `trigger`. */
 	readonly onOpenChange?: ((open: boolean) => void) | undefined;
 	readonly open?: boolean | undefined;
-	readonly organization: OrganizationRow | null;
 	/** Uncontrolled mode: the element that opens the dialog (Add button, empty-state CTA). */
 	readonly trigger?: React.ReactNode;
 }) {
@@ -293,33 +270,36 @@ function CollectionMethodDialog({
 	const isEditing = method !== undefined;
 
 	const form = useAppForm({
-		defaultValues: collectionMethodFormValues(method),
+		defaultValues: catalogFormValues(method),
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			commitCatalogWrite({
+			commitCatalogSave({
 				failureMessage: isEditing
 					? `Unable to save ${method.name}.`
 					: 'Unable to create collection method.',
 				onWritten: () => setOpen(false),
-				write: () =>
+				save: () =>
 					isEditing
-						? updateAdultCollectionMethodFromValues(method, value)
-						: createAdultCollectionMethodFromValues(organization, value),
+						? mutations.save(
+								method.id,
+								catalogFields(value),
+								catalogFields(catalogFormValues(method)),
+							)
+						: mutations.create(catalogFields(value)).then(() => undefined),
 			});
 		},
 	});
 
-	useResetOnOpen(open, method, () => form.reset(collectionMethodFormValues(method)));
+	useResetOnOpen(open, method, () => form.reset(catalogFormValues(method)));
 
 	return (
 		<form.AppForm>
 			<CatalogRecordDialog
 				actions={
 					<form.FormActions>
-						<form.SubmitButton disabled={organization === null} />
+						<form.SubmitButton disabled={!mutations.canWrite} />
 						<CatalogDialogCancel />
 					</form.FormActions>
 				}

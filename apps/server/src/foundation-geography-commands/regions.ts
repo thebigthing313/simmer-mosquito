@@ -1,4 +1,4 @@
-import { applyRecordDeletion } from '@simmer-mosquito/db';
+import { applyRecordDeletion, checkedValues } from '@simmer-mosquito/db';
 import {
 	createRegionCommand,
 	deleteRegionCommand,
@@ -21,12 +21,11 @@ import {
 	type FoundationTransaction,
 	geojsonToGeom,
 	invalidUpdate,
+	type RegionRow,
 	type RouteOptions,
 	regionReturnColumns,
 	runCommands,
-	type SafeRegion,
 	softDelete,
-	toSafeRegion,
 	updateRow,
 } from './shared.js';
 
@@ -149,28 +148,35 @@ async function runRegionCommands(
 	);
 }
 
-async function writeRegionCommand(
+/**
+ * Exported for `table-commands/regions.ts`, which serves the same five commands
+ * at `/commands/regions`. One writer, so the two surfaces cannot write a region
+ * differently; only the choosing differs.
+ */
+export async function writeRegionCommand(
 	trx: FoundationTransaction,
 	command: FoundationCommand,
-): Promise<SafeRegion | null> {
+): Promise<RegionRow | null> {
 	switch (command.type) {
 		case 'foundation.createRegion': {
 			const row = await trx
 				.insertInto('regions')
-				.values({
-					id: command.payload.regionId,
-					organization_id: command.payload.organizationId,
-					region_folder_id: command.payload.regionFolderId,
-					geom: geojsonToGeom(command.payload.geometry),
-					name: command.payload.name,
-					description: command.payload.description,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.regionId,
+						organization_id: command.payload.organizationId,
+						region_folder_id: command.payload.regionFolderId,
+						geom: geojsonToGeom(command.payload.geometry),
+						name: command.payload.name,
+						description: command.payload.description,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(regionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeRegion(row);
+			return row;
 		}
 		case 'foundation.updateRegionDetails':
 			return updateRegion(trx, command.payload.regionId, command.payload.organizationId, {
@@ -207,7 +213,6 @@ async function writeRegionCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				regionReturnColumns,
-				toSafeRegion,
 			);
 		default:
 			throw new Error(`Unsupported region command: ${command.type}`);
@@ -219,14 +224,6 @@ async function updateRegion(
 	regionId: string,
 	organizationId: string,
 	set: Record<string, unknown>,
-): Promise<SafeRegion | null> {
-	return updateRow(
-		trx,
-		'regions',
-		regionId,
-		organizationId,
-		set,
-		regionReturnColumns,
-		toSafeRegion,
-	);
+): Promise<RegionRow | null> {
+	return updateRow(trx, 'regions', regionId, organizationId, set, regionReturnColumns);
 }

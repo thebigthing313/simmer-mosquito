@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, checkedValues, sql } from '@simmer-mosquito/db';
 import {
 	type ContactReferenceInput,
 	closeServiceRequestCommand,
@@ -33,10 +33,9 @@ import {
 	resolveContact,
 	resolveServiceRequestAddress,
 	runCommands,
-	type SafeServiceRequest,
+	type ServiceRequestRow,
 	serviceRequestReturnColumns,
 	softDelete,
-	toSafeServiceRequest,
 	updateRow,
 } from './shared.js';
 
@@ -218,10 +217,10 @@ type ServiceRequestPayload<T extends PublicEngagementCommand['type']> = Extract<
  * Which command runs which write. Every arm is a named function below, so this
  * switch stays a routing table rather than the place the work happens.
  */
-async function writeServiceRequestCommand(
+export async function writeServiceRequestCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
-): Promise<SafeServiceRequest | null> {
+): Promise<ServiceRequestRow | null> {
 	switch (command.type) {
 		case 'publicEngagement.createServiceRequest':
 			return insertServiceRequest(trx, command.payload);
@@ -245,7 +244,7 @@ async function writeServiceRequestCommand(
 async function insertServiceRequest(
 	trx: PublicEngagementTransaction,
 	payload: ServiceRequestPayload<'publicEngagement.createServiceRequest'>,
-): Promise<SafeServiceRequest> {
+): Promise<ServiceRequestRow> {
 	const contactId = await resolveContact(
 		trx,
 		payload.organizationId,
@@ -260,28 +259,30 @@ async function insertServiceRequest(
 	);
 	const row = await trx
 		.insertInto('service_requests')
-		.values({
-			id: payload.serviceRequestId,
-			organization_id: payload.organizationId,
-			intake_type: payload.intakeType,
-			request_date: localDateColumn(payload.requestDate),
-			geom: geojsonToGeom(payload.location.geometry),
-			address_id: addressId,
-			contact_id: contactId,
-			received_by_profile_id: payload.receivedByProfileId,
-			details: payload.details,
-			created_by_profile_id: payload.actorProfileId,
-			updated_by_profile_id: payload.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.serviceRequestId,
+				organization_id: payload.organizationId,
+				intake_type: payload.intakeType,
+				request_date: localDateColumn(payload.requestDate),
+				geom: geojsonToGeom(payload.location.geometry),
+				address_id: addressId,
+				contact_id: contactId,
+				received_by_profile_id: payload.receivedByProfileId,
+				details: payload.details,
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
 		.returning(serviceRequestReturnColumns)
 		.executeTakeFirstOrThrow();
-	return toSafeServiceRequest(row);
+	return row;
 }
 
 async function updateServiceRequestDetails(
 	trx: PublicEngagementTransaction,
 	payload: ServiceRequestPayload<'publicEngagement.updateServiceRequestDetails'>,
-): Promise<SafeServiceRequest | null> {
+): Promise<ServiceRequestRow | null> {
 	const { changes } = payload;
 	return updateServiceRequest(trx, payload.serviceRequestId, payload.organizationId, {
 		...('requestDate' in changes && changes.requestDate !== undefined
@@ -299,7 +300,7 @@ async function updateServiceRequestDetails(
 async function reassignServiceRequestContact(
 	trx: PublicEngagementTransaction,
 	payload: ServiceRequestPayload<'publicEngagement.updateServiceRequestContact'>,
-): Promise<SafeServiceRequest | null> {
+): Promise<ServiceRequestRow | null> {
 	const contactId = await resolveContact(
 		trx,
 		payload.organizationId,
@@ -315,7 +316,7 @@ async function reassignServiceRequestContact(
 async function moveServiceRequest(
 	trx: PublicEngagementTransaction,
 	payload: ServiceRequestPayload<'publicEngagement.updateServiceRequestLocation'>,
-): Promise<SafeServiceRequest | null> {
+): Promise<ServiceRequestRow | null> {
 	const addressId = await resolveServiceRequestAddress(
 		trx,
 		payload.organizationId,
@@ -332,7 +333,7 @@ async function moveServiceRequest(
 async function closeServiceRequest(
 	trx: PublicEngagementTransaction,
 	payload: ServiceRequestPayload<'publicEngagement.closeServiceRequest'>,
-): Promise<SafeServiceRequest | null> {
+): Promise<ServiceRequestRow | null> {
 	const closed = await updateServiceRequest(trx, payload.serviceRequestId, payload.organizationId, {
 		closed_at: payload.closedAt === null ? sql`now()` : payload.closedAt,
 		closed_by_profile_id: payload.actorProfileId,
@@ -356,7 +357,7 @@ async function closeServiceRequest(
 async function reopenServiceRequest(
 	trx: PublicEngagementTransaction,
 	payload: ServiceRequestPayload<'publicEngagement.reopenServiceRequest'>,
-): Promise<SafeServiceRequest | null> {
+): Promise<ServiceRequestRow | null> {
 	const reopened = await updateServiceRequest(
 		trx,
 		payload.serviceRequestId,
@@ -387,7 +388,7 @@ async function reopenServiceRequest(
 async function deleteServiceRequest(
 	trx: PublicEngagementTransaction,
 	payload: ServiceRequestPayload<'publicEngagement.deleteServiceRequest'>,
-): Promise<SafeServiceRequest | null> {
+): Promise<ServiceRequestRow | null> {
 	await applyRecordDeletion(trx, {
 		recordType: 'serviceRequest',
 		recordId: payload.serviceRequestId,
@@ -401,7 +402,6 @@ async function deleteServiceRequest(
 		payload.organizationId,
 		payload.actorProfileId,
 		serviceRequestReturnColumns,
-		toSafeServiceRequest,
 	);
 }
 
@@ -410,7 +410,7 @@ async function updateServiceRequest(
 	serviceRequestId: string,
 	organizationId: string,
 	set: Record<string, unknown>,
-): Promise<SafeServiceRequest | null> {
+): Promise<ServiceRequestRow | null> {
 	return updateRow(
 		trx,
 		'service_requests',
@@ -418,6 +418,5 @@ async function updateServiceRequest(
 		organizationId,
 		set,
 		serviceRequestReturnColumns,
-		toSafeServiceRequest,
 	);
 }

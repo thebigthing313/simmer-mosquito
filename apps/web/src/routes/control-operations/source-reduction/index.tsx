@@ -1,25 +1,26 @@
-import type { ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
-	ExplorerHeader,
+	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
 	mapQueryParams,
-	ResultList,
 	toggle,
 	useDateRangeFilters,
+	useExplorerPanel,
 	useFlyToSelection,
 	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
 	useSelectedMapRecord,
+	useSourceReductionMethodOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -27,7 +28,10 @@ import {
 	MapCanvas,
 	type SourceReductionTileFilters,
 } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
+import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { todayInTimeZone } from '../../../lib/local-date';
 import {
 	dateParam,
 	type FilterCodecs,
@@ -35,10 +39,9 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
-import { formatAmount, nameById, todayDateValue } from '../-control-display';
-import { addDaysToDateString, useHabitatNames } from '../-overview-data';
+import { formatAmount } from '../-control-display';
+import { addDaysToDateString } from '../-overview-data';
 import { SourceReductionMapCard } from '../-source-reduction-map-card';
 
 interface SourceReductionSite {
@@ -70,6 +73,8 @@ const FILTER_CODECS: FilterCodecs<SourceReductionFilters> = {
 	regions: idSetParam,
 };
 
+const SourceReductionEntityIcon = iconRegistry.entities.sourceReductionAction.icon;
+
 export const Route = createFileRoute('/control-operations/source-reduction/')({
 	component: SourceReductionExplorerRoute,
 	validateSearch: searchValidator(FILTER_CODECS),
@@ -80,7 +85,8 @@ const RESULT_NOUN = { one: 'source reduction', many: 'source reductions' };
 const PATH = '/map/source-reduction';
 
 function SourceReductionExplorerRoute() {
-	const today = useMemo(() => todayDateValue(), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const defaultFrom = useMemo(
 		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
 		[today],
@@ -117,15 +123,11 @@ function SourceReductionExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(
-		webCollections.sourceReductionMethods,
-	);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-
-	const methodNameById = useMemo(() => nameById(methods, (method) => method.name), [methods]);
-	const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
+	const { options: methodOptions, nameById: methodNameById } = useSourceReductionMethodOptions();
+	const unitById = useUnitLabels().byId;
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
@@ -153,7 +155,7 @@ function SourceReductionExplorerRoute() {
 		[filters],
 	);
 
-	const { rows, total, isLoading, page, pageCount, setPage } =
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
 		usePagedMapResource<SourceReductionSite>({
 			path: PATH,
 			rowsKey: 'sourceReductions',
@@ -183,47 +185,26 @@ function SourceReductionExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const hasActiveFilters =
-		dateFrom !== defaultFrom ||
-		dateTo !== today ||
-		methodIds.size > 0 ||
-		personIds.size > 0 ||
-		regionIds.size > 0;
+	const activeFilterCount =
+		(dateFrom === defaultFrom && dateTo === today ? 0 : 1) +
+		methodIds.size +
+		personIds.size +
+		regionIds.size;
 	const clearAll = reset;
 
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.sourceReduction] }}
-						controls={{ layers: false, measure: true }}
-						fitToData
-						onMapReady={handleMapReady}
-						sourceReductionLayer={sourceReductionLayer}
-					/>
-					{selected === null ? null : (
-						<SourceReductionMapCard id={selected.id} onClose={() => setSelectedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<ExplorerHeader
-					create={{ to: '/control-operations/source-reduction/create', label: 'Record' }}
-					isLoading={isLoading}
-					noun={RESULT_NOUN}
-					title="Source Reduction"
-					total={total}
-				>
 					<DateRangeFilter {...dateRange} />
 
-					<div className="flex flex-wrap items-center gap-2">
+					<FilterGrid>
 						<MultiSelectFilter
 							empty="No source reduction methods"
 							label="Method"
 							onChange={setMethodIds}
-							options={methods.map((method) => ({ id: method.id, label: method.name }))}
+							options={methodOptions}
 							selected={methodIds}
 						/>
 						<MultiSelectFilter
@@ -240,9 +221,9 @@ function SourceReductionExplorerRoute() {
 							options={regions.options}
 							selected={regionIds}
 						/>
-					</div>
+					</FilterGrid>
 
-					{hasActiveFilters ? (
+					{activeFilterCount > 0 ? (
 						<ActiveFilterBar onClearAll={clearAll}>
 							{[...methodIds].map((id) => (
 								<FilterChip
@@ -267,81 +248,80 @@ function SourceReductionExplorerRoute() {
 							))}
 						</ActiveFilterBar>
 					) : null}
-				</ExplorerHeader>
-
-				<SourceReductionResults
-					habitatNameById={habitatNameById}
-					isLoading={isLoading}
-					methodNameById={methodNameById}
-					onSelect={setSelectedId}
-					personnelNameById={personnel.nameById}
-					rows={rows}
-					selectedId={selectedId}
-					unitById={unitById}
+				</>
+			}
+			footer={
+				<ExplorerPagination
+					noun={{ one: 'source reduction', many: 'source reductions' }}
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
 				/>
-
-				<div className="border-border/50 border-t p-3">
-					<ExplorerPagination
-						noun="source reductions"
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={total}
+			}
+			heading={{
+				title: 'Source Reduction',
+				icon: SourceReductionEntityIcon,
+				total,
+				isLoading,
+				noun: RESULT_NOUN,
+				create: {
+					to: '/control-operations/source-reduction/create',
+					label: 'Record Source Reduction',
+				},
+			}}
+			onResetFilters={clearAll}
+			map={
+				<>
+					<MapCanvas
+						inset={panel.inset}
+						searchWidth={panel.width}
+						contextMenu={{ create: [MAP_CREATE_TARGETS.sourceReduction] }}
+						controls={{ layers: false, measure: true, readout: true }}
+						fitToData
+						onMapReady={handleMapReady}
+						sourceReductionLayer={sourceReductionLayer}
 					/>
-				</div>
-			</div>
-		</MapSplitPage>
-	);
-}
-
-// --- results ----------------------------------------------------------------
-
-function SourceReductionResults({
-	rows,
-	isLoading,
-	selectedId,
-	methodNameById,
-	personnelNameById,
-	habitatNameById,
-	unitById,
-	onSelect,
-}: {
-	readonly rows: readonly SourceReductionSite[];
-	readonly isLoading: boolean;
-	readonly selectedId: string | null;
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly personnelNameById: ReadonlyMap<string, string>;
-	readonly habitatNameById: ReadonlyMap<string, string>;
-	readonly unitById: ReadonlyMap<string, UnitRow>;
-	readonly onSelect: (id: string) => void;
-}) {
-	return (
-		<ResultList
-			emptyDescription="Widen the time window or loosen the filters to bring actions into range."
-			emptyTitle="No source reduction in range"
-			isLoading={isLoading}
-			rows={rows}
-		>
-			{(row) => (
-				<SourceReductionListItem
-					amountLabel={formatAmount(
-						row.sourcesEliminatedAmount,
-						unitById.get(row.sourcesEliminatedUnitId),
+					{selected === null ? null : (
+						<SourceReductionMapCard
+							id={selected.id}
+							inset={panel.inset}
+							onClose={() => setSelectedId(null)}
+						/>
 					)}
-					habitatName={row.habitatId === null ? null : (habitatNameById.get(row.habitatId) ?? null)}
-					isSelected={row.id === selectedId}
-					key={row.id}
-					methodName={methodNameById.get(row.sourceReductionMethodId) ?? 'Unknown method'}
-					onSelect={onSelect}
-					row={row}
-					technicianName={
-						row.technicianProfileId === null
-							? null
-							: (personnelNameById.get(row.technicianProfileId) ?? null)
-					}
-				/>
-			)}
-		</ResultList>
+				</>
+			}
+			panel={panel}
+			results={{
+				rows,
+				isError,
+				onRetry: retry,
+				emptyTitle: 'No source reduction in range',
+				emptyDescription:
+					'Widen the time window or loosen the filters to bring actions into range.',
+				renderRow: (row) => (
+					<SourceReductionListItem
+						amountLabel={formatAmount(
+							row.sourcesEliminatedAmount,
+							unitById.get(row.sourcesEliminatedUnitId),
+						)}
+						habitatName={
+							row.habitatId === null ? null : (habitatNameById.get(row.habitatId) ?? null)
+						}
+						isSelected={row.id === selectedId}
+						key={row.id}
+						methodName={methodNameById.get(row.sourceReductionMethodId) ?? 'Unknown method'}
+						onSelect={setSelectedId}
+						row={row}
+						technicianName={
+							row.technicianProfileId === null
+								? null
+								: (personnel.nameById.get(row.technicianProfileId) ?? null)
+						}
+					/>
+				),
+			}}
+		/>
 	);
 }
 

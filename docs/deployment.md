@@ -1,8 +1,8 @@
-# Deployment Runbook
+# Deployment runbook
 
 SIMMER has three operating environments:
 
-- **local development** — `apps/server` and the frontends run on your machine.
+- **local development**: `apps/server` and the frontends run on your machine.
   Postgres + Electric come from **either** the Railway `staging` environment
   (recommended default) **or** local Docker Compose. See "Local development".
 - **staging** on Railway, deployed from the `staging` branch.
@@ -31,13 +31,13 @@ The admin service runs in **Serverless** mode in both environments; see "Admin
 service (Serverless)". Note its Railway service name differs per environment
 (`admin` in staging, `admin-prod` in production).
 
-In every environment, browsers never call Electric directly — they call the Hono
+In every environment, browsers never call Electric directly. They call the Hono
 server's authenticated `/sync/shapes/*` routes and the server proxies to Electric.
 Electric's networking differs per environment:
 
-- **production** — Electric is **private** (`electric.railway.internal:3000`) and
+- **production**: Electric is **private** (`electric.railway.internal:3000`) and
   runs `ELECTRIC_INSECURE=true`. Only the co-located prod server reaches it.
-- **staging** — Electric has a **public domain** and is secured with
+- **staging**: Electric has a **public domain** and is secured with
   `ELECTRIC_SECRET` (not `ELECTRIC_INSECURE`). This lets a **locally-run** server
   reach it for Railway-backed local development, without leaving it
   world-readable. See "Electric service" for the exact settings.
@@ -68,16 +68,16 @@ Caddy (`Caddyfile.local`) is the browser-facing front for all three:
 HTTP/2 is the reason it exists: Electric sync opens many concurrent shape
 requests and HTTP/1.1 caps a browser at ~6 per origin, so without it streams
 queue and the workspace stalls. **Use the Caddy origins in the browser, not the
-Vite ports** — `APP_ORIGIN`, `ADMIN_APP_ORIGIN`, `VITE_SERVER_URL`, and
+Vite ports.** `APP_ORIGIN`, `ADMIN_APP_ORIGIN`, `VITE_SERVER_URL`, and
 `VITE_SHAPE_SERVER_URL` are all set to them, and the server matches the first two
 against the request origin for CORS. Hitting `http://localhost:5174` directly
 puts the console on an origin the server does not allow, and every `/admin/*`
 call fails CORS.
 
-### Mode A — Railway-backed (recommended)
+### Mode A: Railway-backed (recommended)
 
 Run the apps locally but point them at the **staging** environment's Postgres +
-Electric on Railway. This is the default going forward — it frees local resources
+Electric on Railway. This is the default going forward. It frees local resources
 and avoids flaky local Electric. Because a laptop-hosted server cannot reach
 `*.railway.internal`, use staging Postgres's **public TCP proxy** URL and
 Electric's **public domain** (secured with `ELECTRIC_SECRET`; see "Electric
@@ -97,12 +97,14 @@ from the Electric service's public domain. Leave everything else local
 (`APP_ORIGIN`, `VITE_*`, `WORKOS_REDIRECT_URI`, `DEV_IMPERSONATE_*`). No local
 Docker is needed; stop it if running (`docker compose down`).
 
-Seed staging with realistic data by cloning production into it — see "Cloning
-production data into staging". The `DEV_IMPERSONATE_*` ids in `.env` must
-correspond to a membership present in that data (they're prod-derived, so a prod
-clone satisfies them) for the dev auth bypass to resolve.
+Seed staging with realistic data by cloning production into it. See "Cloning
+production data into staging". The dev auth bypass is commented out in `.env` by
+default, and local dev signs in through the real WorkOS staging tenant. If you
+turn the bypass back on, the `DEV_IMPERSONATE_*` ids must correspond to a
+membership present in the cloned data; they are prod-derived, so a prod clone
+satisfies them.
 
-### Mode B — fully local Docker
+### Mode B: fully local Docker
 
 Self-contained; requires no Railway resources. Start local Postgres + Electric:
 
@@ -113,7 +115,7 @@ pnpm --filter @simmer-mosquito/db seed:sync-baseline
 ```
 
 Use the `.env.example` values (Postgres on `localhost:55432`, Electric on
-`localhost:3001`, `ELECTRIC_SECRET` unset — local Electric runs
+`localhost:3001`, `ELECTRIC_SECRET` unset, because local Electric runs
 `ELECTRIC_INSECURE=true`).
 
 ## Cloning production data into staging
@@ -121,7 +123,7 @@ Use the `.env.example` values (Postgres on `localhost:55432`, Electric on
 `scripts/clone-prod-to-staging.ps1` reloads the staging database from a prod dump
 so Railway-backed local dev shows realistic data. It uses locally-installed
 PostgreSQL client tools (auto-detects `C:\Program Files\PostgreSQL\*\bin`; a client
->= the server major version — 18 is fine — no Docker required) and resets the
+>= the server major version, so 18 is fine, and no Docker required) and resets the
 target with `DROP SCHEMA public CASCADE` rather than `DROP DATABASE`, so the
 Electric replication slot is left intact and **Electric does not need to be
 stopped**. Electric re-snapshots each shape on demand after the reload.
@@ -136,13 +138,13 @@ $env:STAGING_DATABASE_URL = '<staging public proxy URL>?sslmode=disable'
 
 ### How much history staging keeps
 
-Prod carries operational records back to 2011 — roughly half a million
+Prod carries operational records back to 2011: roughly half a million
 inspections and two hundred thousand applications. Staging exists to make local
 dev realistic, which three years of history does as well as fifteen, against a
 database that syncs, re-snapshots, and restores in a fraction of the time.
 
 So the clone keeps the **last 3 years of dated records** by default and **all
-reference data**. Dated means the things an agency performs — inspections,
+reference data**. Dated means the things an agency performs: inspections,
 applications, collections, biocontrol and source-reduction actions, outreach,
 service requests, requests for control, assignments, missions, weather
 summaries. Reference data is what it accumulates: habitats, traps, addresses,
@@ -150,7 +152,7 @@ regions, contacts, routes, taxonomy, methods, products, units, profiles,
 memberships. A habitat is still the habitat it was in 2011, and deleting those
 would change what the app *is* rather than how much history it holds.
 
-The dump itself is always whole — prod is only ever read — and the trim runs on
+The dump itself is always whole, since prod is only ever read, and the trim runs on
 staging afterwards via `scripts/prune-staging-history.sql`, which is also
 runnable on its own:
 
@@ -174,15 +176,15 @@ Three things that file handles and a hand-written `DELETE` would not:
   builds them for the duration and drops them afterwards.
 
 That last one is worth understanding before touching this, because it is not
-what it looks like. Nearly every foreign-key column here *is* indexed — but
+what it looks like. Nearly every foreign-key column here *is* indexed, but
 indexed `WHERE deleted_at IS NULL`, for the app's soft-delete queries.
 Referential integrity's own lookup carries no such predicate, so **the planner
 cannot use a partial index for it at all**, and the column behaves as though it
 were never indexed. Sixteen columns are in that state and every one of them
 looks covered.
 
-The cost is not subtle. On `application_batches (application_id)` — 217k rows,
-`ON DELETE CASCADE` from `applications` — it was 11ms per deleted application:
+The cost is not subtle. On `application_batches (application_id)`, 217k rows and
+`ON DELETE CASCADE` from `applications`, it was 11ms per deleted application:
 3358ms of a 3362ms delete, and an extrapolated 34 minutes for `applications`
 alone. A plain non-partial index took the same work to 3.4ms, and the whole
 prune to **under 30 seconds**.
@@ -190,14 +192,14 @@ prune to **under 30 seconds**.
 The file therefore *introspects* the missing indexes rather than listing them:
 it walks the `ON DELETE CASCADE` closure of the dated roots, then indexes every
 foreign-key column into that closure with no index referential integrity can
-use. Two hand-written lists were wrong before this became generated — the first
-missed partial indexes, the second missed cascade children — so if you find
+use. Two hand-written lists were wrong before this became generated. The first
+missed partial indexes and the second missed cascade children, so if you find
 yourself adding a table name here, add it to the roots array and let the query
 find the rest. The transient indexes are named `tmp_prune_*` and dropped by
 prefix, so a run that dies partway is cleaned up by the next one.
 
 Whether production wants these indexes permanently is a separate question about
-hard-delete write patterns — see issue #126. The app soft-deletes, so it may
+hard-delete write patterns; see issue #126. The app soft-deletes, so it may
 never pay this cost; a clone script does not get to decide that.
 
 Notes:
@@ -216,7 +218,7 @@ Notes:
 The dump carries **production** WorkOS ids, and local dev authenticates against
 the WorkOS **staging** environment. `resolveActiveLocalAuthIdentity` looks
 organizations up by `workos_organization_id`, so an unrelinked row is invisible
-to a staging session — and worse than invisible: signing in against an org id
+to a staging session, and worse than invisible: signing in against an org id
 that resolves to nothing provisions a *fresh* organization, leaving staging with
 two rows for the same agency.
 
@@ -227,14 +229,14 @@ whose only verification is someone noticing a broken workspace is one clone away
 from being lost, which is exactly what #82 was.
 
 **When a new agency exists in both environments, add it to `$WorkosOrgRelinks`.**
-The script prints any organization whose id is outside the map after relinking —
+The script prints any organization whose id is outside the map after relinking,
 that list should be empty, and anything in it will duplicate on next sign-in.
 Pass `-SkipRelink` only when you intend to work through `DEV_IMPERSONATE_*`.
 
 `scripts/clone-prod-db.ps1` is the sibling that clones prod into **local Docker**
 Postgres (Mode B) instead.
 
-## GitHub Environments
+## GitHub environments
 
 Create GitHub environments named `staging` and `production`.
 
@@ -254,11 +256,11 @@ Each environment needs these variables:
 - `RAILWAY_ADMIN_SERVICE`: Railway admin service name or id.
 - `RAILWAY_WEB_SERVICE`: Railway web service name or id.
 
-## Railway Service Settings
+## Railway service settings
 
 Configure each deployable service from the repository root.
 
-**Server** — Railpack, with install/build/start commands:
+**Server**: Railpack, with install, build, and start commands:
 
 ```sh
 pnpm install --frozen-lockfile
@@ -266,7 +268,18 @@ pnpm --filter @simmer-mosquito/server build
 pnpm --filter @simmer-mosquito/server start
 ```
 
-**Web** and **admin** — Dockerfile, with no commands at all. Both are static
+That filtered build is not the one CI's `verify` job runs. `pnpm build` is
+`nx run-many`, which orders projects from package.json dependencies;
+`pnpm --filter <app> build` is `tsc -b`, which orders them from tsconfig
+`references` alone. A dependency declared in only one of the two is green in CI
+and fails here, on the deploy. See "Build toolchain" in CLAUDE.md, and #175,
+which broke all three services that way. Two CI checks catch that before a
+deploy now. `pnpm check:build-graph` asserts the two graphs agree, and the
+`Shipped build` job runs each app's filtered build against a clean tree, one
+runner per app, because a `dist` another build already left satisfies an import
+whose order was never declared.
+
+**Web** and **admin**: Dockerfile, with no commands at all. Both are static
 sites and neither runs Node in production; see "Static site images" below. On
 each of those two services:
 
@@ -276,7 +289,7 @@ each of those two services:
   one there;
 - **clear the Build Command and Start Command fields.** A leftover start
   command overrides the image's `CMD`, and `pnpm --filter … start` is a script
-  that no longer exists — the deploy would build cleanly and then crash-loop.
+  that no longer exists. The deploy would build cleanly and then crash-loop.
 
 ### Static site images
 
@@ -294,7 +307,7 @@ Three things worth knowing before editing either:
   at the root is what keeps `node_modules` and `.env` out.
 - **`VITE_*` values must be declared as `ARG`.** Railway injects service
   variables into a Docker build only for names the Dockerfile declares. An
-  undeclared one does not fail the build — Vite inlines an empty string and the
+  undeclared one does not fail the build. Vite inlines an empty string and the
   app ships pointed at nothing. Adding a `VITE_*` variable to a service means
   adding an `ARG`/`ENV` pair to that app's Dockerfile in the same change.
 - **the Caddy config is shared** (`Caddyfile.static` at the workspace root, one
@@ -311,7 +324,7 @@ production build locally rather than as a production server (issue #85). The
 `VITE_PREVIEW_ALLOWED_HOSTS` variable existed only to satisfy its host check and
 are both gone; the `preview` npm scripts remain for their documented local use.
 
-## Runtime Variables
+## Runtime variables
 
 Set these on the Railway server service in each environment:
 
@@ -322,7 +335,7 @@ DATABASE_URL=${{postgis.DATABASE_URL}}
 ELECTRIC_URL=http://electric.railway.internal:3000/v1/shape
 HOST=0.0.0.0
 NODE_ENV=production
-SIMMER_OPERATOR_EMAILS=<operator-email-list>
+SIMMER_OPERATOR_ORG_ID=<the WorkOS org that is SIMMER, in this environment>
 WORKOS_API_KEY=<workos-api-key>
 WORKOS_CLIENT_ID=<workos-client-id>
 WORKOS_COOKIE_PASSWORD=<32-plus-character-secret>
@@ -332,7 +345,7 @@ WORKOS_REDIRECT_URI=https://<server-domain>/auth/callback
 On **staging** also set `ELECTRIC_SECRET=<same secret as the staging Electric
 service>` so the server authenticates to the now-secured Electric. Production
 omits it (its Electric is insecure/private). The server keeps using the internal
-`ELECTRIC_URL` in both — the public Electric domain is only for local dev.
+`ELECTRIC_URL` in both, because the public Electric domain is only for local dev.
 
 Set these on the Railway web service (all `VITE_*` are baked in at build time, so
 a change requires a rebuild/redeploy of the service):
@@ -345,7 +358,7 @@ VITE_MAPBOX_ACCESS_TOKEN=pk.<mapbox-public-token>
 
 `VITE_MAPBOX_ACCESS_TOKEN` is required for map views to render. Each `VITE_*`
 name here has a matching `ARG` in `apps/web/Dockerfile`, and only declared names
-reach the build — see "Static site images".
+reach the build. See "Static site images".
 
 `VITE_SHAPE_SERVER_URL` is optional. Leave it unset unless a deployment has a
 separate browser-facing HTTPS/HTTP2 proxy for shape streams; when unset, the web
@@ -373,22 +386,22 @@ Current organization ids: `org_01KRQEQBJJHF729PY0ED6P7875` (production),
 
 `VITE_SIMMER_OPERATOR_ORG_ID` is how the console answers WorkOS's organization
 challenge without asking. WorkOS refuses to mint a session for an account in more
-than one organization until one is chosen, and operators are routinely in several
-— `createAdminAgency`'s `linkRequesterAsOwner` makes the operator the new
+than one organization until one is chosen, and operators are routinely in
+several: `createAdminAgency`'s `linkRequesterAsOwner` makes the operator the new
 agency's first owner. The console picks this one and refuses any account that is
 not a member of it: **being in the SIMMER organization is what operator access
 means.** There is no picker; a non-member is turned away rather than let in under
 some agency's identity.
 
 Note this is a build-time `VITE_` value like the others, so changing it needs a
-redeploy, and that it is deliberately *not* server-side — enforced in
-`/auth/sign-in` it would also strip the picker from `apps/web`, where an operator
+redeploy, and that it is deliberately *not* server-side. If `/auth/sign-in`
+enforced it, it would also strip the picker from `apps/web`, where an operator
 who genuinely holds an agency membership still needs to choose.
 
-It does **not** need a Mapbox token: the console has no maps by design (see
-`apps/admin/src/components/geometry-input.tsx` — geometry comes from KML/GeoJSON
-files and typed coordinates, so `mapbox-gl` stays out of a bundle that would
-otherwise pay 1.7 MB for it).
+It does **not** need a Mapbox token: the console has no maps by design. Geometry
+comes from KML/KMZ/GeoJSON files and typed coordinates (see
+`apps/admin/src/components/geometry-input.tsx`), so `mapbox-gl` stays out of a
+bundle that would otherwise pay 1.7 MB for it.
 
 Enable **Serverless** on this service (Railway Settings → Serverless; the API
 field is `sleepApplication`). It is a good fit and a poor one for the others:
@@ -397,27 +410,28 @@ field is `sleepApplication`). It is a good fit and a poor one for the others:
   idle almost always;
 - it holds no database connections and emits no telemetry, so it goes fully
   quiet and Railway's 10-minute outbound-traffic check actually trips. The
-  `server` service can never sleep — Electric and Postgres connections keep it
-  talking — and `web` is customer-facing, where a cold start is not acceptable.
+  `server` service can never sleep, because Electric and Postgres connections
+  keep it talking, and `web` is customer-facing, where a cold start is not
+  acceptable.
 
 Caveats worth knowing before someone reports them as bugs:
 
 - the first request after ~10 idle minutes is slow, and Railway may answer it
   with a one-off `502` that resolves on reload. What wakes now is Caddy reading
   a config file, not Node booting a Vite server, so the container's own share of
-  that is small — the wait is Railway restoring the instance;
+  that is small; the wait is Railway restoring the instance;
 - sign-in is unaffected: the session cookie is set by the `server` service,
   which is always warm.
 
 Set `ADMIN_APP_ORIGIN=https://<admin-domain>` on that environment's **server**
 service. The console signs in through the shared `POST /auth/*` endpoints, and
-`allowedCorsOrigins()` reads that variable — without it, sign-in fails CORS.
+`allowedCorsOrigins()` reads that variable, and without it sign-in fails CORS.
 
 **Write the scheme anyway, but a missing one is no longer fatal.** `parseOrigin`
 in `apps/server/src/env.ts` normalizes a schemeless value to `https://<host>`,
 because `readServerEnv` runs at module load and a throw there means the process
 never reaches `listen`. That exact slip took production down once and was caught
-on staging once — the whole API, over a variable whose only job is CORS for the
+on staging once: the whole API, over a variable whose only job is CORS for the
 operator console. Input that cannot be an http origin at all still throws. The
 same applies to `APP_ORIGIN`.
 
@@ -427,7 +441,7 @@ The two environments are configured differently, because staging's Electric must
 be reachable from a laptop for Railway-backed local dev while production's stays
 private.
 
-**Production** — private, insecure, no public domain:
+**Production**: private, insecure, no public domain:
 
 ```sh
 DATABASE_URL=${{postgis.DATABASE_URL}}
@@ -438,7 +452,7 @@ The prod server reaches it over Railway private DNS
 (`ELECTRIC_URL=http://electric.railway.internal:3000/v1/shape`). Do not give prod
 Electric a public domain.
 
-**Staging** — public domain + secret so a local dev server can reach it safely:
+**Staging**: public domain and secret, so a local dev server can reach it safely:
 
 ```sh
 DATABASE_URL=${{postgis.DATABASE_URL}}
@@ -449,7 +463,7 @@ PORT=3000
 - Generate a public domain on the service (Railway "Generate Domain", target port
   3000). `ELECTRIC_URL` on the local dev server is then
   `https://<that-domain>/v1/shape`.
-- Do **not** set `ELECTRIC_INSECURE` here — the secret is what protects it.
+- Do **not** set `ELECTRIC_INSECURE` here; the secret is what protects it.
 - `PORT=3000` is required for the public domain to route. Railway's HTTP edge
   targets the service's `PORT`; Electric listens on 3000 (it reads `ELECTRIC_PORT`,
   not `PORT`, so `PORT` only steers Railway's edge, it does not change Electric).
@@ -457,7 +471,7 @@ PORT=3000
   Private `electric.railway.internal:3000` routing does not need `PORT`.
 
 Set the same `ELECTRIC_SECRET` on that environment's **server** service too (both
-the deployed staging server — which still uses the internal `ELECTRIC_URL` — and
+the deployed staging server, which still uses the internal `ELECTRIC_URL`, and
 your local `.env`). The server folds the secret into `ELECTRIC_URL` as a `secret`
 query param on every upstream shape request (`readElectricUrl` in
 `apps/server/src/env.ts`), and treats `secret` as a server-owned shape param so a
@@ -516,20 +530,20 @@ ships, so deploying one without the other would put two versions of the same
 shell in production.
 `migrate` and `deploy` `need:` `verify`, so:
 
-- **`verify` runs `pnpm typecheck` and `pnpm test` — if either fails, nothing
+- **`verify` runs `pnpm typecheck` and `pnpm test`.** If either fails, nothing
   deploys.** Keep `main` green; a stale/broken test blocks *all* deploys, not just
   the offending branch. (Run `pnpm typecheck && pnpm test` locally before pushing.)
 - **Pushing `main` is a production release.** It deploys whatever is on `main`,
-  not just your latest commit — any commits accumulated on `main` since the last
+  not only your latest commit, but any commits accumulated on `main` since the last
   green deploy ship together. Fast-forward `staging`→`main` and let staging deploy
   first when you want a staging soak before prod.
-- Env-var changes on a Railway service are separate from code deploys — set them
+- Env-var changes on a Railway service are separate from code deploys, so set them
   via the Railway dashboard/CLI (`railway variables --set …`) or MCP; they don't
   come from the repo.
 
 **The rot gates do not gate deploys, on purpose.** `fallow dead-code`, `fallow
 dupes`, and `fallow:health` run in `ci.yml`, and `verify` here runs typecheck,
-test, and build — it never consults them. Duplication and complexity are read as
+test, and build, and it never consults them. Duplication and complexity are read as
 "did this branch make it worse" against where the workspace already is, and a
 threshold judgement about the shape of the code is not a reason to refuse a
 release to an agency that is waiting on a fix. The cost is that a red CI on
@@ -559,14 +573,14 @@ RAILWAY_ADMIN_SERVICE=admin-prod
 RAILWAY_WEB_SERVICE=web
 ```
 
-**The admin service is named differently per environment** — `admin` in staging,
-`admin-prod` in production — which is why the deploy workflow reads the name from
+**The admin service is named differently per environment**: `admin` in staging,
+`admin-prod` in production, which is why the deploy workflow reads the name from
 a per-environment variable rather than hardcoding it. Everything else shares a
 name across both. Verify with `railway service list` (or the MCP
 `list_services`) before assuming; a wrong name fails the deploy step with an
 unhelpful error.
 
-## Demo Bootstrap
+## Demo bootstrap
 
 For a fresh Railway environment:
 
@@ -588,7 +602,7 @@ commits the transaction. DBeaver can show generated UUIDs for uncommitted rows;
 refreshing the connection rolls those rows back unless Auto-commit is enabled
 or the transaction is explicitly committed.
 
-## Verified Baseline
+## Verified baseline
 
 As of 2026-05-16, production and staging have both been smoke tested:
 
@@ -606,8 +620,8 @@ As of 2026-07-09, the Railway-backed local-dev workflow was established:
   (`ELECTRIC_INSECURE` removed, `PORT=3000` added); enforcement verified
   (401 without secret, 200 with);
 - the local server proxies shapes to staging Electric with the secret and reads
-  from staging Postgres over the public proxy — verified returning real data;
+  from staging Postgres over the public proxy, verified returning real data;
 - staging redeployed with the secret-forwarding server and `ELECTRIC_SECRET` set;
-  production redeployed (Electric unchanged — private/insecure, forwarding inert);
+  production redeployed (Electric unchanged: private, insecure, forwarding inert);
 - staging DB seeded from a production clone via `clone-prod-to-staging.ps1`
   (PostGIS + geometry intact, migrations current).

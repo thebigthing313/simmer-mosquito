@@ -2,6 +2,7 @@ import {
 	BreadcrumbLabelProvider,
 	OutletContentFallback,
 	OutletShell,
+	SearchTriggerProvider,
 	type ShellOrganization,
 	ShellProvider,
 	type ShellUser,
@@ -9,10 +10,13 @@ import {
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
-import { Suspense } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
+import { useProfileNames } from '../../hooks/queries/use-profile-names';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { organizations } from '../../lib/collections/organizations';
 import { getToday } from '../../lib/get-today';
-import { webCollections } from '../../sync/webCollections';
+import { SearchPalette } from '../search/search-palette';
 import {
 	shellDomainsForRole,
 	webAccountLinks,
@@ -39,6 +43,11 @@ function formatRole(role: string | null | undefined): string {
 export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	const navigate = useNavigate();
 	const { pathname } = useLocation();
+	// The palette is mounted here, beside the shell, because `AppHeader` takes no
+	// props and renders the trigger itself. `apps/admin` provides no such context,
+	// so its header simply loses the search field it never had a palette for.
+	const [searchOpen, setSearchOpen] = useState(false);
+	const searchTriggerRef = useRef<HTMLButtonElement>(null);
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
 
@@ -47,11 +56,9 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	// so a cold organization/profile shape never holds the entire workspace
 	// behind a full-screen fallback. Route content suspends into the boundary
 	// around `Outlet` below instead.
-	const organizationResult = useLiveQuery(
-		(query) => query.from({ row: webCollections.currentOrganization }),
-		[],
-	);
-	const profileResult = useLiveQuery((query) => query.from({ row: webCollections.profiles }), []);
+	const organizationResult = useLiveQuery((query) => query.from({ row: organizations }), []);
+	const profileNameById = useProfileNames();
+	const timeZone = useOrganizationTimeZone();
 
 	const organization = (organizationResult.data ?? []).find(
 		(row) => row.id === localIdentity?.organizationId,
@@ -59,7 +66,8 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	if (organizationResult.isReady && localIdentity !== null && organization === undefined) {
 		throw new Error('Unable to resolve active organization for this workspace.');
 	}
-	const profile = (profileResult.data ?? []).find((row) => row.id === localIdentity?.profileId);
+	const profileId = localIdentity?.profileId ?? null;
+	const profileName = profileId === null ? undefined : profileNameById.get(profileId);
 
 	const currentOrganization: ShellOrganization = {
 		id: organization?.id ?? localIdentity?.organizationId ?? 'organization',
@@ -68,13 +76,19 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 		name: organization?.name ?? localIdentity?.organizationName ?? 'Organization',
 	};
 	const shellUser: ShellUser = {
-		name: profile?.displayName ?? user?.displayName ?? 'SIMMER User',
+		name: profileName ?? user?.displayName ?? 'SIMMER User',
 		email: user?.email ?? '',
 		role: formatRole(localIdentity?.role),
 	};
 
 	return (
-		<>
+		<SearchTriggerProvider
+			value={{
+				isOpen: searchOpen,
+				onOpen: () => setSearchOpen(true),
+				triggerRef: searchTriggerRef,
+			}}
+		>
 			<ShellProvider
 				organizations={[currentOrganization]}
 				currentOrganization={currentOrganization}
@@ -88,6 +102,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				accountLinks={webAccountLinks}
 				version={__APP_VERSION__}
 				getToday={getToday}
+				timeZone={timeZone}
 				activePath={pathname}
 				onNavigate={(to) => {
 					// The shell models destinations as plain strings; the router's typed
@@ -110,7 +125,13 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 					</OutletShell>
 				</BreadcrumbLabelProvider>
 			</ShellProvider>
+			<SearchPalette
+				auth={auth}
+				onOpenChange={setSearchOpen}
+				open={searchOpen}
+				triggerRef={searchTriggerRef}
+			/>
 			<Toaster richColors />
-		</>
+		</SearchTriggerProvider>
 	);
 }

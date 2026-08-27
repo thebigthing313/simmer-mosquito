@@ -1,4 +1,5 @@
-import type { RegionFolderRow, RegionRow } from '@simmer-mosquito/sync';
+import type { GeoJsonPolygon } from '@simmer-mosquito/mapping';
+import { IMPORT_FILE_ACCEPT, readImportFileText } from '@simmer-mosquito/mapping';
 import { isTxIdConfirmationTimeout } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -22,16 +23,17 @@ import {
 	PlusIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { eq, useLiveQuery } from '@tanstack/react-db';
+import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
+import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
+import { regions } from '../../../lib/collections/regions';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import { RegionFolderDialog } from './-folder-dialog';
 import { type ImportPolygon, MAX_POLYGONS, parseRegionsFromFile } from './-import-parse';
 
@@ -71,14 +73,9 @@ interface ImportItem {
 }
 
 function ImportRegionsRoute() {
-	const { auth } = Route.useRouteContext();
 	const navigate = useNavigate();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const organizationId = organization?.id ?? '';
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-
-	const { rows: folders } = useCollectionRows<RegionFolderRow>(webCollections.regionFolders);
+	const { folders } = useRegionFolders();
+	const mutations = useRegionMutations();
 
 	// Keep the on-demand `regions` shape stream warm for the whole time the user is
 	// on this page. A region write confirms only when its txid is observed on the
@@ -89,15 +86,7 @@ function ImportRegionsRoute() {
 	// connects, forcing a deterministic per-row confirmation timeout. Subscribing
 	// here guarantees the stream is connected and up-to-date before the first insert.
 	// The rows themselves are unused; we only need the subscription.
-	useLiveQuery(
-		{
-			query: (query) =>
-				query
-					.from({ region: webCollections.regions })
-					.where(({ region }) => eq(region.organizationId, organizationId)),
-		},
-		[organizationId],
-	);
+	useLiveQuery({ query: (query) => query.from({ region: regions }) }, []);
 
 	const [items, setItems] = useState<readonly ImportItem[]>([]);
 	const [skipped, setSkipped] = useState(0);
@@ -114,8 +103,7 @@ function ImportRegionsRoute() {
 	const [isCreatingFolder, setIsCreatingFolder] = useState(false);
 	const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-	const canImport =
-		items.length > 0 && organization !== null && actorProfileId !== null && !isImporting;
+	const canImport = items.length > 0 && mutations.canWrite && !isImporting;
 
 	const handleFile = useCallback(async (file: File) => {
 		setParseError(null);
@@ -123,7 +111,7 @@ function ImportRegionsRoute() {
 		setPendingSync(0);
 		setSelectedId(null);
 		try {
-			const text = await file.text();
+			const text = await readImportFileText(file);
 			const result = parseRegionsFromFile(text, file.name);
 			setFileName(file.name);
 			setSkipped(result.skipped);
@@ -141,7 +129,7 @@ function ImportRegionsRoute() {
 				})),
 			);
 		} catch (error) {
-			setParseError(error instanceof Error ? error.message : 'Unable to read the file.');
+			setParseError(error instanceof Error ? error.message : 'That file could not be read.');
 			setItems([]);
 		}
 	}, []);
@@ -198,7 +186,7 @@ function ImportRegionsRoute() {
 	);
 
 	const runImport = useCallback(async () => {
-		if (organization === null || actorProfileId === null) {
+		if (!mutations.canWrite) {
 			return;
 		}
 		setIsImporting(true);
@@ -213,22 +201,16 @@ function ImportRegionsRoute() {
 
 		await forEachWithConcurrency(items, IMPORT_CONCURRENCY, async (item) => {
 			try {
-				const now = new Date().toISOString();
-				const row: RegionRow = {
-					id: crypto.randomUUID(),
-					organizationId: organization.id,
-					regionFolderId: folderId === UNFILED ? null : folderId,
-					name: item.name.trim().length === 0 ? 'Region' : item.name.trim(),
-					description: null,
-					metadata: null,
-					createdByProfileId: actorProfileId,
-					updatedByProfileId: actorProfileId,
-					createdAt: now,
-					updatedAt: now,
-				};
-				const transaction = webCollections.regions.insert(row, {
-					metadata: { geometry: item.geometry },
-				});
+				const transaction = mutations.create(
+					newRecordId(),
+					{
+						name: item.name.trim().length === 0 ? 'Region' : item.name.trim(),
+						description: null,
+						folderId: folderId === UNFILED ? null : folderId,
+						metadata: null,
+					},
+					item.geometry as unknown as GeoJsonPolygon,
+				);
 				// Fold persistence into a promise that never rejects, so once the
 				// timeout wins the race the original rejection (if any) still has a
 				// handler and can't surface as an unhandled rejection. A txid
@@ -270,7 +252,7 @@ function ImportRegionsRoute() {
 		if (errors.length === 0 && pending === 0) {
 			await navigate({ to: '/gis/regions' });
 		}
-	}, [organization, actorProfileId, items, folderId, navigate]);
+	}, [mutations, items, folderId, navigate]);
 
 	return (
 		<MapSplitPage
@@ -297,8 +279,8 @@ function ImportRegionsRoute() {
 							Import Regions
 						</h1>
 						<p className="m-0 text-muted-foreground text-sm">
-							Upload a KML or GeoJSON file. Polygons are flattened into individual regions you can
-							review before importing.
+							Upload a KML, KMZ, or GeoJSON file. Polygons are flattened into individual regions you
+							can review before importing.
 						</p>
 					</div>
 				</header>
@@ -307,7 +289,7 @@ function ImportRegionsRoute() {
 					<div className="grid gap-5">
 						<div className="grid gap-2">
 							<input
-								accept=".kml,.geojson,.json,application/geo+json,application/vnd.google-earth.kml+xml"
+								accept={IMPORT_FILE_ACCEPT}
 								className="hidden"
 								onChange={(event) => {
 									const file = event.target.files?.[0];
@@ -321,7 +303,7 @@ function ImportRegionsRoute() {
 							/>
 							<Button onClick={() => fileInputRef.current?.click()} type="button" variant="outline">
 								<UploadIcon aria-hidden="true" data-icon="inline-start" />
-								{fileName === null ? 'Choose KML or GeoJSON File' : 'Choose a Different File'}
+								{fileName === null ? 'Choose KML, KMZ, or GeoJSON File' : 'Choose a Different File'}
 							</Button>
 							{fileName === null ? null : (
 								<p className="m-0 text-muted-foreground text-xs">
@@ -472,11 +454,9 @@ function ImportRegionsRoute() {
 			</div>
 			{isCreatingFolder ? (
 				<RegionFolderDialog
-					actorProfileId={actorProfileId}
 					folder={null}
 					onClose={() => setIsCreatingFolder(false)}
 					onSaved={setFolderId}
-					organizationId={organizationId}
 				/>
 			) : null}
 		</MapSplitPage>

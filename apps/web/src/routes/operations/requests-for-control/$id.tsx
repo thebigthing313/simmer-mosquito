@@ -1,4 +1,3 @@
-import type { ProfileRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -19,33 +18,37 @@ import { type ReactNode, useCallback, useMemo } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
-import { LinkedAddressValue } from '../../../components/linked-address';
+import { useControlMethodNames } from '../../../components/explorer';
+import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
+import {
+	controlTypeLabel,
+	formatScheduledStart,
+	missionDisplayName,
+	requestDisplayName,
+} from '../../../hooks/queries/operations-view';
+import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
+import {
+	type MissionLink,
+	useMissionsForRequest,
+} from '../../../hooks/queries/use-missions-for-request';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import {
+	type RequestRecord,
+	useRequestedControlAction,
+} from '../../../hooks/queries/use-requested-control-action';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
-import { webCollections } from '../../../sync/webCollections';
-import { useHabitatNames } from '../../control-operations/-overview-data';
 import { useCommandRunner } from '../-command-runner';
-import {
-	controlTypeLabel,
-	formatScheduledStart,
-	type MissionView,
-	missionDisplayName,
-	type RequestView,
-	reopenRequest,
-	requestDisplayName,
-	resolveRequest,
-	useAllControlMethodNames,
-	useMissionsForRequest,
-	useRequestedControlAction,
-} from '../-operations-data';
 import { MissionStatusBadge, RequestStatusBadge } from '../-operations-display';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
@@ -67,7 +70,7 @@ function RequestDetailRoute() {
 	const { id } = Route.useParams();
 	const { request, isReady } = useRequestedControlAction(id);
 
-	const subject = request === null ? null : requestDisplayName(request);
+	const subject = request === undefined ? null : requestDisplayName(request);
 	useBreadcrumbLabel(id, subject);
 
 	return (
@@ -77,7 +80,7 @@ function RequestDetailRoute() {
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to requests for control
 				</Link>
-				{request === null ? (
+				{request === undefined ? (
 					isReady ? (
 						<RecordUnavailable noun="request" reason="not-found" />
 					) : (
@@ -95,23 +98,24 @@ function RequestDetailContent({
 	request,
 	subject,
 }: {
-	readonly request: RequestView;
+	readonly request: RequestRecord;
 	readonly subject: string;
 }) {
 	const auth = useAuthSnapshot();
-	const actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
+	const _actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
 	const habitatName = useLinkedHabitatName(request.habitatId);
+	const requestWrites = useRequestedControlActionMutations();
 	const { busy, error, run } = useCommandRunner();
 
 	const toggleResolved = useCallback(() => {
 		void run(
 			() =>
 				request.status === 'open'
-					? resolveRequest(request.id, actorProfileId)
-					: reopenRequest(request.id),
+					? requestWrites.resolve(request.id)
+					: requestWrites.reopen(request.id),
 			'Unable to update this request.',
 		);
-	}, [request.status, request.id, actorProfileId, run]);
+	}, [request.status, request.id, requestWrites, run]);
 
 	return (
 		<>
@@ -130,12 +134,19 @@ function RequestDetailContent({
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<RequestLocationCard habitatName={habitatName} request={request} />
+					<div className="grid content-start gap-3">
+						<RequestLocationCard habitatName={habitatName} request={request} />
+						<RecordRegionsBand
+							noun="request"
+							recordId={request.id}
+							recordType="requested_control_actions"
+						/>
+					</div>
 					<RequestMissionsCard requestId={request.id} />
 					<DangerZoneCard
 						name={subject}
 						noun="request for control"
-						onDelete={() => webCollections.requestedControlActions.delete(request.id)}
+						onDelete={() => requestWrites.remove(request.id)}
 						recordId={request.id}
 						recordType="requestedControlAction"
 						returnTo="/operations/requests-for-control"
@@ -166,12 +177,13 @@ function RequestHeader({
 	busy,
 	onToggleResolved,
 }: {
-	readonly request: RequestView;
+	readonly request: RequestRecord;
 	readonly subject: string;
 	readonly busy: boolean;
 	readonly onToggleResolved: () => void;
 }) {
 	const isOpen = request.status === 'open';
+	const timeZone = useOrganizationTimeZone();
 
 	return (
 		<div className="flex flex-wrap items-start justify-between gap-3">
@@ -183,7 +195,7 @@ function RequestHeader({
 				<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">{subject}</h1>
 				<p className="m-0 text-[0.95rem] text-muted-foreground">
 					{controlTypeLabel(request.controlType)} · raised{' '}
-					{formatScheduledStart(request.requestedAt)}
+					{formatScheduledStart(request.requestedAt, timeZone)}
 				</p>
 			</div>
 			<div className="flex flex-wrap items-center gap-2">
@@ -230,13 +242,13 @@ function RequestLocationCard({
 	request,
 	habitatName,
 }: {
-	readonly request: RequestView;
+	readonly request: RequestRecord;
 	readonly habitatName: string | null;
 }) {
 	const geometry = useOwnedGeometry(
 		REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 		request.id,
-		request.updatedAt,
+		request.updatedAt.toISOString(),
 	);
 	const habitatContext = useHabitatLocationContext(request.habitatId, habitatName);
 
@@ -245,7 +257,7 @@ function RequestLocationCard({
 			context={habitatContext}
 			emptyDescription="This request has no location to display."
 			geojson={geometry.geojson}
-			geomType={geometry.geomType ?? request.geomType}
+			geomType={geometry.geomType ?? request.geometryKind}
 			isError={geometry.isError}
 			isPending={geometry.isPending}
 		/>
@@ -288,7 +300,8 @@ function RequestMissionsCard({ requestId }: { readonly requestId: string }) {
 	);
 }
 
-function MissionLinkRow({ mission }: { readonly mission: MissionView }) {
+function MissionLinkRow({ mission }: { readonly mission: MissionLink }) {
+	const timeZone = useOrganizationTimeZone();
 	return (
 		<Link
 			className={cn(
@@ -299,11 +312,14 @@ function MissionLinkRow({ mission }: { readonly mission: MissionView }) {
 			to="/operations/missions/$id"
 		>
 			<div className="flex flex-wrap items-center gap-2">
-				<span className="font-medium text-foreground text-sm">{missionDisplayName(mission)}</span>
+				<span className="font-medium text-foreground text-sm">
+					{missionDisplayName(mission, timeZone)}
+				</span>
 				<MissionStatusBadge status={mission.status} />
 			</div>
 			<span className="text-muted-foreground text-xs">
-				{controlTypeLabel(mission.controlType)} · {formatScheduledStart(mission.scheduledStartAt)}
+				{controlTypeLabel(mission.controlType)} ·{' '}
+				{formatScheduledStart(mission.scheduledStartAt, timeZone)}
 			</span>
 		</Link>
 	);
@@ -313,7 +329,7 @@ function RequestDetailsCard({
 	request,
 	habitatName,
 }: {
-	readonly request: RequestView;
+	readonly request: RequestRecord;
 	readonly habitatName: string | null;
 }) {
 	return (
@@ -332,10 +348,11 @@ function RequestDetailsCard({
 }
 
 /** What was asked for, by whom, and when — the request's own fields. */
-function RequestFactRows({ request }: { readonly request: RequestView }) {
+function RequestFactRows({ request }: { readonly request: RequestRecord }) {
 	const methodName = useRecommendedMethodName(request.recommendedMethodId);
 	const raisedBy = useProfileName(request.requestedByProfileId);
 	const resolvedBy = useProfileName(request.resolvedByProfileId);
+	const timeZone = useOrganizationTimeZone();
 
 	return (
 		<>
@@ -349,10 +366,10 @@ function RequestFactRows({ request }: { readonly request: RequestView }) {
 				)}
 			</DetailRow>
 			<DetailRow label="Raised by">{raisedBy ?? <NotSet>Not recorded</NotSet>}</DetailRow>
-			<DetailRow label="Raised">{formatScheduledStart(request.requestedAt)}</DetailRow>
+			<DetailRow label="Raised">{formatScheduledStart(request.requestedAt, timeZone)}</DetailRow>
 			{request.resolvedAt === null ? null : (
 				<DetailRow label="Resolved">
-					{formatScheduledStart(request.resolvedAt)}
+					{formatScheduledStart(request.resolvedAt, timeZone)}
 					{resolvedBy === null ? '' : ` · ${resolvedBy}`}
 				</DetailRow>
 			)}
@@ -365,13 +382,13 @@ function RequestLinkRows({
 	request,
 	habitatName,
 }: {
-	readonly request: RequestView;
+	readonly request: RequestRecord;
 	readonly habitatName: string | null;
 }) {
 	return (
 		<>
 			<DetailRow label="Address">
-				<LinkedAddressValue addressId={request.addressId} />
+				<LinkedAddressValueById addressId={request.addressId} />
 			</DetailRow>
 			<DetailRow label="Habitat">
 				{request.habitatId === null ? (
@@ -427,12 +444,12 @@ const recordLinkClass =
  * keeps the row honest if the type is edited afterwards.
  */
 function useRecommendedMethodName(methodId: string | null): string | null {
-	const methodNameById = useAllControlMethodNames();
+	const methodNameById = useControlMethodNames();
 	return methodId === null ? null : (methodNameById.get(methodId) ?? 'Unknown method');
 }
 
 function useProfileName(profileId: string | null): string | null {
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 	return profileId === null
 		? null
 		: (profiles.find((profile) => profile.id === profileId)?.displayName ?? 'Unknown profile');

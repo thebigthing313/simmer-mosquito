@@ -21,28 +21,27 @@ import type {
 	ControlOperationsCommandType,
 	FieldWorkCommandType,
 	FoundationCommandType,
+	IdentityCommandType,
 	LarvalSurveillanceCommandType,
 	MissionDispatchCommandType,
 	OrganizationSettingsCommandType,
 	PublicEngagementCommandType,
+	WeatherCommandType,
 } from '@simmer-mosquito/domain';
 import { type ForbiddenBody, forbidden, hasAtLeastRole, type MinimumRole } from './roles.js';
 
-/**
- * Every command type an agency membership can send.
- *
- * `weather.*` is absent because no server route answers it yet; it joins this
- * union when one does, and the build will demand a map for it.
- */
+/** Every command type an agency membership can send. */
 export type AgencyCommandType =
 	| AdultSurveillanceCommandType
 	| ControlOperationsCommandType
 	| FieldWorkCommandType
 	| FoundationCommandType
+	| IdentityCommandType
 	| LarvalSurveillanceCommandType
 	| MissionDispatchCommandType
 	| OrganizationSettingsCommandType
-	| PublicEngagementCommandType;
+	| PublicEngagementCommandType
+	| WeatherCommandType;
 
 export interface CommandActor {
 	readonly role: SimmerRole;
@@ -125,6 +124,22 @@ export type DeletionEscalation =
 export type CommandPermission =
 	/** A role floor and nothing else. */
 	| { readonly kind: 'role'; readonly minimum: MinimumRole }
+	/**
+	 * SIMMER itself, and no agency role however high.
+	 *
+	 * The role ladder cannot express this. Operators hold an ordinary agency
+	 * membership so that their work is attributable (ADR 0011), and they join as
+	 * `admin` — so `admin` is exactly the floor that does *not* separate an
+	 * operator from the agency administrator sitting next to them.
+	 *
+	 * It exists for the global catalogs: `genera` and `species` have no
+	 * `organization_id`, and every agency reads them. While the only way to write
+	 * one was `/admin/*` behind the operator middleware, the distinction lived in
+	 * the routing. Now that a table's commands are reachable through the shared
+	 * `/commands/{table}` surface, the distinction has to live where every other
+	 * authorization decision does, which is here.
+	 */
+	| { readonly kind: 'operator' }
 	/** Manager-and-above, or the collector the named record is assigned to. */
 	| { readonly kind: 'assignedCollector'; readonly owned: OwnedRecordRef }
 	/** Manager-and-above, or the author inside the correction window. */
@@ -143,7 +158,9 @@ export type CommandPermission =
 	/** No entry in the map — see `readCommandPermission`. */
 	| { readonly kind: 'unmapped' };
 
+const OWNER: CommandPermission = { kind: 'role', minimum: 'owner' };
 const ADMIN: CommandPermission = { kind: 'role', minimum: 'admin' };
+const OPERATOR: CommandPermission = { kind: 'operator' };
 const MANAGER: CommandPermission = { kind: 'role', minimum: 'manager' };
 const COLLECTOR: CommandPermission = { kind: 'role', minimum: 'collector' };
 const AUTHOR: CommandPermission = { kind: 'author' };
@@ -305,6 +322,13 @@ const FIELD_WORK_PERMISSIONS: Record<FieldWorkCommandType, CommandPermission> = 
 	'fieldWork.reopenAssignmentItem': OWN_ASSIGNMENT_ITEM,
 	'fieldWork.skipAssignmentItem': OWN_ASSIGNMENT_ITEM,
 	'fieldWork.unskipAssignmentItem': OWN_ASSIGNMENT_ITEM,
+
+	// Recording the work a stop was created for. Same floor as completing the
+	// stop by hand, because that is what these do — the record is the reason.
+	'fieldWork.recordHabitatInspectionForAssignmentItem': OWN_ASSIGNMENT_ITEM,
+	'fieldWork.setTrapCollectionForAssignmentItem': OWN_ASSIGNMENT_ITEM,
+	'fieldWork.collectTrapCollectionForAssignmentItem': OWN_ASSIGNMENT_ITEM,
+	'fieldWork.recordCollectedTrapCollectionForAssignmentItem': OWN_ASSIGNMENT_ITEM,
 };
 
 const MISSION_DISPATCH_PERMISSIONS: Record<MissionDispatchCommandType, CommandPermission> = {
@@ -348,10 +372,16 @@ const MISSION_DISPATCH_PERMISSIONS: Record<MissionDispatchCommandType, CommandPe
  * manager-and-above." Everything else here configures the agency — regions and
  * folders are manager-and-above, lookups and species curation are owner/admin.
  *
- * The taxonomy commands are operator-side: `apps/admin` owns the global genus
- * and species catalog and writes it through `admin-foundations.ts`, which never
- * reads this map. They are mapped to `admin` rather than left unmapped so that
- * an agency route added later inherits a floor instead of a hole.
+ * The taxonomy commands are operator-side: `genera` and `species` have no
+ * `organization_id` and every agency reads them, so writing one is SIMMER's
+ * job. They used to be mapped to `admin` — a placeholder, chosen so that "an
+ * agency route added later inherits a floor instead of a hole", while the real
+ * check lived in `/admin/*`'s operator middleware.
+ *
+ * That later route is `/commands/{table}`, and `admin` turned out to be the
+ * wrong floor for it: operators join an agency as `admin` themselves, so it
+ * separates nobody. They are `OPERATOR` now, which is a rule the map can state
+ * and every surface reads the same way.
  */
 const FOUNDATION_PERMISSIONS: Record<FoundationCommandType, CommandPermission> = {
 	'foundation.createAddress': COLLECTOR,
@@ -369,12 +399,15 @@ const FOUNDATION_PERMISSIONS: Record<FoundationCommandType, CommandPermission> =
 	'foundation.updateRegionGeometry': MANAGER,
 	'foundation.deleteRegion': MANAGER,
 
-	'foundation.createGenus': ADMIN,
-	'foundation.updateGenus': ADMIN,
-	'foundation.deleteGenus': ADMIN,
-	'foundation.createSpecies': ADMIN,
-	'foundation.updateSpecies': ADMIN,
-	'foundation.deleteSpecies': ADMIN,
+	'foundation.createGenus': OPERATOR,
+	'foundation.updateGenus': OPERATOR,
+	'foundation.deleteGenus': OPERATOR,
+	'foundation.createSpecies': OPERATOR,
+	'foundation.updateSpecies': OPERATOR,
+	'foundation.deleteSpecies': OPERATOR,
+	'foundation.createUnit': OPERATOR,
+	'foundation.updateUnit': OPERATOR,
+	'foundation.deleteUnit': OPERATOR,
 
 	'foundation.selectOrganizationSpecies': ADMIN,
 	'foundation.unselectOrganizationSpecies': ADMIN,
@@ -662,6 +695,70 @@ const ORGANIZATION_SETTINGS_PERMISSIONS: Record<
 };
 
 /**
+ * `docs/weather-domain.md`: "owner/admin/manager: full station, summary, and
+ * import management", "collector/viewer: read-only". One floor across all ten.
+ *
+ * Weather is the last domain to arrive here, and it arrives whole. The union
+ * these ten belong to was left out of `AgencyCommandType` while nothing wrote
+ * one, so adding the first writer demanded a floor for every one of them in the
+ * same change, which is the exhaustive `Record` doing its job rather than an
+ * obstacle to work around.
+ *
+ * Manager rather than admin because a station and its summaries are operational
+ * records, not agency configuration: the same floor the trap catalog and the
+ * route catalog sit at. The domain doc says so directly, and adds that a SIMMER
+ * operator gets here through an agency membership like anyone else, so no arm of
+ * this map is `operator`.
+ */
+const WEATHER_PERMISSIONS: Record<WeatherCommandType, CommandPermission> = {
+	'weather.createWeatherStation': MANAGER,
+	'weather.updateWeatherStationDetails': MANAGER,
+	'weather.updateWeatherStationLocation': MANAGER,
+	'weather.deactivateWeatherStation': MANAGER,
+	'weather.reactivateWeatherStation': MANAGER,
+	'weather.deleteWeatherStation': MANAGER,
+
+	'weather.createWeatherSummary': MANAGER,
+	'weather.updateWeatherSummary': MANAGER,
+	'weather.deleteWeatherSummary': MANAGER,
+	'weather.commitWeatherSummaryImport': MANAGER,
+};
+
+/**
+ * Every identity write, now that ADR 0013 is built.
+ *
+ * The floors are carried across from `IDENTITY_FLOORS` in `roles.ts` unchanged,
+ * and that table is gone: a new identity command cannot be added without a floor,
+ * because this map is exhaustive, where the old one was a convention each handler
+ * had to remember to consult.
+ *
+ * The people floor is admin, not owner: an agency delegates onboarding, and an
+ * office manager adding a seasonal crew is the ordinary case. Handing out a role
+ * is the separate question, and `identity.changeRole` is the only `owner` floor
+ * in the whole map — a settable role is a self-promotable one, so an admin who
+ * could set a role could set their own.
+ *
+ * Inviting and re-inviting name a role too, and sit at admin anyway. A floor
+ * compares the actor to a rung; what stops an admin minting an owner compares the
+ * actor to the *payload*, which no fixed floor can express. That is
+ * `assertCanGrantRole` in `membership-commands.ts`, and
+ * `tests/unit/table-commands/role-escalation.test.ts` asserts every role-bearing
+ * command calls it.
+ */
+const IDENTITY_PERMISSIONS: Record<IdentityCommandType, CommandPermission> = {
+	'identity.updateOrganizationDetails': ADMIN,
+	'identity.createProfile': ADMIN,
+	'identity.updateProfile': ADMIN,
+
+	'identity.invite': ADMIN,
+	'identity.reinvite': ADMIN,
+	'identity.endMembership': ADMIN,
+
+	// Owner, because a settable role is a self-promotable one — see MinimumRole.
+	'identity.changeRole': OWNER,
+};
+
+/**
  * Every per-domain map, merged.
  *
  * The merge is what routes a lookup; the per-domain annotations above are what
@@ -672,11 +769,13 @@ const COMMAND_PERMISSIONS: Record<AgencyCommandType, CommandPermission> = {
 	...FIELD_WORK_PERMISSIONS,
 	...MISSION_DISPATCH_PERMISSIONS,
 	...FOUNDATION_PERMISSIONS,
+	...IDENTITY_PERMISSIONS,
 	...LARVAL_SURVEILLANCE_PERMISSIONS,
 	...ADULT_SURVEILLANCE_PERMISSIONS,
 	...CONTROL_OPERATIONS_PERMISSIONS,
 	...ORGANIZATION_SETTINGS_PERMISSIONS,
 	...PUBLIC_ENGAGEMENT_PERMISSIONS,
+	...WEATHER_PERMISSIONS,
 };
 
 export function readCommandPermission(type: AgencyCommandType): CommandPermission {
@@ -690,16 +789,33 @@ export function readCommandPermission(type: AgencyCommandType): CommandPermissio
 export type CommandDecision = 'allow' | 'deny' | 'ownership';
 
 /**
- * What a role alone can settle.
+ * Who is asking, as far as a floor is concerned.
+ *
+ * Two facts rather than one, because `admin` is a height on the agency ladder
+ * and "is SIMMER" is not on that ladder at all — see the `operator` arm of
+ * {@link CommandPermission}.
+ */
+export interface CommandScope {
+	readonly role: SimmerRole;
+	readonly isOperator: boolean;
+}
+
+/**
+ * What the actor's standing alone can settle.
  *
  * `ownership` means the role is high enough only if the record belongs to the
  * actor — assignment/mission assignee, or comment author — which takes a row
  * the write transaction has to read.
  */
-export function decideCommand(role: SimmerRole, permission: CommandPermission): CommandDecision {
+export function decideCommand(scope: CommandScope, permission: CommandPermission): CommandDecision {
+	const role = scope.role;
 	switch (permission.kind) {
 		case 'unmapped':
 			return 'deny';
+		// No agency role passes this, and no agency role is required to: an
+		// operator's own membership role is beside the point.
+		case 'operator':
+			return scope.isOperator ? 'allow' : 'deny';
 		// A plain floor is settled by the ladder alone, at whichever of the three
 		// heights the command names. This arm has to come before the
 		// manager-and-above shortcut below: an owner/admin catalog command is one a
@@ -726,19 +842,37 @@ export function decideCommand(role: SimmerRole, permission: CommandPermission): 
  * outright or left for the write transaction's ownership check.
  */
 export function authorizeCommands(
-	role: SimmerRole,
+	scope: CommandScope,
 	commands: readonly { readonly type: AgencyCommandType }[],
 ): ForbiddenBody | null {
 	for (const command of commands) {
-		if (decideCommand(role, readCommandPermission(command.type)) === 'deny') {
-			return forbidden(deniedReason(role, command.type));
+		const permission = readCommandPermission(command.type);
+		if (decideCommand(scope, permission) === 'deny') {
+			return forbidden(deniedReason(scope, permission, command.type));
 		}
 	}
 	return null;
 }
 
-function deniedReason(role: SimmerRole, type: AgencyCommandType): string {
-	return role === 'viewer' ? 'Viewers have read-only access.' : `Your role cannot perform ${type}.`;
+function deniedReason(
+	scope: CommandScope,
+	permission: CommandPermission,
+	type: AgencyCommandType,
+): string {
+	// Naming the role would be actively misleading here: an agency owner is
+	// refused `createSpecies` however high they are, and telling them their role
+	// is too low invites them to go looking for a higher one.
+	if (permission.kind === 'operator') {
+		return `${type} is a SIMMER operator command.`;
+	}
+	return scope.role === 'viewer'
+		? 'Viewers have read-only access.'
+		: `Your role cannot perform ${type}.`;
+}
+
+/** Everything a floor needs, read off the session. */
+function scopeOf(authContext: { readonly role: SimmerRole; readonly isOperator?: boolean }) {
+	return { role: authContext.role, isOperator: authContext.isOperator === true };
 }
 
 /**
@@ -764,26 +898,33 @@ function deniedReason(role: SimmerRole, type: AgencyCommandType): string {
  */
 export function denyUnauthorizedCommandType(
 	context: {
-		readonly get: (key: 'authContext') => { readonly role: SimmerRole };
+		readonly get: (key: 'authContext') => {
+			readonly role: SimmerRole;
+			readonly isOperator?: boolean;
+		};
 		readonly json: (body: ForbiddenBody, status: 403) => Response;
 	},
 	type: AgencyCommandType,
 ): Response | null {
-	const role = context.get('authContext').role;
-	if (decideCommand(role, readCommandPermission(type)) !== 'deny') {
+	const scope = scopeOf(context.get('authContext'));
+	const permission = readCommandPermission(type);
+	if (decideCommand(scope, permission) !== 'deny') {
 		return null;
 	}
 
-	return context.json(forbidden(deniedReason(role, type)), 403);
+	return context.json(forbidden(deniedReason(scope, permission, type)), 403);
 }
 
 export function denyUnauthorizedAgencyCommands(
 	context: {
-		readonly get: (key: 'authContext') => { readonly role: SimmerRole };
+		readonly get: (key: 'authContext') => {
+			readonly role: SimmerRole;
+			readonly isOperator?: boolean;
+		};
 		readonly json: (body: ForbiddenBody, status: 403) => Response;
 	},
 	commands: readonly { readonly type: AgencyCommandType }[],
 ): Response | null {
-	const denial = authorizeCommands(context.get('authContext').role, commands);
+	const denial = authorizeCommands(scopeOf(context.get('authContext')), commands);
 	return denial === null ? null : context.json(denial, 403);
 }

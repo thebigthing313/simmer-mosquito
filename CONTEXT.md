@@ -1,24 +1,28 @@
-# SIMMER Mosquito Context
+# SIMMER mosquito context
 
 This is the lightweight domain index for SIMMER mosquito control language. Keep
 it small enough to load often. For implementation details, load the linked
 domain doc instead of expanding this file.
 
-## Core Language
+## Core language
 
 | Term | Meaning | Avoid |
 |---|---|---|
 | **Agency** | Mosquito control organization that owns operational records and field workflows. | tenant, account |
 | **Profile** | Agency-scoped person used for field attribution, audit attribution, and role-bound work. | user, login, account |
 | **Membership** | A person's current access relationship to an agency through a role and profile. | permission row, user role |
+| **Invitation** | An offer of login access to an Agency, held against the address it was sent to and the role it would grant. Becomes an active Membership when the person accepts. | pending user, seat, signup |
+| **Re-invitation** | A new offer to an address that already holds a live Invitation. May carry a different role, and ends the earlier offer. | resend, re-send invite |
 | **SIMMER Operator** | Platform-side administrator for SIMMER-controlled setup and support workflows. | superuser, agency admin |
 | **Address** | Agency-owned address book entry that can help choose locations without becoming canonical for operational records. | canonical location, property |
 | **Region** | Agency-defined polygon used for GIS grouping, reporting, and spatial lookup. | district, zone |
 | **Global Taxonomy** | SIMMER-controlled mosquito genus/species vocabulary shared across agencies. | agency species list |
 | **Organization Species** | Agency-selected subset of global species available for new data entry. | enabled species, species setting |
 | **Organization Lookup** | Agency-owned catalog value used to configure surveillance or control workflows. | dropdown option, enum |
+| **Delete** | Removing a record that should never have existed. Refused while any live record refers to it. | archive, retire, purge |
+| **Deactivate** | Retiring a record that should not be referred to from now on. Leaves records that already name it alone. | delete, disable, archive |
 
-## Workflow Language
+## Workflow language
 
 | Area | Terms | Detail |
 |---|---|---|
@@ -32,7 +36,7 @@ domain doc instead of expanding this file.
 | Organization settings | Timezone, unit defaults, larval density policy, control defaults, public engagement defaults, **Species Key Binding** | `docs/organization-settings-domain.md` |
 | Foundation/reference data | Addresses, regions, taxonomy, organization species, organization lookup catalogs | `docs/foundation-domain.md` |
 
-## Relationship Cues
+## Relationship cues
 
 - An **Agency** owns operational records and settings.
 - A **Profile** belongs to one **Agency**; a **Membership** links login access to
@@ -50,11 +54,15 @@ domain doc instead of expanding this file.
   Action**.
 - A **Formulation** helps calculate one or more chemical applications, but
   those applications do not store the formulation as historical source data.
+- **Delete** and **Deactivate** are not degrees of the same act. Delete says the
+  record was a mistake, so anything referring to it proves otherwise and refuses
+  the delete. Deactivate says the record was real and its use has ended, so it
+  never touches what already names it and only stops new references.
 - A **Service Request** belongs to a **Contact** and location.
 - A **Mission** contains ordered **Mission Items**; a mission item can produce
   zero or more performed control actions.
 
-## Location Source Terms
+## Location source terms
 
 Use **Location Source Flow** for allowed movement from one domain record or
 manual geometry into another record's stored operational geometry. Domain docs
@@ -77,7 +85,7 @@ Common source terms:
   mission item.
 - **Weather Station Geometry**: explicit point geometry for a station.
 
-## Ambiguities To Preserve
+## Ambiguities to preserve
 
 - "Application" can mean software or control work. Use **Chemical Application**
   for performed insecticide work.

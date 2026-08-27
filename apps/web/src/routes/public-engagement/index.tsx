@@ -1,29 +1,32 @@
-import type { ControlMethodRow, ProfileRow, ServiceRequestRow } from '@simmer-mosquito/sync';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { OutletSimpleLayout } from '../../components/app-shell';
-import { useOrganizationWorkspace } from '../../hooks/use-organization-workspace';
-import { webCollections } from '../../sync/webCollections';
+import {
+	type RequestListing,
+	useOrganizationServiceRequests,
+} from '../../hooks/queries/use-organization-service-requests';
+import { useProfileNames } from '../../hooks/queries/use-profile-names';
+import {
+	type RecentOutreachAction,
+	useRecentOutreachActions,
+} from '../../hooks/queries/use-recent-outreach';
+import { type RequestParties, useRequestParties } from '../../hooks/queries/use-request-parties';
+import {
+	type ServiceRequestEvent,
+	type ServiceRequestEventKind,
+	useServiceRequestFeed,
+} from '../../hooks/queries/use-service-request-feed';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import {
 	addDaysToDateString,
 	formatMonthDay,
-	type OrganizationServiceRequests,
 	OUTREACH_ACTIVITY_WINDOW_DAYS,
-	type RecentOutreachAction,
-	type RequestParties,
 	SERVICE_REQUEST_FEED_WINDOW_DAYS,
-	type ServiceRequestEvent,
-	type ServiceRequestEventKind,
 	todayInTimeZone,
-	useOrganizationServiceRequests,
-	useRecentOutreachActions,
-	useRequestParties,
-	useServiceRequestFeed,
 } from './-overview-data';
 import {
 	contactDisplayName,
@@ -52,11 +55,8 @@ const PREVIEW_COUNT = 6;
 const FEED_PREVIEW_COUNT = 20;
 
 function PublicEngagementOverviewRoute() {
-	const { auth } = Route.useRouteContext();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const organizationId = organization?.id ?? '';
-
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const since = useMemo(
 		() => addDaysToDateString(today, -(OUTREACH_ACTIVITY_WINDOW_DAYS - 1)),
 		[today],
@@ -66,7 +66,7 @@ function PublicEngagementOverviewRoute() {
 		[today],
 	);
 
-	const requests = useOrganizationServiceRequests(organizationId);
+	const requests = useOrganizationServiceRequests();
 
 	return (
 		<OutletSimpleLayout>
@@ -182,7 +182,7 @@ function PanelRow({
 function OpenServiceRequestsPanel({
 	requests,
 }: {
-	readonly requests: OrganizationServiceRequests;
+	readonly requests: ReturnType<typeof useOrganizationServiceRequests>;
 }) {
 	const preview = useMemo(
 		() => requests.openRequests.slice(0, PREVIEW_COUNT),
@@ -250,7 +250,7 @@ function RequestParty({
 	request,
 	parties,
 }: {
-	readonly request: ServiceRequestRow;
+	readonly request: RequestListing;
 	readonly parties: RequestParties;
 }) {
 	const contact = parties.contactById.get(request.contactId);
@@ -296,10 +296,11 @@ function ServiceRequestActivityPanel({
 	requests,
 	since,
 }: {
-	readonly requests: OrganizationServiceRequests;
+	readonly requests: ReturnType<typeof useOrganizationServiceRequests>;
 	readonly since: string;
 }) {
-	const feed = useServiceRequestFeed(requests.requests, since);
+	const timeZone = useOrganizationTimeZone();
+	const feed = useServiceRequestFeed(requests.requests, since, timeZone);
 	const profileNameById = useProfileNames();
 	const titleById = useMemo(
 		() =>
@@ -366,7 +367,7 @@ function ActivityRow({
 
 	return (
 		<PanelRow
-			date={formatMonthDay(event.at.slice(0, 10))}
+			date={formatMonthDay(event.at.toISOString().slice(0, 10))}
 			icon={<KindIcon aria-hidden="true" className="size-4" />}
 			params={{ id: event.requestId }}
 			primary={`${actorName ?? 'Someone'} ${verb} ${requestTitle}`}
@@ -385,18 +386,17 @@ function ActivityRow({
 // --- recent outreach --------------------------------------------------------
 
 function RecentOutreachPanel({ since }: { readonly since: string }) {
-	const { outreachActions, isReady, isError } = useRecentOutreachActions(since);
-	const labels = useOutreachLabels();
-	const preview = outreachActions.slice(0, PREVIEW_COUNT);
+	const { actions, isReady, isError } = useRecentOutreachActions(since);
+	const preview = actions.slice(0, PREVIEW_COUNT);
 
 	return (
 		<Panel
 			actions={
 				<ExplorerLinkButton label="Open the outreach map" to="/public-engagement/outreach" />
 			}
-			count={isReady ? outreachActions.length : undefined}
+			count={isReady ? actions.length : undefined}
 			footer={
-				outreachActions.length > preview.length ? (
+				actions.length > preview.length ? (
 					<Link
 						className="font-medium text-primary hover:underline"
 						to="/public-engagement/outreach"
@@ -424,8 +424,8 @@ function RecentOutreachPanel({ since }: { readonly since: string }) {
 							icon={<OutreachIcon aria-hidden="true" className="size-4" />}
 							key={action.id}
 							params={{ id: action.id }}
-							primary={labels.methodNameById.get(action.outreachMethodId) ?? 'Unknown method'}
-							secondary={outreachSecondary(action, labels.profileNameById)}
+							primary={action.methodName}
+							secondary={outreachSecondary(action)}
 							to="/public-engagement/outreach/$id"
 						/>
 					))}
@@ -436,56 +436,10 @@ function RecentOutreachPanel({ since }: { readonly since: string }) {
 }
 
 /** `24 people reached · Jane Ruiz` — who did it and how far it got. */
-function outreachSecondary(
-	action: RecentOutreachAction,
-	profileNameById: ReadonlyMap<string, string>,
-): string {
+function outreachSecondary(action: RecentOutreachAction): string {
 	const reach = `${formatReach(action.reach)} reached`;
 	if (action.technicianProfileId === null) {
 		return reach;
 	}
-	return `${reach} · ${profileNameById.get(action.technicianProfileId) ?? 'Unknown technician'}`;
-}
-
-/**
- * Who did it, by profile id. `profiles` syncs eagerly, so this is a local lookup
- * — read through `useLiveQuery` rather than the suspense variant so a panel
- * resolves names without suspending the page.
- */
-function useProfileNames(): ReadonlyMap<string, string> {
-	const profiles = useLiveQuery((query) => query.from({ profile: webCollections.profiles }), []);
-
-	return useMemo(
-		() =>
-			new Map(
-				((profiles.data ?? []) as readonly ProfileRow[]).map(
-					(profile) => [profile.id, profile.displayName] as const,
-				),
-			),
-		[profiles.data],
-	);
-}
-
-/** Method and personnel names for the outreach rows, both from eager catalogs. */
-function useOutreachLabels(): {
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly profileNameById: ReadonlyMap<string, string>;
-} {
-	const methods = useLiveQuery(
-		(query) => query.from({ method: webCollections.outreachMethods }),
-		[],
-	);
-	const profileNameById = useProfileNames();
-
-	return useMemo(
-		() => ({
-			methodNameById: new Map(
-				((methods.data ?? []) as readonly ControlMethodRow[]).map(
-					(method) => [method.id, method.name] as const,
-				),
-			),
-			profileNameById,
-		}),
-		[methods.data, profileNameById],
-	);
+	return `${reach} · ${action.technicianName ?? 'Unknown technician'}`;
 }

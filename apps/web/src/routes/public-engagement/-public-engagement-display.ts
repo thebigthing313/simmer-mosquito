@@ -1,7 +1,9 @@
-import type { ContactRow, ServiceRequestRow } from '@simmer-mosquito/sync';
-
 // Shared label + formatting helpers for the public-engagement routes. Dash-prefixed
 // so TanStack Router ignores this file as a route.
+//
+// Every parameter here is structural rather than a row type, so both read paths
+// satisfy it: the camelCase rows the unmigrated surfaces still hold, and the
+// projections the query hooks return.
 
 /**
  * A stable, human-readable title for a service request: its sequential number as
@@ -30,7 +32,13 @@ export function contactDisplayName(contact: {
 }
 
 /** Secondary line for a contact row: company (when the name is primary) or channel. */
-export function contactSecondaryLine(contact: ContactRow): string | null {
+export function contactSecondaryLine(contact: {
+	readonly id: string;
+	readonly contactName: string | null;
+	readonly company: string | null;
+	readonly email: string | null;
+	readonly preferredPhone: string | null;
+}): string | null {
 	const primary = contactDisplayName(contact);
 	const parts = [contact.company, contact.email, contact.preferredPhone].filter(
 		(part): part is string => part !== null && part.trim().length > 0 && part !== primary,
@@ -58,8 +66,16 @@ export function formatReach(reach: number): string {
 	return reach === 1 ? '1 person' : `${reach.toLocaleString()} people`;
 }
 
-/** A request is open until it is closed; deletion is a separate (soft) state. */
-export function isServiceRequestOpen(request: Pick<ServiceRequestRow, 'closedAt'>): boolean {
+/**
+ * A request is open until it is closed; deletion is a separate (soft) state.
+ *
+ * `closedAt` is a `Date` off the query hooks and the raw timestamp string on the
+ * surfaces still reading the old collections. Only its presence is read here, so
+ * both do.
+ */
+export function isServiceRequestOpen(request: {
+	readonly closedAt: Date | string | null;
+}): boolean {
 	return request.closedAt === null;
 }
 

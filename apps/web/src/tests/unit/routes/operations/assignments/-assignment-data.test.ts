@@ -1,42 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
-	assignmentDisplayName,
-	assignmentStatus,
 	assignmentStopTone,
 	canCompleteAssignment,
 	canEditPlan,
 	canProgressItems,
+	canRecordStopWork,
 	canStartAssignment,
 	itemActionsFor,
 	itemProgress,
 	progressCounts,
 	targetTypeOf,
 } from '../../../../../routes/operations/assignments/-assignment-data';
-
-const lifecycle = (
-	startedAt: string | null,
-	completedAt: string | null,
-	cancelledAt: string | null,
-) => ({ startedAt, completedAt, cancelledAt });
-
-describe('assignmentStatus', () => {
-	it('derives the four states from timestamps', () => {
-		expect(assignmentStatus(lifecycle(null, null, null))).toBe('notStarted');
-		expect(assignmentStatus(lifecycle('t', null, null))).toBe('inProgress');
-		expect(assignmentStatus(lifecycle('t', 't', null))).toBe('completed');
-		expect(assignmentStatus(lifecycle('t', null, 't'))).toBe('cancelled');
-	});
-
-	it('resolves a completed-and-cancelled row the way the server would', () => {
-		// readLifecycleTransition checks completedAt before cancelledAt. If this ever
-		// disagreed, a row would render as one state and PATCH as the other.
-		expect(assignmentStatus(lifecycle('t', 't', 't'))).toBe('completed');
-	});
-
-	it('reports completed even when the row was never started', () => {
-		expect(assignmentStatus(lifecycle(null, 't', null))).toBe('completed');
-	});
-});
 
 describe('itemProgress', () => {
 	it('derives progress from timestamps', () => {
@@ -131,6 +105,21 @@ describe('canProgressItems', () => {
 	});
 });
 
+describe('canRecordStopWork', () => {
+	it('lets an unstarted assignment be recorded against, because doing so starts it', () => {
+		// The whole point of `autoStartAssignment`. Gating this on `inProgress`
+		// the way the progress commands are gated makes the auto-start
+		// unreachable and puts a Start tap back in front of the first record.
+		expect(canRecordStopWork('notStarted')).toBe(true);
+		expect(canRecordStopWork('inProgress')).toBe(true);
+	});
+
+	it('still refuses a closed assignment, as the server does', () => {
+		expect(canRecordStopWork('completed')).toBe(false);
+		expect(canRecordStopWork('cancelled')).toBe(false);
+	});
+});
+
 describe('canEditPlan', () => {
 	it('closes the plan once the assignment is closed', () => {
 		expect(canEditPlan('notStarted')).toBe(true);
@@ -178,34 +167,5 @@ describe('assignmentStopTone', () => {
 		for (const progress of ['pending', 'completed', 'skipped'] as const) {
 			expect(siteTones).not.toContain(assignmentStopTone(stop(progress)));
 		}
-	});
-});
-
-describe('assignmentDisplayName', () => {
-	it('prefers an explicit name', () => {
-		expect(
-			assignmentDisplayName(
-				{ assignmentName: 'North sweep', assignmentDate: '2026-08-04' },
-				'Rivera',
-			),
-		).toBe('North sweep');
-	});
-
-	it('falls back to the date and assignee', () => {
-		expect(
-			assignmentDisplayName({ assignmentName: null, assignmentDate: '2026-08-04' }, 'Rivera'),
-		).toBe('2026-08-04 — Rivera');
-	});
-
-	it('falls back to the date alone when nobody is assigned', () => {
-		expect(
-			assignmentDisplayName({ assignmentName: null, assignmentDate: '2026-08-04' }, null),
-		).toBe('2026-08-04');
-	});
-
-	it('ignores a name that is only whitespace', () => {
-		expect(
-			assignmentDisplayName({ assignmentName: '   ', assignmentDate: '2026-08-04' }, null),
-		).toBe('2026-08-04');
 	});
 });

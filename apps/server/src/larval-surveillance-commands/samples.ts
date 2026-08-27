@@ -1,4 +1,4 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import { applyRecordDeletion, checkedValues, sql, updateRow } from '@simmer-mosquito/db';
 import {
 	addInspectionSampleCommand,
 	addUnlabeledInspectionSampleCommand,
@@ -24,10 +24,9 @@ import {
 	type LarvalSurveillanceDb,
 	type LarvalSurveillanceTransaction,
 	runCommands,
-	type SafeSample,
+	type SampleRow,
 	type SampleUpdateColumns,
 	sampleReturnColumns,
-	toSafeSample,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -176,10 +175,11 @@ async function runSampleCommands(
 	);
 }
 
-async function writeSampleCommand(
+/** Exported for `table-commands/samples.ts` — see `writeHabitatCommand`. */
+export async function writeSampleCommand(
 	trx: LarvalSurveillanceTransaction,
 	command: LarvalSurveillanceCommand,
-): Promise<SafeSample | null> {
+): Promise<SampleRow | null> {
 	switch (command.type) {
 		case 'larvalSurveillance.addInspectionSample':
 			return insertSample(trx, {
@@ -244,7 +244,7 @@ async function writeSampleCommand(
 				.where('deleted_at', 'is', null)
 				.returning(sampleReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeSample(row);
+			return row ?? null;
 		}
 		default:
 			throw new Error(`Unsupported sample command: ${command.type}`);
@@ -260,22 +260,24 @@ async function insertSample(
 		readonly displayName: string | null;
 		readonly actorProfileId: string;
 	},
-): Promise<SafeSample> {
+): Promise<SampleRow> {
 	const row = await trx
 		.insertInto('samples')
-		.values({
-			id: input.id,
-			organization_id: input.organizationId,
-			inspection_id: input.inspectionId,
-			display_name: input.displayName,
-			is_zero_larvae: false,
-			has_non_mosquito: false,
-			created_by_profile_id: input.actorProfileId,
-			updated_by_profile_id: input.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, input.organizationId, {
+				id: input.id,
+				organization_id: input.organizationId,
+				inspection_id: input.inspectionId,
+				display_name: input.displayName,
+				is_zero_larvae: false,
+				has_non_mosquito: false,
+				created_by_profile_id: input.actorProfileId,
+				updated_by_profile_id: input.actorProfileId,
+			}),
+		)
 		.returning(sampleReturnColumns)
 		.executeTakeFirstOrThrow();
-	return toSafeSample(row);
+	return row;
 }
 
 async function updateSample(
@@ -283,14 +285,6 @@ async function updateSample(
 	sampleId: string,
 	organizationId: string,
 	set: SampleUpdateColumns,
-): Promise<SafeSample | null> {
-	const row = await trx
-		.updateTable('samples')
-		.set({ ...set, updated_at: sql`now()` })
-		.where('id', '=', sampleId)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(sampleReturnColumns)
-		.executeTakeFirst();
-	return row === undefined ? null : toSafeSample(row);
+): Promise<SampleRow | null> {
+	return updateRow(trx, 'samples', sampleId, organizationId, set, sampleReturnColumns);
 }

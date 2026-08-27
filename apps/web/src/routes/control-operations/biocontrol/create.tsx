@@ -1,23 +1,19 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type {
-	BiocontrolActionRow,
-	ControlMethodRow,
-	ProfileRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
-import {
-	saveAdditionalPersonnel,
-	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useMissionStopExecution } from '../../../components/mission-stop-execution';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
+import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
+import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
+import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
+import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	BiocontrolFormPage,
 	type BiocontrolFormValues,
@@ -30,7 +26,10 @@ export const Route = createFileRoute('/control-operations/biocontrol/create')({
 	// Ahead of `beforeLoad`: the options object is read in order, and a guard
 	// declared first is typed against a route whose search schema is not known
 	// yet — which erases lat/lng from `Route.useSearch()`.
-	validateSearch: (search) => mapPointSearchSchema.parse(search),
+	validateSearch: (search) => ({
+		...mapPointSearchSchema.parse(search),
+		...missionStopSearchSchema.parse(search),
+	}),
 	beforeLoad: async ({ context }) => {
 		if (await isWriteBlocked(context)) {
 			throw redirect({ replace: true, to: '/control-operations/biocontrol' });
@@ -41,12 +40,17 @@ export const Route = createFileRoute('/control-operations/biocontrol/create')({
 
 function CreateBiocontrolActionRoute() {
 	const { auth } = Route.useRouteContext();
-	const initialGeometry = pointFromSearch(Route.useSearch());
+	const search = Route.useSearch();
+	const initialGeometry = pointFromSearch(search);
+	// Recorded off a mission stop: the server links the action to the stop and
+	// completes it in the same transaction.
+	const mission = useMissionStopExecution(search);
 	const navigate = useNavigate();
+	const timeZone = useOrganizationTimeZone();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const methods = useBiocontrolMethodRoster();
+	const { all: units } = useUnitLabels();
+	const profiles = useProfileRoster();
 
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
@@ -54,106 +58,104 @@ function CreateBiocontrolActionRoute() {
 
 	// Minted up front so the crew rows can be written the moment the release lands
 	// — and so their on-demand stream is already warm when the save fires.
-	const [biocontrolActionId] = useState(() => crypto.randomUUID());
+	const [biocontrolActionId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'biocontrolAction', id: biocontrolActionId });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
+	const { record } = useBiocontrolActionMutations();
 
 	const onSave = useCallback(
-		async ({
-			values,
-			geometry,
-		}: {
+		async (input: {
 			readonly values: BiocontrolFormValues;
 			readonly geometry: DrawGeometry | null;
 			readonly geometryChanged: boolean;
-		}) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-			if (geometry === null) {
-				throw new Error('Place the release point on the map.');
-			}
-			if (values.amountReleased === null) {
-				throw new Error('Enter how much was released.');
-			}
+		}) =>
+			mission.run(async (acknowledgements) => {
+				const { values, geometry } = input;
+				if (organization === null) {
+					throw new Error('Organization details are still loading.');
+				}
+				if (actorProfileId === null) {
+					throw new Error('Your profile is still loading.');
+				}
+				if (values.amountReleased === null) {
+					throw new Error('Enter how much was released.');
+				}
 
-			// The point is the action's authoritative geometry; the address (if any) is
-			// reference only. The server recomputes geom from the location source; this
-			// centroid seeds the optimistic row so the map/coordinates show immediately.
-			const centroid = ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
-			if (centroid === null) {
-				throw new Error('Unable to determine the release location.');
-			}
+				// The point is the action's authoritative geometry; the address (if any) is
+				// reference only. Off a mission stop it is required; on one it is an
+				// override the crew may not have drawn, and the server falls back to the
+				// stop's own ground.
+				const location = mission.resolveLocation(geometry, {
+					missing: 'Place the release point on the map.',
+					unresolvable: 'Unable to determine the release location.',
+				});
 
-			const now = new Date().toISOString();
-			const row: BiocontrolActionRow = {
-				id: biocontrolActionId,
-				organizationId: organization.id,
-				lat: centroid.lat,
-				lng: centroid.lng,
-				geomType: centroid.geomType,
-				biocontrolMethodId: values.biocontrolMethodId,
-				technicianProfileId:
-					values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-				biocontrolDate: values.biocontrolDate,
-				addressId: values.addressId,
-				habitatId: values.habitatId,
-				inspectionId: null,
-				amountReleased: values.amountReleased,
-				releaseUnitId: values.releaseUnitId,
-				requestedControlActionId: null,
-				missionItemId: null,
-				metadata: values.metadata,
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
-
-			const locationSource = {
-				kind: 'geometry',
-				geometry: geometry as unknown as GeoJsonGeometry,
-			} as const;
-
-			const transaction = webCollections.biocontrolActions.insert(row, {
-				metadata: { locationSource },
-			});
-			await settleWrite(transaction);
-			// Crew rows reference the release, so they can only be written once it exists.
-			await attachLinksBestEffort('the additional personnel', () =>
-				saveAdditionalPersonnel({
-					target: { type: 'biocontrolAction', id: row.id },
-					organizationId: organization.id,
-					actorProfileId,
-					existing: [],
-					profileIds: values.additionalPersonnelIds,
-				}),
-			);
-			await navigate({ to: '/control-operations/biocontrol/$id', params: { id: row.id } });
-		},
-		[organization, actorProfileId, biocontrolActionId, navigate],
+				// Off a stop this is `missionDispatch.recordBiocontrolActionForMissionItem`
+				// and links the stop; on its own it is
+				// `controlOperations.recordBiocontrolAction`. The hook reads the stop id
+				// rather than making this form say which command it meant.
+				await record({
+					biocontrolActionId,
+					values: {
+						methodId: values.biocontrolMethodId,
+						technicianProfileId:
+							values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+						actionDate: values.biocontrolDate,
+						addressId: values.addressId,
+						habitatId: values.habitatId,
+						amountReleased: values.amountReleased,
+						unitId: values.releaseUnitId,
+						metadata: values.metadata,
+					},
+					location: {
+						lat: location.lat,
+						lng: location.lng,
+						geomType: location.geomType,
+						locationSource: location.locationSource,
+					},
+					missionItemId: mission.missionItemId,
+					acknowledgements,
+				});
+				// Crew rows reference the release, so they can only be written once it exists.
+				await attachLinksBestEffort('the additional personnel', () =>
+					setPersonnel({
+						target: { type: 'biocontrolAction', id: biocontrolActionId },
+						existing: [],
+						profileIds: values.additionalPersonnelIds,
+					}),
+				);
+				await mission.navigateAfterSave(async () => {
+					await navigate({
+						to: '/control-operations/biocontrol/$id',
+						params: { id: biocontrolActionId },
+					});
+				});
+			}),
+		[organization, actorProfileId, biocontrolActionId, navigate, mission, record, setPersonnel],
 	);
 
 	return (
-		<BiocontrolFormPage
-			biocontrolMethods={methods}
-			canSubmit={canSubmit}
-			defaultValues={defaultBiocontrolFormValues()}
-			header={{
-				title: 'Record Biocontrol',
-				description:
-					'Place the release point, then record the method, amount, and date of the release.',
-				backTo: '/control-operations/biocontrol',
-				backLabel: 'Biocontrol',
-			}}
-			initialGeometry={initialGeometry}
-			onSave={onSave}
-			organizationId={organization?.id ?? ''}
-			profiles={profiles}
-			submitLabel="Record Biocontrol"
-			units={units}
-		/>
+		<>
+			<BiocontrolFormPage
+				biocontrolMethods={methods}
+				canSubmit={canSubmit}
+				defaultValues={defaultBiocontrolFormValues(timeZone)}
+				header={{
+					title: 'Record Biocontrol',
+					description:
+						'Place the release point, then record the method, amount, and date of the release.',
+					backTo: '/control-operations/biocontrol',
+					backLabel: 'Biocontrol',
+				}}
+				initialGeometry={initialGeometry}
+				requireLocation={mission.requireLocation}
+				onSave={onSave}
+				organizationId={organization?.id ?? ''}
+				profiles={profiles}
+				submitLabel="Record Biocontrol"
+				units={units}
+			/>
+			{mission.dialog}
+		</>
 	);
 }

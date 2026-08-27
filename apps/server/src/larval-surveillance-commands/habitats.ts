@@ -1,4 +1,11 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	applyRecordMerge,
+	assertWriteReferences,
+	checkedValues,
+	softDelete,
+	sql,
+} from '@simmer-mosquito/db';
 import {
 	clearHabitatInaccessibleCommand,
 	createHabitatCommand,
@@ -23,16 +30,16 @@ import {
 	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
+	type HabitatRow,
 	type HabitatUpdateColumns,
 	habitatReturnColumns,
+	habitatTypeReferences,
 	type InvalidCommandBody,
 	invalidUpdate,
 	type LarvalSurveillanceDb,
 	type LarvalSurveillanceTransaction,
 	resolveLocationGeom,
 	runCommands,
-	type SafeHabitat,
-	toSafeHabitat,
 	updateRow,
 } from './shared.js';
 
@@ -212,37 +219,53 @@ async function runHabitatCommands(
 	);
 }
 
-async function writeHabitatCommand(
+/**
+ * Exported for `table-commands/habitats.ts`, which reaches the same ten commands
+ * through `/commands/habitats` and needs the writer unchanged — only the route
+ * and how the command is chosen differ.
+ */
+export async function writeHabitatCommand(
 	trx: LarvalSurveillanceTransaction,
 	command: LarvalSurveillanceCommand,
-): Promise<SafeHabitat | null> {
+): Promise<HabitatRow | null> {
 	switch (command.type) {
 		case 'larvalSurveillance.createHabitat': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
+				references: habitatTypeReferences(command.payload),
+			});
 			const row = await trx
 				.insertInto('habitats')
-				.values({
-					id: command.payload.habitatId,
-					organization_id: command.payload.organizationId,
-					geom: await resolveLocationGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					address_id: command.payload.addressId,
-					habitat_type_id: command.payload.habitatTypeId,
-					habitat_name: command.payload.habitatName,
-					description: command.payload.description,
-					is_active: true,
-					is_inaccessible: false,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.habitatId,
+						organization_id: command.payload.organizationId,
+						geom: await resolveLocationGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						address_id: command.payload.addressId,
+						habitat_type_id: command.payload.habitatTypeId,
+						habitat_name: command.payload.habitatName,
+						description: command.payload.description,
+						is_active: true,
+						is_inaccessible: false,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(habitatReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeHabitat(row);
+			return row;
 		}
 		case 'larvalSurveillance.createHabitatFromInspection': {
+			// The habitat type here is copied from the Habitat being inspected, not
+			// chosen by the person recording. The gate is about starting to use a
+			// retired catalog row; refusing an inherited one would make a Habitat
+			// uninspectable because its type was deactivated after it was built.
 			const snapshot = await loadInspectionSnapshot(
 				trx,
 				command.payload.organizationId,
@@ -250,30 +273,33 @@ async function writeHabitatCommand(
 			);
 			const habitat = await trx
 				.insertInto('habitats')
-				.values({
-					id: command.payload.habitatId,
-					organization_id: command.payload.organizationId,
-					geom: geojsonToGeom(snapshot.geojson),
-					address_id: snapshot.addressId,
-					habitat_type_id: snapshot.habitatTypeId,
-					habitat_name: command.payload.habitatName,
-					description: command.payload.description,
-					is_active: true,
-					is_inaccessible: false,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.habitatId,
+						organization_id: command.payload.organizationId,
+						geom: geojsonToGeom(snapshot.geojson),
+						address_id: snapshot.addressId,
+						habitat_type_id: snapshot.habitatTypeId,
+						habitat_name: command.payload.habitatName,
+						description: command.payload.description,
+						is_active: true,
+						is_inaccessible: false,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(habitatReturnColumns)
 				.executeTakeFirstOrThrow();
-			await trx
-				.updateTable('inspections')
-				.set({ habitat_id: command.payload.habitatId, updated_at: sql`now()` })
-				.where('id', '=', command.payload.inspectionId)
-				.where('organization_id', '=', command.payload.organizationId)
-				.where('deleted_at', 'is', null)
-				.execute();
-			return toSafeHabitat(habitat);
+			await updateRow(
+				trx,
+				'inspections',
+				command.payload.inspectionId,
+				command.payload.organizationId,
+				{ habitat_id: command.payload.habitatId },
+				['id'],
+			);
+			return habitat;
 		}
 		case 'larvalSurveillance.updateHabitatDetails':
 			return updateHabitat(trx, command.payload.habitatId, command.payload.organizationId, {
@@ -298,6 +324,11 @@ async function writeHabitatCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'larvalSurveillance.updateHabitatConfiguration':
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'update', table: 'habitats', recordId: command.payload.habitatId },
+				references: habitatTypeReferences(command.payload.changes),
+			});
 			return updateHabitat(trx, command.payload.habitatId, command.payload.organizationId, {
 				...('addressId' in command.payload.changes
 					? { address_id: command.payload.changes.addressId ?? null }
@@ -327,6 +358,43 @@ async function writeHabitatCommand(
 				is_active: true,
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
+		case 'larvalSurveillance.mergeHabitats': {
+			// Re-point first, retire second: every rule finds its rows by the source
+			// habitat id, and a source already soft-deleted is not one of them.
+			//
+			// The route and assignment stops are the part worth knowing about. Two
+			// habitats on one route are two stops; merged, they are one place, and
+			// `applyRecordMerge` keeps the *target's* existing stop so the crew's
+			// position and directions to the next stop survive, retiring the source's.
+			await applyRecordMerge(trx, {
+				recordType: 'habitat',
+				targetId: command.payload.targetHabitatId,
+				sourceIds: command.payload.sourceHabitatIds,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+			});
+			for (const sourceId of command.payload.sourceHabitatIds) {
+				await softDelete(
+					trx,
+					'habitats',
+					sourceId,
+					command.payload.organizationId,
+					command.payload.actorProfileId,
+					habitatReturnColumns,
+				);
+			}
+			// The survivor, unchanged: a merge picks which habitat is authoritative
+			// and does not blend the retired ones' name, geometry, address or type
+			// into it.
+			const row = await trx
+				.selectFrom('habitats')
+				.select(habitatReturnColumns)
+				.where('id', '=', command.payload.targetHabitatId)
+				.where('organization_id', '=', command.payload.organizationId)
+				.where('deleted_at', 'is', null)
+				.executeTakeFirst();
+			return row ?? null;
+		}
 		case 'larvalSurveillance.deleteHabitat': {
 			await applyRecordDeletion(trx, {
 				recordType: 'habitat',
@@ -347,7 +415,7 @@ async function writeHabitatCommand(
 				.where('deleted_at', 'is', null)
 				.returning(habitatReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeHabitat(row);
+			return row ?? null;
 		}
 		default:
 			throw new Error(`Unsupported habitat command: ${command.type}`);
@@ -359,16 +427,8 @@ async function updateHabitat(
 	habitatId: string,
 	organizationId: string,
 	set: HabitatUpdateColumns,
-): Promise<SafeHabitat | null> {
-	return updateRow(
-		trx,
-		'habitats',
-		habitatId,
-		organizationId,
-		set,
-		habitatReturnColumns,
-		toSafeHabitat,
-	);
+): Promise<HabitatRow | null> {
+	return updateRow(trx, 'habitats', habitatId, organizationId, set, habitatReturnColumns);
 }
 
 async function loadInspectionSnapshot(

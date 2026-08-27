@@ -1,0 +1,5 @@
+---
+'@simmer-mosquito/web': patch
+---
+
+Added: Global search. Press ⌘K, or Ctrl K, or the search button in the header, and a palette opens over whatever you were doing. Type and it searches four things at once: the pages in the sidebar, the create forms you have access to, your records, and your comments. Records cover habitats, traps, samples, service requests, contacts, addresses, regions, routes, assignments, missions, weather stations, and requests for control — by name, by code, and by the description or details written on them. It reads exact codes first, then codes that start with what you typed, then near misses for a typo, then anything whose text matches. Opening the palette with nothing typed lists every create form you can reach, so it doubles as a way to start work. "View all results" opens a full page where the query is editable, results keep loading as you scroll, and a rail on the left shows how many records and how many comments matched. Search only ever returns your agency's records. It does not read custom fields, and it will not find a habitat by the address it sits at.

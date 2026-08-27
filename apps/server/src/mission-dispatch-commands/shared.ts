@@ -1,7 +1,9 @@
 import {
+	checkedValues,
 	geojsonToGeom,
 	localDateColumn,
 	type RawBuilder,
+	type SelectedRow,
 	softDelete,
 	updateRow,
 } from '@simmer-mosquito/db';
@@ -58,17 +60,19 @@ export async function insertMissionItem(
 ): Promise<void> {
 	await trx
 		.insertInto('mission_items')
-		.values({
-			id: input.missionItemId,
-			organization_id: input.organizationId,
-			mission_id: input.missionId,
-			requested_control_action_id: input.requestedControlActionId,
-			geom: input.geom,
-			address_id: input.addressId,
-			position: input.position,
-			created_by_profile_id: input.actorProfileId,
-			updated_by_profile_id: input.actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, input.organizationId, {
+				id: input.missionItemId,
+				organization_id: input.organizationId,
+				mission_id: input.missionId,
+				requested_control_action_id: input.requestedControlActionId,
+				geom: input.geom,
+				address_id: input.addressId,
+				position: input.position,
+				created_by_profile_id: input.actorProfileId,
+				updated_by_profile_id: input.actorProfileId,
+			}),
+		)
 		.execute();
 }
 
@@ -199,41 +203,7 @@ export const missionReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeMission {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly missionName: string | null;
-	readonly controlType: string;
-	readonly startedAt: Date | null;
-	readonly completedAt: Date | null;
-	readonly cancelledAt: Date | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeMission(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly mission_name: string | null;
-	readonly control_type: string;
-	readonly started_at: Date | null;
-	readonly completed_at: Date | null;
-	readonly cancelled_at: Date | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeMission {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		missionName: row.mission_name,
-		controlType: row.control_type,
-		startedAt: row.started_at,
-		completedAt: row.completed_at,
-		cancelledAt: row.cancelled_at,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type MissionRow = SelectedRow<'missions', typeof missionReturnColumns>;
 
 export const missionItemReturnColumns = [
 	'id',
@@ -249,44 +219,7 @@ export const missionItemReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeMissionItem {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly missionId: string;
-	readonly requestedControlActionId: string | null;
-	readonly addressId: string | null;
-	readonly position: number;
-	readonly completedAt: Date | null;
-	readonly skippedAt: Date | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeMissionItem(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly mission_id: string;
-	readonly requested_control_action_id: string | null;
-	readonly address_id: string | null;
-	readonly position: number;
-	readonly completed_at: Date | null;
-	readonly skipped_at: Date | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeMissionItem {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		missionId: row.mission_id,
-		requestedControlActionId: row.requested_control_action_id,
-		addressId: row.address_id,
-		position: row.position,
-		completedAt: row.completed_at,
-		skippedAt: row.skipped_at,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type MissionItemRow = SelectedRow<'mission_items', typeof missionItemReturnColumns>;
 
 // ===========================================================================
 // Shared command + request helpers

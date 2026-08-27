@@ -1,12 +1,11 @@
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
-import type {
-	AssignmentStatus,
-	AssignmentTarget,
-	ItemProgress,
-	TargetType,
-} from './-assignment-data';
+import {
+	ASSIGNMENT_STATUS_LABELS,
+	type AssignmentStatus,
+} from '../../../hooks/queries/assignment-view';
+import type { AssignmentTarget, ItemProgress, TargetType } from './-assignment-data';
 
 const TrapIcon = iconRegistry.entities.trap.icon;
 const HabitatIcon = iconRegistry.domains.larvalSurveillance.icon;
@@ -24,13 +23,6 @@ const targetIcons = {
 	serviceRequest: ServiceRequestIcon,
 } as const;
 
-const statusLabels: Readonly<Record<AssignmentStatus, string>> = {
-	notStarted: 'Not started',
-	inProgress: 'In progress',
-	completed: 'Completed',
-	cancelled: 'Cancelled',
-};
-
 const statusTones = {
 	notStarted: 'neutral',
 	inProgress: 'info',
@@ -41,7 +33,7 @@ const statusTones = {
 export function AssignmentStatusBadge({ status }: { readonly status: AssignmentStatus }) {
 	return (
 		<Badge className="shrink-0" tone={statusTones[status]} variant="outline">
-			{statusLabels[status]}
+			{ASSIGNMENT_STATUS_LABELS[status]}
 		</Badge>
 	);
 }
@@ -140,36 +132,4 @@ export function TargetLink({
 			{label}
 		</Link>
 	);
-}
-
-/** A due time, shown only when one is set. Dates render in the agency's locale. */
-export function formatDueAt(dueAt: string | null): string | null {
-	if (dueAt === null) {
-		return null;
-	}
-	const parsed = new Date(dueAt);
-	if (Number.isNaN(parsed.getTime())) {
-		return null;
-	}
-	return parsed.toLocaleString(undefined, {
-		month: 'short',
-		day: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-	});
-}
-
-export function formatAssignmentDate(date: string): string {
-	// `assignmentDate` is an agency-local calendar date, so it is split rather than
-	// parsed — `new Date('2026-08-04')` is UTC midnight and shifts a day west of it.
-	const [year, month, day] = date.split('-').map(Number);
-	if (year === undefined || month === undefined || day === undefined) {
-		return date;
-	}
-	return new Date(year, month - 1, day).toLocaleDateString(undefined, {
-		weekday: 'short',
-		month: 'short',
-		day: 'numeric',
-		year: 'numeric',
-	});
 }

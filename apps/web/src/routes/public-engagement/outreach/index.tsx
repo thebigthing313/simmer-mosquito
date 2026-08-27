@@ -1,21 +1,22 @@
-import type { ControlMethodRow } from '@simmer-mosquito/sync';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
-	ExplorerHeader,
+	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
 	mapQueryParams,
-	ResultList,
 	toggle,
 	useDateRangeFilters,
+	useExplorerPanel,
 	useFlyToSelection,
+	useOutreachMethodOptions,
 	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
@@ -23,7 +24,8 @@ import {
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { MAP_CREATE_TARGETS, MapCanvas, type OutreachTileFilters } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { todayInTimeZone } from '../../../lib/local-date';
 import {
 	dateParam,
 	type FilterCodecs,
@@ -31,8 +33,6 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
-import { nameById, todayDateValue } from '../../control-operations/-control-display';
 import { addDaysToDateString } from '../../control-operations/-overview-data';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { OutreachMapCard } from '../-outreach-map-card';
@@ -66,6 +66,8 @@ const FILTER_CODECS: FilterCodecs<OutreachFilters> = {
 	regions: idSetParam,
 };
 
+const OutreachEntityIcon = iconRegistry.entities.outreachAction.icon;
+
 export const Route = createFileRoute('/public-engagement/outreach/')({
 	component: OutreachExplorerRoute,
 	validateSearch: searchValidator(FILTER_CODECS),
@@ -76,7 +78,8 @@ const RESULT_NOUN = { one: 'action', many: 'actions' };
 const PATH = '/map/outreach';
 
 function OutreachExplorerRoute() {
-	const today = useMemo(() => todayDateValue(), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const defaultFrom = useMemo(
 		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
 		[today],
@@ -113,10 +116,10 @@ function OutreachExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.outreachMethods);
-	const methodNameById = useMemo(() => nameById(methods, (method) => method.name), [methods]);
+	const { options: methodOptions, nameById: methodNameById } = useOutreachMethodOptions();
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
@@ -144,12 +147,13 @@ function OutreachExplorerRoute() {
 		[filters],
 	);
 
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<OutreachSite>({
-		path: PATH,
-		rowsKey: 'outreachActions',
-		label: 'Outreach',
-		params,
-	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<OutreachSite>({
+			path: PATH,
+			rowsKey: 'outreachActions',
+			label: 'Outreach',
+			params,
+		});
 
 	const selected = useSelectedMapRecord<OutreachSite>({
 		path: PATH,
@@ -165,48 +169,25 @@ function OutreachExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const hasActiveFilters =
-		dateFrom !== defaultFrom ||
-		dateTo !== today ||
-		methodIds.size > 0 ||
-		regionIds.size > 0 ||
-		personIds.size > 0;
+	const activeFilterCount =
+		(dateFrom === defaultFrom && dateTo === today ? 0 : 1) +
+		methodIds.size +
+		regionIds.size +
+		personIds.size;
 
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						contextMenu={{
-							create: [MAP_CREATE_TARGETS.outreach, MAP_CREATE_TARGETS.serviceRequest],
-						}}
-						controls={{ layers: false, measure: true }}
-						fitToData
-						onMapReady={handleMapReady}
-						outreachLayer={outreachLayer}
-					/>
-					{selected === null ? null : (
-						<OutreachMapCard id={selected.id} onClose={() => setSelectedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<ExplorerHeader
-					create={{ to: '/public-engagement/outreach/create', label: 'Record' }}
-					isLoading={isLoading}
-					noun={RESULT_NOUN}
-					title="Outreach"
-					total={total}
-				>
 					<DateRangeFilter {...dateRange} />
 
-					<div className="flex flex-wrap items-center gap-2">
+					<FilterGrid>
 						<MultiSelectFilter
 							empty="No outreach methods"
 							label="Method"
 							onChange={setMethodIds}
-							options={methods.map((method) => ({ id: method.id, label: method.name }))}
+							options={methodOptions}
 							selected={methodIds}
 						/>
 						<MultiSelectFilter
@@ -223,9 +204,9 @@ function OutreachExplorerRoute() {
 							options={regions.options}
 							selected={regionIds}
 						/>
-					</div>
+					</FilterGrid>
 
-					{hasActiveFilters ? (
+					{activeFilterCount > 0 ? (
 						<ActiveFilterBar onClearAll={reset}>
 							{[...methodIds].map((id) => (
 								<FilterChip
@@ -250,70 +231,72 @@ function OutreachExplorerRoute() {
 							))}
 						</ActiveFilterBar>
 					) : null}
-				</ExplorerHeader>
-
-				<OutreachResults
-					isLoading={isLoading}
-					methodNameById={methodNameById}
-					onSelect={setSelectedId}
-					personnelNameById={personnel.nameById}
-					rows={rows}
-					selectedId={selectedId}
+				</>
+			}
+			footer={
+				<ExplorerPagination
+					noun={{ one: 'action', many: 'actions' }}
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
 				/>
-
-				<div className="border-border/50 border-t p-3">
-					<ExplorerPagination
-						noun="actions"
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={total}
+			}
+			heading={{
+				title: 'Outreach',
+				icon: OutreachEntityIcon,
+				total,
+				isLoading,
+				noun: RESULT_NOUN,
+				create: { to: '/public-engagement/outreach/create', label: 'Record Outreach' },
+			}}
+			onResetFilters={reset}
+			map={
+				<>
+					<MapCanvas
+						inset={panel.inset}
+						searchWidth={panel.width}
+						contextMenu={{
+							create: [MAP_CREATE_TARGETS.outreach, MAP_CREATE_TARGETS.serviceRequest],
+						}}
+						controls={{ layers: false, measure: true, readout: true }}
+						fitToData
+						onMapReady={handleMapReady}
+						outreachLayer={outreachLayer}
 					/>
-				</div>
-			</div>
-		</MapSplitPage>
-	);
-}
-
-// --- results ----------------------------------------------------------------
-
-function OutreachResults({
-	rows,
-	isLoading,
-	selectedId,
-	methodNameById,
-	personnelNameById,
-	onSelect,
-}: {
-	readonly rows: readonly OutreachSite[];
-	readonly isLoading: boolean;
-	readonly selectedId: string | null;
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly personnelNameById: ReadonlyMap<string, string>;
-	readonly onSelect: (id: string) => void;
-}) {
-	return (
-		<ResultList
-			emptyDescription="Widen the time window or loosen the filters to bring outreach actions into range."
-			emptyTitle="No outreach in range"
-			isLoading={isLoading}
-			rows={rows}
-		>
-			{(row) => (
-				<OutreachListItem
-					isSelected={row.id === selectedId}
-					key={row.id}
-					methodName={methodNameById.get(row.outreachMethodId) ?? 'Unknown method'}
-					onSelect={onSelect}
-					row={row}
-					technicianName={
-						row.technicianProfileId === null
-							? null
-							: (personnelNameById.get(row.technicianProfileId) ?? null)
-					}
-				/>
-			)}
-		</ResultList>
+					{selected === null ? null : (
+						<OutreachMapCard
+							id={selected.id}
+							inset={panel.inset}
+							onClose={() => setSelectedId(null)}
+						/>
+					)}
+				</>
+			}
+			panel={panel}
+			results={{
+				rows,
+				isError,
+				onRetry: retry,
+				emptyTitle: 'No outreach in range',
+				emptyDescription:
+					'Widen the time window or loosen the filters to bring outreach actions into range.',
+				renderRow: (row) => (
+					<OutreachListItem
+						isSelected={row.id === selectedId}
+						key={row.id}
+						methodName={methodNameById.get(row.outreachMethodId) ?? 'Unknown method'}
+						onSelect={setSelectedId}
+						row={row}
+						technicianName={
+							row.technicianProfileId === null
+								? null
+								: (personnel.nameById.get(row.technicianProfileId) ?? null)
+						}
+					/>
+				),
+			}}
+		/>
 	);
 }
 

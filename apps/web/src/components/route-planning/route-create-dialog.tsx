@@ -1,5 +1,3 @@
-import type { RouteRow } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -15,8 +13,7 @@ import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useNavigate } from '@tanstack/react-router';
 import { type FormEvent, useState } from 'react';
-import { useAuthSnapshot } from '../../hooks/use-auth-snapshot';
-import { webCollections } from '../../sync/webCollections';
+import { useRouteMutations } from '../../hooks/mutations/use-route-mutations';
 import type { RoutePlanningSurface } from './surface';
 
 /**
@@ -33,20 +30,18 @@ export function RouteCreateDialog({
 	readonly open: boolean;
 	readonly onOpenChange: (open: boolean) => void;
 }) {
-	const auth = useAuthSnapshot();
-	const identity = auth?.authenticated === true ? auth.localIdentity : null;
+	const { create, canWrite } = useRouteMutations();
 	const navigate = useNavigate();
 	const [name, setName] = useState('');
 	const [pending, setPending] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 
-	const organizationId = identity?.organizationId ?? null;
 	const trimmed = name.trim();
-	const canSubmit = organizationId !== null && trimmed.length > 0 && !pending;
+	const canSubmit = canWrite && trimmed.length > 0 && !pending;
 
 	const handleSubmit = async (event: FormEvent) => {
 		event.preventDefault();
-		if (organizationId === null) {
+		if (!canWrite) {
 			setError('Your profile is still loading. Try again in a moment.');
 			return;
 		}
@@ -56,19 +51,10 @@ export function RouteCreateDialog({
 		setPending(true);
 		setError(null);
 		try {
-			const now = new Date().toISOString();
-			const row: RouteRow = {
-				id: crypto.randomUUID(),
-				organizationId,
-				routeName: trimmed,
-				routeType: surface.routeType,
-				createdAt: now,
-				updatedAt: now,
-			};
-			await settleWrite(webCollections.routes.insert(row));
+			const routeId = await create({ routeName: trimmed, routeType: surface.routeType });
 			setName('');
 			onOpenChange(false);
-			await navigate(surface.editLink(row.id));
+			await navigate(surface.editLink(routeId));
 		} catch (cause) {
 			setError(cause instanceof Error ? cause.message : 'Unable to create the route.');
 		} finally {

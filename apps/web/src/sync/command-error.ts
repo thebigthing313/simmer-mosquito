@@ -88,9 +88,15 @@ export function readBlockers(error: unknown): readonly DeleteImpactEntry[] {
  * Reads a response body without assuming it is JSON.
  *
  * A failed request does not always come from the application: a proxy or a
- * gateway can answer with HTML or with nothing at all, and `response.json()`
- * throws on both. Returning an empty object there lets the caller fall back to
- * its own sentence instead of surfacing a parse error.
+ * gateway can answer with HTML or with nothing at all, an unhandled server
+ * error answers the bare text `Internal Server Error`, and `response.json()`
+ * throws on all of them. Returning an empty object there lets the caller fall
+ * back to its own sentence instead of showing the operator a parse error where
+ * the real fault should have been.
+ *
+ * Anything that is not a JSON object is `{}` too. Callers test the parsed body
+ * with `'txid' in result`, and `in` throws on a string or a number — so a body
+ * of `"nope"` would fail in the same shape this exists to prevent.
  */
 export async function readResponseBody(response: Response): Promise<unknown> {
 	const text = await response.text();
@@ -98,7 +104,8 @@ export async function readResponseBody(response: Response): Promise<unknown> {
 		return {};
 	}
 	try {
-		return JSON.parse(text) as unknown;
+		const parsed = JSON.parse(text) as unknown;
+		return isRecord(parsed) ? parsed : {};
 	} catch {
 		return {};
 	}

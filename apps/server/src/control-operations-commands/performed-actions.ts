@@ -1,13 +1,25 @@
-import { applyRecordDeletion } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	assertWriteReferences,
+	type CatalogRecordType,
+	type CatalogReference,
+	checkedValues,
+} from '@simmer-mosquito/db';
 import {
 	type ControlActionLocationSourceInput,
 	type ControlOperationsCommand,
 	deleteBiocontrolActionCommand,
 	deleteOutreachActionCommand,
 	deleteSourceReductionCommand,
+	type RecordBiocontrolActionForMissionItemCommand,
+	type RecordOutreachActionForMissionItemCommand,
+	type RecordSourceReductionForMissionItemCommand,
 	recordBiocontrolActionCommand,
+	recordBiocontrolActionForMissionItemCommand,
 	recordOutreachActionCommand,
+	recordOutreachActionForMissionItemCommand,
 	recordSourceReductionCommand,
+	recordSourceReductionForMissionItemCommand,
 	updateBiocontrolActionFieldDetailsCommand,
 	updateBiocontrolActionLocationAndContextCommand,
 	updateOutreachActionFieldDetailsCommand,
@@ -17,9 +29,22 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readNumber, readText } from '../command-payload.js';
+import {
+	readMissionExecutionOptions,
+	readNullableText,
+	readNumber,
+	readText,
+} from '../command-payload.js';
+import {
+	assertMissionGeometryCovered,
+	beginMissionExecution,
+	finishMissionExecution,
+	missionItemGeom,
+	resolveMissionMethodId,
+} from '../mission-dispatch-commands/mission-execution.js';
 import {
 	type AgencyContext,
+	type BiocontrolActionRow,
 	biocontrolActionReturnColumns,
 	type CommandContext,
 	type CommandsResult,
@@ -33,19 +58,15 @@ import {
 	localDateColumn,
 	locationContextColumns,
 	locationContextInput,
+	type OutreachActionRow,
 	outreachActionReturnColumns,
 	type RouteOptions,
 	readControlActionContext,
 	resolveGeom,
 	runCommands,
-	type SafeBiocontrolAction,
-	type SafeOutreachAction,
-	type SafeSourceReduction,
+	type SourceReductionRow,
 	softDelete,
 	sourceReductionReturnColumns,
-	toSafeBiocontrolAction,
-	toSafeOutreachAction,
-	toSafeSourceReduction,
 	updateActionRow,
 } from './shared.js';
 
@@ -53,15 +74,26 @@ import {
 // Source reduction / outreach / biocontrol actions (shared shape)
 // ===========================================================================
 
-interface ActionConfig<TSafe> {
+/**
+ * What these endpoints can be asked to do.
+ *
+ * The `missionDispatch.*` helpers are handled here rather than under mission
+ * dispatch because the row being written is a control action; the command
+ * vocabulary follows the unit of work, the endpoint follows the table. Same
+ * split as the assignment execution commands on the surveillance endpoints.
+ */
+export type ActionCommand =
+	| ControlOperationsCommand
+	| RecordSourceReductionForMissionItemCommand
+	| RecordOutreachActionForMissionItemCommand
+	| RecordBiocontrolActionForMissionItemCommand;
+
+interface ActionConfig<TRow> {
 	readonly noun: string;
 	readonly basePath: string;
 	readonly notFoundError: string;
 	readonly idParam: string;
-	readonly buildCreate: (
-		ctx: AgencyContext,
-		payload: Record<string, unknown>,
-	) => ControlOperationsCommand;
+	readonly buildCreate: (ctx: AgencyContext, payload: Record<string, unknown>) => ActionCommand;
 	readonly buildUpdate: (
 		ctx: AgencyContext,
 		id: string,
@@ -70,15 +102,15 @@ interface ActionConfig<TSafe> {
 	readonly buildDelete: (ctx: AgencyContext, id: string) => ControlOperationsCommand;
 	readonly write: (
 		trx: ControlOperationsTransaction,
-		command: ControlOperationsCommand,
-	) => Promise<TSafe | null>;
+		command: ActionCommand,
+	) => Promise<TRow | null>;
 	readonly responseKey: string;
 }
 
-export function registerActionRoutes<TSafe>(
+export function registerActionRoutes<TRow>(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: RouteOptions,
-	config: ActionConfig<TSafe>,
+	config: ActionConfig<TRow>,
 ): void {
 	app.post(
 		config.basePath,
@@ -115,11 +147,11 @@ export function registerActionRoutes<TSafe>(
  * write tail, which is what `ActionConfig` is for. The tail itself is no longer
  * theirs — this generalized out of here and now serves all 28 endpoints.
  */
-async function runActionCommands<TSafe>(
+async function runActionCommands<TRow>(
 	context: CommandContext,
 	db: ControlOperationsDb,
-	config: ActionConfig<TSafe>,
-	commands: readonly ControlOperationsCommand[],
+	config: ActionConfig<TRow>,
+	commands: readonly ActionCommand[],
 	createdStatus?: 201,
 ) {
 	return runCommands(
@@ -132,14 +164,36 @@ async function runActionCommands<TSafe>(
 
 // --- Source reductions ---
 
-export const sourceReductionConfig: ActionConfig<SafeSourceReduction> = {
+export const sourceReductionConfig: ActionConfig<SourceReductionRow> = {
 	noun: 'source reduction',
 	basePath: '/control-operations/source-reductions',
 	notFoundError: 'source_reduction_not_found',
 	idParam: 'sourceReductionId',
 	responseKey: 'sourceReduction',
-	buildCreate: (ctx, p) =>
-		recordSourceReductionCommand({
+	buildCreate: (ctx, p) => {
+		const missionItemId = readNullableText(p.missionItemId);
+		// Recorded off a mission stop: the action carries the stop and closes it.
+		if (missionItemId !== null) {
+			return recordSourceReductionForMissionItemCommand({
+				...ctx,
+				missionItemId,
+				sourceReductionId: readText(p.id) ?? '',
+				sourceReductionDate: readText(p.sourceReductionDate) ?? '',
+				sourcesEliminatedAmount: readNumber(p.sourcesEliminatedAmount) ?? Number.NaN,
+				sourcesEliminatedUnitId: readText(p.sourcesEliminatedUnitId) ?? '',
+				sourceReductionMethodId: readText(p.sourceReductionMethodId) ?? '',
+				technicianProfileId: readNullableText(p.technicianProfileId),
+				...(p.geometry === undefined ? {} : { geometry: p.geometry }),
+				addressId: readNullableText(p.addressId),
+				// The larval/adult context the record was made in is the record's own,
+				// not the mission's — the form sends the same keys either way.
+				context: readControlActionContext(p),
+				requestedControlActionId: readNullableText(p.requestedControlActionId),
+				metadata: p.metadata ?? null,
+				...readMissionExecutionOptions(p),
+			});
+		}
+		return recordSourceReductionCommand({
 			...ctx,
 			sourceReductionId: readText(p.id) ?? '',
 			sourceReductionMethodId: readText(p.sourceReductionMethodId) ?? '',
@@ -152,7 +206,8 @@ export const sourceReductionConfig: ActionConfig<SafeSourceReduction> = {
 			context: readControlActionContext(p),
 			requestedControlActionId: readNullableText(p.requestedControlActionId),
 			metadata: p.metadata ?? null,
-		}),
+		});
+	},
 	buildUpdate: (ctx, id, payload) => {
 		const commands: ControlOperationsCommand[] = [];
 		const fieldKeys = [
@@ -215,41 +270,225 @@ export const sourceReductionConfig: ActionConfig<SafeSourceReduction> = {
 	write: writeSourceReductionCommand,
 };
 
-async function writeSourceReductionCommand(
+async function writeMissionSourceReduction(
 	trx: ControlOperationsTransaction,
-	command: ControlOperationsCommand,
-): Promise<SafeSourceReduction | null> {
+	payload: RecordSourceReductionForMissionItemCommand['payload'],
+): Promise<SourceReductionRow | null> {
+	const stop = await beginMissionExecution(trx, payload, 'sourceReduction');
+	// A method the mission plan supplied is not a new choice, so only an id
+	// the payload names is gated.
+	await assertWriteReferences(trx, {
+		organizationId: payload.organizationId,
+		write: { kind: 'create' },
+		references: methodReferences('sourceReduction', payload.sourceReductionMethodId),
+	});
+	const ids = contextIds(payload.context ?? { kind: 'none' });
+	const row = await trx
+		.insertInto('source_reductions')
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.sourceReductionId,
+				organization_id: payload.organizationId,
+				source_reduction_method_id: resolveMissionMethodId(payload.sourceReductionMethodId, stop),
+				technician_profile_id: payload.technicianProfileId,
+				source_reduction_date: localDateColumn(payload.sourceReductionDate),
+				sources_eliminated_amount: payload.sourcesEliminatedAmount,
+				sources_eliminated_unit_id: payload.sourcesEliminatedUnitId,
+				geom: missionItemGeom(payload.missionItemId, payload.geometry),
+				address_id: payload.addressId ?? null,
+				habitat_id: ids.habitatId,
+				inspection_id: ids.inspectionId,
+				requested_control_action_id: stop.requestedControlActionId,
+				mission_item_id: payload.missionItemId,
+				metadata: payload.metadata,
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
+		.returning(sourceReductionReturnColumns)
+		.executeTakeFirstOrThrow();
+	await assertMissionGeometryCovered(trx, payload, payload.sourceReductionId, 'source_reductions');
+	await finishMissionExecution(trx, payload, stop);
+	return row;
+}
+
+async function writeMissionOutreachAction(
+	trx: ControlOperationsTransaction,
+	payload: RecordOutreachActionForMissionItemCommand['payload'],
+): Promise<OutreachActionRow | null> {
+	const stop = await beginMissionExecution(trx, payload, 'outreach');
+	// A method the mission plan supplied is not a new choice, so only an id
+	// the payload names is gated.
+	await assertWriteReferences(trx, {
+		organizationId: payload.organizationId,
+		write: { kind: 'create' },
+		references: methodReferences('outreach', payload.outreachMethodId),
+	});
+	const ids = contextIds(payload.context ?? { kind: 'none' });
+	const row = await trx
+		.insertInto('outreach_actions')
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.outreachActionId,
+				organization_id: payload.organizationId,
+				outreach_method_id: resolveMissionMethodId(payload.outreachMethodId, stop),
+				technician_profile_id: payload.technicianProfileId,
+				outreach_date: localDateColumn(payload.outreachDate),
+				reach: payload.reach ?? 0,
+				reach_description: payload.reachDescription,
+				geom: missionItemGeom(payload.missionItemId, payload.geometry),
+				address_id: payload.addressId ?? null,
+				inspection_id: ids.inspectionId,
+				requested_control_action_id: stop.requestedControlActionId,
+				mission_item_id: payload.missionItemId,
+				metadata: payload.metadata,
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
+		.returning(outreachActionReturnColumns)
+		.executeTakeFirstOrThrow();
+	await assertMissionGeometryCovered(trx, payload, payload.outreachActionId, 'outreach_actions');
+	await finishMissionExecution(trx, payload, stop);
+	return row;
+}
+
+async function writeMissionBiocontrolAction(
+	trx: ControlOperationsTransaction,
+	payload: RecordBiocontrolActionForMissionItemCommand['payload'],
+): Promise<BiocontrolActionRow | null> {
+	const stop = await beginMissionExecution(trx, payload, 'biocontrol');
+	// A method the mission plan supplied is not a new choice, so only an id
+	// the payload names is gated.
+	await assertWriteReferences(trx, {
+		organizationId: payload.organizationId,
+		write: { kind: 'create' },
+		references: methodReferences('biocontrol', payload.biocontrolMethodId),
+	});
+	const ids = contextIds(payload.context ?? { kind: 'none' });
+	const row = await trx
+		.insertInto('biocontrol_actions')
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.biocontrolActionId,
+				organization_id: payload.organizationId,
+				biocontrol_method_id: resolveMissionMethodId(payload.biocontrolMethodId, stop),
+				technician_profile_id: payload.technicianProfileId,
+				biocontrol_date: localDateColumn(payload.biocontrolDate),
+				amount_released: payload.amountReleased,
+				release_unit_id: payload.releaseUnitId,
+				geom: missionItemGeom(payload.missionItemId, payload.geometry),
+				address_id: payload.addressId ?? null,
+				habitat_id: ids.habitatId,
+				inspection_id: ids.inspectionId,
+				requested_control_action_id: stop.requestedControlActionId,
+				mission_item_id: payload.missionItemId,
+				metadata: payload.metadata,
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
+		.returning(biocontrolActionReturnColumns)
+		.executeTakeFirstOrThrow();
+	await assertMissionGeometryCovered(
+		trx,
+		payload,
+		payload.biocontrolActionId,
+		'biocontrol_actions',
+	);
+	await finishMissionExecution(trx, payload, stop);
+	return row;
+}
+
+/**
+ * The one catalog each performed action names: its method.
+ *
+ * The three action kinds differ only in the column, the catalog, and the noun.
+ * Naming them once here rather than passing three strings at each of the nine
+ * call sites keeps the trio from being retyped, and in an order that would
+ * still compile if two of them were swapped.
+ */
+const ACTION_METHODS = {
+	sourceReduction: {
+		column: 'source_reduction_method_id',
+		catalog: 'sourceReductionMethod',
+		label: 'source reduction method',
+	},
+	outreach: {
+		column: 'outreach_method_id',
+		catalog: 'outreachMethod',
+		label: 'outreach method',
+	},
+	biocontrol: {
+		column: 'biocontrol_method_id',
+		catalog: 'biocontrolMethod',
+		label: 'biocontrol method',
+	},
+} as const satisfies Record<string, Omit<CatalogReference, 'id'>>;
+
+type ActionKind = keyof typeof ACTION_METHODS;
+
+/** The method reference for one action kind, or none when no id was named. */
+function methodReferences(kind: ActionKind, id: string | null | undefined): CatalogReference[] {
+	return [{ ...ACTION_METHODS[kind], id: id ?? null }];
+}
+
+export async function writeSourceReductionCommand(
+	trx: ControlOperationsTransaction,
+	command: ActionCommand,
+): Promise<SourceReductionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordSourceReduction': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
+				references: methodReferences('sourceReduction', command.payload.sourceReductionMethodId),
+			});
 			const ids = contextIds(command.payload.context);
 			const row = await trx
 				.insertInto('source_reductions')
-				.values({
-					id: command.payload.sourceReductionId,
-					organization_id: command.payload.organizationId,
-					source_reduction_method_id: command.payload.sourceReductionMethodId,
-					technician_profile_id: command.payload.technicianProfileId,
-					source_reduction_date: localDateColumn(command.payload.sourceReductionDate),
-					geom: await resolveGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					address_id: command.payload.addressId,
-					habitat_id: ids.habitatId,
-					sources_eliminated_amount: command.payload.sourcesEliminatedAmount,
-					sources_eliminated_unit_id: command.payload.sourcesEliminatedUnitId,
-					inspection_id: ids.inspectionId,
-					requested_control_action_id: command.payload.requestedControlActionId,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.sourceReductionId,
+						organization_id: command.payload.organizationId,
+						source_reduction_method_id: command.payload.sourceReductionMethodId,
+						technician_profile_id: command.payload.technicianProfileId,
+						source_reduction_date: localDateColumn(command.payload.sourceReductionDate),
+						geom: await resolveGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						address_id: command.payload.addressId,
+						habitat_id: ids.habitatId,
+						sources_eliminated_amount: command.payload.sourcesEliminatedAmount,
+						sources_eliminated_unit_id: command.payload.sourcesEliminatedUnitId,
+						inspection_id: ids.inspectionId,
+						requested_control_action_id: command.payload.requestedControlActionId,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(sourceReductionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeSourceReduction(row);
+			return row;
 		}
+		case 'missionDispatch.recordSourceReductionForMissionItem':
+			return writeMissionSourceReduction(trx, command.payload);
 		case 'controlOperations.updateSourceReductionFieldDetails': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: {
+					kind: 'update',
+					table: 'source_reductions',
+					recordId: command.payload.sourceReductionId,
+				},
+				references:
+					'sourceReductionMethodId' in command.payload.changes
+						? methodReferences('sourceReduction', command.payload.changes.sourceReductionMethodId)
+						: [],
+			});
 			const changes = command.payload.changes;
 			return updateActionRow(
 				trx,
@@ -276,7 +515,6 @@ async function writeSourceReductionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				sourceReductionReturnColumns,
-				toSafeSourceReduction,
 			);
 		}
 		case 'controlOperations.updateSourceReductionLocationAndContext':
@@ -295,7 +533,6 @@ async function writeSourceReductionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				sourceReductionReturnColumns,
-				toSafeSourceReduction,
 			);
 		case 'controlOperations.deleteSourceReduction':
 			await applyRecordDeletion(trx, {
@@ -311,7 +548,6 @@ async function writeSourceReductionCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				sourceReductionReturnColumns,
-				toSafeSourceReduction,
 			);
 		default:
 			throw new Error(`Unsupported source reduction command: ${command.type}`);
@@ -320,14 +556,36 @@ async function writeSourceReductionCommand(
 
 // --- Outreach actions ---
 
-export const outreachActionConfig: ActionConfig<SafeOutreachAction> = {
+export const outreachActionConfig: ActionConfig<OutreachActionRow> = {
 	noun: 'outreach action',
 	basePath: '/control-operations/outreach-actions',
 	notFoundError: 'outreach_action_not_found',
 	idParam: 'outreachActionId',
 	responseKey: 'outreachAction',
-	buildCreate: (ctx, p) =>
-		recordOutreachActionCommand({
+	buildCreate: (ctx, p) => {
+		const missionItemId = readNullableText(p.missionItemId);
+		// Recorded off a mission stop: the action carries the stop and closes it.
+		if (missionItemId !== null) {
+			return recordOutreachActionForMissionItemCommand({
+				...ctx,
+				missionItemId,
+				outreachActionId: readText(p.id) ?? '',
+				outreachDate: readText(p.outreachDate) ?? '',
+				outreachMethodId: readText(p.outreachMethodId) ?? '',
+				technicianProfileId: readNullableText(p.technicianProfileId),
+				reach: readNumber(p.reach) ?? 0,
+				reachDescription: readNullableText(p.reachDescription),
+				...(p.geometry === undefined ? {} : { geometry: p.geometry }),
+				addressId: readNullableText(p.addressId),
+				// The larval/adult context the record was made in is the record's own,
+				// not the mission's — the form sends the same keys either way.
+				context: readControlActionContext(p),
+				requestedControlActionId: readNullableText(p.requestedControlActionId),
+				metadata: p.metadata ?? null,
+				...readMissionExecutionOptions(p),
+			});
+		}
+		return recordOutreachActionCommand({
 			...ctx,
 			outreachActionId: readText(p.id) ?? '',
 			outreachMethodId: readText(p.outreachMethodId) ?? '',
@@ -340,7 +598,8 @@ export const outreachActionConfig: ActionConfig<SafeOutreachAction> = {
 			context: readControlActionContext(p),
 			requestedControlActionId: readNullableText(p.requestedControlActionId),
 			metadata: p.metadata ?? null,
-		}),
+		});
+	},
 	buildUpdate: (ctx, id, payload) => {
 		const commands: ControlOperationsCommand[] = [];
 		const fieldKeys = [
@@ -401,40 +660,61 @@ export const outreachActionConfig: ActionConfig<SafeOutreachAction> = {
 	write: writeOutreachActionCommand,
 };
 
-async function writeOutreachActionCommand(
+export async function writeOutreachActionCommand(
 	trx: ControlOperationsTransaction,
-	command: ControlOperationsCommand,
-): Promise<SafeOutreachAction | null> {
+	command: ActionCommand,
+): Promise<OutreachActionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordOutreachAction': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
+				references: methodReferences('outreach', command.payload.outreachMethodId),
+			});
 			const ids = contextIds(command.payload.context);
 			const row = await trx
 				.insertInto('outreach_actions')
-				.values({
-					id: command.payload.outreachActionId,
-					organization_id: command.payload.organizationId,
-					outreach_method_id: command.payload.outreachMethodId,
-					technician_profile_id: command.payload.technicianProfileId,
-					outreach_date: localDateColumn(command.payload.outreachDate),
-					geom: await resolveGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					address_id: command.payload.addressId,
-					inspection_id: ids.inspectionId,
-					reach: command.payload.reach,
-					reach_description: command.payload.reachDescription,
-					requested_control_action_id: command.payload.requestedControlActionId,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.outreachActionId,
+						organization_id: command.payload.organizationId,
+						outreach_method_id: command.payload.outreachMethodId,
+						technician_profile_id: command.payload.technicianProfileId,
+						outreach_date: localDateColumn(command.payload.outreachDate),
+						geom: await resolveGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						address_id: command.payload.addressId,
+						inspection_id: ids.inspectionId,
+						reach: command.payload.reach,
+						reach_description: command.payload.reachDescription,
+						requested_control_action_id: command.payload.requestedControlActionId,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(outreachActionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeOutreachAction(row);
+			return row;
 		}
+		case 'missionDispatch.recordOutreachActionForMissionItem':
+			return writeMissionOutreachAction(trx, command.payload);
 		case 'controlOperations.updateOutreachActionFieldDetails': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: {
+					kind: 'update',
+					table: 'outreach_actions',
+					recordId: command.payload.outreachActionId,
+				},
+				references:
+					'outreachMethodId' in command.payload.changes
+						? methodReferences('outreach', command.payload.changes.outreachMethodId)
+						: [],
+			});
 			const changes = command.payload.changes;
 			return updateActionRow(
 				trx,
@@ -459,7 +739,6 @@ async function writeOutreachActionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				outreachActionReturnColumns,
-				toSafeOutreachAction,
 			);
 		}
 		case 'controlOperations.updateOutreachActionLocationAndContext':
@@ -478,7 +757,6 @@ async function writeOutreachActionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				outreachActionReturnColumns,
-				toSafeOutreachAction,
 			);
 		case 'controlOperations.deleteOutreachAction':
 			await applyRecordDeletion(trx, {
@@ -494,7 +772,6 @@ async function writeOutreachActionCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				outreachActionReturnColumns,
-				toSafeOutreachAction,
 			);
 		default:
 			throw new Error(`Unsupported outreach action command: ${command.type}`);
@@ -503,14 +780,36 @@ async function writeOutreachActionCommand(
 
 // --- Biocontrol actions ---
 
-export const biocontrolActionConfig: ActionConfig<SafeBiocontrolAction> = {
+export const biocontrolActionConfig: ActionConfig<BiocontrolActionRow> = {
 	noun: 'biocontrol action',
 	basePath: '/control-operations/biocontrol-actions',
 	notFoundError: 'biocontrol_action_not_found',
 	idParam: 'biocontrolActionId',
 	responseKey: 'biocontrolAction',
-	buildCreate: (ctx, p) =>
-		recordBiocontrolActionCommand({
+	buildCreate: (ctx, p) => {
+		const missionItemId = readNullableText(p.missionItemId);
+		// Recorded off a mission stop: the action carries the stop and closes it.
+		if (missionItemId !== null) {
+			return recordBiocontrolActionForMissionItemCommand({
+				...ctx,
+				missionItemId,
+				biocontrolActionId: readText(p.id) ?? '',
+				biocontrolDate: readText(p.biocontrolDate) ?? '',
+				amountReleased: readNumber(p.amountReleased) ?? Number.NaN,
+				releaseUnitId: readText(p.releaseUnitId) ?? '',
+				biocontrolMethodId: readText(p.biocontrolMethodId) ?? '',
+				technicianProfileId: readNullableText(p.technicianProfileId),
+				...(p.geometry === undefined ? {} : { geometry: p.geometry }),
+				addressId: readNullableText(p.addressId),
+				// The larval/adult context the record was made in is the record's own,
+				// not the mission's — the form sends the same keys either way.
+				context: readControlActionContext(p),
+				requestedControlActionId: readNullableText(p.requestedControlActionId),
+				metadata: p.metadata ?? null,
+				...readMissionExecutionOptions(p),
+			});
+		}
+		return recordBiocontrolActionCommand({
 			...ctx,
 			biocontrolActionId: readText(p.id) ?? '',
 			biocontrolMethodId: readText(p.biocontrolMethodId) ?? '',
@@ -523,7 +822,8 @@ export const biocontrolActionConfig: ActionConfig<SafeBiocontrolAction> = {
 			context: readControlActionContext(p),
 			requestedControlActionId: readNullableText(p.requestedControlActionId),
 			metadata: p.metadata ?? null,
-		}),
+		});
+	},
 	buildUpdate: (ctx, id, payload) => {
 		const commands: ControlOperationsCommand[] = [];
 		const fieldKeys = [
@@ -586,41 +886,62 @@ export const biocontrolActionConfig: ActionConfig<SafeBiocontrolAction> = {
 	write: writeBiocontrolActionCommand,
 };
 
-async function writeBiocontrolActionCommand(
+export async function writeBiocontrolActionCommand(
 	trx: ControlOperationsTransaction,
-	command: ControlOperationsCommand,
-): Promise<SafeBiocontrolAction | null> {
+	command: ActionCommand,
+): Promise<BiocontrolActionRow | null> {
 	switch (command.type) {
 		case 'controlOperations.recordBiocontrolAction': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
+				references: methodReferences('biocontrol', command.payload.biocontrolMethodId),
+			});
 			const ids = contextIds(command.payload.context);
 			const row = await trx
 				.insertInto('biocontrol_actions')
-				.values({
-					id: command.payload.biocontrolActionId,
-					organization_id: command.payload.organizationId,
-					biocontrol_method_id: command.payload.biocontrolMethodId,
-					technician_profile_id: command.payload.technicianProfileId,
-					biocontrol_date: localDateColumn(command.payload.biocontrolDate),
-					geom: await resolveGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					address_id: command.payload.addressId,
-					habitat_id: ids.habitatId,
-					inspection_id: ids.inspectionId,
-					amount_released: command.payload.amountReleased,
-					release_unit_id: command.payload.releaseUnitId,
-					requested_control_action_id: command.payload.requestedControlActionId,
-					metadata: command.payload.metadata,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.biocontrolActionId,
+						organization_id: command.payload.organizationId,
+						biocontrol_method_id: command.payload.biocontrolMethodId,
+						technician_profile_id: command.payload.technicianProfileId,
+						biocontrol_date: localDateColumn(command.payload.biocontrolDate),
+						geom: await resolveGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						address_id: command.payload.addressId,
+						habitat_id: ids.habitatId,
+						inspection_id: ids.inspectionId,
+						amount_released: command.payload.amountReleased,
+						release_unit_id: command.payload.releaseUnitId,
+						requested_control_action_id: command.payload.requestedControlActionId,
+						metadata: command.payload.metadata,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(biocontrolActionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeBiocontrolAction(row);
+			return row;
 		}
+		case 'missionDispatch.recordBiocontrolActionForMissionItem':
+			return writeMissionBiocontrolAction(trx, command.payload);
 		case 'controlOperations.updateBiocontrolActionFieldDetails': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: {
+					kind: 'update',
+					table: 'biocontrol_actions',
+					recordId: command.payload.biocontrolActionId,
+				},
+				references:
+					'biocontrolMethodId' in command.payload.changes
+						? methodReferences('biocontrol', command.payload.changes.biocontrolMethodId)
+						: [],
+			});
 			const changes = command.payload.changes;
 			return updateActionRow(
 				trx,
@@ -643,7 +964,6 @@ async function writeBiocontrolActionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				biocontrolActionReturnColumns,
-				toSafeBiocontrolAction,
 			);
 		}
 		case 'controlOperations.updateBiocontrolActionLocationAndContext':
@@ -662,7 +982,6 @@ async function writeBiocontrolActionCommand(
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
 				biocontrolActionReturnColumns,
-				toSafeBiocontrolAction,
 			);
 		case 'controlOperations.deleteBiocontrolAction':
 			await applyRecordDeletion(trx, {
@@ -678,7 +997,6 @@ async function writeBiocontrolActionCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				biocontrolActionReturnColumns,
-				toSafeBiocontrolAction,
 			);
 		default:
 			throw new Error(`Unsupported biocontrol action command: ${command.type}`);

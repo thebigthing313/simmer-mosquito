@@ -1,9 +1,3 @@
-import type {
-	BiocontrolActionRow,
-	ControlMethodRow,
-	ProfileRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
@@ -16,7 +10,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
@@ -25,16 +18,19 @@ import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { EmptyValue } from '../../../components/empty-value';
-import { LinkedAddressValue } from '../../../components/linked-address';
+import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
+import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
+import { useBiocontrolAction } from '../../../hooks/queries/use-biocontrol-action';
+import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
+import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
-import { webCollections } from '../../../sync/webCollections';
-import { ContextBadge, formatActionDate, formatAmount, nameById } from '../-control-display';
-import { useHabitatNames } from '../-overview-data';
+import { ContextBadge, formatActionDate, formatMeasure } from '../-control-display';
 
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
@@ -51,20 +47,12 @@ function RouteComponent() {
 }
 
 function BiocontrolDetail({ actionId }: { readonly actionId: string }) {
-	// biocontrolActions is on-demand; status-gated useLiveQuery (not the suspense
-	// variant) avoids the post-unmount hang.
-	const result = useLiveQuery(
-		{
-			gcTime: biocontrolGcTimeMs,
-			query: (query) =>
-				query
-					.from({ action: webCollections.biocontrolActions })
-					.where(({ action }) => eq(action.id, actionId))
-					.findOne(),
-		},
-		[actionId],
-	);
-	const action = result.data as BiocontrolActionRow | undefined;
+	// One query for the release, its method, unit, technician and address — the
+	// lookups this page used to do for itself. `biocontrol_actions` is on-demand,
+	// so this is status-gated rather than suspending; see the hook.
+	const { action, isReady, isError } = useBiocontrolAction(actionId, {
+		gcTime: biocontrolGcTimeMs,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -73,9 +61,9 @@ function BiocontrolDetail({ actionId }: { readonly actionId: string }) {
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to biocontrol
 				</Link>
-				{result.isError ? (
+				{isError ? (
 					<RecordUnavailable noun="biocontrol action" reason="error" />
-				) : !result.isReady ? (
+				) : !isReady ? (
 					<BiocontrolDetailSkeleton />
 				) : action === undefined ? (
 					<RecordUnavailable noun="biocontrol action" reason="not-found" />
@@ -87,10 +75,11 @@ function BiocontrolDetail({ actionId }: { readonly actionId: string }) {
 	);
 }
 
-function BiocontrolDetailContent({ action }: { readonly action: BiocontrolActionRow }) {
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.biocontrolMethods);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction }) {
+	// The roster is still read, but only for the custom-field schema the chosen
+	// method declares — the method's *name* arrives joined.
+	const methods = useBiocontrolMethodRoster();
+	const { remove } = useBiocontrolActionMutations();
 	// habitats is on-demand; resolve just the linked habitat's name as a subset.
 	const habitatIds = useMemo(
 		() => (action.habitatId === null ? [] : [action.habitatId]),
@@ -98,22 +87,13 @@ function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction
 	);
 	const habitatNameById = useHabitatNames(habitatIds);
 
-	const methodName =
-		methods.find((method) => method.id === action.biocontrolMethodId)?.name ?? 'Unknown method';
-	const releaseUnit = units.find((unit) => unit.id === action.releaseUnitId);
-	const technicianNameById = useMemo(
-		() => nameById(profiles, (profile) => profile.displayName),
-		[profiles],
-	);
-
-	const technicianName =
-		action.technicianProfileId === null
-			? null
-			: (technicianNameById.get(action.technicianProfileId) ?? 'Unknown technician');
+	const methodName = action.methodName;
+	const amountLabel = formatMeasure(action.amountReleased, action.unitAbbreviation);
+	const technicianName = action.technicianName;
 	const habitatName =
 		action.habitatId === null ? null : (habitatNameById.get(action.habitatId) ?? 'Unknown habitat');
 
-	useBreadcrumbLabel(action.id, `${methodName} · ${formatActionDate(action.biocontrolDate)}`);
+	useBreadcrumbLabel(action.id, `${methodName} · ${formatActionDate(action.actionDate)}`);
 
 	return (
 		<>
@@ -127,8 +107,7 @@ function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction
 						{methodName}
 					</h1>
 					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{formatAmount(action.amountReleased, releaseUnit)} released on{' '}
-						{formatActionDate(action.biocontrolDate)}
+						{amountLabel} released on {formatActionDate(action.actionDate)}
 					</p>
 				</div>
 				<div className="flex items-center gap-2">
@@ -146,11 +125,18 @@ function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<ReleaseLocationCard action={action} habitatName={habitatName} />
+					<div className="grid content-start gap-3">
+						<ReleaseLocationCard action={action} habitatName={habitatName} />
+						<RecordRegionsBand
+							noun="biocontrol action"
+							recordId={action.id}
+							recordType="biocontrol_actions"
+						/>
+					</div>
 					<DangerZoneCard
 						name={methodName}
 						noun="biocontrol action"
-						onDelete={() => webCollections.biocontrolActions.delete(action.id)}
+						onDelete={() => remove(action.id)}
 						recordId={action.id}
 						recordType="biocontrolAction"
 						returnTo="/control-operations/biocontrol"
@@ -159,14 +145,14 @@ function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction
 				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
 					<BiocontrolDetailsCard
 						action={action}
+						amountLabel={amountLabel}
 						habitatName={habitatName}
 						methodName={methodName}
-						releaseUnit={releaseUnit}
 						technicianName={technicianName}
 					/>
 					<CustomFieldsCard
 						metadata={action.metadata}
-						schema={customSchemaFor(methods, action.biocontrolMethodId)}
+						schema={customSchemaFor(methods, action.methodId)}
 					/>
 					<CommentsSection
 						description="Follow-up, agent survival, and restocking notes for this release."
@@ -190,10 +176,14 @@ function ReleaseLocationCard({
 	action,
 	habitatName,
 }: {
-	readonly action: BiocontrolActionRow;
+	readonly action: BiocontrolAction;
 	readonly habitatName: string | null;
 }) {
-	const geometry = useOwnedGeometry(BIOCONTROL_GEOMETRY_SOURCE, action.id, action.updatedAt);
+	const geometry = useOwnedGeometry(
+		BIOCONTROL_GEOMETRY_SOURCE,
+		action.id,
+		action.updatedAt.toISOString(),
+	);
 	const habitatContext = useHabitatLocationContext(action.habitatId, habitatName);
 
 	return (
@@ -201,7 +191,7 @@ function ReleaseLocationCard({
 			context={habitatContext}
 			emptyDescription="This biocontrol action has no location to display."
 			geojson={geometry.geojson}
-			geomType={geometry.geomType ?? action.geomType}
+			geomType={geometry.geomType ?? action.geometryKind}
 			isError={geometry.isError}
 			isPending={geometry.isPending}
 		/>
@@ -210,14 +200,14 @@ function ReleaseLocationCard({
 
 function BiocontrolDetailsCard({
 	action,
+	amountLabel,
 	methodName,
-	releaseUnit,
 	technicianName,
 	habitatName,
 }: {
-	readonly action: BiocontrolActionRow;
+	readonly action: BiocontrolAction;
+	readonly amountLabel: string;
 	readonly methodName: string;
-	readonly releaseUnit: UnitRow | undefined;
 	readonly technicianName: string | null;
 	readonly habitatName: string | null;
 }) {
@@ -229,8 +219,8 @@ function BiocontrolDetailsCard({
 			<CardContent className="grid gap-4" padding="compact">
 				<dl className="grid gap-2.5">
 					<DetailRow label="Method">{methodName}</DetailRow>
-					<DetailRow label="Released">{formatAmount(action.amountReleased, releaseUnit)}</DetailRow>
-					<DetailRow label="Date">{formatActionDate(action.biocontrolDate)}</DetailRow>
+					<DetailRow label="Released">{amountLabel}</DetailRow>
+					<DetailRow label="Date">{formatActionDate(action.actionDate)}</DetailRow>
 					<DetailRow label="Technician">
 						{technicianName ?? <span className="text-muted-foreground">Unassigned</span>}
 					</DetailRow>
@@ -248,7 +238,7 @@ function BiocontrolDetailsCard({
 						)}
 					</DetailRow>
 					<DetailRow label="Address">
-						<LinkedAddressValue addressId={action.addressId} />
+						<LinkedAddressValueById addressId={action.addressId} />
 					</DetailRow>
 				</dl>
 				<AdditionalPersonnelList target={{ type: 'biocontrolAction', id: action.id }} />

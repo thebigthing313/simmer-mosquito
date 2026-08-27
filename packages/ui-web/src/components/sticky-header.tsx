@@ -24,6 +24,14 @@ export const stickyHeader = cva('sticky top-0 z-10', {
 		surface: {
 			page: 'border-border/50 border-b bg-background',
 			card: 'bg-card',
+			/**
+			 * For a header inside a floating panel that already paints a
+			 * translucent surface, such as the map explorer's result panel. It
+			 * paints no background of its own: a second fill over the panel's
+			 * would composite denser than the panel around it and read as a
+			 * separate white bar. Only use it where nothing scrolls underneath.
+			 */
+			chrome: 'border-border/50 border-b',
 		},
 		layout: {
 			stack: 'grid',
@@ -37,6 +45,8 @@ export const stickyHeader = cva('sticky top-0 z-10', {
 		},
 		padding: {
 			default: 'p-4',
+			/** For a header inside a floating panel, which pads tighter than a page. */
+			compact: 'px-3 py-2.5',
 			roomy: 'px-5 py-4',
 			tight: 'px-1 py-1',
 			none: '',

@@ -1,30 +1,29 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
-import type {
-	ControlMethodRow,
-	ProfileRow,
-	SourceReductionRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { RecordUnavailable } from '../../../components/record';
+import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
+import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
+import type { SourceReduction } from '../../../hooks/queries/control-action-view';
 import {
 	type AdditionalPersonnelResult,
-	saveAdditionalPersonnel,
 	useAdditionalPersonnel,
-} from '../../../components/additional-personnel';
-import { RecordUnavailable } from '../../../components/record';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+} from '../../../hooks/queries/use-additional-personnel';
+import {
+	type SchemaCatalogListing,
+	useSourceReductionMethodRoster,
+} from '../../../hooks/queries/use-catalog-rosters';
+import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useSourceReduction } from '../../../hooks/queries/use-source-reduction';
+import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
 import { isWriteBlocked } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	noTechnicianValue,
 	SourceReductionFormPage,
@@ -51,28 +50,17 @@ function EditSourceReductionRoute() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(
-		webCollections.sourceReductionMethods,
-	);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const methods = useSourceReductionMethodRoster();
+	const { all: units } = useUnitLabels();
+	const profiles = useProfileRoster();
 
-	// sourceReductions is on-demand; status-gated useLiveQuery (not suspense) avoids
-	// the post-unmount hang.
-	const result = useLiveQuery(
-		{
-			gcTime: sourceReductionGcTimeMs,
-			query: (query) =>
-				query
-					.from({ sourceReduction: webCollections.sourceReductions })
-					.where(({ sourceReduction }) => eq(sourceReduction.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const sourceReduction = result.data as SourceReductionRow | undefined;
+	const {
+		action: sourceReduction,
+		isReady,
+		isError,
+	} = useSourceReduction(id, { gcTime: sourceReductionGcTimeMs });
 
-	if (result.isError) {
+	if (isError) {
 		return (
 			<RecordUnavailable
 				layout="centered"
@@ -82,7 +70,7 @@ function EditSourceReductionRoute() {
 			/>
 		);
 	}
-	if (!result.isReady) {
+	if (!isReady) {
 		return <EditFormSkeleton />;
 	}
 	if (sourceReduction === undefined) {
@@ -101,9 +89,9 @@ function EditSourceReductionRoute() {
 
 	return (
 		<EditSourceReductionLoader
-			actorProfileId={actorProfileId}
 			canSubmit={organization !== null && actorProfileId !== null}
 			methods={methods}
+			organizationId={organization?.id ?? ''}
 			profiles={profiles}
 			sourceReduction={sourceReduction}
 			units={units}
@@ -116,87 +104,71 @@ function EditSourceReductionLoader({
 	methods,
 	units,
 	profiles,
-	actorProfileId,
 	canSubmit,
+	organizationId,
 }: {
-	readonly sourceReduction: SourceReductionRow;
-	readonly methods: readonly ControlMethodRow[];
-	readonly units: readonly UnitRow[];
-	readonly profiles: readonly ProfileRow[];
-	readonly actorProfileId: string | null;
+	readonly sourceReduction: SourceReduction;
+	readonly methods: readonly SchemaCatalogListing[];
+	readonly units: readonly UnitLabel[];
+	readonly profiles: readonly ProfileListing[];
 	readonly canSubmit: boolean;
+	readonly organizationId: string;
 }) {
 	const navigate = useNavigate();
+	const { update } = useSourceReductionMutations();
 
 	// The synced row carries only the centroid, so the full shape (which may be a
 	// line or polygon) is read from the display endpoint before the form opens.
 	const geometryQuery = useOwnedGeometry(
 		SOURCE_REDUCTION_GEOMETRY_SOURCE,
 		sourceReduction.id,
-		sourceReduction.updatedAt,
+		sourceReduction.updatedAt.toISOString(),
 	);
 	// The crew lives in its own table; the form edits it as a list and the save
 	// reconciles that against who is attached now.
 	const personnel = useAdditionalPersonnel({ type: 'sourceReduction', id: sourceReduction.id });
+	const { setPersonnel } = useAdditionalPersonnelMutations();
 
 	const onSave = useCallback(
 		async ({ values, geometry, geometryChanged }: SourceReductionSaveInput) => {
 			if (values.sourcesEliminatedAmount === null) {
 				throw new Error('Enter how many sources were eliminated.');
 			}
-			const nextAmount = values.sourcesEliminatedAmount;
-			const nextTechnicianId =
-				values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId;
+			// The point and the address/habitat are independent: only state a location
+			// when the user actually refined the point. Absent means "leave it", which
+			// is not the same request as re-sending the shape it already has.
+			const refinedShape =
+				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null;
+			const centroid = refinedShape === null ? null : ownedCentroidFromGeoJson(refinedShape);
 
-			// The point and the address/habitat are independent: only send a location
-			// source (and reseed the optimistic centroid) when the user actually refined
-			// the point; the rest are plain field changes.
-			const refinedPoint = geometryChanged && geometry !== null;
-			const locationSource = refinedPoint
-				? ({ kind: 'geometry', geometry: geometry as unknown as GeoJsonGeometry } as const)
-				: undefined;
-			const nextCentroid = refinedPoint
-				? ownedCentroidFromGeoJson(geometry as unknown as GeoJsonGeometry)
-				: null;
-
-			const now = new Date().toISOString();
-			// Inlined so TanStack DB infers the mutable draft type.
-			const applyEdits = (draft: SourceReductionRow) => {
-				const writable = draft as {
-					-readonly [K in keyof SourceReductionRow]: SourceReductionRow[K];
-				};
-				writable.sourceReductionMethodId = values.sourceReductionMethodId;
-				writable.technicianProfileId = nextTechnicianId;
-				writable.sourceReductionDate = values.sourceReductionDate;
-				writable.sourcesEliminatedAmount = nextAmount;
-				writable.sourcesEliminatedUnitId = values.sourcesEliminatedUnitId;
-				writable.addressId = values.addressId;
-				writable.habitatId = values.habitatId;
-				writable.metadata = values.metadata;
-				if (nextCentroid !== null) {
-					writable.lat = nextCentroid.lat;
-					writable.lng = nextCentroid.lng;
-					writable.geomType = nextCentroid.geomType;
-				}
-				if (actorProfileId !== null) {
-					writable.updatedByProfileId = actorProfileId;
-				}
-				writable.updatedAt = now;
-			};
-
-			const transaction =
-				locationSource === undefined
-					? webCollections.sourceReductions.update(sourceReduction.id, applyEdits)
-					: webCollections.sourceReductions.update(
-							sourceReduction.id,
-							{ metadata: { locationSource } },
-							applyEdits,
-						);
-			await settleWrite(transaction);
-			await saveAdditionalPersonnel({
+			// Which commands this save means is worked out by the hook, from what
+			// actually moved — the field details and the placement are different
+			// builders, and naming one with nothing to read is refused.
+			await update(sourceReduction, {
+				values: {
+					methodId: values.sourceReductionMethodId,
+					technicianProfileId:
+						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+					actionDate: values.sourceReductionDate,
+					addressId: values.addressId,
+					habitatId: values.habitatId,
+					sourcesEliminated: values.sourcesEliminatedAmount,
+					unitId: values.sourcesEliminatedUnitId,
+					metadata: values.metadata,
+				},
+				...(centroid === null || refinedShape === null
+					? {}
+					: {
+							location: {
+								lat: centroid.lat,
+								lng: centroid.lng,
+								geomType: centroid.geomType,
+								locationSource: { kind: 'geometry', geometry: refinedShape },
+							},
+						}),
+			});
+			await setPersonnel({
 				target: { type: 'sourceReduction', id: sourceReduction.id },
-				organizationId: sourceReduction.organizationId,
-				actorProfileId,
 				existing: personnel.rows,
 				profileIds: values.additionalPersonnelIds,
 			});
@@ -205,7 +177,7 @@ function EditSourceReductionLoader({
 				params: { id: sourceReduction.id },
 			});
 		},
-		[sourceReduction, actorProfileId, personnel.rows, navigate],
+		[sourceReduction, personnel.rows, navigate, update, setPersonnel],
 	);
 
 	if (geometryQuery.isError) {
@@ -248,7 +220,7 @@ function EditSourceReductionLoader({
 			initialGeometry={geometryQuery.geometry}
 			methods={methods}
 			onSave={onSave}
-			organizationId={sourceReduction.organizationId}
+			organizationId={organizationId}
 			profiles={profiles}
 			requireLocation={false}
 			submitLabel="Save changes"
@@ -258,14 +230,14 @@ function EditSourceReductionLoader({
 }
 
 function defaultsFromSourceReduction(
-	sourceReduction: SourceReductionRow,
+	sourceReduction: SourceReduction,
 	personnel: AdditionalPersonnelResult,
 ): SourceReductionFormValues {
 	return {
-		sourceReductionMethodId: sourceReduction.sourceReductionMethodId,
-		sourcesEliminatedAmount: sourceReduction.sourcesEliminatedAmount,
-		sourcesEliminatedUnitId: sourceReduction.sourcesEliminatedUnitId,
-		sourceReductionDate: sourceReduction.sourceReductionDate.slice(0, 10),
+		sourceReductionMethodId: sourceReduction.methodId,
+		sourcesEliminatedAmount: sourceReduction.sourcesEliminated,
+		sourcesEliminatedUnitId: sourceReduction.unitId,
+		sourceReductionDate: sourceReduction.actionDate.slice(0, 10),
 		technicianProfileId: sourceReduction.technicianProfileId ?? noTechnicianValue,
 		additionalPersonnelIds: personnel.profileIds,
 		addressId: sourceReduction.addressId,

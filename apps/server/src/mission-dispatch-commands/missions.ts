@@ -1,5 +1,11 @@
 import { randomUUID } from 'node:crypto';
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	assertWriteReferences,
+	type CatalogReference,
+	checkedValues,
+	sql,
+} from '@simmer-mosquito/db';
 import {
 	assignMissionCommand,
 	cancelMissionCommand,
@@ -19,6 +25,7 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { readNullableText, readText } from '../command-payload.js';
 import { insertLifecycleComment } from '../lifecycle-comment.js';
+import { moveMissionItemRows } from './mission-items.js';
 import {
 	assertMissionTransition,
 	checkCancelMission,
@@ -37,15 +44,14 @@ import {
 	localDateColumn,
 	type MissionDispatchDb,
 	type MissionDispatchTransaction,
+	type MissionRow,
 	missionReturnColumns,
 	type RouteOptions,
 	readDate,
 	readLifecycleTransition,
 	resolveInitialItemGeom,
 	runCommands,
-	type SafeMission,
 	softDelete,
-	toSafeMission,
 	updateRow,
 } from './shared.js';
 
@@ -245,31 +251,50 @@ async function runMissionCommands(
 	);
 }
 
-async function writeMissionCommand(
+/** The one catalog a Mission names: the Notification Type it will send under. */
+function notificationTypeReference(id: string | null | undefined): CatalogReference[] {
+	return [
+		{
+			column: 'notification_type_id',
+			catalog: 'notificationType',
+			id: id ?? null,
+			label: 'notification type',
+		},
+	];
+}
+
+export async function writeMissionCommand(
 	trx: MissionDispatchTransaction,
 	command: MissionDispatchCommand,
-): Promise<SafeMission | null> {
+): Promise<MissionRow | null> {
 	switch (command.type) {
 		case 'missionDispatch.createMission': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
+				references: notificationTypeReference(command.payload.notificationTypeId),
+			});
 			const row = await trx
 				.insertInto('missions')
-				.values({
-					id: command.payload.missionId,
-					organization_id: command.payload.organizationId,
-					mission_name: command.payload.missionName,
-					control_type: command.payload.controlType,
-					planned_method_id: command.payload.plannedMethodId,
-					assigned_to_profile_id: command.payload.assignedToProfileId,
-					assigned_by_profile_id: command.payload.actorProfileId,
-					scheduled_start_at: command.payload.scheduledStartAt,
-					scheduled_end_at: command.payload.scheduledEndAt,
-					...(command.payload.rainDate === null
-						? {}
-						: { rain_date: localDateColumn(command.payload.rainDate) }),
-					notification_type_id: command.payload.notificationTypeId,
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.missionId,
+						organization_id: command.payload.organizationId,
+						mission_name: command.payload.missionName,
+						control_type: command.payload.controlType,
+						planned_method_id: command.payload.plannedMethodId,
+						assigned_to_profile_id: command.payload.assignedToProfileId,
+						assigned_by_profile_id: command.payload.actorProfileId,
+						scheduled_start_at: command.payload.scheduledStartAt,
+						scheduled_end_at: command.payload.scheduledEndAt,
+						...(command.payload.rainDate === null
+							? {}
+							: { rain_date: localDateColumn(command.payload.rainDate) }),
+						notification_type_id: command.payload.notificationTypeId,
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(missionReturnColumns)
 				.executeTakeFirstOrThrow();
 			let position = 0;
@@ -289,7 +314,7 @@ async function writeMissionCommand(
 				});
 				position += 1;
 			}
-			return toSafeMission(row);
+			return row;
 		}
 		case 'missionDispatch.updateMissionDetails':
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
@@ -330,6 +355,11 @@ async function writeMissionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.updateMissionNotificationType':
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'update', table: 'missions', recordId: command.payload.missionId },
+				references: notificationTypeReference(command.payload.notificationTypeId),
+			});
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				notification_type_id: command.payload.notificationTypeId,
 				updated_by_profile_id: command.payload.actorProfileId,
@@ -457,11 +487,39 @@ async function writeMissionCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				missionReturnColumns,
-				toSafeMission,
 			);
+		/**
+		 * Reordering the stops, which is a command on the mission.
+		 *
+		 * `position` is a fact about the sequence rather than about any stop in it:
+		 * a move takes an id list and a placement, restacks the mission's stops, and
+		 * answers with the mission. The write lives beside the stop writes, in
+		 * `mission-items.ts`, and touches only the rows that moved. An add is the
+		 * same shape: one fractional position between its neighbours.
+		 */
+		case 'missionDispatch.moveMissionItems': {
+			await moveMissionItemRows(trx, command.payload);
+			return loadMission(trx, command.payload.missionId, command.payload.organizationId);
+		}
 		default:
 			throw new Error(`Unsupported mission command: ${command.type}`);
 	}
+}
+
+/** The mission as it stands, for a command that changed its children rather than it. */
+async function loadMission(
+	trx: MissionDispatchTransaction,
+	missionId: string,
+	organizationId: string,
+): Promise<MissionRow | null> {
+	const row = await trx
+		.selectFrom('missions')
+		.select(missionReturnColumns)
+		.where('id', '=', missionId)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirst();
+	return row ?? null;
 }
 
 async function updateMission(
@@ -469,14 +527,6 @@ async function updateMission(
 	missionId: string,
 	organizationId: string,
 	set: Record<string, unknown>,
-): Promise<SafeMission | null> {
-	return updateRow(
-		trx,
-		'missions',
-		missionId,
-		organizationId,
-		set,
-		missionReturnColumns,
-		toSafeMission,
-	);
+): Promise<MissionRow | null> {
+	return updateRow(trx, 'missions', missionId, organizationId, set, missionReturnColumns);
 }

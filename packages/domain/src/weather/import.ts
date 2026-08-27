@@ -86,6 +86,28 @@ export type CommitWeatherSummaryImportCommand = WeatherDomainCommand<
 	}
 >;
 
+/**
+ * Build a commit, refusing only what makes the *batch* unusable.
+ *
+ * A row-level problem is deliberately not fatal here. `docs/weather-domain.md`
+ * says a bad row comes back as a row-level failure and the good rows still
+ * write: "Duplicate exact buckets or overlaps within the submitted payload fail
+ * the later submitted row; the first valid row wins by submitted order", and
+ * "when required acknowledgements are present, valid rows insert/update/no-op
+ * and invalid rows are returned as row-level failures."
+ *
+ * This used to hoist every issue `assessWeatherSummaryImportRows` found into the
+ * thrown list, which meant one repeated date or one out-of-range reading rejected
+ * a five-thousand-row file with a single sentence and no line numbers. It also
+ * made the server's `acknowledgedPartialImport` gate unreachable for anything but
+ * a clash with a *stored* summary, because the build-time assessment is run
+ * without them.
+ *
+ * So what is refused here is what a batch cannot proceed without: the command
+ * context, the station it is for, and a row list of a usable size. Everything
+ * about an individual row is the server's to assess, against the station's
+ * stored buckets, and to report per row.
+ */
 export function commitWeatherSummaryImportCommand(
 	input: CommitWeatherSummaryImportCommandInput,
 ): CommitWeatherSummaryImportCommand {
@@ -93,12 +115,6 @@ export function commitWeatherSummaryImportCommand(
 	validateBase(input, issues);
 	requireUuid(input.weatherStationId, 'weatherStationId', issues);
 	validateImportRowsShape(input.rows, issues);
-	const assessment = assessWeatherSummaryImportRows({ rows: input.rows });
-	for (const [index, assessmentRow] of assessment.rows.entries()) {
-		for (const issue of assessmentRow.issues) {
-			issues.push({ path: `rows.${index}.${issue.path}`, message: issue.message });
-		}
-	}
 	throwIfIssues('Commit weather summary import command is invalid.', issues);
 	return {
 		type: 'weather.commitWeatherSummaryImport',

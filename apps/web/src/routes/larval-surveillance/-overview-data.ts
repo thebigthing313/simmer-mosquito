@@ -1,12 +1,9 @@
-import type { LarvalDensity, SpeciesRow } from '@simmer-mosquito/sync';
-import { eq, gte, inArray, useLiveQuery } from '@tanstack/react-db';
+import { gte, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
-import type { LifeStageFlags } from '../../components/larval-display';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
-import { getToday } from '../../lib/get-today';
-import { webCollections } from '../../sync/webCollections';
+import { useSpeciesNames } from '../../hooks/queries/use-species-names';
+import { sample_species } from '../../lib/collections/sample_species';
 
 /** How far back the recent-window queries (heavy list, open samples) reach. */
 export const ACTIVITY_WINDOW_DAYS = 14;
@@ -17,25 +14,7 @@ const WEEK_LENGTH = 7;
 // Keep the subset warm briefly after unmount so quick nav back reuses it.
 const activityGcTimeMs = 30_000;
 
-// A syntactically valid uuid that matches no row — keeps an `IN` subset predicate
-// live (and empty) while the id set is still empty.
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
-
 // --- projected query shapes -------------------------------------------------
-
-export interface ActivityInspection extends LifeStageFlags {
-	readonly id: string;
-	readonly inspectionDate: string;
-	readonly inspectedByProfileId: string | null;
-	readonly habitatId: string | null;
-	readonly habitatTypeId: string | null;
-	/** Trigger-maintained centroid; the only handle an ad-hoc inspection has. */
-	readonly lat: number | null;
-	readonly lng: number | null;
-	readonly isWet: boolean;
-	readonly density: LarvalDensity | null;
-	readonly larvaeCount: number | null;
-}
 
 /** One sample awaiting identification, as returned by the overview read endpoint. */
 export interface AwaitingSample {
@@ -72,80 +51,6 @@ interface LoadState {
 // the suspense hook hangs after a navigation unmount over on-demand collections.
 
 /**
- * Inspections for a single day. Keyed on an equality subset so browsing to any
- * historical week loads only that day's rows, not a rolling window.
- */
-export function useInspectionsForDay(date: string): {
-	readonly inspections: readonly ActivityInspection[];
-} & LoadState {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ inspection: webCollections.inspections })
-					.where(({ inspection }) => eq(inspection.inspectionDate, date))
-					.orderBy(({ inspection }) => inspection.createdAt, 'asc')
-					.select(selectInspection),
-		},
-		[date],
-	);
-
-	return {
-		inspections: (result.data ?? []) as unknown as readonly ActivityInspection[],
-		isReady: result.isReady,
-		isError: result.isError,
-	};
-}
-
-/** Recent inspections (last {@link ACTIVITY_WINDOW_DAYS} days) for the heavy list. */
-export function useRecentInspections(sinceDate: string): {
-	readonly inspections: readonly ActivityInspection[];
-} & LoadState {
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ inspection: webCollections.inspections })
-					.where(({ inspection }) => gte(inspection.inspectionDate, sinceDate))
-					.orderBy(({ inspection }) => inspection.inspectionDate, 'desc')
-					.select(selectInspection),
-		},
-		[sinceDate],
-	);
-
-	return {
-		inspections: (result.data ?? []) as unknown as readonly ActivityInspection[],
-		isReady: result.isReady,
-		isError: result.isError,
-	};
-}
-
-// Shared projection for both inspection queries.
-// biome-ignore lint/suspicious/noExplicitAny: query-builder ref proxy has no exported type
-function selectInspection({ inspection }: any) {
-	return {
-		id: inspection.id,
-		inspectionDate: inspection.inspectionDate,
-		inspectedByProfileId: inspection.inspectedByProfileId,
-		habitatId: inspection.habitatId,
-		habitatTypeId: inspection.habitatTypeId,
-		lat: inspection.lat,
-		lng: inspection.lng,
-		isWet: inspection.isWet,
-		density: inspection.density,
-		larvaeCount: inspection.larvaeCount,
-		hasEggs: inspection.hasEggs,
-		hasFirstInstar: inspection.hasFirstInstar,
-		hasSecondInstar: inspection.hasSecondInstar,
-		hasThirdInstar: inspection.hasThirdInstar,
-		hasFourthInstar: inspection.hasFourthInstar,
-		hasPupae: inspection.hasPupae,
-	};
-}
-
-/**
  * Larvae totals by species over the given window (identified_at based), sorted
  * high to low. Species names resolve from the eager `species` catalog.
  */
@@ -153,29 +58,26 @@ export function useSpeciesComposition(sinceDate: string): {
 	readonly totals: readonly SpeciesTotal[];
 	readonly grandTotal: number;
 } & LoadState {
-	const { rows: species } = useCollectionRows<SpeciesRow>(webCollections.species);
-	const nameById = useMemo(
-		() => new Map(species.map((row) => [row.id, row.displayName] as const)),
-		[species],
-	);
+	const nameById = useSpeciesNames();
 
 	const result = useLiveQuery(
 		{
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ sampleSpecies: webCollections.sampleSpecies })
-					.where(({ sampleSpecies }) => gte(sampleSpecies.identifiedAt, sinceDate))
-					.select(({ sampleSpecies }) => ({
-						speciesId: sampleSpecies.speciesId,
-						larvaeCount: sampleSpecies.larvaeCount,
+					.from({ identification: sample_species })
+					.where(({ identification }) => gte(identification.identified_at, sinceDate))
+					.select(({ identification }) => ({
+						speciesId: identification.species_id,
+						larvaeCount: identification.larvae_count,
 					})),
 		},
 		[sinceDate],
 	);
 
+	const rows = result.data;
+
 	const { totals, grandTotal } = useMemo(() => {
-		const rows = (result.data ?? []) as readonly { speciesId: string; larvaeCount: number }[];
 		const byId = new Map<string, number>();
 		let sum = 0;
 		for (const row of rows) {
@@ -194,7 +96,7 @@ export function useSpeciesComposition(sinceDate: string): {
 			}))
 			.sort((first, second) => second.total - first.total);
 		return { totals: ranked, grandTotal: sum };
-	}, [result.data, nameById]);
+	}, [rows, nameById]);
 
 	return { totals, grandTotal, isReady: result.isReady, isError: result.isError };
 }
@@ -245,60 +147,12 @@ async function fetchSamplesAwaiting(
 	return (await response.json()) as { readonly total: number; readonly samples: AwaitingSample[] };
 }
 
-// --- habitat name resolution (live on-demand subset) ------------------------
-
-interface HabitatSiteName {
-	readonly id: string;
-	readonly habitatName: string | null;
-}
-
-// Bound the subset so a very wide activity window stays a reasonable id set;
-// unique habitats past this fall back to a short-id label rather than loading.
-const maxHabitatNameIds = 500;
-
-/**
- * Resolve habitat display names for a set of ids straight off the on-demand
- * `habitats` collection (docs/sync.md): the `IN` subset (a POST body, so a large
- * id set never hits the URL-length ceiling) loads exactly these rows, keeps
- * streaming, and reuses rows already synced for other habitat screens.
- */
-export function useHabitatNames(ids: readonly string[]): ReadonlyMap<string, string> {
-	const sortedIds = useMemo(() => [...new Set(ids)].sort().slice(0, maxHabitatNameIds), [ids]);
-	const idsKey = sortedIds.join(',');
-	const queryIds = sortedIds.length > 0 ? sortedIds : [UNMATCHABLE_ID];
-
-	const result = useLiveQuery(
-		{
-			gcTime: activityGcTimeMs,
-			query: (query) =>
-				query
-					.from({ habitat: webCollections.habitats })
-					.where(({ habitat }) => inArray(habitat.id, queryIds))
-					.select(({ habitat }) => ({ id: habitat.id, habitatName: habitat.habitatName })),
-		},
-		[idsKey],
-	);
-
-	return useMemo(() => {
-		const map = new Map<string, string>();
-		for (const site of (result.data ?? []) as readonly HabitatSiteName[]) {
-			map.set(site.id, site.habitatName?.trim() || `Habitat ${site.id.slice(0, 8)}`);
-		}
-		return map;
-	}, [result.data]);
-}
-
 // --- pure date helpers (operate on `YYYY-MM-DD` strings) --------------------
 
-/** Today's date in the org's timezone as a `YYYY-MM-DD` string. */
-export function todayInTimeZone(timeZone: string | undefined): string {
-	return new Intl.DateTimeFormat('en-CA', {
-		timeZone: timeZone || undefined,
-		year: 'numeric',
-		month: '2-digit',
-		day: '2-digit',
-	}).format(getToday());
-}
+// `todayInTimeZone` lives in `lib/local-date` — every section defaults a date
+// with it, so it is not a larval-surveillance fact. Re-exported here because the
+// other three overview modules already re-export it from this one.
+export { todayInTimeZone } from '../../lib/local-date';
 
 /** Shift a `YYYY-MM-DD` string by whole days, staying in UTC to avoid DST drift. */
 export function addDaysToDateString(date: string, days: number): string {
@@ -325,6 +179,49 @@ export function weekdayLabel(date: string): string {
 
 export function dayOfMonth(date: string): number {
 	return parseDateString(date).getUTCDate();
+}
+
+/**
+ * A record's own date, with the weekday it fell on: `Wed, Aug 12`.
+ *
+ * Field work runs on a weekly rhythm — a trap set Monday and collected
+ * Wednesday, a route walked every Thursday — so the weekday is what tells an
+ * operator whether a gap in a run is a missed visit or just the weekend. It
+ * belongs on dates that ARE the record; {@link formatMonthDay} stays the plain
+ * form for the places a date is a bound or a heading rather than a fact about
+ * one record.
+ */
+export function formatWeekdayMonthDay(date: string): string {
+	const parsed = parseDateString(date);
+	if (Number.isNaN(parsed.getTime())) {
+		return '—';
+	}
+	return new Intl.DateTimeFormat('en-US', {
+		weekday: 'short',
+		month: 'short',
+		day: 'numeric',
+		timeZone: 'UTC',
+	}).format(parsed);
+}
+
+/**
+ * The same, carrying the year: `Wed, Aug 12, 2026`.
+ *
+ * For a list that spans seasons — a trap's whole run of collections — where
+ * {@link formatWeekdayMonthDay} alone would make two Augusts look like one.
+ */
+export function formatWeekdayDate(date: string): string {
+	const parsed = parseDateString(date);
+	if (Number.isNaN(parsed.getTime())) {
+		return '—';
+	}
+	return new Intl.DateTimeFormat('en-US', {
+		weekday: 'short',
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+		timeZone: 'UTC',
+	}).format(parsed);
 }
 
 export function formatMonthDay(date: string): string {

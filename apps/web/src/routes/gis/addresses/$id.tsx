@@ -1,5 +1,4 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { AddressRow } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -11,16 +10,17 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
+import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
+import { type AddressRecord, useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { formatAddressLines } from '../../../lib/address-format';
-import { webCollections } from '../../../sync/webCollections';
 import { useAddressGeometry } from './-address-data';
 
 export const Route = createFileRoute('/gis/addresses/$id')({
@@ -30,7 +30,7 @@ export const Route = createFileRoute('/gis/addresses/$id')({
 const AddressIcon = iconRegistry.actions.searchCheck.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
-const addressGcTimeMs = 30_000;
+const _addressGcTimeMs = 30_000;
 
 function RouteComponent() {
 	const { id } = Route.useParams();
@@ -40,18 +40,8 @@ function RouteComponent() {
 function AddressDetail({ addressId }: { readonly addressId: string }) {
 	// addresses is on-demand; status-gated useLiveQuery (not the suspense variant)
 	// to avoid the post-unmount hang on on-demand collections.
-	const result = useLiveQuery(
-		{
-			gcTime: addressGcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.id, addressId))
-					.findOne(),
-		},
-		[addressId],
-	);
-	const address = result.data as AddressRow | undefined;
+	const result = useAddressRecord(addressId);
+	const address = result.address;
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -72,7 +62,8 @@ function AddressDetail({ addressId }: { readonly addressId: string }) {
 	);
 }
 
-function AddressDetailContent({ address }: { readonly address: AddressRow }) {
+function AddressDetailContent({ address }: { readonly address: AddressRecord }) {
+	const mutations = useAddressMutations();
 	useBreadcrumbLabel(address.id, address.displayName);
 	const geometryQuery = useAddressGeometry(address.id);
 	const addressLines = formatAddressLines(address);
@@ -112,18 +103,21 @@ function AddressDetailContent({ address }: { readonly address: AddressRow }) {
 			</div>
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<AddressLocationCard
-					geojson={geometryQuery.data?.geojson ?? null}
-					isLoading={geometryQuery.isLoading}
-					lat={geometryQuery.data?.lat ?? null}
-					lng={geometryQuery.data?.lng ?? null}
-				/>
+				<div className="grid content-start gap-3">
+					<AddressLocationCard
+						geojson={geometryQuery.data?.geojson ?? null}
+						isLoading={geometryQuery.isLoading}
+						lat={geometryQuery.data?.lat ?? null}
+						lng={geometryQuery.data?.lng ?? null}
+					/>
+					<RecordRegionsBand noun="address" recordId={address.id} recordType="addresses" />
+				</div>
 				<div className="grid content-start gap-5">
 					<AddressDetailsCard address={address} />
 					<DangerZoneCard
 						name={address.displayName}
 						noun="address"
-						onDelete={() => webCollections.addresses.delete(address.id)}
+						onDelete={() => mutations.remove(address.id)}
 						recordId={address.id}
 						recordType="address"
 						returnTo="/gis/addresses"
@@ -160,7 +154,7 @@ function AddressLocationCard({
 	);
 }
 
-function AddressDetailsCard({ address }: { readonly address: AddressRow }) {
+function AddressDetailsCard({ address }: { readonly address: AddressRecord }) {
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">

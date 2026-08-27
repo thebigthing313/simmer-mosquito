@@ -1,27 +1,29 @@
-import type { ProfileRow } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, type LinkProps } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
-import { webCollections } from '../../sync/webCollections';
-import { todayDateValue } from '../control-operations/-control-display';
+import { useControlMethodNames } from '../../components/explorer';
+import { assignmentStatus } from '../../hooks/queries/assignment-view';
 import {
-	addDays,
 	controlTypeLabel,
 	formatRequestedAt,
 	formatScheduledStart,
 	MISSION_STATUS_LABELS,
 	missionDisplayName,
+	missionStatus,
 	requestDisplayName,
-	useAllControlMethodNames,
-	useMissionItemCounts,
-	useMissions,
-	useRequestedControlActions,
-} from './-operations-data';
-import { useAssignmentItemCounts, useAssignments } from './assignments/-assignment-data';
+	requestStatus,
+} from '../../hooks/queries/operations-view';
+import { useAssignmentItemCounts } from '../../hooks/queries/use-assignment-item-counts';
+import { useAssignments } from '../../hooks/queries/use-assignments';
+import { useMissionItemCounts } from '../../hooks/queries/use-mission-item-counts';
+import { useMissions } from '../../hooks/queries/use-missions';
+import { useProfileRoster } from '../../hooks/queries/use-profile-roster';
+import { useRequestedControlActions } from '../../hooks/queries/use-requested-control-actions';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { addCalendarDays, todayInTimeZone } from '../../lib/local-date';
 
 const OperationsIcon = iconRegistry.entities.vehicle.icon;
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
@@ -44,12 +46,13 @@ const REQUEST_WINDOW_DAYS = 90;
 const PANEL_ROW_LIMIT = 8;
 
 function OperationsOverviewRoute() {
-	const today = useMemo(() => todayDateValue(), []);
-	const scheduleFrom = useMemo(() => addDays(today, -SCHEDULE_DAYS_BACK), [today]);
-	const scheduleTo = useMemo(() => addDays(today, SCHEDULE_DAYS_AHEAD), [today]);
-	const requestFrom = useMemo(() => addDays(today, -(REQUEST_WINDOW_DAYS - 1)), [today]);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
+	const scheduleFrom = useMemo(() => addCalendarDays(today, -SCHEDULE_DAYS_BACK), [today]);
+	const scheduleTo = useMemo(() => addCalendarDays(today, SCHEDULE_DAYS_AHEAD), [today]);
+	const requestFrom = useMemo(() => addCalendarDays(today, -(REQUEST_WINDOW_DAYS - 1)), [today]);
 
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
+	const profiles = useProfileRoster();
 	const profileNameById = useMemo(
 		() => new Map(profiles.map((profile) => [profile.id, profile.displayName] as const)),
 		[profiles],
@@ -146,8 +149,12 @@ function OpenRequestsPanel({
 	readonly nameById: ReadonlyMap<string, string>;
 }) {
 	const { requests, isReady } = useRequestedControlActions(from, to);
-	const methodNameById = useAllControlMethodNames();
-	const open = useMemo(() => requests.filter((request) => request.status === 'open'), [requests]);
+	const methodNameById = useControlMethodNames();
+	const timeZone = useOrganizationTimeZone();
+	const open = useMemo(
+		() => requests.filter((request) => requestStatus(request) === 'open'),
+		[requests],
+	);
 
 	return (
 		<Panel
@@ -178,7 +185,7 @@ function OpenRequestsPanel({
 									? 'No requester'
 									: (nameById.get(request.requestedByProfileId) ?? 'Unknown requester')
 							}`}
-							trailing={formatRequestedAt(request.requestedAt)}
+							trailing={formatRequestedAt(request.requestedAt, timeZone)}
 						/>
 					))}
 				</ul>
@@ -206,9 +213,10 @@ function AssignmentsPanel({
 	// completed assignment from last week is not.
 	const active = useMemo(
 		() =>
-			assignments.filter(
-				(assignment) => assignment.status === 'notStarted' || assignment.status === 'inProgress',
-			),
+			assignments.filter((assignment) => {
+				const status = assignmentStatus(assignment);
+				return status === 'notStarted' || status === 'inProgress';
+			}),
 		[assignments],
 	);
 
@@ -267,12 +275,14 @@ function MissionsPanel({
 	const { missions, isReady } = useMissions(from, to);
 	const ids = useMemo(() => missions.map((mission) => mission.id), [missions]);
 	const { countsById } = useMissionItemCounts(ids);
+	const timeZone = useOrganizationTimeZone();
 
 	const active = useMemo(
 		() =>
-			missions.filter(
-				(mission) => mission.status === 'scheduled' || mission.status === 'inProgress',
-			),
+			missions.filter((mission) => {
+				const status = missionStatus(mission);
+				return status === 'scheduled' || status === 'inProgress';
+			}),
 		[missions],
 	);
 
@@ -295,8 +305,8 @@ function MissionsPanel({
 							<OverviewRow
 								icon={<MissionIcon aria-hidden="true" className="size-4" />}
 								key={mission.id}
-								primary={missionDisplayName(mission)}
-								secondary={`${MISSION_STATUS_LABELS[mission.status]} · ${
+								primary={missionDisplayName(mission, timeZone)}
+								secondary={`${MISSION_STATUS_LABELS[missionStatus(mission)]} · ${
 									mission.assignedToProfileId === null
 										? 'Unassigned'
 										: (nameById.get(mission.assignedToProfileId) ?? 'Unknown')
@@ -305,7 +315,7 @@ function MissionsPanel({
 										? 'No stops'
 										: `${counts.handled} of ${counts.total} done`
 								}`}
-								trailing={formatScheduledStart(mission.scheduledStartAt)}
+								trailing={formatScheduledStart(mission.scheduledStartAt, timeZone)}
 							/>
 						);
 					})}

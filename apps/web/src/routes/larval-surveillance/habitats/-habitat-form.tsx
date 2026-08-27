@@ -1,7 +1,6 @@
 import { mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
 import { createHabitatCommand } from '@simmer-mosquito/domain';
 import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { HabitatTypeRow } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -30,6 +29,7 @@ import {
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { WriteOnly } from '../../../components/write-only';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 
 export const noHabitatTypeValue = 'none';
@@ -54,7 +54,7 @@ export interface HabitatFormPageProps {
 	readonly mode: 'create' | 'edit';
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly habitatTypes: readonly HabitatTypeRow[];
+	readonly habitatTypes: readonly SchemaCatalogListing[];
 	readonly defaultValues: HabitatFormValues;
 	readonly initialGeometry: DrawGeometry | null;
 	readonly header: HabitatFormHeader;
@@ -424,7 +424,7 @@ function cameraForGeometry(geometry: DrawGeometry | null) {
 	return { center: [centroid.lng, centroid.lat] as [number, number], zoom: 15 };
 }
 
-function habitatTypeOptions(habitatTypes: readonly HabitatTypeRow[]) {
+function habitatTypeOptions(habitatTypes: readonly SchemaCatalogListing[]) {
 	return [
 		{ label: 'Unassigned type', value: noHabitatTypeValue },
 		...lifecycleOptions(

@@ -1,7 +1,5 @@
-import type { BiocontrolActionRow, ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { MapCardAddress } from '../../components/linked-address';
 import {
@@ -10,69 +8,31 @@ import {
 	MapCardEyebrow,
 	MapCardLocation,
 } from '../../components/map/map-card';
-import { webCollections } from '../../sync/webCollections';
-import { ContextBadge, formatAmount } from './-control-display';
+import type { MapInset } from '../../components/map/map-inset';
+import { useBiocontrolAction } from '../../hooks/queries/use-biocontrol-action';
+import { ContextBadge, formatMeasure } from './-control-display';
 
-const gcTimeMs = 30_000;
-const UNMATCHABLE_ID = '00000000-0000-0000-0000-000000000000';
 const UnitIcon = iconRegistry.entities.unit.icon;
 
 /**
- * The map focus card for a biocontrol release. Resolves the action off the
- * on-demand collection and its method + unit off the eager lookups, then renders
- * the shared {@link MapCard}.
+ * The map focus card for a biocontrol release. One query brings the action up
+ * with its method, unit and address already joined ({@link useBiocontrolAction}).
  */
 export function BiocontrolMapCard({
 	id,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
-	const actionResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ action: webCollections.biocontrolActions })
-					.where(({ action }) => eq(action.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const action = actionResult.data as BiocontrolActionRow | undefined;
-
-	const methodId = action?.biocontrolMethodId ?? UNMATCHABLE_ID;
-	const methodResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ method: webCollections.biocontrolMethods })
-					.where(({ method }) => eq(method.id, methodId))
-					.findOne(),
-		},
-		[methodId],
-	);
-	const method = methodResult.data as ControlMethodRow | undefined;
-
-	const unitId = action?.releaseUnitId ?? UNMATCHABLE_ID;
-	const unitResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ unit: webCollections.units })
-					.where(({ unit }) => eq(unit.id, unitId))
-					.findOne(),
-		},
-		[unitId],
-	);
-	const unit = unitResult.data as UnitRow | undefined;
+	const { action } = useBiocontrolAction(id);
 
 	if (action === undefined) {
 		return (
-			<MapCard onClose={onClose} title="Biocontrol">
+			<MapCard inset={inset} onClose={onClose} title="Biocontrol">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -81,15 +41,13 @@ export function BiocontrolMapCard({
 		);
 	}
 
-	const methodName = method?.name ?? 'Unknown method';
-	const amount = formatAmount(action.amountReleased, unit);
-
 	return (
 		<MapCard
 			badges={<ContextBadge habitatId={action.habitatId} inspectionId={action.inspectionId} />}
-			eyebrow={<MapCardEyebrow date={action.biocontrolDate} type="Biocontrol" />}
+			eyebrow={<MapCardEyebrow date={action.actionDate} type="Biocontrol" />}
+			inset={inset}
 			onClose={onClose}
-			title={methodName}
+			title={action.methodName}
 			viewDetailLink={(content) => (
 				<Link params={{ id: action.id }} to="/control-operations/biocontrol/$id">
 					{content}
@@ -97,9 +55,15 @@ export function BiocontrolMapCard({
 			)}
 		>
 			<div className="grid gap-1.5">
-				<MapCardDetail icon={UnitIcon}>{amount}</MapCardDetail>
-				<MapCardAddress addressId={action.addressId} />
-				<MapCardLocation geomType={action.geomType} lat={action.lat} lng={action.lng} />
+				<MapCardDetail icon={UnitIcon}>
+					{formatMeasure(action.amountReleased, action.unitAbbreviation)}
+				</MapCardDetail>
+				<MapCardAddress address={action.address} addressId={action.addressId} />
+				<MapCardLocation
+					geomType={action.geometryKind}
+					lat={action.latitude}
+					lng={action.longitude}
+				/>
 			</div>
 		</MapCard>
 	);

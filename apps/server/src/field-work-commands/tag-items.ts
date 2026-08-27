@@ -1,3 +1,4 @@
+import { assertWriteReferences } from '@simmer-mosquito/db';
 import {
 	assignTagCommand,
 	type FieldWorkCommand,
@@ -16,10 +17,9 @@ import {
 	type RouteOptions,
 	readTarget,
 	runCommands,
-	type SafeTagItem,
 	softDelete,
+	type TagItemRow,
 	tagItemReturnColumns,
-	toSafeTagItem,
 } from './shared.js';
 
 // ===========================================================================
@@ -71,12 +71,17 @@ async function runTagItemCommands(
 	);
 }
 
-async function writeTagItemCommand(
+export async function writeTagItemCommand(
 	trx: FieldWorkTransaction,
 	command: FieldWorkCommand,
-): Promise<SafeTagItem | null> {
+): Promise<TagItemRow | null> {
 	switch (command.type) {
 		case 'fieldWork.assignTag': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
+				references: [{ column: 'tag_id', catalog: 'tag', id: command.payload.tagId, label: 'tag' }],
+			});
 			const row = await trx
 				.insertInto('tag_items')
 				.values({
@@ -90,7 +95,7 @@ async function writeTagItemCommand(
 				})
 				.returning(tagItemReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeTagItem(row);
+			return row;
 		}
 		case 'fieldWork.unassignTag':
 			return softDelete(
@@ -100,7 +105,6 @@ async function writeTagItemCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				tagItemReturnColumns,
-				toSafeTagItem,
 			);
 		default:
 			throw new Error(`Unsupported tag item command: ${command.type}`);

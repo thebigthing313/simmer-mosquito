@@ -1,4 +1,3 @@
-import type { RouteRow } from '@simmer-mosquito/sync';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -13,7 +12,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { type ReactNode, Suspense, useState } from 'react';
-import { webCollections } from '../../sync/webCollections';
+import { useRouteMutations } from '../../hooks/mutations/use-route-mutations';
 import { useBreadcrumbLabel } from '../app-shell';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../danger-zone-card';
@@ -21,6 +20,7 @@ import type { RouteStopFeature } from '../map';
 import { WriteOnly } from '../write-only';
 import { RouteMap } from './route-map';
 import { type RouteStop, stopCountLabel } from './route-stop';
+import type { RouteSummary } from './route-summary';
 import type { RoutePlanningSurface } from './surface';
 
 const RouteIcon = iconRegistry.entities.route.icon;
@@ -54,7 +54,7 @@ export function RouteDetailPage({
 }: {
 	readonly surface: RoutePlanningSurface;
 	readonly routeId: string;
-	readonly route: RouteRow | null;
+	readonly route: RouteSummary | null;
 	/** False while the route set is still resolving — before that, absence means nothing. */
 	readonly isReady: boolean;
 	readonly stops: readonly RouteStop[];
@@ -65,6 +65,7 @@ export function RouteDetailPage({
 }) {
 	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 	const [highlightId, setHighlightId] = useState<string | null>(null);
+	const { remove: removeRoute } = useRouteMutations();
 
 	// Render the route's name in the breadcrumb trail instead of its raw id.
 	useBreadcrumbLabel(routeId, route?.routeName ?? null);
@@ -148,7 +149,7 @@ export function RouteDetailPage({
 							<DangerZoneCard
 								name={route.routeName}
 								noun="route"
-								onDelete={() => webCollections.routes.delete(route.id)}
+								onDelete={() => removeRoute(route.id)}
 								recordId={route.id}
 								recordType="route"
 								returnTo={surface.indexLink.to as NonNullable<typeof surface.indexLink.to>}

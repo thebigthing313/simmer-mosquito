@@ -1,4 +1,3 @@
-import type { AddressRow } from '@simmer-mosquito/sync';
 import { useCallback, useRef, useState } from 'react';
 import type { DrawGeometry } from './use-map-draw';
 
@@ -14,7 +13,7 @@ export interface AddressPointController {
 	/** The picked address's coordinate, or null when no address is selected. */
 	readonly addressCoord: AddressCoord | null;
 	/** Wire to the address picker's `onSelect`, alongside the form field update. */
-	readonly selectAddress: (address: AddressRow | null) => void;
+	readonly selectAddress: (address: AddressPoint | null) => void;
 	/** Wire to the "move to address" affordance; a no-op with no address picked. */
 	readonly moveToAddress: () => void;
 }
@@ -44,7 +43,7 @@ export function useAddressPoint({
 	const placeRef = useRef(onPlacePoint);
 	placeRef.current = onPlacePoint;
 
-	const selectAddress = useCallback((address: AddressRow | null) => {
+	const selectAddress = useCallback((address: AddressPoint | null) => {
 		const coord = addressCoordOf(address);
 		setAddressCoord(coord);
 		if (coord !== null && geometryRef.current === null) {
@@ -63,7 +62,7 @@ export function useAddressPoint({
 }
 
 /** An address's synced centroid, or null when it is cleared or not yet streamed. */
-export function addressCoordOf(address: AddressRow | null): AddressCoord | null {
+export function addressCoordOf(address: AddressPoint | null): AddressCoord | null {
 	if (address === null || typeof address.lat !== 'number' || typeof address.lng !== 'number') {
 		return null;
 	}
@@ -72,4 +71,16 @@ export function addressCoordOf(address: AddressRow | null): AddressCoord | null 
 
 export function pointAt(coord: AddressCoord): DrawPoint {
 	return { type: 'Point', coordinates: [coord.lng, coord.lat] };
+}
+
+/**
+ * The part of a picked address this needs.
+ *
+ * Structural rather than the row type: what arrives here is the picker's
+ * projection, and what this does with it is read two numbers.
+ */
+export interface AddressPoint {
+	/** Optional because a row can reach here before its centroid has streamed. */
+	readonly lat?: number | null;
+	readonly lng?: number | null;
 }

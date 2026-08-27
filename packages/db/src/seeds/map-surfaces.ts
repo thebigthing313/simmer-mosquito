@@ -128,6 +128,55 @@ export const mapSurfaceRowIds = Object.fromEntries(
  */
 export const mapSurfaceSampleOnDeletedInspectionId = seedId(2, 6);
 
+/**
+ * A collection on the *other* timing mode — an exact `collected_at` instant
+ * rather than a plain date — placed so the two zones disagree about its day.
+ *
+ * `2026-03-16T02:30Z` is 10:30pm on the 15th in New York. An agency there
+ * filters it under the 15th; a reader converting in UTC files it under the 16th
+ * and drops it from any window that ends on the 15th. Nothing else in this seed
+ * can catch that, because every other collection here is dated by a plain
+ * `collection_date` that no zone can move.
+ */
+export const mapSurfaceLateCollectionId = seedId(4, 6);
+const mapSurfaceLateCollectionAt = new Date('2026-03-16T02:30:00.000Z');
+/** The day {@link mapSurfaceLateCollectionAt} fell on, per zone. */
+export const mapSurfaceLateCollectionDates = {
+	'America/New_York': '2026-03-15',
+	UTC: '2026-03-16',
+} as const;
+
+/**
+ * The same typed calendar day, stamped the two ways the client has stamped it.
+ *
+ * A collection's date is keyed as a day and stored as an instant, and which
+ * instant is the client's choice. Midday UTC — what it used to be — has twelve
+ * hours of headroom, so it survives every zone strictly inside ±12 and no
+ * further. An agency on `Pacific/Auckland` (UTC+12 in August) types the 4th and
+ * the row is midnight on the 5th there.
+ *
+ * Both instants below are what `operationalDayAsInstant` in
+ * `apps/web/src/lib/local-date.ts` produced for `2026-08-04`, before and after
+ * issue #156 — the web suite asserts the client still produces the second one.
+ * Here they are read back through the server's own conversion, which is the
+ * half that has to agree with it.
+ */
+export const mapSurfaceStampedCollectionIds = {
+	/** Midday in Auckland, which is midnight UTC that same morning. */
+	agencyMidday: seedId(4, 7),
+	/** Midday UTC, which is 01:00 on the 5th in Auckland. */
+	utcMidday: seedId(4, 8),
+} as const;
+
+export const mapSurfaceStampedTypedDay = '2026-08-04';
+const mapSurfaceStampedAt = {
+	agencyMidday: new Date('2026-08-04T00:00:00.000Z'),
+	utcMidday: new Date('2026-08-04T12:00:00.000Z'),
+} as const;
+
+/** The agency these are read back for. */
+export const mapSurfaceStampedTimeZone = 'Pacific/Auckland';
+
 /** The units the amount-bearing surfaces are measured in. Units are global. */
 const unitId = '00000000-0000-4000-8000-000000000401';
 const durationUnitId = '00000000-0000-4000-8000-000000000402';
@@ -543,4 +592,56 @@ async function seedSurfaceRows(db: DbExecutor): Promise<void> {
  */
 function seedId(surface: number, row: number): string {
 	return `00000000-0000-4000-8000-${String(surface).padStart(6, '0')}${String(row).padStart(6, '0')}`;
+}
+
+/**
+ * Adds the one collection whose calendar day depends on who is asking.
+ *
+ * Kept out of {@link seedMapSurfaces} on purpose: every surface there has
+ * exactly the same five rows, and the shared assertions count on that. A sixth
+ * collection would make the collections surface answer differently from its
+ * eleven peers for a reason that has nothing to do with what those tests check.
+ * Call it after the main seed, from the test that is actually about timezones.
+ */
+export async function seedLateCollection(db: DbExecutor): Promise<void> {
+	await db
+		.insertInto('collections')
+		.values({
+			id: mapSurfaceLateCollectionId,
+			organization_id: mapSurfaceOrganizationIds.own,
+			geom: point(mapSurfacePlace.inside),
+			collection_method_id: seedId(92, 1),
+			// `collections_timing_shape` admits one of two shapes: this is the exact
+			// one, so `started_at` is required and every date+duration field must
+			// stay null.
+			collection_timing_mode: 'exact_timestamps',
+			started_at: new Date('2026-03-14T14:00:00.000Z'),
+			collected_at: mapSurfaceLateCollectionAt,
+		})
+		.execute();
+}
+
+/**
+ * The two stamps of one typed day, so a reader can be asked which day each is.
+ *
+ * Separate from {@link seedMapSurfaces} for the same reason
+ * {@link seedLateCollection} is: every other collection in that seed is dated by
+ * a plain `collection_date`, which no zone can move, and adding rows that a zone
+ * *can* move would change what the surface tests already assert.
+ */
+export async function seedStampedCollections(db: DbExecutor): Promise<void> {
+	await db
+		.insertInto('collections')
+		.values(
+			(['agencyMidday', 'utcMidday'] as const).map((stamp) => ({
+				id: mapSurfaceStampedCollectionIds[stamp],
+				organization_id: mapSurfaceOrganizationIds.own,
+				geom: point(mapSurfacePlace.inside),
+				collection_method_id: seedId(92, 1),
+				collection_timing_mode: 'exact_timestamps' as const,
+				started_at: mapSurfaceStampedAt[stamp],
+				collected_at: mapSurfaceStampedAt[stamp],
+			})),
+		)
+		.execute();
 }

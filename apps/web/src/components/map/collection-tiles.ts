@@ -1,4 +1,4 @@
-import { mapDomain, mapInteraction, mapStatus } from '@simmer-mosquito/design-tokens';
+import { mapInteraction, mapStatus } from '@simmer-mosquito/design-tokens';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -34,17 +34,37 @@ export const COLLECTION_SOURCE_ID = 'collections';
 const _COLLECTION_SOURCE_LAYER = 'collections';
 
 /**
- * Map paint colors. Collections carry a `hasProblem` feature property, so points
- * read their status straight off the map — a flagged collection burns amber-red,
- * a clean one stays calm teal. Kept as literals: GL paint can't read CSS custom
- * props.
+ * Status palette. Points are coloured by where a collection sits in the round:
+ * amber while the trap is still out, red when a problem was reported, slate when
+ * it came back empty, teal once it is in with specimens. Kept as literals (GL
+ * paint can't read CSS custom props).
+ *
+ * The same four tones samples use, and for the same reason: the two surfaces sit
+ * side by side under Adult Surveillance and Larval Surveillance, and a colour
+ * that means "needs attention" on one must not mean something else on the other.
  */
 const colors = {
-	base: mapDomain.collection,
+	collected: mapStatus.resolved,
+	pending: mapStatus.pending,
+	zeroResult: mapStatus.neutral,
 	problem: mapStatus.problem,
 	pointStroke: mapInteraction.pointStroke,
 	selected: mapInteraction.selected,
 } as const;
+
+/**
+ * The status colours, keyed by the status the server resolves, exported so the
+ * key, the result rail's dot and the map ramp read from one place.
+ */
+/** The status the server resolves for a collection, by precedence. */
+export type CollectionStatus = 'pending' | 'problem' | 'zero_result' | 'collected';
+
+export const COLLECTION_STATUS_COLORS: Readonly<Record<CollectionStatus, string>> = {
+	collected: colors.collected,
+	pending: colors.pending,
+	zero_result: colors.zeroResult,
+	problem: colors.problem,
+};
 
 /** Layers the user can click to select a collection. Order = hit priority. */
 export const COLLECTION_INTERACTIVE_LAYER_IDS = interactiveLayerIds(COLLECTION_SOURCE_ID);
@@ -53,12 +73,18 @@ const COLLECTION_SELECTED_LAYER_IDS = selectedLayerIds(COLLECTION_SOURCE_ID);
 
 export const COLLECTION_LAYER_IDS = allLayerIds(COLLECTION_SOURCE_ID);
 
-// A collection with no recorded `hasProblem` reads as clean — the common case.
-const problemColor: ExpressionSpecification = [
-	'case',
-	['boolean', ['get', 'hasProblem'], false],
+// Colour by the server-resolved status property; an unexpected value falls to
+// the collected tone, which is what a row with nothing flagged on it is.
+const statusColor: ExpressionSpecification = [
+	'match',
+	['get', 'status'],
+	'pending',
+	colors.pending,
+	'problem',
 	colors.problem,
-	colors.base,
+	'zero_result',
+	colors.zeroResult,
+	colors.collected,
 ];
 
 /** Build the tile template URL with the active filters folded into the query. */
@@ -99,7 +125,7 @@ function collectionTileParams(filters?: CollectionTileFilters): URLSearchParams 
 export function collectionTileLayers(selectedId: string | null): GeometryTileLayer[] {
 	return geometryTileLayers(
 		COLLECTION_SOURCE_ID,
-		{ fill: problemColor, line: problemColor },
+		{ fill: statusColor, line: statusColor },
 		selectedId,
 	);
 }

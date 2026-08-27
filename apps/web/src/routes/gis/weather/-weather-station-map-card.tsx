@@ -1,7 +1,5 @@
-import type { WeatherSourceRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry, LocateFixedIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import {
 	coordinateLabel,
@@ -9,38 +7,33 @@ import {
 	MapCardDetail,
 	MapCardEyebrow,
 } from '../../../components/map/map-card';
-import { webCollections } from '../../../sync/webCollections';
+import type { MapInset } from '../../../components/map/map-inset';
+import { useWeatherStation } from '../../../hooks/queries/use-weather-station';
 import { weatherSourceTypeLabel } from './-weather-display';
 import { StationStatusBadge } from './-weather-ui';
 
 const WeatherIcon = iconRegistry.domains.weather.icon;
 
 /**
- * The map focus card for a weather station. Self-contained: given the station id
- * it resolves the row off the eager weather-sources collection — coordinates
- * included, since a station's geometry is a single synced point — and renders the
- * shared {@link MapCard}.
+ * The map focus card for a weather station. The one card that needs no join and
+ * no HTTP: a station's geometry is a single synced point and it names nothing
+ * else, so {@link useWeatherStation} is the whole read.
  */
 export function WeatherStationMapCard({
 	id,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
-	const result = useLiveQuery(
-		(query) =>
-			query
-				.from({ source: webCollections.weatherSources })
-				.where(({ source }) => eq(source.id, id))
-				.findOne(),
-		[id],
-	);
-	const station = result.data as WeatherSourceRow | undefined;
+	const { station } = useWeatherStation(id);
 
 	if (station === undefined) {
 		return (
-			<MapCard className="max-w-[420px]" onClose={onClose} title="Weather Station">
+			<MapCard className="max-w-[420px]" inset={inset} onClose={onClose} title="Weather Station">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -49,15 +42,16 @@ export function WeatherStationMapCard({
 		);
 	}
 
-	const { lat, lng } = station;
+	const { latitude: lat, longitude: lng } = station;
 
 	return (
 		<MapCard
 			badges={<StationStatusBadge isActive={station.isActive} />}
 			className="max-w-[420px]"
 			eyebrow={<MapCardEyebrow type="Weather station" />}
+			inset={inset}
 			onClose={onClose}
-			title={station.sourceName}
+			title={station.name}
 			viewDetailLink={(content) => (
 				<Link params={{ id: station.id }} to="/gis/weather/$id">
 					{content}

@@ -1,4 +1,4 @@
-import type { RequestedControlActionRow } from '@simmer-mosquito/sync';
+import type { ControlType } from '@simmer-mosquito/domain';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -13,13 +13,13 @@ import {
 	StopReorderControls,
 } from '../../../components/stop-order';
 import { WriteOnly } from '../../../components/write-only';
+import type { OpenRequest } from '../../../hooks/queries/operations-view';
+import { controlTypeLabel, requestDisplayName } from '../../../hooks/queries/operations-view';
+import { useOpenRequestedControlActions } from '../../../hooks/queries/use-open-requested-control-actions';
 import {
-	controlTypeLabel,
 	type MissionItemAction,
 	type MissionStopView,
 	missionItemActionsFor,
-	requestDisplayName,
-	useOpenRequestedControlActions,
 } from '../-operations-data';
 import { MissionItemProgressBadge, missionStopTone } from '../-operations-display';
 
@@ -32,6 +32,57 @@ const ACTION_LABELS: Readonly<Record<MissionItemAction, string>> = {
 	reopen: 'Reopen',
 };
 
+/** Where each kind of mission sends the crew to record what they did. */
+const RECORD_ROUTE: Readonly<Record<ControlType, { readonly to: string; readonly label: string }>> =
+	{
+		application: { to: '/control-operations/chemical/create', label: 'Record application' },
+		source_reduction: {
+			to: '/control-operations/source-reduction/create',
+			label: 'Record source reduction',
+		},
+		biocontrol: { to: '/control-operations/biocontrol/create', label: 'Record biocontrol' },
+		outreach: { to: '/public-engagement/outreach/create', label: 'Record outreach' },
+	};
+
+/**
+ * The control action a mission stop exists to produce.
+ *
+ * The mission is typed once at the parent, so the stop does not choose — it
+ * offers the one kind of record this mission is for. Recording it writes the
+ * action, links it to the stop, and completes the stop together.
+ */
+function RecordMissionWorkButton({
+	stop,
+	controlType,
+	missionId,
+	enabled,
+}: {
+	readonly stop: MissionStopView;
+	readonly controlType: ControlType | null;
+	readonly missionId: string;
+	readonly enabled: boolean;
+}) {
+	// The mission is what says which record this stop produces, so there is
+	// nothing to offer until its row has arrived.
+	if (controlType === null) {
+		return null;
+	}
+	const route = RECORD_ROUTE[controlType];
+	const search = { missionItemId: stop.missionItemId, missionId };
+
+	return (
+		<Button asChild={enabled} disabled={!enabled} size="sm" variant="default">
+			{enabled ? (
+				<Link search={search} to={route.to}>
+					{route.label}
+				</Link>
+			) : (
+				<span>{route.label}</span>
+			)}
+		</Button>
+	);
+}
+
 /**
  * A mission's stop list: what the crew works, in order.
  *
@@ -43,8 +94,11 @@ const ACTION_LABELS: Readonly<Record<MissionItemAction, string>> = {
  */
 export function MissionStopList({
 	stops,
+	controlType,
+	missionId,
 	isLoading,
 	progressEnabled,
+	recordEnabled,
 	planEditable,
 	selectedStopId,
 	highlightId,
@@ -55,9 +109,14 @@ export function MissionStopList({
 	onHover,
 }: {
 	readonly stops: readonly MissionStopView[];
+	/** Null until the mission row has streamed; the record button waits for it. */
+	readonly controlType: ControlType | null;
+	readonly missionId: string;
 	readonly isLoading: boolean;
 	/** The mission is running and no write is in flight. */
 	readonly progressEnabled: boolean;
+	/** Wider: recording is also allowed on a scheduled mission, which it starts. */
+	readonly recordEnabled: boolean;
 	/** The mission is still open to plan changes. */
 	readonly planEditable: boolean;
 	readonly selectedStopId: string | null;
@@ -81,6 +140,7 @@ export function MissionStopList({
 		>
 			{stops.map((stop, index) => (
 				<MissionStopRow
+					controlType={controlType}
 					index={index}
 					isFirst={index === 0}
 					isHighlighted={stop.missionItemId === highlightId}
@@ -91,10 +151,12 @@ export function MissionStopList({
 					onHover={onHover}
 					onMove={onMove}
 					onRemove={onRemove}
+					missionId={missionId}
 					onSelect={onSelect}
 					ordinal={index + 1}
 					planEditable={planEditable}
 					progressEnabled={progressEnabled}
+					recordEnabled={recordEnabled}
 					stop={stop}
 				/>
 			))}
@@ -104,6 +166,8 @@ export function MissionStopList({
 
 function MissionStopRow({
 	stop,
+	controlType,
+	missionId,
 	ordinal,
 	index,
 	isFirst,
@@ -111,6 +175,7 @@ function MissionStopRow({
 	isSelected,
 	isHighlighted,
 	progressEnabled,
+	recordEnabled,
 	planEditable,
 	onAction,
 	onMove,
@@ -119,6 +184,8 @@ function MissionStopRow({
 	onHover,
 }: {
 	readonly stop: MissionStopView;
+	readonly controlType: ControlType | null;
+	readonly missionId: string;
 	readonly ordinal: number;
 	readonly index: number;
 	readonly isFirst: boolean;
@@ -126,6 +193,7 @@ function MissionStopRow({
 	readonly isSelected: boolean;
 	readonly isHighlighted: boolean;
 	readonly progressEnabled: boolean;
+	readonly recordEnabled: boolean;
 	readonly planEditable: boolean;
 	readonly onAction: (stop: MissionStopView, action: MissionItemAction) => void;
 	readonly onMove: (index: number, action: MoveAction) => void;
@@ -190,13 +258,21 @@ function MissionStopRow({
 
 					<WriteOnly>
 						<div className="pointer-events-auto mt-2 flex flex-wrap gap-2">
+							{stop.progress === 'pending' ? (
+								<RecordMissionWorkButton
+									controlType={controlType}
+									enabled={recordEnabled}
+									missionId={missionId}
+									stop={stop}
+								/>
+							) : null}
 							{actions.map((action) => (
 								<Button
 									disabled={!progressEnabled}
 									key={action}
 									onClick={() => onAction(stop, action)}
 									size="sm"
-									variant={action === 'complete' ? 'default' : 'outline'}
+									variant="outline"
 								>
 									{ACTION_LABELS[action]}
 								</Button>
@@ -262,22 +338,22 @@ function StopSubtitle({ stop }: { readonly stop: MissionStopView }) {
  * legitimate plan the domain flags rather than forbids.
  */
 export function RequestStopPicker({
-	organizationId,
 	existingRequestIds,
 	disabled = false,
 	onAdd,
 }: {
-	readonly organizationId: string;
 	readonly existingRequestIds: ReadonlySet<string>;
 	readonly disabled?: boolean;
-	readonly onAdd: (request: RequestedControlActionRow) => void;
+	readonly onAdd: (request: OpenRequest) => void;
 }) {
 	const [open, setOpen] = useState(false);
 	const [search, setSearch] = useState('');
-	const [selected, setSelected] = useState<RequestedControlActionRow | null>(null);
+	const [selected, setSelected] = useState<OpenRequest | null>(null);
 	const anchorRef = useRef<HTMLDivElement>(null);
 
-	const { requests, isReady } = useOpenRequestedControlActions(organizationId);
+	// No organization argument: the shape is scoped to the caller's agency
+	// server-side, so a client-side predicate on it is redundant.
+	const { requests, isReady } = useOpenRequestedControlActions();
 	const matches = useRequestMatches(requests, existingRequestIds, search);
 
 	return (
@@ -345,10 +421,10 @@ export function RequestStopPicker({
 
 /** Open requests not already on this mission, narrowed by the search box. */
 function useRequestMatches(
-	requests: readonly RequestedControlActionRow[],
+	requests: readonly OpenRequest[],
 	existingRequestIds: ReadonlySet<string>,
 	search: string,
-): readonly RequestedControlActionRow[] {
+): readonly OpenRequest[] {
 	const normalized = search.trim().toLowerCase();
 	return useMemo(() => {
 		const available = requests.filter((request) => !existingRequestIds.has(request.id));

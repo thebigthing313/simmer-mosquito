@@ -1,17 +1,15 @@
 import type { LarvalInspectionEntryMode } from '@simmer-mosquito/domain';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { webCollections } from '../../../sync/webCollections';
 import type {
 	ControlAssetCollectionKey,
 	ControlAssetListConfig,
 	ControlMethodCollectionKey,
 	ControlMethodListConfig,
 	DensityRangeFormValues,
-	OrgRole,
+	SimmerRole,
 } from './types';
 
-export const collections = webCollections;
-export const ORG_ROLE_OPTIONS: readonly OrgRole[] = [
+export const ORG_ROLE_OPTIONS: readonly SimmerRole[] = [
 	'viewer',
 	'collector',
 	'manager',
@@ -177,13 +175,6 @@ export const controlAssetListConfigs: Record<ControlAssetCollectionKey, ControlA
 		title: 'Equipment',
 	},
 };
-
-export const insecticideTypeOptions = [
-	{ label: 'Larvicide', value: 'larvicide' },
-	{ label: 'Adulticide', value: 'adulticide' },
-	{ label: 'Pupicide', value: 'pupicide' },
-	{ label: 'Other', value: 'other' },
-] as const;
 
 export const sections = [
 	{ id: 'general', label: 'General', to: '/my-organization' },

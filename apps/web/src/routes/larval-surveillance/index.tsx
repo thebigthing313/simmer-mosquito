@@ -1,4 +1,4 @@
-import type { HabitatTypeRow, LarvalDensity, ProfileRow } from '@simmer-mosquito/sync';
+import type { LarvalDensity } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -26,13 +26,14 @@ import {
 	LifeStageStrip,
 	WetnessBadge,
 } from '../../components/larval-display';
-import { useCollectionRows } from '../../hooks/use-collection-rows';
-import { adhocLabel, formatCoordinates } from '../../lib/coordinate-label';
-import { webCollections } from '../../sync/webCollections';
+import type { LarvalActivityRow } from '../../hooks/queries/larval-activity-view';
+import { useHeavyLarvalActivity } from '../../hooks/queries/use-heavy-larval-activity';
+import { useLarvalActivityForDate } from '../../hooks/queries/use-larval-activity-for-date';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
+import { adhocLabel } from '../../lib/coordinate-label';
 import type { InspectionsSearch } from './-inspections-search';
 import {
 	ACTIVITY_WINDOW_DAYS,
-	type ActivityInspection,
 	addDaysToDateString,
 	buildWeek,
 	dayOfMonth,
@@ -40,9 +41,6 @@ import {
 	type SpeciesTotal,
 	startOfWeek,
 	todayInTimeZone,
-	useHabitatNames,
-	useInspectionsForDay,
-	useRecentInspections,
 	useSamplesAwaiting,
 	useSpeciesComposition,
 	weekdayLabel,
@@ -107,30 +105,15 @@ function LarvalSurveillanceOverviewRoute() {
 }
 
 function OverviewBody() {
-	// Local-timezone "today"; the day strip and windows are pure string math from here.
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	// The agency's "today"; the day strip and windows are pure string math from here.
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const since = useMemo(() => addDaysToDateString(today, -(ACTIVITY_WINDOW_DAYS - 1)), [today]);
-
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
-	const { rows: habitatTypes } = useCollectionRows<HabitatTypeRow>(webCollections.habitatTypes);
-
-	const profileNameById = useMemo(
-		() => new Map(profiles.map((profile) => [profile.id, profile.displayName] as const)),
-		[profiles],
-	);
-	const typeNameById = useMemo(
-		() => new Map(habitatTypes.map((type) => [type.id, type.name] as const)),
-		[habitatTypes],
-	);
 
 	return (
 		<div className="grid gap-5 xl:grid-cols-12">
 			<div className="xl:col-span-7">
-				<DailyInspectionsPanel
-					profileNameById={profileNameById}
-					today={today}
-					typeNameById={typeNameById}
-				/>
+				<DailyInspectionsPanel today={today} />
 			</div>
 
 			<div className="grid content-start gap-5 xl:col-span-5">
@@ -139,56 +122,9 @@ function OverviewBody() {
 			</div>
 
 			<div className="xl:col-span-12">
-				<HeavyInspectionsPanel since={since} today={today} typeNameById={typeNameById} />
+				<HeavyInspectionsPanel since={since} today={today} />
 			</div>
 		</div>
-	);
-}
-
-interface ResolvedRow {
-	readonly habitatId: string | null;
-	readonly habitatName: string | null;
-	readonly typeName: string | null;
-	/** `34.05213, -118.24368` — how an ad-hoc inspection identifies itself. */
-	readonly coordinates: string | null;
-}
-
-type Resolver = (inspection: ActivityInspection) => ResolvedRow;
-
-/**
- * Build a row resolver for a set of inspections: habitat names come from the POST
- * `by-ids` lookup over just these inspections' habitats, type names from the eager
- * catalog. Each panel resolves its own set, so a day the user browses to resolves
- * its own habitats without a shared window.
- */
-function useResolver(
-	inspections: readonly ActivityInspection[],
-	typeNameById: ReadonlyMap<string, string>,
-): Resolver {
-	const habitatIds = useMemo(
-		() =>
-			inspections
-				.map((inspection) => inspection.habitatId)
-				.filter((id): id is string => id !== null),
-		[inspections],
-	);
-	const habitatNameById = useHabitatNames(habitatIds);
-
-	return useMemo(
-		() =>
-			(inspection: ActivityInspection): ResolvedRow => ({
-				habitatId: inspection.habitatId,
-				habitatName:
-					inspection.habitatId === null
-						? null
-						: (habitatNameById.get(inspection.habitatId) ?? null),
-				typeName:
-					inspection.habitatTypeId === null
-						? null
-						: (typeNameById.get(inspection.habitatTypeId) ?? 'Unknown type'),
-				coordinates: formatCoordinates(inspection.lat, inspection.lng),
-			}),
-		[habitatNameById, typeNameById],
 	);
 }
 
@@ -198,15 +134,28 @@ function useResolver(
  * every such row already belonged to, leaving nothing to tell one row from the
  * next.
  */
-function siteName(row: ResolvedRow): string {
+function siteName(row: LarvalActivityRow): string {
 	if (row.habitatId === null) {
-		return row.coordinates ?? 'Ad-hoc inspection';
+		return adhocLabel(row.latitude, row.longitude);
 	}
-	return row.habitatName ?? `Habitat ${row.habitatId.slice(0, 8)}`;
+	return row.habitatName ?? adhocLabel(row.latitude, row.longitude);
+}
+
+/**
+ * The Habitat's type, or what to say instead.
+ *
+ * A row with a type id and no joined name is a Habitat pointing at a catalog entry
+ * this client has not loaded — worth saying, rather than showing nothing.
+ */
+function typeLabel(row: LarvalActivityRow): string | null {
+	if (row.habitatTypeId === null) {
+		return null;
+	}
+	return row.typeName ?? 'Unknown type';
 }
 
 /** Habitat name as a link to the habitat, for panels that list a day's work. */
-function HabitatLink({ row }: { readonly row: ResolvedRow }) {
+function HabitatLink({ row }: { readonly row: LarvalActivityRow }) {
 	const label = siteName(row);
 	if (row.habitatId === null) {
 		return (
@@ -229,16 +178,13 @@ function HabitatLink({ row }: { readonly row: ResolvedRow }) {
 interface InspectorGroup {
 	readonly key: string;
 	readonly name: string;
-	readonly rows: readonly ActivityInspection[];
+	readonly rows: readonly LarvalActivityRow[];
 }
 
 const UNASSIGNED_KEY = '__unassigned__';
 
-function groupByInspector(
-	inspections: readonly ActivityInspection[],
-	profileNameById: ReadonlyMap<string, string>,
-): readonly InspectorGroup[] {
-	const groups = new Map<string, ActivityInspection[]>();
+function groupByInspector(inspections: readonly LarvalActivityRow[]): readonly InspectorGroup[] {
+	const groups = new Map<string, LarvalActivityRow[]>();
 	for (const inspection of inspections) {
 		const key = inspection.inspectedByProfileId ?? UNASSIGNED_KEY;
 		const existing = groups.get(key);
@@ -252,7 +198,7 @@ function groupByInspector(
 		.map(([key, rows]) => ({
 			key,
 			name:
-				key === UNASSIGNED_KEY ? 'Unassigned' : (profileNameById.get(key) ?? 'Unknown inspector'),
+				key === UNASSIGNED_KEY ? 'Unassigned' : (rows[0]?.inspectedByName ?? 'Unknown inspector'),
 			rows,
 		}))
 		.sort((first, second) => {
@@ -266,23 +212,13 @@ function groupByInspector(
 		});
 }
 
-function DailyInspectionsPanel({
-	profileNameById,
-	typeNameById,
-	today,
-}: {
-	readonly profileNameById: ReadonlyMap<string, string>;
-	readonly typeNameById: ReadonlyMap<string, string>;
-	readonly today: string;
-}) {
+function DailyInspectionsPanel({ today }: { readonly today: string }) {
 	const [selectedDate, setSelectedDate] = useState(today);
-	const { inspections, isReady, isError } = useInspectionsForDay(selectedDate);
-	const resolve = useResolver(inspections, typeNameById);
+	// One query. Each row arrives with the site it was made at already attached, so
+	// there is nothing to resolve and no second request to wait on.
+	const { rows: inspections, isReady, isError } = useLarvalActivityForDate(selectedDate);
 
-	const groups = useMemo(
-		() => groupByInspector(inspections, profileNameById),
-		[inspections, profileNameById],
-	);
+	const groups = useMemo(() => groupByInspector(inspections), [inspections]);
 
 	const weekStart = useMemo(() => startOfWeek(selectedDate), [selectedDate]);
 	const days = useMemo(() => buildWeek(weekStart), [weekStart]);
@@ -368,7 +304,7 @@ function DailyInspectionsPanel({
 				// shorter right column instead of stretching to full document length.
 				<div className="max-h-[32rem] divide-y divide-border/60 overflow-y-auto">
 					{groups.map((group) => (
-						<InspectorGroupBlock group={group} key={group.key} resolve={resolve} />
+						<InspectorGroupBlock group={group} key={group.key} />
 					))}
 				</div>
 			)}
@@ -384,13 +320,7 @@ function DailyInspectionsPanel({
  * the row answers the question the panel is usually asked — how much each person
  * got through, and how much of it came back breeding-positive.
  */
-function InspectorGroupBlock({
-	group,
-	resolve,
-}: {
-	readonly group: InspectorGroup;
-	readonly resolve: Resolver;
-}) {
+function InspectorGroupBlock({ group }: { readonly group: InspectorGroup }) {
 	const [open, setOpen] = useState(false);
 	const PersonnelIcon = iconRegistry.entities.organization.icon;
 	const positiveCount = group.rows.filter(
@@ -430,11 +360,7 @@ function InspectorGroupBlock({
 				<CollapsibleContent>
 					<ul className="grid px-3 pb-3">
 						{group.rows.map((inspection) => (
-							<InspectionRow
-								inspection={inspection}
-								key={inspection.id}
-								row={resolve(inspection)}
-							/>
+							<InspectionRow key={inspection.id} row={inspection} />
 						))}
 					</ul>
 				</CollapsibleContent>
@@ -443,30 +369,20 @@ function InspectorGroupBlock({
 	);
 }
 
-function InspectionRow({
-	inspection,
-	row,
-}: {
-	readonly inspection: ActivityInspection;
-	readonly row: ResolvedRow;
-}) {
+// One prop now: the row carries its own site, where it used to be handed the
+// inspection and a separately resolved label for the same record.
+function InspectionRow({ row }: { readonly row: LarvalActivityRow }) {
 	return (
 		<li className="flex items-center gap-3 rounded-md px-1 py-2 hover:bg-muted/40">
 			<div className="grid min-w-0 flex-1">
 				<HabitatLink row={row} />
 				<span className="truncate text-muted-foreground text-xs">
-					{row.typeName ?? 'Unassigned type'}
+					{typeLabel(row) ?? 'Unassigned type'}
 				</span>
 			</div>
 			<div className="flex shrink-0 items-center gap-2">
-				{inspection.isWet ? (
-					<DensityBadge density={inspection.density} />
-				) : (
-					<WetnessBadge isWet={false} />
-				)}
-				{inspection.isWet && hasAnyLifeStage(inspection) ? (
-					<LifeStageStrip size="sm" stages={inspection} />
-				) : null}
+				{row.isWet ? <DensityBadge density={row.density} /> : <WetnessBadge isWet={false} />}
+				{row.isWet && hasAnyLifeStage(row) ? <LifeStageStrip size="sm" stages={row} /> : null}
 			</div>
 		</li>
 	);
@@ -643,29 +559,21 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 
 // --- heavy / very heavy -----------------------------------------------------
 
-function isHot(density: LarvalDensity | null): boolean {
+function _isHot(density: LarvalDensity | null): boolean {
 	return density === 'heavy' || density === 'very_heavy';
 }
 
 function HeavyInspectionsPanel({
 	since,
 	today,
-	typeNameById,
 }: {
 	readonly since: string;
 	readonly today: string;
-	readonly typeNameById: ReadonlyMap<string, string>;
 }) {
-	const { inspections, isReady, isError } = useRecentInspections(since);
-
-	// Inspections arrive newest-first from the query; keep that order. Resolve
-	// habitat names for only the heavy rows shown — resolving the whole 14-day set
-	// would overflow the by-ids cap and drop names for the rows that matter.
-	const hot = useMemo(
-		() => inspections.filter((inspection) => isHot(inspection.density)),
-		[inspections],
-	);
-	const resolve = useResolver(hot, typeNameById);
+	// The density filter is in the query, so the join loads only the sites behind
+	// the heavy rows. Filtering here instead would first pull every site touched in
+	// the window — which is why this used to need a cap.
+	const { rows: hot, isReady, isError } = useHeavyLarvalActivity(since);
 
 	return (
 		<Panel
@@ -690,7 +598,7 @@ function HeavyInspectionsPanel({
 			) : (
 				<ul className="grid gap-1 p-2 sm:grid-cols-2">
 					{hot.map((inspection) => {
-						const row = resolve(inspection);
+						const row = inspection;
 						return (
 							<li
 								className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40"

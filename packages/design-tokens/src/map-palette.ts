@@ -88,9 +88,33 @@ export const mapDomain = {
 	 */
 	outreach: '#c4569e',
 	outreachLine: '#a84385',
-	collection: '#2f9e8f',
 	/** Connector lines between related records (inspection routes, habitat runs). */
 	connector: brand.blue,
+} as const;
+
+/**
+ * The four operational families, for surfaces that plot several record types at
+ * once and colour them by which part of the program they belong to.
+ *
+ * A coarser cut than {@link mapDomain}: that names one hue per record type so an
+ * operator can tell a trap from an application, while this names one hue per
+ * *family* so a page showing all nine types at once reads as four groups. Each
+ * borrows from a domain mark its family contains, so the two taxonomies agree
+ * rather than competing.
+ *
+ * Nothing warm here on purpose. The warm end belongs to the density ramp and to
+ * {@link mapInteraction.selected}, and a family mark that reads as amber would
+ * make every record of that family look selected.
+ */
+export const mapFamily = {
+	/** Habitats and inspections. */
+	larval: '#1f9d63',
+	/** Traps and collections. */
+	adult: '#9333a8',
+	/** Chemical, source reduction, biocontrol. */
+	control: '#2f56c9',
+	/** Outreach and service requests; borrows the outreach mark. */
+	publicEngagement: mapDomain.outreach,
 } as const;
 
 /**
@@ -167,3 +191,4 @@ export type MapLifecycleState = keyof typeof mapLifecycle;
 export type MapStatusTone = keyof typeof mapStatus;
 export type MapProgressTone = keyof typeof mapProgress;
 export type MapDensityStep = keyof typeof mapDensity;
+export type MapFamily = keyof typeof mapFamily;

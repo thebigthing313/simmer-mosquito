@@ -20,7 +20,7 @@ import { HeaderSearchBar } from './header-search-bar';
  * low on chrome per the product's map-room restraint.
  */
 export function AppHeader() {
-	const { activePath, domains, onNavigate, standalonePages, getToday } = useShell();
+	const { activePath, domains, onNavigate, standalonePages, getToday, timeZone } = useShell();
 	const resolutionDomains = useResolutionDomains();
 	const breadcrumbLabels = useBreadcrumbLabels();
 	const crumbs = buildBreadcrumbs(resolutionDomains, activePath, {
@@ -29,11 +29,14 @@ export function AppHeader() {
 	});
 	const [home] = domains;
 	const homeDestination = home ? firstDestination(home) : null;
+	// The header's date names the agency's operational day, so a supervisor
+	// checking in at 11pm from a zone ahead of the yard does not see tomorrow.
 	const today = new Intl.DateTimeFormat(undefined, {
 		weekday: 'short',
 		month: 'short',
 		day: 'numeric',
 		year: 'numeric',
+		...(timeZone === undefined ? {} : { timeZone }),
 	}).format(getToday === undefined ? new Date() : getToday());
 
 	return (

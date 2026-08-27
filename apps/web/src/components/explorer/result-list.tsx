@@ -1,5 +1,7 @@
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { MapPinnedIcon, OctagonXIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { ReactNode } from 'react';
 import { RESULT_SKELETON_KEYS } from './result-skeleton';
 
@@ -11,10 +13,18 @@ import { RESULT_SKELETON_KEYS } from './result-skeleton';
  * skeleton stands in only for the *first* load — once rows exist, a refetch
  * leaves them on screen rather than flashing back to placeholders, so panning
  * the map does not blank the list under the cursor.
+ *
+ * A failed request is its own state. Without one the rail fell back to the
+ * empty state and told a reader whose request had 500'd to loosen their
+ * filters, which is advice that cannot work and hides an outage. With rows
+ * already on screen the failure is a strip above them instead, because the
+ * rows are real data and blanking them loses more than it says.
  */
 export function ResultList<TRow>({
 	rows,
 	isLoading,
+	isError = false,
+	onRetry,
 	emptyTitle,
 	emptyDescription,
 	skeletonClassName = 'h-[60px]',
@@ -22,6 +32,10 @@ export function ResultList<TRow>({
 }: {
 	readonly rows: readonly TRow[];
 	readonly isLoading: boolean;
+	/** The request failed. Takes precedence over the empty state. */
+	readonly isError?: boolean;
+	/** Runs the request again. Omitted where nothing can retry in place. */
+	readonly onRetry?: (() => void) | undefined;
 	/** What is missing, e.g. `No traps match`. */
 	readonly emptyTitle: string;
 	/** What to change to find some. */
@@ -37,10 +51,36 @@ export function ResultList<TRow>({
 }) {
 	if (isLoading && rows.length === 0) {
 		return (
-			<div className="grid gap-px overflow-y-auto p-2">
-				{RESULT_SKELETON_KEYS.map((key) => (
-					<Skeleton className={skeletonClassName} key={key} />
-				))}
+			// The same ScrollArea the rows arrive into. A plain `overflow-y-auto` here
+			// meant the panel wore the browser's scrollbar while it loaded and the
+			// styled one once it had rows, so the rail shifted under the pointer at
+			// the moment the reader was waiting on it.
+			<ScrollArea className="min-h-0 flex-1" type="auto">
+				<div className="grid gap-px p-2">
+					{RESULT_SKELETON_KEYS.map((key) => (
+						<Skeleton className={skeletonClassName} key={key} />
+					))}
+				</div>
+			</ScrollArea>
+		);
+	}
+
+	if (isError && rows.length === 0) {
+		return (
+			<div
+				className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center"
+				role="alert"
+			>
+				<OctagonXIcon aria-hidden="true" className="size-7 text-destructive/70" />
+				<p className="font-medium text-foreground text-sm">Could not load results</p>
+				<p className="max-w-[34ch] text-muted-foreground text-sm">
+					The request failed. Try again, or reload the page if it keeps failing.
+				</p>
+				{onRetry === undefined ? null : (
+					<Button className="mt-1" onClick={onRetry} size="sm" variant="outline">
+						Try again
+					</Button>
+				)}
 			</div>
 		);
 	}
@@ -55,5 +95,42 @@ export function ResultList<TRow>({
 		);
 	}
 
-	return <ul className="flex-1 divide-y divide-border/40 overflow-y-auto">{rows.map(children)}</ul>;
+	return (
+		<>
+			{isError ? (
+				// The rows below are the last good answer, so they stay. This says so.
+				<div
+					className="flex items-center gap-2 border-destructive/20 border-b bg-destructive/8 px-3 py-2 text-xs"
+					role="alert"
+				>
+					<OctagonXIcon aria-hidden="true" className="size-3.5 shrink-0 text-destructive/80" />
+					<span className="text-foreground">
+						Showing the last result. The latest request failed.
+					</span>
+					{onRetry === undefined ? null : (
+						<Button
+							className="ml-auto h-6 px-2 text-xs"
+							onClick={onRetry}
+							size="sm"
+							variant="ghost"
+						>
+							Try again
+						</Button>
+					)}
+				</div>
+			) : null}
+			{/*
+			 * `w-full` on the list, because the Radix viewport wraps its children in a
+			 * `display: table` element that otherwise shrink-wraps to the widest row
+			 * and stops every `truncate` in the rows from having a width to truncate
+			 * against. `auto`, not the Radix default of `hover`: the rail is nearly
+			 * always longer than its panel, and a reader who cannot see a scrollbar
+			 * until they happen to move the pointer over the list has no sign there
+			 * are more rows.
+			 */}
+			<ScrollArea className="min-h-0 flex-1" type="auto">
+				<ul className="w-full divide-y divide-border/40">{rows.map(children)}</ul>
+			</ScrollArea>
+		</>
+	);
 }

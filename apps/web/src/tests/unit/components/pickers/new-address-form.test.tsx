@@ -51,11 +51,9 @@ function pendingMapPoint() {
 function renderForm(requestMapPoint: () => Promise<GeoJsonPointGeometry>) {
 	return render(
 		<NewAddressForm
-			actorProfileId="profile-1"
 			initialSearch="12 Marsh Rd"
 			onCancel={() => undefined}
 			onCreated={() => undefined}
-			organizationId="org-1"
 			requestMapPoint={requestMapPoint}
 		/>,
 	);

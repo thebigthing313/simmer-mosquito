@@ -1,15 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type {
-	AdultCollectionRow,
-	CollectionLureRow,
-	CollectionMethodRow,
-	CollectionSpeciesRow,
-	ProfileRow,
-	SpeciesRow,
-	SpeciesSex,
-	SpeciesStatus,
-	TrapRow,
-} from '@simmer-mosquito/sync';
+import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
@@ -59,35 +49,53 @@ import {
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { ArrowLeftIcon, iconRegistry, KeyboardIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
+import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { EmptyValue } from '../../../components/empty-value';
-import { LinkedAddressValue } from '../../../components/linked-address';
+import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
+import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { webCollections } from '../../../sync/webCollections';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
+import {
+	type CollectionSpeciesChanges,
+	useCollectionSpeciesMutations,
+} from '../../../hooks/mutations/use-collection-species-mutations';
+import type { AdultCollection } from '../../../hooks/queries/collection-view';
+import { trapDisplayName } from '../../../hooks/queries/trap-view';
+import { useAdultCollection } from '../../../hooks/queries/use-adult-collection';
+import { useCollectionMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
+import {
+	type CollectionIdentification,
+	useCollectionIdentifications,
+} from '../../../hooks/queries/use-collection-identifications';
+import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
+import { useSpeciesCatalog } from '../../../hooks/queries/use-species-catalog';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { operationalDayAsTimestamp } from '../../../lib/local-date';
 import {
 	CollectionFlagBadges,
 	collectionEffectiveDate,
 	collectionTitle,
+	isPendingCollection,
 	SPECIES_SEX_VALUES,
 	SPECIES_STATUS_VALUES,
 	SpeciesSexBadge,
 	SpeciesStatusBadge,
 	speciesSexLabel,
 	speciesStatusLabel,
-	trapDisplayName,
 } from '../-adult-display';
 import { CollectionKeyEntryDialog } from '../-collection-key-entry';
-import { formatMonthDay, todayInTimeZone } from '../-overview-data';
+import { formatWeekdayMonthDay, todayInTimeZone } from '../-overview-data';
 
 export const Route = createFileRoute('/adult-surveillance/collections/$id')({
 	component: RouteComponent,
@@ -111,33 +119,21 @@ function RouteComponent() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const snapshot = auth.snapshot?.authenticated === true ? auth.snapshot : null;
-	const actorProfileId = snapshot?.localIdentity.profileId ?? null;
 	const role = snapshot?.localIdentity.role ?? null;
 	const canEdit = snapshot !== null && !(role !== null && READ_ONLY_ROLES.has(role));
-	return <CollectionDetail actorProfileId={actorProfileId} canEdit={canEdit} collectionId={id} />;
+	return <CollectionDetail canEdit={canEdit} collectionId={id} />;
 }
 
 function CollectionDetail({
 	collectionId,
-	actorProfileId,
 	canEdit,
 }: {
 	readonly collectionId: string;
-	readonly actorProfileId: string | null;
 	readonly canEdit: boolean;
 }) {
-	const result = useLiveQuery(
-		{
-			gcTime: collectionGcTimeMs,
-			query: (query) =>
-				query
-					.from({ collection: webCollections.collections })
-					.where(({ collection }) => eq(collection.id, collectionId))
-					.findOne(),
-		},
-		[collectionId],
-	);
-	const collection = result.data as AdultCollectionRow | undefined;
+	const { collection, isReady } = useAdultCollection(collectionId, {
+		gcTime: collectionGcTimeMs,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -146,16 +142,12 @@ function CollectionDetail({
 					<ArrowLeftIcon aria-hidden="true" />
 					Back to collections
 				</Link>
-				{!result.isReady ? (
+				{!isReady ? (
 					<CollectionDetailSkeleton />
 				) : collection === undefined ? (
 					<RecordUnavailable noun="collection" reason="not-found" />
 				) : (
-					<CollectionDetailContent
-						actorProfileId={actorProfileId}
-						canEdit={canEdit}
-						collection={collection}
-					/>
+					<CollectionDetailContent canEdit={canEdit} collection={collection} />
 				)}
 			</div>
 		</div>
@@ -164,31 +156,30 @@ function CollectionDetail({
 
 function CollectionDetailContent({
 	collection,
-	actorProfileId,
 	canEdit,
 }: {
-	readonly collection: AdultCollectionRow;
-	readonly actorProfileId: string | null;
+	readonly collection: AdultCollection;
 	readonly canEdit: boolean;
 }) {
-	const title = collectionTitle(collection);
+	const titleTimeZone = useOrganizationTimeZone();
+	const title = collectionTitle(collection, titleTimeZone);
 	useBreadcrumbLabel(collection.id, title);
 
-	const { rows: methods } = useCollectionRows<CollectionMethodRow>(
-		webCollections.collectionMethods,
-	);
-	const { rows: lures } = useCollectionRows<CollectionLureRow>(webCollections.collectionLures);
-	const { rows: profiles } = useCollectionRows<ProfileRow>(webCollections.profiles);
-	const { rows: traps } = useCollectionRows<TrapRow>(webCollections.traps);
+	// The method roster is still read, because the custom-field schema hangs off
+	// the collection method and a schema is not something a `select` can join. The
+	// trap, the method name and the lure name are joined by the read seam now —
+	// three lookups against three rosters gone, and with them the chance of an id
+	// resolving to nothing because its roster had not streamed yet.
+	const methods = useCollectionMethodRoster();
+	const profiles = useProfileRoster();
+	const mutations = useCollectionMutations();
 
-	const methodName =
-		methods.find((method) => method.id === collection.collectionMethodId)?.name ?? 'Unknown method';
-	const lureName =
-		collection.collectionLureId === null
-			? null
-			: (lures.find((lure) => lure.id === collection.collectionLureId)?.name ?? 'Unknown lure');
-	const trap =
-		collection.trapId === null ? null : (traps.find((t) => t.id === collection.trapId) ?? null);
+	const { methodName } = collection;
+	// Guarded on the collection's own column rather than the joined name: a
+	// collection set without a lure reads as no lure, while one whose lure has
+	// since been deleted reads as an unknown one, and collapsing those would
+	// quietly turn a deleted catalog row into a blank.
+	const lureName = collection.lureId === null ? null : (collection.lureName ?? 'Unknown lure');
 	const profileNameById = useMemo(
 		() => new Map(profiles.map((profile) => [profile.id, profile.displayName])),
 		[profiles],
@@ -204,7 +195,8 @@ function CollectionDetailContent({
 					</span>
 					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">{title}</h1>
 					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{trap === null ? 'Ad-hoc collection' : trapDisplayName(trap)} · {methodName}
+						{collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} ·{' '}
+						{methodName}
 					</p>
 				</div>
 				<div className="flex flex-wrap items-center gap-2">
@@ -212,6 +204,11 @@ function CollectionDetailContent({
 						className="flex flex-wrap items-center gap-1.5"
 						collection={collection}
 					/>
+					{canEdit && isPendingCollection(collection) ? (
+						<WriteOnly>
+							<CollectCollectionButton collection={collection} />
+						</WriteOnly>
+					) : null}
 					{canEdit ? (
 						<WriteOnly>
 							<Button asChild size="sm" variant="outline">
@@ -227,12 +224,19 @@ function CollectionDetailContent({
 
 			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
 				<div className="grid min-w-0 content-start gap-5">
-					<CollectionLocationCard collection={collection} />
-					<ResultsCard actorProfileId={actorProfileId} canEdit={canEdit} collection={collection} />
+					<div className="grid content-start gap-3">
+						<CollectionLocationCard collection={collection} />
+						<RecordRegionsBand
+							noun="collection"
+							recordId={collection.id}
+							recordType="collections"
+						/>
+					</div>
+					<ResultsCard canEdit={canEdit} collection={collection} />
 					<DangerZoneCard
 						name={title}
 						noun="collection"
-						onDelete={() => webCollections.collections.delete(collection.id)}
+						onDelete={() => mutations.remove(collection.id)}
 						recordId={collection.id}
 						recordType="collection"
 						returnTo="/adult-surveillance/collections"
@@ -244,11 +248,10 @@ function CollectionDetailContent({
 						lureName={lureName}
 						methodName={methodName}
 						profileNameById={profileNameById}
-						trap={trap}
 					/>
 					<CustomFieldsCard
 						metadata={collection.metadata}
-						schema={customSchemaFor(methods, collection.collectionMethodId)}
+						schema={customSchemaFor(methods, collection.methodId)}
 					/>
 					<CommentsSection
 						description="Field notes, identification remarks, and follow-up for this collection."
@@ -260,10 +263,45 @@ function CollectionDetailContent({
 	);
 }
 
+/** The second visit, on a trap that is still out. */
+function CollectCollectionButton({ collection }: { readonly collection: AdultCollection }) {
+	const [open, setOpen] = useState(false);
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+	const timeZone = useOrganizationTimeZone();
+	const { collect } = useCollectionMutations();
+
+	return (
+		<>
+			<Button onClick={() => setOpen(true)} size="sm" variant="default">
+				Collect
+			</Button>
+			<CollectCollectionDialog
+				defaultDate={todayInTimeZone(timeZone)}
+				onConfirm={(collectedAt) => {
+					setOpen(false);
+					void runAcknowledged((acknowledgements) =>
+						collect({
+							acknowledgements,
+							// Midday on the agency's clock, clamped back to now on the same
+							// day — the same stamp the collection forms use, and the one every
+							// surface reads the day back with.
+							collectedAt: operationalDayAsTimestamp(collectedAt, timeZone) ?? new Date(),
+							collectionId: collection.id,
+						}),
+					);
+				}}
+				onOpenChange={setOpen}
+				open={open}
+			/>
+			{acknowledgeDialog}
+		</>
+	);
+}
+
 // --- location ----------------------------------------------------------------
 
-function CollectionLocationCard({ collection }: { readonly collection: AdultCollectionRow }) {
-	const { lat, lng } = collection;
+function CollectionLocationCard({ collection }: { readonly collection: AdultCollection }) {
+	const { latitude: lat, longitude: lng } = collection;
 	return (
 		<RecordLocationCard
 			description={`${lat.toFixed(5)}, ${lng.toFixed(5)}`}
@@ -277,15 +315,6 @@ function CollectionLocationCard({ collection }: { readonly collection: AdultColl
 
 // --- results (flags + species) -----------------------------------------------
 
-interface SpeciesEntry {
-	readonly id: string;
-	readonly speciesId: string;
-	readonly count: number;
-	readonly sex: SpeciesSex | null;
-	readonly status: SpeciesStatus | null;
-	readonly identifiedByProfileId: string | null;
-}
-
 interface SpeciesOption {
 	readonly value: string;
 	readonly label: string;
@@ -298,14 +327,12 @@ function renderSpeciesOption(option: SpeciesOption) {
 
 function ResultsCard({
 	collection,
-	actorProfileId,
 	canEdit,
 }: {
-	readonly collection: AdultCollectionRow;
-	readonly actorProfileId: string | null;
+	readonly collection: AdultCollection;
 	readonly canEdit: boolean;
 }) {
-	const { rows: speciesRows } = useCollectionRows<SpeciesRow>(webCollections.species);
+	const speciesRows = useSpeciesCatalog();
 	// Sorted once here so every species picker/select on the page reads alphabetically.
 	const species = useMemo(
 		() => [...speciesRows].sort((a, b) => a.displayName.localeCompare(b.displayName)),
@@ -320,26 +347,11 @@ function ResultsCard({
 		[species],
 	);
 
-	const result = useLiveQuery(
-		{
-			gcTime: collectionGcTimeMs,
-			query: (query) =>
-				query
-					.from({ collectionSpecies: webCollections.collectionSpecies })
-					.where(({ collectionSpecies }) => eq(collectionSpecies.collectionId, collection.id))
-					.orderBy(({ collectionSpecies }) => collectionSpecies.createdAt, 'asc')
-					.select(({ collectionSpecies }) => ({
-						id: collectionSpecies.id,
-						speciesId: collectionSpecies.speciesId,
-						count: collectionSpecies.count,
-						sex: collectionSpecies.sex,
-						status: collectionSpecies.status,
-						identifiedByProfileId: collectionSpecies.identifiedByProfileId,
-					})),
-		},
-		[collection.id],
-	);
-	const entries = (result.data ?? []) as unknown as readonly SpeciesEntry[];
+	const {
+		identifications: entries,
+		isReady,
+		isError,
+	} = useCollectionIdentifications(collection.id);
 	const total = useMemo(
 		() => entries.reduce((sum, entry) => sum + (entry.count ?? 0), 0),
 		[entries],
@@ -348,15 +360,8 @@ function ResultsCard({
 	const [confirmZeroResult, setConfirmZeroResult] = useState(false);
 	const [keyEntryOpen, setKeyEntryOpen] = useState(false);
 
-	const setFlag = useCallback(
-		(key: 'isZeroResult' | 'hasBycatch' | 'hasProblem', value: boolean) => {
-			void webCollections.collections.update(collection.id, (draft) => {
-				(draft as { -readonly [K in keyof AdultCollectionRow]: AdultCollectionRow[K] })[key] =
-					value;
-			});
-		},
-		[collection.id],
-	);
+	const { setZeroResult, setBycatch, setProblem } = useCollectionMutations();
+	const speciesMutations = useCollectionSpeciesMutations();
 
 	// Marking a collection zero-result clears every recorded species server-side
 	// (see markCollectionZeroResult). Guard the destructive turn-on when specimens
@@ -367,27 +372,9 @@ function ResultsCard({
 				setConfirmZeroResult(true);
 				return;
 			}
-			setFlag('isZeroResult', value);
+			void setZeroResult(collection.id, value);
 		},
-		[entries.length, setFlag],
-	);
-
-	const removeSpecies = (entryId: string) => {
-		void webCollections.collectionSpecies.delete(entryId);
-	};
-
-	// Inline edits patch a single collection_species field; the mutation handler
-	// resends only the changed keys (COLLECTION_SPECIES_PATCH_KEYS).
-	const updateSpecies = useCallback(
-		(
-			entryId: string,
-			changes: Partial<Pick<CollectionSpeciesRow, 'speciesId' | 'sex' | 'status' | 'count'>>,
-		) => {
-			void webCollections.collectionSpecies.update(entryId, (draft) => {
-				Object.assign(draft, changes);
-			});
-		},
-		[],
+		[entries.length, setZeroResult, collection.id],
 	);
 
 	return (
@@ -437,14 +424,14 @@ function ResultsCard({
 						description="Non-target specimens were present."
 						disabled={!canEdit}
 						label="Bycatch"
-						onChange={(value) => setFlag('hasBycatch', value)}
+						onChange={(value) => void setBycatch(collection.id, value)}
 					/>
 					<FlagRow
 						checked={collection.hasProblem}
 						description="Trap failure, tampering, or a compromised sample."
 						disabled={!canEdit}
 						label="Problem"
-						onChange={(value) => setFlag('hasProblem', value)}
+						onChange={(value) => void setProblem(collection.id, value)}
 					/>
 				</div>
 
@@ -452,12 +439,12 @@ function ResultsCard({
 					<span className="font-semibold text-muted-foreground text-xs uppercase tracking-wide">
 						Species
 					</span>
-					{result.isError ? (
+					{isError ? (
 						<SpeciesEmpty
 							description="Species records could not be loaded."
 							title="Species Unavailable"
 						/>
-					) : !result.isReady ? (
+					) : !isReady ? (
 						<div className="grid gap-2">
 							{[0, 1].map((index) => (
 								<Skeleton className="h-12 w-full" key={index} />
@@ -495,8 +482,8 @@ function ResultsCard({
 											<EditableSpeciesRow
 												entry={entry}
 												key={entry.id}
-												onChange={updateSpecies}
-												onRemove={removeSpecies}
+												onChange={speciesMutations.save}
+												onRemove={speciesMutations.remove}
 												speciesOptions={speciesOptions}
 											/>
 										) : (
@@ -513,21 +500,15 @@ function ResultsCard({
 					)}
 
 					{canEdit && !collection.isZeroResult ? (
-						<AddSpeciesForm
-							actorProfileId={actorProfileId}
-							collection={collection}
-							speciesOptions={speciesOptions}
-						/>
+						<AddSpeciesForm collectionId={collection.id} speciesOptions={speciesOptions} />
 					) : null}
 				</div>
 			</CardContent>
 
 			<CollectionKeyEntryDialog
-				actorProfileId={actorProfileId}
 				collectionId={collection.id}
 				onOpenChange={setKeyEntryOpen}
 				open={keyEntryOpen}
-				organizationId={collection.organizationId}
 			/>
 
 			<AlertDialog onOpenChange={setConfirmZeroResult} open={confirmZeroResult}>
@@ -541,7 +522,7 @@ function ResultsCard({
 					</AlertDialogHeader>
 					<AlertDialogFooter>
 						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={() => setFlag('isZeroResult', true)}>
+						<AlertDialogAction onClick={() => void setZeroResult(collection.id, true)}>
 							Mark Zero Result
 						</AlertDialogAction>
 					</AlertDialogFooter>
@@ -561,7 +542,7 @@ function ReadOnlySpeciesRow({
 	entry,
 	speciesName,
 }: {
-	readonly entry: SpeciesEntry;
+	readonly entry: CollectionIdentification;
 	readonly speciesName: string;
 }) {
 	return (
@@ -589,12 +570,9 @@ function EditableSpeciesRow({
 	onChange,
 	onRemove,
 }: {
-	readonly entry: SpeciesEntry;
+	readonly entry: CollectionIdentification;
 	readonly speciesOptions: readonly SpeciesOption[];
-	readonly onChange: (
-		entryId: string,
-		changes: Partial<Pick<CollectionSpeciesRow, 'speciesId' | 'sex' | 'status' | 'count'>>,
-	) => void;
+	readonly onChange: (entryId: string, changes: CollectionSpeciesChanges) => void;
 	readonly onRemove: (entryId: string) => void;
 }) {
 	return (
@@ -717,14 +695,14 @@ function SpeciesCountCell({
 }
 
 function AddSpeciesForm({
-	collection,
+	collectionId,
 	speciesOptions,
-	actorProfileId,
 }: {
-	readonly collection: AdultCollectionRow;
+	readonly collectionId: string;
 	readonly speciesOptions: readonly SpeciesOption[];
-	readonly actorProfileId: string | null;
 }) {
+	const timeZone = useOrganizationTimeZone();
+	const { add } = useCollectionSpeciesMutations();
 	const form = useAppForm({
 		defaultValues: {
 			speciesId: null as string | null,
@@ -736,23 +714,20 @@ function AddSpeciesForm({
 			if (value.speciesId === null || value.count === null || value.count < 1) {
 				return;
 			}
-			const now = new Date().toISOString();
-			const row: CollectionSpeciesRow = {
-				id: crypto.randomUUID(),
-				organizationId: collection.organizationId,
-				collectionId: collection.id,
-				speciesId: value.speciesId,
-				count: Math.trunc(value.count),
-				sex: value.sex === 'unset' ? null : value.sex,
-				status: value.status === 'unset' ? null : value.status,
-				identifiedByProfileId: actorProfileId,
-				identifiedDate: todayInTimeZone(undefined),
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
-			void webCollections.collectionSpecies.insert(row);
+			void add({
+				collectionId,
+				collectionSpeciesId: newRecordId(),
+				// The agency's today, not the browser's: an identification keyed at
+				// 11pm on a lab machine two zones away belongs to the day the agency
+				// is having.
+				identifiedDate: todayInTimeZone(timeZone),
+				fields: {
+					speciesId: value.speciesId,
+					count: Math.trunc(value.count),
+					sex: value.sex === 'unset' ? null : value.sex,
+					status: value.status === 'unset' ? null : value.status,
+				},
+			});
 			form.reset();
 		},
 	});
@@ -875,18 +850,23 @@ function FlagRow({
 
 function DetailsCard({
 	collection,
-	trap,
 	methodName,
 	lureName,
 	profileNameById,
 }: {
-	readonly collection: AdultCollectionRow;
-	readonly trap: TrapRow | null;
+	readonly collection: AdultCollection;
 	readonly methodName: string;
 	readonly lureName: string | null;
 	readonly profileNameById: ReadonlyMap<string, string>;
 }) {
-	const collectedDate = collectionEffectiveDate(collection);
+	const timeZone = useOrganizationTimeZone();
+	const collectedDate = collectionEffectiveDate(collection, timeZone);
+	// The instant the trap went out, read back as the day the crew worked. The
+	// read seam hands `started_at` up as the `Date` the row schema parses, so this
+	// is where the agency's clock turns it into a calendar day — the same clock
+	// `collectionEffectiveDate` reads the collected day on.
+	const startedDay =
+		collection.startedAt === null ? null : todayInTimeZone(timeZone, collection.startedAt);
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
@@ -895,16 +875,16 @@ function DetailsCard({
 			<CardContent className="grid gap-4" padding="compact">
 				<dl className="grid gap-2.5">
 					<DetailRow label="Trap">
-						{trap === null ? (
+						{collection.trapId === null ? (
 							<span className="text-muted-foreground italic">Ad-hoc — no trap</span>
 						) : (
 							<Link
 								className="inline-flex items-center gap-1.5 rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								params={{ id: trap.id }}
+								params={{ id: collection.trapId }}
 								to="/adult-surveillance/traps/$id"
 							>
 								<TrapIcon aria-hidden="true" className="size-3.5 text-muted-foreground" />
-								{trapDisplayName(trap)}
+								{trapDisplayName(collection)}
 							</Link>
 						)}
 					</DetailRow>
@@ -916,11 +896,11 @@ function DetailsCard({
 						{collectedDate === null ? (
 							<span className="text-muted-foreground">Pending</span>
 						) : (
-							formatMonthDay(collectedDate)
+							formatWeekdayMonthDay(collectedDate)
 						)}
 					</DetailRow>
 					<DetailRow label="Set">
-						{collection.startedAt === null ? <EmptyValue /> : formatMonthDay(collection.startedAt)}
+						{startedDay === null ? <EmptyValue /> : formatWeekdayMonthDay(startedDay)}
 					</DetailRow>
 					<DetailRow label="Collected by">
 						{collection.collectedByProfileId === null ? (
@@ -937,7 +917,7 @@ function DetailsCard({
 						)}
 					</DetailRow>
 					<DetailRow label="Address">
-						<LinkedAddressValue addressId={collection.addressId} />
+						<LinkedAddressValueById addressId={collection.addressId} />
 					</DetailRow>
 				</dl>
 				<AdditionalPersonnelList target={{ type: 'collection', id: collection.id }} />

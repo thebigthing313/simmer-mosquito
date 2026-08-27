@@ -23,11 +23,13 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
 	"dependencies": {
+		"@simmer-mosquito/domain": "workspace:*",
 		"kysely": "^0.28.0",
 		"pg": "^8.16.0"
 	},
 	"devDependencies": {
 		"@mapbox/vector-tile": "^3.0.0",
+		"@simmer-mosquito/mapping": "workspace:*",
 		"@types/pg": "^8.15.0",
 		"kysely-codegen": "^0.18.0",
 		"pbf": "^5.1.2"

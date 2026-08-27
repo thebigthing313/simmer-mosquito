@@ -56,14 +56,18 @@ import { registerGeocoderRoutes } from './geocoder.js';
 import { registerLarvalSurveillanceCommandRoutes } from './larval-surveillance-commands/index.js';
 import { registerMapTileRoutes } from './map-tiles.js';
 import { registerMissionDispatchCommandRoutes } from './mission-dispatch-commands/index.js';
-import { registerOrganizationCommandRoutes } from './organization-commands.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
 import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
 import { registerPublicEngagementRecordRoutes } from './public-engagement-records-commands/index.js';
 import { registerRecordDeletionRoutes } from './record-deletion.js';
+import { registerRegionMembershipRoutes } from './region-membership.js';
+import { COMPRESSED_READ_PREFIXES, compressReads } from './response-compression.js';
+import { registerSearchRoutes } from './search.js';
 import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
 import { registerSyncShapeRoutes } from './sync-shapes.js';
+import { registerTableCommandSurface } from './table-commands/index.js';
+import { registerWeatherImportRoute } from './weather-commands/index.js';
 
 const env = readServerEnv();
 const auth = createWorkOsAuth({
@@ -113,12 +117,13 @@ if (env.geocodioApiKey === null) {
 const authContextMiddleware = createAuthContextMiddleware({
 	auth: sessionProvider,
 	localIdentityResolver,
+	operatorOrganizationId: env.simmerOperatorOrganizationId,
 	setAuthCookie,
 });
 const operatorAuthContextMiddleware = createOperatorAuthContextMiddleware({
 	auth: sessionProvider,
 	localIdentityResolver,
-	isOperatorEmail,
+	operatorOrganizationId: env.simmerOperatorOrganizationId,
 	setAuthCookie,
 });
 
@@ -140,6 +145,14 @@ for (const surface of CORS_SURFACES) {
 			exposeHeaders: [SESSION_RESPONSE_HEADER],
 		}),
 	);
+}
+
+// The map and shape reads, gzipped. Registered before the tenancy headers below
+// so it wraps them: it appends `accept-encoding` to the `vary` they set, and
+// appending only works from the outside. `response-compression.ts` has the
+// measurements and says why it is not `hono/compress`.
+for (const prefix of COMPRESSED_READ_PREFIXES) {
+	app.use(prefix, compressReads);
 }
 
 // Organization-scoped reads on URLs that are byte-identical across tenants.
@@ -320,11 +333,6 @@ registerControlProductCommandRoutes(app, {
 	authContextMiddleware,
 });
 
-registerOrganizationCommandRoutes(app, {
-	db,
-	authContextMiddleware,
-});
-
 registerOrganizationSettingsCommandRoutes(app, {
 	db,
 	authContextMiddleware,
@@ -332,7 +340,6 @@ registerOrganizationSettingsCommandRoutes(app, {
 
 registerProfileCommandRoutes(app, {
 	db,
-	auth,
 	authContextMiddleware,
 });
 
@@ -376,6 +383,11 @@ registerMapTileRoutes(app, {
 	authContextMiddleware,
 });
 
+registerSearchRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
 registerServiceRequestNearbyRoutes(app, {
 	db,
 	authContextMiddleware,
@@ -386,8 +398,29 @@ registerRecordDeletionRoutes(app, {
 	authContextMiddleware,
 });
 
+registerRegionMembershipRoutes(app, {
+	db,
+	authContextMiddleware,
+});
+
 registerGeocoderRoutes(app, {
 	apiKey: env.geocodioApiKey,
+	authContextMiddleware,
+});
+
+// The `/commands/{table}` surface, which the new sync collections write through.
+// Additive: the domain-shaped endpoints above are untouched, and both reach the
+// same commands, permissions and write transaction.
+registerTableCommandSurface(app, {
+	db,
+	auth,
+	authContextMiddleware,
+	operatorAuthContextMiddleware,
+});
+
+// The one weather command the table surface has no shape for, see the module.
+registerWeatherImportRoute(app, {
+	db,
 	authContextMiddleware,
 });
 
@@ -549,10 +582,6 @@ function setAuthCookie(
 	sealedSession: string | undefined,
 ): void {
 	writeSealedSession(context, sealedSession, { secure: env.nodeEnv === 'production' });
-}
-
-function isOperatorEmail(email: string): boolean {
-	return env.simmerOperatorEmails.includes(email.trim().toLowerCase());
 }
 
 function readAllowedReturnTo(value: string | undefined): string | null {

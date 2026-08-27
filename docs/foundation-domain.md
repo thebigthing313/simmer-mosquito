@@ -1,4 +1,4 @@
-# Foundation And Reference Data Domain
+# Foundation and reference data domain
 
 Shared command, validation, offline, sync, location-source, and module-shape
 rules live in `docs/domain-command-contract.md`. This file records foundation
@@ -6,9 +6,11 @@ and reference-data vocabulary and exceptions.
 
 This captures the foundation/reference-data command decisions from the domain
 interview. These commands harden organization-owned address/region/reference
-data and SIMMER-controlled taxonomy. Server endpoints are still deferred.
+data and SIMMER-controlled taxonomy. The endpoints exist: 39 `foundation.*`
+commands carry floors in `apps/server/src/command-permissions.ts`, and their
+routes live in `apps/server/src/table-commands/`.
 
-## Command Shape
+## Command shape
 
 Foundation agency commands use the `foundation.*` namespace and carry command
 context for optimistic UI, offline logs, and command replay:
@@ -86,7 +88,7 @@ Duplicate address display names or identical address features are warnings only.
 The app should warn within useful UI scope; the database should not prevent
 duplicates.
 
-## Region Folders
+## Region folders
 
 Commands:
 
@@ -100,8 +102,7 @@ commentable or taggable in v1.
 
 Deleting a folder soft-deletes the folder. If it contains non-deleted regions,
 the command requires acknowledgement and detaches those regions by setting
-`region_folder_id = null`. Folder create/update/delete invalidates region
-intersection cache for the affected folder.
+`region_folder_id = null`.
 
 ## Regions
 
@@ -123,19 +124,20 @@ geometry within the same folder, including the uncategorized bucket, but
 does not block. Topology validation is limited to PostGIS geometry validity.
 
 `updateRegionGeometry` requires acknowledgement that region boundaries may
-change future reporting/cache results. It stores the command geometry directly
-on the region and invalidates affected cache rows.
+change future reporting. It stores the command geometry directly on the region.
 
-`deleteRegion` requires acknowledgement, soft-deletes the region, soft-deletes
-direct region comments/tags, and invalidates affected cache rows. Region delete
-is not blocked by cached intersections. There is no v1 region merge command.
+`deleteRegion` requires acknowledgement, soft-deletes the region, and
+soft-deletes direct region comments/tags. There is no v1 region merge command.
 
-## Region Intersection Cache
+## Region membership
 
-Region intersection cache has no public commands. It is derived from owned
-locatable-row geometry against a region folder. Region and folder mutations
-should delete or invalidate affected folder cache rows. Uncategorized regions
-are not cached.
+Which regions contain a record is computed on read and never stored, so there is
+nothing for a region or folder mutation to invalidate. A redrawn boundary
+changes every answer the moment it is committed. Unfiled regions are answered
+like any other, in their own group. See ADR 0015 and
+`docs/region-membership-spec.md`.
+
+This replaces the region intersection cache this document used to describe.
 
 ## Global Taxonomy
 
@@ -164,6 +166,34 @@ explicit and required. Duplicate display names are warnings only.
 
 Renaming referenced taxonomy requires explicit acknowledgement in server command
 handling so operators do not accidentally relabel historical results.
+
+## Global units
+
+Commands:
+
+- `createUnit`
+- `updateUnit`
+- `deleteUnit`
+
+Units of measure are SIMMER-operator-only, like the taxonomy, and for the same
+reason: there is no `organization_id`, and every agency records amounts against
+them. Commands require a client-generated `unitId`.
+
+`code`, `unitName` and `abbreviation` are each unique globally. Uniqueness is
+checked by the server inside the write transaction, not by the builders, because
+it is a fact about the other rows rather than about the command.
+
+Delete is hard delete, allowed only when unreferenced. A unit is blocked by any
+record measured in it, and by an organization's unit defaults.
+
+**`code` is a join key, not a label.** The `units` table carries no conversion
+factor and no base-unit column; the arithmetic lives in
+`organization-settings/unit-conversion.ts`, keyed by `code`. Changing a unit's
+code therefore detaches it from every total that crosses units, and it does not
+fail. An unknown code makes a total *unavailable*, so callers fall back to
+reporting each unit separately. `updateUnit` requires
+`acknowledgedUnitCodeChange` when, and only when, `code` is among the changes.
+Adding a unit to the database means adding it to the conversion table too.
 
 ## Organization Species
 
@@ -234,7 +264,7 @@ non-deleted references:
 
 There is no v1 lookup merge or restore command.
 
-## Comments And Tags
+## Comments and tags
 
 Addresses and regions are valid comment and tag targets. Region folders,
 taxonomy rows, organization species rows, and lookup rows are not commentable or
@@ -252,8 +282,8 @@ commands. Import handlers should call the same per-row domain validation and
 write ordinary rows; they do not need a public bulk command vocabulary.
 
 Address imports support lat/lng columns only. Region imports may accept GeoJSON,
-KML, or Shapefile at the import layer, but the foundation command/domain layer
-sees normalized Polygon geometry. Region import rejects MultiPolygon,
+KML, KMZ, or Shapefile at the import layer, but the foundation command/domain
+layer sees normalized Polygon geometry. Region import rejects MultiPolygon,
 GeometryCollection, Point, and LineString. Imports create new rows only;
 duplicate handling is warnings, not matching/upsert.
 
@@ -261,7 +291,7 @@ Collection methods, lures, and habitat types are small lists and can be entered
 one by one in v1. Trap and habitat imports need richer validation and are
 deferred to separate SIMMER onboarding tooling or later product work.
 
-## Sync And Offline
+## Sync and offline
 
 Foundation commands follow `docs/domain-command-contract.md`. Mobile/offline
 frontends may sync scoped working sets of address, region, taxonomy, and lookup
@@ -272,17 +302,20 @@ Sync behavior will differ by frontend and needs a dedicated follow-up session.
 Foundation-specific replay must also revalidate duplicate-warning
 acknowledgements.
 
-## Schema Changes Surfaced
+## Schema this domain drove
 
-The schema should align with these domain decisions:
+Every one of these is in the database, read back on 2026-08-19:
 
-- remove the unique region name constraint
-- add normalized unique indexes for region folder names and lookup names
-- add normalized unique indexes for global genus/species taxonomy
-- add `organization_species.deleted_at` and `deleted_by_profile_id`
-- treat non-deleted `organization_species` rows as selected species
-- remove `collection_lures.custom_schema`
-- keep address and region duplicate handling as warnings, not constraints
+- the unique region name constraint is gone; `regions_organization_name_idx` is
+  an ordinary index
+- `region_folders_organization_normalized_name_unique` and the lookup-name
+  equivalents are normalized and soft-delete-aware
+- `genera_normalized_name_unique`, `genera_normalized_abbreviation_unique`,
+  `species_genus_normalized_epithet_unique`, and
+  `species_special_normalized_epithet_unique` cover global taxonomy
+- `organization_species` carries `deleted_at` and `deleted_by_profile_id`, and a
+  non-deleted row is what "selected species" means
+- `collection_lures.custom_schema` is gone
 
-These changes are captured in the follow-up foundation migration and DB type
-updates.
+Address and region duplicate handling stays a warning rather than a constraint,
+which is a decision rather than pending work.

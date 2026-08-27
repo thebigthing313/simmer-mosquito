@@ -3,7 +3,6 @@ import {
 	type OrganizationSettings,
 	type SpeciesKeyBinding,
 } from '@simmer-mosquito/domain';
-import type { OrganizationRow, OrganizationSpeciesRow, SpeciesRow } from '@simmer-mosquito/sync';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -24,9 +23,9 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useMemo, useState } from 'react';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
-import { webCollections } from '../../../sync/webCollections';
-import { errorMessageForSave, updateCurrentOrganization } from './helpers';
+import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
+import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
+import { errorMessageForSave } from '../../../lib/save-error';
 
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 
@@ -42,13 +41,12 @@ interface SpeciesOption {
  */
 export function KeyBindingsSettings({
 	canManage,
-	organization,
 	settings,
 }: {
 	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
 	readonly settings: OrganizationSettings;
 }) {
+	const { setSpeciesKeyBindings } = useOrganizationSettingsMutations();
 	const options = useSpeciesOptions();
 	const stored = settings.speciesKeyBindings.bindings;
 	const [error, setError] = useState<string | null>(null);
@@ -83,12 +81,7 @@ export function KeyBindingsSettings({
 		setBusyKey(busy);
 		setError(null);
 		try {
-			await updateCurrentOrganization(organization, (draft) => {
-				draft.settings = {
-					...settings,
-					speciesKeyBindings: { bindings: next },
-				};
-			});
+			await setSpeciesKeyBindings(next);
 		} catch (saveError) {
 			setError(errorMessageForSave(saveError));
 		} finally {
@@ -314,16 +307,5 @@ function SectionLabel({ children }: { readonly children: React.ReactNode }) {
  * curated — the same rule the sample identification picker follows.
  */
 function useSpeciesOptions(): readonly SpeciesOption[] {
-	const { rows: species } = useCollectionRows<SpeciesRow>(webCollections.species);
-	const { rows: organizationSpecies } = useCollectionRows<OrganizationSpeciesRow>(
-		webCollections.organizationSpecies,
-	);
-
-	return useMemo(() => {
-		const adopted = new Set(organizationSpecies.map((row) => row.speciesId));
-		const source = adopted.size > 0 ? species.filter((row) => adopted.has(row.id)) : species;
-		return source
-			.map((row) => ({ id: row.id, label: row.displayName }))
-			.sort((first, second) => first.label.localeCompare(second.label));
-	}, [species, organizationSpecies]);
+	return useAdoptedSpeciesOptions().options;
 }

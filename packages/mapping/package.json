@@ -8,6 +8,10 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
 		},
+		"./test-corpus": {
+			"types": "./dist/test-corpus.d.ts",
+			"import": "./dist/test-corpus.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.js",
@@ -16,5 +20,8 @@
 		"test": "vitest run src --passWithNoTests",
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
 	},
-	"types": "./dist/index.d.ts"
+	"types": "./dist/index.d.ts",
+	"devDependencies": {
+		"jsts": "^2.12.1"
+	}
 }

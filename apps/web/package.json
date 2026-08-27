@@ -1,6 +1,6 @@
 {
 	"name": "@simmer-mosquito/web",
-	"version": "0.1.0",
+	"version": "0.4.0",
 	"private": true,
 	"type": "module",
 	"scripts": {
@@ -18,8 +18,8 @@
 		"@simmer-mosquito/mapping": "workspace:*",
 		"@simmer-mosquito/sync": "workspace:*",
 		"@simmer-mosquito/ui-web": "workspace:*",
-		"@tanstack/db": "^0.6.17",
-		"@tanstack/react-db": "^0.1.95",
+		"@tanstack/db": "^0.7.2",
+		"@tanstack/react-db": "^0.2.1",
 		"@tanstack/react-query": "^5.100.14",
 		"@tanstack/react-router": "^1.170.4",
 		"mapbox-gl": "^3.24.0",
@@ -27,6 +27,7 @@
 		"react-dom": "^19.2.6",
 		"recharts": "3.8.0",
 		"sonner": "^2.0.7",
+		"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
 		"zod": "^4.4.3"
 	},
 	"devDependencies": {

@@ -1,0 +1,347 @@
+/**
+ * What the operations surfaces read a request and a mission as.
+ *
+ * Two records rather than one because they are two halves of the same sentence:
+ * a request is control work somebody asked for, a mission is the trip dispatched
+ * to do it, and a mission may cover several requests or none. What they share is
+ * the control type, which is why the vocabulary sits here rather than in either.
+ *
+ * ## Status is derived, not projected
+ *
+ * Neither table has a status column — both derive one from nullable timestamps,
+ * in a precedence that has to match the server's own read or a row renders as one
+ * state while writing as another. That derivation stays a function called at the
+ * point of use rather than a `caseWhen` in each query: it is the same three
+ * comparisons everywhere, and spelling it twice is how the two copies drift.
+ *
+ * So the projections carry the timestamps and the callers call {@link
+ * missionStatus} / {@link requestStatus}. The write surfaces derive the same
+ * status from their own rows through the same functions, which is what keeps the
+ * queue and the detail page agreeing about what is finished.
+ */
+
+import type { ControlType } from '@simmer-mosquito/sync';
+import type { LinkedAddress } from './address-view';
+
+/**
+ * The four kinds of control work a request or mission can be for.
+ *
+ * The column stores the snake_case `control_type` enum; these are the labels the
+ * operator reads. Ordered as the domain lists them, not alphabetically.
+ */
+export const CONTROL_TYPES: readonly ControlType[] = [
+	'application',
+	'source_reduction',
+	'biocontrol',
+	'outreach',
+];
+
+const CONTROL_TYPE_LABELS: Readonly<Record<ControlType, string>> = {
+	application: 'Application',
+	source_reduction: 'Source Reduction',
+	biocontrol: 'Biocontrol',
+	outreach: 'Outreach',
+};
+
+export function controlTypeLabel(controlType: string): string {
+	return CONTROL_TYPE_LABELS[controlType as ControlType] ?? controlType;
+}
+
+// --- requests ---------------------------------------------------------------
+
+/**
+ * A request is open until someone resolves it. There is no status column and no
+ * intermediate state: resolution can mean handled, duplicate, or not feasible,
+ * and which of those it was lives in the comments.
+ */
+export type RequestStatus = 'open' | 'resolved';
+
+/**
+ * A request as the queue and the overview read it.
+ *
+ * `lat`/`lng` are the synced centroid, which is all a queue needs — it plots a
+ * pin per request. The drawn shape is served by `/map/*` and only the detail page
+ * asks for it.
+ */
+export interface RequestListing {
+	readonly id: string;
+	readonly controlType: string;
+	readonly summary: string | null;
+	readonly recommendedMethodId: string | null;
+	readonly requestedByProfileId: string | null;
+	readonly requestedAt: Date;
+	readonly resolvedAt: Date | null;
+	readonly lat: number;
+	readonly lng: number;
+}
+
+/** Open or resolved, from the one nullable timestamp that decides it. */
+export function requestStatus(row: { readonly resolvedAt: Date | string | null }): RequestStatus {
+	return row.resolvedAt === null ? 'open' : 'resolved';
+}
+
+/** A request's one-line subject: its own summary, or the control type it asks for. */
+export function requestDisplayName(row: {
+	readonly summary: string | null;
+	readonly controlType: string;
+}): string {
+	const summary = row.summary?.trim();
+	return summary || `${controlTypeLabel(row.controlType)} requested`;
+}
+
+/**
+ * A request as its own page reads it.
+ *
+ * Wider than {@link RequestListing} because a detail page shows everything the
+ * request was raised with and an edit form has to seed from it — the context it
+ * was raised against, the address it names, and who closed it.
+ *
+ * The three context columns are all here and none of them settles what the
+ * context *is*: a larval context with no ids and no context at all store the same
+ * three nulls. The tag is the domain's, not a column's, which is why a write
+ * states it as an instruction rather than as a column diff.
+ */
+export interface RequestDetail {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly controlType: ControlType;
+	readonly recommendedMethodId: string | null;
+	readonly summary: string | null;
+	readonly habitatId: string | null;
+	readonly inspectionId: string | null;
+	readonly collectionId: string | null;
+	readonly addressId: string | null;
+	readonly latitude: number;
+	readonly longitude: number;
+	readonly geometryKind: string;
+	readonly requestedByProfileId: string | null;
+	readonly requestedAt: Date;
+	readonly resolvedAt: Date | null;
+	readonly resolvedByProfileId: string | null;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+	readonly createdByProfileId: string | null;
+	readonly updatedByProfileId: string | null;
+}
+
+/**
+ * A request as the picker that schedules one reads it.
+ *
+ * Narrower than the listing the queue shows: what a picker needs is a name, and
+ * enough of a location to seed the optimistic stop it becomes.
+ */
+export interface OpenRequest {
+	readonly id: string;
+	readonly controlType: string;
+	readonly summary: string | null;
+	readonly latitude: number;
+	readonly longitude: number;
+	readonly geometryKind: string;
+	readonly addressId: string | null;
+	readonly requestedAt: Date;
+}
+
+// --- missions ---------------------------------------------------------------
+
+/**
+ * Mission lifecycle, derived from timestamps — there is no status column.
+ *
+ * The precedence matches `deriveMissionLifecycleStatus` in the domain and the
+ * server's own read, so a row carrying two terminal timestamps can never render
+ * as one state while writing as another.
+ */
+export type MissionStatus = 'scheduled' | 'inProgress' | 'completed' | 'cancelled';
+
+export const MISSION_STATUS_LABELS: Readonly<Record<MissionStatus, string>> = {
+	scheduled: 'Scheduled',
+	inProgress: 'In progress',
+	completed: 'Completed',
+	cancelled: 'Cancelled',
+};
+
+/**
+ * A mission as the schedule and the overview read it.
+ *
+ * Missions carry no geometry of their own — a mission's footprint is the union of
+ * its stops — so nothing here locates one. The map pages draw the selected
+ * mission's items instead.
+ */
+export interface MissionListing {
+	readonly id: string;
+	readonly missionName: string | null;
+	readonly controlType: string;
+	readonly plannedMethodId: string | null;
+	readonly assignedToProfileId: string | null;
+	readonly scheduledStartAt: Date;
+	readonly startedAt: Date | null;
+	readonly completedAt: Date | null;
+	readonly cancelledAt: Date | null;
+}
+
+/**
+ * The three timestamps as one state.
+ *
+ * Widened to accept a string because the write surfaces still read raw Electric
+ * rows, where a `timestamptz` has not been parsed. Only nullness is read either
+ * way, so one function serves both.
+ */
+export function missionStatus(row: {
+	readonly startedAt: Date | string | null;
+	readonly completedAt: Date | string | null;
+	readonly cancelledAt: Date | string | null;
+}): MissionStatus {
+	if (row.completedAt !== null) {
+		return 'completed';
+	}
+	if (row.cancelledAt !== null) {
+		return 'cancelled';
+	}
+	return row.startedAt === null ? 'scheduled' : 'inProgress';
+}
+
+/** A mission's name, falling back to what the mission is and when it runs. */
+export function missionDisplayName(
+	row: {
+		readonly missionName: string | null;
+		readonly controlType: string;
+		readonly scheduledStartAt: Date | string;
+	},
+	timeZone: string | undefined,
+): string {
+	const name = row.missionName?.trim();
+	if (name) {
+		return name;
+	}
+	// An unnamed mission is named by when it runs, so the fallback carries the
+	// same zone the scheduled start is read in everywhere else.
+	return `${controlTypeLabel(row.controlType)} — ${formatScheduledStart(row.scheduledStartAt, timeZone)}`;
+}
+
+/**
+ * A mission as its own page reads it.
+ *
+ * Wider than {@link MissionListing} because a detail page shows the whole plan and
+ * an edit form has to seed from it — the closing window, the rain date, the
+ * notification type, and who is on it. `rainDate` is a `date` column, so a
+ * `YYYY-MM-DD` string; every other moment here is an instant.
+ */
+export interface MissionDetail {
+	readonly id: string;
+	readonly organizationId: string;
+	readonly missionName: string | null;
+	readonly controlType: ControlType;
+	readonly plannedMethodId: string | null;
+	readonly assignedToProfileId: string | null;
+	readonly assignedByProfileId: string | null;
+	readonly scheduledStartAt: Date;
+	readonly scheduledEndAt: Date | null;
+	readonly rainDate: string | null;
+	readonly startedAt: Date | null;
+	readonly completedAt: Date | null;
+	readonly cancelledAt: Date | null;
+	readonly cancellationReason: string | null;
+	readonly notificationTypeId: string | null;
+	readonly createdAt: Date;
+	readonly updatedAt: Date;
+}
+
+/**
+ * One stop on a mission, with whatever names it.
+ *
+ * A stop owns its ground outright — unlike an assignment stop, which points at a
+ * Trap or a Habitat — so `latitude`/`longitude` are always its own and it has a
+ * place on the map even when nothing it links to has loaded. What the joins add
+ * is a *name*: the request it was drawn from, or failing that the address it sits
+ * at.
+ *
+ * The drawn shape is not here. The Electric shape streams the centroid only
+ * (ADR 0009), so a stop that is a ditch run arrives as a dot; the real shapes come
+ * from the mission's own `/map/*` endpoint, which answers for the whole mission at
+ * once because both surfaces that draw stops draw all of them.
+ */
+export interface MissionStop {
+	readonly id: string;
+	readonly missionId: string;
+	/** Its place in the sequence as stored. The 1-indexed one a page shows is derived. */
+	readonly position: number;
+	readonly latitude: number;
+	readonly longitude: number;
+	readonly geometryKind: string;
+	readonly requestedControlActionId: string | null;
+	/** Absent when the stop names no request, and while the joined row is still streaming. */
+	readonly requestSummary: string | null;
+	readonly requestControlType: string | null;
+	readonly addressId: string | null;
+	/** Joined, not looked up — see `address-view.ts` for why it is nested. */
+	readonly address: LinkedAddress;
+	readonly completedAt: Date | null;
+	readonly skippedAt: Date | null;
+	readonly skipReason: string | null;
+	readonly updatedAt: Date;
+}
+
+// --- progress ---------------------------------------------------------------
+
+/** How far through its stops a mission is. */
+export interface MissionProgressCounts {
+	readonly total: number;
+	readonly completed: number;
+	readonly skipped: number;
+	readonly pending: number;
+	/** Completed or skipped — the two ways a stop is done being worked. */
+	readonly handled: number;
+}
+
+// --- formatting -------------------------------------------------------------
+
+/**
+ * When a mission is due to start, on the agency's clock.
+ *
+ * `scheduledStartAt` is an instant, and an instant has no time of day until a
+ * zone is named. A dispatcher two zones from the yard has to read the same 6am
+ * muster as the crew standing in it, so the zone is the agency's.
+ *
+ * A string is still accepted: the write surfaces read raw Electric rows, where
+ * the column arrives unparsed.
+ */
+export function formatScheduledStart(value: Date | string, timeZone: string | undefined): string {
+	const parsed = asInstant(value);
+	if (parsed === null) {
+		return typeof value === 'string' ? value : '';
+	}
+	return parsed.toLocaleString(undefined, {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+		hour: 'numeric',
+		minute: '2-digit',
+		...(timeZone === undefined ? {} : { timeZone }),
+	});
+}
+
+/** The day a request came in, on the agency's calendar. See {@link formatScheduledStart}. */
+export function formatRequestedAt(value: Date | string, timeZone: string | undefined): string {
+	const parsed = asInstant(value);
+	if (parsed === null) {
+		return typeof value === 'string' ? value : '';
+	}
+	return parsed.toLocaleDateString(undefined, {
+		year: 'numeric',
+		month: 'short',
+		day: 'numeric',
+		...(timeZone === undefined ? {} : { timeZone }),
+	});
+}
+
+/**
+ * A column value as the instant it names, or null if it names none.
+ *
+ * The one place the two forms of a `timestamptz` meet: parsed to a `Date` on a
+ * collection with a row schema, still a string on one without. An unreadable
+ * string is null rather than an Invalid Date, so a caller prints what it was
+ * given instead of "Invalid Date".
+ */
+function asInstant(value: Date | string): Date | null {
+	const parsed = value instanceof Date ? value : new Date(value);
+	return Number.isNaN(parsed.getTime()) ? null : parsed;
+}

@@ -28,6 +28,25 @@ interface WebShellNavItem extends ShellNavItem {
 	 * server's floor for the command the form sends.
 	 */
 	readonly write?: MinimumRole;
+
+	/**
+	 * This destination is a verb, not a place, and its presence is the whole
+	 * declaration.
+	 *
+	 * An action is a *promotion* of a navigation item rather than a second
+	 * registry. The item already carries the label, the icon, the typed `to` and
+	 * the `write` floor, and that floor already matches the route's own
+	 * `beforeLoad` guard, which already matches the server's floor for the command
+	 * the form sends. A separate registry would be a third copy of `to` and
+	 * `write` in that chain, and the one that goes stale into a role-ladder bug.
+	 *
+	 * `keywords` are matched and never shown. They carry the verbs the label does
+	 * not — `new`, `add`, `log`, `record` — and the domain synonyms for the noun.
+	 * Without them the palette teaches one verb per surface.
+	 */
+	readonly action?: {
+		readonly keywords: readonly string[];
+	};
 }
 
 interface WebShellNavGroup extends ShellNavGroup {
@@ -77,6 +96,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						stub: true,
 						icon: iconRegistry.generic.component.icon,
 					},
+					{
+						id: 'activity-monitor',
+						label: 'Activity Monitor',
+						to: '/activity-monitor',
+						icon: iconRegistry.entities.contact.icon,
+					},
 				],
 			},
 		],
@@ -114,6 +139,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/larval-surveillance/habitats/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'manager',
+						action: { keywords: ['new', 'add', 'site', 'breeding', 'source', 'larval'] },
 					},
 					{
 						id: 'habitats-types',
@@ -152,6 +178,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/larval-surveillance/inspections/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'collector',
+						action: { keywords: ['new', 'add', 'log', 'dip', 'larval', 'survey'] },
 					},
 					{
 						id: 'inspections-stats',
@@ -217,11 +244,18 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'traps-directory',
+						label: 'Directory',
+						to: '/adult-surveillance/trap-directory',
+						icon: iconRegistry.entities.trap.icon,
+					},
+					{
 						id: 'traps-create',
 						label: 'Add Trap',
 						to: '/adult-surveillance/traps/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'manager',
+						action: { keywords: ['new', 'create', 'station', 'adult'] },
 					},
 					{
 						id: 'traps-routes',
@@ -254,6 +288,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/adult-surveillance/collections/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'collector',
+						action: { keywords: ['new', 'add', 'log', 'catch', 'adult', 'trap'] },
 					},
 					{
 						id: 'collections-stats',
@@ -312,6 +347,9 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/control-operations/chemical/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'collector',
+						action: {
+							keywords: ['new', 'add', 'log', 'spray', 'treatment', 'adulticide', 'larvicide'],
+						},
 					},
 					{
 						id: 'chemical-methods',
@@ -356,6 +394,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/control-operations/source-reduction/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'collector',
+						action: { keywords: ['new', 'add', 'log', 'habitat', 'removal', 'drainage'] },
 					},
 					{
 						id: 'source-reduction-methods',
@@ -388,6 +427,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/control-operations/biocontrol/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'collector',
+						action: { keywords: ['new', 'add', 'log', 'fish', 'gambusia', 'stocking'] },
 					},
 					{
 						id: 'biocontrol-methods',
@@ -452,6 +492,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/public-engagement/service-requests/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'manager',
+						action: { keywords: ['new', 'add', 'complaint', 'call', 'resident', 'public'] },
 					},
 				],
 			},
@@ -471,6 +512,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/public-engagement/outreach/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'collector',
+						action: { keywords: ['new', 'add', 'log', 'education', 'event', 'public'] },
 					},
 					{
 						id: 'outreach-methods',
@@ -503,6 +545,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/public-engagement/contacts/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'manager',
+						action: { keywords: ['new', 'add', 'person', 'resident', 'caller'] },
 					},
 				],
 			},
@@ -545,6 +588,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/gis/regions/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'manager',
+						action: { keywords: ['new', 'add', 'zone', 'boundary', 'district'] },
 					},
 					{
 						id: 'regions-import',
@@ -552,6 +596,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/gis/regions/import',
 						icon: iconRegistry.actions.upload.icon,
 						write: 'manager',
+						action: { keywords: ['upload', 'load', 'shapefile', 'geojson', 'boundaries'] },
 					},
 				],
 			},
@@ -636,6 +681,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/operations/requests-for-control/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'collector',
+						action: { keywords: ['new', 'add', 'treatment', 'work', 'ask'] },
 					},
 				],
 			},
@@ -655,6 +701,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/operations/assignments/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'manager',
+						action: { keywords: ['new', 'create', 'crew', 'worklist', 'route', 'surveillance'] },
 					},
 				],
 			},
@@ -674,6 +721,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/operations/missions/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'manager',
+						action: { keywords: ['new', 'create', 'crew', 'worklist', 'treatment', 'control'] },
 					},
 				],
 			},
@@ -794,6 +842,10 @@ export function shellDomainsForRole(auth: AuthMe | null): readonly WebShellDomai
  */
 export const webStandalonePages: readonly ShellStandalonePage[] = [
 	{ path: '/profile', crumbs: [{ label: 'Account' }, { label: 'Profile' }] },
+	// Reached from the palette's "View all results" row and from a shared link,
+	// and deliberately in no menu. Without an entry here the trail would resolve
+	// to whichever domain sorts first.
+	{ path: '/search', crumbs: [{ label: 'Search' }] },
 	// Reached from the version under the brand mark, which is in no menu at all.
 	{ path: '/changelog', crumbs: [{ label: "What's New" }] },
 ];
@@ -802,3 +854,74 @@ export const webStandalonePages: readonly ShellStandalonePage[] = [
 export const webAccountLinks: readonly ShellAccountLink[] = [
 	{ label: 'Profile', to: '/profile', icon: iconRegistry.actions.edit.icon },
 ];
+
+/**
+ * One promoted navigation item, flattened out of the domain tree.
+ *
+ * The palette matches against `label` and `keywords` together, so both travel
+ * on one object rather than being looked up twice.
+ */
+export interface WebShellCandidate {
+	readonly id: string;
+	readonly label: string;
+	/**
+	 * Typed against web's route tree at the declaration site above, which is what
+	 * makes a renamed route a typecheck failure here rather than a dead palette
+	 * row found in production.
+	 */
+	readonly to: NonNullable<ShellNavItem['to']>;
+	readonly keywords: readonly string[];
+	/** The domain this sits under, which is what a route row shows as its subtitle. */
+	readonly domainLabel: string;
+}
+
+/**
+ * The two candidate lists the palette matches against, for one role.
+ *
+ * Both come off `shellDomainsForRole`, not `webShellDomains`, so an action below
+ * the caller's floor never becomes a result: a collector sees no "Create
+ * Habitat", matching the sidebar they already have. Neither list carries a role
+ * floor of its own for the same reason — the filter has already run.
+ *
+ * An item is in exactly one list. Carrying an `action` moves it out of the route
+ * list, so a create form appears once rather than as both a place and a verb.
+ *
+ * Stubs are excluded from both: the fifteen `stub: true` items are unbuilt
+ * destinations, and offering one is offering a door that opens onto nothing.
+ */
+export function shellSearchCandidates(auth: AuthMe | null): {
+	readonly routes: readonly WebShellCandidate[];
+	readonly actions: readonly WebShellCandidate[];
+} {
+	const routes: WebShellCandidate[] = [];
+	const actions: WebShellCandidate[] = [];
+
+	for (const domain of shellDomainsForRole(auth)) {
+		for (const group of domain.groups) {
+			for (const item of group.items) {
+				// A stub is an unbuilt destination, and offering one is offering a
+				// door that opens onto nothing. An item with no `to` is a heading in
+				// the shared type and has nowhere to send anybody either.
+				if (item.stub === true || item.to === undefined) {
+					continue;
+				}
+
+				const candidate: WebShellCandidate = {
+					id: item.id,
+					label: item.label,
+					to: item.to,
+					keywords: item.action?.keywords ?? [],
+					domainLabel: domain.label,
+				};
+
+				if (item.action === undefined) {
+					routes.push(candidate);
+				} else {
+					actions.push(candidate);
+				}
+			}
+		}
+	}
+
+	return { routes, actions };
+}

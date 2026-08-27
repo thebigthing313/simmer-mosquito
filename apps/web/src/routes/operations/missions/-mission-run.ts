@@ -1,36 +1,32 @@
-import type { RequestedControlActionRow } from '@simmer-mosquito/sync';
 import { useCallback, useMemo, useState } from 'react';
-import { usePersonnelOptions } from '../../../components/explorer';
+import { useControlMethodNames, usePersonnelOptions } from '../../../components/explorer';
 import type { RouteStopFeature } from '../../../components/map';
-import { type MoveAction, type OrderPlacement, useStopOrder } from '../../../components/stop-order';
+import { type MoveAction, type MovePlan, useStopOrder } from '../../../components/stop-order';
+import {
+	type MissionItemMutations,
+	useMissionItemMutations,
+} from '../../../hooks/mutations/use-mission-item-mutations';
+import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
+import type {
+	MissionProgressCounts,
+	MissionStatus,
+	OpenRequest,
+} from '../../../hooks/queries/operations-view';
+import { missionDisplayName } from '../../../hooks/queries/operations-view';
+import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useHasRole } from '../../../hooks/use-can-write';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { type CommandRunner, useCommandRunner } from '../-command-runner';
 import {
-	addMissionItemFromRequest,
 	canCompleteMission,
-	cancelMission,
 	canEditMissionPlan,
 	canProgressMissionItems,
+	canRecordMissionStopWork,
 	canStartMission,
-	completeMission,
-	completeMissionItem,
 	type MissionItemAction,
-	type MissionProgressCounts,
-	type MissionStatus,
 	type MissionStopView,
-	type MissionView,
-	missionDisplayName,
-	moveMissionItems,
-	removeMissionItem,
-	reopenMission,
-	reopenMissionItem,
-	skipMissionItem,
-	startMission,
-	unskipMissionItem,
-	useAllControlMethodNames,
-	useMission,
-	useMissionStops,
+	useMissionStopViews,
 } from '../-operations-data';
 import { missionStopFeatures } from '../-operations-display';
 
@@ -53,7 +49,7 @@ const stopKey = (stop: MissionStopView) => stop.missionItemId;
  * server checks, not one the browser can settle.
  */
 export interface MissionRun extends MissionSelection, MissionActions {
-	readonly mission: MissionView | null;
+	readonly mission: MissionRecord | null;
 	readonly isReady: boolean;
 	readonly displayName: string | null;
 	readonly assigneeName: string | null;
@@ -75,6 +71,8 @@ export interface MissionRun extends MissionSelection, MissionActions {
 	readonly canComplete: boolean;
 	/** Stops may be worked: the mission is running and nothing is in flight. */
 	readonly progressEnabled: boolean;
+	/** Wider: recording is also allowed on a scheduled mission, which it starts. */
+	readonly recordEnabled: boolean;
 	/** Stops may be added, reordered, or removed. */
 	readonly planEditable: boolean;
 	readonly canAddStops: boolean;
@@ -84,20 +82,27 @@ export function useMissionRun(missionId: string): MissionRun {
 	const auth = useAuthSnapshot();
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 	const organizationId = identity?.organizationId ?? null;
-	const actorProfileId = identity?.profileId ?? null;
 	const canPlan = useHasRole('manager');
 
+	// `null` rather than the query seam's `undefined`: everything on this page
+	// reads "no mission" as an explicit absence, and the run page distinguishes it
+	// from "not loaded yet" with `isReady`.
 	const { mission, isReady } = useMission(missionId);
-	const { stops, counts, isLoading } = useMissionStops(missionId);
-	const labels = useMissionLabels(mission);
+	const missionOrNull = mission ?? null;
+	const { stops, counts, isLoading } = useMissionStopViews(missionId);
+	const labels = useMissionLabels(missionOrNull);
 
 	const selection = useMissionSelection();
 	const runner = useCommandRunner();
 
+	const missionWrites = useMissionMutations();
+
+	// The whole plan, not just the moved id: the write mirrors the server's own
+	// renumbering onto the stop rows, and a caller writing optimistic positions
+	// needs the order to write them in.
 	const commitMove = useCallback(
-		(movedIds: readonly string[], placement: OrderPlacement) =>
-			moveMissionItems(missionId, movedIds, placement),
-		[missionId],
+		(plan: MovePlan) => missionWrites.moveStops(missionId, plan),
+		[missionWrites, missionId],
 	);
 	const { ordered, move: moveStop } = useStopOrder({
 		items: stops,
@@ -108,18 +113,19 @@ export function useMissionRun(missionId: string): MissionRun {
 	const actions = useMissionActions({
 		missionId,
 		organizationId,
-		actorProfileId,
 		stops,
 		moveStop,
 		selection,
 		runner,
+		missionWrites,
+		stopWrites: useMissionItemMutations(),
 	});
 
 	const features = useOrderedFeatures(ordered);
 	const existingRequestIds = useExistingRequestIds(stops);
 
 	return {
-		mission,
+		mission: missionOrNull,
 		isReady,
 		...labels,
 
@@ -161,12 +167,13 @@ interface MissionLabels {
  * combined map rather than the one catalog the mission's type names — an id that
  * no longer matches its type still labels itself.
  */
-function useMissionLabels(mission: MissionView | null): MissionLabels {
+function useMissionLabels(mission: MissionRecord | null): MissionLabels {
 	const { nameById } = usePersonnelOptions();
-	const methodNameById = useAllControlMethodNames();
+	const methodNameById = useControlMethodNames();
+	const timeZone = useOrganizationTimeZone();
 
 	return {
-		displayName: mission === null ? null : missionDisplayName(mission),
+		displayName: mission === null ? null : missionDisplayName(mission, timeZone),
 		assigneeName: lookup(nameById, mission?.assignedToProfileId),
 		methodName: lookup(methodNameById, mission?.plannedMethodId),
 	};
@@ -183,6 +190,7 @@ interface MissionCapabilities {
 	readonly canStart: boolean;
 	readonly canComplete: boolean;
 	readonly progressEnabled: boolean;
+	readonly recordEnabled: boolean;
 	readonly planEditable: boolean;
 	readonly canAddStops: boolean;
 }
@@ -201,6 +209,7 @@ function missionCapabilities(input: {
 			canStart: false,
 			canComplete: false,
 			progressEnabled: false,
+			recordEnabled: false,
 			planEditable: false,
 			canAddStops: false,
 		};
@@ -211,6 +220,8 @@ function missionCapabilities(input: {
 		canStart: canStartMission(status, counts),
 		canComplete: canCompleteMission(status, counts),
 		progressEnabled: canProgressMissionItems(status) && !busy,
+		// Wider on purpose: recording auto-starts the mission.
+		recordEnabled: canRecordMissionStopWork(status) && !busy,
 		planEditable,
 		canAddStops: planEditable && input.hasOrganization && !busy,
 	};
@@ -270,25 +281,27 @@ interface MissionActions {
 	readonly confirmSkip: (reason: string) => void;
 	readonly confirmRemove: () => void;
 	readonly move: (index: number, action: MoveAction) => void;
-	readonly addStop: (request: RequestedControlActionRow) => void;
+	readonly addStop: (request: OpenRequest) => void;
 }
 
 function useMissionActions({
 	missionId,
 	organizationId,
-	actorProfileId,
 	stops,
 	moveStop,
 	selection,
 	runner,
+	missionWrites,
+	stopWrites,
 }: {
 	readonly missionId: string;
 	readonly organizationId: string | null;
-	readonly actorProfileId: string | null;
 	readonly stops: readonly MissionStopView[];
 	readonly moveStop: (index: number, action: MoveAction) => Promise<void>;
 	readonly selection: MissionSelection;
 	readonly runner: CommandRunner;
+	readonly missionWrites: ReturnType<typeof useMissionMutations>;
+	readonly stopWrites: MissionItemMutations;
 }): MissionActions {
 	const { run } = runner;
 	const { skipTarget, setSkipTarget, removeTarget, setRemoveTarget, setCancelOpen, setReopenOpen } =
@@ -301,11 +314,11 @@ function useMissionActions({
 				return;
 			}
 			void run(
-				() => progressStop(stop.missionItemId, action, actorProfileId),
+				() => progressStop(stopWrites, stop.missionItemId, action),
 				'Unable to update that stop.',
 			);
 		},
-		[actorProfileId, run, setSkipTarget],
+		[stopWrites, run, setSkipTarget],
 	);
 
 	const confirmSkip = useCallback(
@@ -315,12 +328,9 @@ function useMissionActions({
 			if (target === null) {
 				return;
 			}
-			void run(
-				() => skipMissionItem(target.missionItemId, reason, actorProfileId),
-				'Unable to skip that stop.',
-			);
+			void run(() => stopWrites.skip(target.missionItemId, reason), 'Unable to skip that stop.');
 		},
-		[skipTarget, setSkipTarget, actorProfileId, run],
+		[skipTarget, setSkipTarget, stopWrites, run],
 	);
 
 	const confirmRemove = useCallback(() => {
@@ -329,8 +339,8 @@ function useMissionActions({
 		if (target === null) {
 			return;
 		}
-		void run(() => removeMissionItem(target.missionItemId), 'Unable to remove that stop.');
-	}, [removeTarget, setRemoveTarget, run]);
+		void run(() => stopWrites.removeStop(target.missionItemId), 'Unable to remove that stop.');
+	}, [removeTarget, setRemoveTarget, stopWrites, run]);
 
 	const confirmCancel = useCallback(
 		(reason: string) => {
@@ -339,11 +349,11 @@ function useMissionActions({
 			// is sent as the plain fact rather than as a validation failure.
 			const trimmed = reason.trim();
 			void run(
-				() => cancelMission(missionId, trimmed.length === 0 ? 'Cancelled' : trimmed),
+				() => missionWrites.cancel(missionId, trimmed.length === 0 ? 'Cancelled' : trimmed),
 				'Unable to cancel this mission.',
 			);
 		},
-		[missionId, setCancelOpen, run],
+		[missionId, setCancelOpen, missionWrites, run],
 	);
 
 	const confirmReopen = useCallback(
@@ -353,42 +363,44 @@ function useMissionActions({
 			// not, so an empty box becomes the plain fact rather than a refused reopen.
 			const trimmed = reason.trim();
 			void run(
-				() => reopenMission(missionId, trimmed.length === 0 ? 'Reopened' : trimmed),
+				() => missionWrites.reopen(missionId, trimmed.length === 0 ? 'Reopened' : trimmed),
 				'Unable to reopen this mission.',
 			);
 		},
-		[missionId, setReopenOpen, run],
+		[missionId, setReopenOpen, missionWrites, run],
 	);
 
 	const addStop = useCallback(
-		(request: RequestedControlActionRow) => {
+		(request: OpenRequest) => {
 			if (organizationId === null) {
 				return;
 			}
 			void run(
 				() =>
-					addMissionItemFromRequest({
-						missionItemId: crypto.randomUUID(),
+					stopWrites.addFromRequest({
 						missionId,
-						organizationId,
-						actorProfileId,
-						request,
+						request: {
+							requestedControlActionId: request.id,
+							lat: request.latitude,
+							lng: request.longitude,
+							geomType: request.geometryKind,
+						},
 						position: stops.reduce((max, stop) => Math.max(max, stop.position), -1) + 1,
 					}),
 				'Unable to add that stop.',
 			);
 		},
-		[organizationId, actorProfileId, missionId, stops, run],
+		[organizationId, stopWrites, missionId, stops, run],
 	);
 
 	return {
 		start: useCallback(
-			() => void run(() => startMission(missionId), 'Unable to start this mission.'),
-			[missionId, run],
+			() => void run(() => missionWrites.start(missionId), 'Unable to start this mission.'),
+			[missionId, missionWrites, run],
 		),
 		complete: useCallback(
-			() => void run(() => completeMission(missionId), 'Unable to complete this mission.'),
-			[missionId, run],
+			() => void run(() => missionWrites.complete(missionId), 'Unable to complete this mission.'),
+			[missionId, missionWrites, run],
 		),
 		reopen: useCallback(() => setReopenOpen(true), [setReopenOpen]),
 		confirmCancel,
@@ -408,14 +420,14 @@ function useMissionActions({
 
 /** The three stop transitions that need no extra input. Skip collects a reason. */
 function progressStop(
+	writes: MissionItemMutations,
 	missionItemId: string,
 	action: Exclude<MissionItemAction, 'skip'>,
-	actorProfileId: string | null,
 ): Promise<void> {
 	if (action === 'complete') {
-		return completeMissionItem(missionItemId, actorProfileId);
+		return writes.complete(missionItemId);
 	}
-	return action === 'unskip' ? unskipMissionItem(missionItemId) : reopenMissionItem(missionItemId);
+	return action === 'unskip' ? writes.unskip(missionItemId) : writes.reopen(missionItemId);
 }
 
 // --- derived ----------------------------------------------------------------

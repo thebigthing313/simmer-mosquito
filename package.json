@@ -9,6 +9,10 @@
 		"changeset": "changeset",
 		"changeset:status": "changeset status --since=origin/staging",
 		"check": "biome check .",
+		"check:build-graph": "node scripts/check-build-graph.mjs",
+		"check:command-columns": "node scripts/check-command-columns.mjs",
+		"check:search-corpus": "node scripts/check-search-corpus.mjs",
+		"check:write-references": "node scripts/check-write-references.mjs",
 		"check:write": "biome check --write .",
 		"db:migrate": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql up",
 		"db:rollback": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql rollback",
@@ -31,7 +35,8 @@
 		"nx": "nx",
 		"release:version": "node scripts/release-version.mjs",
 		"test": "nx run-many -t test",
-		"typecheck": "nx run-many -t typecheck"
+		"typecheck": "nx run-many -t typecheck",
+		"generate:schemas": "node scripts/generate-table-schemas.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.14",
@@ -48,7 +53,7 @@
 		"vitest": "4.1.5"
 	},
 	"dependencies": {
-		"@tanstack/db": "^0.6.17"
+		"@tanstack/db": "^0.7.2"
 	},
 	"pnpm": {
 		"packageExtensions": {

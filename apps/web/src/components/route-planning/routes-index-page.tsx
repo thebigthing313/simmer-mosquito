@@ -1,4 +1,4 @@
-import type { RouteRow } from '@simmer-mosquito/sync';
+import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -9,15 +9,8 @@ import {
 	EmptyMedia,
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import {
-	ChevronRightIcon,
-	iconRegistry,
-	PlusIcon,
-	SearchIcon,
-	XIcon,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { ChevronRightIcon, iconRegistry, PlusIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { useMemo, useState } from 'react';
@@ -28,6 +21,7 @@ import { WriteOnly } from '../write-only';
 import { RouteCreateDialog } from './route-create-dialog';
 import { RouteMap } from './route-map';
 import { type RouteStop, routeCountLabel, stopCountLabel } from './route-stop';
+import type { RouteSummary } from './route-summary';
 import type { RoutePlanningSurface } from './surface';
 
 const RouteIcon = iconRegistry.entities.route.icon;
@@ -54,7 +48,7 @@ export function RoutesIndexPage({
 	useSelectedStops,
 }: {
 	readonly surface: RoutePlanningSurface;
-	readonly routes: readonly RouteRow[];
+	readonly routes: readonly RouteSummary[];
 	readonly isLoading: boolean;
 	readonly countByRouteId: ReadonlyMap<string, number>;
 	readonly countsLoading: boolean;
@@ -146,7 +140,12 @@ export function RoutesIndexPage({
 						</div>
 
 						{routes.length > 0 ? (
-							<SearchField onChange={setSearchInput} value={searchInput} />
+							<SearchField
+								label="Search routes by name"
+								onChange={setSearchInput}
+								placeholder="Search routes…"
+								value={searchInput}
+							/>
 						) : null}
 					</div>
 
@@ -185,7 +184,7 @@ function RouteResults({
 	onCreate,
 }: {
 	readonly surface: RoutePlanningSurface;
-	readonly routes: readonly RouteRow[];
+	readonly routes: readonly RouteSummary[];
 	readonly isLoading: boolean;
 	readonly selectedId: string | null;
 	readonly totalCount: number;
@@ -268,7 +267,7 @@ function RouteListRow({
 	onSelect,
 }: {
 	readonly surface: RoutePlanningSurface;
-	readonly route: RouteRow;
+	readonly route: RouteSummary;
 	readonly isSelected: boolean;
 	readonly stopCount: number | null;
 	readonly onSelect: (id: string) => void;
@@ -320,41 +319,6 @@ function RouteListRow({
 					</Link>
 				</Button>
 			</div>
-		</div>
-	);
-}
-
-function SearchField({
-	value,
-	onChange,
-}: {
-	readonly value: string;
-	readonly onChange: (value: string) => void;
-}) {
-	return (
-		<div className="relative">
-			<SearchIcon
-				aria-hidden="true"
-				className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-			/>
-			<Input
-				aria-label="Search routes by name"
-				className="pl-9"
-				onChange={(event) => onChange(event.target.value)}
-				placeholder="Search routes…"
-				type="search"
-				value={value}
-			/>
-			{value.length > 0 ? (
-				<button
-					aria-label="Clear search"
-					className="-translate-y-1/2 absolute top-1/2 right-2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					onClick={() => onChange('')}
-					type="button"
-				>
-					<XIcon aria-hidden="true" className="size-3.5" />
-				</button>
-			) : null}
 		</div>
 	);
 }

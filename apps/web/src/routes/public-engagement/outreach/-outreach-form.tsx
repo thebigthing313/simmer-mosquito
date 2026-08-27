@@ -1,6 +1,5 @@
 import { recordOutreachActionCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { ControlMethodRow, ProfileRow } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -27,9 +26,15 @@ import {
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	domainValidator,
+	FORM_VALIDATION_CONTEXT,
+	validationLocationSource,
+} from '../../../forms/domain-validation';
+import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
+import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { todayDateValue } from '../../control-operations/-control-display';
+import { todayInTimeZone } from '../../../lib/local-date';
 import { FormSection } from '../../control-operations/-control-form-parts';
 import { AddressPicker } from '../../control-operations/-control-pickers';
 
@@ -80,8 +85,8 @@ export interface OutreachFormHeader {
 export interface OutreachFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly outreachMethods: readonly ControlMethodRow[];
-	readonly profiles: readonly ProfileRow[];
+	readonly outreachMethods: readonly SchemaCatalogListing[];
+	readonly profiles: readonly ProfileListing[];
 	readonly defaultValues: OutreachFormValues;
 	/** The action's geometry to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
@@ -101,13 +106,13 @@ export interface OutreachFormPageProps {
 	}) => Promise<void>;
 }
 
-export function defaultOutreachFormValues(): OutreachFormValues {
+export function defaultOutreachFormValues(timeZone: string): OutreachFormValues {
 	return {
 		addressId: null,
 		outreachMethodId: '',
 		technicianProfileId: noTechnicianValue,
 		additionalPersonnelIds: [],
-		outreachDate: todayDateValue(),
+		outreachDate: todayInTimeZone(timeZone),
 		reach: null,
 		reachDescription: '',
 		metadata: null,
@@ -188,7 +193,7 @@ export function OutreachFormPage({
 					recordOutreachActionCommand({
 						...FORM_VALIDATION_CONTEXT,
 						outreachActionId: FORM_VALIDATION_CONTEXT.organizationId,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
+						locationSource: validationLocationSource(geometry, requireLocation),
 						outreachMethodId: value.outreachMethodId,
 						reach: value.reach as number,
 						reachDescription: value.reachDescription.trim() === '' ? null : value.reachDescription,

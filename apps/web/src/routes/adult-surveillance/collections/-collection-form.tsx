@@ -2,16 +2,11 @@ import {
 	isCollectionDurationUnitType,
 	recordCollectedAdHocCollectionCommand,
 	recordCollectedTrapCollectionCommand,
+	setAdHocCollectionCommand,
+	setTrapCollectionCommand,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type {
-	CollectionLureRow,
-	CollectionMethodRow,
-	CollectionTimingMode,
-	ProfileRow,
-	TrapRow,
-	UnitRow,
-} from '@simmer-mosquito/sync';
+import type { CollectionTimingMode } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -37,9 +32,19 @@ import {
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
+import type {
+	CatalogListing,
+	SchemaCatalogListing,
+} from '../../../hooks/queries/use-catalog-rosters';
+import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
+import type { TrapOption } from '../../../hooks/queries/use-trap-options';
+import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { unitOptions } from '../../../lib/unit-options';
+import { isPendingCollection as isPendingCollectionRow } from '../-adult-display';
 import { AddressPicker, TrapPicker } from '../-adult-pickers';
+import { collectionTimingStamps } from './-collection-timing';
 
 export type CollectionSourceMode = 'trap' | 'adhoc';
 
@@ -67,11 +72,27 @@ const COLLECTION_FIELD_PATHS: Readonly<Record<string, string>> = {
 };
 
 /**
- * A collection has four command shapes — trap or ad-hoc, crossed with exact
- * timestamps or date-plus-duration — and the validator picks the same one the
- * save will, so the rules an operator is held to match what actually runs.
+ * Whether the trap has been emptied yet, asked of the form's own values.
+ *
+ * The rule itself lives with the badge that reports it, so the form and the
+ * record it produces cannot come to disagree about what "still out" means; only
+ * the two field names differ.
+ */
+function isPendingCollection(value: CollectionFormValues): boolean {
+	return isPendingCollectionRow({
+		collectedAt: value.collectedAt,
+		collectionTimingMode: value.timingMode,
+	});
+}
+
+/**
+ * A collection has six command shapes — trap or ad-hoc, crossed with exact
+ * timestamps, date-plus-duration, or not yet emptied — and the validator picks
+ * the same one the save will, so the rules an operator is held to match what
+ * actually runs.
  */
 function validateCollection(value: CollectionFormValues, geometry: DrawGeometry | null) {
+	const pending = isPendingCollection(value);
 	const timing =
 		value.timingMode === 'exact_timestamps'
 			? ({
@@ -92,21 +113,26 @@ function validateCollection(value: CollectionFormValues, geometry: DrawGeometry 
 		setByProfileId: value.setByProfileId,
 		collectedByProfileId: value.collectedByProfileId,
 	};
+	const adHoc = {
+		collectionMethodId: value.collectionMethodId,
+		locationSource: { kind: 'geometry' as const, geometry: (geometry ?? null) as never },
+		collectionLureId: value.collectionLureId === noLureValue ? null : value.collectionLureId,
+		addressId: value.addressId,
+	};
 
-	return domainValidator(
-		() =>
-			value.sourceMode === 'trap'
-				? recordCollectedTrapCollectionCommand({ ...base, trapId: value.trapId ?? '' })
-				: recordCollectedAdHocCollectionCommand({
-						...base,
-						collectionMethodId: value.collectionMethodId,
-						locationSource: { kind: 'geometry', geometry: (geometry ?? null) as never },
-						collectionLureId:
-							value.collectionLureId === noLureValue ? null : value.collectionLureId,
-						addressId: value.addressId,
-					}),
-		COLLECTION_FIELD_PATHS,
-	)({ value });
+	return domainValidator(() => {
+		if (pending) {
+			// The set commands take `startedAt` directly rather than a timing, and
+			// carry no collected half at all.
+			const startedAt = parseDateValue(value.startedAt);
+			return value.sourceMode === 'trap'
+				? setTrapCollectionCommand({ ...base, trapId: value.trapId ?? '', startedAt })
+				: setAdHocCollectionCommand({ ...base, ...adHoc, startedAt });
+		}
+		return value.sourceMode === 'trap'
+			? recordCollectedTrapCollectionCommand({ ...base, trapId: value.trapId ?? '' })
+			: recordCollectedAdHocCollectionCommand({ ...base, ...adHoc });
+	}, COLLECTION_FIELD_PATHS)({ value });
 }
 
 /** `YYYY-MM-DD` to a Date the builder can range-check; invalid stays invalid. */
@@ -147,7 +173,7 @@ export interface CollectionFormValues {
 export interface CollectionSaveInput {
 	readonly values: CollectionFormValues;
 	/** The trap chosen in trap mode (for deriving method/location), else null. */
-	readonly trap: TrapRow | null;
+	readonly trap: TrapOption | null;
 	/**
 	 * Ad-hoc collection's own point (its geometry). Set in ad-hoc mode; null in
 	 * trap mode, where the collection inherits the trap's location.
@@ -168,11 +194,11 @@ export interface CollectionFormHeader {
 export interface CollectionFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	readonly traps: readonly TrapRow[];
-	readonly collectionMethods: readonly CollectionMethodRow[];
-	readonly collectionLures: readonly CollectionLureRow[];
-	readonly profiles: readonly ProfileRow[];
-	readonly units: readonly UnitRow[];
+	readonly traps: readonly TrapOption[];
+	readonly collectionMethods: readonly SchemaCatalogListing[];
+	readonly collectionLures: readonly CatalogListing[];
+	readonly profiles: readonly ProfileListing[];
+	readonly units: readonly UnitLabel[];
 	readonly defaultValues: CollectionFormValues;
 	/** Edit locks the trap/ad-hoc choice — the two are distinct command paths. */
 	readonly lockSourceMode?: boolean;
@@ -224,7 +250,7 @@ export function CollectionFormPage({
 	submitLabel,
 	onSave,
 }: CollectionFormPageProps) {
-	const [selectedTrap, setSelectedTrap] = useState<TrapRow | null>(
+	const [selectedTrap, setSelectedTrap] = useState<TrapOption | null>(
 		() => traps.find((trap) => trap.id === defaultValues.trapId) ?? null,
 	);
 	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
@@ -278,7 +304,10 @@ export function CollectionFormPage({
 		() =>
 			selectedTrap === null
 				? null
-				: ({ type: 'Point', coordinates: [selectedTrap.lng, selectedTrap.lat] } as GeoJsonGeometry),
+				: ({
+						type: 'Point',
+						coordinates: [selectedTrap.longitude, selectedTrap.latitude],
+					} as GeoJsonGeometry),
 		[selectedTrap],
 	);
 	// The collection's own point is framed last so it wins when a trap pick and a
@@ -541,15 +570,23 @@ export function CollectionFormPage({
 								/>
 							)}
 						</form.AppField>
-						<form.AppField name="collectedByProfileId">
-							{(field) => (
-								<field.SelectField
-									label="Collected by"
-									options={profileOptions(profiles)}
-									placeholder="Unassigned"
-								/>
-							)}
-						</form.AppField>
+						{/* Nobody has emptied a trap that is still out; the field appears on
+						    the visit that does. */}
+						<form.Subscribe selector={(state) => isPendingCollection(state.values)}>
+							{(pending) =>
+								pending ? null : (
+									<form.AppField name="collectedByProfileId">
+										{(field) => (
+											<field.SelectField
+												label="Collected by"
+												options={profileOptions(profiles)}
+												placeholder="Unassigned"
+											/>
+										)}
+									</form.AppField>
+								)
+							}
+						</form.Subscribe>
 					</div>
 					<form.Subscribe selector={(state) => state.values.collectedByProfileId}>
 						{(collectedByProfileId) => (
@@ -596,7 +633,7 @@ function TimingSection({
 }: {
 	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
 	readonly form: any;
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 }) {
 	// A date-plus-duration collection is saying how long the trap ran, so the only
 	// units that carry meaning are times.
@@ -634,9 +671,14 @@ function TimingSection({
 			</form.AppField>
 
 			<form.Subscribe
-				selector={(state: { values: CollectionFormValues }) => state.values.timingMode}
+				selector={(state: { values: CollectionFormValues }) => ({
+					timingMode: state.values.timingMode,
+					// Which of the two dates is the required one swaps with this, so the
+					// section has to re-render when it changes and not only on the mode.
+					pending: isPendingCollection(state.values),
+				})}
 			>
-				{(timingMode: CollectionTimingMode) =>
+				{({ timingMode, pending }: { timingMode: CollectionTimingMode; pending: boolean }) =>
 					timingMode === 'exact_timestamps' ? (
 						<div className="grid gap-5 sm:grid-cols-2">
 							<form.AppField name="startedAt">
@@ -645,6 +687,7 @@ function TimingSection({
 									<DateControl
 										label="Set date"
 										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
+										required={pending}
 										value={field.state.value}
 									/>
 								)}
@@ -653,8 +696,9 @@ function TimingSection({
 								{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
 								{(field: any) => (
 									<DateControl
+										// Left empty, the trap is still out and the collection is
+										// saved pending, to be emptied on a later visit.
 										label="Collected date"
-										required
 										onChange={(next: string) => field.handleChange(next === '' ? null : next)}
 										value={field.state.value}
 									/>
@@ -725,8 +769,10 @@ function validate(values: CollectionFormValues): string | null {
 	if (values.collectionMethodId === '') {
 		return 'A collection method is required.';
 	}
-	if (values.timingMode === 'exact_timestamps' && values.collectedAt === null) {
-		return 'Enter the date this collection was retrieved.';
+	// No collected date means the trap is still out, which is a state the record
+	// can legally be in — but only if it says when it was set.
+	if (isPendingCollection(values) && values.startedAt === null) {
+		return 'Enter the date this trap was set.';
 	}
 	if (values.timingMode === 'collection_date_duration' && values.collectionDate === null) {
 		return 'Enter the collection date.';
@@ -734,7 +780,40 @@ function validate(values: CollectionFormValues): string | null {
 	return null;
 }
 
-function lureOptions(lures: readonly CollectionLureRow[]) {
+/**
+ * What the form holds, as the write seam takes it.
+ *
+ * Two conversions the form made for its own reasons: Radix forbids an empty
+ * Select value, so "no lure" and "no unit" are sentinels. Both spellings stop
+ * here. The typed days become the two instants they are stored at in the same
+ * step, off one clock — see `collectionTimingStamps` for why that matters.
+ */
+export function collectionFieldsFrom(
+	values: CollectionFormValues,
+	timeZone: string,
+): CollectionFields {
+	const exact = values.timingMode === 'exact_timestamps';
+	const stamps = collectionTimingStamps(values, timeZone);
+	return {
+		collectionMethodId: values.collectionMethodId,
+		collectionLureId: values.collectionLureId === noLureValue ? null : values.collectionLureId,
+		addressId: values.addressId,
+		timing: {
+			timingMode: values.timingMode,
+			startedAt: stamps.startedAt,
+			collectedAt: stamps.collectedAt,
+			collectionDate: exact ? null : values.collectionDate,
+			durationAmount: exact ? null : values.durationAmount,
+			durationUnitId: exact || values.durationUnitId === noUnitValue ? null : values.durationUnitId,
+		},
+		setByProfileId: values.setByProfileId,
+		collectedByProfileId: values.collectedByProfileId,
+		hasProblem: values.hasProblem,
+		metadata: values.metadata,
+	};
+}
+
+function lureOptions(lures: readonly CatalogListing[]) {
 	return [
 		{ label: 'No lure', value: noLureValue },
 		...lifecycleOptions(
@@ -745,7 +824,7 @@ function lureOptions(lures: readonly CollectionLureRow[]) {
 	];
 }
 
-function profileOptions(profiles: readonly ProfileRow[]) {
+function profileOptions(profiles: readonly ProfileListing[]) {
 	return lifecycleOptions(
 		profiles,
 		(profile) => profile.isActive,

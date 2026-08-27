@@ -1,5 +1,5 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
-import type { OrganizationRow, TagRow, UnitRow } from '@simmer-mosquito/sync';
+import type { Organization } from '@simmer-mosquito/sync';
 import { ColorPicker } from '@simmer-mosquito/ui-web/components/color-picker';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -28,8 +28,15 @@ import {
 import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { CatalogDeleteDialog } from '../../../components/catalog';
 import { EmptyValue } from '../../../components/empty-value';
+import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
+import { type TagFields, useTagMutations } from '../../../hooks/mutations/use-tag-mutations';
+import { type TagRecord, useTagCatalog } from '../../../hooks/queries/use-tag-catalog';
+import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { hexWithAlpha, validHexColor } from '../../../lib/hex-color';
+import { titleCaseToken } from '../../../lib/record-display';
+import { errorMessageForSave } from '../../../lib/save-error';
 import {
 	AddIcon,
 	CloseIcon,
@@ -41,19 +48,14 @@ import {
 } from './constants';
 import {
 	AgencyDetailLine,
+	agencyDetailsFieldsFrom,
 	agencyDetailsFormValues,
-	createOrganizationTagFromValues,
-	deleteOrganizationTag,
-	errorMessageForSave,
 	formatMailingAddress,
-	formatMode,
-	saveAgencyDetailsFromValues,
-	saveUnitDefaultsFromValues,
 	unitDefaultsFormValues,
+	unitDefaultsFrom,
 	unitOptionsForDefault,
-	updateOrganizationTagFromValues,
 	validateEmail,
-	watchPersistence,
+	watchWrite,
 } from './helpers';
 import { DomainSection } from './layout/layout';
 import type {
@@ -70,8 +72,6 @@ export function GeneralOrganizationSection({
 	organization,
 	organizationName,
 	settings,
-	status,
-	tags,
 	timezone,
 	unitFields,
 	units,
@@ -84,17 +84,13 @@ export function GeneralOrganizationSection({
 	 * above it. Same page, two floors.
 	 */
 	readonly canManageTags: boolean;
-	readonly organization: OrganizationRow | null;
+	readonly organization: Organization;
 	readonly organizationName: string;
 	readonly settings: OrganizationSettings;
-	readonly status: string;
-	readonly tags: readonly TagRow[];
 	readonly timezone: string;
 	readonly unitFields: readonly SettingField[];
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 }) {
-	const organizationTags =
-		organization === null ? tags : tags.filter((tag) => tag.organizationId === organization.id);
 	const [isCreatingTag, setIsCreatingTag] = useState(false);
 
 	return (
@@ -106,14 +102,12 @@ export function GeneralOrganizationSection({
 					<EditAgencyDetailsSheet
 						defaultValues={agencyDetailsFormValues(organization, settings)}
 						description="Update the agency profile details available to organization members."
-						organization={organization}
-						settings={settings}
 						title={`Edit ${organizationName}`}
 					/>
 				}
 				fields={agencyFields}
 				id="agency"
-				meta={status === 'ready' ? 'Current agency details' : 'Agency details loading'}
+				meta="Current agency details"
 				setupItems={[]}
 				title={organizationName}
 			>
@@ -127,8 +121,6 @@ export function GeneralOrganizationSection({
 					<EditUnitDefaultsSheet
 						defaultValues={unitDefaultsFormValues(settings.unitDefaults)}
 						description="Set default units used across collection forms, summaries, and operational reports."
-						organization={organization}
-						settings={settings}
 						title="Edit Unit Defaults"
 						units={units}
 					/>
@@ -165,8 +157,6 @@ export function GeneralOrganizationSection({
 					canManage={canManageTags}
 					isCreating={isCreatingTag}
 					onCancelCreate={() => setIsCreatingTag(false)}
-					organization={organization}
-					tags={organizationTags}
 				/>
 			</DomainSection>
 		</>
@@ -177,24 +167,20 @@ function TagSections({
 	canManage,
 	isCreating,
 	onCancelCreate,
-	organization,
-	tags,
 }: {
 	readonly canManage: boolean;
 	readonly isCreating: boolean;
 	readonly onCancelCreate: () => void;
-	readonly organization: OrganizationRow | null;
-	readonly tags: readonly TagRow[];
 }) {
-	const activeTags = sortedTags(tags.filter((tag) => tag.isActive));
-	const deactivatedTags = sortedTags(tags.filter((tag) => !tag.isActive));
+	// Both halves already split and in name order: `is_active` is a pushed-down
+	// predicate, so the partition and the sort this used to do in the browser are
+	// the query's now.
+	const { activeTags, inactiveTags } = useTagCatalog();
 	const [editingTagId, setEditingTagId] = useState<string | null>(null);
 
 	return (
 		<div className="grid gap-3">
-			{canManage && isCreating ? (
-				<TagCreatePanel organization={organization} onCancel={onCancelCreate} />
-			) : null}
+			{canManage && isCreating ? <TagCreatePanel onCancel={onCancelCreate} /> : null}
 			<TagTableSection
 				canManage={canManage}
 				editingTagId={editingTagId}
@@ -211,7 +197,7 @@ function TagSections({
 				onCancelEdit={() => setEditingTagId(null)}
 				onEdit={setEditingTagId}
 				title="Deactivated"
-				tags={deactivatedTags}
+				tags={inactiveTags}
 			/>
 		</div>
 	);
@@ -231,7 +217,7 @@ function TagTableSection({
 	readonly emptyLabel: string;
 	readonly onCancelEdit: () => void;
 	readonly onEdit: (tagId: string) => void;
-	readonly tags: readonly TagRow[];
+	readonly tags: readonly TagRecord[];
 	readonly title: string;
 }) {
 	return (
@@ -275,7 +261,7 @@ function TagTableSection({
 	);
 }
 
-function TagBadge({ tag }: { readonly tag: TagRow }) {
+function TagBadge({ tag }: { readonly tag: TagRecord }) {
 	const color = validHexColor(tag.color);
 	const style =
 		color === null
@@ -295,7 +281,7 @@ function TagBadge({ tag }: { readonly tag: TagRow }) {
 			style={style}
 			title={tag.description ?? undefined}
 		>
-			{tag.tagName}
+			{tag.name}
 		</Badge>
 	);
 }
@@ -328,7 +314,7 @@ function TagDisplayTableRow({
 }: {
 	readonly canManage: boolean;
 	readonly onEdit: () => void;
-	readonly tag: TagRow;
+	readonly tag: TagRecord;
 }) {
 	return (
 		<TableRow>
@@ -353,13 +339,34 @@ function TagDisplayTableRow({
 	);
 }
 
-function TagCreatePanel({
-	onCancel,
-	organization,
-}: {
-	readonly organization: OrganizationRow | null;
-	readonly onCancel: () => void;
-}) {
+/**
+ * A Tag as its inline form holds one, and back.
+ *
+ * The boundary between what the row shows — a `null` colour is no colour — and
+ * what an input can hold, which is only ever a string.
+ */
+function tagFormValues(tag: TagRecord): TagFormValues {
+	return {
+		tagName: tag.name,
+		description: tag.description ?? '',
+		color: tag.color ?? '',
+		isActive: tag.isActive,
+	};
+}
+
+function tagFieldsFrom(values: TagFormValues): TagFields {
+	const description = values.description.trim();
+	const color = values.color.trim();
+	return {
+		name: values.tagName.trim(),
+		description: description.length === 0 ? null : description,
+		color: color.length === 0 ? null : color,
+		isActive: values.isActive,
+	};
+}
+
+function TagCreatePanel({ onCancel }: { readonly onCancel: () => void }) {
+	const mutations = useTagMutations();
 	const [values, setValues] = useState<TagFormValues>({
 		tagName: '',
 		description: '',
@@ -369,9 +376,9 @@ function TagCreatePanel({
 
 	function createTag() {
 		try {
-			const transaction = createOrganizationTagFromValues(organization, values);
+			const write = mutations.create(tagFieldsFrom(values));
 			setValues({ tagName: '', description: '', color: '', isActive: true });
-			watchPersistence(transaction, 'Unable to create tag.');
+			watchWrite(write, 'Unable to create tag.');
 		} catch (error) {
 			toast.error(errorMessageForSave(error));
 		}
@@ -396,7 +403,7 @@ function TagCreatePanel({
 					/>
 				</Field>
 				<div className="flex items-end gap-2">
-					<Button type="button" disabled={organization === null} onClick={createTag}>
+					<Button type="button" disabled={!mutations.canWrite} onClick={createTag}>
 						<AddIcon aria-hidden="true" />
 						Add
 					</Button>
@@ -423,28 +430,26 @@ function TagEditorTableRow({
 	tag,
 }: {
 	readonly onCancel: () => void;
-	readonly tag: TagRow;
+	readonly tag: TagRecord;
 }) {
-	const [values, setValues] = useState<TagFormValues>({
-		tagName: tag.tagName,
-		description: tag.description ?? '',
-		color: tag.color ?? '',
-		isActive: tag.isActive,
-	});
+	const mutations = useTagMutations();
+	const [values, setValues] = useState<TagFormValues>(() => tagFormValues(tag));
 
 	useEffect(() => {
-		setValues({
-			tagName: tag.tagName,
-			description: tag.description ?? '',
-			color: tag.color ?? '',
-			isActive: tag.isActive,
-		});
+		setValues(tagFormValues(tag));
 	}, [tag]);
 
 	function saveTag() {
 		try {
-			const transaction = updateOrganizationTagFromValues(tag, values);
-			watchPersistence(transaction, `Unable to save ${tag.tagName}.`);
+			// `current` comes back through the same round trip as the edited values,
+			// so a field nobody touched compares equal to itself and the save names
+			// only the commands it has changed fields for.
+			const write = mutations.save(
+				tag.id,
+				tagFieldsFrom(values),
+				tagFieldsFrom(tagFormValues(tag)),
+			);
+			watchWrite(write, `Unable to save ${tag.name}.`);
 			onCancel();
 		} catch (error) {
 			toast.error(errorMessageForSave(error));
@@ -452,8 +457,7 @@ function TagEditorTableRow({
 	}
 
 	function deleteTag() {
-		const transaction = deleteOrganizationTag(tag);
-		watchPersistence(transaction, `Unable to delete ${tag.tagName}.`);
+		watchWrite(mutations.remove(tag.id), `Unable to delete ${tag.name}.`);
 		onCancel();
 	}
 
@@ -497,17 +501,31 @@ function TagEditorTableRow({
 			</TableCell>
 			<TableCell className="w-(--tag-actions-column) align-top">
 				<div className="flex justify-end gap-2">
-					<Button type="button" variant="destructive" size="icon" onClick={deleteTag}>
-						<DeleteIcon aria-hidden="true" />
-						<span className="sr-only">Delete {tag.tagName}</span>
-					</Button>
+					<CatalogDeleteDialog
+						confirmLabel="Delete"
+						description={
+							<>
+								This removes {tag.name} from the tag list. A tag still on any record cannot be
+								deleted; deactivate it instead.
+							</>
+						}
+						onConfirm={deleteTag}
+						record={{ type: 'tag', id: tag.id }}
+						title="Delete Tag?"
+						trigger={
+							<Button type="button" variant="destructive" size="icon">
+								<DeleteIcon aria-hidden="true" />
+								<span className="sr-only">Delete {tag.name}</span>
+							</Button>
+						}
+					/>
 					<Button type="button" variant="outline" size="icon" onClick={saveTag}>
 						<SaveIcon aria-hidden="true" />
-						<span className="sr-only">Save {tag.tagName}</span>
+						<span className="sr-only">Save {tag.name}</span>
 					</Button>
 					<Button type="button" variant="outline" size="icon" onClick={onCancel}>
 						<CloseIcon aria-hidden="true" />
-						<span className="sr-only">Cancel editing {tag.tagName}</span>
+						<span className="sr-only">Cancel editing {tag.name}</span>
 					</Button>
 				</div>
 			</TableCell>
@@ -515,35 +533,30 @@ function TagEditorTableRow({
 	);
 }
 
-function sortedTags(tags: readonly TagRow[]): TagRow[] {
-	return [...tags].sort((first, second) => first.tagName.localeCompare(second.tagName));
-}
-
 function EditAgencyDetailsSheet({
 	defaultValues,
 	description,
-	organization,
-	settings,
 	title,
 }: {
 	readonly defaultValues: AgencyDetailsFormValues;
 	readonly description: string;
-	readonly organization: OrganizationRow | null;
-	readonly settings: OrganizationSettings;
 	readonly title: string;
 }) {
 	const [open, setOpen] = useState(false);
+	const { canWrite, saveAgencyDetails } = useOrganizationSettingsMutations();
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (canWrite ? undefined : 'Agency details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
 			try {
-				const transaction = saveAgencyDetailsFromValues(organization, settings, value);
+				// The conversion throws on an empty required field, so it runs before
+				// the sheet closes — a save that never left should not look like one
+				// that did.
+				const fields = agencyDetailsFieldsFrom(value);
 				setOpen(false);
-				watchPersistence(transaction, 'Unable to save agency details.');
+				watchWrite(saveAgencyDetails(fields), 'Unable to save agency details.');
 			} catch (saveError) {
 				toast.error(errorMessageForSave(saveError));
 			}
@@ -628,7 +641,7 @@ function EditAgencyDetailsSheet({
 						</div>
 						<SheetFooter>
 							<form.FormActions>
-								<form.SubmitButton disabled={organization === null} />
+								<form.SubmitButton disabled={!canWrite} />
 								<SheetClose asChild>
 									<Button type="button" variant="outline">
 										<CloseIcon data-icon="inline-start" aria-hidden="true" />
@@ -647,30 +660,26 @@ function EditAgencyDetailsSheet({
 function EditUnitDefaultsSheet({
 	defaultValues,
 	description,
-	organization,
-	settings,
 	title,
 	units,
 }: {
 	readonly defaultValues: UnitDefaultsFormValues;
 	readonly description: string;
-	readonly organization: OrganizationRow | null;
-	readonly settings: OrganizationSettings;
 	readonly title: string;
-	readonly units: readonly UnitRow[];
+	readonly units: readonly UnitLabel[];
 }) {
 	const [open, setOpen] = useState(false);
+	const { canWrite, setUnitDefaults } = useOrganizationSettingsMutations();
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (canWrite ? undefined : 'Agency details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
 			try {
-				const transaction = saveUnitDefaultsFromValues(organization, settings, value);
+				const unitDefaults = unitDefaultsFrom(value);
 				setOpen(false);
-				watchPersistence(transaction, 'Unable to save unit defaults.');
+				watchWrite(setUnitDefaults(unitDefaults), 'Unable to save unit defaults.');
 			} catch (saveError) {
 				toast.error(errorMessageForSave(saveError));
 			}
@@ -715,13 +724,13 @@ function EditUnitDefaultsSheet({
 									validators={{
 										onSubmit: ({ value }) =>
 											value.trim().length === 0
-												? `${formatMode(unitType)} is required.`
+												? `${titleCaseToken(unitType)} is required.`
 												: undefined,
 									}}
 								>
 									{(field) => (
 										<field.SelectField
-											label={formatMode(unitType)}
+											label={titleCaseToken(unitType)}
 											options={unitOptionsForDefault(
 												defaultValues[unitType],
 												units.filter((unit) => unit.unitType === unitType),
@@ -733,7 +742,7 @@ function EditUnitDefaultsSheet({
 						</div>
 						<SheetFooter>
 							<form.FormActions>
-								<form.SubmitButton disabled={organization === null} />
+								<form.SubmitButton disabled={!canWrite} />
 								<SheetClose asChild>
 									<Button type="button" variant="outline">
 										<CloseIcon data-icon="inline-start" aria-hidden="true" />
@@ -753,10 +762,10 @@ function AgencyDetailsSummary({
 	organization,
 	timezone,
 }: {
-	readonly organization: OrganizationRow | null;
+	readonly organization: Organization;
 	readonly timezone: string;
 }) {
-	const slug = organization?.slug ?? null;
+	const slug = organization.slug;
 	const address = formatMailingAddress(organization);
 
 	return (
@@ -773,8 +782,8 @@ function AgencyDetailsSummary({
 			</div>
 			<div className="grid min-w-0 content-start gap-2">
 				<span className="text-xs leading-tight font-semibold text-muted-foreground">Contact</span>
-				<AgencyDetailLine label="Email" value={organization?.mainContactEmail} />
-				<AgencyDetailLine label="Phone" value={organization?.phoneNumber} />
+				<AgencyDetailLine label="Email" value={organization.main_contact_email} />
+				<AgencyDetailLine label="Phone" value={organization.phone_number} />
 				<AgencyDetailLine label="Timezone" value={timezone} />
 			</div>
 			<div className="grid min-w-0 content-start gap-2">

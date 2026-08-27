@@ -1,9 +1,4 @@
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
-import type {
-	CollectionLureRow,
-	CollectionMethodRow,
-	OrganizationRow,
-} from '@simmer-mosquito/sync';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -26,36 +21,30 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import type { Collection } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
-import { toast } from 'sonner';
+import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { EmptyValue } from '../../../components/empty-value';
-import { useActiveNamedCollectionRows } from '../../../hooks/use-active-named-collection-rows';
-import { AddIcon, ArrowRightIcon, CloseIcon, EditIcon } from './constants';
 import {
-	collectionLureFormValues,
-	collectionTimingModeFromFields,
-	createAdultCollectionLureFromValues,
-	errorMessageForSave,
-	updateAdultCollectionLureFromValues,
-	watchPersistence,
-} from './helpers';
+	type CatalogMutations,
+	useCollectionLureMutations,
+} from '../../../hooks/mutations/use-catalog-mutations';
+import {
+	type DescribedCatalogRecord,
+	useCollectionLureRecords,
+	useCollectionMethodRecords,
+} from '../../../hooks/queries/use-catalog-records';
+import { AddIcon, ArrowRightIcon, CloseIcon, EditIcon } from './constants';
+import { collectionTimingModeFromFields } from './helpers';
 import { LookupListFrame, SettingChoiceCard } from './layout/layout';
 import type { SettingField } from './types';
 
 export function AdultSurveillanceSettings({
 	canManage,
-	collectionLures,
-	collectionMethods,
 	fields,
-	organization,
 }: {
 	readonly canManage: boolean;
-	readonly collectionLures: Collection<CollectionLureRow, string | number>;
-	readonly collectionMethods: Collection<CollectionMethodRow, string | number>;
 	readonly fields: readonly SettingField[];
-	readonly organization: OrganizationRow | null;
 }) {
 	const timingMode = collectionTimingModeFromFields(fields);
 
@@ -65,12 +54,8 @@ export function AdultSurveillanceSettings({
 			<div className="grid gap-2">
 				<h3 className="eyebrow mt-0.5 mb-0">Setup Lists</h3>
 				<div className="grid gap-3">
-					<CollectionMethodLookupPointer methods={collectionMethods} />
-					<CollectionLureLookupList
-						canManage={canManage}
-						organization={organization}
-						lures={collectionLures}
-					/>
+					<CollectionMethodLookupPointer />
+					<CollectionLureLookupList canManage={canManage} />
 				</div>
 			</div>
 		</div>
@@ -124,18 +109,13 @@ function CollectionTimingGuide({ mode }: { readonly mode: AdultCollectionTimingM
  * Methods are managed on the adult surveillance route, next to the traps that use them.
  * This keeps their counts visible in settings and points at the one place that edits them.
  */
-function CollectionMethodLookupPointer({
-	methods,
-}: {
-	readonly methods: Collection<CollectionMethodRow, string | number>;
-}) {
-	const { activeRows: activeMethods, inactiveRows: inactiveMethods } =
-		useActiveNamedCollectionRows(methods);
+function CollectionMethodLookupPointer() {
+	const { activeRecords, inactiveRecords } = useCollectionMethodRecords();
 
 	return (
 		<LookupListFrame
-			activeCount={activeMethods.length}
-			inactiveCount={inactiveMethods.length}
+			activeCount={activeRecords.length}
+			inactiveCount={inactiveRecords.length}
 			detail="Methods can define optional custom fields and action thresholds."
 			title="Collection Methods"
 			action={
@@ -154,17 +134,9 @@ function CollectionMethodLookupPointer({
 	);
 }
 
-function CollectionLureLookupList({
-	canManage,
-	organization,
-	lures,
-}: {
-	readonly canManage: boolean;
-	readonly organization: OrganizationRow | null;
-	readonly lures: Collection<CollectionLureRow, string | number>;
-}) {
-	const { activeRows: activeLures, inactiveRows: inactiveLures } =
-		useActiveNamedCollectionRows(lures);
+function CollectionLureLookupList({ canManage }: { readonly canManage: boolean }) {
+	const { activeRecords: activeLures, inactiveRecords: inactiveLures } = useCollectionLureRecords();
+	const mutations = useCollectionLureMutations();
 
 	return (
 		<LookupListFrame
@@ -175,7 +147,7 @@ function CollectionLureLookupList({
 			action={
 				<CollectionLureDrawer
 					canManage={canManage}
-					organization={organization}
+					mutations={mutations}
 					trigger={
 						<Button type="button" variant="outline" size="sm" disabled={!canManage}>
 							<AddIcon aria-hidden="true" />
@@ -189,14 +161,14 @@ function CollectionLureLookupList({
 				canManage={canManage}
 				emptyLabel="No active collection lures."
 				lures={activeLures}
-				organization={organization}
+				mutations={mutations}
 				title="Active Lures"
 			/>
 			<CollectionLureTable
 				canManage={canManage}
 				emptyLabel="No inactive collection lures."
 				lures={inactiveLures}
-				organization={organization}
+				mutations={mutations}
 				title="Inactive Lures"
 			/>
 		</LookupListFrame>
@@ -207,13 +179,13 @@ function CollectionLureTable({
 	canManage,
 	emptyLabel,
 	lures,
-	organization,
+	mutations,
 	title,
 }: {
 	readonly canManage: boolean;
 	readonly emptyLabel: string;
-	readonly lures: readonly CollectionLureRow[];
-	readonly organization: OrganizationRow | null;
+	readonly lures: readonly DescribedCatalogRecord[];
+	readonly mutations: CatalogMutations;
 	readonly title: string;
 }) {
 	return (
@@ -252,7 +224,7 @@ function CollectionLureTable({
 											<CollectionLureDrawer
 												canManage={canManage}
 												lure={lure}
-												organization={organization}
+												mutations={mutations}
 												trigger={
 													<Button type="button" variant="outline" size="icon">
 														<EditIcon aria-hidden="true" />
@@ -275,36 +247,31 @@ function CollectionLureTable({
 function CollectionLureDrawer({
 	canManage,
 	lure,
-	organization,
+	mutations,
 	trigger,
 }: {
 	readonly canManage: boolean;
-	readonly lure?: CollectionLureRow | undefined;
-	readonly organization: OrganizationRow | null;
+	readonly lure?: DescribedCatalogRecord | undefined;
+	readonly mutations: CatalogMutations;
 	readonly trigger: React.ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
-	const defaultValues = collectionLureFormValues(lure);
+	const defaultValues = catalogFormValues(lure);
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () =>
-				organization === null ? 'Organization details are still loading.' : undefined,
+			onSubmit: () => (mutations.canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
-			try {
-				const transaction =
-					lure === undefined
-						? createAdultCollectionLureFromValues(organization, value)
-						: updateAdultCollectionLureFromValues(lure, value);
-				setOpen(false);
-				watchPersistence(
-					transaction,
+			commitCatalogSave({
+				failureMessage:
 					lure === undefined ? 'Unable to create collection lure.' : `Unable to save ${lure.name}.`,
-				);
-			} catch (saveError) {
-				toast.error(errorMessageForSave(saveError));
-			}
+				onWritten: () => setOpen(false),
+				save: () =>
+					lure === undefined
+						? mutations.create(catalogFields(value)).then(() => undefined)
+						: mutations.save(lure.id, catalogFields(value), catalogFields(catalogFormValues(lure))),
+			});
 		},
 	});
 
@@ -359,7 +326,7 @@ function CollectionLureDrawer({
 						</form.AppField>
 						<DrawerFooter className="px-0">
 							<form.FormActions>
-								<form.SubmitButton disabled={!canManage || organization === null} />
+								<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
 								<DrawerClose asChild>
 									<Button type="button" variant="outline">
 										<CloseIcon data-icon="inline-start" aria-hidden="true" />

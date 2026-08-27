@@ -1,4 +1,4 @@
-import { sql } from '@simmer-mosquito/db';
+import { assertRecordDeletable, sql } from '@simmer-mosquito/db';
 import {
 	activateFormulationCommand,
 	type ControlOperationsCommand,
@@ -19,14 +19,13 @@ import {
 	type ControlOperationsTransaction,
 	commandEndpoint,
 	createCommand,
+	type FormulationRow,
 	type FormulationUpdateColumns,
 	formulationReturnColumns,
 	invalidUpdate,
 	type RouteOptions,
 	runCommands,
-	type SafeFormulation,
 	softDelete,
-	toSafeFormulation,
 } from './shared.js';
 
 // ===========================================================================
@@ -141,10 +140,10 @@ async function runFormulationCommands(
 	);
 }
 
-async function writeFormulationCommand(
+export async function writeFormulationCommand(
 	trx: ControlOperationsTransaction,
 	command: ControlOperationsCommand,
-): Promise<SafeFormulation | null> {
+): Promise<FormulationRow | null> {
 	switch (command.type) {
 		case 'controlOperations.createFormulation': {
 			const row = await trx
@@ -162,7 +161,7 @@ async function writeFormulationCommand(
 				})
 				.returning(formulationReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeFormulation(row);
+			return row;
 		}
 		case 'controlOperations.updateFormulationDetails':
 			return updateFormulation(trx, command.payload.formulationId, command.payload.organizationId, {
@@ -191,6 +190,11 @@ async function writeFormulationCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'controlOperations.deleteFormulation':
+			await assertRecordDeletable(trx, {
+				recordType: 'formulation',
+				recordId: command.payload.formulationId,
+				organizationId: command.payload.organizationId,
+			});
 			return softDelete(
 				trx,
 				'formulations',
@@ -198,7 +202,6 @@ async function writeFormulationCommand(
 				command.payload.organizationId,
 				command.payload.actorProfileId,
 				formulationReturnColumns,
-				toSafeFormulation,
 			);
 		default:
 			throw new Error(`Unsupported formulation command: ${command.type}`);
@@ -210,7 +213,7 @@ async function updateFormulation(
 	formulationId: string,
 	organizationId: string,
 	set: FormulationUpdateColumns,
-): Promise<SafeFormulation | null> {
+): Promise<FormulationRow | null> {
 	const row = await trx
 		.updateTable('formulations')
 		.set({ ...set, updated_at: sql`now()` })
@@ -219,5 +222,5 @@ async function updateFormulation(
 		.where('deleted_at', 'is', null)
 		.returning(formulationReturnColumns)
 		.executeTakeFirst();
-	return row === undefined ? null : toSafeFormulation(row);
+	return row ?? null;
 }

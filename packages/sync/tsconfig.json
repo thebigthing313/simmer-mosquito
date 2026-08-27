@@ -6,5 +6,15 @@
 		"rootDir": "src",
 		"tsBuildInfoFile": "dist/tsconfig.tsbuildinfo"
 	},
-	"include": ["src/**/*.ts"]
+	"include": ["src/**/*.ts"],
+	// `drift.test.ts` reads the Kysely table types to check the generated schemas
+	// against them, and `include` compiles it like any other source file — so the
+	// build needs `packages/db` emitted first. `nx run-many` ordered it from the
+	// package.json dependency and hid the gap; `pnpm --filter <app> build`, which
+	// is what every Dockerfile runs, has only this to go on.
+	"references": [
+		{
+			"path": "../db"
+		}
+	]
 }

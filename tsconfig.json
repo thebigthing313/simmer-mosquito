@@ -20,10 +20,22 @@
 			"path": "./packages/auth"
 		},
 		{
+			"path": "./packages/sync"
+		},
+		{
+			"path": "./packages/ui-web"
+		},
+		{
 			"path": "./apps/server"
 		},
 		{
 			"path": "./apps/web"
+		},
+		{
+			"path": "./apps/admin"
+		},
+		{
+			"path": "./apps/preview"
 		},
 		{
 			"path": "./apps/mobile"

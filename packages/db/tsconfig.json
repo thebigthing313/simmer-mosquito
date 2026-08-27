@@ -6,5 +6,19 @@
 		"tsBuildInfoFile": "dist/tsconfig.tsbuildinfo",
 		"types": ["node"]
 	},
-	"include": ["src/**/*.ts"]
+	"include": ["src/**/*.ts"],
+	"references": [
+		{
+			"path": "../domain"
+		},
+		{
+			/*
+			 * Test-only, for the region-membership corpus behind
+			 * `@simmer-mosquito/mapping/test-corpus`. `check-build-graph.mjs` counts
+			 * `devDependencies`, so the edge is legal; nothing in `src` outside
+			 * `src/tests` imports it.
+			 */
+			"path": "../mapping"
+		}
+	]
 }

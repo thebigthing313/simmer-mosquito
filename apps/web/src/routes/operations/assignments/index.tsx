@@ -30,24 +30,28 @@ import {
 } from '../../../components/explorer';
 import { WriteOnly } from '../../../components/write-only';
 import {
+	ASSIGNMENT_STATUS_LABELS,
+	type AssignmentListing,
+	type AssignmentStatus,
+	assignmentStatus,
+	formatAssignmentDate,
+	formatDueAt,
+	type ProgressCounts,
+} from '../../../hooks/queries/assignment-view';
+import { useAssignmentItemCounts } from '../../../hooks/queries/use-assignment-item-counts';
+import { useAssignments } from '../../../hooks/queries/use-assignments';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
+import {
 	dateParam,
 	type FilterCodecs,
 	idSetParam,
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { todayDateValue } from '../../control-operations/-control-display';
-import { addDaysToDateString } from '../../larval-surveillance/-overview-data';
 import { WorklistMap } from '../-worklist-map';
-import {
-	type AssignmentStatus,
-	type AssignmentView,
-	type ProgressCounts,
-	useAssignmentItemCounts,
-	useAssignmentStops,
-	useAssignments,
-} from './-assignment-data';
-import { AssignmentStatusBadge, formatAssignmentDate, formatDueAt } from './-assignment-display';
+import { useAssignmentStops } from './-assignment-data';
+import { AssignmentStatusBadge } from './-assignment-display';
 
 const AssignmentIcon = iconRegistry.entities.vehicle.icon;
 
@@ -60,13 +64,6 @@ const STATUS_OPTIONS: readonly FilterOption[] = [
 	{ id: 'completed', label: 'Completed' },
 	{ id: 'cancelled', label: 'Cancelled' },
 ];
-
-const STATUS_LABELS: Readonly<Record<AssignmentStatus, string>> = {
-	notStarted: 'Not started',
-	inProgress: 'In progress',
-	completed: 'Completed',
-	cancelled: 'Cancelled',
-};
 
 interface AssignmentFilters {
 	readonly from: string;
@@ -94,11 +91,12 @@ const DEFAULT_DAYS_BACK = 7;
 const DEFAULT_DAYS_AHEAD = 14;
 
 function AssignmentsIndexRoute() {
-	const today = useMemo(() => todayDateValue(), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const filterDefaults = useMemo<AssignmentFilters>(
 		() => ({
-			from: addDaysToDateString(today, -DEFAULT_DAYS_BACK),
-			to: addDaysToDateString(today, DEFAULT_DAYS_AHEAD),
+			from: addCalendarDays(today, -DEFAULT_DAYS_BACK),
+			to: addCalendarDays(today, DEFAULT_DAYS_AHEAD),
 			people: new Set(),
 			statuses: new Set(),
 		}),
@@ -123,7 +121,7 @@ function AssignmentsIndexRoute() {
 	const visible = useMemo(
 		() =>
 			assignments.filter((assignment) => {
-				if (filters.statuses.size > 0 && !filters.statuses.has(assignment.status)) {
+				if (filters.statuses.size > 0 && !filters.statuses.has(assignmentStatus(assignment))) {
 					return false;
 				}
 				if (filters.people.size > 0) {
@@ -275,7 +273,7 @@ function AssignmentsIndexRoute() {
 							{[...filters.statuses].map((status) => (
 								<FilterChip
 									key={status}
-									label={STATUS_LABELS[status as AssignmentStatus] ?? status}
+									label={ASSIGNMENT_STATUS_LABELS[status as AssignmentStatus] ?? status}
 									onRemove={() => {
 										const next = new Set(filters.statuses);
 										next.delete(status);
@@ -310,7 +308,7 @@ function AssignmentResults({
 	onSelect,
 	selectedId,
 }: {
-	readonly assignments: readonly AssignmentView[];
+	readonly assignments: readonly AssignmentListing[];
 	readonly countsById: ReadonlyMap<string, ProgressCounts>;
 	readonly hasFilters: boolean;
 	readonly isLoading: boolean;
@@ -387,13 +385,14 @@ function AssignmentRow({
 	isSelected,
 	onSelect,
 }: {
-	readonly assignment: AssignmentView;
+	readonly assignment: AssignmentListing;
 	readonly assigneeName: string | null;
 	readonly counts: ProgressCounts | null;
 	readonly isSelected: boolean;
 	readonly onSelect: (id: string) => void;
 }) {
-	const due = formatDueAt(assignment.dueAt);
+	const timeZone = useOrganizationTimeZone();
+	const due = formatDueAt(assignment.dueAt, timeZone);
 
 	return (
 		<li
@@ -415,7 +414,7 @@ function AssignmentRow({
 						<span className="font-medium text-foreground text-sm">
 							{assignment.assignmentName?.trim() || formatAssignmentDate(assignment.assignmentDate)}
 						</span>
-						<AssignmentStatusBadge status={assignment.status} />
+						<AssignmentStatusBadge status={assignmentStatus(assignment)} />
 					</div>
 					<p className="m-0 mt-1 text-muted-foreground text-xs">
 						{assignment.assignmentName?.trim()
@@ -444,7 +443,7 @@ function SelectedAssignmentCard({
 	assigneeName,
 	counts,
 }: {
-	readonly assignment: AssignmentView;
+	readonly assignment: AssignmentListing;
 	readonly assigneeName: string | null;
 	readonly counts: ProgressCounts;
 }) {
@@ -460,7 +459,7 @@ function SelectedAssignmentCard({
 							{assigneeName ?? 'Unassigned'} · {stopSummary(counts)}
 						</p>
 					</div>
-					<AssignmentStatusBadge status={assignment.status} />
+					<AssignmentStatusBadge status={assignmentStatus(assignment)} />
 				</div>
 				<div className="mt-3 flex gap-2">
 					<Button asChild className="flex-1" size="sm">

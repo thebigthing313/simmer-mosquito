@@ -3,11 +3,14 @@ import {
 	Beaker,
 	Box,
 	Calendar,
+	CalendarCheck,
 	ChartColumn,
 	Check,
 	CheckCircle2,
 	ChevronDown,
 	ChevronLeft,
+	ChevronsDown,
+	ChevronsUp,
 	ChevronUp,
 	Circle,
 	CircleCheck,
@@ -25,13 +28,16 @@ import {
 	EyeOff,
 	Fish,
 	FlaskConical,
+	FolderPlus,
 	GripVertical,
 	Hammer,
 	History,
 	Home,
+	Inbox,
 	Info,
 	Keyboard,
 	Layers,
+	ListFilter,
 	Loader2,
 	LocateFixed,
 	ArrowLeft as LucideArrowLeft,
@@ -40,6 +46,7 @@ import {
 	type LucideIcon,
 	Map as LucideMap,
 	MoreHorizontal as LucideMoreHorizontal,
+	MapPin,
 	MapPinned,
 	Megaphone,
 	MessageSquare,
@@ -54,6 +61,7 @@ import {
 	Plus,
 	Printer,
 	Puzzle,
+	RotateCcw,
 	Route,
 	Ruler,
 	Satellite,
@@ -69,11 +77,14 @@ import {
 	Square,
 	Sun,
 	Tag,
+	Target,
+	Thermometer,
 	Trash2,
 	Truck,
 	Upload,
 	User,
 	Users,
+	WavesHorizontal,
 	Worm,
 	Wrench,
 	X,
@@ -92,6 +103,36 @@ export interface IconRegistryEntry {
 	readonly category: IconCategory;
 	readonly source: IconSource;
 	readonly icon: RegistryIcon;
+}
+
+/**
+ * A north arrow, drawn rather than borrowed.
+ *
+ * Both lucide candidates put their point on the north-east diagonal: the
+ * navigation arrowhead runs to (22,2) and the compass needle from (16.24,7.76)
+ * to (7.76,16.24). Rotated by the map's bearing, either one reads 45° off at
+ * every bearing, which is worse than no arrow: it disagrees with the map
+ * consistently enough to look deliberate.
+ *
+ * This is the cartographer's needle: one half filled, one half hollow, tip at
+ * true north up the vertical axis, so a rotation by `-bearing` points it at
+ * where north actually went.
+ */
+function NorthNeedleIcon(props: SVGProps<SVGSVGElement>) {
+	return createElement(
+		'svg',
+		{
+			viewBox: '0 0 24 24',
+			role: 'img',
+			fill: 'none',
+			stroke: 'currentColor',
+			strokeWidth: 1.6,
+			strokeLinejoin: 'round',
+			...props,
+		},
+		createElement('path', { d: 'M12 2.5 18.5 21 12 16.5 5.5 21Z' }),
+		createElement('path', { d: 'M12 2.5 18.5 21 12 16.5Z', fill: 'currentColor' }),
+	);
 }
 
 const BrandMarkSvgIcon = assetIcon('brandMarkSvg', brandMarkUrl);
@@ -117,17 +158,27 @@ export const iconRegistry = {
 		weather: icon('weather', 'Weather', 'domains', CloudSun),
 	},
 	entities: {
+		address: icon('address', 'Address', 'entities', MapPin),
 		application: icon('application', 'Application', 'entities', SprayCan),
+		assignment: icon('assignment', 'Assignment', 'entities', CalendarCheck),
 		biocontrolAction: icon('biocontrolAction', 'Biocontrol action', 'entities', Fish),
 		collection: icon('collection', 'Collection', 'entities', Layers),
 		contact: icon('contact', 'Contact', 'entities', User),
 		equipment: icon('equipment', 'Equipment', 'entities', Wrench),
 		formulation: icon('formulation', 'Formulation', 'entities', Beaker),
+		habitat: icon('habitat', 'Habitat', 'entities', WavesHorizontal),
 		insecticide: icon('insecticide', 'Insecticide', 'entities', SprayCan),
 		inspection: icon('inspection', 'Inspection', 'entities', ClipboardCheck),
+		mission: icon('mission', 'Mission', 'entities', Target),
 		organization: icon('organization', 'Organization', 'entities', Users),
 		outreachAction: icon('outreachAction', 'Outreach action', 'entities', Speech),
 		region: icon('region', 'Region', 'entities', LucideMap),
+		requestedControlAction: icon(
+			'requestedControlAction',
+			'Requested control action',
+			'entities',
+			Inbox,
+		),
 		route: icon('route', 'Route', 'entities', Route),
 		sample: icon('sample', 'Sample', 'entities', FlaskConical),
 		serviceRequest: icon('serviceRequest', 'Service request', 'entities', PhoneCall),
@@ -142,6 +193,7 @@ export const iconRegistry = {
 		trap: icon('trap', 'Trap', 'entities', Box),
 		unit: icon('unit', 'Unit', 'entities', Ruler),
 		vehicle: icon('vehicle', 'Vehicle', 'entities', Truck),
+		weatherSource: icon('weatherSource', 'Weather source', 'entities', Thermometer),
 	},
 	actions: {
 		add: icon('add', 'Add', 'actions', Plus),
@@ -152,12 +204,15 @@ export const iconRegistry = {
 		delete: icon('delete', 'Delete', 'actions', Trash2),
 		download: icon('download', 'Download', 'actions', Download),
 		edit: icon('edit', 'Edit', 'actions', Edit),
+		filter: icon('filter', 'Filter', 'actions', ListFilter),
+		newFolder: icon('newFolder', 'New folder', 'actions', FolderPlus),
 		info: icon('info', 'Info', 'actions', Info),
 		loading: icon('loading', 'Loading', 'actions', Loader2),
 		locate: icon('locate', 'Locate', 'actions', LocateFixed),
 		paste: icon('paste', 'Paste', 'actions', Clipboard),
 		pin: icon('pin', 'Pin', 'actions', Pin),
 		remove: icon('remove', 'Remove', 'actions', Minus),
+		reset: icon('reset', 'Reset', 'actions', RotateCcw),
 		save: icon('save', 'Save', 'actions', Save),
 		search: icon('search', 'Search', 'actions', Search),
 		searchCheck: icon('searchCheck', 'Search check', 'actions', SearchCheck),
@@ -174,6 +229,9 @@ export const iconRegistry = {
 		chevronLeft: icon('chevronLeft', 'Chevron left', 'arrows', ChevronLeft),
 		chevronRight: icon('chevronRight', 'Chevron right', 'arrows', LucideChevronRight),
 		chevronUp: icon('chevronUp', 'Chevron up', 'arrows', ChevronUp),
+		chevronsDown: icon('chevronsDown', 'Chevrons down', 'arrows', ChevronsDown),
+		chevronsUp: icon('chevronsUp', 'Chevrons up', 'arrows', ChevronsUp),
+		north: simmerIcon('north', 'North', 'arrows', NorthNeedleIcon),
 		moreHorizontal: icon('moreHorizontal', 'More horizontal', 'arrows', LucideMoreHorizontal),
 		panelLeft: icon('panelLeft', 'Panel left', 'arrows', PanelLeft),
 	},
@@ -235,6 +293,8 @@ export const ChevronLeftIcon = iconRegistry.arrows.chevronLeft.icon;
 export const ChevronRight = iconRegistry.arrows.chevronRight.icon;
 export const ChevronRightIcon = iconRegistry.arrows.chevronRight.icon;
 export const ChevronUpIcon = iconRegistry.arrows.chevronUp.icon;
+export const ChevronsDownIcon = iconRegistry.arrows.chevronsDown.icon;
+export const ChevronsUpIcon = iconRegistry.arrows.chevronsUp.icon;
 export const CircleCheckIcon = iconRegistry.generic.success.icon;
 export const CircleIcon = iconRegistry.generic.circle.icon;
 export const CompassIcon = iconRegistry.generic.compass.icon;
@@ -259,12 +319,16 @@ export const MoonIcon = iconRegistry.generic.moon.icon;
 export const MoreHorizontal = iconRegistry.arrows.moreHorizontal.icon;
 export const MoreHorizontalIcon = iconRegistry.arrows.moreHorizontal.icon;
 export const MosquitoIcon = iconRegistry.simmer.mosquito.icon;
+export const FilterIcon = iconRegistry.actions.filter.icon;
+export const NewFolderIcon = iconRegistry.actions.newFolder.icon;
+export const NorthIcon = iconRegistry.arrows.north.icon;
 export const OctagonXIcon = iconRegistry.generic.error.icon;
 export const PanelLeftIcon = iconRegistry.arrows.panelLeft.icon;
 export const PinIcon = iconRegistry.actions.pin.icon;
 export const PinOffIcon = iconRegistry.actions.unpin.icon;
 export const PlusIcon = iconRegistry.actions.add.icon;
 export const PuzzleIcon = iconRegistry.generic.puzzle.icon;
+export const ResetIcon = iconRegistry.actions.reset.icon;
 export const SaveIcon = iconRegistry.actions.save.icon;
 export const RulerIcon = iconRegistry.generic.ruler.icon;
 export const SatelliteIcon = iconRegistry.generic.satellite.icon;

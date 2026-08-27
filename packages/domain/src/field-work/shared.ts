@@ -84,7 +84,11 @@ export type FieldWorkCommandType =
 	| 'fieldWork.completeAssignmentItem'
 	| 'fieldWork.reopenAssignmentItem'
 	| 'fieldWork.skipAssignmentItem'
-	| 'fieldWork.unskipAssignmentItem';
+	| 'fieldWork.unskipAssignmentItem'
+	| 'fieldWork.recordHabitatInspectionForAssignmentItem'
+	| 'fieldWork.setTrapCollectionForAssignmentItem'
+	| 'fieldWork.collectTrapCollectionForAssignmentItem'
+	| 'fieldWork.recordCollectedTrapCollectionForAssignmentItem';
 
 export interface FieldWorkDomainCommand<TType extends FieldWorkCommandType, TPayload> {
 	readonly type: TType;
@@ -180,6 +184,23 @@ export const ROUTE_TYPES = ['trap', 'habitat'] as const;
  */
 export function toDbEntityType(targetType: string): string {
 	return targetType.replace(/[A-Z]/g, (char) => `_${char.toLowerCase()}`);
+}
+
+/**
+ * The same conversion the other way, for a caller that speaks columns.
+ *
+ * A client writing one of these tables through a sync collection sends the row
+ * as its columns, so the discriminator arrives in the spelling the column holds.
+ * The command builders take the domain vocabulary, so something has to turn it
+ * back, and doing it here keeps the pair in one place rather than leaving each
+ * endpoint to write its own regex.
+ *
+ * It only changes the spelling. Whether the result is a target type the command
+ * accepts is `validateTarget`'s question, and a value that is neither passes
+ * through to be refused there by name.
+ */
+export function fromDbEntityType(entityType: string): string {
+	return entityType.replace(/_([a-z])/g, (_match, char: string) => char.toUpperCase());
 }
 
 export function validateBase(input: FieldWorkCommandInput, issues: DomainValidationIssue[]): void {

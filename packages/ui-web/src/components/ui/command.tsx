@@ -40,14 +40,19 @@ function CommandDialog({
 }) {
 	return (
 		<Dialog {...props}>
-			<DialogHeader className="sr-only">
-				<DialogTitle>{title}</DialogTitle>
-				<DialogDescription>{description}</DialogDescription>
-			</DialogHeader>
 			<DialogContent
 				className={cn('overflow-hidden p-0', className)}
 				showCloseButton={showCloseButton}
 			>
+				{/* Inside the content, not beside it. As shipped the header sat as a
+				    sibling of `DialogContent`, so the accessible name never entered the
+				    portal and Radix's own missing-title warning stayed quiet about it,
+				    because the title *was* rendered — just nowhere the dialog could
+				    reach. */}
+				<DialogHeader className="sr-only">
+					<DialogTitle>{title}</DialogTitle>
+					<DialogDescription>{description}</DialogDescription>
+				</DialogHeader>
 				<Command className="**:data-[slot=command-input-wrapper]:h-12 [&_[cmdk-group-heading]]:px-2 [&_[cmdk-group-heading]]:font-medium [&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group]]:px-2 [&_[cmdk-group]:not([hidden])_~[cmdk-group]]:pt-0 [&_[cmdk-input-wrapper]_svg]:h-5 [&_[cmdk-input-wrapper]_svg]:w-5 [&_[cmdk-input]]:h-12 [&_[cmdk-item]]:px-2 [&_[cmdk-item]]:py-3 [&_[cmdk-item]_svg]:h-5 [&_[cmdk-item]_svg]:w-5">
 					{children}
 				</Command>
@@ -93,6 +98,20 @@ function CommandEmpty({ ...props }: React.ComponentProps<typeof CommandPrimitive
 			{...props}
 		/>
 	);
+}
+
+/**
+ * The in-flight wrapper cmdk provides and this file never re-exported.
+ *
+ * It renders a `progressbar` whose children are `aria-hidden`, so with no
+ * `label` there is nothing to announce and the role reads as an unnamed
+ * progress bar. The prop is required here rather than optional for that reason.
+ */
+function CommandLoading({
+	label,
+	...props
+}: React.ComponentProps<typeof CommandPrimitive.Loading> & { label: string }) {
+	return <CommandPrimitive.Loading data-slot="command-loading" label={label} {...props} />;
 }
 
 function CommandGroup({
@@ -155,6 +174,7 @@ export {
 	CommandInput,
 	CommandItem,
 	CommandList,
+	CommandLoading,
 	CommandSeparator,
 	CommandShortcut,
 };

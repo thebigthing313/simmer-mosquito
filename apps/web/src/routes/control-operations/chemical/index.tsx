@@ -1,22 +1,23 @@
-import type { ControlMethodRow, UnitRow } from '@simmer-mosquito/sync';
-import { useLiveSuspenseQuery } from '@tanstack/react-db';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
-	ExplorerHeader,
+	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
 	mapQueryParams,
-	ResultList,
 	toggle,
+	useApplicationMethodOptions,
 	useDateRangeFilters,
+	useExplorerPanel,
 	useFlyToSelection,
+	useInsecticideOptions,
 	usePagedMapResource,
 	usePersonnelOptions,
 	useRegionOptions,
@@ -24,7 +25,8 @@ import {
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { type ChemicalTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
 	dateParam,
 	type FilterCodecs,
@@ -32,10 +34,9 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import { formatListDate } from '../../larval-surveillance/-overview-data';
 import { ApplicationMapCard } from '../-application-map-card';
-import { formatAmount, nameById } from '../-control-display';
+import { formatAmount } from '../-control-display';
 import { addDaysToDateString, todayInTimeZone } from '../-overview-data';
 
 interface ApplicationSite {
@@ -71,6 +72,8 @@ const FILTER_CODECS: FilterCodecs<ApplicationFilters> = {
 	regions: idSetParam,
 };
 
+const ApplicationEntityIcon = iconRegistry.entities.application.icon;
+
 export const Route = createFileRoute('/control-operations/chemical/')({
 	component: ApplicationsExplorerRoute,
 	validateSearch: searchValidator(FILTER_CODECS),
@@ -81,7 +84,8 @@ const RESULT_NOUN = { one: 'application', many: 'applications' };
 const PATH = '/map/chemical';
 
 function ApplicationsExplorerRoute() {
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const defaultFrom = useMemo(
 		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
 		[today],
@@ -124,28 +128,12 @@ function ApplicationsExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { rows: methods } = useCollectionRows<ControlMethodRow>(webCollections.applicationMethods);
-	const { rows: units } = useCollectionRows<UnitRow>(webCollections.units);
-
-	// Order + project the product options straight from the collection so the
-	// alphabetized select and the id→name lookup share one live read, rather than
-	// copying the collection into a memoized array.
-	const { data: productOptions } = useLiveSuspenseQuery(
-		(query) =>
-			query
-				.from({ insecticide: webCollections.insecticides })
-				.orderBy(({ insecticide }) => insecticide.tradeName, 'asc')
-				.select(({ insecticide }) => ({ id: insecticide.id, label: insecticide.tradeName })),
-		[],
-	);
-	const insecticideNameById = useMemo(
-		() => nameById(productOptions, (option) => option.label),
-		[productOptions],
-	);
-	const methodNameById = useMemo(() => nameById(methods, (method) => method.name), [methods]);
-	const unitById = useMemo(() => new Map(units.map((unit) => [unit.id, unit])), [units]);
+	const { options: methodOptions, nameById: methodNameById } = useApplicationMethodOptions();
+	const { options: productOptions, nameById: insecticideNameById } = useInsecticideOptions();
+	const unitById = useUnitLabels().byId;
 
 	// The server tiles + list read the same filter shape, so the map and the paged
 	// rail stay in lockstep. Omitted keys (empty range / no selection) drop out.
@@ -175,15 +163,14 @@ function ApplicationsExplorerRoute() {
 		[filters],
 	);
 
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<ApplicationSite>(
-		{
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<ApplicationSite>({
 			path: PATH,
 			rowsKey: 'applications',
 			label: 'Applications',
 			params,
 			normalizeRow: normalizeApplication,
-		},
-	);
+		});
 
 	const selected = useSelectedMapRecord<ApplicationSite>({
 		path: PATH,
@@ -200,43 +187,22 @@ function ApplicationsExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const hasActiveFilters =
-		dateFrom !== defaultFrom ||
-		dateTo !== today ||
-		insecticideIds.size > 0 ||
-		methodIds.size > 0 ||
-		personIds.size > 0 ||
-		regionIds.size > 0;
+	const activeFilterCount =
+		(dateFrom === defaultFrom && dateTo === today ? 0 : 1) +
+		insecticideIds.size +
+		methodIds.size +
+		personIds.size +
+		regionIds.size;
 	const clearAll = reset;
 
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.chemical] }}
-						chemicalLayer={chemicalLayer}
-						controls={{ layers: false, measure: true }}
-						fitToData
-						onMapReady={handleMapReady}
-					/>
-					{selected === null ? null : (
-						<ApplicationMapCard id={selected.id} onClose={() => setSelectedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<ExplorerHeader
-					create={{ to: '/control-operations/chemical/create', label: 'Record' }}
-					isLoading={isLoading}
-					noun={RESULT_NOUN}
-					title="Applications"
-					total={total}
-				>
 					<DateRangeFilter {...dateRange} />
 
-					<div className="grid grid-cols-2 gap-2">
+					<FilterGrid>
 						<MultiSelectFilter
 							empty="No insecticides"
 							label="Product"
@@ -248,7 +214,7 @@ function ApplicationsExplorerRoute() {
 							empty="No application methods"
 							label="Method"
 							onChange={setMethodIds}
-							options={methods.map((method) => ({ id: method.id, label: method.name }))}
+							options={methodOptions}
 							selected={methodIds}
 						/>
 						<MultiSelectFilter
@@ -265,9 +231,9 @@ function ApplicationsExplorerRoute() {
 							options={regions.options}
 							selected={regionIds}
 						/>
-					</div>
+					</FilterGrid>
 
-					{hasActiveFilters ? (
+					{activeFilterCount > 0 ? (
 						<ActiveFilterBar onClearAll={clearAll}>
 							{[...insecticideIds].map((id) => (
 								<FilterChip
@@ -299,29 +265,71 @@ function ApplicationsExplorerRoute() {
 							))}
 						</ActiveFilterBar>
 					) : null}
-				</ExplorerHeader>
-
-				<ApplicationResults
-					insecticideNameById={insecticideNameById}
-					isLoading={isLoading}
-					methodNameById={methodNameById}
-					onSelect={setSelectedId}
-					rows={rows}
-					selectedId={selectedId}
-					unitById={unitById}
+				</>
+			}
+			footer={
+				<ExplorerPagination
+					noun={{ one: 'application', many: 'applications' }}
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
 				/>
-
-				<div className="border-border/50 border-t p-3">
-					<ExplorerPagination
-						noun="applications"
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={total}
+			}
+			heading={{
+				title: 'Applications',
+				icon: ApplicationEntityIcon,
+				total,
+				isLoading,
+				noun: RESULT_NOUN,
+				create: { to: '/control-operations/chemical/create', label: 'Record Application' },
+			}}
+			onResetFilters={clearAll}
+			map={
+				<>
+					<MapCanvas
+						inset={panel.inset}
+						searchWidth={panel.width}
+						contextMenu={{ create: [MAP_CREATE_TARGETS.chemical] }}
+						chemicalLayer={chemicalLayer}
+						controls={{ layers: false, measure: true, readout: true }}
+						fitToData
+						onMapReady={handleMapReady}
 					/>
-				</div>
-			</div>
-		</MapSplitPage>
+					{selected === null ? null : (
+						<ApplicationMapCard
+							id={selected.id}
+							inset={panel.inset}
+							onClose={() => setSelectedId(null)}
+						/>
+					)}
+				</>
+			}
+			panel={panel}
+			results={{
+				rows,
+				isError,
+				onRetry: retry,
+				emptyTitle: 'No applications in range',
+				emptyDescription:
+					'Widen the time window or loosen the filters to bring treatments into range.',
+				renderRow: (row) => (
+					<ApplicationListItem
+						amount={formatAmount(row.amountApplied, unitById.get(row.applicationUnitId))}
+						isSelected={row.id === selectedId}
+						key={row.id}
+						methodName={
+							row.applicationMethodId === null
+								? null
+								: (methodNameById.get(row.applicationMethodId) ?? 'Unknown method')
+						}
+						onSelect={setSelectedId}
+						productName={insecticideNameById.get(row.insecticideId) ?? 'Unknown product'}
+						row={row}
+					/>
+				),
+			}}
+		/>
 	);
 }
 
@@ -333,51 +341,6 @@ function normalizeApplication(row: ApplicationSite): ApplicationSite {
 		applicatorName: row.applicatorName ?? null,
 		batchNames: row.batchNames ?? [],
 	};
-}
-
-// --- results ----------------------------------------------------------------
-
-function ApplicationResults({
-	rows,
-	isLoading,
-	selectedId,
-	insecticideNameById,
-	methodNameById,
-	unitById,
-	onSelect,
-}: {
-	readonly rows: readonly ApplicationSite[];
-	readonly isLoading: boolean;
-	readonly selectedId: string | null;
-	readonly insecticideNameById: ReadonlyMap<string, string>;
-	readonly methodNameById: ReadonlyMap<string, string>;
-	readonly unitById: ReadonlyMap<string, UnitRow>;
-	readonly onSelect: (id: string) => void;
-}) {
-	return (
-		<ResultList
-			emptyDescription="Widen the time window or loosen the filters to bring treatments into range."
-			emptyTitle="No applications in range"
-			isLoading={isLoading}
-			rows={rows}
-		>
-			{(row) => (
-				<ApplicationListItem
-					amount={formatAmount(row.amountApplied, unitById.get(row.applicationUnitId))}
-					isSelected={row.id === selectedId}
-					key={row.id}
-					methodName={
-						row.applicationMethodId === null
-							? null
-							: (methodNameById.get(row.applicationMethodId) ?? 'Unknown method')
-					}
-					onSelect={onSelect}
-					productName={insecticideNameById.get(row.insecticideId) ?? 'Unknown product'}
-					row={row}
-				/>
-			)}
-		</ResultList>
-	);
 }
 
 function ApplicationListItem({

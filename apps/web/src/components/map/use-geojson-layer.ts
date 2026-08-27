@@ -28,6 +28,17 @@ const colors = {
 	selected: '#0c5331',
 } as const;
 
+/**
+ * A point draws in its own `color` property when it has one, and in the shared
+ * green when it does not.
+ *
+ * The overlay carries two kinds of load: one record's geometry on a detail map,
+ * where a single colour is the point, and a whole explorer's worth of points,
+ * where the record's state is worth reading at a glance. Opting in per feature
+ * keeps the first kind untouched.
+ */
+const pointColor: ExpressionSpecification = ['coalesce', ['get', 'color'], colors.point];
+
 const polygonOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Polygon'];
 const lineOnly: ExpressionSpecification = ['==', ['geometry-type'], 'LineString'];
 const pointOnly: ExpressionSpecification = ['==', ['geometry-type'], 'Point'];
@@ -97,7 +108,7 @@ function geoJsonLayers(
 			source: GEOJSON_SOURCE_ID,
 			filter: pointOnly,
 			paint: {
-				'circle-color': colors.point,
+				'circle-color': pointColor,
 				'circle-radius': 7,
 				'circle-stroke-color': colors.pointStroke,
 				'circle-stroke-width': 2,

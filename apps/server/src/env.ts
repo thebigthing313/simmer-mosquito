@@ -17,7 +17,15 @@ export interface ServerEnv {
 	readonly port: number;
 	readonly resendApiKey: string | null;
 	readonly authEmailFrom: string;
-	readonly simmerOperatorEmails: readonly string[];
+	/**
+	 * The one WorkOS organization that is SIMMER itself.
+	 *
+	 * There is exactly one, in any environment, which is what makes an equality
+	 * check the whole of the operator test. `null` when unset, and every operator
+	 * route then refuses — an unconfigured server has no operators rather than
+	 * everyone.
+	 */
+	readonly simmerOperatorOrganizationId: string | null;
 	readonly workosApiKey: string;
 	readonly workosClientId: string;
 	readonly workosCookiePassword: string;
@@ -54,7 +62,8 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
 		resendApiKey: readOptionalString(source, 'RESEND_API_KEY') ?? null,
 		authEmailFrom:
 			readOptionalString(source, 'AUTH_EMAIL_FROM') ?? 'SIMMER <no-reply@simmer-data.com>',
-		simmerOperatorEmails: parseEmailAllowlist(readOptionalString(source, 'SIMMER_OPERATOR_EMAILS')),
+		simmerOperatorOrganizationId:
+			readOptionalString(source, 'SIMMER_OPERATOR_ORG_ID')?.trim() || null,
 		workosApiKey: readRequiredString(source, 'WORKOS_API_KEY'),
 		workosClientId: readRequiredString(source, 'WORKOS_CLIENT_ID'),
 		workosCookiePassword: readRequiredString(source, 'WORKOS_COOKIE_PASSWORD'),
@@ -142,17 +151,6 @@ function readOptionalUrl(source: NodeJS.ProcessEnv, key: string): string | null 
 	} catch {
 		throw new Error(`${key} must be a valid URL. Received: ${value}`);
 	}
-}
-
-function parseEmailAllowlist(value: string | undefined): readonly string[] {
-	if (value === undefined) {
-		return [];
-	}
-
-	return value
-		.split(',')
-		.map((email) => email.trim().toLowerCase())
-		.filter((email) => email.length > 0);
 }
 
 function readRequiredOrigin(source: NodeJS.ProcessEnv, key: string): string {

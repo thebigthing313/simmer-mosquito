@@ -1,4 +1,3 @@
-import type { ContactRow } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Empty,
@@ -15,14 +14,15 @@ import {
 	PlusIcon,
 	SearchIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useEffect, useMemo, useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import { WriteOnly } from '../../../components/write-only';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { webCollections } from '../../../sync/webCollections';
+import {
+	type ContactListing,
+	useContactDirectory,
+} from '../../../hooks/queries/use-contact-directory';
 import { contactDisplayName, contactSecondaryLine } from '../-public-engagement-display';
 
 export const Route = createFileRoute('/public-engagement/contacts/')({
@@ -30,28 +30,10 @@ export const Route = createFileRoute('/public-engagement/contacts/')({
 });
 
 const ContactIcon = iconRegistry.entities.organization.icon;
-const contactsGcTimeMs = 30_000;
 const PAGE_SIZE = 25;
 
 function ContactsExplorerRoute() {
-	const { auth } = Route.useRouteContext();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const organizationId = organization?.id ?? '';
-
-	// contacts is on-demand; the org-scoped query drives its subset. Status-gated
-	// useLiveQuery (not the suspense variant) avoids the post-unmount hang.
-	const result = useLiveQuery(
-		{
-			gcTime: contactsGcTimeMs,
-			query: (query) =>
-				query
-					.from({ contact: webCollections.contacts })
-					.where(({ contact }) => eq(contact.organizationId, organizationId))
-					.orderBy(({ contact }) => contact.contactName, 'asc'),
-		},
-		[organizationId],
-	);
-	const contacts = (result.data ?? []) as readonly ContactRow[];
+	const { contacts, isReady } = useContactDirectory();
 
 	const [search, setSearch] = useState('');
 	const [page, setPage] = useState(0);
@@ -122,7 +104,7 @@ function ContactsExplorerRoute() {
 					/>
 				</div>
 
-				{!result.isReady ? (
+				{!isReady ? (
 					<ContactsSkeleton />
 				) : filtered.length === 0 ? (
 					<ContactsEmpty hasSearch={search.trim().length > 0} />
@@ -135,7 +117,7 @@ function ContactsExplorerRoute() {
 						</ul>
 						{pageCount > 1 ? (
 							<ExplorerPagination
-								noun="contacts"
+								noun={{ one: 'contact', many: 'contacts' }}
 								onPageChange={setPage}
 								page={page}
 								pageCount={pageCount}
@@ -149,7 +131,7 @@ function ContactsExplorerRoute() {
 	);
 }
 
-function ContactRowItem({ contact }: { readonly contact: ContactRow }) {
+function ContactRowItem({ contact }: { readonly contact: ContactListing }) {
 	const secondary = contactSecondaryLine(contact);
 	return (
 		<li className="group">

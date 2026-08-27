@@ -27,13 +27,11 @@ import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-pag
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { ReasonDialog } from '../../../components/reason-dialog';
 import { WriteOnly } from '../../../components/write-only';
-import { webCollections } from '../../../sync/webCollections';
-import {
-	controlTypeLabel,
-	formatRequestedAt,
-	formatScheduledStart,
-	type MissionView,
-} from '../-operations-data';
+import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
+import { controlTypeLabel, formatScheduledStart } from '../../../hooks/queries/operations-view';
+import type { MissionRecord } from '../../../hooks/queries/use-mission';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { formatOperationalDate } from '../-operations-data';
 import { MissionStatusBadge, StopProgressSummary, stopSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
 import { WorklistTabs } from '../-worklist-tabs';
@@ -97,6 +95,8 @@ function MissionPanel({
 	readonly missionId: string;
 	readonly run: MissionRun;
 }) {
+	const missionWrites = useMissionMutations();
+
 	return (
 		<div className="flex h-full min-h-0 flex-col">
 			<div className={stickyHeader({ gap: 'default', padding: 'default' })}>
@@ -131,8 +131,10 @@ function MissionPanel({
 				target={{ type: 'mission', id: missionId }}
 			>
 				<MissionStopList
+					controlType={run.mission?.controlType ?? null}
 					highlightId={run.highlightId}
 					isLoading={run.isLoadingStops}
+					missionId={missionId}
 					onAction={run.itemAction}
 					onHover={run.setHighlightId}
 					onMove={run.move}
@@ -140,6 +142,7 @@ function MissionPanel({
 					onSelect={run.setSelectedStopId}
 					planEditable={run.planEditable && !run.busy}
 					progressEnabled={run.progressEnabled}
+					recordEnabled={run.recordEnabled}
 					selectedStopId={run.selectedStopId}
 					stops={run.stops}
 				/>
@@ -150,7 +153,7 @@ function MissionPanel({
 					<DangerZoneCard
 						name={run.displayName ?? 'this mission'}
 						noun="mission"
-						onDelete={() => webCollections.missions.delete(missionId)}
+						onDelete={() => missionWrites.remove(missionId)}
 						recordId={missionId}
 						recordType="mission"
 						returnTo="/operations/missions"
@@ -181,7 +184,6 @@ function AddStopControls({
 				disabled={run.busy}
 				existingRequestIds={run.existingRequestIds}
 				onAdd={run.addStop}
-				organizationId={run.organizationId ?? ''}
 			/>
 			{/* The picker covers the queue; this covers everywhere else. */}
 			<Button asChild size="sm" variant="ghost">
@@ -266,9 +268,10 @@ function MissionHeader({
 	mission,
 	run,
 }: {
-	readonly mission: MissionView;
+	readonly mission: MissionRecord;
 	readonly run: MissionRun;
 }) {
+	const timeZone = useOrganizationTimeZone();
 	return (
 		<>
 			<div className="flex items-start justify-between gap-3">
@@ -280,11 +283,13 @@ function MissionHeader({
 					<p className="m-0 mt-0.5 text-muted-foreground text-sm">
 						{controlTypeLabel(mission.controlType)}
 						{run.methodName === null ? '' : ` · ${run.methodName}`}
-						{` · ${formatScheduledStart(mission.scheduledStartAt)}`}
+						{` · ${formatScheduledStart(mission.scheduledStartAt, timeZone)}`}
 					</p>
 					<p className="m-0 mt-0.5 text-muted-foreground text-sm">
 						{run.assigneeName ?? 'Unassigned'} · {stopSummary(run.counts)}
-						{mission.rainDate === null ? '' : ` · rain date ${formatRequestedAt(mission.rainDate)}`}
+						{mission.rainDate === null
+							? ''
+							: ` · rain date ${formatOperationalDate(mission.rainDate)}`}
 					</p>
 				</div>
 				<div className="flex shrink-0 items-center gap-2">
@@ -325,7 +330,7 @@ function MissionLifecycleControls({
 	mission,
 	run,
 }: {
-	readonly mission: MissionView;
+	readonly mission: MissionRecord;
 	readonly run: MissionRun;
 }) {
 	if (mission.status === 'completed' || mission.status === 'cancelled') {

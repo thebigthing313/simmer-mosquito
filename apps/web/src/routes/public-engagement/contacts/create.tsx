@@ -1,16 +1,14 @@
-import type { ContactRow } from '@simmer-mosquito/sync';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback } from 'react';
-import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { useCallback, useState } from 'react';
+import { newRecordId } from '../../../hooks/mutations/shared';
+import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
+import { useContact } from '../../../hooks/queries/use-contact-record';
 import { isBelowRole } from '../../../lib/write-access';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	type ContactFormValues,
 	contactFieldsFromValues,
 	defaultContactFormValues,
 } from '../-contact-fields';
-import { settleWrite } from '../-public-engagement-writes';
 import { ContactFormPage } from './-contact-form';
 
 export const Route = createFileRoute('/public-engagement/contacts/create')({
@@ -22,70 +20,27 @@ export const Route = createFileRoute('/public-engagement/contacts/create')({
 	component: CreateContactRoute,
 });
 
-const warmGcTimeMs = 30_000;
-
 function CreateContactRoute() {
-	const { auth } = Route.useRouteContext();
 	const navigate = useNavigate();
-	const { organization } = useOrganizationWorkspace(auth.snapshot);
-	const organizationId = organization?.id ?? '';
+	const mutations = useContactMutations();
 
-	const actorProfileId =
-		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
-	const canSubmit = organization !== null && actorProfileId !== null;
-
-	// contacts syncs on demand; keep the org's stream warm so the insert's txid
-	// confirmation resolves instead of timing out against a cold shape.
-	//
-	// The row itself is never read, so there is no order worth imposing — but a
-	// limit without one is a compile error in TanStack DB, and an unordered
-	// `limit` is what crashed this page to "Unable to load workspace data". `id`
-	// is the ordering that costs nothing: it is the primary key, so it is already
-	// indexed, and an ordered limit on an unindexed column would load the whole
-	// collection to serve one row.
-	useLiveQuery(
-		{
-			gcTime: warmGcTimeMs,
-			query: (query) =>
-				query
-					.from({ contact: webCollections.contacts })
-					.where(({ contact }) => eq(contact.organizationId, organizationId))
-					.orderBy(({ contact }) => contact.id)
-					.limit(1),
-		},
-		[organizationId],
-	);
+	// Minted up front, and queried before it exists: `contacts` is on-demand, and
+	// a write into a collection nothing is querying waits out a txid confirmation
+	// that never arrives — which reads as a frozen save rather than a slow one.
+	const [contactId] = useState(() => newRecordId());
+	useContact(contactId);
 
 	const onSave = useCallback(
 		async (values: ContactFormValues) => {
-			if (organization === null) {
-				throw new Error('Organization details are still loading.');
-			}
-			if (actorProfileId === null) {
-				throw new Error('Your profile is still loading.');
-			}
-
-			const now = new Date().toISOString();
-			const row: ContactRow = {
-				id: crypto.randomUUID(),
-				organizationId: organization.id,
-				...contactFieldsFromValues(values),
-				metadata: null,
-				createdByProfileId: actorProfileId,
-				updatedByProfileId: actorProfileId,
-				createdAt: now,
-				updatedAt: now,
-			};
-
-			await settleWrite(webCollections.contacts.insert(row));
-			await navigate({ to: '/public-engagement/contacts/$id', params: { id: row.id } });
+			await mutations.create(contactId, contactFieldsFromValues(values));
+			await navigate({ to: '/public-engagement/contacts/$id', params: { id: contactId } });
 		},
-		[organization, actorProfileId, navigate],
+		[contactId, mutations, navigate],
 	);
 
 	return (
 		<ContactFormPage
-			canSubmit={canSubmit}
+			canSubmit={mutations.canWrite}
 			defaultValues={defaultContactFormValues()}
 			header={{
 				title: 'Create Contact',

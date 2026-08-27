@@ -8,6 +8,7 @@ import type { AuthVariables } from '../../auth-middleware.js';
 import {
 	type AgencyCommandType,
 	authorizeCommands,
+	type CommandPermission,
 	decideCommand,
 	denyUnauthorizedCommandType,
 	readCommandPermission,
@@ -16,16 +17,93 @@ import { registerFieldWorkCommandRoutes } from '../../field-work-commands/index.
 import { registerFoundationGeographyCommandRoutes } from '../../foundation-geography-commands/index.js';
 import { registerLarvalSurveillanceCommandRoutes } from '../../larval-surveillance-commands/index.js';
 import { registerPublicEngagementRecordRoutes } from '../../public-engagement-records-commands/index.js';
-import { denyIdentityWrite, type ForbiddenBody, type IdentityWriteSurface } from '../../roles.js';
+import type { ForbiddenBody } from '../../roles.js';
+
+/**
+ * The agency half of a scope, which is what almost every case here is about.
+ *
+ * `decideCommand` takes a role *and* whether the session is SIMMER's own,
+ * because `admin` cannot separate an operator from an agency administrator —
+ * they hold the same membership role. These two wrappers keep the role-ladder
+ * cases reading as role-ladder cases; the operator arm is exercised directly.
+ */
+function decideAsRole(role: SimmerRole, permission: CommandPermission) {
+	return decideCommand({ role, isOperator: false }, permission);
+}
+
+function authorizeAsRole(
+	role: SimmerRole,
+	commands: readonly { readonly type: AgencyCommandType }[],
+) {
+	return authorizeCommands({ role, isOperator: false }, commands);
+}
+
+describe('the operator floor', () => {
+	const TAXONOMY = [
+		'foundation.createGenus',
+		'foundation.updateGenus',
+		'foundation.deleteGenus',
+		'foundation.createSpecies',
+		'foundation.updateSpecies',
+		'foundation.deleteSpecies',
+	] as const;
+
+	it('refuses every agency role, including the highest', () => {
+		// `genera` and `species` have no `organization_id` — one agency's owner
+		// editing them changes what every other agency reads. The role ladder has
+		// no height that should reach this, which is the whole reason the rule is
+		// not a role.
+		for (const type of TAXONOMY) {
+			for (const role of ['owner', 'admin', 'manager', 'collector', 'viewer'] as const) {
+				expect({ type, role, decision: decideAsRole(role, readCommandPermission(type)) }).toEqual({
+					type,
+					role,
+					decision: 'deny',
+				});
+			}
+		}
+	});
+
+	it('allows an operator whatever their agency role is', () => {
+		// Operators hold an ordinary membership so their work is attributable
+		// (ADR 0011), and it is beside the point here.
+		for (const role of ['admin', 'viewer'] as const) {
+			expect(
+				decideCommand(
+					{ role, isOperator: true },
+					readCommandPermission('foundation.createSpecies'),
+				),
+			).toBe('allow');
+		}
+	});
+
+	it('does not tell a refused agency admin that their role is too low', () => {
+		// It is not, and there is no higher one to go looking for.
+		const denial = authorizeAsRole('owner', [{ type: 'foundation.createSpecies' }]);
+
+		expect(denial?.reason).toContain('operator');
+		expect(denial?.reason).not.toContain('role');
+	});
+
+	it('leaves the agency foundation commands on the role ladder', () => {
+		// The six taxonomy commands moved; the other thirty did not.
+		expect(decideAsRole('admin', readCommandPermission('foundation.createCollectionMethod'))).toBe(
+			'allow',
+		);
+		expect(decideAsRole('collector', readCommandPermission('foundation.createAddress'))).toBe(
+			'allow',
+		);
+	});
+});
 
 describe('decideCommand', () => {
 	it('lets manager-and-above through every command', () => {
 		for (const role of ['owner', 'admin', 'manager'] as const) {
-			expect(decideCommand(role, readCommandPermission('fieldWork.moveRouteItems'))).toBe('allow');
-			expect(decideCommand(role, readCommandPermission('missionDispatch.deleteMission'))).toBe(
+			expect(decideAsRole(role, readCommandPermission('fieldWork.moveRouteItems'))).toBe('allow');
+			expect(decideAsRole(role, readCommandPermission('missionDispatch.deleteMission'))).toBe(
 				'allow',
 			);
-			expect(decideCommand(role, readCommandPermission('fieldWork.completeAssignmentItem'))).toBe(
+			expect(decideAsRole(role, readCommandPermission('fieldWork.completeAssignmentItem'))).toBe(
 				'allow',
 			);
 		}
@@ -39,31 +117,31 @@ describe('decideCommand', () => {
 			'fieldWork.completeAssignmentItem',
 			'missionDispatch.startMission',
 		] as const) {
-			expect(decideCommand('viewer', readCommandPermission(type))).toBe('deny');
+			expect(decideAsRole('viewer', readCommandPermission(type))).toBe('deny');
 		}
 	});
 
 	it('gives collectors field entry but not planning', () => {
-		expect(decideCommand('collector', readCommandPermission('fieldWork.addComment'))).toBe('allow');
-		expect(decideCommand('collector', readCommandPermission('fieldWork.assignTag'))).toBe('allow');
+		expect(decideAsRole('collector', readCommandPermission('fieldWork.addComment'))).toBe('allow');
+		expect(decideAsRole('collector', readCommandPermission('fieldWork.assignTag'))).toBe('allow');
 		expect(
-			decideCommand('collector', readCommandPermission('fieldWork.addAdditionalPersonnel')),
+			decideAsRole('collector', readCommandPermission('fieldWork.addAdditionalPersonnel')),
 		).toBe('allow');
-		expect(decideCommand('collector', readCommandPermission('fieldWork.selfAssignRoute'))).toBe(
+		expect(decideAsRole('collector', readCommandPermission('fieldWork.selfAssignRoute'))).toBe(
 			'allow',
 		);
 
-		expect(decideCommand('collector', readCommandPermission('fieldWork.moveRouteItems'))).toBe(
+		expect(decideAsRole('collector', readCommandPermission('fieldWork.moveRouteItems'))).toBe(
 			'deny',
 		);
-		expect(decideCommand('collector', readCommandPermission('fieldWork.createAssignment'))).toBe(
+		expect(decideAsRole('collector', readCommandPermission('fieldWork.createAssignment'))).toBe(
 			'deny',
 		);
-		expect(decideCommand('collector', readCommandPermission('fieldWork.reopenAssignment'))).toBe(
+		expect(decideAsRole('collector', readCommandPermission('fieldWork.reopenAssignment'))).toBe(
 			'deny',
 		);
-		expect(decideCommand('collector', readCommandPermission('fieldWork.createTag'))).toBe('deny');
-		expect(decideCommand('collector', readCommandPermission('missionDispatch.createMission'))).toBe(
+		expect(decideAsRole('collector', readCommandPermission('fieldWork.createTag'))).toBe('deny');
+		expect(decideAsRole('collector', readCommandPermission('missionDispatch.createMission'))).toBe(
 			'deny',
 		);
 	});
@@ -77,14 +155,14 @@ describe('decideCommand', () => {
 			'missionDispatch.startMission',
 			'missionDispatch.recordChemicalApplicationForMissionItem',
 		] as const) {
-			expect(decideCommand('collector', readCommandPermission(type))).toBe('ownership');
+			expect(decideAsRole('collector', readCommandPermission(type))).toBe('ownership');
 		}
 
 		// Editing a comment is the author-window version of the same deferral.
-		expect(decideCommand('collector', readCommandPermission('fieldWork.updateComment'))).toBe(
+		expect(decideAsRole('collector', readCommandPermission('fieldWork.updateComment'))).toBe(
 			'ownership',
 		);
-		expect(decideCommand('collector', readCommandPermission('fieldWork.pinComment'))).toBe('deny');
+		expect(decideAsRole('collector', readCommandPermission('fieldWork.pinComment'))).toBe('deny');
 	});
 });
 
@@ -102,7 +180,7 @@ describe('decideCommand across the other agency domains', () => {
 			'publicEngagement.createServiceRequest',
 			'publicEngagement.createNotificationType',
 		] as const) {
-			expect(decideCommand('viewer', readCommandPermission(type))).toBe('deny');
+			expect(decideAsRole('viewer', readCommandPermission(type))).toBe('deny');
 		}
 	});
 
@@ -121,9 +199,9 @@ describe('decideCommand across the other agency domains', () => {
 			'controlOperations.deactivateApplicationMethod',
 			'publicEngagement.createNotificationType',
 		] as const) {
-			expect(decideCommand('manager', readCommandPermission(type))).toBe('deny');
-			expect(decideCommand('admin', readCommandPermission(type))).toBe('allow');
-			expect(decideCommand('owner', readCommandPermission(type))).toBe('allow');
+			expect(decideAsRole('manager', readCommandPermission(type))).toBe('deny');
+			expect(decideAsRole('admin', readCommandPermission(type))).toBe('allow');
+			expect(decideAsRole('owner', readCommandPermission(type))).toBe('allow');
 		}
 	});
 
@@ -139,8 +217,8 @@ describe('decideCommand across the other agency domains', () => {
 			'foundation.createRegion',
 			'foundation.deleteRegionFolder',
 		] as const) {
-			expect(decideCommand('manager', readCommandPermission(type))).toBe('allow');
-			expect(decideCommand('collector', readCommandPermission(type))).toBe('deny');
+			expect(decideAsRole('manager', readCommandPermission(type))).toBe('allow');
+			expect(decideAsRole('collector', readCommandPermission(type))).toBe('deny');
 		}
 	});
 
@@ -160,7 +238,7 @@ describe('decideCommand across the other agency domains', () => {
 			'adultSurveillance.addCollectionSpeciesCount',
 			'foundation.createAddress',
 		] as const) {
-			expect(decideCommand('collector', readCommandPermission(type))).toBe('allow');
+			expect(decideAsRole('collector', readCommandPermission(type))).toBe('allow');
 		}
 
 		// The rest of the habitat and trap catalog stays supervisory.
@@ -174,7 +252,7 @@ describe('decideCommand across the other agency domains', () => {
 			'foundation.updateAddressDetails',
 			'foundation.deleteAddress',
 		] as const) {
-			expect(decideCommand('collector', readCommandPermission(type))).toBe('deny');
+			expect(decideAsRole('collector', readCommandPermission(type))).toBe('deny');
 		}
 	});
 
@@ -187,7 +265,7 @@ describe('decideCommand across the other agency domains', () => {
 			'publicEngagement.createNotificationRegistration',
 			'publicEngagement.generateMissionNotifications',
 		] as const) {
-			expect(decideCommand('collector', readCommandPermission(type))).toBe('deny');
+			expect(decideAsRole('collector', readCommandPermission(type))).toBe('deny');
 		}
 	});
 
@@ -202,21 +280,21 @@ describe('decideCommand across the other agency domains', () => {
 			'controlOperations.updateBiocontrolActionFieldDetails',
 			'controlOperations.updateRequestedControlActionDetails',
 		] as const) {
-			expect(decideCommand('collector', readCommandPermission(type))).toBe('ownership');
-			expect(decideCommand('manager', readCommandPermission(type))).toBe('allow');
-			expect(decideCommand('viewer', readCommandPermission(type))).toBe('deny');
+			expect(decideAsRole('collector', readCommandPermission(type))).toBe('ownership');
+			expect(decideAsRole('manager', readCommandPermission(type))).toBe('allow');
+			expect(decideAsRole('viewer', readCommandPermission(type))).toBe('deny');
 		}
 
 		// Recording is unconditional.
 		expect(
-			decideCommand(
+			decideAsRole(
 				'collector',
 				readCommandPermission('controlOperations.recordChemicalApplication'),
 			),
 		).toBe('allow');
 		// Resolution is supervisory outright — no row can make it a collector's.
 		expect(
-			decideCommand(
+			decideAsRole(
 				'collector',
 				readCommandPermission('controlOperations.resolveRequestedControlAction'),
 			),
@@ -234,9 +312,9 @@ describe('decideCommand across the other agency domains', () => {
 			'controlOperations.deleteBiocontrolAction',
 			'controlOperations.deleteRequestedControlAction',
 		] as const) {
-			expect(decideCommand('collector', readCommandPermission(type))).toBe('ownership');
-			expect(decideCommand('manager', readCommandPermission(type))).toBe('allow');
-			expect(decideCommand('viewer', readCommandPermission(type))).toBe('deny');
+			expect(decideAsRole('collector', readCommandPermission(type))).toBe('ownership');
+			expect(decideAsRole('manager', readCommandPermission(type))).toBe('allow');
+			expect(decideAsRole('viewer', readCommandPermission(type))).toBe('deny');
 		}
 	});
 });
@@ -248,12 +326,12 @@ describe('authorizeCommands', () => {
 			{ type: 'fieldWork.createTag' } as const,
 		];
 
-		expect(authorizeCommands('manager', batch)).toBeNull();
-		expect(authorizeCommands('collector', batch)).toMatchObject({ error: 'forbidden' });
+		expect(authorizeAsRole('manager', batch)).toBeNull();
+		expect(authorizeAsRole('collector', batch)).toMatchObject({ error: 'forbidden' });
 	});
 
 	it('explains a viewer refusal as read-only access', () => {
-		expect(authorizeCommands('viewer', [{ type: 'fieldWork.addComment' }])).toMatchObject({
+		expect(authorizeAsRole('viewer', [{ type: 'fieldWork.addComment' }])).toMatchObject({
 			error: 'forbidden',
 			reason: 'Viewers have read-only access.',
 		});
@@ -278,18 +356,34 @@ describe('denyUnauthorizedCommandType', () => {
 	});
 });
 
-describe('denyIdentityWrite', () => {
-	it('holds the people floor at admin and the role floor at owner', () => {
-		expect(identityDenyFor('admin', 'people.invite')).toBeNull();
-		expect(identityDenyFor('manager', 'people.invite')).not.toBeNull();
-
-		expect(identityDenyFor('owner', 'people.changeRole')).toBeNull();
-		expect(identityDenyFor('admin', 'people.changeRole')).not.toBeNull();
+/**
+ * The floors the identity commands carry, and where they came from.
+ *
+ * `IDENTITY_FLOORS` in `roles.ts` held these as a parallel table until ADR 0013
+ * was finished. Not one of them changed value on the way over; what changed is
+ * that the map they landed in is exhaustive, so an identity command with no floor
+ * no longer compiles.
+ */
+describe('the identity floors', () => {
+	it('holds the three pure-Postgres writes at the floors they had as routes', () => {
+		expect(denyFor('admin', 'identity.updateOrganizationDetails')).toBeNull();
+		expect(denyFor('manager', 'identity.updateOrganizationDetails')).not.toBeNull();
+		expect(denyFor('admin', 'identity.createProfile')).toBeNull();
+		expect(denyFor('manager', 'identity.createProfile')).not.toBeNull();
+		expect(denyFor('admin', 'identity.updateProfile')).toBeNull();
+		expect(denyFor('manager', 'identity.updateProfile')).not.toBeNull();
 	});
 
-	it('refuses a manager the agency details surface', () => {
-		expect(identityDenyFor('admin', 'organization.updateDetails')).toBeNull();
-		expect(identityDenyFor('manager', 'organization.updateDetails')).not.toBeNull();
+	it('holds the people floor at admin and the role floor at owner', () => {
+		expect(denyFor('admin', 'identity.invite')).toBeNull();
+		expect(denyFor('manager', 'identity.invite')).not.toBeNull();
+		expect(denyFor('admin', 'identity.reinvite')).toBeNull();
+		expect(denyFor('manager', 'identity.reinvite')).not.toBeNull();
+		expect(denyFor('admin', 'identity.endMembership')).toBeNull();
+		expect(denyFor('manager', 'identity.endMembership')).not.toBeNull();
+
+		expect(denyFor('owner', 'identity.changeRole')).toBeNull();
+		expect(denyFor('admin', 'identity.changeRole')).not.toBeNull();
 	});
 });
 
@@ -297,11 +391,7 @@ function denyFor(role: SimmerRole, type: AgencyCommandType): Response | null {
 	return denyUnauthorizedCommandType(refusalContext(role), type);
 }
 
-function identityDenyFor(role: SimmerRole, surface: IdentityWriteSurface): Response | null {
-	return denyIdentityWrite(refusalContext(role), surface);
-}
-
-/** The two guards take only what they need: the role, and a way to say no. */
+/** The guard takes only what it needs: the role, and a way to say no. */
 function refusalContext(role: SimmerRole) {
 	return {
 		get: (_key: 'authContext') => ({ role }),

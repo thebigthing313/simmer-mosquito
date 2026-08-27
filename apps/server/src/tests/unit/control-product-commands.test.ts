@@ -32,7 +32,15 @@ describe('insecticide batch writes against an insecticide the agency does not ow
 		});
 
 		expect(response.status).toBe(404);
-		await expect(response.json()).resolves.toMatchObject({ error: 'insecticide_not_found' });
+		// `reference_refused` since #123: the bespoke check this batch writer
+		// carried became the shared reference gate, which every writer that names
+		// a catalog or another record now runs. The status and the reasoning are
+		// unchanged.
+		await expect(response.json()).resolves.toMatchObject({
+			error: 'reference_refused',
+			reason: 'missing',
+			reference: 'insecticide',
+		});
 	});
 
 	// The cases answer alike on purpose. A refusal that distinguished "another

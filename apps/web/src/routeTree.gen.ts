@@ -12,12 +12,14 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as TodayRouteImport } from './routes/today'
 import { Route as SignUpRouteImport } from './routes/sign-up'
 import { Route as SignInRouteImport } from './routes/sign-in'
+import { Route as SearchRouteImport } from './routes/search'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as MyOrganizationRouteImport } from './routes/my-organization'
 import { Route as LandingRouteImport } from './routes/landing'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as ChangelogRouteImport } from './routes/changelog'
+import { Route as ActivityMonitorRouteImport } from './routes/activity-monitor'
 import { Route as AcceptInvitationRouteImport } from './routes/accept-invitation'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as PublicEngagementIndexRouteImport } from './routes/public-engagement/index'
@@ -35,6 +37,7 @@ import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-or
 import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
 import { Route as GisDataExplorerRouteImport } from './routes/gis/data-explorer'
 import { Route as ControlOperationsResistanceMonitoringRouteImport } from './routes/control-operations/resistance-monitoring'
+import { Route as AdultSurveillanceTrapDirectoryRouteImport } from './routes/adult-surveillance/trap-directory'
 import { Route as AdultSurveillanceCollectionMethodsRouteImport } from './routes/adult-surveillance/collection-methods'
 import { Route as AdultSurveillanceArbovirusSurveillanceRouteImport } from './routes/adult-surveillance/arbovirus-surveillance'
 import { Route as AdminOrganizationsRouteImport } from './routes/admin.organizations'
@@ -79,6 +82,7 @@ import { Route as LarvalSurveillanceHabitatsStatsRouteImport } from './routes/la
 import { Route as LarvalSurveillanceHabitatsCreateRouteImport } from './routes/larval-surveillance/habitats/create'
 import { Route as LarvalSurveillanceHabitatsIdRouteImport } from './routes/larval-surveillance/habitats/$id'
 import { Route as GisWeatherStatsRouteImport } from './routes/gis/weather/stats'
+import { Route as GisWeatherCreateRouteImport } from './routes/gis/weather/create'
 import { Route as GisWeatherIdRouteImport } from './routes/gis/weather/$id'
 import { Route as GisRegionsImportRouteImport } from './routes/gis/regions/import'
 import { Route as GisRegionsCreateRouteImport } from './routes/gis/regions/create'
@@ -119,6 +123,8 @@ import { Route as OperationsAssignmentsIdEditRouteImport } from './routes/operat
 import { Route as LarvalSurveillanceInspectionsIdEditRouteImport } from './routes/larval-surveillance/inspections/$id_.edit'
 import { Route as LarvalSurveillanceHabitatsRoutesIdRouteImport } from './routes/larval-surveillance/habitats/routes/$id'
 import { Route as LarvalSurveillanceHabitatsIdEditRouteImport } from './routes/larval-surveillance/habitats/$id_.edit'
+import { Route as GisWeatherIdImportRouteImport } from './routes/gis/weather/$id_.import'
+import { Route as GisWeatherIdEditRouteImport } from './routes/gis/weather/$id_.edit'
 import { Route as GisRegionsIdEditRouteImport } from './routes/gis/regions/$id_.edit'
 import { Route as GisAddressesIdEditRouteImport } from './routes/gis/addresses/$id_.edit'
 import { Route as ControlOperationsSourceReductionIdEditRouteImport } from './routes/control-operations/source-reduction/$id_.edit'
@@ -143,6 +149,11 @@ const SignUpRoute = SignUpRouteImport.update({
 const SignInRoute = SignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SearchRoute = SearchRouteImport.update({
+  id: '/search',
+  path: '/search',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ResetPasswordRoute = ResetPasswordRouteImport.update({
@@ -173,6 +184,11 @@ const ForgotPasswordRoute = ForgotPasswordRouteImport.update({
 const ChangelogRoute = ChangelogRouteImport.update({
   id: '/changelog',
   path: '/changelog',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ActivityMonitorRoute = ActivityMonitorRouteImport.update({
+  id: '/activity-monitor',
+  path: '/activity-monitor',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AcceptInvitationRoute = AcceptInvitationRouteImport.update({
@@ -265,6 +281,12 @@ const ControlOperationsResistanceMonitoringRoute =
   ControlOperationsResistanceMonitoringRouteImport.update({
     id: '/control-operations/resistance-monitoring',
     path: '/control-operations/resistance-monitoring',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const AdultSurveillanceTrapDirectoryRoute =
+  AdultSurveillanceTrapDirectoryRouteImport.update({
+    id: '/adult-surveillance/trap-directory',
+    path: '/adult-surveillance/trap-directory',
     getParentRoute: () => rootRouteImport,
   } as any)
 const AdultSurveillanceCollectionMethodsRoute =
@@ -523,6 +545,11 @@ const GisWeatherStatsRoute = GisWeatherStatsRouteImport.update({
   path: '/gis/weather/stats',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GisWeatherCreateRoute = GisWeatherCreateRouteImport.update({
+  id: '/gis/weather/create',
+  path: '/gis/weather/create',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GisWeatherIdRoute = GisWeatherIdRouteImport.update({
   id: '/gis/weather/$id',
   path: '/gis/weather/$id',
@@ -756,6 +783,16 @@ const LarvalSurveillanceHabitatsIdEditRoute =
     path: '/larval-surveillance/habitats/$id/edit',
     getParentRoute: () => rootRouteImport,
   } as any)
+const GisWeatherIdImportRoute = GisWeatherIdImportRouteImport.update({
+  id: '/gis/weather/$id_/import',
+  path: '/gis/weather/$id/import',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GisWeatherIdEditRoute = GisWeatherIdEditRouteImport.update({
+  id: '/gis/weather/$id_/edit',
+  path: '/gis/weather/$id/edit',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GisRegionsIdEditRoute = GisRegionsIdEditRouteImport.update({
   id: '/gis/regions/$id_/edit',
   path: '/gis/regions/$id/edit',
@@ -818,18 +855,21 @@ const AdultSurveillanceTrapsRoutesIdEditRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
+  '/activity-monitor': typeof ActivityMonitorRoute
   '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
   '/my-organization': typeof MyOrganizationRouteWithChildren
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
+  '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
@@ -873,6 +913,7 @@ export interface FileRoutesByFullPath {
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
   '/gis/weather/$id': typeof GisWeatherIdRoute
+  '/gis/weather/create': typeof GisWeatherCreateRoute
   '/gis/weather/stats': typeof GisWeatherStatsRoute
   '/larval-surveillance/habitats/$id': typeof LarvalSurveillanceHabitatsIdRoute
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
@@ -922,6 +963,8 @@ export interface FileRoutesByFullPath {
   '/control-operations/source-reduction/$id/edit': typeof ControlOperationsSourceReductionIdEditRoute
   '/gis/addresses/$id/edit': typeof GisAddressesIdEditRoute
   '/gis/regions/$id/edit': typeof GisRegionsIdEditRoute
+  '/gis/weather/$id/edit': typeof GisWeatherIdEditRoute
+  '/gis/weather/$id/import': typeof GisWeatherIdImportRoute
   '/larval-surveillance/habitats/$id/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
   '/larval-surveillance/inspections/$id/edit': typeof LarvalSurveillanceInspectionsIdEditRoute
@@ -940,17 +983,20 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
+  '/activity-monitor': typeof ActivityMonitorRoute
   '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
+  '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
@@ -994,6 +1040,7 @@ export interface FileRoutesByTo {
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
   '/gis/weather/$id': typeof GisWeatherIdRoute
+  '/gis/weather/create': typeof GisWeatherCreateRoute
   '/gis/weather/stats': typeof GisWeatherStatsRoute
   '/larval-surveillance/habitats/$id': typeof LarvalSurveillanceHabitatsIdRoute
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
@@ -1043,6 +1090,8 @@ export interface FileRoutesByTo {
   '/control-operations/source-reduction/$id/edit': typeof ControlOperationsSourceReductionIdEditRoute
   '/gis/addresses/$id/edit': typeof GisAddressesIdEditRoute
   '/gis/regions/$id/edit': typeof GisRegionsIdEditRoute
+  '/gis/weather/$id/edit': typeof GisWeatherIdEditRoute
+  '/gis/weather/$id/import': typeof GisWeatherIdImportRoute
   '/larval-surveillance/habitats/$id/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
   '/larval-surveillance/inspections/$id/edit': typeof LarvalSurveillanceInspectionsIdEditRoute
@@ -1062,18 +1111,21 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accept-invitation': typeof AcceptInvitationRoute
+  '/activity-monitor': typeof ActivityMonitorRoute
   '/changelog': typeof ChangelogRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/landing': typeof LandingRoute
   '/my-organization': typeof MyOrganizationRouteWithChildren
   '/profile': typeof ProfileRoute
   '/reset-password': typeof ResetPasswordRoute
+  '/search': typeof SearchRoute
   '/sign-in': typeof SignInRoute
   '/sign-up': typeof SignUpRoute
   '/today': typeof TodayRoute
   '/admin/organizations': typeof AdminOrganizationsRouteWithChildren
   '/adult-surveillance/arbovirus-surveillance': typeof AdultSurveillanceArbovirusSurveillanceRoute
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
+  '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
@@ -1117,6 +1169,7 @@ export interface FileRoutesById {
   '/gis/regions/create': typeof GisRegionsCreateRoute
   '/gis/regions/import': typeof GisRegionsImportRoute
   '/gis/weather/$id': typeof GisWeatherIdRoute
+  '/gis/weather/create': typeof GisWeatherCreateRoute
   '/gis/weather/stats': typeof GisWeatherStatsRoute
   '/larval-surveillance/habitats/$id': typeof LarvalSurveillanceHabitatsIdRoute
   '/larval-surveillance/habitats/create': typeof LarvalSurveillanceHabitatsCreateRoute
@@ -1166,6 +1219,8 @@ export interface FileRoutesById {
   '/control-operations/source-reduction/$id_/edit': typeof ControlOperationsSourceReductionIdEditRoute
   '/gis/addresses/$id_/edit': typeof GisAddressesIdEditRoute
   '/gis/regions/$id_/edit': typeof GisRegionsIdEditRoute
+  '/gis/weather/$id_/edit': typeof GisWeatherIdEditRoute
+  '/gis/weather/$id_/import': typeof GisWeatherIdImportRoute
   '/larval-surveillance/habitats/$id_/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
   '/larval-surveillance/inspections/$id_/edit': typeof LarvalSurveillanceInspectionsIdEditRoute
@@ -1186,18 +1241,21 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accept-invitation'
+    | '/activity-monitor'
     | '/changelog'
     | '/forgot-password'
     | '/landing'
     | '/my-organization'
     | '/profile'
     | '/reset-password'
+    | '/search'
     | '/sign-in'
     | '/sign-up'
     | '/today'
     | '/admin/organizations'
     | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
+    | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
@@ -1241,6 +1299,7 @@ export interface FileRouteTypes {
     | '/gis/regions/create'
     | '/gis/regions/import'
     | '/gis/weather/$id'
+    | '/gis/weather/create'
     | '/gis/weather/stats'
     | '/larval-surveillance/habitats/$id'
     | '/larval-surveillance/habitats/create'
@@ -1290,6 +1349,8 @@ export interface FileRouteTypes {
     | '/control-operations/source-reduction/$id/edit'
     | '/gis/addresses/$id/edit'
     | '/gis/regions/$id/edit'
+    | '/gis/weather/$id/edit'
+    | '/gis/weather/$id/import'
     | '/larval-surveillance/habitats/$id/edit'
     | '/larval-surveillance/habitats/routes/$id'
     | '/larval-surveillance/inspections/$id/edit'
@@ -1308,17 +1369,20 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accept-invitation'
+    | '/activity-monitor'
     | '/changelog'
     | '/forgot-password'
     | '/landing'
     | '/profile'
     | '/reset-password'
+    | '/search'
     | '/sign-in'
     | '/sign-up'
     | '/today'
     | '/admin/organizations'
     | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
+    | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
@@ -1362,6 +1426,7 @@ export interface FileRouteTypes {
     | '/gis/regions/create'
     | '/gis/regions/import'
     | '/gis/weather/$id'
+    | '/gis/weather/create'
     | '/gis/weather/stats'
     | '/larval-surveillance/habitats/$id'
     | '/larval-surveillance/habitats/create'
@@ -1411,6 +1476,8 @@ export interface FileRouteTypes {
     | '/control-operations/source-reduction/$id/edit'
     | '/gis/addresses/$id/edit'
     | '/gis/regions/$id/edit'
+    | '/gis/weather/$id/edit'
+    | '/gis/weather/$id/import'
     | '/larval-surveillance/habitats/$id/edit'
     | '/larval-surveillance/habitats/routes/$id'
     | '/larval-surveillance/inspections/$id/edit'
@@ -1429,18 +1496,21 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/accept-invitation'
+    | '/activity-monitor'
     | '/changelog'
     | '/forgot-password'
     | '/landing'
     | '/my-organization'
     | '/profile'
     | '/reset-password'
+    | '/search'
     | '/sign-in'
     | '/sign-up'
     | '/today'
     | '/admin/organizations'
     | '/adult-surveillance/arbovirus-surveillance'
     | '/adult-surveillance/collection-methods'
+    | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
@@ -1484,6 +1554,7 @@ export interface FileRouteTypes {
     | '/gis/regions/create'
     | '/gis/regions/import'
     | '/gis/weather/$id'
+    | '/gis/weather/create'
     | '/gis/weather/stats'
     | '/larval-surveillance/habitats/$id'
     | '/larval-surveillance/habitats/create'
@@ -1533,6 +1604,8 @@ export interface FileRouteTypes {
     | '/control-operations/source-reduction/$id_/edit'
     | '/gis/addresses/$id_/edit'
     | '/gis/regions/$id_/edit'
+    | '/gis/weather/$id_/edit'
+    | '/gis/weather/$id_/import'
     | '/larval-surveillance/habitats/$id_/edit'
     | '/larval-surveillance/habitats/routes/$id'
     | '/larval-surveillance/inspections/$id_/edit'
@@ -1552,18 +1625,21 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AcceptInvitationRoute: typeof AcceptInvitationRoute
+  ActivityMonitorRoute: typeof ActivityMonitorRoute
   ChangelogRoute: typeof ChangelogRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LandingRoute: typeof LandingRoute
   MyOrganizationRoute: typeof MyOrganizationRouteWithChildren
   ProfileRoute: typeof ProfileRoute
   ResetPasswordRoute: typeof ResetPasswordRoute
+  SearchRoute: typeof SearchRoute
   SignInRoute: typeof SignInRoute
   SignUpRoute: typeof SignUpRoute
   TodayRoute: typeof TodayRoute
   AdminOrganizationsRoute: typeof AdminOrganizationsRouteWithChildren
   AdultSurveillanceArbovirusSurveillanceRoute: typeof AdultSurveillanceArbovirusSurveillanceRoute
   AdultSurveillanceCollectionMethodsRoute: typeof AdultSurveillanceCollectionMethodsRoute
+  AdultSurveillanceTrapDirectoryRoute: typeof AdultSurveillanceTrapDirectoryRoute
   ControlOperationsResistanceMonitoringRoute: typeof ControlOperationsResistanceMonitoringRoute
   GisDataExplorerRoute: typeof GisDataExplorerRoute
   AdultSurveillanceIndexRoute: typeof AdultSurveillanceIndexRoute
@@ -1598,6 +1674,7 @@ export interface RootRouteChildren {
   GisRegionsCreateRoute: typeof GisRegionsCreateRoute
   GisRegionsImportRoute: typeof GisRegionsImportRoute
   GisWeatherIdRoute: typeof GisWeatherIdRoute
+  GisWeatherCreateRoute: typeof GisWeatherCreateRoute
   GisWeatherStatsRoute: typeof GisWeatherStatsRoute
   LarvalSurveillanceHabitatsIdRoute: typeof LarvalSurveillanceHabitatsIdRoute
   LarvalSurveillanceHabitatsCreateRoute: typeof LarvalSurveillanceHabitatsCreateRoute
@@ -1647,6 +1724,8 @@ export interface RootRouteChildren {
   ControlOperationsSourceReductionIdEditRoute: typeof ControlOperationsSourceReductionIdEditRoute
   GisAddressesIdEditRoute: typeof GisAddressesIdEditRoute
   GisRegionsIdEditRoute: typeof GisRegionsIdEditRoute
+  GisWeatherIdEditRoute: typeof GisWeatherIdEditRoute
+  GisWeatherIdImportRoute: typeof GisWeatherIdImportRoute
   LarvalSurveillanceHabitatsIdEditRoute: typeof LarvalSurveillanceHabitatsIdEditRoute
   LarvalSurveillanceHabitatsRoutesIdRoute: typeof LarvalSurveillanceHabitatsRoutesIdRoute
   LarvalSurveillanceInspectionsIdEditRoute: typeof LarvalSurveillanceInspectionsIdEditRoute
@@ -1684,6 +1763,13 @@ declare module '@tanstack/react-router' {
       path: '/sign-in'
       fullPath: '/sign-in'
       preLoaderRoute: typeof SignInRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/search': {
+      id: '/search'
+      path: '/search'
+      fullPath: '/search'
+      preLoaderRoute: typeof SearchRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/reset-password': {
@@ -1726,6 +1812,13 @@ declare module '@tanstack/react-router' {
       path: '/changelog'
       fullPath: '/changelog'
       preLoaderRoute: typeof ChangelogRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/activity-monitor': {
+      id: '/activity-monitor'
+      path: '/activity-monitor'
+      fullPath: '/activity-monitor'
+      preLoaderRoute: typeof ActivityMonitorRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/accept-invitation': {
@@ -1845,6 +1938,13 @@ declare module '@tanstack/react-router' {
       path: '/control-operations/resistance-monitoring'
       fullPath: '/control-operations/resistance-monitoring'
       preLoaderRoute: typeof ControlOperationsResistanceMonitoringRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/adult-surveillance/trap-directory': {
+      id: '/adult-surveillance/trap-directory'
+      path: '/adult-surveillance/trap-directory'
+      fullPath: '/adult-surveillance/trap-directory'
+      preLoaderRoute: typeof AdultSurveillanceTrapDirectoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/adult-surveillance/collection-methods': {
@@ -2155,6 +2255,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GisWeatherStatsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gis/weather/create': {
+      id: '/gis/weather/create'
+      path: '/gis/weather/create'
+      fullPath: '/gis/weather/create'
+      preLoaderRoute: typeof GisWeatherCreateRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gis/weather/$id': {
       id: '/gis/weather/$id'
       path: '/gis/weather/$id'
@@ -2435,6 +2542,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LarvalSurveillanceHabitatsIdEditRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/gis/weather/$id_/import': {
+      id: '/gis/weather/$id_/import'
+      path: '/gis/weather/$id/import'
+      fullPath: '/gis/weather/$id/import'
+      preLoaderRoute: typeof GisWeatherIdImportRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gis/weather/$id_/edit': {
+      id: '/gis/weather/$id_/edit'
+      path: '/gis/weather/$id/edit'
+      fullPath: '/gis/weather/$id/edit'
+      preLoaderRoute: typeof GisWeatherIdEditRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/gis/regions/$id_/edit': {
       id: '/gis/regions/$id_/edit'
       path: '/gis/regions/$id/edit'
@@ -2548,12 +2669,14 @@ const AdminOrganizationsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AcceptInvitationRoute: AcceptInvitationRoute,
+  ActivityMonitorRoute: ActivityMonitorRoute,
   ChangelogRoute: ChangelogRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LandingRoute: LandingRoute,
   MyOrganizationRoute: MyOrganizationRouteWithChildren,
   ProfileRoute: ProfileRoute,
   ResetPasswordRoute: ResetPasswordRoute,
+  SearchRoute: SearchRoute,
   SignInRoute: SignInRoute,
   SignUpRoute: SignUpRoute,
   TodayRoute: TodayRoute,
@@ -2562,6 +2685,7 @@ const rootRouteChildren: RootRouteChildren = {
     AdultSurveillanceArbovirusSurveillanceRoute,
   AdultSurveillanceCollectionMethodsRoute:
     AdultSurveillanceCollectionMethodsRoute,
+  AdultSurveillanceTrapDirectoryRoute: AdultSurveillanceTrapDirectoryRoute,
   ControlOperationsResistanceMonitoringRoute:
     ControlOperationsResistanceMonitoringRoute,
   GisDataExplorerRoute: GisDataExplorerRoute,
@@ -2607,6 +2731,7 @@ const rootRouteChildren: RootRouteChildren = {
   GisRegionsCreateRoute: GisRegionsCreateRoute,
   GisRegionsImportRoute: GisRegionsImportRoute,
   GisWeatherIdRoute: GisWeatherIdRoute,
+  GisWeatherCreateRoute: GisWeatherCreateRoute,
   GisWeatherStatsRoute: GisWeatherStatsRoute,
   LarvalSurveillanceHabitatsIdRoute: LarvalSurveillanceHabitatsIdRoute,
   LarvalSurveillanceHabitatsCreateRoute: LarvalSurveillanceHabitatsCreateRoute,
@@ -2669,6 +2794,8 @@ const rootRouteChildren: RootRouteChildren = {
     ControlOperationsSourceReductionIdEditRoute,
   GisAddressesIdEditRoute: GisAddressesIdEditRoute,
   GisRegionsIdEditRoute: GisRegionsIdEditRoute,
+  GisWeatherIdEditRoute: GisWeatherIdEditRoute,
+  GisWeatherIdImportRoute: GisWeatherIdImportRoute,
   LarvalSurveillanceHabitatsIdEditRoute: LarvalSurveillanceHabitatsIdEditRoute,
   LarvalSurveillanceHabitatsRoutesIdRoute:
     LarvalSurveillanceHabitatsRoutesIdRoute,

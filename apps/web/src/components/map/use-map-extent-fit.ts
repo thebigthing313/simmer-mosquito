@@ -2,6 +2,7 @@ import { type BoundingBox, formatBoundingBox, isBoundingBox } from '@simmer-mosq
 import { useQuery } from '@tanstack/react-query';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
+import { insetPadding, type MapInset } from './map-inset';
 import { isMapLive } from './use-mapbox-map';
 
 /**
@@ -33,6 +34,7 @@ export function useMapExtentFit(
 	map: MapboxMap | null,
 	isLoaded: boolean,
 	source: MapExtentFitSource | null,
+	inset?: MapInset,
 ): void {
 	const url = source !== null && 'url' in source ? source.url : null;
 	const localBounds = source !== null && 'bounds' in source ? source.bounds : null;
@@ -52,7 +54,12 @@ export function useMapExtentFit(
 
 	const fittedKeyRef = useRef<string | null>(null);
 	const fittedMapRef = useRef<MapboxMap | null>(null);
+	// Chrome floating over the map is added to the fit margin, so a framed set
+	// sits in the part of the canvas the reader can see rather than under a panel.
+	const padding = insetPadding(FIT_PADDING, inset);
+	const paddingKey = `${padding.top}|${padding.right}|${padding.bottom}|${padding.left}`;
 
+	// biome-ignore lint/correctness/useExhaustiveDependencies: padding keyed by value.
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded || bounds === null || fitKey === null) {
 			return;
@@ -64,11 +71,16 @@ export function useMapExtentFit(
 		}
 		fittedMapRef.current = map;
 		fittedKeyRef.current = fitKey;
-		fitMapToBounds(map, bounds, isFirstFit ? 0 : FIT_DURATION_MS);
-	}, [map, isLoaded, bounds, fitKey]);
+		fitMapToBounds(map, bounds, isFirstFit ? 0 : FIT_DURATION_MS, padding);
+	}, [map, isLoaded, bounds, fitKey, paddingKey]);
 }
 
-function fitMapToBounds(map: MapboxMap, bounds: BoundingBox, duration: number): void {
+function fitMapToBounds(
+	map: MapboxMap,
+	bounds: BoundingBox,
+	duration: number,
+	padding: ReturnType<typeof insetPadding>,
+): void {
 	// One record (or many stacked on one address) collapses the box to a point,
 	// which fitBounds can't frame — ease onto it at a sane zoom instead.
 	if (bounds.west === bounds.east && bounds.south === bounds.north) {
@@ -76,6 +88,7 @@ function fitMapToBounds(map: MapboxMap, bounds: BoundingBox, duration: number): 
 			center: [bounds.west, bounds.south],
 			zoom: Math.max(map.getZoom(), FIT_POINT_ZOOM),
 			duration,
+			padding,
 		});
 		return;
 	}
@@ -85,7 +98,7 @@ function fitMapToBounds(map: MapboxMap, bounds: BoundingBox, duration: number): 
 			[bounds.west, bounds.south],
 			[bounds.east, bounds.north],
 		],
-		{ padding: FIT_PADDING, maxZoom: FIT_MAX_ZOOM, duration },
+		{ padding, maxZoom: FIT_MAX_ZOOM, duration },
 	);
 }
 

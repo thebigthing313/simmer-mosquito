@@ -352,4 +352,66 @@ describe('weather summary import assessment', () => {
 			}),
 		).toThrow(DomainValidationError);
 	});
+
+	/**
+	 * The rule the builder used to break.
+	 *
+	 * `docs/weather-domain.md`: "Duplicate exact buckets or overlaps within the
+	 * submitted payload fail the later submitted row; the first valid row wins by
+	 * submitted order", and "when required acknowledgements are present, valid
+	 * rows insert/update/no-op and invalid rows are returned as row-level
+	 * failures."
+	 *
+	 * The builder used to hoist every row issue the assessment found into the
+	 * thrown list, so one repeated date rejected the whole file with a single
+	 * sentence and no line numbers. A row is the server's to judge and report;
+	 * the builder's job stops at the batch.
+	 */
+	it('does not reject a whole batch over one bad row', () => {
+		const command = commitWeatherSummaryImportCommand({
+			organizationId,
+			actorProfileId,
+			weatherStationId,
+			rows: [
+				importRow({ clientRowId: 'row-1' }),
+				// The same bucket twice: a row-level failure, not a batch-level one.
+				importRow({ clientRowId: 'row-2', weatherSummaryId: secondWeatherSummaryId }),
+			],
+		});
+
+		expect(command.payload.rows).toHaveLength(2);
+	});
+
+	it('does not reject a whole batch over one out-of-range reading', () => {
+		const command = commitWeatherSummaryImportCommand({
+			organizationId,
+			actorProfileId,
+			weatherStationId,
+			rows: [
+				importRow({ clientRowId: 'row-1' }),
+				importRow({
+					clientRowId: 'row-2',
+					weatherSummaryId: secondWeatherSummaryId,
+					startDate: '2026-05-04',
+					endDate: '2026-05-04',
+					precipitationInches: 900,
+				}),
+			],
+		});
+
+		expect(command.payload.rows).toHaveLength(2);
+	});
+
+	// Still fatal, because none of it is about a row: without a station, a
+	// context or a usable row list there is no batch to assess.
+	it('still refuses a batch it cannot assess at all', () => {
+		expect(() =>
+			commitWeatherSummaryImportCommand({
+				organizationId,
+				actorProfileId,
+				weatherStationId: 'not-a-uuid',
+				rows: [importRow({ clientRowId: 'row-1' })],
+			}),
+		).toThrow(DomainValidationError);
+	});
 });

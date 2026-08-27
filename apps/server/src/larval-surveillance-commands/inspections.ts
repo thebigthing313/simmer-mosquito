@@ -1,21 +1,36 @@
-import { applyRecordDeletion, sql } from '@simmer-mosquito/db';
+import {
+	applyRecordDeletion,
+	assertWriteReferences,
+	checkedValues,
+	sql,
+	updateRow,
+} from '@simmer-mosquito/db';
 import {
 	deleteInspectionCommand,
 	type LarvalSurveillanceCommand,
+	type RecordHabitatInspectionForAssignmentItemCommand,
 	recordAdHocInspectionCommand,
 	recordHabitatInspectionCommand,
+	recordHabitatInspectionForAssignmentItemCommand,
 	updateAdHocInspectionLocationCommand,
 	updateInspectionFieldDetailsCommand,
 } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { readExecutionOptions, readNullableText, readText } from '../command-payload.js';
+import { readDate } from '../command-write.js';
+import {
+	beginExecution,
+	completeExecutedStop,
+} from '../field-work-commands/assignment-lifecycle.js';
 import {
 	type CommandContext,
 	commandEndpoint,
 	geojsonToGeom,
+	habitatTypeReferences,
 	hasInspectionResultFields,
 	type InspectionResultColumns,
+	type InspectionRow,
 	type InspectionUpdateColumns,
 	inspectionReturnColumns,
 	invalidUpdate,
@@ -28,13 +43,23 @@ import {
 	readInspectionResult,
 	resolveLocationGeom,
 	runCommands,
-	type SafeInspection,
-	toSafeInspection,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
 // Inspections
 // ---------------------------------------------------------------------------
+
+/**
+ * What this endpoint can be asked to do.
+ *
+ * The assignment-execution command is a `fieldWork.*` command handled here
+ * rather than a larval one, because the endpoint is per-row and the row being
+ * written is an inspection. The command vocabulary follows the *unit of work*
+ * (a stop, closed by a record); the endpoint follows the table.
+ */
+export type InspectionCommand =
+	| LarvalSurveillanceCommand
+	| RecordHabitatInspectionForAssignmentItemCommand;
 
 export function registerInspectionRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -51,6 +76,23 @@ export function registerInspectionRoutes(
 				const policy = await loadInspectionPolicy(options.db, authContext.organization.id);
 				const result = readInspectionResult(payload);
 				const habitatId = readNullableText(payload.habitatId);
+				const assignmentItemId = readNullableText(payload.assignmentItemId);
+
+				// An inspection recorded off an assignment stop is one write, not two:
+				// the stop is what sent the inspector here and the record is what closes
+				// it. See docs/field-work-support-domain.md, "Assignment Item Execution".
+				if (assignmentItemId !== null) {
+					return recordHabitatInspectionForAssignmentItemCommand({
+						...ctx,
+						assignmentItemId,
+						inspectionId: readText(payload.id) ?? '',
+						habitatId,
+						policy,
+						completedAt: readDate(payload.completedAt),
+						...readExecutionOptions(payload),
+						...result,
+					});
+				}
 
 				return habitatId !== null
 					? recordHabitatInspectionCommand({
@@ -80,7 +122,7 @@ export function registerInspectionRoutes(
 		commandEndpoint({
 			build: async ({ payload, agency: ctx, authContext, param }) => {
 				const inspectionId = param('inspectionId');
-				const commands: LarvalSurveillanceCommand[] = [];
+				const commands: InspectionCommand[] = [];
 
 				if (hasInspectionResultFields(payload)) {
 					const policy = await loadInspectionPolicy(options.db, authContext.organization.id);
@@ -132,7 +174,7 @@ export function registerInspectionRoutes(
 async function runInspectionCommands(
 	context: CommandContext,
 	db: LarvalSurveillanceDb,
-	commands: readonly LarvalSurveillanceCommand[],
+	commands: readonly InspectionCommand[],
 	createdStatus?: 201,
 ) {
 	return runCommands(
@@ -143,12 +185,21 @@ async function runInspectionCommands(
 	);
 }
 
-async function writeInspectionCommand(
+/**
+ * Exported for `table-commands/inspections.ts`, which reaches the same six
+ * commands through `/commands/inspections` and needs the writer unchanged —
+ * only the route and how the command is chosen differ.
+ */
+export async function writeInspectionCommand(
 	trx: LarvalSurveillanceTransaction,
-	command: LarvalSurveillanceCommand,
-): Promise<SafeInspection | null> {
+	command: InspectionCommand,
+): Promise<InspectionRow | null> {
 	switch (command.type) {
 		case 'larvalSurveillance.recordHabitatInspection': {
+			// The habitat type here is copied from the Habitat being inspected, not
+			// chosen by the person recording. The gate is about starting to use a
+			// retired catalog row; refusing an inherited one would make a Habitat
+			// uninspectable because its type was deactivated after it was built.
 			const snapshot = await loadHabitatSnapshot(
 				trx,
 				command.payload.organizationId,
@@ -156,46 +207,57 @@ async function writeInspectionCommand(
 			);
 			const row = await trx
 				.insertInto('inspections')
-				.values({
-					id: command.payload.inspectionId,
-					organization_id: command.payload.organizationId,
-					geom: geojsonToGeom(snapshot.geojson),
-					habitat_id: command.payload.habitatId,
-					habitat_type_id: snapshot.habitatTypeId,
-					address_id: snapshot.addressId,
-					inspected_by_profile_id: command.payload.inspectedByProfileId,
-					inspection_date: localDateColumn(command.payload.inspectionDate),
-					...inspectionResultColumns(command.payload),
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.inspectionId,
+						organization_id: command.payload.organizationId,
+						geom: geojsonToGeom(snapshot.geojson),
+						habitat_id: command.payload.habitatId,
+						habitat_type_id: snapshot.habitatTypeId,
+						address_id: snapshot.addressId,
+						inspected_by_profile_id: command.payload.inspectedByProfileId,
+						inspection_date: localDateColumn(command.payload.inspectionDate),
+						...inspectionResultColumns(command.payload),
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(inspectionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeInspection(row);
+			return row;
 		}
+		case 'fieldWork.recordHabitatInspectionForAssignmentItem':
+			return recordInspectionForStop(trx, command.payload);
 		case 'larvalSurveillance.recordAdHocInspection': {
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'create' },
+				references: habitatTypeReferences(command.payload),
+			});
 			const row = await trx
 				.insertInto('inspections')
-				.values({
-					id: command.payload.inspectionId,
-					organization_id: command.payload.organizationId,
-					geom: await resolveLocationGeom(
-						trx,
-						command.payload.organizationId,
-						command.payload.locationSource,
-					),
-					habitat_id: null,
-					habitat_type_id: command.payload.habitatTypeId,
-					address_id: command.payload.addressId,
-					inspected_by_profile_id: command.payload.inspectedByProfileId,
-					inspection_date: localDateColumn(command.payload.inspectionDate),
-					...inspectionResultColumns(command.payload),
-					created_by_profile_id: command.payload.actorProfileId,
-					updated_by_profile_id: command.payload.actorProfileId,
-				})
+				.values(
+					await checkedValues(trx, command.payload.organizationId, {
+						id: command.payload.inspectionId,
+						organization_id: command.payload.organizationId,
+						geom: await resolveLocationGeom(
+							trx,
+							command.payload.organizationId,
+							command.payload.locationSource,
+						),
+						habitat_id: null,
+						habitat_type_id: command.payload.habitatTypeId,
+						address_id: command.payload.addressId,
+						inspected_by_profile_id: command.payload.inspectedByProfileId,
+						inspection_date: localDateColumn(command.payload.inspectionDate),
+						...inspectionResultColumns(command.payload),
+						created_by_profile_id: command.payload.actorProfileId,
+						updated_by_profile_id: command.payload.actorProfileId,
+					}),
+				)
 				.returning(inspectionReturnColumns)
 				.executeTakeFirstOrThrow();
-			return toSafeInspection(row);
+			return row;
 		}
 		case 'larvalSurveillance.updateInspectionFieldDetails':
 			return updateInspection(trx, command.payload.inspectionId, command.payload.organizationId, {
@@ -205,6 +267,11 @@ async function writeInspectionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'larvalSurveillance.updateAdHocInspectionLocation':
+			await assertWriteReferences(trx, {
+				organizationId: command.payload.organizationId,
+				write: { kind: 'update', table: 'inspections', recordId: command.payload.inspectionId },
+				references: habitatTypeReferences(command.payload.changes),
+			});
 			return updateInspection(trx, command.payload.inspectionId, command.payload.organizationId, {
 				...(command.payload.changes.locationSource !== undefined
 					? {
@@ -243,11 +310,75 @@ async function writeInspectionCommand(
 				.where('deleted_at', 'is', null)
 				.returning(inspectionReturnColumns)
 				.executeTakeFirst();
-			return row === undefined ? null : toSafeInspection(row);
+			return row ?? null;
 		}
 		default:
 			throw new Error(`Unsupported inspection command: ${command.type}`);
 	}
+}
+
+/**
+ * An inspection recorded off an assignment stop: the record and the stop's
+ * completion are one transaction, so the work can never exist with the stop
+ * still pending.
+ */
+async function recordInspectionForStop(
+	trx: LarvalSurveillanceTransaction,
+	payload: RecordHabitatInspectionForAssignmentItemCommand['payload'],
+): Promise<InspectionRow | null> {
+	// Locks the assignment, judges the transition, auto-starts if asked, and
+	// tells us which habitat the stop actually names. Throws the refusal
+	// before anything is written.
+	const stop = await beginExecution(
+		trx,
+		payload.assignmentItemId,
+		payload.organizationId,
+		payload.actorProfileId,
+		{ entityType: 'habitat', entityId: payload.habitatId },
+		{
+			autoStart: payload.autoStartAssignment,
+			acknowledgedCompletedItemAdditionalRecord: payload.acknowledgedCompletedItemAdditionalRecord,
+			acknowledgedTargetMismatch: payload.acknowledgedTargetMismatch,
+			completeItem: payload.completeAssignmentItem,
+			completedAt: payload.completedAt,
+		},
+	);
+	// The stop's own habitat is the default, so the ordinary call carries no
+	// habitatId at all and cannot disagree with the stop.
+	const habitatId = payload.habitatId ?? stop.entityId;
+	const snapshot = await loadHabitatSnapshot(trx, payload.organizationId, habitatId);
+	// Same inherited habitat type as `recordHabitatInspection`, and ungated for
+	// the same reason: it is a copy of the Habitat's own type, not a choice.
+	const row = await trx
+		.insertInto('inspections')
+		.values(
+			await checkedValues(trx, payload.organizationId, {
+				id: payload.inspectionId,
+				organization_id: payload.organizationId,
+				geom: geojsonToGeom(snapshot.geojson),
+				habitat_id: habitatId,
+				habitat_type_id: snapshot.habitatTypeId,
+				address_id: snapshot.addressId,
+				inspected_by_profile_id: payload.inspectedByProfileId,
+				inspection_date: localDateColumn(payload.inspectionDate),
+				assignment_item_id: payload.assignmentItemId,
+				...inspectionResultColumns(payload),
+				created_by_profile_id: payload.actorProfileId,
+				updated_by_profile_id: payload.actorProfileId,
+			}),
+		)
+		.returning(inspectionReturnColumns)
+		.executeTakeFirstOrThrow();
+	if (payload.completeAssignmentItem) {
+		await completeExecutedStop(
+			trx,
+			payload.assignmentItemId,
+			payload.organizationId,
+			payload.actorProfileId,
+			payload.completedAt,
+		);
+	}
+	return row;
 }
 
 async function updateInspection(
@@ -255,16 +386,8 @@ async function updateInspection(
 	inspectionId: string,
 	organizationId: string,
 	set: InspectionUpdateColumns,
-): Promise<SafeInspection | null> {
-	const row = await trx
-		.updateTable('inspections')
-		.set({ ...set, updated_at: sql`now()` })
-		.where('id', '=', inspectionId)
-		.where('organization_id', '=', organizationId)
-		.where('deleted_at', 'is', null)
-		.returning(inspectionReturnColumns)
-		.executeTakeFirst();
-	return row === undefined ? null : toSafeInspection(row);
+): Promise<InspectionRow | null> {
+	return updateRow(trx, 'inspections', inspectionId, organizationId, set, inspectionReturnColumns);
 }
 
 function inspectionResultColumns(result: NormalizedInspectionResult): InspectionResultColumns {

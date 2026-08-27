@@ -1,7 +1,5 @@
-import type { AddressRow } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { LocateFixedIcon, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import { eq, useLiveQuery } from '@tanstack/react-db';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect } from 'react';
@@ -11,47 +9,37 @@ import {
 	MapCardDetail,
 	MapCardEyebrow,
 } from '../../../components/map/map-card';
+import type { MapInset } from '../../../components/map/map-inset';
 import { TagBadge } from '../../../components/tag-badge';
-import { useMapCardTags } from '../../../hooks/use-map-card-tags';
+import { useAddress } from '../../../hooks/queries/use-address';
+import { useRecordTags } from '../../../hooks/queries/use-record-tags';
 import { formatAddressLine } from '../../../lib/address-format';
-import { webCollections } from '../../../sync/webCollections';
 import { useAddressGeometry } from './-address-data';
 
-const gcTimeMs = 30_000;
-
 /**
- * The map focus card for an address. Self-fetches the address off the on-demand
- * collection, its tags off the eager catalog, and its point geometry (kept out of
- * the sync shape) over HTTP — to fly the map to it and to show its coordinates —
- * then renders the shared {@link MapCard}.
+ * The map focus card for an address. Reads the address through {@link useAddress},
+ * its tags alongside it, and its point geometry — which is kept out of the sync
+ * shape — over HTTP, to fly the map to it and to show its coordinates.
  */
 export function AddressMapCard({
 	id,
 	map,
+	inset,
 	onClose,
 }: {
 	readonly id: string;
 	readonly map: MapboxMap | null;
+	/** What is floating over the map, so the card centres clear of it. */
+	readonly inset?: MapInset | undefined;
 	readonly onClose: () => void;
 }) {
-	const addressResult = useLiveQuery(
-		{
-			gcTime: gcTimeMs,
-			query: (query) =>
-				query
-					.from({ address: webCollections.addresses })
-					.where(({ address }) => eq(address.id, id))
-					.findOne(),
-		},
-		[id],
-	);
-	const address = addressResult.data as AddressRow | undefined;
+	const { address } = useAddress(id);
 
 	const geometryQuery = useAddressGeometry(id);
 	const lat = geometryQuery.data?.lat ?? null;
 	const lng = geometryQuery.data?.lng ?? null;
 
-	const tags = useMapCardTags(id);
+	const tags = useRecordTags(id);
 
 	useEffect(() => {
 		if (map === null || lat === null || lng === null) {
@@ -62,7 +50,7 @@ export function AddressMapCard({
 
 	if (address === undefined) {
 		return (
-			<MapCard className="max-w-[420px]" onClose={onClose} title="Address">
+			<MapCard className="max-w-[420px]" inset={inset} onClose={onClose} title="Address">
 				<div className="grid gap-2">
 					<Skeleton className="h-4 w-2/3" />
 					<Skeleton className="h-4 w-1/2" />
@@ -80,6 +68,7 @@ export function AddressMapCard({
 			}
 			className="max-w-[420px]"
 			eyebrow={<MapCardEyebrow type="Address" />}
+			inset={inset}
 			onClose={onClose}
 			title={address.displayName}
 			viewDetailLink={(content) => (

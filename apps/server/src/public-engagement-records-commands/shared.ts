@@ -1,4 +1,12 @@
-import { geojsonToGeom, localDateColumn, softDelete, updateRow } from '@simmer-mosquito/db';
+import {
+	assertWriteReferences,
+	checkedValues,
+	geojsonToGeom,
+	localDateColumn,
+	type SelectedRow,
+	softDelete,
+	updateRow,
+} from '@simmer-mosquito/db';
 import type { PublicEngagementCommand } from '@simmer-mosquito/domain';
 import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
@@ -19,7 +27,6 @@ import {
 	commandActor,
 	readDate,
 	readNumberOrNull,
-	readStringArray,
 	runCommands,
 	writeCommands,
 } from '../command-write.js';
@@ -38,7 +45,6 @@ export {
 	localDateColumn,
 	readDate,
 	readNumberOrNull,
-	readStringArray,
 	runCommands,
 	softDelete,
 	updateRow,
@@ -80,28 +86,30 @@ export async function insertContact(
 	contactId: string,
 	details: ContactDetails,
 	actorProfileId: string,
-): Promise<SafeContact> {
+): Promise<ContactRow> {
 	const row = await trx
 		.insertInto('contacts')
-		.values({
-			id: contactId,
-			organization_id: organizationId,
-			contact_name: details.contactName,
-			preferred_phone: details.preferredPhone,
-			alternate_phone: details.alternatePhone,
-			email: details.email,
-			company: details.company,
-			department: details.department,
-			title: details.title,
-			wants_email: details.wantsEmail,
-			wants_sms: details.wantsSms,
-			wants_phone: details.wantsPhone,
-			created_by_profile_id: actorProfileId,
-			updated_by_profile_id: actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, organizationId, {
+				id: contactId,
+				organization_id: organizationId,
+				contact_name: details.contactName,
+				preferred_phone: details.preferredPhone,
+				alternate_phone: details.alternatePhone,
+				email: details.email,
+				company: details.company,
+				department: details.department,
+				title: details.title,
+				wants_email: details.wantsEmail,
+				wants_sms: details.wantsSms,
+				wants_phone: details.wantsPhone,
+				created_by_profile_id: actorProfileId,
+				updated_by_profile_id: actorProfileId,
+			}),
+		)
 		.returning(contactReturnColumns)
 		.executeTakeFirstOrThrow();
-	return toSafeContact(row);
+	return row;
 }
 
 export async function insertRegistrationType(
@@ -111,20 +119,35 @@ export async function insertRegistrationType(
 	notificationRegistrationId: string,
 	notificationTypeId: string,
 	actorProfileId: string,
-): Promise<SafeRegistrationType> {
+): Promise<RegistrationTypeRow> {
+	await assertWriteReferences(trx, {
+		organizationId,
+		write: { kind: 'create' },
+		references: [
+			{
+				column: 'notification_type_id',
+				catalog: 'notificationType',
+				id: notificationTypeId,
+				label: 'notification type',
+			},
+		],
+	});
+
 	const row = await trx
 		.insertInto('notification_registration_types')
-		.values({
-			id: notificationRegistrationTypeId,
-			organization_id: organizationId,
-			notification_registration_id: notificationRegistrationId,
-			notification_type_id: notificationTypeId,
-			created_by_profile_id: actorProfileId,
-			updated_by_profile_id: actorProfileId,
-		})
+		.values(
+			await checkedValues(trx, organizationId, {
+				id: notificationRegistrationTypeId,
+				organization_id: organizationId,
+				notification_registration_id: notificationRegistrationId,
+				notification_type_id: notificationTypeId,
+				created_by_profile_id: actorProfileId,
+				updated_by_profile_id: actorProfileId,
+			}),
+		)
 		.returning(registrationTypeReturnColumns)
 		.executeTakeFirstOrThrow();
-	return toSafeRegistrationType(row);
+	return row;
 }
 
 // ===========================================================================
@@ -229,32 +252,7 @@ export const contactReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeContact {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly contactName: string | null;
-	readonly email: string | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeContact(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly contact_name: string | null;
-	readonly email: string | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeContact {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		contactName: row.contact_name,
-		email: row.email,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type ContactRow = SelectedRow<'contacts', typeof contactReturnColumns>;
 
 export const serviceRequestReturnColumns = [
 	'id',
@@ -267,35 +265,7 @@ export const serviceRequestReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeServiceRequest {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly contactId: string;
-	readonly addressId: string;
-	readonly closedAt: Date | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeServiceRequest(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly contact_id: string;
-	readonly address_id: string;
-	readonly closed_at: Date | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeServiceRequest {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		contactId: row.contact_id,
-		addressId: row.address_id,
-		closedAt: row.closed_at,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type ServiceRequestRow = SelectedRow<'service_requests', typeof serviceRequestReturnColumns>;
 
 export const registrationReturnColumns = [
 	'id',
@@ -311,32 +281,10 @@ export const registrationReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeRegistration {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly contactId: string;
-	readonly isActive: boolean;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeRegistration(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly contact_id: string;
-	readonly is_active: boolean;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeRegistration {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		contactId: row.contact_id,
-		isActive: row.is_active,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type RegistrationRow = SelectedRow<
+	'notification_registrations',
+	typeof registrationReturnColumns
+>;
 
 export const registrationTypeReturnColumns = [
 	'id',
@@ -347,32 +295,10 @@ export const registrationTypeReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeRegistrationType {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly notificationRegistrationId: string;
-	readonly notificationTypeId: string;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeRegistrationType(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly notification_registration_id: string;
-	readonly notification_type_id: string;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeRegistrationType {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		notificationRegistrationId: row.notification_registration_id,
-		notificationTypeId: row.notification_type_id,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type RegistrationTypeRow = SelectedRow<
+	'notification_registration_types',
+	typeof registrationTypeReturnColumns
+>;
 
 export const missionNotificationReturnColumns = [
 	'id',
@@ -384,35 +310,10 @@ export const missionNotificationReturnColumns = [
 	'updated_at',
 ] as const;
 
-export interface SafeMissionNotification {
-	readonly id: string;
-	readonly organizationId: string;
-	readonly missionId: string;
-	readonly status: string;
-	readonly statusChangedAt: Date | null;
-	readonly createdAt: Date;
-	readonly updatedAt: Date;
-}
-
-export function toSafeMissionNotification(row: {
-	readonly id: string;
-	readonly organization_id: string;
-	readonly mission_id: string;
-	readonly status: string;
-	readonly status_changed_at: Date | null;
-	readonly created_at: Date;
-	readonly updated_at: Date;
-}): SafeMissionNotification {
-	return {
-		id: row.id,
-		organizationId: row.organization_id,
-		missionId: row.mission_id,
-		status: row.status,
-		statusChangedAt: row.status_changed_at,
-		createdAt: row.created_at,
-		updatedAt: row.updated_at,
-	};
-}
+export type MissionNotificationRow = SelectedRow<
+	'mission_notifications',
+	typeof missionNotificationReturnColumns
+>;
 
 // ===========================================================================
 // Shared command + request helpers

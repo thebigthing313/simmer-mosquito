@@ -1,4 +1,3 @@
-import type { OrganizationSpeciesRow, SpeciesRow } from '@simmer-mosquito/sync';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import {
 	Command,
@@ -19,24 +18,25 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
 	ActiveFilterBar,
-	ExplorerHeader,
+	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
+	FilterGrid,
 	MultiSelectFilter,
 	mapQueryParams,
-	ResultList,
 	ToggleFilter,
 	toggle,
 	useDateRangeFilters,
+	useExplorerPanel,
 	useFlyToSelection,
 	useMapBoundsParam,
 	usePagedMapResource,
 	useRegionOptions,
 	useSelectedMapRecord,
+	useSpeciesOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
@@ -45,10 +45,9 @@ import {
 	SAMPLE_STATUS_COLORS,
 	type SampleTileFilters,
 } from '../../../components/map';
-import { useCollectionRows } from '../../../hooks/use-collection-rows';
+import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
-import { webCollections } from '../../../sync/webCollections';
 import {
 	addDaysToDateString,
 	formatListDate,
@@ -57,6 +56,8 @@ import {
 } from '../-overview-data';
 import { SampleMapCard } from '../-sample-map-card';
 import { type SampleFilters, sampleFilterCodecs } from '../-samples-search';
+import type { SampleStatus } from './-legend';
+import { SAMPLE_STATUS_ORDER, sampleLegend, sampleStatusLabel } from './-legend';
 
 const SampleIcon = iconRegistry.entities.sample.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
@@ -75,7 +76,6 @@ interface SampleSpeciesResult {
 // A sample's resolved lifecycle state. The server commits to one status by
 // precedence (an identified result wins over any closed-out reason), so the map
 // color and the list badge always agree.
-type SampleStatus = 'identified' | 'awaiting' | 'zero_larvae' | 'unidentifiable';
 
 /**
  * One sample as returned by `/map/samples` — the parent inspection's owned-geometry
@@ -103,27 +103,6 @@ interface SampleFeature {
 
 type StatusFilterValue = 'all' | SampleStatus;
 
-interface StatusMeta {
-	readonly label: string;
-	readonly tone: 'success' | 'info' | 'neutral' | 'warning';
-}
-
-const STATUS_META: Record<SampleStatus, StatusMeta> = {
-	identified: { label: 'Identified', tone: 'success' },
-	awaiting: { label: 'Awaiting ID', tone: 'info' },
-	zero_larvae: { label: 'No larvae', tone: 'neutral' },
-	unidentifiable: { label: 'Unidentifiable', tone: 'warning' },
-};
-
-// Ordered awaiting → identified → closed-out so the chips read as a workflow, and
-// each carries the map's status color so the filter row doubles as the legend.
-const STATUS_ORDER: readonly SampleStatus[] = [
-	'awaiting',
-	'identified',
-	'zero_larvae',
-	'unidentifiable',
-];
-
 /** The window the explorer opens with, and the reset target for "Clear all". */
 const DEFAULT_WINDOW_DAYS = 30;
 
@@ -133,7 +112,8 @@ const RESULT_CHIP_LIMIT = 1;
 const PATH = '/map/samples';
 
 function SamplesExplorerRoute() {
-	const today = useMemo(() => todayInTimeZone(undefined), []);
+	const timeZone = useOrganizationTimeZone();
+	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 	const defaultFrom = useMemo(
 		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
 		[today],
@@ -181,9 +161,10 @@ function SamplesExplorerRoute() {
 	);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const [selectedId, setSelectedId] = useState<string | null>(null);
+	const panel = useExplorerPanel();
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
 
-	const { nameById, options } = useSpeciesCatalog();
+	const { nameById, options } = useSpeciesOptions();
 	const regions = useRegionOptions();
 
 	const filters = useMemo<SampleTileFilters>(
@@ -212,13 +193,14 @@ function SamplesExplorerRoute() {
 			}),
 		[bbox, filters],
 	);
-	const { rows, total, isLoading, page, pageCount, setPage } = usePagedMapResource<SampleFeature>({
-		path: PATH,
-		rowsKey: 'samples',
-		label: 'Samples',
-		params,
-		enabled: bbox !== null,
-	});
+	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } =
+		usePagedMapResource<SampleFeature>({
+			path: PATH,
+			rowsKey: 'samples',
+			label: 'Samples',
+			params,
+			enabled: bbox !== null,
+		});
 
 	const selected = useSelectedMapRecord<SampleFeature>({
 		path: PATH,
@@ -236,8 +218,14 @@ function SamplesExplorerRoute() {
 	);
 
 	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
-	const hasActiveFilters =
-		!isDefaultRange || status !== 'all' || speciesIds.size > 0 || nonMosquito || regionIds.size > 0;
+	const legend = useMemo(() => sampleLegend(status), [status]);
+
+	const activeFilterCount =
+		(isDefaultRange ? 0 : 1) +
+		(status === 'all' ? 0 : 1) +
+		speciesIds.size +
+		regionIds.size +
+		(nonMosquito ? 1 : 0);
 
 	const resetDates = useCallback(
 		() => setFilters({ from: defaultFrom, to: today }),
@@ -246,29 +234,15 @@ function SamplesExplorerRoute() {
 	const clearAll = reset;
 
 	return (
-		<MapSplitPage
-			map={
+		<ExplorerMapPage
+			activeFilterCount={activeFilterCount}
+			filters={
 				<>
-					<MapCanvas
-						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
-						controls={{ layers: false, measure: true }}
-						fitToData
-						onMapReady={handleMapReady}
-						sampleLayer={sampleLayer}
-					/>
-					{selected === null ? null : (
-						<SampleMapCard id={selected.id} onClose={() => setSelectedId(null)} />
-					)}
-				</>
-			}
-		>
-			<div className="flex h-full min-h-0 flex-col">
-				<ExplorerHeader icon={SampleIcon} isLoading={isLoading} title="Samples" total={total}>
 					<DateRangeFilter {...dateRange} />
 
 					<StatusFilter onChange={setStatus} value={status} />
 
-					<div className="flex flex-wrap items-center gap-2">
+					<FilterGrid>
 						<SpeciesFilter onChange={setSpeciesIds} options={options} selected={speciesIds} />
 						<MultiSelectFilter
 							empty="No regions"
@@ -282,9 +256,9 @@ function SamplesExplorerRoute() {
 							onChange={setNonMosquito}
 							value={nonMosquito}
 						/>
-					</div>
+					</FilterGrid>
 
-					{hasActiveFilters ? (
+					{activeFilterCount > 0 ? (
 						<ActiveFilters
 							from={dateFrom}
 							isDefaultRange={isDefaultRange}
@@ -303,27 +277,65 @@ function SamplesExplorerRoute() {
 							to={dateTo}
 						/>
 					) : null}
-				</ExplorerHeader>
-
-				<SampleResults
-					isLoading={isLoading}
-					nameById={nameById}
-					onSelect={setSelectedId}
-					rows={rows}
-					selectedId={selectedId}
+				</>
+			}
+			footer={
+				<ExplorerPagination
+					noun={{ one: 'sample', many: 'samples' }}
+					onPageChange={setPage}
+					page={page}
+					pageCount={pageCount}
+					total={total}
 				/>
-
-				<div className="border-border/50 border-t p-3">
-					<ExplorerPagination
-						noun="samples"
-						onPageChange={setPage}
-						page={page}
-						pageCount={pageCount}
-						total={total}
+			}
+			heading={{
+				title: 'Samples',
+				icon: SampleIcon,
+				total,
+				isLoading,
+			}}
+			onResetFilters={clearAll}
+			map={
+				<>
+					<MapCanvas
+						inset={panel.inset}
+						searchWidth={panel.width}
+						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
+						controls={{ layers: false, measure: true, readout: true }}
+						fitToData
+						legend={legend}
+						onMapReady={handleMapReady}
+						sampleLayer={sampleLayer}
 					/>
-				</div>
-			</div>
-		</MapSplitPage>
+					{selected === null ? null : (
+						<SampleMapCard
+							id={selected.id}
+							inset={panel.inset}
+							onClose={() => setSelectedId(null)}
+						/>
+					)}
+				</>
+			}
+			panel={panel}
+			results={{
+				rows,
+				isError,
+				onRetry: retry,
+				skeletonClassName: 'h-[64px]',
+				emptyTitle: 'No samples in view',
+				emptyDescription:
+					'Pan or zoom the map, widen the time window, or loosen the filters to bring samples into range.',
+				renderRow: (sample) => (
+					<SampleListItem
+						isSelected={sample.id === selectedId}
+						key={sample.id}
+						nameById={nameById}
+						onSelect={setSelectedId}
+						sample={sample}
+					/>
+				),
+			}}
+		/>
 	);
 }
 
@@ -345,12 +357,12 @@ function StatusFilter({
 			<span className="w-14 shrink-0 pt-1 font-medium text-muted-foreground text-xs">Status</span>
 			<div className="flex min-w-0 flex-1 flex-wrap gap-1.5">
 				<StatusChip isActive={value === 'all'} label="All" onClick={() => onChange('all')} />
-				{STATUS_ORDER.map((option) => (
+				{SAMPLE_STATUS_ORDER.map((option) => (
 					<StatusChip
 						color={SAMPLE_STATUS_COLORS[option]}
 						isActive={value === option}
 						key={option}
-						label={STATUS_META[option].label}
+						label={sampleStatusLabel(option)}
 						onClick={() => onChange(value === option ? 'all' : option)}
 					/>
 				))}
@@ -511,7 +523,7 @@ function ActiveFilters({
 			{status !== 'all' ? (
 				<FilterChip
 					color={SAMPLE_STATUS_COLORS[status]}
-					label={STATUS_META[status].label}
+					label={sampleStatusLabel(status)}
 					onRemove={onClearStatus}
 				/>
 			) : null}
@@ -539,40 +551,6 @@ function ActiveFilters({
 
 // --- results list -----------------------------------------------------------
 
-function SampleResults({
-	rows,
-	isLoading,
-	selectedId,
-	nameById,
-	onSelect,
-}: {
-	readonly rows: readonly SampleFeature[];
-	readonly isLoading: boolean;
-	readonly selectedId: string | null;
-	readonly nameById: ReadonlyMap<string, string>;
-	readonly onSelect: (id: string) => void;
-}) {
-	return (
-		<ResultList
-			emptyDescription="Pan or zoom the map, widen the time window, or loosen the filters to bring samples into range."
-			emptyTitle="No samples in view"
-			isLoading={isLoading}
-			rows={rows}
-			skeletonClassName="h-[64px]"
-		>
-			{(sample) => (
-				<SampleListItem
-					isSelected={sample.id === selectedId}
-					key={sample.id}
-					nameById={nameById}
-					onSelect={onSelect}
-					sample={sample}
-				/>
-			)}
-		</ResultList>
-	);
-}
-
 function SampleListItem({
 	sample,
 	isSelected,
@@ -587,14 +565,18 @@ function SampleListItem({
 	const label = sampleName(sample);
 	return (
 		<ExplorerRow
+			/*
+			 * Species only. The status pill repeated the dot at the left of the row,
+			 * which is already the status and already the colour the map paints this
+			 * sample. What was found in it is the one thing neither says.
+			 *
+			 * `null` rather than omitted for a sample that has no results yet, so every
+			 * row in the rail keeps the same shape.
+			 */
 			badges={
 				sample.status === 'identified' ? (
 					<SpeciesResults limit={RESULT_CHIP_LIMIT} nameById={nameById} sample={sample} />
-				) : (
-					<Badge tone={STATUS_META[sample.status].tone} variant="outline">
-						{STATUS_META[sample.status].label}
-					</Badge>
-				)
+				) : null
 			}
 			date={formatListDate(sample.inspectionDate)}
 			detailLabel={`View details for ${label}`}
@@ -614,7 +596,7 @@ function sampleSwatch(sample: SampleFeature): { readonly color: string; readonly
 	const color = SAMPLE_STATUS_COLORS[sample.status];
 	return {
 		color: color ?? 'var(--muted-foreground)',
-		label: STATUS_META[sample.status].label,
+		label: sampleStatusLabel(sample.status),
 	};
 }
 
@@ -685,7 +667,7 @@ function _StatusDot({ status }: { readonly status: SampleStatus }) {
 			aria-hidden="true"
 			className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
 			style={{ backgroundColor: SAMPLE_STATUS_COLORS[status] }}
-			title={STATUS_META[status].label}
+			title={sampleStatusLabel(status)}
 		/>
 	);
 }
@@ -693,36 +675,6 @@ function _StatusDot({ status }: { readonly status: SampleStatus }) {
 // --- selected sample detail card --------------------------------------------
 
 // --- data hooks -------------------------------------------------------------
-
-/**
- * Species names + the org's species options for the filter. Names resolve from
- * the eager global taxonomy; the filter offers only the species the org has
- * adopted (falling back to the full catalog if the org hasn't curated a list).
- */
-function useSpeciesCatalog(): {
-	readonly nameById: ReadonlyMap<string, string>;
-	readonly options: readonly SpeciesOption[];
-} {
-	const { rows: species } = useCollectionRows<SpeciesRow>(webCollections.species);
-	const { rows: orgSpecies } = useCollectionRows<OrganizationSpeciesRow>(
-		webCollections.organizationSpecies,
-	);
-
-	const nameById = useMemo(
-		() => new Map(species.map((row) => [row.id, row.displayName] as const)),
-		[species],
-	);
-
-	const options = useMemo(() => {
-		const orgIds = new Set(orgSpecies.map((row) => row.speciesId));
-		const source = orgIds.size > 0 ? species.filter((row) => orgIds.has(row.id)) : species;
-		return source
-			.map((row) => ({ id: row.id, label: row.displayName }))
-			.sort((first, second) => first.label.localeCompare(second.label));
-	}, [species, orgSpecies]);
-
-	return { nameById, options };
-}
 
 // --- helpers ----------------------------------------------------------------
 

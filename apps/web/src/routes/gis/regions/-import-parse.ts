@@ -1,6 +1,6 @@
 /**
- * The bulk region import's view of an uploaded KML or GeoJSON file: every polygon
- * in the file becomes one region, named after its Feature/Placemark.
+ * The bulk region import's view of an uploaded KML, KMZ, or GeoJSON file: every
+ * polygon in the file becomes one region, named after its Feature/Placemark.
  *
  * The parsing itself lives in `@simmer-mosquito/mapping` (shared with the record forms'
  * "fill geometry from a file" convenience); this module only adds the region-side

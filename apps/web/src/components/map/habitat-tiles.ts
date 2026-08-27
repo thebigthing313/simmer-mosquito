@@ -30,11 +30,23 @@ export interface HabitatTileFilters extends RegionScopedTileFilters {
 export const HABITAT_SOURCE_ID = 'habitats';
 const _HABITAT_SOURCE_LAYER = 'habitats';
 
-/** Map paint colors, from the shared palette in `@simmer-mosquito/design-tokens`. */
-const colors = {
+/**
+ * What each habitat status paints, and the only place it is written down.
+ *
+ * The legend imports this rather than restating the colours. DESIGN.md calls
+ * that the Legend Truth Rule: a hand-typed swatch drifted into describing a
+ * colour that was not on the map and stayed wrong, because a legend looks
+ * correct as long as it looks plausible.
+ */
+export const HABITAT_STATUS_COLORS = {
 	active: mapLifecycle.active,
 	inactive: mapLifecycle.inactive,
 	inaccessible: mapLifecycle.inaccessible,
+} as const;
+
+/** Map paint colors, from the shared palette in `@simmer-mosquito/design-tokens`. */
+const colors = {
+	...HABITAT_STATUS_COLORS,
 	line: mapDomain.connector,
 	pointStroke: mapInteraction.pointStroke,
 	selected: mapInteraction.selected,

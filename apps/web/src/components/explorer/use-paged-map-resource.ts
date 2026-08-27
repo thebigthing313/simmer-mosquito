@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../auth';
 
 /** Rows per page on every explorer. */
@@ -42,6 +42,10 @@ export interface PagedMapResource<TRow> {
 	readonly rows: readonly TRow[];
 	readonly total: number;
 	readonly isLoading: boolean;
+	/** The request failed. The rows are the last good answer, or none at all. */
+	readonly isError: boolean;
+	/** Run the request again, for the retry the failure state offers. */
+	readonly retry: () => void;
 	readonly page: number;
 	readonly pageCount: number;
 	readonly setPage: (page: number) => void;
@@ -108,7 +112,20 @@ export function usePagedMapResource<TRow>({
 		[raw, normalizeRow],
 	);
 
-	return { rows, total, isLoading: query.isLoading, page, pageCount, setPage };
+	const retry = useCallback(() => {
+		void query.refetch();
+	}, [query.refetch]);
+
+	return {
+		rows,
+		total,
+		isLoading: query.isLoading,
+		isError: query.isError,
+		retry,
+		page,
+		pageCount,
+		setPage,
+	};
 }
 
 /**
