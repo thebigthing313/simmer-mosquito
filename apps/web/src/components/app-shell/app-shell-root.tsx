@@ -10,7 +10,7 @@ import {
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
-import { Suspense, useState } from 'react';
+import { Suspense, useRef, useState } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
@@ -47,6 +47,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	// props and renders the trigger itself. `apps/admin` provides no such context,
 	// so its header simply loses the search field it never had a palette for.
 	const [searchOpen, setSearchOpen] = useState(false);
+	const searchTriggerRef = useRef<HTMLButtonElement>(null);
 	const localIdentity = auth?.authenticated === true ? auth.localIdentity : null;
 	const user = auth?.authenticated === true ? auth.user : null;
 
@@ -81,7 +82,13 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	};
 
 	return (
-		<SearchTriggerProvider value={{ isOpen: searchOpen, onOpen: () => setSearchOpen(true) }}>
+		<SearchTriggerProvider
+			value={{
+				isOpen: searchOpen,
+				onOpen: () => setSearchOpen(true),
+				triggerRef: searchTriggerRef,
+			}}
+		>
 			<ShellProvider
 				organizations={[currentOrganization]}
 				currentOrganization={currentOrganization}
@@ -118,7 +125,12 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 					</OutletShell>
 				</BreadcrumbLabelProvider>
 			</ShellProvider>
-			<SearchPalette auth={auth} onOpenChange={setSearchOpen} open={searchOpen} />
+			<SearchPalette
+				auth={auth}
+				onOpenChange={setSearchOpen}
+				open={searchOpen}
+				triggerRef={searchTriggerRef}
+			/>
 			<Toaster richColors />
 		</SearchTriggerProvider>
 	);

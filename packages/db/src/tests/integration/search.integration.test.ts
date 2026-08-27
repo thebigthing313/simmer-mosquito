@@ -66,6 +66,36 @@ describeDbIntegration('search documents reader', () => {
 		});
 	});
 
+	// At three characters and up the prefix branch is preceded by a trigram
+	// containment test, which the index serves and which is a superset of the
+	// per-field prefix. A field that is not the first declared one is where a
+	// pre-filter that was not a superset would show up.
+	it('reaches a prefix on a later identifier field, above the trigram floor', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await seedOrganization(db, 'workos_org_search_prefix');
+
+			await db
+				.insertInto('contacts')
+				.values({
+					organization_id: org,
+					contact_name: 'Radhika Patel',
+					company: 'Township Public Works',
+				})
+				.execute();
+
+			const result = await searchDocuments(db, {
+				organizationId: org,
+				query: 'Township',
+				limit: 20,
+				offset: 0,
+			});
+
+			expect(result.rows).toHaveLength(1);
+			expect(result.rows[0]?.matchClass).toBe('prefix');
+			expect(result.rows[0]?.matchedField).toBe('company');
+		});
+	});
+
 	it('finds a typo through the fuzzy class and names the field it matched', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await seedOrganization(db, 'workos_org_search_fuzzy');

@@ -56,6 +56,7 @@ export function HeaderSearchBar() {
 			aria-label="Search"
 			className="h-9 gap-2 bg-background px-3 text-muted-foreground"
 			onClick={trigger.onOpen}
+			ref={trigger.triggerRef}
 			type="button"
 			variant="outline"
 		>

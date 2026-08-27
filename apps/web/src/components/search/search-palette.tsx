@@ -22,7 +22,7 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { useLiveQuery } from '@tanstack/react-db';
 import { useNavigate } from '@tanstack/react-router';
-import { useEffect, useState } from 'react';
+import { type RefObject, useEffect, useState } from 'react';
 import type { AuthMe } from '../../auth';
 import { routes as routesCollection } from '../../lib/collections/routes';
 import { shellSearchCandidates, type WebShellCandidate } from '../app-shell/navigation';
@@ -57,10 +57,13 @@ export function SearchPalette({
 	auth,
 	onOpenChange,
 	open,
+	triggerRef,
 }: {
 	readonly auth: AuthMe | null;
 	readonly onOpenChange: (open: boolean) => void;
 	readonly open: boolean;
+	/** The header button focus goes back to on close. */
+	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }) {
 	const navigate = useNavigate();
 	const [query, setQuery] = useState('');
@@ -100,19 +103,66 @@ export function SearchPalette({
 			: matchCandidates(actionCandidates, query).map(toActionResult);
 
 	const server = bucketServerResults(search.data?.results ?? []);
-	const groups: PaletteGroups = capPaletteGroups({
+	const searched: PaletteGroups = {
 		pages,
 		actions,
 		records: query === '' ? [] : server.records,
 		comments: query === '' ? [] : server.comments,
-	});
+	};
+	// The caps are a budget for a *searched* list, where four kinds compete for
+	// ten rows. The empty state is one kind and the whole point of it is that the
+	// list is complete: every action the caller's floor allows, in navigation
+	// order, scrolling. Capped, it showed ten of fifteen and the missing five
+	// looked like they did not exist.
+	const groups = query === '' ? searched : capPaletteGroups(searched);
 
-	const rowValues = [...groups.pages, ...groups.actions, ...groups.records, ...groups.comments]
-		.map(searchResultValue)
-		.join('|');
+	const orderedValues = [
+		...groups.pages,
+		...groups.actions,
+		...groups.records,
+		...groups.comments,
+	].map(searchResultValue);
+	const rowValues = orderedValues.join('|');
+	const firstValue = orderedValues[0] ?? '';
+
+	/*
+	 * The selection is reset to the *first row* on every result swap.
+	 *
+	 * The reset itself is needed because cmdk compares selection by string and its
+	 * own recovery from a selection whose row has unmounted is an item-unregister
+	 * cleanup guarded on a node captured at cleanup time and scheduled into a
+	 * keyed slot: when several items unmount in one commit the last cleanup
+	 * overwrites the slot and the reset never fires.
+	 *
+	 * Naming the first row rather than `''` is the half that was measured. With
+	 * `''`, cmdk auto-selects row 1 on the *first* result set and selects nothing
+	 * at all on the second, so after typing a second query no row is highlighted
+	 * and Enter does nothing. Naming the row keeps one selected across every swap.
+	 */
 	useEffect(() => {
-		setValue('');
-	}, [rowValues]);
+		setValue(firstValue);
+	}, [rowValues, firstValue]);
+
+	/*
+	 * `aria-activedescendant` is cmdk's, and it is absent on a fresh result set.
+	 *
+	 * Measured in the browser rather than assumed: on every fresh result set row 1
+	 * is visibly highlighted and the attribute is *absent* on the input, and it
+	 * becomes correct only after the first arrow key. cmdk resolves it through an
+	 * id map its items populate on mount, and a selection made in the same commit
+	 * as the mount misses that lookup with nothing to recompute it.
+	 *
+	 * Two fixes were tried and both are gone: naming the first row in `value`
+	 * does keep a row selected, which is why it is above, but it does not reach
+	 * the attribute; and writing the attribute onto the input by hand is clobbered
+	 * by the next render.
+	 *
+	 * Enter is unaffected throughout, because cmdk's Enter path queries the DOM
+	 * for `[cmdk-item][aria-selected="true"]` rather than reading its own state.
+	 * So this is a screen-reader defect and not a dead key, and what covers it
+	 * meanwhile is the status region below, which does announce the result count.
+	 * Fixing it properly is a change to cmdk.
+	 */
 
 	const total = search.data?.total ?? 0;
 	const failed = search.isError;
@@ -171,7 +221,22 @@ export function SearchPalette({
 
 	return (
 		<Dialog onOpenChange={(next) => (next ? onOpenChange(true) : close())} open={open}>
-			<DialogContent className="overflow-hidden p-0" showCloseButton={false}>
+			<DialogContent
+				className="overflow-hidden p-0"
+				onCloseAutoFocus={(event) => {
+					/*
+					 * Radix restores focus through `DialogTrigger`'s own ref and
+					 * suppresses its fallback to the previously focused element. This
+					 * palette has no `DialogTrigger`: the button lives in
+					 * `packages/ui-web`, in a different tree, and reaches this through a
+					 * context. So the ref is null, the fallback is already suppressed,
+					 * and focus lands on `<body>` — measured, not assumed.
+					 */
+					event.preventDefault();
+					triggerRef.current?.focus();
+				}}
+				showCloseButton={false}
+			>
 				<DialogHeader className="sr-only">
 					<DialogTitle>Search</DialogTitle>
 					<DialogDescription>Search records, pages and actions.</DialogDescription>

@@ -1,4 +1,4 @@
-import { createContext, type ReactNode, useContext } from 'react';
+import { createContext, type ReactNode, type RefObject, useContext } from 'react';
 
 /**
  * How the header's search button reaches a palette it cannot import.
@@ -19,6 +19,15 @@ export interface SearchTriggerValue {
 	readonly onOpen: () => void;
 	/** Whether the palette is open, so the trigger can carry `aria-expanded`. */
 	readonly isOpen: boolean;
+	/**
+	 * Where the trigger button lands, so the palette can put focus back on it.
+	 *
+	 * The palette cannot use Radix's `DialogTrigger` — the button is in this
+	 * package and the palette is in the app — and Radix restores focus through
+	 * that trigger's ref while suppressing its own fallback. With no ref to
+	 * restore to, Escape drops focus on `<body>`. This is that ref.
+	 */
+	readonly triggerRef: RefObject<HTMLButtonElement | null>;
 }
 
 const SearchTriggerContext = createContext<SearchTriggerValue | null>(null);

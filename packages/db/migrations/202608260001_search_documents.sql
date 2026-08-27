@@ -514,7 +514,18 @@ with docs as materialized (
 --
 -- `prefix` at one and two characters is served by none of these: `gin_trgm_ops`
 -- degenerates below three characters and the array GIN answers equality, not
--- prefix. That is a known and measured gap, not an oversight.
+-- prefix. That is a known and measured gap, not an oversight, and the number is
+-- written down: a one-character query scans one agency's documents in 35.6 ms
+-- over staging's 47,861, which is roughly 100 ms over production's 135,198,
+-- against a 3 s statement timeout. Three characters and up costs 3.4 to 3.8 ms
+-- with every branch on an index.
+--
+-- Two things the reader has to do to reach those numbers, neither of them an
+-- index: `exact` is `search_text @> array[q]` and not `q = any(search_text)`,
+-- because only the first is an indexable operator for `array_ops`; and `prefix`
+-- at three characters and up puts an index-servable trigram containment test in
+-- front of the per-field test, which no index can serve on its own. See
+-- `packages/db/src/domains/search.ts`.
 create index search_documents_vector_idx
 	on search_documents using gin (organization_id, search_vector);
 create index search_documents_trgm_idx

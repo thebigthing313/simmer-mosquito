@@ -126,13 +126,26 @@ const WORD_SIMILARITY_THRESHOLD = 0.6;
  */
 const FUZZY_CLASS_CAP = 20;
 
-/** Below this length `gin_trgm_ops` degenerates to a scan, so `fuzzy` is off. */
-const FUZZY_MIN_QUERY_LENGTH = 3;
+/**
+ * Below this length `gin_trgm_ops` degenerates to a scan.
+ *
+ * It is the floor for two branches, not one: `fuzzy` is off entirely below it,
+ * and `prefix` loses the index-servable pre-filter that keeps it off a sequential
+ * scan. `exact` and `text` are served at any length.
+ */
+const TRIGRAM_MIN_QUERY_LENGTH = 3;
 
 /**
  * The statement budget. Search is the one read a person fires on every
  * keystroke, so what this guards against is a plan regression turning the
- * palette into a stalled connection pool. Whole queries measured at 6 to 40 ms.
+ * palette into a stalled connection pool.
+ *
+ * Measured against staging, 47,861 documents in one agency: a whole query at
+ * three characters or more runs in 3.4 to 3.8 ms, with all four branches
+ * bitmap-scanning their own index and OR-ing together. One and two character
+ * queries scan, at 35.6 ms. Staging is a clone pruned to three years and about
+ * 2.8x smaller than production, so read those as roughly 10 ms and 100 ms there.
+ * The timeout is thirty times the worse of the two.
  */
 const SEARCH_STATEMENT_TIMEOUT = '3s';
 
@@ -158,8 +171,46 @@ export async function searchDocuments(
 	}
 
 	const folded = input.query.toLowerCase();
-	const prefixPattern = `${escapeLikePattern(folded)}%`;
-	const fuzzyOn = folded.length >= FUZZY_MIN_QUERY_LENGTH;
+	const escaped = escapeLikePattern(folded);
+	const prefixPattern = `${escaped}%`;
+	const containsPattern = `%${escaped}%`;
+	const trigramUsable = folded.length >= TRIGRAM_MIN_QUERY_LENGTH;
+
+	/*
+	 * An identifier field equals the query. `@>` and not `= any(...)`: the two
+	 * mean the same thing and only one of them is an indexable operator for
+	 * `array_ops`, so `= any` seq-scanned the whole agency. Measured on staging,
+	 * 15.6 ms became 0.19 ms.
+	 */
+	const exactPredicate = sql`d.search_text @> array[p.qq]`;
+
+	/*
+	 * An identifier field starts with the query.
+	 *
+	 * The `exists` over the array is the predicate that is actually meant: a
+	 * prefix has to match the start of *a field*, and testing the joined column
+	 * would only ever reach the first field in declared order, which is the
+	 * smaller version of the bug that made `search_text` an array in the first
+	 * place. No index serves that test.
+	 *
+	 * So at three characters and up it is preceded by a trigram containment test,
+	 * which is a superset of it and which the trigram index does serve, leaving
+	 * the array test as a recheck over what comes back. 41.0 ms became 3.2 ms on
+	 * staging, over the same 835 rows.
+	 *
+	 * Below three characters `gin_trgm_ops` degenerates and there is nothing to
+	 * add, so a one or two character query scans one agency's documents. That is
+	 * the measured and accepted gap: 41 ms over staging's 47,861 documents, so
+	 * roughly 115 ms over production's 135,198.
+	 */
+	const prefixPredicate = trigramUsable
+		? sql`d.search_text_joined like p.qq_contains and exists (
+				select 1 from unnest(d.search_text) e where e like p.qq_prefix
+			)`
+		: sql`exists (select 1 from unnest(d.search_text) e where e like p.qq_prefix)`;
+
+	/** `word_similarity` at or above the threshold. Off below the trigram floor. */
+	const fuzzyPredicate = trigramUsable ? sql`d.search_text_joined %> p.qq` : sql`false`;
 	const commentsOnly = input.documentClass === 'comments';
 	const recordsOnly = input.documentClass === 'records';
 
@@ -184,6 +235,7 @@ export async function searchDocuments(
 				select
 					${folded}::text as qq,
 					${prefixPattern}::text as qq_prefix,
+					${containsPattern}::text as qq_contains,
 					${buildTsQuery(tokens)} as tsq
 			),
 			-- The corpus declaration, carried into the query so the matched field can
@@ -199,16 +251,13 @@ export async function searchDocuments(
 					d.fields,
 					d.display,
 					case
-						when d.search_text is not null and p.qq = any(d.search_text) then 'exact'
-						when d.search_text is not null and exists (
-							select 1 from unnest(d.search_text) e where e like p.qq_prefix
-						) then 'prefix'
-						when ${fuzzyOn} and d.search_text_joined %> p.qq then 'fuzzy'
+						when d.search_text is not null and ${exactPredicate} then 'exact'
+						when d.search_text is not null and ${prefixPredicate} then 'prefix'
+						when ${fuzzyPredicate} then 'fuzzy'
 						else 'text'
 					end as match_class,
 					case
-						when ${fuzzyOn} and d.search_text_joined %> p.qq
-							then word_similarity(p.qq, d.search_text_joined)
+						when ${fuzzyPredicate} then word_similarity(p.qq, d.search_text_joined)
 						else 0
 					end as fuzzy_score,
 					-- Normalization flag 1, log document length. Flag 32 is
@@ -221,11 +270,9 @@ export async function searchDocuments(
 				cross join p
 				where d.organization_id = ${input.organizationId}
 					and (
-						(d.search_text is not null and p.qq = any(d.search_text))
-						or (d.search_text is not null and exists (
-							select 1 from unnest(d.search_text) e where e like p.qq_prefix
-						))
-						or (${fuzzyOn} and d.search_text_joined %> p.qq)
+						(d.search_text is not null and ${exactPredicate})
+						or (d.search_text is not null and ${prefixPredicate})
+						or (${fuzzyPredicate})
 						or d.search_vector @@ p.tsq
 					)
 			),
