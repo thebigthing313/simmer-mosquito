@@ -179,6 +179,12 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
+    # The label read below needs this. The workflow's top-level grant is
+    # `contents: read` alone, and a job-level block replaces it rather than
+    # adding to it, so the checkout's grant is repeated here.
+    permissions:
+      contents: read
+      pull-requests: read
 
     steps:
       - name: Check out repository
@@ -191,7 +197,8 @@ jobs:
       - name: Require a changeset for user-visible changes
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
-          DECLINED: ${{ contains(github.event.pull_request.labels.*.name, 'no changeset') }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           changed=$(git diff --name-only "$BASE"...HEAD)
 
@@ -212,7 +219,19 @@ jobs:
             exit 0
           fi
 
-          if [ "$DECLINED" = "true" ]; then
+          # Read live rather than from `github.event.pull_request.labels`, which
+          # is a snapshot taken when the event fired. `gh pr create --label`
+          # opens the PR and applies the label in a second call, so the label is
+          # never in the payload of the event it arrives with, and `gh run rerun`
+          # replays that same stale payload. Closing and reopening the PR was the
+          # only thing that picked the label up. Now adding it and re-running is
+          # enough. One API call, made after the path filter above, so a PR with
+          # nothing user-visible in it never spends one.
+          # No leading slash: a leading-slash endpoint is a path a shell may
+          # rewrite, and Git Bash on Windows does, which is how anyone testing
+          # this command by hand meets it.
+          if gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" \
+            --jq '.labels[].name' | grep -qxF 'no changeset'; then
             echo "Labelled 'no changeset' — the author declined one deliberately."
             exit 0
           fi
@@ -221,7 +240,7 @@ jobs:
           echo
           echo "If it changes what a user can do, run 'pnpm changeset' and commit the file."
           echo "If it does not — a refactor, a test, a dependency bump — add the"
-          echo "'no changeset' label to this PR."
+          echo "'no changeset' label to this PR, then re-run this job."
           echo
           echo "Source files that triggered this:"
           printf '%s\n' "$visible" | sed 's/^/  /'
