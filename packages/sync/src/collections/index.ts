@@ -42,6 +42,7 @@ export * from './formulations.js';
 export * from './functions/command-transaction.js';
 export * from './functions/mutate-collection.js';
 export * from './functions/routes.js';
+export * from './functions/session-fetch.js';
 export * from './functions/sync-collection.js';
 export * from './functions/write-command.js';
 export * from './genera.js';

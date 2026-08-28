@@ -1,4 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getServerUrl } from '../../../api';
 
@@ -265,7 +266,7 @@ function foundationsPath(organizationId: string): string {
 }
 
 async function getJson<T>(url: string): Promise<T> {
-	const response = await fetch(url, {
+	const response = await sessionFetch(url, {
 		credentials: 'include',
 		headers: { accept: 'application/json' },
 	});
@@ -273,7 +274,7 @@ async function getJson<T>(url: string): Promise<T> {
 }
 
 async function postJson<T>(url: string, body: unknown): Promise<T> {
-	const response = await fetch(url, {
+	const response = await sessionFetch(url, {
 		method: 'POST',
 		credentials: 'include',
 		headers: { accept: 'application/json', 'content-type': 'application/json' },

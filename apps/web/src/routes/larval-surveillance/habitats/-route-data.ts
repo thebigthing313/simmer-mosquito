@@ -1,3 +1,4 @@
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { and, coalesce, concat, eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -301,7 +302,7 @@ export function useHabitatSearch(query: string): {
 async function fetchHabitatSearch(query: string, signal: AbortSignal): Promise<HabitatSite[]> {
 	const url = new URL('/map/habitats/search', getServerUrl());
 	url.searchParams.set('q', query);
-	const response = await fetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { credentials: 'include', signal });
 	if (!response.ok) {
 		throw new Error(`Habitat search failed (${response.status}).`);
 	}
@@ -338,7 +339,7 @@ async function patchHabitat(
 	body: Record<string, unknown>,
 	fallbackError: string,
 ): Promise<void> {
-	const response = await fetch(
+	const response = await sessionFetch(
 		new URL(`/larval-surveillance/habitats/${habitatId}`, getServerUrl()),
 		{
 			method: 'PATCH',

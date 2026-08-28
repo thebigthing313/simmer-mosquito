@@ -38,7 +38,7 @@
  * the command endpoints exist, and then the ordinary one is.
  */
 
-import { CommandError, settleWrite } from '@simmer-mosquito/sync';
+import { CommandError, sessionFetch, settleWrite } from '@simmer-mosquito/sync';
 import { createTransaction } from '@tanstack/db';
 
 /** What a refused body may carry. Every field optional: the shape is the route's to choose. */
@@ -177,7 +177,7 @@ async function sendRestWrite(
 	input: RestWriteInput,
 	refusalFor: (status: number, ok: boolean, body: RestRefusalBody) => Error | null,
 ): Promise<RestRefusalBody> {
-	const response = await fetch(input.url, {
+	const response = await sessionFetch(input.url, {
 		method: input.method,
 		credentials: 'include',
 		headers: {

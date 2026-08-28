@@ -1,4 +1,5 @@
 import { circlePolygon } from '@simmer-mosquito/mapping';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../../auth';
 
@@ -103,10 +104,13 @@ export function useServiceRequestNearby(id: string) {
 }
 
 async function fetchNearby(id: string, signal: AbortSignal): Promise<NearbyResponse> {
-	const response = await fetch(new URL(`/map/service-requests/${id}/nearby`, getServerUrl()), {
-		credentials: 'include',
-		signal,
-	});
+	const response = await sessionFetch(
+		new URL(`/map/service-requests/${id}/nearby`, getServerUrl()),
+		{
+			credentials: 'include',
+			signal,
+		},
+	);
 	if (!response.ok) {
 		throw new Error(`Nearby request failed (${response.status}).`);
 	}

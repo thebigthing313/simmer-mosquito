@@ -1,5 +1,6 @@
 import type { AppAuthController } from '@simmer-mosquito/auth/browser';
 import { createRootRouteWithContext, Outlet, redirect, useLocation } from '@tanstack/react-router';
+import { publicPaths } from '../app-auth';
 import { AdminShellRoot } from '../components/app-shell/admin-shell-root';
 
 // Exported because the generated route tree names this type in its inferred
@@ -9,8 +10,6 @@ import { AdminShellRoot } from '../components/app-shell/admin-shell-root';
 export interface RouterContext {
 	readonly auth: AppAuthController;
 }
-
-const publicPaths = new Set(['/sign-in']);
 
 export const Route = createRootRouteWithContext<RouterContext>()({
 	beforeLoad: async ({ context, location }) => {

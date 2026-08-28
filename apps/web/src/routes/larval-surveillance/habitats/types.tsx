@@ -1,3 +1,4 @@
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
@@ -59,7 +60,7 @@ function useHabitatTypeUsage(): { readonly usageById: UsageById; readonly isLoad
 }
 
 async function fetchHabitatTypeUsage(signal: AbortSignal): Promise<UsageById> {
-	const response = await fetch(new URL('/map/habitats/type-usage', getServerUrl()), {
+	const response = await sessionFetch(new URL('/map/habitats/type-usage', getServerUrl()), {
 		credentials: 'include',
 		signal,
 	});

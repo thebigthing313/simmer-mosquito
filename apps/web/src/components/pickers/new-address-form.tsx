@@ -1,4 +1,5 @@
 import { createAddressCommand } from '@simmer-mosquito/domain';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Loader2Icon, MapPinnedIcon, SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useState } from 'react';
@@ -74,7 +75,7 @@ export function NewAddressForm({
 			url.searchParams.set('q', addressQueryText({ addressLine1, locality, region, postalCode }));
 			url.searchParams.set('country', country);
 			url.searchParams.set('limit', '5');
-			const response = await fetch(url, { credentials: 'include' });
+			const response = await sessionFetch(url, { credentials: 'include' });
 			const body = (await response.json().catch(() => null)) as
 				| GeocoderResponse
 				| { readonly error?: string }

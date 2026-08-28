@@ -1,4 +1,5 @@
 import { createAddressCommand } from '@simmer-mosquito/domain';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -115,7 +116,7 @@ export function AddressFormPage({
 			url.searchParams.set('q', addressQueryText(values));
 			url.searchParams.set('country', values.country.trim() || 'US');
 			url.searchParams.set('limit', '5');
-			const response = await fetch(url, { credentials: 'include' });
+			const response = await sessionFetch(url, { credentials: 'include' });
 			const body = (await response.json()) as GeocoderResponse | { readonly error: string };
 			if (!response.ok || !('results' in body)) {
 				throw new Error('Unable to geocode address.');

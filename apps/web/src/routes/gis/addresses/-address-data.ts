@@ -1,4 +1,5 @@
 import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../../../auth';
 
@@ -45,7 +46,7 @@ async function fetchAddressGeometry(
 	addressId: string,
 	signal: AbortSignal,
 ): Promise<AddressGeometry | null> {
-	const response = await fetch(new URL(`/map/addresses/${addressId}`, getServerUrl()), {
+	const response = await sessionFetch(new URL(`/map/addresses/${addressId}`, getServerUrl()), {
 		credentials: 'include',
 		signal,
 	});

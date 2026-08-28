@@ -63,6 +63,7 @@ describe('resolveAuthContext', () => {
 			localIdentityResolver: {
 				resolveActiveLocalAuthIdentity: localResolver,
 			},
+			mayRefresh: true,
 		});
 
 		expect(result).toEqual({
@@ -92,6 +93,7 @@ describe('resolveAuthContext', () => {
 			localIdentityResolver: {
 				resolveActiveLocalAuthIdentity: vi.fn(),
 			},
+			mayRefresh: true,
 		});
 
 		expect(result).toEqual({
@@ -120,6 +122,7 @@ describe('resolveAuthContext', () => {
 			localIdentityResolver: {
 				resolveActiveLocalAuthIdentity: async () => null,
 			},
+			mayRefresh: true,
 		});
 
 		expect(result).toEqual({
@@ -158,6 +161,7 @@ describe('resolveAuthContext', () => {
 				}),
 			},
 			localIdentityResolver: { resolveActiveLocalAuthIdentity: async () => localIdentity },
+			mayRefresh: true,
 			...(options.operatorOrganizationId === undefined
 				? {}
 				: { operatorOrganizationId: options.operatorOrganizationId }),
@@ -210,6 +214,7 @@ describe('resolveAuthContext', () => {
 			localIdentityResolver: {
 				resolveActiveLocalAuthIdentity: async () => localIdentity,
 			},
+			mayRefresh: true,
 		});
 
 		expect(result.ok).toBe(true);

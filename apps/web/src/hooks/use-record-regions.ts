@@ -1,3 +1,4 @@
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../auth';
 
@@ -90,7 +91,7 @@ async function fetchRecordRegions(
 	recordId: string,
 	signal: AbortSignal,
 ): Promise<RecordRegions> {
-	const response = await fetch(
+	const response = await sessionFetch(
 		new URL(`/records/${recordType}/${recordId}/regions`, getServerUrl()),
 		{ credentials: 'include', signal },
 	);

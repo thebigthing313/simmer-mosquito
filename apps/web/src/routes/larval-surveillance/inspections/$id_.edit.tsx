@@ -1,5 +1,6 @@
 import type { ResolvedLarvalInspectionEntryPolicy } from '@simmer-mosquito/domain';
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -326,7 +327,7 @@ async function fetchInspectionGeometry(
 	signal: AbortSignal,
 ): Promise<GeoJsonGeometry | null> {
 	const url = new URL(`/map/inspections/${inspectionId}`, getServerUrl());
-	const response = await fetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { credentials: 'include', signal });
 	if (response.status === 404) {
 		return null;
 	}

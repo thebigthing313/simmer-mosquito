@@ -1,5 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { ControlType } from '@simmer-mosquito/sync';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
@@ -270,7 +271,7 @@ async function fetchMissionItemGeometry(
 	signal: AbortSignal,
 ): Promise<readonly { readonly id: string; readonly geojson: GeoJsonGeometry }[]> {
 	const url = new URL(`/map/missions/${missionId}/items`, getServerUrl());
-	const response = await fetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { credentials: 'include', signal });
 	if (response.status === 404) {
 		return [];
 	}

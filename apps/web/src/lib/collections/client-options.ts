@@ -31,8 +31,23 @@
  * rather than editing this.
  */
 
-import { alwaysVisibleRuntime, type SyncCollectionClientOptions } from '@simmer-mosquito/sync';
+import {
+	alwaysVisibleRuntime,
+	type SyncCollectionClientOptions,
+	setSessionRecovery,
+} from '@simmer-mosquito/sync';
+import { recoverSession } from '../../app-auth';
 import { getServerUrl } from '../../auth';
+
+// What a refused request means, for every shape stream and every command write
+// this app makes. The routes verify the session and leave renewing it to
+// `/auth/me` (#298), so a 401 is usually an access token that aged out and is
+// cured by renewing once and asking again. When it cannot be cured, this is what
+// sends the reader to sign in rather than leaving the page to break (#299).
+//
+// Installed here because every collection module imports this one, so it is in
+// place before any of them can issue a request.
+setSessionRecovery(recoverSession);
 
 export const syncClientOptions: Pick<
 	SyncCollectionClientOptions,

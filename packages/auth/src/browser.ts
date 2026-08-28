@@ -558,8 +558,103 @@ export function createAuthClient(options: {
 export interface AppAuthController {
 	readonly snapshot: AuthMe | null;
 	readonly load: () => Promise<AuthMe>;
+	/**
+	 * Ask now, for a caller that has just changed the session and needs the answer
+	 * for the session it changed to. Signing in and entering an agency both do.
+	 */
 	readonly refresh: () => Promise<AuthMe>;
+	/**
+	 * Ask, sharing one round trip with every other renewer in the same tick.
+	 *
+	 * For a caller that found the session stale rather than changed it, and would
+	 * be as happy with an answer somebody else is already waiting for.
+	 */
+	readonly renew: () => Promise<AuthMe>;
 	readonly subscribe: (listener: () => void) => () => void;
+}
+
+/**
+ * Where to send a reader whose session has ended, or `null` to leave them alone.
+ *
+ * `null` for a page that needs no session. Sending someone to the front door
+ * from the front door is a reload loop, and the page they are already on is the
+ * one that fixes the problem.
+ *
+ * Otherwise the app's own sign-in path, carrying where they were as `redirect`,
+ * which is the shape both front doors already read and the same one the route
+ * guards produce. The two apps differ only in that path and in which routes are
+ * public, so both hand those in rather than keeping a copy of this.
+ */
+export function sessionLostDestination(options: {
+	readonly signInPath: string;
+	readonly publicPaths: ReadonlySet<string>;
+	/**
+	 * The four fields of `window.location` this reads, written out rather than
+	 * taken from the DOM's `Location`. This package compiles without the DOM
+	 * library, because `apps/mobile` has no such thing.
+	 */
+	readonly location: {
+		readonly origin: string;
+		readonly pathname: string;
+		readonly search: string;
+		readonly hash: string;
+	};
+}): string | null {
+	const { location } = options;
+	if (options.publicPaths.has(location.pathname)) {
+		return null;
+	}
+
+	const destination = new URL(options.signInPath, location.origin);
+	destination.searchParams.set(
+		'redirect',
+		`${location.pathname}${location.search}${location.hash}`,
+	);
+
+	return destination.toString();
+}
+
+/**
+ * Turn a refused request into either a renewed session or a sign-out.
+ *
+ * The two are one decision and it has to be made in one place. Since #298 the
+ * shape and command routes verify the session rather than renewing it, so a 401
+ * from one of them is usually an access token that aged out and is cured by
+ * asking `/auth/me`.
+ * When that answers "no", the session is genuinely gone, and the workspace has
+ * to stop pretending otherwise: `refresh()` records the refusal, which is what
+ * lets the shell see a signed-out snapshot instead of reading an empty synced
+ * collection as a broken agency (#299).
+ *
+ * `onSessionLost` is the app's, because only the app knows where its sign-in
+ * surface is, and it is called once for a loss however many collections were
+ * refused. They are refused in the same tick, and one redirect per collection is
+ * a storm. A session that comes back re-arms it, so a later expiry is reported
+ * again rather than swallowed for the life of the page.
+ *
+ * A round trip that broke is not a refusal. The controller keeps the session it
+ * knows in that case, and so does this: `true`, retry, no sign-out.
+ */
+export function createSessionRecovery(options: {
+	readonly controller: AppAuthController;
+	readonly onSessionLost: () => void;
+}): () => Promise<boolean> {
+	let reported = false;
+
+	return async () => {
+		const answer = await options.controller.renew();
+		if (answer.authenticated === true) {
+			reported = false;
+			return true;
+		}
+
+		if (!reported) {
+			reported = true;
+			options.onSessionLost();
+		}
+
+		return false;
+	};
 }
 
 /**
@@ -583,14 +678,45 @@ export function createAppAuthController(options: {
 			return Promise.resolve(snapshot);
 		}
 
-		if (pending === null) {
-			pending = refresh();
-		}
+		return renew();
+	}
+
+	/**
+	 * Renew the snapshot, once, however many callers ask at the same time.
+	 *
+	 * `load()` held the only in-flight promise, which covered the route guards
+	 * that arrive together at a navigation. It did not cover the hotter path this
+	 * is for: every synced collection that meets an expired session asks to renew
+	 * it, and they meet it in the same tick.
+	 *
+	 * `/auth/me` is the endpoint allowed to rotate the sealed session (#298), and
+	 * a refresh token is single use. So a round trip per caller would spend the
+	 * same token several times over and kill the session, which is the server-side
+	 * bug moved one layer out. Sharing the promise makes the renewal one request
+	 * no matter how many collections noticed.
+	 *
+	 * The promise is dropped as soon as it settles: callers arriving later want
+	 * the current answer, not this one.
+	 *
+	 * Separate from `refresh()` rather than replacing it, because sharing is wrong
+	 * for the caller that has just *changed* the session. Signing in and entering
+	 * an agency both re-seal the cookie and then ask who they are; joining a round
+	 * trip sent before the change would answer for the session they left.
+	 */
+	function renew(): Promise<AuthMe> {
+		pending ??= ask().finally(() => {
+			pending = null;
+		});
 
 		return pending;
 	}
 
-	async function refresh(): Promise<AuthMe> {
+	/** Ask now, unshared. See {@link AppAuthController.refresh}. */
+	function refresh(): Promise<AuthMe> {
+		return ask();
+	}
+
+	async function ask(): Promise<AuthMe> {
 		try {
 			const answer = await getAuthMe();
 			snapshot = answer;
@@ -618,7 +744,6 @@ export function createAppAuthController(options: {
 				}
 			);
 		} finally {
-			pending = null;
 			emit();
 		}
 	}
@@ -635,6 +760,7 @@ export function createAppAuthController(options: {
 		},
 		load,
 		refresh,
+		renew,
 		subscribe(listener) {
 			listeners.add(listener);
 			return () => {

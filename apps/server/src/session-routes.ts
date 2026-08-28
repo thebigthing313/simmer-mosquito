@@ -118,6 +118,12 @@ export function registerSessionRoutes(
 			sealedSession: readSealedSession(context),
 			auth: sessionProvider,
 			localIdentityResolver,
+
+			// The one caller that may rotate the sealed session. The browser asks
+			// here deliberately, one request at a time, and always reads the answer,
+			// so the replacement cookie cannot be lost to a concurrent rotation or to
+			// an aborted response the way it was on the shape streams (#298).
+			mayRefresh: true,
 		});
 
 		if (result.sealedSession !== undefined) {

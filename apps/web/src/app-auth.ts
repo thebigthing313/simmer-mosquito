@@ -1,5 +1,25 @@
-import { createAppAuthController } from '@simmer-mosquito/auth/browser';
+import {
+	createAppAuthController,
+	createSessionRecovery,
+	sessionLostDestination,
+} from '@simmer-mosquito/auth/browser';
 import { getAuthMe } from './auth';
+
+/**
+ * The routes a reader can be on without a session.
+ *
+ * Here rather than in the root route because two things now read it: the route
+ * guard, which is where it was, and the session recovery below, which must not
+ * bounce a reader off the very page that would sign them back in.
+ */
+export const publicPaths: ReadonlySet<string> = new Set([
+	'/landing',
+	'/sign-in',
+	'/sign-up',
+	'/forgot-password',
+	'/reset-password',
+	'/accept-invitation',
+]);
 
 /**
  * This app's session snapshot. The controller itself lives in
@@ -8,3 +28,31 @@ import { getAuthMe } from './auth';
  * is exactly one of it.
  */
 export const appAuthController = createAppAuthController({ getAuthMe });
+
+/**
+ * What every synced collection does when the server refuses it.
+ *
+ * Renew once through `/auth/me` and let the refused request be asked again; if
+ * the session is really gone, land on the same screen the route guard sends an
+ * unauthenticated visitor to. Before this, a refused shape reached the shell as
+ * a ready collection with no rows and the workspace threw (#299).
+ *
+ * A full navigation rather than a router one, on purpose. Every collection in
+ * memory belongs to the session that just ended, and the cheapest way to be sure
+ * none of it is still on screen under the next sign-in is to load the page
+ * again.
+ */
+export const recoverSession = createSessionRecovery({
+	controller: appAuthController,
+	onSessionLost: () => {
+		const destination = sessionLostDestination({
+			signInPath: '/landing',
+			publicPaths,
+			location: window.location,
+		});
+
+		if (destination !== null) {
+			window.location.assign(destination);
+		}
+	},
+});

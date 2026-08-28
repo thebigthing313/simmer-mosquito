@@ -1,4 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../auth';
 import { toDrawGeometry } from '../components/map/geometry-control';
@@ -101,7 +102,7 @@ async function fetchOwnedGeometry(
 	signal: AbortSignal,
 ): Promise<OwnedGeometryPayload> {
 	const url = new URL(`/map/${source.segment}/${id}`, getServerUrl());
-	const response = await fetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { credentials: 'include', signal });
 	if (response.status === 404) {
 		return { geojson: null, geomType: null };
 	}

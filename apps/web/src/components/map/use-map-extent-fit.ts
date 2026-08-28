@@ -1,4 +1,5 @@
 import { type BoundingBox, formatBoundingBox, isBoundingBox } from '@simmer-mosquito/mapping';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
@@ -103,7 +104,7 @@ function fitMapToBounds(
 }
 
 async function fetchMapExtent(url: string, signal: AbortSignal): Promise<BoundingBox | null> {
-	const response = await fetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { credentials: 'include', signal });
 	if (!response.ok) {
 		throw new Error(`Map extent request failed (${response.status}).`);
 	}

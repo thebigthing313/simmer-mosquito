@@ -51,6 +51,36 @@ export interface UnauthenticatedSession {
 
 export type SessionAuthenticationResult = AuthenticatedSession | UnauthenticatedSession;
 
+/**
+ * What a caller is allowed to do with a session whose access token has expired.
+ *
+ * A WorkOS refresh token is single use: spending it issues a replacement and
+ * invalidates the one spent. So "refresh the session" is a write, and letting
+ * every authenticated route do it meant the browser's concurrent requests spent
+ * the same token more than once. That is WorkOS's reuse signature, and the
+ * browser only keeps the last of the several rotated cookies it is sent, so the
+ * session died within about a minute of signing in (#298).
+ *
+ * `mayRefresh` moves that write to one endpoint. `/auth/me` sets it, because the
+ * browser calls that deliberately, one at a time, and always reads the response.
+ * Everything else verifies the access token and answers
+ * {@link SESSION_REFRESH_REQUIRED} when it has expired, which the client
+ * answers by calling `/auth/me` and retrying.
+ */
+export interface SessionAuthenticationOptions {
+	readonly mayRefresh: boolean;
+}
+
+/**
+ * The session is good but its access token has expired, and this caller may not
+ * be the one to renew it.
+ *
+ * Distinct from every other refusal reason because it is the one a client can
+ * act on: ask `/auth/me`, then retry. A client that cannot tell it apart would
+ * either sign the user out on an expiry or retry a genuine refusal forever.
+ */
+export const SESSION_REFRESH_REQUIRED = 'session_refresh_required';
+
 export interface PasswordSignInInput {
 	readonly email: string;
 	readonly password: string;
@@ -202,6 +232,7 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 
 		async authenticateSession(
 			sealedSession: string | undefined,
+			options: SessionAuthenticationOptions,
 		): Promise<SessionAuthenticationResult> {
 			if (sealedSession === undefined || sealedSession.trim() === '') {
 				return {
@@ -223,6 +254,13 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 					workosOrganizationId: authResult.organizationId ?? null,
 					sessionId: authResult.sessionId,
 					role: authResult.role ?? null,
+				};
+			}
+
+			if (!options.mayRefresh) {
+				return {
+					authenticated: false,
+					reason: SESSION_REFRESH_REQUIRED,
 				};
 			}
 

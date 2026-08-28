@@ -1,8 +1,12 @@
-import type { AuthUser } from '@simmer-mosquito/auth';
+import type { AuthUser, SessionAuthenticationOptions } from '@simmer-mosquito/auth';
 import { Hono } from 'hono';
 import { describe, expect, it, vi } from 'vitest';
-import type { LocalAuthIdentityResolver } from '../../auth-context.js';
-import { type AuthVariables, createOperatorAuthContextMiddleware } from '../../auth-middleware.js';
+import type { AuthSessionProvider, LocalAuthIdentityResolver } from '../../auth-context.js';
+import {
+	type AuthVariables,
+	createAuthContextMiddleware,
+	createOperatorAuthContextMiddleware,
+} from '../../auth-middleware.js';
 
 type ResolveLocalIdentity = LocalAuthIdentityResolver['resolveActiveLocalAuthIdentity'];
 
@@ -128,6 +132,80 @@ describe('createOperatorAuthContextMiddleware', () => {
 		expect(localResolver).toHaveBeenCalledWith({
 			workosUserId: operatorUser.workosUserId,
 			workosOrganizationId: SIMMER_ORG,
+		});
+	});
+});
+
+/**
+ * Neither middleware may spend the session's refresh token.
+ *
+ * That is the whole of #298's server half. A refresh token is single use, the
+ * browser runs several authenticated requests at once, and every one of them
+ * used to be able to refresh — so the same token was spent twice and WorkOS
+ * killed the session about a minute after sign-in. `/auth/me` is the only caller
+ * that may now, and these hold both middlewares to the other side of that line.
+ *
+ * Asserted on the argument rather than on the outcome because the outcome is
+ * WorkOS's: from here a refused refresh and a refresh never attempted look the
+ * same, and the argument is what decides which one happens.
+ */
+describe('refresh authority', () => {
+	function recordingProvider(): {
+		readonly provider: AuthSessionProvider;
+		readonly asked: SessionAuthenticationOptions[];
+	} {
+		const asked: SessionAuthenticationOptions[] = [];
+		return {
+			asked,
+			provider: {
+				authenticateSession: async (_sealed, options) => {
+					asked.push(options);
+					return { authenticated: false, reason: 'session_refresh_required' };
+				},
+			},
+		};
+	}
+
+	it('verifies only, on the agency middleware', async () => {
+		const { provider, asked } = recordingProvider();
+		const app = new Hono<{ Variables: AuthVariables }>();
+		app.use(
+			'/records/*',
+			createAuthContextMiddleware({
+				auth: provider,
+				localIdentityResolver: { resolveActiveLocalAuthIdentity: async () => null },
+				setAuthCookie: vi.fn(),
+			}),
+		);
+		app.get('/records/habitats', (context) => context.json({ ok: true }));
+
+		const response = await app.request('/records/habitats');
+
+		expect({ status: response.status, asked }).toEqual({
+			status: 401,
+			asked: [{ mayRefresh: false }],
+		});
+	});
+
+	it('verifies only, on the operator middleware', async () => {
+		const { provider, asked } = recordingProvider();
+		const app = new Hono<{ Variables: AuthVariables }>();
+		app.use(
+			'/admin/*',
+			createOperatorAuthContextMiddleware({
+				auth: provider,
+				localIdentityResolver: { resolveActiveLocalAuthIdentity: async () => null },
+				operatorOrganizationId: SIMMER_ORG,
+				setAuthCookie: vi.fn(),
+			}),
+		);
+		app.get('/admin/organizations', (context) => context.json({ ok: true }));
+
+		const response = await app.request('/admin/organizations');
+
+		expect({ status: response.status, asked }).toEqual({
+			status: 401,
+			asked: [{ mayRefresh: false }],
 		});
 	});
 });

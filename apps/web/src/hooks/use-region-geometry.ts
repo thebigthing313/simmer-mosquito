@@ -1,4 +1,5 @@
 import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { type QueryClient, useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../auth';
 
@@ -71,7 +72,7 @@ export async function fetchRegionGeometry(
 	regionId: string,
 	signal: AbortSignal,
 ): Promise<RegionGeometry | null> {
-	const response = await fetch(new URL(`/map/regions/${regionId}`, getServerUrl()), {
+	const response = await sessionFetch(new URL(`/map/regions/${regionId}`, getServerUrl()), {
 		credentials: 'include',
 		signal,
 	});
