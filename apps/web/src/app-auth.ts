@@ -43,7 +43,14 @@ export const appAuthController = createAppAuthController({ getAuthMe });
  * none of it is still on screen under the next sign-in is to load the page
  * again.
  */
-const recoverSession = createSessionRecovery({
+/**
+ * Renew a refused request's session, or report it gone.
+ *
+ * Exported as well as installed because the map cannot go through
+ * `sessionFetch`: Mapbox GL fetches its own tiles, so `use-mapbox-map.ts` calls
+ * this directly from the GL error event (#300).
+ */
+export const recoverSession = createSessionRecovery({
 	controller: appAuthController,
 	onSessionLost: () => {
 		const destination = sessionLostDestination({

@@ -1,5 +1,6 @@
 import type { ErrorEvent, Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef, useState } from 'react';
+import { recoverSession } from '../../app-auth';
 import { getServerUrl } from '../../auth';
 import {
 	type BasemapId,
@@ -10,6 +11,7 @@ import {
 	type MapCamera,
 } from './map-styles';
 import { loadMapboxGl } from './mapbox-gl-loader';
+import { createTileSessionRecovery, refetchServerTileSources } from './tile-session-recovery';
 
 // Our authenticated MVT tiles are served by the SIMMER control plane, which is a
 // different origin from the web app in every environment where they don't share a
@@ -141,6 +143,16 @@ export function useMapboxMap({
 			}
 			appliedBasemap.current = basemapRef.current;
 
+			// Tiles are the one credentialed request this app does not make itself, so
+			// they are the one that cannot renew an expired session on its own. See
+			// `tile-session-recovery.ts`; without this a pan during the twenty seconds
+			// before a shape stream notices draws empty record layers that stay empty.
+			const recoverTiles = createTileSessionRecovery({
+				recoverSession,
+				refetch: () => refetchServerTileSources(instance, serverOrigin),
+				serverOrigin,
+			});
+
 			let loaded = false;
 			function handleLoad() {
 				loaded = true;
@@ -150,6 +162,12 @@ export function useMapboxMap({
 				setError(null);
 			}
 			function handleError(event: ErrorEvent) {
+				// A refused tile is not surfaced and not transient: it is an access
+				// token that aged out, and it is cured by renewing and asking again.
+				// Checked before the guard below because it happens once the map is
+				// interactive, which is the case that guard returns on.
+				void recoverTiles(event);
+
 				// Transient tile/source errors are common once interactive; only a
 				// failure before first load is worth surfacing as a hard error.
 				if (loaded) {
