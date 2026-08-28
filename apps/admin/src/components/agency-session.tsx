@@ -125,15 +125,14 @@ function useEnterAgency(
 			// renewal spends, and a shape stream that met an expired access token at
 			// this moment would be renewing through `/auth/me`. Spending it twice is
 			// what WorkOS reads as reuse, and it ends the session (#301), so the two
-			// take turns. `refresh` runs inside, reading the session this call just
-			// created without waiting on itself.
-			const outcome = await appAuthController.exchange(async () => {
-				const result = await switchOrganization({ organizationId: workosOrganizationId });
-				if (result.status === 'switched') {
-					await appAuthController.refresh();
-				}
-				return result;
-			});
+			// take turns.
+			//
+			// The switch alone goes inside. Reading who we now are is `refresh`, which
+			// takes the same browser-wide lock, and that lock is not reentrant: asking
+			// from in here would wait on the exchange that is holding it.
+			const outcome = await appAuthController.exchange(() =>
+				switchOrganization({ organizationId: workosOrganizationId }),
+			);
 
 			if (outcome.status !== 'switched') {
 				// A refusal is not a malfunction, and the two want different words. The
@@ -148,6 +147,7 @@ function useEnterAgency(
 				return;
 			}
 
+			await appAuthController.refresh();
 			// Everything already fetched was fetched as somebody else, in another
 			// agency. None of it describes where this session now is.
 			await queryClient.invalidateQueries();

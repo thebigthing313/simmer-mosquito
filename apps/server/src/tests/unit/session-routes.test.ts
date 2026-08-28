@@ -159,6 +159,19 @@ describe('/auth/me refusals', () => {
 		expect(warn.mock.calls[0]?.join(' ')).toContain('session_expired');
 	});
 
+	it('says nothing about a caller who presented no session', async () => {
+		// The ordinary case, and the loud one: every first visit to a guarded path
+		// and every crawler produces it. Warning on those buries the refusal that
+		// means something under the ones that never did.
+		const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+		const { app } = sessionApp({ refuse: { reason: 'no_session_cookie_provided' } });
+
+		const response = await app.request('/auth/me');
+
+		expect(response.status).toBe(401);
+		expect(warn).not.toHaveBeenCalled();
+	});
+
 	it('says nothing when the session is good', async () => {
 		// One line per refusal is a signal. One line per request is a log nobody
 		// reads, and this endpoint is called on every navigation.

@@ -578,21 +578,19 @@ export interface AppAuthController {
 	 * rotation to one endpoint; this is the other write that was left outside that
 	 * rule, and running the two at once is WorkOS's reuse signature (#301).
 	 *
-	 * `refresh()` deliberately does not take the gate, so an operation can ask who
-	 * it now is without waiting on itself.
+	 * **The operation must be the session-changing call and nothing else.** It must
+	 * not call `renew` or `refresh`, and must not issue a request that can renew:
+	 * `sessionFetch` answers a 401 by renewing. All three take the same
+	 * browser-wide lock this is holding, and that lock is not reentrant, so the
+	 * operation would wait on the exchange that is waiting on it. Ask afterwards
+	 * instead, which is what the enter-agency flow does.
 	 *
-	 * **The operation must be an `/auth/*` call and nothing else.** Specifically it
-	 * must not issue a request that can renew the session: `sessionFetch` answers a
-	 * 401 by calling `renew()`, `renew()` waits for this gate, and this gate is
-	 * waiting for the request. Neither ever settles, and because the gate only
-	 * advances when its holder does, every later `load`, `renew` and `exchange` on
-	 * the page hangs with it and the shell never learns the session state again.
-	 *
-	 * No caller does this today and the shape of the thing discourages it, which is
-	 * why it is stated rather than prevented: the alternatives are a timeout that
-	 * weakens the ordering this exists to guarantee, or a flag that cannot tell a
-	 * renewal called from inside the operation apart from one that merely happened
-	 * at the same time, which is the race being fixed.
+	 * The wait is bounded, so this costs seconds rather than the page, but seconds
+	 * on every agency entry is still a bug. It is stated rather than prevented
+	 * because both preventions are worse: a shorter timeout weakens the ordering
+	 * this exists to guarantee, and a flag cannot tell a renewal called from inside
+	 * the operation apart from one that merely happened at the same time, which is
+	 * the race being fixed.
 	 */
 	readonly exchange: <T>(operation: () => Promise<T>) => Promise<T>;
 	readonly subscribe: (listener: () => void) => () => void;
@@ -691,6 +689,19 @@ export function createSessionRecovery(options: {
 /**
  * The lock every tab of this origin takes before it rotates the sealed session.
  *
+ * **Of this origin.** Web Locks are partitioned per origin and the sealed session
+ * is one cookie on the API's origin, which the workspace and the console both
+ * send. So this covers several tabs of one app, which is the ordinary case, and
+ * does not cover an operator holding the console and the workspace at once: those
+ * are two origins taking two different locks over one refresh token, and the
+ * double spend survives there (ADR 0011 makes that pairing routine).
+ *
+ * Closing that needs the serialization to sit where the token is actually spent,
+ * on the server, keyed by the session. #298 turned that down for `/auth/me`
+ * because it is per process and a second Railway replica reintroduces the race.
+ * That argument says it is incomplete rather than wrong, and it is the only place
+ * that can see both origins.
+ *
  * Exported so a test can name it rather than restate the string.
  */
 export const SESSION_LOCK_NAME = 'simmer.session-rotation';
@@ -702,8 +713,23 @@ export const SESSION_LOCK_NAME = 'simmer.session-rotation';
  * package compiles without the DOM library: `apps/mobile` has no such thing.
  */
 export interface SessionLockManager {
-	request<T>(name: string, operation: () => Promise<T>): Promise<T>;
+	request<T>(
+		name: string,
+		options: { readonly signal: AbortSignal },
+		operation: () => Promise<T>,
+	): Promise<T>;
 }
+
+/**
+ * How long a tab waits for the lock before going ahead without it.
+ *
+ * The lock is browser-wide, and `load()` runs in the root route's guard, so an
+ * unbounded wait means one tab whose `/auth/me` hangs leaves every other tab of
+ * the origin on a spinner with no error and no navigation. Before the lock, tabs
+ * failed independently; that is worth keeping. Serializing is the common case
+ * and this is the ceiling on what it can cost.
+ */
+const DEFAULT_LOCK_WAIT_MS = 5_000;
 
 /**
  * The platform's lock manager, or `null` where there is none.
@@ -734,9 +760,12 @@ export function createAppAuthController(options: {
 	 * turns it off, which is what a platform without Web Locks gets.
 	 */
 	readonly locks?: SessionLockManager | null;
+	/** Override {@link DEFAULT_LOCK_WAIT_MS}. For tests; no app sets it. */
+	readonly lockWaitMs?: number;
 }): AppAuthController {
 	const { getAuthMe } = options;
 	const locks = options.locks === undefined ? platformLocks() : options.locks;
+	const lockWaitMs = options.lockWaitMs ?? DEFAULT_LOCK_WAIT_MS;
 
 	let snapshot: AuthMe | null = null;
 	let pending: Promise<AuthMe> | null = null;
@@ -773,8 +802,34 @@ export function createAppAuthController(options: {
 	 * Taken inside `gate` rather than around it, so a tab queues its own work
 	 * first and contends for the lock once rather than once per waiting caller.
 	 */
-	function holdSessionLock<T>(operation: () => Promise<T>): Promise<T> {
-		return locks === null ? operation() : locks.request(SESSION_LOCK_NAME, operation);
+	async function holdSessionLock<T>(operation: () => Promise<T>): Promise<T> {
+		if (locks === null) {
+			return operation();
+		}
+
+		const waited = new AbortController();
+		const timer = setTimeout(() => waited.abort(), lockWaitMs);
+		let started = false;
+
+		try {
+			return await locks.request(SESSION_LOCK_NAME, { signal: waited.signal }, () => {
+				started = true;
+				return operation();
+			});
+		} catch (error) {
+			// The operation ran and threw, which is the caller's business.
+			if (started) {
+				throw error;
+			}
+
+			// The lock did not arrive, or could not be asked for at all: `request`
+			// rejects in an opaque origin, and with `InvalidStateError` once the
+			// document is no longer fully active, which is what the sign-out redirect
+			// makes it. Losing the cross-tab guarantee beats losing the session read.
+			return operation();
+		} finally {
+			clearTimeout(timer);
+		}
 	}
 
 	function load(): Promise<AuthMe> {
@@ -822,7 +877,7 @@ export function createAppAuthController(options: {
 
 	/** Ask now, unshared. See {@link AppAuthController.refresh}. */
 	function refresh(): Promise<AuthMe> {
-		return ask();
+		return holdSessionLock(ask);
 	}
 
 	async function ask(): Promise<AuthMe> {

@@ -189,16 +189,25 @@ describe('createAppAuthController', () => {
 		await expect(controller.renew()).resolves.toMatchObject({ authenticated: true });
 	});
 
-	it('lets a session change read the new session without waiting on itself', async () => {
-		// Every caller asks who they are after changing the session. `refresh` does
-		// not take the gate, so calling it inside an exchange answers rather than
-		// deadlocking against the exchange that is holding it.
+	it('lets a caller that changed the session read it without queueing behind a renewal', async () => {
+		// Every caller asks who they are after changing the session, and it must not
+		// wait behind renewals that were queued before the change: those answer for
+		// the session it just replaced. `refresh` skips the gate for that reason.
+		// It still takes the cross-tab lock, so it is asked after the exchange
+		// rather than inside it.
 		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
-		const controller = createAppAuthController({ getAuthMe });
+		const controller = createAppAuthController({ getAuthMe, locks: null });
 
-		await expect(controller.exchange(async () => controller.refresh())).resolves.toMatchObject({
-			authenticated: true,
+		let releaseRenewal: () => void = () => undefined;
+		const blocked = new Promise<void>((resolve) => {
+			releaseRenewal = resolve;
 		});
+		const queued = controller.exchange(() => blocked);
+
+		await expect(controller.refresh()).resolves.toMatchObject({ authenticated: true });
+
+		releaseRenewal();
+		await queued;
 	});
 
 	/*
@@ -212,11 +221,31 @@ describe('createAppAuthController', () => {
 		return {
 			held,
 			locks: {
-				request: async <T>(name: string, operation: () => Promise<T>): Promise<T> => {
+				request: async <T>(
+					name: string,
+					_options: { readonly signal: AbortSignal },
+					operation: () => Promise<T>,
+				): Promise<T> => {
 					held.push(name);
 					return operation();
 				},
 			},
+		};
+	}
+
+	/** A lock nobody ever gets, which is the stalled-tab case. */
+	function neverGrantedLocks() {
+		return {
+			request: <T>(
+				_name: string,
+				options: { readonly signal: AbortSignal },
+				_operation: () => Promise<T>,
+			): Promise<T> =>
+				new Promise<T>((_resolve, reject) => {
+					options.signal.addEventListener('abort', () => {
+						reject(new Error('AbortError'));
+					});
+				}),
 		};
 	}
 
@@ -239,6 +268,67 @@ describe('createAppAuthController', () => {
 		const controller = createAppAuthController({ getAuthMe, locks });
 
 		await controller.exchange(async () => undefined);
+
+		expect(held).toEqual([SESSION_LOCK_NAME]);
+	});
+
+	it('renews anyway rather than waiting on a lock forever', async () => {
+		// The regression this bound exists for. `load()` runs in the root route's
+		// guard, so a tab whose `/auth/me` hangs while holding a browser-wide lock
+		// would leave every other tab of the origin on a spinner with no error and
+		// no navigation. Serializing is worth having; it is not worth that.
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({
+			getAuthMe,
+			locks: neverGrantedLocks(),
+			lockWaitMs: 5,
+		});
+
+		await expect(controller.renew()).resolves.toMatchObject({ authenticated: true });
+		expect(getAuthMe).toHaveBeenCalledOnce();
+	});
+
+	it('renews anyway when the lock cannot be taken at all', async () => {
+		// `locks.request` rejects outright in an opaque origin, and with
+		// `InvalidStateError` once the document is no longer fully active, which is
+		// exactly what the sign-out redirect makes it.
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({
+			getAuthMe,
+			locks: {
+				request: async () => {
+					throw new Error('InvalidStateError');
+				},
+			},
+		});
+
+		await expect(controller.renew()).resolves.toMatchObject({ authenticated: true });
+	});
+
+	it('does not run an operation twice when the operation itself failed', async () => {
+		// The retry is for a lock that could not be taken, not for an operation that
+		// ran and threw.
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
+		const { locks } = fakeLocks();
+		const controller = createAppAuthController({ getAuthMe, locks });
+		const operation = vi.fn(async () => {
+			throw new Error('refused');
+		});
+
+		await expect(controller.exchange(operation)).rejects.toThrow('refused');
+		expect(operation).toHaveBeenCalledOnce();
+	});
+
+	it('reads the session under the lock after a change, not around it', async () => {
+		// `refresh` reaches `/auth/me`, which is the endpoint that rotates. Skipping
+		// the gate is right, since a caller that just changed the session should not
+		// queue behind a renewal, but skipping the lock let a sign-in in one tab and
+		// a renewal in another spend the same token.
+		const { locks, held } = fakeLocks();
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({ getAuthMe, locks });
+
+		await controller.refresh();
 
 		expect(held).toEqual([SESSION_LOCK_NAME]);
 	});
