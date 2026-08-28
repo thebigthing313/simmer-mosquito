@@ -13,6 +13,7 @@
 import { shapePathFor, syncedColumnsOf, tableSchemas } from '@simmer-mosquito/sync';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import { type AuthVariables, createGlobalReadMiddleware } from './auth-middleware.js';
+import { ELECTRIC_EXPOSE_HEADERS } from './cors-options.js';
 import { isServedScope, type SyncShapeScope, syncShapeScopes } from './shape-scopes.js';
 
 interface ShapeRouteOptions {
@@ -290,7 +291,10 @@ function copyElectricHeaders(headers: Headers): Headers {
 		}
 	}
 
-	copied.set('access-control-expose-headers', electricExposeHeaders.join(', '));
+	// Set here so the proxied response is complete on its own, and declared in
+	// `cors-options.ts` because that is the copy the browser receives: Hono's
+	// `cors()` middleware runs after this handler and overwrites the header.
+	copied.set('access-control-expose-headers', ELECTRIC_EXPOSE_HEADERS.join(', '));
 	/*
 	 * Electric's own caching headers are replaced, not forwarded.
 	 *
@@ -361,13 +365,6 @@ const selectedOrganizationByIdWhere = 'id = $1 and deleted_at is null';
 const selectedOrganizationOrGlobalWhere =
 	'(organization_id = $1 or organization_id is null) and deleted_at is null';
 const selectedOrganizationOrGlobalOnlyWhere = '(organization_id = $1 or organization_id is null)';
-const electricExposeHeaders = [
-	'electric-offset',
-	'electric-handle',
-	'electric-schema',
-	'electric-cursor',
-];
-
 function isServerOwnedShapeParam(value: string): boolean {
 	return serverOwnedShapeParams.has(value) || /^params\[\d+\]$/.test(value);
 }
