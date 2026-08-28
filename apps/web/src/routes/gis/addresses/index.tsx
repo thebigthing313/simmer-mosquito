@@ -57,10 +57,11 @@ function AddressesExplorerRoute() {
 
 	// The search term lives in the URL, so a shared link and Back out of an
 	// address both land on the list the operator had narrowed to.
-	const { filters: query, setFilters } = useSearchFilters(
-		ADDRESS_FILTER_DEFAULTS,
-		ADDRESS_FILTER_CODECS,
-	);
+	const {
+		filters: query,
+		setFilters,
+		activeCount: activeFilterCount,
+	} = useSearchFilters(ADDRESS_FILTER_DEFAULTS, ADDRESS_FILTER_CODECS);
 	const search = query.search;
 	const regionIds = query.regions;
 	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
@@ -127,7 +128,6 @@ function AddressesExplorerRoute() {
 		}),
 		[serverUrl, focusedId, trimmedSearch, regionKey],
 	);
-	const activeFilterCount = (search.trim().length > 0 ? 1 : 0) + regionIds.size;
 	const clearAll = useCallback(() => {
 		setFilters({ search: '', regions: new Set() });
 	}, [setFilters]);

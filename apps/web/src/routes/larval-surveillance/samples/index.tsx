@@ -47,7 +47,11 @@ import {
 } from '../../../components/map';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
-import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
+import {
+	DATE_RANGE_COUNTING,
+	searchValidator,
+	useSearchFilters,
+} from '../../../lib/search-filters';
 import {
 	addDaysToDateString,
 	formatListDate,
@@ -136,7 +140,8 @@ function SamplesExplorerRoute() {
 		filters: query,
 		setFilters,
 		reset,
-	} = useSearchFilters(filterDefaults, sampleFilterCodecs);
+		activeCount: activeFilterCount,
+	} = useSearchFilters(filterDefaults, sampleFilterCodecs, DATE_RANGE_COUNTING);
 	const dateFrom = query.from;
 	const dateTo = query.to;
 	const status = query.status;
@@ -219,13 +224,6 @@ function SamplesExplorerRoute() {
 
 	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
 	const legend = useMemo(() => sampleLegend(status), [status]);
-
-	const activeFilterCount =
-		(isDefaultRange ? 0 : 1) +
-		(status === 'all' ? 0 : 1) +
-		speciesIds.size +
-		regionIds.size +
-		(nonMosquito ? 1 : 0);
 
 	const resetDates = useCallback(
 		() => setFilters({ from: defaultFrom, to: today }),

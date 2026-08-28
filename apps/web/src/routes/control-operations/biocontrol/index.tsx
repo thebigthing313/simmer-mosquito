@@ -30,6 +30,7 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 import {
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	flagParam,
@@ -104,7 +105,12 @@ function BiocontrolExplorerRoute() {
 		}),
 		[defaultFrom, today],
 	);
-	const { filters: query, setFilters, reset } = useSearchFilters(filterDefaults, FILTER_CODECS);
+	const {
+		filters: query,
+		setFilters,
+		reset,
+		activeCount: activeFilterCount,
+	} = useSearchFilters(filterDefaults, FILTER_CODECS, DATE_RANGE_COUNTING);
 	const dateFrom = query.from;
 	const dateTo = query.to;
 	const personIds = query.people;
@@ -193,12 +199,6 @@ function BiocontrolExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const activeFilterCount =
-		(dateFrom === defaultFrom && dateTo === today ? 0 : 1) +
-		methodIds.size +
-		regionIds.size +
-		personIds.size +
-		(habitatOnly ? 1 : 0);
 	const clearAll = reset;
 
 	return (

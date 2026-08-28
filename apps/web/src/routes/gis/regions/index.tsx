@@ -398,10 +398,11 @@ function RegionsExplorerRoute() {
 	const [expandedIds, setExpandedIds] = useState<ReadonlySet<string>>(() => new Set());
 	// The search term lives in the URL, so a shared link and Back out of a region
 	// both land on the list the operator had narrowed to.
-	const { filters: regionQuery, setFilters: setRegionFilters } = useSearchFilters(
-		REGION_FILTER_DEFAULTS,
-		REGION_FILTER_CODECS,
-	);
+	const {
+		filters: regionQuery,
+		setFilters: setRegionFilters,
+		activeCount: activeFilterCount,
+	} = useSearchFilters(REGION_FILTER_DEFAULTS, REGION_FILTER_CODECS);
 	const commitSearch = useCallback(
 		(next: string) => setRegionFilters({ search: next }),
 		[setRegionFilters],
@@ -471,8 +472,6 @@ function RegionsExplorerRoute() {
 		onToggleRegion: toggleRegion,
 	};
 	const treeView: RegionTreeView = { dnd, expandedIds, focusedId, query, rename, visibleIds };
-
-	const activeFilterCount = search.trim().length > 0 ? 1 : 0;
 
 	return (
 		<>

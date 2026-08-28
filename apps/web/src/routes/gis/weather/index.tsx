@@ -53,10 +53,11 @@ function WeatherStationsRoute() {
 	// why this draws GeoJSON rather than standing up a tile route.
 	const { stations: rows } = useWeatherStations();
 
-	const { filters: query, setFilters } = useSearchFilters(
-		STATION_FILTER_DEFAULTS,
-		STATION_FILTER_CODECS,
-	);
+	const {
+		filters: query,
+		setFilters,
+		activeCount: activeFilterCount,
+	} = useSearchFilters(STATION_FILTER_DEFAULTS, STATION_FILTER_CODECS);
 	const search = query.search;
 	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
 	const { input: searchInput, setInput: setSearch } = useDebouncedTextFilter(search, commitSearch);
@@ -77,7 +78,6 @@ function WeatherStationsRoute() {
 	useFlyToStation(map, plotted.find((station) => station.id === focusedId) ?? null);
 
 	const isFiltered = search.trim().length > 0;
-	const activeFilterCount = isFiltered ? 1 : 0;
 
 	return (
 		<ExplorerMapPage

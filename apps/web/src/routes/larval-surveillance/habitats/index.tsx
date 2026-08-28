@@ -109,6 +109,7 @@ function HabitatsExplorerRoute() {
 		filters: query,
 		setFilters,
 		reset,
+		activeCount: activeFilterCount,
 	} = useSearchFilters(HABITAT_FILTER_DEFAULTS, HABITAT_FILTER_CODECS);
 	const { search, status, access, typeIds, tagIds, regions: regionIds } = query;
 	const commitSearch = useCallback((next: string) => setFilters({ search: next }), [setFilters]);
@@ -191,13 +192,6 @@ function HabitatsExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const activeFilterCount =
-		(search.length > 0 ? 1 : 0) +
-		(status === 'active' ? 0 : 1) +
-		(access === 'all' ? 0 : 1) +
-		typeIds.size +
-		tagIds.size +
-		regionIds.size;
 	const clearAll = useCallback(() => {
 		clearSearchInput();
 		reset();

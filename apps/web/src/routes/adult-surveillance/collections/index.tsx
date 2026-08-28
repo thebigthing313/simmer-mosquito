@@ -33,6 +33,7 @@ import {
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	flagParam,
@@ -114,7 +115,8 @@ function CollectionsExplorerRoute() {
 		filters: query,
 		setFilters,
 		reset,
-	} = useSearchFilters(filterDefaults, COLLECTION_FILTER_CODECS);
+		activeCount: activeFilterCount,
+	} = useSearchFilters(filterDefaults, COLLECTION_FILTER_CODECS, DATE_RANGE_COUNTING);
 	const dateFrom = query.from;
 	const dateTo = query.to;
 	const methodIds = query.methods;
@@ -189,11 +191,6 @@ function CollectionsExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const activeFilterCount =
-		(dateFrom === defaultFrom && dateTo === today ? 0 : 1) +
-		methodIds.size +
-		regionIds.size +
-		(problemOnly ? 1 : 0);
 	const clearAll = reset;
 
 	return (

@@ -33,6 +33,7 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 import {
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	idSetParam,
@@ -103,7 +104,12 @@ function SourceReductionExplorerRoute() {
 		}),
 		[defaultFrom, today],
 	);
-	const { filters: query, setFilters, reset } = useSearchFilters(filterDefaults, FILTER_CODECS);
+	const {
+		filters: query,
+		setFilters,
+		reset,
+		activeCount: activeFilterCount,
+	} = useSearchFilters(filterDefaults, FILTER_CODECS, DATE_RANGE_COUNTING);
 	const dateFrom = query.from;
 	const dateTo = query.to;
 	const personIds = query.people;
@@ -185,11 +191,6 @@ function SourceReductionExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const activeFilterCount =
-		(dateFrom === defaultFrom && dateTo === today ? 0 : 1) +
-		methodIds.size +
-		personIds.size +
-		regionIds.size;
 	const clearAll = reset;
 
 	return (
