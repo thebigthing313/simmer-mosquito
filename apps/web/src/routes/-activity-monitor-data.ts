@@ -5,6 +5,7 @@ import {
 	isLarvalDensity,
 	type LarvalDensity,
 } from '@simmer-mosquito/domain';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../auth';
@@ -559,7 +560,7 @@ async function fetchProfileActivity(
 	url.searchParams.set('dateFrom', dateFrom);
 	url.searchParams.set('dateTo', dateTo);
 
-	const response = await fetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { credentials: 'include', signal });
 	if (!response.ok) {
 		throw new ActivityRequestError(await refusalReason(response), response.status === 400);
 	}

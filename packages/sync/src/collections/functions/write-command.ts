@@ -12,6 +12,8 @@
  * here gates anything, so there is nothing here to keep in step with the domain.
  */
 
+import { sessionFetch } from './session-fetch.js';
+
 /**
  * What a refusal body may carry. Every field optional because the shape is the
  * server's to choose, and a caller reading one has to cope with any of them.
@@ -48,7 +50,11 @@ export async function writeCommand(
 	body: Record<string, unknown> | undefined,
 	fallbackMessage: string,
 ): Promise<number> {
-	const response = await fetch(url, {
+	// `sessionFetch` rather than `fetch`: a write meeting an access token that aged
+	// out is refused now that the command routes verify rather than renew (#298),
+	// and a refused write is the one a user watches fail. It renews once and sends
+	// the command again.
+	const response = await sessionFetch(url, {
 		method,
 		credentials: 'include',
 		headers: {

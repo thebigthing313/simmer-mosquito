@@ -1,4 +1,8 @@
-import type { AuthUser, SessionAuthenticationResult } from '@simmer-mosquito/auth';
+import type {
+	AuthUser,
+	SessionAuthenticationOptions,
+	SessionAuthenticationResult,
+} from '@simmer-mosquito/auth';
 import type { ActiveLocalAuthIdentity, SimmerRole } from '@simmer-mosquito/db';
 import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
 
@@ -70,7 +74,10 @@ export type AuthContextResult =
 	  };
 
 export interface AuthSessionProvider {
-	authenticateSession(sealedSession: string | undefined): Promise<SessionAuthenticationResult>;
+	authenticateSession(
+		sealedSession: string | undefined,
+		options: SessionAuthenticationOptions,
+	): Promise<SessionAuthenticationResult>;
 }
 
 export interface LocalAuthIdentityResolver {
@@ -86,8 +93,18 @@ export async function resolveAuthContext(options: {
 	readonly localIdentityResolver: LocalAuthIdentityResolver;
 	/** `null` when unconfigured, which resolves `isOperator` to `false`. */
 	readonly operatorOrganizationId?: string | null;
+	/**
+	 * Whether this caller may spend the session's refresh token.
+	 *
+	 * Stated at every call site rather than defaulted, because the wrong default
+	 * is what #298 was: `/auth/me` is the one caller that may, and a route added
+	 * later must decide rather than inherit.
+	 */
+	readonly mayRefresh: boolean;
 }): Promise<AuthContextResult> {
-	const session = await options.auth.authenticateSession(options.sealedSession);
+	const session = await options.auth.authenticateSession(options.sealedSession, {
+		mayRefresh: options.mayRefresh,
+	});
 
 	if (!session.authenticated) {
 		return {

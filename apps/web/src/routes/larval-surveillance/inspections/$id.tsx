@@ -1,5 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { ControlType, LarvalDensity } from '@simmer-mosquito/sync';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -803,7 +804,7 @@ async function fetchInspectionDetail(
 	id: string,
 	signal: AbortSignal,
 ): Promise<InspectionDetailRow | null> {
-	const response = await fetch(new URL(`/map/inspections/${id}`, getServerUrl()), {
+	const response = await sessionFetch(new URL(`/map/inspections/${id}`, getServerUrl()), {
 		credentials: 'include',
 		signal,
 	});

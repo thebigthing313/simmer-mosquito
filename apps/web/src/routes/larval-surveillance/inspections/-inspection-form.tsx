@@ -5,6 +5,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { LarvalDensity } from '@simmer-mosquito/sync';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { RecordFormPage, RequiredMark, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
@@ -1172,7 +1173,7 @@ function profileOptions(profiles: readonly ProfileListing[]) {
 
 async function fetchHabitatGeometry(habitatId: string): Promise<GeoJsonGeometry | null> {
 	try {
-		const response = await fetch(new URL(`/map/habitats/${habitatId}`, getServerUrl()), {
+		const response = await sessionFetch(new URL(`/map/habitats/${habitatId}`, getServerUrl()), {
 			credentials: 'include',
 		});
 		if (!response.ok) {

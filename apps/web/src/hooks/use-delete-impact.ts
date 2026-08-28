@@ -1,3 +1,4 @@
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../auth';
 
@@ -103,7 +104,7 @@ async function fetchDeleteImpact(
 	recordId: string,
 	signal: AbortSignal,
 ): Promise<DeleteImpact> {
-	const response = await fetch(
+	const response = await sessionFetch(
 		new URL(`/records/${recordType}/${recordId}/delete-impact`, getServerUrl()),
 		{ credentials: 'include', signal },
 	);

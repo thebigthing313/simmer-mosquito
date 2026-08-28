@@ -14,6 +14,7 @@
  * commits, the same way they would after any other write.
  */
 
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { getServerUrl } from '../../../auth';
 import { commandErrorFrom, readResponseBody } from '../../../sync/command-error';
 
@@ -64,7 +65,7 @@ export async function commitWeatherImport(input: {
 	readonly acknowledgedUpdates: boolean;
 	readonly acknowledgedPartialImport: boolean;
 }): Promise<WeatherImportResult> {
-	const response = await fetch(`${getServerUrl()}/commands/weather_summaries/import`, {
+	const response = await sessionFetch(`${getServerUrl()}/commands/weather_summaries/import`, {
 		method: 'POST',
 		credentials: 'include',
 		headers: { accept: 'application/json', 'content-type': 'application/json' },

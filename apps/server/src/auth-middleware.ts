@@ -43,6 +43,13 @@ export function createAuthContextMiddleware(options: {
 			auth: options.auth,
 			localIdentityResolver: options.localIdentityResolver,
 			operatorOrganizationId: options.operatorOrganizationId ?? null,
+
+			// Verify only. Every route behind this middleware runs concurrently with
+			// the others — the shape streams go out several at a time — and a refresh
+			// token spent twice kills the session (#298). A stale access token is
+			// answered 401 with `session_refresh_required`, which the client trades
+			// for a fresh one at `/auth/me` before retrying.
+			mayRefresh: false,
 		});
 
 		if (result.sealedSession !== undefined) {
@@ -135,7 +142,10 @@ export function createOperatorAuthContextMiddleware(options: {
 	) => void;
 }) {
 	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
-		const session = await options.auth.authenticateSession(readSealedSession(context));
+		const session = await options.auth.authenticateSession(readSealedSession(context), {
+			// Verify only, for the same reason as the agency middleware above.
+			mayRefresh: false,
+		});
 
 		if (!session.authenticated) {
 			return context.json(

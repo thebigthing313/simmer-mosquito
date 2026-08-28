@@ -42,6 +42,7 @@ import type { SyncMode } from '@tanstack/db';
 import type { z } from 'zod';
 import { createMutationHandlers } from './mutation-handlers.js';
 import { shapePathFor } from './routes.js';
+import { sessionFetch } from './session-fetch.js';
 
 /**
  * Raw geometry that must never stream through a shape.
@@ -111,7 +112,7 @@ const shapeParsers = {
  * schemaless overload complaining that a schema is not assignable to `never`.
  */
 const fetchWithSession: typeof fetch = (request, init) =>
-	fetch(request, { ...init, credentials: 'include' });
+	sessionFetch(request, { ...init, credentials: 'include' });
 
 /**
  * How long a collection survives with no subscribers before it is collected.

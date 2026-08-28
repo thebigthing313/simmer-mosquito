@@ -1,3 +1,4 @@
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { gte, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -140,7 +141,7 @@ async function fetchSamplesAwaiting(
 	const url = new URL('/larval-surveillance/samples/awaiting', getServerUrl());
 	url.searchParams.set('since', sinceDate);
 	url.searchParams.set('limit', String(limit));
-	const response = await fetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { credentials: 'include', signal });
 	if (!response.ok) {
 		throw new Error(`Awaiting samples request failed (${response.status}).`);
 	}

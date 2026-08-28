@@ -1,5 +1,6 @@
 import type { AppAuthController } from '@simmer-mosquito/auth/browser';
 import { createRootRouteWithContext, Outlet, redirect, useLocation } from '@tanstack/react-router';
+import { publicPaths } from '../app-auth';
 import { AppShellRoot } from '../components/app-shell/app-shell-root';
 import { SuspenseQueryBoundary } from '../sync/suspense-query-boundary';
 import { WorkspaceChromeError, WorkspaceChromeFallback } from './-workspace-chrome';
@@ -16,15 +17,6 @@ export interface RootSearch {
 export interface RouterContext {
 	readonly auth: AppAuthController;
 }
-
-const publicPaths = new Set([
-	'/landing',
-	'/sign-in',
-	'/sign-up',
-	'/forgot-password',
-	'/reset-password',
-	'/accept-invitation',
-]);
 
 export const Route = createRootRouteWithContext<RouterContext>()({
 	validateSearch: (search): RootSearch =>

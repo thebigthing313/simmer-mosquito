@@ -1,4 +1,5 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -192,7 +193,7 @@ async function fetchHabitatGeometry(
 	signal: AbortSignal,
 ): Promise<DrawGeometry | null> {
 	const url = new URL(`/map/habitats/${habitatId}`, getServerUrl());
-	const response = await fetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { credentials: 'include', signal });
 	if (response.status === 404) {
 		return null;
 	}

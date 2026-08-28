@@ -1,4 +1,5 @@
 import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import type { QueryClient } from '@tanstack/react-query';
 import { getServerUrl } from '../auth';
 
@@ -63,7 +64,7 @@ export async function fetchHabitatGeometry(
 	signal: AbortSignal,
 ): Promise<HabitatGeometry | null> {
 	const url = new URL(`/map/habitats/${habitatId}`, getServerUrl());
-	const response = await fetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { credentials: 'include', signal });
 	if (response.status === 404) {
 		return null;
 	}

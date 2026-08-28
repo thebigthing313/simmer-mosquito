@@ -1,3 +1,4 @@
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { getServerUrl } from '../../auth';
@@ -196,7 +197,7 @@ async function fetchPage<TRow>(
 		url.searchParams.set(key, value);
 	}
 
-	const response = await fetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { credentials: 'include', signal });
 	if (!response.ok) {
 		throw new Error(`${label} request failed (${response.status}).`);
 	}
@@ -217,7 +218,7 @@ async function fetchRecord<TRow>(
 	if (id.length === 0) {
 		return null;
 	}
-	const response = await fetch(new URL(`${path}/${id}`, getServerUrl()), {
+	const response = await sessionFetch(new URL(`${path}/${id}`, getServerUrl()), {
 		credentials: 'include',
 		signal,
 	});

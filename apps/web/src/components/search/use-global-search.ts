@@ -1,4 +1,5 @@
 import type { SearchDocumentClass, SearchResponse } from '@simmer-mosquito/domain';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 import { getServerUrl } from '../../auth';
@@ -81,7 +82,7 @@ async function fetchSearch(
 		url.searchParams.set('class', input.documentClass);
 	}
 
-	const response = await fetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { credentials: 'include', signal });
 	if (!response.ok) {
 		throw new SearchRequestError(await refusalReason(response), response.status === 400);
 	}

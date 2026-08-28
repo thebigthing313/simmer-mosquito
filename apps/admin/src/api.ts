@@ -1,5 +1,6 @@
 import { createAuthClient } from '@simmer-mosquito/auth/browser';
 import type { SimmerRole } from '@simmer-mosquito/domain';
+import { sessionFetch } from '@simmer-mosquito/sync/session-fetch';
 
 const DEFAULT_SERVER_URL = 'http://localhost:3000';
 
@@ -213,7 +214,7 @@ export function adminLogoutUrl(serverUrl = getServerUrl()): string {
 }
 
 export async function listAdminAgencies(serverUrl = getServerUrl()): Promise<AdminAgency[]> {
-	const response = await fetch(`${serverUrl}/admin/organizations`, {
+	const response = await sessionFetch(`${serverUrl}/admin/organizations`, {
 		credentials: 'include',
 		headers: { accept: 'application/json' },
 	});
@@ -242,7 +243,7 @@ export async function listAgencyMemberships(
 	agencyId: string,
 	serverUrl = getServerUrl(),
 ): Promise<AgencyMembershipsResult> {
-	const response = await fetch(`${serverUrl}/admin/organizations/${agencyId}/memberships`, {
+	const response = await sessionFetch(`${serverUrl}/admin/organizations/${agencyId}/memberships`, {
 		credentials: 'include',
 		headers: { accept: 'application/json' },
 	});
@@ -282,7 +283,7 @@ async function postJson<T>(url: string, input: unknown): Promise<T> {
 }
 
 async function writeJson<T>(url: string, method: 'POST', input: unknown): Promise<T> {
-	const response = await fetch(url, {
+	const response = await sessionFetch(url, {
 		method,
 		credentials: 'include',
 		headers: {

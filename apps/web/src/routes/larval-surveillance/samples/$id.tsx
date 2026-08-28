@@ -1,5 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Sample } from '@simmer-mosquito/sync';
+import { sessionFetch } from '@simmer-mosquito/sync';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
@@ -1117,7 +1118,7 @@ async function fetchSampleGeoContext(
 	id: string,
 	signal: AbortSignal,
 ): Promise<SampleGeoRow | null> {
-	const response = await fetch(new URL(`/map/samples/${id}`, getServerUrl()), {
+	const response = await sessionFetch(new URL(`/map/samples/${id}`, getServerUrl()), {
 		credentials: 'include',
 		signal,
 	});

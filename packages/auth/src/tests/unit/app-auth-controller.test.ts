@@ -60,6 +60,61 @@ describe('createAppAuthController', () => {
 		await expect(controller.load()).resolves.toMatchObject({ authenticated: true });
 	});
 
+	// #298's client half. Every synced collection meeting an expired session asks
+	// this controller to renew it, and they meet it at the same moment: a per-caller
+	// round trip would be one `/auth/me` per collection, each racing the others to
+	// rotate the same single-use refresh token — the server-side bug, moved.
+	it('renews once for however many callers ask at the same time', async () => {
+		let release: (answer: AuthMe) => void = () => undefined;
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockReturnValue(
+			new Promise<AuthMe>((resolve) => {
+				release = resolve;
+			}),
+		);
+		const controller = createAppAuthController({ getAuthMe });
+
+		const asked = Promise.all([controller.renew(), controller.renew(), controller.renew()]);
+		release(SIGNED_IN);
+
+		await expect(asked).resolves.toEqual([SIGNED_IN, SIGNED_IN, SIGNED_IN]);
+		expect(getAuthMe).toHaveBeenCalledOnce();
+	});
+
+	it('asks again once the shared round trip has finished', async () => {
+		// Deduplicating is for callers arriving together. A later caller wants the
+		// current answer, not the one that was true a minute ago.
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({ getAuthMe });
+
+		await controller.renew();
+		await controller.renew();
+
+		expect(getAuthMe).toHaveBeenCalledTimes(2);
+	});
+
+	// The reason `refresh` and `renew` are two things. Signing in and entering an
+	// agency re-seal the cookie and then ask who they are; an answer from a round
+	// trip sent before the change describes the session they left.
+	it('never serves a caller that changed the session an answer from before it', async () => {
+		let release: (answer: AuthMe) => void = () => undefined;
+		const before = new Promise<AuthMe>((resolve) => {
+			release = resolve;
+		});
+		const getAuthMe = vi
+			.fn<() => Promise<AuthMe>>()
+			.mockReturnValueOnce(before)
+			.mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({ getAuthMe });
+
+		const renewing = controller.renew();
+		const afterSignIn = controller.refresh();
+		release(REFUSED);
+
+		await expect(afterSignIn).resolves.toMatchObject({ authenticated: true });
+		await expect(renewing).resolves.toMatchObject({ authenticated: false });
+		expect(getAuthMe).toHaveBeenCalledTimes(2);
+	});
+
 	it('tells subscribers each time it has an answer, until they leave', async () => {
 		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
 		const controller = createAppAuthController({ getAuthMe });
