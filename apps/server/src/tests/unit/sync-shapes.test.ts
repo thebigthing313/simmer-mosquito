@@ -611,6 +611,9 @@ describe('shape response caching', () => {
 			headers: {
 				'cache-control': 'public, max-age=604800, s-maxage=3600, stale-while-revalidate=2629746',
 				'electric-handle': 'handle-1',
+				// Electric names its own readable headers. The proxy drops the list
+				// rather than forwarding it; see the expose-list case below.
+				'access-control-expose-headers': 'electric-handle, electric-offset',
 			},
 		});
 	}
@@ -682,6 +685,16 @@ describe('shape response caching', () => {
 		const response = await appWithElectric().request('/sync/shapes/units');
 
 		expect(response.headers.get('electric-handle')).toBe('handle-1');
-		expect(response.headers.get('access-control-expose-headers')).toContain('electric-handle');
+	});
+
+	it('writes no expose list of its own, because the CORS table owns that one', async () => {
+		// Whatever this handler set was replaced anyway: Hono's `cors()` runs after
+		// it and overwrites the header. Two answers where only one lands is how the
+		// wrong one gets maintained, so the table is the only declaration and
+		// `cors-options.test.ts` is what holds it. Electric's own list is dropped on
+		// the way through for the same reason.
+		const response = await appWithElectric().request('/sync/shapes/units');
+
+		expect(response.headers.get('access-control-expose-headers')).toBeNull();
 	});
 });

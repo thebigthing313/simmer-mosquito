@@ -170,9 +170,14 @@ export function createTileSessionRecovery(options: {
 			if (await options.recoverSession()) {
 				options.refetch();
 			}
-		})().finally(() => {
-			pending = null;
-		});
+		})()
+			// `recoverSession` belongs to the caller. It does not reject today, and if
+			// it ever does, one viewport of refused tiles would otherwise become a
+			// dozen unhandled rejections rather than one quiet failure to renew.
+			.catch(() => undefined)
+			.finally(() => {
+				pending = null;
+			});
 
 		await pending;
 	};
