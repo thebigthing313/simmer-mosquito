@@ -1,5 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { sessionFetch } from '@simmer-mosquito/sync';
+import { sessionFetch } from '@simmer-mosquito/sync/session-fetch';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getServerUrl } from '../../../api';
 

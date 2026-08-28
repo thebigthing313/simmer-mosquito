@@ -1,6 +1,6 @@
 import { createAuthClient } from '@simmer-mosquito/auth/browser';
 import type { SimmerRole } from '@simmer-mosquito/domain';
-import { sessionFetch } from '@simmer-mosquito/sync';
+import { sessionFetch } from '@simmer-mosquito/sync/session-fetch';
 
 const DEFAULT_SERVER_URL = 'http://localhost:3000';
 

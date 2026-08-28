@@ -72,12 +72,15 @@ export interface SessionAuthenticationOptions {
 }
 
 /**
- * The session is good but its access token has expired, and this caller may not
- * be the one to renew it.
+ * This caller did not attempt to renew the session, so the answer is "ask
+ * somewhere that may".
  *
- * Distinct from every other refusal reason because it is the one a client can
- * act on: ask `/auth/me`, then retry. A client that cannot tell it apart would
- * either sign the user out on an expiry or retry a genuine refusal forever.
+ * It names what the server did rather than why WorkOS refused, and those are not
+ * the same thing: an aged-out access token, a revoked session, and a cookie
+ * sealed under a rotated password all fail `authenticate()` and all arrive here.
+ * Only `/auth/me` can tell them apart, because only `/auth/me` may try the
+ * refresh, so a client reads this as "renew and retry once" and lets `/auth/me`
+ * decide whether the session is expired or gone.
  */
 export const SESSION_REFRESH_REQUIRED = 'session_refresh_required';
 

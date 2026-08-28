@@ -3,6 +3,7 @@ import {
 	createSessionRecovery,
 	sessionLostDestination,
 } from '@simmer-mosquito/auth/browser';
+import { setSessionRecovery } from '@simmer-mosquito/sync/session-fetch';
 import { getAuthMe } from './api';
 
 /**
@@ -28,7 +29,7 @@ export const appAuthController = createAppAuthController({ getAuthMe });
  * leave renewing it to `/auth/me` (#298), so the global taxonomy collections
  * meet an expired access token as a 401 and have to renew rather than give up.
  */
-export const recoverSession = createSessionRecovery({
+const recoverSession = createSessionRecovery({
 	controller: appAuthController,
 	onSessionLost: () => {
 		const destination = sessionLostDestination({
@@ -42,3 +43,13 @@ export const recoverSession = createSessionRecovery({
 		}
 	},
 });
+
+// Installed here, beside the thing it installs, because every surface needs it
+// and only some of them touch a collection. Installing it from the collection
+// options left the console's `/organizations/*` pages, which import no
+// collection at all, with no renewal on any request they make.
+//
+// The subpath import is what keeps this off the entry chunk's weight: the
+// package barrel re-exports all fifty-four collection modules and their row
+// schemas, and `main.tsx` imports this module.
+setSessionRecovery(recoverSession);

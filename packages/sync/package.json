@@ -7,7 +7,12 @@
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
-		}
+		},
+		"./session-fetch": {
+			"types": "./dist/collections/functions/session-fetch.d.ts",
+			"import": "./dist/collections/functions/session-fetch.js"
+		},
+		"./package.json": "./package.json"
 	},
 	"main": "./dist/index.js",
 	"scripts": {
