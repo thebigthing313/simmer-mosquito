@@ -580,6 +580,19 @@ export interface AppAuthController {
 	 *
 	 * `refresh()` deliberately does not take the gate, so an operation can ask who
 	 * it now is without waiting on itself.
+	 *
+	 * **The operation must be an `/auth/*` call and nothing else.** Specifically it
+	 * must not issue a request that can renew the session: `sessionFetch` answers a
+	 * 401 by calling `renew()`, `renew()` waits for this gate, and this gate is
+	 * waiting for the request. Neither ever settles, and because the gate only
+	 * advances when its holder does, every later `load`, `renew` and `exchange` on
+	 * the page hangs with it and the shell never learns the session state again.
+	 *
+	 * No caller does this today and the shape of the thing discourages it, which is
+	 * why it is stated rather than prevented: the alternatives are a timeout that
+	 * weakens the ordering this exists to guarantee, or a flag that cannot tell a
+	 * renewal called from inside the operation apart from one that merely happened
+	 * at the same time, which is the race being fixed.
 	 */
 	readonly exchange: <T>(operation: () => Promise<T>) => Promise<T>;
 	readonly subscribe: (listener: () => void) => () => void;
@@ -634,7 +647,7 @@ export function sessionLostDestination(options: {
  * from one of them is usually an access token that aged out and is cured by
  * asking `/auth/me`.
  * When that answers "no", the session is genuinely gone, and the workspace has
- * to stop pretending otherwise: `refresh()` records the refusal, which is what
+ * to stop pretending otherwise: `renew()` records the refusal, which is what
  * lets the shell see a signed-out snapshot instead of reading an empty synced
  * collection as a broken agency (#299).
  *
@@ -644,12 +657,19 @@ export function sessionLostDestination(options: {
  * a storm. A session that comes back re-arms it, so a later expiry is reported
  * again rather than swallowed for the life of the page.
  *
+ * It answers whether it acted, and only a loss that was acted on latches. A
+ * reader already on a public path has nowhere to be sent, and latching on that
+ * would swallow the next genuine loss: no redirect, no prompt, just collections
+ * that fail quietly. That case only came right by accident, because a redirect
+ * reloads the page and takes the latch with it.
+ *
  * A round trip that broke is not a refusal. The controller keeps the session it
  * knows in that case, and so does this: `true`, retry, no sign-out.
  */
 export function createSessionRecovery(options: {
 	readonly controller: AppAuthController;
-	readonly onSessionLost: () => void;
+	/** Send the reader to sign in. `false` when there was nowhere to send them. */
+	readonly onSessionLost: () => boolean;
 }): () => Promise<boolean> {
 	let reported = false;
 
@@ -661,8 +681,7 @@ export function createSessionRecovery(options: {
 		}
 
 		if (!reported) {
-			reported = true;
-			options.onSessionLost();
+			reported = options.onSessionLost();
 		}
 
 		return false;

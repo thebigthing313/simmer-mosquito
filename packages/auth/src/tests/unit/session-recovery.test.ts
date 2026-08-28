@@ -23,10 +23,10 @@ const SIGNED_IN = {
 
 const REFUSED: AuthMe = { authenticated: false, reason: 'no_session_cookie_provided' };
 
-function recoveryOver(answers: readonly AuthMe[]) {
+function recoveryOver(answers: readonly AuthMe[], options?: { readonly acts?: boolean }) {
 	const remaining = [...answers];
 	const getAuthMe = vi.fn(async () => remaining.shift() ?? REFUSED);
-	const onSessionLost = vi.fn();
+	const onSessionLost = vi.fn(() => options?.acts ?? true);
 	const controller = createAppAuthController({ getAuthMe });
 
 	return {
@@ -88,11 +88,24 @@ describe('createSessionRecovery', () => {
 		expect(onSessionLost).toHaveBeenCalledTimes(2);
 	});
 
+	it('reports the next loss when there was nowhere to send the reader', async () => {
+		// On a public path there is no redirect to make, so nothing was acted on and
+		// nothing should be latched. Latching there swallowed the next genuine loss,
+		// and only came right by accident: a redirect reloads the page and takes the
+		// latch with it, so the case that does nothing kept it forever.
+		const { recover, onSessionLost } = recoveryOver([REFUSED, REFUSED], { acts: false });
+
+		await recover();
+		await recover();
+
+		expect(onSessionLost).toHaveBeenCalledTimes(2);
+	});
+
 	it('does not report a loss when the round trip itself broke', async () => {
 		// A dropped request is not an answer. Signing the reader out over a blip
 		// throws away a session that was never refused.
 		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValueOnce(SIGNED_IN);
-		const onSessionLost = vi.fn();
+		const onSessionLost = vi.fn(() => true);
 		const controller = createAppAuthController({ getAuthMe });
 		await controller.load();
 
