@@ -131,7 +131,15 @@ export function registerSessionRoutes(
 		}
 
 		if (!result.ok) {
-			return context.json(toAuthFailureBody(result), result.status);
+			const body = toAuthFailureBody(result);
+			// One line per refusal, and only from here. This is the endpoint that may
+			// renew, so a refusal is a decision rather than the routine 401 every
+			// other route answers a stale access token with. #304 was four of these
+			// beside a session that stayed alive, and the reason that would have told
+			// a stale caller from a failed refresh lived only in a response body
+			// nobody kept.
+			console.warn(`[auth] /auth/me refused: ${body.error} (${body.reason})`);
+			return context.json(body, result.status);
 		}
 
 		return context.json(toAuthMeBody(result.context));

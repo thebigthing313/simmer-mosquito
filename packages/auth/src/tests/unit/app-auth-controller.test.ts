@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { type AuthMe, createAppAuthController } from '../../browser.js';
+import { type AuthMe, createAppAuthController, SESSION_LOCK_NAME } from '../../browser.js';
 
 const SIGNED_IN = {
 	authenticated: true,
@@ -199,6 +199,57 @@ describe('createAppAuthController', () => {
 		await expect(controller.exchange(async () => controller.refresh())).resolves.toMatchObject({
 			authenticated: true,
 		});
+	});
+
+	/*
+	 * #304. The gate above is per tab; the sealed session cookie is per browser.
+	 * Two tabs each renewing on their own schedule spend the same single-use
+	 * refresh token, which is #298 again across a boundary the in-memory chain
+	 * cannot see. Web Locks is the one mutex a browser shares between tabs.
+	 */
+	function fakeLocks() {
+		const held: string[] = [];
+		return {
+			held,
+			locks: {
+				request: async <T>(name: string, operation: () => Promise<T>): Promise<T> => {
+					held.push(name);
+					return operation();
+				},
+			},
+		};
+	}
+
+	it('renews inside a lock every tab of this origin contends for', async () => {
+		const { locks, held } = fakeLocks();
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({ getAuthMe, locks });
+
+		await controller.renew();
+
+		expect(held).toEqual([SESSION_LOCK_NAME]);
+	});
+
+	it('changes the session inside the same lock', async () => {
+		// Entering an agency re-seals the session, so it spends the token a renewal
+		// spends. Serializing it against this tab's renewals (#301) does nothing
+		// about the tab next door.
+		const { locks, held } = fakeLocks();
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({ getAuthMe, locks });
+
+		await controller.exchange(async () => undefined);
+
+		expect(held).toEqual([SESSION_LOCK_NAME]);
+	});
+
+	it('renews without a lock when the platform has none', async () => {
+		// React Native has no Web Locks and no tabs to race, and an older browser
+		// should lose the cross-tab guarantee rather than the ability to sign in.
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({ getAuthMe, locks: null });
+
+		await expect(controller.renew()).resolves.toMatchObject({ authenticated: true });
 	});
 
 	it('tells subscribers each time it has an answer, until they leave', async () => {

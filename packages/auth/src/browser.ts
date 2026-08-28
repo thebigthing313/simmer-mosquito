@@ -689,6 +689,38 @@ export function createSessionRecovery(options: {
 }
 
 /**
+ * The lock every tab of this origin takes before it rotates the sealed session.
+ *
+ * Exported so a test can name it rather than restate the string.
+ */
+export const SESSION_LOCK_NAME = 'simmer.session-rotation';
+
+/**
+ * The one method this reads off the Web Locks API.
+ *
+ * Written out rather than taken from the DOM's `LockManager`, because this
+ * package compiles without the DOM library: `apps/mobile` has no such thing.
+ */
+export interface SessionLockManager {
+	request<T>(name: string, operation: () => Promise<T>): Promise<T>;
+}
+
+/**
+ * The platform's lock manager, or `null` where there is none.
+ *
+ * React Native has no Web Locks and no tabs to race, and a browser too old for
+ * the API should lose the cross-tab guarantee rather than the ability to sign in.
+ */
+function platformLocks(): SessionLockManager | null {
+	const locks = (globalThis as { readonly navigator?: { readonly locks?: unknown } }).navigator
+		?.locks;
+
+	return typeof (locks as SessionLockManager | undefined)?.request === 'function'
+		? (locks as SessionLockManager)
+		: null;
+}
+
+/**
  * Build the controller over one app's `/auth/me`.
  *
  * A factory rather than a module-level singleton because the two front ends
@@ -697,8 +729,14 @@ export function createSessionRecovery(options: {
  */
 export function createAppAuthController(options: {
 	readonly getAuthMe: () => Promise<AuthMe>;
+	/**
+	 * Where the cross-tab lock comes from. Omitted, the platform's own; `null`
+	 * turns it off, which is what a platform without Web Locks gets.
+	 */
+	readonly locks?: SessionLockManager | null;
 }): AppAuthController {
 	const { getAuthMe } = options;
+	const locks = options.locks === undefined ? platformLocks() : options.locks;
 
 	let snapshot: AuthMe | null = null;
 	let pending: Promise<AuthMe> | null = null;
@@ -714,12 +752,29 @@ export function createAppAuthController(options: {
 	let gate: Promise<unknown> = Promise.resolve();
 
 	function serialize<T>(operation: () => Promise<T>): Promise<T> {
-		const run = gate.then(operation, operation);
+		const queued = () => holdSessionLock(operation);
+		const run = gate.then(queued, queued);
 		gate = run.then(
 			() => undefined,
 			() => undefined,
 		);
 		return run;
+	}
+
+	/**
+	 * The same turn-taking, across tabs.
+	 *
+	 * `gate` is per tab and the sealed session cookie is per browser, so two tabs
+	 * renewing on their own schedules spend the same single-use refresh token,
+	 * which is the failure #298 fixed, on a boundary an in-memory chain cannot see
+	 * (#304). Web Locks is the one mutex a browser shares between tabs, and it
+	 * releases on its own when a tab holding it goes away.
+	 *
+	 * Taken inside `gate` rather than around it, so a tab queues its own work
+	 * first and contends for the lock once rather than once per waiting caller.
+	 */
+	function holdSessionLock<T>(operation: () => Promise<T>): Promise<T> {
+		return locks === null ? operation() : locks.request(SESSION_LOCK_NAME, operation);
 	}
 
 	function load(): Promise<AuthMe> {
