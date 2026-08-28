@@ -42,7 +42,11 @@ import {
 } from '../../../components/map';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
-import { searchValidator, useSearchFilters } from '../../../lib/search-filters';
+import {
+	DATE_RANGE_COUNTING,
+	searchValidator,
+	useSearchFilters,
+} from '../../../lib/search-filters';
 import { InspectionMapCard } from '../-inspection-map-card';
 import {
 	type InspectionFilters as InspectionSearchFilters,
@@ -223,24 +227,6 @@ function inspectionQueryParams(bbox: string | null, filters: InspectionTileFilte
 }
 
 /**
- * How many filters are off their default.
- *
- * The date range counts as one whichever way it was moved, and the default
- * window counts as none: an untouched page is not a filtered one.
- */
-function countActiveFilters(set: InspectionFilterState, isDefaultRange: boolean): number {
-	return (
-		(isDefaultRange ? 0 : 1) +
-		(set.wetness === 'all' ? 0 : 1) +
-		set.densities.size +
-		(set.positiveOnly ? 1 : 0) +
-		set.typeIds.size +
-		set.inspectorIds.size +
-		set.regionIds.size
-	);
-}
-
-/**
  * The filter set, held on the URL.
  *
  * A deep link from the overview's "view on map" actions, a shared link, and
@@ -267,7 +253,8 @@ function useInspectionFilterState(defaultFrom: string, today: string) {
 		filters: query,
 		setFilters,
 		reset,
-	} = useSearchFilters(filterDefaults, inspectionFilterCodecs);
+		activeCount,
+	} = useSearchFilters(filterDefaults, inspectionFilterCodecs, DATE_RANGE_COUNTING);
 	const setWetness = useCallback((next: WetFilter) => setFilters({ water: next }), [setFilters]);
 	const setDensities = useCallback(
 		(next: ReadonlySet<LarvalDensity>) =>
@@ -308,7 +295,7 @@ function useInspectionFilterState(defaultFrom: string, today: string) {
 		setTypeIds,
 		setWetness,
 	};
-	return { reset, set, setFilters, state };
+	return { activeCount, reset, set, setFilters, state };
 }
 
 /** What the reader has narrowed the list by. */
@@ -343,7 +330,13 @@ interface InspectionFilterOptions {
 
 function InspectionsExplorerRoute() {
 	const { defaultFrom, today } = useDefaultWindow();
-	const { reset, set, setFilters, state } = useInspectionFilterState(defaultFrom, today);
+	const {
+		activeCount: activeFilterCount,
+		reset,
+		set,
+		setFilters,
+		state,
+	} = useInspectionFilterState(defaultFrom, today);
 	const { dateFrom, dateTo, densities, wetness } = state;
 
 	const [map, setMap] = useState<MapboxMap | null>(null);
@@ -363,7 +356,6 @@ function InspectionsExplorerRoute() {
 	const legend = useMemo(() => inspectionLegend(wetness, densities), [wetness, densities]);
 
 	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
-	const activeFilterCount = countActiveFilters(state, isDefaultRange);
 	const resetDates = useCallback(
 		() => setFilters({ from: defaultFrom, to: today }),
 		[setFilters, defaultFrom, today],

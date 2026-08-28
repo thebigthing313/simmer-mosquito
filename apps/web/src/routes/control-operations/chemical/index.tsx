@@ -28,6 +28,7 @@ import { type ChemicalTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../.
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	idSetParam,
@@ -103,7 +104,12 @@ function ApplicationsExplorerRoute() {
 		}),
 		[defaultFrom, today],
 	);
-	const { filters: query, setFilters, reset } = useSearchFilters(filterDefaults, FILTER_CODECS);
+	const {
+		filters: query,
+		setFilters,
+		reset,
+		activeCount: activeFilterCount,
+	} = useSearchFilters(filterDefaults, FILTER_CODECS, DATE_RANGE_COUNTING);
 	const dateFrom = query.from;
 	const dateTo = query.to;
 	const insecticideIds = query.insecticides;
@@ -187,12 +193,6 @@ function ApplicationsExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const activeFilterCount =
-		(dateFrom === defaultFrom && dateTo === today ? 0 : 1) +
-		insecticideIds.size +
-		methodIds.size +
-		personIds.size +
-		regionIds.size;
 	const clearAll = reset;
 
 	return (

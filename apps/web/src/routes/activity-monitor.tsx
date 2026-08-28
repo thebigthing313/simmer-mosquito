@@ -91,6 +91,10 @@ const ACTIVITY_FILTER_CODECS: FilterCodecs<ActivityFilters> = {
 	to: dateParam,
 };
 
+// Neither the person picker nor the date window narrows this page down, so
+// neither counts the way an explorer's filters do.
+const ACTIVITY_FILTER_COUNTING = { uncounted: ['profile', 'from', 'to'] } as const;
+
 export const Route = createFileRoute('/activity-monitor')({
 	component: ActivityMonitorRoute,
 	validateSearch: searchValidator(ACTIVITY_FILTER_CODECS),
@@ -112,13 +116,10 @@ function ActivityMonitorRoute() {
 	// The person picker and the date window are this page, not a way of cutting
 	// it down, so the card they live in opens with it.
 	const panel = useExplorerPanel({ filtersOpen: true });
-	// The window always names a person and a date range, so nothing here is ever
-	// "off its default" the way an explorer's filters are.
-	const activeFilterCount = 0;
 
 	return (
 		<ExplorerMapPage
-			activeFilterCount={activeFilterCount}
+			activeFilterCount={filters.activeCount}
 			filters={
 				<>
 					<ProfilePicker
@@ -216,6 +217,8 @@ function useActivitySelection(items: readonly ActivityEntry[] | undefined) {
  * a link somebody can be sent.
  */
 function useActivityFilters(): {
+	/** Always zero here: see `ACTIVITY_FILTER_COUNTING`. */
+	readonly activeCount: number;
 	readonly window: {
 		readonly profileId: string | null;
 		readonly dateFrom: string;
@@ -236,10 +239,15 @@ function useActivityFilters(): {
 		() => ({ profile: ownProfileId, from: today, to: today }),
 		[ownProfileId, today],
 	);
-	const { filters, setFilters } = useSearchFilters(defaults, ACTIVITY_FILTER_CODECS);
+	const { filters, setFilters, activeCount } = useSearchFilters(
+		defaults,
+		ACTIVITY_FILTER_CODECS,
+		ACTIVITY_FILTER_COUNTING,
+	);
 	const setProfile = useCallback((next: string) => setFilters({ profile: next }), [setFilters]);
 
 	return {
+		activeCount,
 		window: {
 			profileId: filters.profile === '' ? null : filters.profile,
 			dateFrom: filters.from,

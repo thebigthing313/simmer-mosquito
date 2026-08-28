@@ -36,6 +36,7 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { addCalendarDays, todayInTimeZone } from '../../../lib/local-date';
 import {
 	choiceParam,
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	idSetParam,
@@ -102,8 +103,12 @@ function RequestsForControlRoute() {
 		}),
 		[today],
 	);
-	const { filters, setFilters, reset } = useSearchFilters(filterDefaults, FILTER_CODECS);
-	const status = filters.status;
+	const {
+		filters,
+		setFilters,
+		reset,
+		activeCount: activeFilterCount,
+	} = useSearchFilters(filterDefaults, FILTER_CODECS, DATE_RANGE_COUNTING);
 
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
@@ -132,10 +137,6 @@ function RequestsForControlRoute() {
 	);
 
 	const dateRange = useRequestDateRange(filters, setFilters, today);
-
-	// Open is the default, so only All or Resolved counts as something the operator
-	// set. Counting the default would put a "1 filter" badge on an untouched page.
-	const activeFilterCount = (status === 'open' ? 0 : 1) + filters.types.size + filters.people.size;
 
 	return (
 		<ExplorerMapPage

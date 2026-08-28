@@ -94,6 +94,7 @@ function TrapsExplorerRoute() {
 		filters: query,
 		setFilters,
 		reset,
+		activeCount: activeFilterCount,
 	} = useSearchFilters(TRAP_FILTER_DEFAULTS, TRAP_FILTER_CODECS);
 	const search = query.search.toLowerCase();
 	const status = query.status;
@@ -167,8 +168,6 @@ function TrapsExplorerRoute() {
 		[filters, selectedId],
 	);
 
-	const activeFilterCount =
-		(status === 'active' ? 0 : 1) + methodIds.size + regionIds.size + (search.length > 0 ? 1 : 0);
 	const clearAll = useCallback(() => {
 		clearSearchInput();
 		reset();

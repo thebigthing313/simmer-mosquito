@@ -27,6 +27,7 @@ import { MAP_CREATE_TARGETS, MapCanvas, type OutreachTileFilters } from '../../.
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 import {
+	DATE_RANGE_COUNTING,
 	dateParam,
 	type FilterCodecs,
 	idSetParam,
@@ -96,7 +97,12 @@ function OutreachExplorerRoute() {
 		}),
 		[defaultFrom, today],
 	);
-	const { filters: query, setFilters, reset } = useSearchFilters(filterDefaults, FILTER_CODECS);
+	const {
+		filters: query,
+		setFilters,
+		reset,
+		activeCount: activeFilterCount,
+	} = useSearchFilters(filterDefaults, FILTER_CODECS, DATE_RANGE_COUNTING);
 	const dateFrom = query.from;
 	const dateTo = query.to;
 	const personIds = query.people;
@@ -168,12 +174,6 @@ function OutreachExplorerRoute() {
 		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
 		[filters, selectedId],
 	);
-
-	const activeFilterCount =
-		(dateFrom === defaultFrom && dateTo === today ? 0 : 1) +
-		methodIds.size +
-		regionIds.size +
-		personIds.size;
 
 	return (
 		<ExplorerMapPage

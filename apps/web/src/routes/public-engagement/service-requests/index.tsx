@@ -127,10 +127,11 @@ function ServiceRequestsExplorerRoute() {
 
 	// The filter state lives in the URL, so a shared link and Back out of a
 	// request both land on the list the operator had narrowed to.
-	const { filters: query, setFilters } = useSearchFilters(
-		REQUEST_FILTER_DEFAULTS,
-		REQUEST_FILTER_CODECS,
-	);
+	const {
+		filters: query,
+		setFilters,
+		activeCount: activeFilterCount,
+	} = useSearchFilters(REQUEST_FILTER_DEFAULTS, REQUEST_FILTER_CODECS);
 	const status = query.status;
 	const selectedTagIds = query.tags;
 	const selectedRegionIds = query.regions;
@@ -230,14 +231,6 @@ function ServiceRequestsExplorerRoute() {
 		status !== 'all' ||
 		selectedTagIds.size > 0 ||
 		selectedRegionIds.size > 0;
-
-	// Open is the default, so only Closed or All counts as something the operator
-	// set. Counting the default would put a "1 filter" badge on an untouched page.
-	const activeFilterCount =
-		(search.trim().length > 0 ? 1 : 0) +
-		(status === 'open' ? 0 : 1) +
-		selectedTagIds.size +
-		selectedRegionIds.size;
 
 	return (
 		<ExplorerMapPage

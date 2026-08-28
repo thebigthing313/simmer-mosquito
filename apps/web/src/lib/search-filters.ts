@@ -32,17 +32,48 @@ export interface SearchFilters<TFilters> {
 	readonly setFilters: (patch: Partial<TFilters>) => void;
 	/** Drop every filter param, returning the explorer to its defaults. */
 	readonly reset: () => void;
+	/** How many filters are set, for the collapsed panel and the filter control. */
+	readonly activeCount: number;
 }
+
+/**
+ * The two counting rules a surface cannot state by listing its filters.
+ *
+ * Everything else is derived: a filter at its default counts nothing, a
+ * selection counts how many are selected, and anything else counts one.
+ */
+export interface FilterCounting<TFilters> {
+	/**
+	 * Keys that count as one filter together, such as a date range's two bounds.
+	 * The group counts one as soon as either end moves.
+	 */
+	readonly groups?: readonly (readonly (keyof TFilters & string)[])[];
+	/**
+	 * Keys that carry no count at all, for a surface whose controls are the page
+	 * rather than a way of narrowing it. Opting out is written down here so a new
+	 * filter cannot go uncounted by being forgotten.
+	 */
+	readonly uncounted?: readonly (keyof TFilters & string)[];
+}
+
+/**
+ * A date range's two bounds are one filter, not two.
+ *
+ * Every explorer that opens on a window spells its bounds `from` and `to`, so
+ * the grouping is the same declaration on all of them.
+ */
+export const DATE_RANGE_COUNTING = { groups: [['from', 'to']] } as const;
 
 /**
  * Bind a filter set to the current route's search params.
  *
- * `defaults` and `codecs` must be stable across renders — module constants, or
- * `useMemo`'d where a default is derived (today's date, say).
+ * `defaults`, `codecs` and `counting` must be stable across renders — module
+ * constants, or `useMemo`'d where a default is derived (today's date, say).
  */
 export function useSearchFilters<TFilters extends object>(
 	defaults: TFilters,
 	codecs: FilterCodecs<TFilters>,
+	counting?: FilterCounting<TFilters>,
 ): SearchFilters<TFilters> {
 	const search = useSearch({ strict: false }) as Record<string, unknown>;
 	const navigate = useNavigate();
@@ -92,7 +123,73 @@ export function useSearchFilters<TFilters extends object>(
 		} as never);
 	}, [navigate, defaults]);
 
-	return { filters, setFilters, reset };
+	const activeCount = useMemo(
+		() => countActiveFilters(defaults, filters, counting),
+		[defaults, filters, counting],
+	);
+
+	return { filters, setFilters, reset, activeCount };
+}
+
+/**
+ * How many of a surface's filters are set.
+ *
+ * The count is load-bearing: a collapsed panel shows it, so a reader can tell an
+ * empty map from a filtered one, and the filter control carries it while the
+ * filter card is away. It is derived from the same `defaults` the hook resolves
+ * and resets with, because a surface that sums its own drifts from the rest.
+ * Service Requests and Requests for Control once counted their default Open
+ * status as set, and Requests for Control left its date window out of the count
+ * altogether.
+ */
+export function countActiveFilters<TFilters extends object>(
+	defaults: TFilters,
+	filters: TFilters,
+	counting: FilterCounting<TFilters> = {},
+): number {
+	const spokenFor = new Set<string>(counting.uncounted ?? []);
+	let count = 0;
+
+	for (const group of counting.groups ?? []) {
+		let moved = false;
+		for (const key of group) {
+			spokenFor.add(key);
+			moved = moved || !isDefaultValue(filters[key], defaults[key]);
+		}
+		count += moved ? 1 : 0;
+	}
+
+	for (const key of filterKeys(defaults)) {
+		if (spokenFor.has(key)) {
+			continue;
+		}
+		count += countOneFilter(filters[key], defaults[key]);
+	}
+
+	return count;
+}
+
+function countOneFilter(value: unknown, fallback: unknown): number {
+	if (isDefaultValue(value, fallback)) {
+		return 0;
+	}
+	if (value instanceof Set) {
+		return value.size;
+	}
+	return Array.isArray(value) ? value.length : 1;
+}
+
+function isDefaultValue(value: unknown, fallback: unknown): boolean {
+	if (value instanceof Set && fallback instanceof Set) {
+		return value.size === fallback.size && [...value].every((member) => fallback.has(member));
+	}
+	if (Array.isArray(value) && Array.isArray(fallback)) {
+		return (
+			value.length === fallback.length &&
+			value.every((member, index) => Object.is(member, fallback[index]))
+		);
+	}
+	return Object.is(value, fallback);
 }
 
 type Mutable<TValue> = { -readonly [Key in keyof TValue]: TValue[Key] };
