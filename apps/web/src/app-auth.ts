@@ -31,19 +31,23 @@ export const publicPaths: ReadonlySet<string> = new Set([
 export const appAuthController = createAppAuthController({ getAuthMe });
 
 /**
- * What every synced collection does when the server refuses it.
+ * What every synced collection does when the server refuses it, and what the map
+ * does when a tile is refused.
  *
  * Renew once through `/auth/me` and let the refused request be asked again; if
  * the session is really gone, land on the same screen the route guard sends an
- * unauthenticated visitor to. Before this, a refused shape reached the shell as
- * a ready collection with no rows and the workspace threw (#299).
+ * unauthenticated visitor to. Before this, a refused shape reached the shell as a
+ * ready collection with no rows and the workspace threw (#299).
  *
  * A full navigation rather than a router one, on purpose. Every collection in
  * memory belongs to the session that just ended, and the cheapest way to be sure
- * none of it is still on screen under the next sign-in is to load the page
- * again.
+ * none of it is still on screen under the next sign-in is to load the page again.
+ *
+ * Exported as well as installed because the map cannot go through `sessionFetch`:
+ * Mapbox GL fetches its own tiles, so `use-mapbox-map.ts` calls this from the GL
+ * error event instead (#300).
  */
-const recoverSession = createSessionRecovery({
+export const recoverSession = createSessionRecovery({
 	controller: appAuthController,
 	onSessionLost: () => {
 		const destination = sessionLostDestination({

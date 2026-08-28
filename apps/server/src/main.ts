@@ -15,7 +15,7 @@ import {
 	createAuthContextMiddleware,
 	createOperatorAuthContextMiddleware,
 } from './auth-middleware.js';
-import { SESSION_RESPONSE_HEADER, writeSealedSession } from './auth-session-transport.js';
+import { writeSealedSession } from './auth-session-transport.js';
 import { PRIVATE_READ_PREFIXES, privateNoStore } from './cache-headers.js';
 import { CORS_SURFACES, corsOptionsFor } from './cors-options.js';
 import { createDevSessionProvider } from './dev-impersonation.js';

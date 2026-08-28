@@ -38,7 +38,7 @@ export interface CorsSurface {
 }
 
 /**
- * The four headers an Electric shape response carries its position in.
+ * The headers an Electric shape response carries its position in.
  *
  * A shape request answers 200 with a body whether or not these can be read, and
  * the client cannot use one syllable of that body without them: it errors the
@@ -58,6 +58,12 @@ export const ELECTRIC_EXPOSE_HEADERS = [
 	'electric-handle',
 	'electric-schema',
 	'electric-cursor',
+	// Not required, and not decoration either. The client's chunk prefetcher asks
+	// `headers.has('electric-up-to-date')` and stops when it is there. Unexposed
+	// it reads as absent, so after the last chunk of every shape the client builds
+	// a next-chunk URL and issues a speculative request that nothing consumes:
+	// one wasted round trip per collection per page load, over fifty of them.
+	'electric-up-to-date',
 ] as const;
 
 /** Reads and writes over the same prefix — the command endpoints. */

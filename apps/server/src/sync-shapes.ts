@@ -13,7 +13,6 @@
 import { shapePathFor, syncedColumnsOf, tableSchemas } from '@simmer-mosquito/sync';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import { type AuthVariables, createGlobalReadMiddleware } from './auth-middleware.js';
-import { ELECTRIC_EXPOSE_HEADERS } from './cors-options.js';
 import { isServedScope, type SyncShapeScope, syncShapeScopes } from './shape-scopes.js';
 
 interface ShapeRouteOptions {
@@ -291,10 +290,6 @@ function copyElectricHeaders(headers: Headers): Headers {
 		}
 	}
 
-	// Set here so the proxied response is complete on its own, and declared in
-	// `cors-options.ts` because that is the copy the browser receives: Hono's
-	// `cors()` middleware runs after this handler and overwrites the header.
-	copied.set('access-control-expose-headers', ELECTRIC_EXPOSE_HEADERS.join(', '));
 	/*
 	 * Electric's own caching headers are replaced, not forwarded.
 	 *
@@ -341,6 +336,11 @@ const blockedProxyResponseHeaders = new Set([
 	'trailer',
 	'transfer-encoding',
 	'upgrade',
+	// The CORS table decides what a browser may read off a shape response, and it
+	// is the copy that lands: Hono's `cors()` runs after this handler and replaces
+	// whatever is here. Forwarding Electric's own list would put a second, losing
+	// answer on the response and invite somebody to fix the wrong one.
+	'access-control-expose-headers',
 ]);
 
 // `secret` is server-owned: when ELECTRIC_SECRET is configured it is folded into
