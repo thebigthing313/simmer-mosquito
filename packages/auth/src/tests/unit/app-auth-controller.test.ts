@@ -107,12 +107,98 @@ describe('createAppAuthController', () => {
 		const controller = createAppAuthController({ getAuthMe });
 
 		const renewing = controller.renew();
+		// `renew` goes through the session gate, so it reaches `/auth/me` one
+		// microtask later than `refresh` does. Let it get there first: this case is
+		// about which answer each caller receives, not which asks first.
+		await Promise.resolve();
 		const afterSignIn = controller.refresh();
 		release(REFUSED);
 
 		await expect(afterSignIn).resolves.toMatchObject({ authenticated: true });
 		await expect(renewing).resolves.toMatchObject({ authenticated: false });
 		expect(getAuthMe).toHaveBeenCalledTimes(2);
+	});
+
+	/*
+	 * #301. `/auth/switch-organization` re-seals the session, which spends the same
+	 * single-use refresh token `/auth/me` spends. One endpoint owning rotation
+	 * (#298) does not cover the other, and the client-side single flight only
+	 * deduplicates callers of `/auth/me`.
+	 *
+	 * So a session-changing call and a renewal must not overlap. These pin that
+	 * from both directions, and pin that a failure cannot wedge the gate shut.
+	 */
+	it('holds a session change until an in-flight renewal has finished', async () => {
+		const order: string[] = [];
+		let releaseRenewal: (answer: AuthMe) => void = () => undefined;
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockReturnValue(
+			new Promise<AuthMe>((resolve) => {
+				releaseRenewal = (answer) => {
+					order.push('renewal answered');
+					resolve(answer);
+				};
+			}),
+		);
+		const controller = createAppAuthController({ getAuthMe });
+
+		const renewing = controller.renew();
+		const switching = controller.exchange(async () => {
+			order.push('session changed');
+		});
+
+		releaseRenewal(SIGNED_IN);
+		await Promise.all([renewing, switching]);
+
+		expect(order).toEqual(['renewal answered', 'session changed']);
+	});
+
+	it('holds a renewal until an in-flight session change has finished', async () => {
+		const order: string[] = [];
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockImplementation(async () => {
+			order.push('renewal asked');
+			return SIGNED_IN;
+		});
+		const controller = createAppAuthController({ getAuthMe });
+
+		let resolveSwitch: () => void = () => undefined;
+		const switched = new Promise<void>((resolve) => {
+			resolveSwitch = resolve;
+		});
+		const switching = controller.exchange(() => switched);
+		const renewing = controller.renew();
+
+		order.push('session changed');
+		resolveSwitch();
+		await Promise.all([switching, renewing]);
+
+		expect(order).toEqual(['session changed', 'renewal asked']);
+	});
+
+	it('opens the gate again after a session change fails', async () => {
+		// A refused switch is ordinary — somebody lacks the membership — and it must
+		// not leave every later renewal waiting on a promise that never settles.
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({ getAuthMe });
+
+		await expect(
+			controller.exchange(async () => {
+				throw new Error('refused');
+			}),
+		).rejects.toThrow('refused');
+
+		await expect(controller.renew()).resolves.toMatchObject({ authenticated: true });
+	});
+
+	it('lets a session change read the new session without waiting on itself', async () => {
+		// Every caller asks who they are after changing the session. `refresh` does
+		// not take the gate, so calling it inside an exchange answers rather than
+		// deadlocking against the exchange that is holding it.
+		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
+		const controller = createAppAuthController({ getAuthMe });
+
+		await expect(controller.exchange(async () => controller.refresh())).resolves.toMatchObject({
+			authenticated: true,
+		});
 	});
 
 	it('tells subscribers each time it has an answer, until they leave', async () => {

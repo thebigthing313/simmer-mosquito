@@ -120,7 +120,21 @@ function useEnterAgency(
 
 		setPending(true);
 		try {
-			const outcome = await switchOrganization({ organizationId: workosOrganizationId });
+			// Through `exchange`, not straight at the endpoint. Re-sealing the session
+			// against another agency spends the same single-use refresh token a
+			// renewal spends, and a shape stream that met an expired access token at
+			// this moment would be renewing through `/auth/me`. Spending it twice is
+			// what WorkOS reads as reuse, and it ends the session (#301), so the two
+			// take turns. `refresh` runs inside, reading the session this call just
+			// created without waiting on itself.
+			const outcome = await appAuthController.exchange(async () => {
+				const result = await switchOrganization({ organizationId: workosOrganizationId });
+				if (result.status === 'switched') {
+					await appAuthController.refresh();
+				}
+				return result;
+			});
+
 			if (outcome.status !== 'switched') {
 				// A refusal is not a malfunction, and the two want different words. The
 				// refusal has a fix — somebody grants the membership — and saying so is
@@ -134,7 +148,6 @@ function useEnterAgency(
 				return;
 			}
 
-			await appAuthController.refresh();
 			// Everything already fetched was fetched as somebody else, in another
 			// agency. None of it describes where this session now is.
 			await queryClient.invalidateQueries();

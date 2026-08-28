@@ -570,6 +570,18 @@ export interface AppAuthController {
 	 * be as happy with an answer somebody else is already waiting for.
 	 */
 	readonly renew: () => Promise<AuthMe>;
+	/**
+	 * Run something that changes the session, with no renewal overlapping it.
+	 *
+	 * Entering an agency re-seals the session against another organization, which
+	 * spends the same single-use refresh token a renewal spends. #298 gave
+	 * rotation to one endpoint; this is the other write that was left outside that
+	 * rule, and running the two at once is WorkOS's reuse signature (#301).
+	 *
+	 * `refresh()` deliberately does not take the gate, so an operation can ask who
+	 * it now is without waiting on itself.
+	 */
+	readonly exchange: <T>(operation: () => Promise<T>) => Promise<T>;
 	readonly subscribe: (listener: () => void) => () => void;
 }
 
@@ -673,6 +685,24 @@ export function createAppAuthController(options: {
 	let pending: Promise<AuthMe> | null = null;
 	const listeners = new Set<() => void>();
 
+	/**
+	 * The tail of everything that rotates the sealed session, so the next one waits.
+	 *
+	 * A promise chain rather than a flag, because the queue has to survive a
+	 * failure: a refused switch is ordinary, and a gate that only opens on success
+	 * would leave every later renewal waiting forever.
+	 */
+	let gate: Promise<unknown> = Promise.resolve();
+
+	function serialize<T>(operation: () => Promise<T>): Promise<T> {
+		const run = gate.then(operation, operation);
+		gate = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		return run;
+	}
+
 	function load(): Promise<AuthMe> {
 		if (snapshot !== null) {
 			return Promise.resolve(snapshot);
@@ -704,11 +734,16 @@ export function createAppAuthController(options: {
 	 * trip sent before the change would answer for the session they left.
 	 */
 	function renew(): Promise<AuthMe> {
-		pending ??= ask().finally(() => {
+		pending ??= serialize(ask).finally(() => {
 			pending = null;
 		});
 
 		return pending;
+	}
+
+	/** Serialize a session change against renewals. See {@link AppAuthController.exchange}. */
+	function exchange<T>(operation: () => Promise<T>): Promise<T> {
+		return serialize(operation);
 	}
 
 	/** Ask now, unshared. See {@link AppAuthController.refresh}. */
@@ -761,6 +796,7 @@ export function createAppAuthController(options: {
 		load,
 		refresh,
 		renew,
+		exchange,
 		subscribe(listener) {
 			listeners.add(listener);
 			return () => {

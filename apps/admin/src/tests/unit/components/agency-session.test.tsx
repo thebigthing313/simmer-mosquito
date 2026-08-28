@@ -11,7 +11,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
  * write on it would otherwise land in whichever agency the session is actually
  * in.
  *
- * All three collaborators are faked. `switchOrganization` is the network call
+ * All four collaborators are faked. `switchOrganization` is the network call
  * under test — what it is *handed* is the thing worth pinning — and the auth
  * controller is a module-level singleton whose snapshot has no setter, so the
  * test drives it through a fake rather than through `/auth/me`.
@@ -20,6 +20,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const switchOrganization = vi.fn();
 const refresh = vi.fn(async () => authSnapshot as AuthMe);
 const toastError = vi.fn();
+/**
+ * The real one serializes a session change against renewals, so the two cannot
+ * spend the same single-use refresh token (#301). Here it only records that the
+ * switch went through it and runs the operation; the ordering it enforces is
+ * covered where it lives, in `packages/auth`.
+ */
+const exchange = vi.fn(<T,>(operation: () => Promise<T>) => operation());
 
 let authSnapshot: AuthMe | null = null;
 
@@ -33,6 +40,7 @@ vi.mock('../../../app-auth', () => ({
 			return authSnapshot;
 		},
 		refresh: () => refresh(),
+		exchange: <T,>(operation: () => Promise<T>) => exchange(operation),
 		subscribe: () => () => {},
 	},
 }));
@@ -50,6 +58,9 @@ describe('AgencySessionGate', () => {
 		switchOrganization.mockReset();
 		refresh.mockReset();
 		toastError.mockReset();
+		// Cleared rather than reset: this one carries an implementation, and a reset
+		// would leave it returning `undefined` for every case after the first.
+		exchange.mockClear();
 	});
 
 	afterEach(cleanup);
@@ -90,6 +101,22 @@ describe('AgencySessionGate', () => {
 		await waitFor(() => {
 			expect(refresh).toHaveBeenCalled();
 		});
+	});
+
+	// Not decoration on the call above. Re-sealing the session and renewing it
+	// spend the same single-use refresh token, and going straight at the endpoint
+	// is what let the two overlap (#301).
+	it('re-seals the session through the gate that renewals take, not around it', async () => {
+		authSnapshot = signedInTo(null);
+		switchOrganization.mockResolvedValue({ status: 'switched' });
+
+		renderGate();
+		screen.getByRole('button', { name: 'Enter Kern County MVCD' }).click();
+
+		await waitFor(() => {
+			expect(exchange).toHaveBeenCalledOnce();
+		});
+		expect(switchOrganization).toHaveBeenCalledOnce();
 	});
 
 	// A refusal means the operator holds no membership in the agency, which is
