@@ -17,7 +17,7 @@ import {
 } from './auth-middleware.js';
 import { SESSION_RESPONSE_HEADER, writeSealedSession } from './auth-session-transport.js';
 import { PRIVATE_READ_PREFIXES, privateNoStore } from './cache-headers.js';
-import { CORS_SURFACES } from './cors-options.js';
+import { CORS_SURFACES, corsOptionsFor } from './cors-options.js';
 import { createDevSessionProvider } from './dev-impersonation.js';
 import { readServerEnv } from './env.js';
 import { COMPRESSED_READ_PREFIXES, compressReads } from './response-compression.js';
@@ -97,19 +97,7 @@ const operatorAuthContextMiddleware = createOperatorAuthContextMiddleware({
 // that nineteen hand-maintained `app.use` blocks had already drifted from the
 // paths the route modules register.
 for (const surface of CORS_SURFACES) {
-	app.use(
-		surface.prefix,
-		cors({
-			origin: allowedCorsOrigins(),
-			credentials: true,
-			allowMethods: [...surface.methods],
-			// A token client reads its rotated sealed session off the response.
-			// React Native does not enforce CORS so the field app never needs this,
-			// but Expo's web target runs the same code in a browser, where an
-			// unexposed header is simply invisible.
-			exposeHeaders: [SESSION_RESPONSE_HEADER],
-		}),
-	);
+	app.use(surface.prefix, cors(corsOptionsFor(surface, allowedCorsOrigins())));
 }
 
 // The map and shape reads, gzipped. Registered before the tenancy headers below

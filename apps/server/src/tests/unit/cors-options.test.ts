@@ -1,7 +1,13 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { describe, expect, it } from 'vitest';
-import { ADMIN_CORS_ALLOW_METHODS, CORS_SURFACES, corsSurfaceFor } from '../../cors-options.js';
+import {
+	ADMIN_CORS_ALLOW_METHODS,
+	CORS_SURFACES,
+	corsOptionsFor,
+	corsSurfaceFor,
+	ELECTRIC_EXPOSE_HEADERS,
+} from '../../cors-options.js';
 import {
 	droppedAllEntryCount,
 	prefixesWithNoRoutes,
@@ -110,20 +116,62 @@ describe('CORS preflights over the real middleware', () => {
 
 		expect(response.headers.get('access-control-allow-methods')).toContain('GET');
 	});
+
+	/*
+	 * The failure this pair exists for: a shape response that is complete on the
+	 * wire and unreadable in a browser.
+	 *
+	 * Electric carries a shape's position in `electric-offset`, `electric-handle`
+	 * and `electric-schema`. Cross-origin, a header the server does not expose is
+	 * invisible, and the client answers that by erroring the collection and
+	 * marking it ready anyway — so the table syncs "successfully" with no rows,
+	 * and `apps/web` renders an agency whose row was in the response as a
+	 * workspace that failed to load. Every request is a 200 throughout, and
+	 * `curl` shows the header, so nothing else catches it.
+	 */
+	it('lets a browser read the Electric headers off a shape response', async () => {
+		const response = await crossOriginGet('/sync/shapes/organizations');
+
+		const exposed = response.headers.get('access-control-expose-headers') ?? '';
+		expect(ELECTRIC_EXPOSE_HEADERS.every((header) => exposed.includes(header))).toBe(true);
+	});
+
+	it('still exposes the rotated session header, which shares that list', () => {
+		// The two live in one header, and the mobile session was the reason the
+		// list existed at all. Setting one must not drop the other.
+		const surface = corsSurfaceFor('/sync/shapes/organizations');
+		if (surface === null) {
+			throw new Error('Expected a CORS surface for the shape routes.');
+		}
+
+		expect(corsOptionsFor(surface, [TEST_ORIGIN]).exposeHeaders).toContain('x-simmer-session');
+	});
 });
 
 const TEST_ORIGIN = 'https://app.simmer-data.com';
 
-/** The same table `main.ts` applies, over a bare app. */
+/**
+ * The same table `main.ts` applies, over a bare app.
+ *
+ * Through `corsOptionsFor`, which is what `main.ts` calls. This used to build
+ * its own options object from `surface.methods`, and that is how a missing
+ * expose list shipped: every assertion here ran against options no deployment
+ * used, so the middleware under test was not the middleware that answers.
+ */
 function appWithCors(): Hono {
 	const app = new Hono();
 	for (const surface of CORS_SURFACES) {
-		app.use(
-			surface.prefix,
-			cors({ origin: [TEST_ORIGIN], credentials: true, allowMethods: [...surface.methods] }),
-		);
+		app.use(surface.prefix, cors(corsOptionsFor(surface, [TEST_ORIGIN])));
 	}
 	return app;
+}
+
+/** A real cross-origin request through the mounted table. */
+async function crossOriginGet(path: string): Promise<Response> {
+	const app = appWithCors();
+	app.all(path, (context) => context.json({ ok: true }));
+
+	return app.request(path, { method: 'GET', headers: { origin: TEST_ORIGIN } });
 }
 
 async function preflight(path: string, method: string, headers?: string): Promise<Response> {

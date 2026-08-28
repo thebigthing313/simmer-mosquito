@@ -1,3 +1,5 @@
+import { SESSION_RESPONSE_HEADER } from './auth-session-transport.js';
+
 /**
  * Which cross-origin methods each route prefix admits.
  *
@@ -25,7 +27,38 @@ export interface CorsSurface {
 	/** A Hono path prefix, as passed to `app.use`. */
 	readonly prefix: string;
 	readonly methods: readonly string[];
+	/**
+	 * Response headers this surface's callers may read, beyond the safelist.
+	 *
+	 * Only `/sync/*` needs any. See {@link ELECTRIC_EXPOSE_HEADERS} for what
+	 * happens without them, which is the whole app failing to sync while every
+	 * request answers 200.
+	 */
+	readonly exposeHeaders?: readonly string[];
 }
+
+/**
+ * The four headers an Electric shape response carries its position in.
+ *
+ * A shape request answers 200 with a body whether or not these can be read, and
+ * the client cannot use one syllable of that body without them: it errors the
+ * collection, marks it ready so `.preload()` is not blocked forever, and the
+ * app sees a table that synced successfully with no rows in it. In `apps/web`
+ * that surfaced as the shell throwing `Unable to resolve active organization for
+ * this workspace` over an agency whose row was sitting in the response.
+ *
+ * Cross-origin, a header the server does not name here is invisible to the
+ * browser. The SPA and the API are different origins in every deployed
+ * environment and behind local Caddy, so "invisible" means everywhere except a
+ * `curl`, which is what made this survive review: the response is complete and
+ * correct on the wire.
+ */
+export const ELECTRIC_EXPOSE_HEADERS = [
+	'electric-offset',
+	'electric-handle',
+	'electric-schema',
+	'electric-cursor',
+] as const;
 
 /** Reads and writes over the same prefix — the command endpoints. */
 const WRITE_METHODS = ['POST', 'PATCH', 'DELETE', 'OPTIONS'];
@@ -43,7 +76,15 @@ export const CORS_SURFACES: readonly CorsSurface[] = [
 	{ prefix: '/admin/*', methods: ADMIN_CORS_ALLOW_METHODS },
 	// POST carries Electric subset snapshot params in the body (on-demand
 	// collections); the live shape-log stream still rides GET.
-	{ prefix: '/sync/*', methods: ['GET', 'POST', 'OPTIONS'] },
+	//
+	// The expose list is not decoration. `sync-shapes.ts` sets the same header on
+	// the proxied response, and Hono's `cors()` runs after the handler and
+	// overwrites it, so this table is what the browser actually receives.
+	{
+		prefix: '/sync/*',
+		methods: ['GET', 'POST', 'OPTIONS'],
+		exposeHeaders: ELECTRIC_EXPOSE_HEADERS,
+	},
 	{ prefix: '/map/*', methods: READ_METHODS },
 	{ prefix: '/geocoder/*', methods: READ_METHODS },
 	{ prefix: '/records/*', methods: READ_METHODS },
@@ -101,4 +142,34 @@ export function corsSurfaceFor(path: string): CorsSurface | null {
 		}
 	}
 	return best;
+}
+
+/**
+ * The CORS options one surface is mounted with.
+ *
+ * A function rather than an object literal in `main.ts` because the test suite
+ * mounts these too, and building the options twice is how the expose list went
+ * missing: `main.ts` passed `exposeHeaders`, the test's copy of the loop did
+ * not, so every assertion about the real middleware ran against options no
+ * deployment used.
+ */
+export function corsOptionsFor(
+	surface: CorsSurface,
+	origins: readonly string[],
+): {
+	readonly origin: string[];
+	readonly credentials: true;
+	readonly allowMethods: string[];
+	readonly exposeHeaders: string[];
+} {
+	return {
+		origin: [...origins],
+		credentials: true,
+		allowMethods: [...surface.methods],
+		// A token client reads its rotated sealed session off the response. React
+		// Native does not enforce CORS so the field app never needs this, but
+		// Expo's web target runs the same code in a browser, where an unexposed
+		// header is simply invisible.
+		exposeHeaders: [SESSION_RESPONSE_HEADER, ...(surface.exposeHeaders ?? [])],
+	};
 }
