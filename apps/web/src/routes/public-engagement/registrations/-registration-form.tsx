@@ -1,0 +1,474 @@
+import { createNotificationRegistrationCommand } from '@simmer-mosquito/domain';
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import {
+	FormSection,
+	LocationSection,
+	RecordFormPage,
+	useAppForm,
+} from '@simmer-mosquito/ui-web/components/form';
+import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
+import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
+import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
+import type { Map as MapboxMap } from 'mapbox-gl';
+import { useCallback, useId, useMemo, useState } from 'react';
+import { MapCanvas } from '../../../components/map';
+import {
+	DrawToolbar,
+	GeometryControl,
+	useFitToGeometry,
+} from '../../../components/map/geometry-control';
+import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
+import {
+	type DrawGeometry,
+	type DrawGeometryType,
+	useMapDraw,
+} from '../../../components/map/use-map-draw';
+import { type AddressOption, AddressPicker } from '../../../components/pickers/address-picker';
+import { ContactPicker } from '../../../components/pickers/contact-picker';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
+import { unitOptions } from '../../../lib/unit-options';
+
+/**
+ * What a form holds, which is strings where the command takes numbers and ids.
+ *
+ * `bufferDistance` is a string because that is what a number input produces, and
+ * an empty one means no buffer rather than zero. Both halves of the buffer are
+ * kept together for the same reason the command takes them together: a distance
+ * with no unit is not a buffer.
+ */
+export interface RegistrationFormValues {
+	readonly contactId: string | null;
+	readonly addressId: string | null;
+	readonly bufferDistance: string;
+	readonly bufferUnitId: string;
+	readonly hasBees: boolean;
+	readonly isNoSpray: boolean;
+	/** The notification types this registration wants telling about. */
+	readonly notificationTypeIds: readonly string[];
+}
+
+export function defaultRegistrationFormValues(): RegistrationFormValues {
+	return {
+		contactId: null,
+		addressId: null,
+		bufferDistance: '',
+		bufferUnitId: '',
+		hasBees: false,
+		isNoSpray: false,
+		notificationTypeIds: [],
+	};
+}
+
+/** The buffer as the write seam takes it: both halves, or neither. */
+export function bufferFrom(
+	values: RegistrationFormValues,
+): { readonly distance: number; readonly unitId: string } | null {
+	const distance = Number.parseFloat(values.bufferDistance);
+	if (values.bufferDistance.trim() === '' || Number.isNaN(distance) || values.bufferUnitId === '') {
+		return null;
+	}
+	return { distance, unitId: values.bufferUnitId };
+}
+
+/** Domain issue path to the form field holding it. */
+const REGISTRATION_FIELD_PATHS: Readonly<Record<string, string>> = {
+	'contact.contactId': 'contactId',
+	'location.address.addressId': 'addressId',
+	'location.geometry': 'addressId',
+	bufferDistance: 'bufferDistance',
+	bufferUnitId: 'bufferUnitId',
+};
+
+/**
+ * The create builder's rules, run against what the form holds.
+ *
+ * Worth running the real builder rather than restating its rules: the purpose
+ * rule below is the one a form would get wrong, and it is not a field rule at
+ * all. A registration has to be *for* something, and the three things it can be
+ * for sit in two different sections, so no single field can carry the error.
+ */
+function validateRegistration(value: RegistrationFormValues, geometry: DrawGeometry | null) {
+	return domainValidator(
+		() =>
+			createNotificationRegistrationCommand({
+				...FORM_VALIDATION_CONTEXT,
+				notificationRegistrationId: FORM_VALIDATION_CONTEXT.organizationId,
+				contact: { kind: 'existing', contactId: value.contactId ?? '' },
+				location: {
+					address:
+						value.addressId === null
+							? { kind: 'none' }
+							: { kind: 'existing', addressId: value.addressId },
+					geometry: (geometry ?? null) as never,
+				},
+				bufferDistance: bufferFrom(value)?.distance ?? null,
+				bufferUnitId: bufferFrom(value)?.unitId ?? null,
+				hasBees: value.hasBees,
+				isNoSpray: value.isNoSpray,
+				subscriptions: value.notificationTypeIds.map((notificationTypeId) => ({
+					notificationRegistrationTypeId: FORM_VALIDATION_CONTEXT.organizationId,
+					notificationTypeId,
+				})),
+			}),
+		REGISTRATION_FIELD_PATHS,
+	)({ value });
+}
+
+export interface RegistrationSaveInput {
+	readonly values: RegistrationFormValues;
+	/** Null when the user did not redraw it, which an edit reads as "unchanged". */
+	readonly geometry: DrawGeometry | null;
+}
+
+export interface RegistrationFormHeader {
+	readonly title: string;
+	readonly description: string;
+	readonly backTo: '/public-engagement/registrations' | '/public-engagement/registrations/$id';
+	readonly backParams?: Readonly<Record<string, string>>;
+	readonly backLabel: string;
+}
+
+export interface RegistrationFormPageProps {
+	readonly organizationId: string;
+	readonly canSubmit: boolean;
+	readonly defaultValues: RegistrationFormValues;
+	readonly initialGeometry?: DrawGeometry | null;
+	readonly units: readonly UnitLabel[];
+	readonly notificationTypes: readonly { readonly id: string; readonly label: string }[];
+	readonly header: RegistrationFormHeader;
+	readonly submitLabel: string;
+	readonly onSave: (input: RegistrationSaveInput) => Promise<void>;
+}
+
+/**
+ * Recording where somebody asked to be warned, and how far around it.
+ *
+ * The geometry is the registration, not a pin on a map of it: a beekeeper's
+ * hives are a point, a market garden is a field, and a no-spray verge is a line.
+ * All three are allowed, because generation measures from the shape.
+ *
+ * The buffer is what turns that shape into a catchment, and it is the field most
+ * worth getting right: the unit list is filtered to distance units here, which
+ * is the gap that let an unpriceable unit reach generation and refuse it for the
+ * whole agency.
+ */
+export function RegistrationFormPage({
+	organizationId,
+	canSubmit,
+	defaultValues,
+	initialGeometry = null,
+	units,
+	notificationTypes,
+	header,
+	submitLabel,
+	onSave,
+}: RegistrationFormPageProps) {
+	const [map, setMap] = useState<MapboxMap | null>(null);
+	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
+	const [geometryType, setGeometryType] = useState<DrawGeometryType>(
+		initialGeometry?.type ?? 'Point',
+	);
+	const [locationError, setLocationError] = useState<string | null>(null);
+	const [saveError, setSaveError] = useState<string | null>(null);
+
+	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
+	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
+		setGeometry(next);
+		if (next !== null) {
+			setLocationError(null);
+		}
+	}, []);
+	const draw = useMapDraw({
+		map,
+		isLoaded: map !== null,
+		value: geometry,
+		onChange: handleGeometryChange,
+	});
+	const { start, requestPoint } = draw;
+	const requestMapPoint = useCallback(
+		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
+		[requestPoint],
+	);
+
+	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
+
+	const placeAddressPoint = useCallback((point: DrawPoint) => setGeometry(point), []);
+	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
+		geometry,
+		onPlacePoint: placeAddressPoint,
+	});
+
+	const startDraw = useCallback(() => {
+		setLocationError(null);
+		start(geometryType);
+	}, [geometryType, start]);
+
+	const handleTypeChange = useCallback(
+		(next: DrawGeometryType) => {
+			setGeometryType(next);
+			if (draw.isDrawing) {
+				start(next);
+			}
+		},
+		[draw.isDrawing, start],
+	);
+
+	// Distance only. The domain checks this server-side too, but a select that
+	// offers gallons is a select somebody eventually picks gallons from, and the
+	// refusal it causes blocks generation for every mission in the agency.
+	const bufferUnitOptions = useMemo(
+		() => unitOptions(units, (unitType) => unitType === 'distance'),
+		[units],
+	);
+
+	const form = useAppForm({
+		defaultValues,
+		validators: {
+			onSubmit: (input: { readonly value: RegistrationFormValues }) =>
+				validateRegistration(input.value, geometry),
+		},
+		onSubmit: async ({ value }) => {
+			setSaveError(null);
+			setLocationError(null);
+			if (value.contactId === null) {
+				setSaveError('Select the contact this registration is for.');
+				return;
+			}
+			if (geometry === null) {
+				setLocationError('Draw the place this registration covers.');
+				return;
+			}
+			try {
+				await onSave({ values: value, geometry });
+			} catch (thrown) {
+				setSaveError(thrown instanceof Error ? thrown.message : 'Unable to save registration.');
+			}
+		},
+	});
+
+	return (
+		<form.AppForm>
+			<RecordFormPage
+				actions={
+					<>
+						<form.ResetButton />
+						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
+					</>
+				}
+				gap="tight"
+				header={header}
+				aside={
+					<>
+						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<DrawToolbar
+							controller={draw}
+							geometryType={geometryType}
+							pointPrompt="Click the map to place this registration."
+						/>
+					</>
+				}
+				onSubmit={() => {
+					void form.handleSubmit();
+				}}
+			>
+				<form.FormErrorAlert title="Unable to Save Registration" />
+				{saveError === null ? null : (
+					<Alert variant="destructive">
+						<AlertTitle>Unable to Save Registration</AlertTitle>
+						<AlertDescription>{saveError}</AlertDescription>
+					</Alert>
+				)}
+
+				<FormSection title="Contact">
+					<form.AppField name="contactId">
+						{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
+						{(field: any) => (
+							<ContactPicker
+								onSelect={(contact) => field.handleChange(contact?.id ?? null)}
+								organizationId={organizationId}
+								value={field.state.value}
+							/>
+						)}
+					</form.AppField>
+				</FormSection>
+
+				<LocationSection
+					description="The geometry is the place itself — a point for a house, a line for a verge, an area for a field. An address is optional reference."
+					error={locationError}
+				>
+					<form.AppField name="addressId">
+						{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
+						{(field: any) => (
+							<AddressPicker
+								create={{ requestMapPoint }}
+								onSelect={(address: AddressOption | null) => {
+									field.handleChange(address?.id ?? null);
+									setLocationError(null);
+									selectAddress(address);
+								}}
+								organizationId={organizationId}
+								value={field.state.value}
+							/>
+						)}
+					</form.AppField>
+
+					<GeometryControl
+						controller={draw}
+						geometry={geometry}
+						geometryType={geometryType}
+						label="Geometry"
+						required
+						onClear={() => setGeometry(null)}
+						onDraw={startDraw}
+						onTypeChange={handleTypeChange}
+						organizationId={organizationId}
+						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+					/>
+				</LocationSection>
+
+				<FormSection title="Buffer">
+					<div className="grid gap-5 sm:grid-cols-2">
+						<form.AppField name="bufferDistance">
+							{(field) => (
+								<field.TextField
+									description="How far past the geometry the warning reaches. Leave empty to warn only for the geometry itself."
+									inputMode="decimal"
+									label="Distance"
+									placeholder="e.g. 500"
+								/>
+							)}
+						</form.AppField>
+						<form.AppField name="bufferUnitId">
+							{(field) => (
+								<field.SelectField
+									label="Unit"
+									options={bufferUnitOptions}
+									placeholder="Select a distance unit"
+								/>
+							)}
+						</form.AppField>
+					</div>
+				</FormSection>
+
+				<PurposeSection form={form} notificationTypes={notificationTypes} />
+			</RecordFormPage>
+		</form.AppForm>
+	);
+}
+
+/**
+ * What the registration is for, which is the one thing it cannot be without.
+ *
+ * The domain refuses a registration that is neither a bees warning, a no-spray
+ * request, nor a subscription to anything, and those three sit in one section
+ * because that rule is about all of them together. Split across two sections,
+ * the refusal would arrive pointing at neither.
+ */
+function PurposeSection({
+	form,
+	notificationTypes,
+}: {
+	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
+	readonly form: any;
+	readonly notificationTypes: readonly { readonly id: string; readonly label: string }[];
+}) {
+	const beesId = useId();
+	const noSprayId = useId();
+
+	return (
+		<FormSection
+			note="A registration needs at least one of these: a warning flag, or a notification type."
+			title="What to warn about"
+		>
+			<div className="grid gap-3">
+				<form.AppField name="hasBees">
+					{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
+					{(field: any) => (
+						<div className="flex items-start gap-3">
+							<Checkbox
+								checked={field.state.value}
+								className="mt-0.5"
+								id={beesId}
+								onCheckedChange={(value) => field.handleChange(value === true)}
+							/>
+							<Label className="font-normal leading-snug" htmlFor={beesId}>
+								Bees are kept here
+							</Label>
+						</div>
+					)}
+				</form.AppField>
+				<form.AppField name="isNoSpray">
+					{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
+					{(field: any) => (
+						<div className="flex items-start gap-3">
+							<Checkbox
+								checked={field.state.value}
+								className="mt-0.5"
+								id={noSprayId}
+								onCheckedChange={(value) => field.handleChange(value === true)}
+							/>
+							<Label className="font-normal leading-snug" htmlFor={noSprayId}>
+								Do not spray here
+							</Label>
+						</div>
+					)}
+				</form.AppField>
+			</div>
+
+			<form.AppField name="notificationTypeIds">
+				{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
+				{(field: any) => (
+					<fieldset className="grid gap-3">
+						<legend className="font-semibold text-foreground text-sm">Notification types</legend>
+						{notificationTypes.length === 0 ? (
+							<p className="text-muted-foreground text-sm">
+								This agency has no notification types yet.
+							</p>
+						) : (
+							notificationTypes.map((type) => (
+								<NotificationTypeCheckbox
+									checked={field.state.value.includes(type.id)}
+									key={type.id}
+									label={type.label}
+									onToggle={(checked) =>
+										field.handleChange(
+											checked
+												? [...field.state.value, type.id]
+												: field.state.value.filter((id: string) => id !== type.id),
+										)
+									}
+								/>
+							))
+						)}
+					</fieldset>
+				)}
+			</form.AppField>
+		</FormSection>
+	);
+}
+
+function NotificationTypeCheckbox({
+	checked,
+	label,
+	onToggle,
+}: {
+	readonly checked: boolean;
+	readonly label: string;
+	readonly onToggle: (checked: boolean) => void;
+}) {
+	const id = useId();
+	return (
+		<div className="flex items-start gap-3">
+			<Checkbox
+				checked={checked}
+				className="mt-0.5"
+				id={id}
+				onCheckedChange={(value) => onToggle(value === true)}
+			/>
+			<Label className="font-normal leading-snug" htmlFor={id}>
+				{label}
+			</Label>
+		</div>
+	);
+}

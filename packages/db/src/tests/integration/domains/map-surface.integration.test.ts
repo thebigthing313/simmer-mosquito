@@ -54,6 +54,7 @@ import {
 	listSampleDisplayRowsByBounds,
 } from '../../../domains/larval-surveillance.js';
 import type { MapExtent } from '../../../domains/map-extent.js';
+import { getNotificationRegistrationGeometryById } from '../../../domains/public-engagement-map.js';
 import type { SimmerDatabase } from '../../../index.js';
 import {
 	type MapSurfaceName,
@@ -220,6 +221,10 @@ const surfaces: readonly SurfaceUnderTest[] = [
 	// No explorer, no tile, no list — the queue is read from the Electric shape
 	// and this exists only to hand the detail card the geometry that shape omits.
 	{ name: 'requestedControlAction', byId: getRequestedControlActionDisplayRowById },
+	// Same shape, and for the same reason: the registrations explorer draws each
+	// buffer from the centroid the Electric shape carries, and only the edit form
+	// needs the shape itself back.
+	{ name: 'notificationRegistration', byId: getNotificationRegistrationGeometryById },
 	{ name: 'address', layer: 'addresses', tile: getAddressMvtTile, extent: getAddressMapExtent },
 	{
 		name: 'region',

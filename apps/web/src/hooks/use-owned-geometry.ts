@@ -39,6 +39,18 @@ export const REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE: OwnedGeometrySource = {
 	bodyKey: 'requestedControlAction',
 };
 
+/**
+ * A registration's drawn shape, for the edit form.
+ *
+ * The explorer never asks: it draws the buffer from the centroid the Electric
+ * shape carries, which is what a map of many registrations needs. Only the form
+ * that saves the shape back has to have the shape itself.
+ */
+export const NOTIFICATION_REGISTRATION_GEOMETRY_SOURCE: OwnedGeometrySource = {
+	segment: 'notification-registrations',
+	bodyKey: 'notificationRegistration',
+};
+
 export interface OwnedGeometryQuery {
 	/**
 	 * The raw stored geometry, for display. Includes multi-geometries, which a
