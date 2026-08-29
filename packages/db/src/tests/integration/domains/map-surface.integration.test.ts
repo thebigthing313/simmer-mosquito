@@ -67,9 +67,12 @@ import {
 	mapSurfaceStampedCollectionIds,
 	mapSurfaceStampedTimeZone,
 	mapSurfaceStampedTypedDay,
+	mapSurfaceStatusCollectionIds,
+	mapSurfaceStatusCollections,
 	seedLateCollection,
 	seedMapSurfaces,
 	seedStampedCollections,
+	seedStatusCollections,
 } from '../../../seeds/map-surfaces.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
 
@@ -488,6 +491,42 @@ describeDbIntegration('map surfaces against Postgres', () => {
 		});
 	});
 
+	// The status is one `case` expression read by two things: the tile, which
+	// colours the dot on the map, and the display columns, which colour the dot in
+	// the result rail. Until now the only thing asserting on it was the SQL
+	// snapshot, which approves whatever it is regenerated against — so a reordered
+	// branch was a passing test and a wrong colour.
+	it('resolves a collection’s status by precedence, and by its own timing mode', async () => {
+		await withTestDb(async ({ db }) => {
+			await seedMapSurfaces(db);
+			await seedStatusCollections(db);
+
+			const drawn = await getCollectionMvtTile(db, {
+				...mapSurfacePlace.tile,
+				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceTimeZone,
+			});
+			const listed = await listCollectionDisplayRowsPage(db, {
+				organizationId: mapSurfaceOrganizationIds.own,
+				timeZone: mapSurfaceTimeZone,
+				...page,
+				filters: {},
+			});
+
+			const answered = {
+				tile: byStatusCase(featureProperty(drawn, 'collections', 'status')),
+				rail: byStatusCase(new Map(listed.rows.map((row) => [row.id, row.status] as const))),
+			};
+
+			// Both readers, in one diff: the whole reason the expression is shared is
+			// that the map and the rail can never disagree about what a collection is.
+			expect(answered).toEqual({
+				tile: mapSurfaceStatusCollections,
+				rail: mapSurfaceStatusCollections,
+			});
+		});
+	});
+
 	it('drops a sample whose inspection was deleted under it', async () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
@@ -560,6 +599,46 @@ function round(degrees: number): number {
 
 function sortedIds(rows: ReadonlyArray<{ id: string }> | undefined): string[] {
 	return (rows ?? []).map((row) => row.id).sort();
+}
+
+/**
+ * One property of a tile's features, keyed by the feature's id.
+ *
+ * The tile is the only place the map's copy of the status can be read, and it
+ * arrives as an MVT property rather than a column.
+ */
+function featureProperty(
+	tile: Uint8Array,
+	layerName: string,
+	property: string,
+): ReadonlyMap<string, string> {
+	const layer = new VectorTile(new PbfReader(tile)).layers[layerName];
+	if (layer === undefined) {
+		throw new Error(`Tile carries no ${layerName} layer.`);
+	}
+
+	return new Map(
+		Array.from({ length: layer.length }, (_unused, index) => {
+			const { properties } = layer.feature(index);
+			return [String(properties.id), String(properties[property])] as const;
+		}),
+	);
+}
+
+/**
+ * The answers for the six status rows, keyed by the case each one stands for.
+ *
+ * Both readers also return the rows the shared seed put there, which this drops:
+ * they are what the surface tests assert on, and a failure here should name the
+ * case that broke rather than a UUID.
+ */
+function byStatusCase(answers: ReadonlyMap<string, string>): Record<string, string | undefined> {
+	return Object.fromEntries(
+		Object.keys(mapSurfaceStatusCollections).map((name) => [
+			name,
+			answers.get(mapSurfaceStatusCollectionIds[name as keyof typeof mapSurfaceStatusCollections]),
+		]),
+	);
 }
 
 /**

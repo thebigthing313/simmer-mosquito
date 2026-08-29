@@ -645,3 +645,102 @@ export async function seedStampedCollections(db: DbExecutor): Promise<void> {
 		)
 		.execute();
 }
+
+/**
+ * One collection per branch of the status expression, keyed by the answer it
+ * must produce.
+ *
+ * Two of these six carry the whole point. `pendingFlagged` is out and flagged,
+ * and reads `pending` because a trap still out has nothing to report a problem
+ * about yet — swap the first two branches of the `case` and it turns red on a
+ * map where red means the crew already went back. `dateDurationDone` is
+ * finished and has a null `collected_at`, because that is what date plus
+ * duration stores; a status that took the null for "not emptied" without
+ * checking the row's mode would paint every agency on that mode pending.
+ *
+ * The other four hold the ordering either side of those: `problem` beats
+ * `zeroResult`, and an unflagged collection falls through to `collected`.
+ */
+export const mapSurfaceStatusCollections = {
+	/** Exact timestamps, not emptied, nothing flagged. */
+	pendingClean: 'pending',
+	/** Exact timestamps, not emptied, flagged with a problem. */
+	pendingFlagged: 'pending',
+	/** Exact timestamps, emptied, flagged with a problem. */
+	problem: 'problem',
+	/** Date plus duration, so a finished collection has a null `collected_at`. */
+	dateDurationDone: 'collected',
+	/** Emptied, no problem, nothing in the trap. */
+	zeroResult: 'zero_result',
+	/** Emptied, nothing flagged. */
+	collected: 'collected',
+} as const;
+
+type MapSurfaceStatusCase = keyof typeof mapSurfaceStatusCollections;
+
+const statusCaseNames: readonly MapSurfaceStatusCase[] = [
+	'pendingClean',
+	'pendingFlagged',
+	'problem',
+	'dateDurationDone',
+	'zeroResult',
+	'collected',
+];
+
+/** The row each case is seeded as, derived so the six ids cannot collide. */
+export const mapSurfaceStatusCollectionIds = Object.fromEntries(
+	statusCaseNames.map((name, index) => [name, seedId(4, 10 + index)]),
+) as Record<MapSurfaceStatusCase, string>;
+
+const statusStartedAt = new Date('2026-03-14T14:00:00.000Z');
+const statusCollectedAt = new Date('2026-03-15T14:00:00.000Z');
+
+/** The flags one case sets on top of the columns every seeded collection shares. */
+interface StatusFlags {
+	readonly collected_at?: Date | null;
+	readonly has_problem?: boolean;
+	readonly is_zero_result?: boolean;
+}
+
+const statusTiming: Record<MapSurfaceStatusCase, StatusFlags> = {
+	pendingClean: { collected_at: null },
+	pendingFlagged: { collected_at: null, has_problem: true },
+	problem: { collected_at: statusCollectedAt, has_problem: true },
+	dateDurationDone: {},
+	zeroResult: { collected_at: statusCollectedAt, is_zero_result: true },
+	collected: { collected_at: statusCollectedAt },
+};
+
+/**
+ * Seeds the six status rows, all at {@link mapSurfacePlace.inside} so one tile
+ * carries them.
+ *
+ * Separate from {@link seedMapSurfaces} for the reason {@link seedLateCollection}
+ * is: every surface there has the same five rows and the shared assertions count
+ * on that.
+ */
+export async function seedStatusCollections(db: DbExecutor): Promise<void> {
+	await db
+		.insertInto('collections')
+		.values(
+			statusCaseNames.map((name) => ({
+				id: mapSurfaceStatusCollectionIds[name],
+				organization_id: mapSurfaceOrganizationIds.own,
+				geom: point(mapSurfacePlace.inside),
+				collection_method_id: seedId(92, 1),
+				// `collections_timing_shape` admits one of two shapes and nothing
+				// between them, so the mode decides which half of the timing columns
+				// may be filled at all.
+				...(name === 'dateDurationDone'
+					? {
+							collection_timing_mode: 'collection_date_duration' as const,
+							collection_date: inspectionDate,
+							duration_amount: 12,
+							duration_unit_id: durationUnitId,
+						}
+					: { collection_timing_mode: 'exact_timestamps' as const, started_at: statusStartedAt }),
+				...statusTiming[name],
+			})),
+		)
+		.execute();
+}
