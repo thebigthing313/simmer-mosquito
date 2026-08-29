@@ -31,8 +31,14 @@ export interface DuplicateGroupPanelProps {
 	/** Which record the user has chosen to keep. */
 	readonly survivorId: string;
 	readonly onSurvivorChange: (recordId: string) => void;
-	/** Records the user has said do not belong in this group. */
-	readonly excludedIds: ReadonlySet<string>;
+	/**
+	 * The records still in this proposal, with any the user refused already gone.
+	 *
+	 * Filtered by the page rather than here: refusing a record is per group, and a
+	 * contact compared three ways sits in three proposals on different evidence,
+	 * so the key that records a refusal is the page's to know.
+	 */
+	readonly records: readonly DuplicateRecord[];
 	readonly onExclude: (recordId: string) => void;
 	readonly onMerge: () => void;
 }
@@ -54,7 +60,7 @@ export interface DuplicateGroupPanelProps {
  */
 export function DuplicateGroupPanel(props: DuplicateGroupPanelProps) {
 	const groupId = useId();
-	const kept = props.group.records.filter((record) => !props.excludedIds.has(record.id));
+	const kept = props.records;
 	const survivor = kept.find((record) => record.id === props.survivorId) ?? kept[0];
 	const sources = kept.filter((record) => record.id !== survivor?.id);
 

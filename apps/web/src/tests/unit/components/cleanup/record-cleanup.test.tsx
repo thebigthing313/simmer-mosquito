@@ -173,6 +173,33 @@ describe('RecordCleanup', () => {
 		expect(screen.getByRole('button', { name: 'Merge 1 into 412 Oak St' })).toBeTruthy();
 	});
 
+	it('refuses a record in one group without refusing it in another', () => {
+		// A contact is compared three ways, so the same person appears in a name
+		// group and a phone group on different evidence. Refusing one proposal is
+		// not refusing the other, and a flat set of ids would withdraw both.
+		groups = [
+			nameGroup(),
+			{
+				key: 'same_phone:5550100',
+				reason: 'same_phone',
+				value: '5550100',
+				records: [
+					record(MIDDLE, '412 OAK ST', '2025-06-11T00:00:00.000Z'),
+					record(NEWEST, '412 Oak Street', '2026-01-04T00:00:00.000Z'),
+				],
+			},
+		];
+		renderPage();
+
+		// The first group's copy of MIDDLE.
+		fireEvent.click(screen.getAllByRole('button', { name: 'Not a duplicate' })[1] as HTMLElement);
+
+		// The name group loses it and drops to two records; the phone group keeps
+		// both of its own.
+		expect(screen.getByRole('button', { name: 'Merge 1 into 412 Oak St' })).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Merge 1 into 412 OAK ST' })).toBeTruthy();
+	});
+
 	it('stops proposing a group that excluding leaves with one record', () => {
 		renderPage();
 

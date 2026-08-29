@@ -3,7 +3,7 @@ import { circlePolygon } from '@simmer-mosquito/mapping';
 import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
 	ActiveFilterBar,
 	ExplorerMapPage,
@@ -82,7 +82,6 @@ function RegistrationsExplorerRoute() {
 	);
 	const search = filters.search;
 
-	const [page, setPage] = useState(0);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 
 	const contactNameById = useMemo(
@@ -106,8 +105,12 @@ function RegistrationsExplorerRoute() {
 		});
 	}, [contactNameById, filters.includeInactive, filters.noSprayOnly, registrations, search]);
 
-	const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-	const visible = filtered.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+	const { page, pageCount, setPage, visible } = usePagedRows(
+		filtered,
+		// One value rather than a dependency list, so the effect below can name a
+		// literal array and stay statically checkable.
+		`${search}|${filters.noSprayOnly}|${filters.includeInactive}`,
+	);
 
 	const coverage = useMemo(() => coverageFeatures(filtered, unitsById), [filtered, unitsById]);
 
@@ -184,6 +187,47 @@ function RegistrationsExplorerRoute() {
 			}}
 		/>
 	);
+}
+
+/**
+ * One page of a client-side list, kept in range as the filters move.
+ *
+ * Both effects are the point. Narrowing the filters leaves `page` past the end,
+ * and the pager hides itself at a single page — so without the clamp the panel
+ * says "No registrations match" while the heading counts five, and there is no
+ * control left to get back with. Without the reset, filtering from page three
+ * lands on an empty slice of a shorter list.
+ */
+function usePagedRows<TRow>(
+	rows: readonly TRow[],
+	/** Changes whenever the filters do, which is what sends the reader back to page one. */
+	resetKey: string,
+): {
+	readonly page: number;
+	readonly pageCount: number;
+	readonly setPage: (next: number) => void;
+	readonly visible: readonly TRow[];
+} {
+	const [page, setPage] = useState(0);
+	const pageCount = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+
+	// biome-ignore lint/correctness/useExhaustiveDependencies: resetting is the whole effect.
+	useEffect(() => {
+		setPage(0);
+	}, [resetKey]);
+
+	useEffect(() => {
+		if (page > pageCount - 1) {
+			setPage(pageCount - 1);
+		}
+	}, [page, pageCount]);
+
+	return {
+		page,
+		pageCount,
+		setPage,
+		visible: rows.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE),
+	};
 }
 
 /**

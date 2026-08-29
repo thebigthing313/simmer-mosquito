@@ -67,6 +67,26 @@ const PROXIMITY_DEGREES = (PROXIMITY_METRES / 111_320) * 4;
 /** How many groups one reason may propose before the page is more work than the duplicates. */
 const DEFAULT_GROUP_LIMIT = 50;
 
+/**
+ * How many near pairs the proximity query will return.
+ *
+ * A self-join has no natural bound, and the case this whole module exists for is
+ * the one that blows it up: an import that geocodes badly puts thousands of
+ * addresses on one rooftop, and n rows at one point is n(n-1)/2 pairs. Ten
+ * thousand of them is fifty million rows streamed into the process to build a
+ * handful of proposals.
+ *
+ * The cap trims pairs rather than whole groups, so hitting it can leave a
+ * cluster split across two proposals. That is the safe direction: each half is
+ * still a real set of records within ten metres of each other, and merging one half
+ * then refetching proposes the rest. The alternative, an unbounded read, takes
+ * the page down instead.
+ *
+ * Ordered before the limit so the same pairs come back on every read, and a
+ * group does not reshuffle while somebody is looking at it.
+ */
+const PROXIMITY_PAIR_LIMIT = 5_000;
+
 interface DuplicateKey {
 	readonly reason: DuplicateReason;
 	/** Normalized so that case and padding do not hide a match. */
@@ -278,6 +298,8 @@ async function readPlaceGroups(
 			and st_dwithin(near.geom::geography, far.geom::geography, ${PROXIMITY_METRES})
 		where near.organization_id = ${input.organizationId}
 			and near.deleted_at is null
+		order by near.id, far.id
+		limit ${PROXIMITY_PAIR_LIMIT}
 	`.execute(db);
 
 	const components = connectedComponents(pairs.rows).slice(0, limit);

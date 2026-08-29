@@ -55,8 +55,14 @@ export function RecordCleanup({ recordType }: { readonly recordType: MergeableRe
 	const [excluded, setExcluded] = useState<ReadonlySet<string>>(() => new Set());
 	const [pending, setPending] = useState<PendingMerge | null>(null);
 
-	const exclude = useCallback((recordId: string) => {
-		setExcluded((current) => new Set(current).add(recordId));
+	/*
+	 * Keyed by group, not by record. A contact is compared three ways, so the same
+	 * person routinely appears in a name group and a phone group on different
+	 * evidence. Refusing one proposal is not refusing the other, and a flat set
+	 * would silently withdraw both.
+	 */
+	const exclude = useCallback((groupKey: string, recordId: string) => {
+		setExcluded((current) => new Set(current).add(exclusionKey(groupKey, recordId)));
 	}, []);
 
 	const runMerge = useCallback(
@@ -132,7 +138,7 @@ function CleanupBody({
 	readonly candidates: ReturnType<typeof useDuplicateCandidates>;
 	readonly config: (typeof RECORD_CLEANUP_CONFIGS)[MergeableRecordType];
 	readonly excluded: ReadonlySet<string>;
-	readonly onExclude: (recordId: string) => void;
+	readonly onExclude: (groupKey: string, recordId: string) => void;
 	readonly onMerge: (pending: PendingMerge) => void;
 	readonly onSurvivorChange: (groupKey: string, recordId: string) => void;
 	readonly survivors: Record<string, string>;
@@ -185,10 +191,9 @@ function CleanupBody({
 				return survivor === undefined ? null : (
 					<DuplicateGroupPanel
 						config={config}
-						excludedIds={excluded}
 						group={group}
 						key={group.key}
-						onExclude={onExclude}
+						onExclude={(recordId) => onExclude(group.key, recordId)}
 						onMerge={() =>
 							onMerge({
 								target: survivor,
@@ -196,6 +201,7 @@ function CleanupBody({
 							})
 						}
 						onSurvivorChange={(recordId) => onSurvivorChange(group.key, recordId)}
+						records={kept}
 						survivorId={survivor.id}
 					/>
 				);
@@ -208,5 +214,10 @@ function liveRecords(
 	group: DuplicateGroup,
 	excluded: ReadonlySet<string>,
 ): readonly DuplicateRecord[] {
-	return group.records.filter((record) => !excluded.has(record.id));
+	return group.records.filter((record) => !excluded.has(exclusionKey(group.key, record.id)));
+}
+
+/** One record's standing in one group. The id leads, because a uuid never holds a pipe. */
+function exclusionKey(groupKey: string, recordId: string): string {
+	return `${recordId}|${groupKey}`;
 }

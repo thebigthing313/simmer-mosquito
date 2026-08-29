@@ -25,13 +25,13 @@ is a plan rather than a description.
   then continue filling a broader collection in the background.
 - Eager and on-demand are declared per app, not per package: each module under
   `apps/web/src/lib/collections` passes `syncMode` to the collection factory.
-  The matrix below is what those fifty modules say, so a table that changes
+  The matrix below is what those fifty-three modules say, so a table that changes
   mode changes it there and this table follows.
 - Web is online-only in v1. Mobile uses automatic scoped offline persistence.
 
 ## Web matrix
 
-Twenty-four eager, twenty-six on-demand.
+Twenty-four eager, twenty-nine on-demand.
 
 | Area | Eager | On-demand | Excluded |
 | --- | --- | --- | --- |

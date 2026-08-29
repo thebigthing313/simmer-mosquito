@@ -23,18 +23,38 @@
  * it explicitly on every request and takes it as an argument rather than
  * defaulting it.
  *
- * It is a multi-row command: every retired record is a row that changes, so it
- * goes through `commandTransaction` rather than `mutateCollection`, and the
- * optimistic delete of the sources is what takes them off the screen the moment
- * the button is pressed.
+ * ## Sent as a plain request, not through a collection
+ *
+ * It is a multi-row command, so `commandTransaction` is the usual door. That
+ * door does not work here, and both of its failure modes are silent.
+ *
+ * A transaction's optimistic `apply` would be `collection.delete(sourceId)` on
+ * `addresses`, `habitats` or `contacts`, all of which are on-demand. The cleanup
+ * page reads its proposals over `/records/{type}/duplicates` and holds no live
+ * query over any of those collections, so the source rows are not in local
+ * state. `collection.delete` throws `DeleteKeyNotFoundError` for a key it does
+ * not hold, and `transaction.mutate` runs `apply` synchronously, so the throw
+ * escapes before the request is ever sent.
+ *
+ * Guarding the delete on the row being present is worse. `Transaction.commit`
+ * returns early when `mutations.length === 0` and never calls its `mutationFn`,
+ * so an `apply` that skipped every absent row would resolve as a success having
+ * sent nothing at all.
+ *
+ * So the merge goes out as a plain command request, the way
+ * `commitWeatherImport` does: a command whose result the client re-reads rather
+ * than draws optimistically. There is nothing to draw optimistically here, and
+ * the retired rows reach every surface that *is* watching them over Electric,
+ * the same as any other write. The cleanup page refetches its proposals.
+ *
+ * The intent is still typed as a `MultiRowCommandType`, so a name the domain
+ * does not define is a compile error rather than a 400.
  */
 
-import { CommandError, settleWrite } from '@simmer-mosquito/sync';
+import type { MultiRowCommandType } from '@simmer-mosquito/domain';
+import { CommandError, writeCommand } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
-import { addresses } from '../../lib/collections/addresses';
-import { contacts } from '../../lib/collections/contacts';
-import { habitats } from '../../lib/collections/habitats';
-import { commandTransaction } from '../../lib/collections/transact';
+import { getServerUrl } from '../../auth';
 import type { MergeableRecordType } from '../use-merge-candidates';
 
 /**
@@ -77,6 +97,14 @@ export function mergeRefusalReason(error: unknown): MergeRefusalReason | null {
 		: null;
 }
 
+interface MergeCommand {
+	/** Typed against the vocabulary, so a name the domain lacks fails to compile. */
+	readonly intent: MultiRowCommandType;
+	readonly table: string;
+	readonly sourceKey: string;
+	readonly acknowledgementKey: string;
+}
+
 /** Per record type: the command, the endpoint's table, and what it calls its sources. */
 const MERGE_COMMANDS = {
 	address: {
@@ -99,20 +127,7 @@ const MERGE_COMMANDS = {
 		// two and the server still reads this name.
 		acknowledgementKey: 'acknowledgedContactMerge',
 	},
-} as const;
-
-/**
- * The collection each merge retires rows from.
- *
- * Read here rather than passed in: a merge that optimistically deleted from the
- * wrong collection would take unrelated records off the screen and put them back
- * when the write settled.
- */
-const MERGE_COLLECTIONS = {
-	address: addresses,
-	habitat: habitats,
-	contact: contacts,
-} as const;
+} as const satisfies Record<MergeableRecordType, MergeCommand>;
 
 /**
  * The command a merge is, as a value.
@@ -154,17 +169,12 @@ export function recordMergeRequest(
 export function useRecordMerge(recordType: MergeableRecordType) {
 	return useCallback(
 		async (plan: RecordMergePlan): Promise<void> => {
-			const collection = MERGE_COLLECTIONS[recordType];
-
-			await settleWrite(
-				commandTransaction({
-					...recordMergeRequest(recordType, plan),
-					apply: () => {
-						for (const sourceId of plan.sourceIds) {
-							collection.delete(sourceId);
-						}
-					},
-				}),
+			const { intent, request } = recordMergeRequest(recordType, plan);
+			await writeCommand(
+				`${getServerUrl()}/commands/${request.table}/${request.key}`,
+				request.method,
+				{ ...request.body, intents: [intent] },
+				'Unable to merge these records.',
 			);
 		},
 		[recordType],
