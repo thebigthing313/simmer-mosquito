@@ -105,7 +105,12 @@ export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
 		<>
 			<ExplorerMapPage
 				activeFilterCount={radius === defaultRadius ? 0 : 1}
-				filters={<RadiusControl onChange={setRadius} radius={radius} unit={unit} />}
+				filters={
+					<div className="grid gap-4">
+						<KeptHabitat target={target} />
+						<RadiusControl onChange={setRadius} radius={radius} unit={unit} />
+					</div>
+				}
 				footer={
 					<MergeFooter
 						count={sources.length}
@@ -299,6 +304,45 @@ function mergeMapData(
 	});
 
 	return { type: 'FeatureCollection', features };
+}
+
+/**
+ * What the surviving habitat says, to compare the candidates against.
+ *
+ * Every candidate row carries its description, and until this was here there was
+ * nothing on the page to read them against: whether "CHECK ruts in old sewerline
+ * trail" is the same site as the one being kept is the question, and the answer
+ * was on another page.
+ *
+ * In the filter card rather than above the rows, because it has to stay put. Two
+ * records for one basin are compared a line at a time, and a block at the top of
+ * a list of fifty scrolls away on the first flick.
+ *
+ * Read-only. Editing what the survivor says is the confirmation's job, where the
+ * change travels with the merge in one transaction; an edit here would be a
+ * second write with nothing tying it to the merge it was made for.
+ */
+function KeptHabitat({ target }: { readonly target: DuplicateRecord | undefined }) {
+	if (target === undefined) {
+		return null;
+	}
+
+	const description = target.fields.description ?? null;
+
+	return (
+		<div className="grid gap-1">
+			<span className="font-medium text-sm">Keeping</span>
+			<p className="font-medium text-foreground text-sm">{labelOf(target)}</p>
+			{/*
+			 * Capped and scrollable. A habitat description is often a paragraph of
+			 * turn-by-turn directions, and at full height it pushes the radius off the
+			 * card that is the only control on the page.
+			 */}
+			<p className="max-h-28 overflow-y-auto whitespace-pre-line text-muted-foreground text-sm">
+				{description ?? 'No description recorded.'}
+			</p>
+		</div>
+	);
 }
 
 /**

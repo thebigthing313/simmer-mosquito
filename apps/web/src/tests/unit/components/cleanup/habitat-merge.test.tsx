@@ -218,6 +218,36 @@ describe('HabitatMerge', () => {
 		expect(screen.getByRole('checkbox', { name: /CB-41/ })).toBeTruthy();
 	});
 
+	it('shows what the surviving habitat says, to read the candidates against', () => {
+		// Every candidate row carries its own description. Without this there is
+		// nothing on the page to compare them to, which is the question the page
+		// exists to answer.
+		renderPage();
+
+		expect(screen.getByText('Keeping')).toBeTruthy();
+		expect(screen.getByText('Roadside ditch')).toBeTruthy();
+	});
+
+	it('keeps showing it when the search finds nothing', () => {
+		// The empty state tells the reader to widen. What they are widening around
+		// is still the thing they need to see.
+		nearby = { target: target(), candidates: [] };
+		renderPage();
+
+		expect(screen.getByText('No other habitats nearby')).toBeTruthy();
+		expect(screen.getByText('Roadside ditch')).toBeTruthy();
+	});
+
+	it('says so when the surviving habitat has no description', () => {
+		nearby = {
+			target: { ...target(), fields: { habitat_name: 'Catch basin 41', description: null } },
+			candidates: [],
+		};
+		renderPage();
+
+		expect(screen.getByText('No description recorded.')).toBeTruthy();
+	});
+
 	it('says nothing was found rather than showing an empty list', () => {
 		nearby = { target: target(), candidates: [] };
 		renderPage();
