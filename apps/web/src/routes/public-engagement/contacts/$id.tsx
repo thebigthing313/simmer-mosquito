@@ -35,6 +35,7 @@ export const Route = createFileRoute('/public-engagement/contacts/$id')({
 
 const ContactIcon = iconRegistry.entities.organization.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
+const CoverageIcon = iconRegistry.generic.map.icon;
 
 function ContactDetailRoute() {
 	const { id } = Route.useParams();
@@ -80,6 +81,18 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 					) : null}
 				</div>
 				<div className="flex items-center gap-2">
+					{/*
+					 * A registration is always somebody's, so this is the way in. There is
+					 * no agency-wide registrations page to reach them from any more, and
+					 * arriving from the contact answers the one question a standalone
+					 * create page had to ask first.
+					 */}
+					<Button asChild size="sm" variant="outline">
+						<Link params={{ id: contact.id }} to="/public-engagement/contacts/$id/registrations">
+							<CoverageIcon aria-hidden="true" />
+							Manage registrations
+						</Link>
+					</Button>
 					<WriteOnly minimum="manager">
 						<Button asChild size="sm" variant="outline">
 							<Link params={{ id: contact.id }} to="/public-engagement/contacts/$id/edit">

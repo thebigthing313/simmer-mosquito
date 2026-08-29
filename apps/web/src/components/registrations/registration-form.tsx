@@ -11,25 +11,21 @@ import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useId, useMemo, useState } from 'react';
-import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	useFitToGeometry,
-} from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
+import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../forms/domain-validation';
+import type { UnitLabel } from '../../hooks/queries/use-unit-labels';
+import { unitOptions } from '../../lib/unit-options';
+import { MapCanvas } from '../map';
+import { DrawToolbar, GeometryControl, useFitToGeometry } from '../map/geometry-control';
+import { type DrawPoint, useAddressPoint } from '../map/use-address-point';
 import {
 	type DrawGeometry,
 	type DrawGeometryType,
 	type MapDrawController,
 	useMapDraw,
-} from '../../../components/map/use-map-draw';
-import { type AddressOption, AddressPicker } from '../../../components/pickers/address-picker';
-import { ContactPicker } from '../../../components/pickers/contact-picker';
-import type { RequestMapPoint } from '../../../components/pickers/new-address-form';
-import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
-import { unitOptions } from '../../../lib/unit-options';
+} from '../map/use-map-draw';
+import { type AddressOption, AddressPicker } from '../pickers/address-picker';
+import { ContactPicker } from '../pickers/contact-picker';
+import type { RequestMapPoint } from '../pickers/new-address-form';
 
 /**
  * What a form holds, which is strings where the command takes numbers and ids.
@@ -90,7 +86,7 @@ const REGISTRATION_FIELD_PATHS: Readonly<Record<string, string>> = {
  * all. A registration has to be *for* something, and the three things it can be
  * for sit in two different sections, so no single field can carry the error.
  */
-function validateRegistration(value: RegistrationFormValues, geometry: DrawGeometry | null) {
+export function validateRegistration(value: RegistrationFormValues, geometry: DrawGeometry | null) {
 	return domainValidator(
 		() =>
 			createNotificationRegistrationCommand({
@@ -123,51 +119,35 @@ export interface RegistrationSaveInput {
 	readonly geometry: DrawGeometry | null;
 }
 
-export interface RegistrationFormHeader {
-	readonly title: string;
-	readonly description: string;
-	readonly backTo: '/public-engagement/registrations' | '/public-engagement/registrations/$id';
-	readonly backParams?: Readonly<Record<string, string>>;
-	readonly backLabel: string;
-}
-
-export interface RegistrationFormPageProps {
+/** What the panel form needs beyond the form instance itself. */
+export interface RegistrationFormFieldsProps {
+	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
+	readonly form: any;
 	readonly organizationId: string;
-	readonly canSubmit: boolean;
-	readonly defaultValues: RegistrationFormValues;
-	readonly initialGeometry?: DrawGeometry | null;
 	readonly units: readonly UnitLabel[];
 	readonly notificationTypes: readonly { readonly id: string; readonly label: string }[];
-	readonly header: RegistrationFormHeader;
-	readonly submitLabel: string;
-	readonly onSave: (input: RegistrationSaveInput) => Promise<void>;
+	readonly location: ReturnType<typeof useRegistrationLocation>;
 }
 
 /**
- * Recording where somebody asked to be warned, and how far around it.
+ * A registration's fields, without a page around them.
  *
- * The geometry is the registration, not a pin on a map of it: a beekeeper's
- * hives are a point, a market garden is a field, and a no-spray verge is a line.
- * All three are allowed, because generation measures from the shape.
+ * They sit in the results panel of the contact's manage page, beside the map
+ * they draw on, which is why this is fields rather than a form: the map belongs
+ * to the page, and a form that owned its own canvas would put a second map
+ * beside the one already there.
  *
- * The buffer is what turns that shape into a catchment, and it is the field most
- * worth getting right: the unit list is filtered to distance units here, which
- * is the gap that let an unpriceable unit reach generation and refuse it for the
- * whole agency.
+ * The contact is not among them. A registration is always somebody's, the column
+ * is `not null`, and this is only ever reached from the contact it belongs to, so
+ * a picker here would be a second answer to a question the route already settled.
  */
-export function RegistrationFormPage({
-	organizationId,
-	canSubmit,
-	defaultValues,
-	initialGeometry = null,
-	units,
+export function RegistrationFormFields({
+	form,
+	location,
 	notificationTypes,
-	header,
-	submitLabel,
-	onSave,
-}: RegistrationFormPageProps) {
-	const [saveError, setSaveError] = useState<string | null>(null);
-	const location = useRegistrationLocation(initialGeometry);
+	organizationId,
+	units,
+}: RegistrationFormFieldsProps) {
 	const { draw, geometry, geometryType } = location;
 
 	// Distance only. The domain checks this server-side too, but a select that
@@ -178,109 +158,52 @@ export function RegistrationFormPage({
 		[units],
 	);
 
-	const form = useAppForm({
-		defaultValues,
-		validators: {
-			onSubmit: (input: { readonly value: RegistrationFormValues }) =>
-				validateRegistration(input.value, geometry),
-		},
-		onSubmit: async ({ value }) => {
-			setSaveError(null);
-			location.clearError();
-			if (value.contactId === null) {
-				setSaveError('Select the contact this registration is for.');
-				return;
-			}
-			if (geometry === null) {
-				location.setError('Draw the place this registration covers.');
-				return;
-			}
-			try {
-				await onSave({ values: value, geometry });
-			} catch (thrown) {
-				setSaveError(thrown instanceof Error ? thrown.message : 'Unable to save registration.');
-			}
-		},
-	});
-
 	return (
-		<form.AppForm>
-			<RecordFormPage
-				actions={
-					<>
-						<form.ResetButton />
-						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
-					</>
-				}
-				gap="tight"
-				header={header}
-				aside={
-					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={location.onMapReady} />
-						<DrawToolbar
-							controller={draw}
-							geometryType={geometryType}
-							pointPrompt="Click the map to place this registration."
-						/>
-					</>
-				}
-				onSubmit={() => {
-					void form.handleSubmit();
-				}}
-			>
-				<form.FormErrorAlert title="Unable to Save Registration" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Registration</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
+		<>
+			<RegistrationLocation
+				addressCoord={location.addressCoord}
+				controller={draw}
+				form={form}
+				geometry={geometry}
+				geometryType={geometryType}
+				locationError={location.error}
+				onAddressSelected={location.selectAddress}
+				onClear={location.clear}
+				onDraw={location.startDraw}
+				onMoveToAddress={location.moveToAddress}
+				onTypeChange={location.setGeometryType}
+				organizationId={organizationId}
+				requestMapPoint={location.requestMapPoint}
+			/>
 
-				<ContactSection form={form} organizationId={organizationId} />
+			<FormSection title="Buffer">
+				<div className="grid gap-4">
+					<form.AppField name="bufferDistance">
+						{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
+						{(field: any) => (
+							<field.TextField
+								description="How far past the geometry the warning reaches. Leave empty to warn only for the geometry itself."
+								inputMode="decimal"
+								label="Distance"
+								placeholder="e.g. 500"
+							/>
+						)}
+					</form.AppField>
+					<form.AppField name="bufferUnitId">
+						{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
+						{(field: any) => (
+							<field.SelectField
+								label="Unit"
+								options={bufferUnitOptions}
+								placeholder="Select a distance unit"
+							/>
+						)}
+					</form.AppField>
+				</div>
+			</FormSection>
 
-				<RegistrationLocation
-					addressCoord={location.addressCoord}
-					controller={draw}
-					form={form}
-					geometry={geometry}
-					geometryType={geometryType}
-					locationError={location.error}
-					onAddressSelected={location.selectAddress}
-					onClear={location.clear}
-					onDraw={location.startDraw}
-					onMoveToAddress={location.moveToAddress}
-					onTypeChange={location.setGeometryType}
-					organizationId={organizationId}
-					requestMapPoint={location.requestMapPoint}
-				/>
-
-				<FormSection title="Buffer">
-					<div className="grid gap-5 sm:grid-cols-2">
-						<form.AppField name="bufferDistance">
-							{(field) => (
-								<field.TextField
-									description="How far past the geometry the warning reaches. Leave empty to warn only for the geometry itself."
-									inputMode="decimal"
-									label="Distance"
-									placeholder="e.g. 500"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="bufferUnitId">
-							{(field) => (
-								<field.SelectField
-									label="Unit"
-									options={bufferUnitOptions}
-									placeholder="Select a distance unit"
-								/>
-							)}
-						</form.AppField>
-					</div>
-				</FormSection>
-
-				<PurposeSection form={form} notificationTypes={notificationTypes} />
-			</RecordFormPage>
-		</form.AppForm>
+			<PurposeSection form={form} notificationTypes={notificationTypes} />
+		</>
 	);
 }
 
@@ -299,13 +222,18 @@ export function RegistrationFormPage({
 // geometry in, all of which sit above the threshold in the saved baseline;
 // splitting it further would separate controls that move each other.
 // fallow-ignore-next-line complexity
-function useRegistrationLocation(initialGeometry: DrawGeometry | null) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
+export function useRegistrationLocation(
+	// The canvas belongs to the page, which draws every registration this contact
+	// already has whether or not one is being edited. So the controller is handed
+	// the instance rather than claiming it: a controller that owned the map would
+	// mean a second map beside the one already on screen.
+	map: MapboxMap | null,
+	initialGeometry: DrawGeometry | null,
+) {
 	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
 	const [geometryType, setType] = useState<DrawGeometryType>(initialGeometry?.type ?? 'Point');
 	const [error, setError] = useState<string | null>(null);
 
-	const onMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
 	const onChange = useCallback((next: DrawGeometry | null) => {
 		setGeometry(next);
 		if (next !== null) {
@@ -366,39 +294,12 @@ function useRegistrationLocation(initialGeometry: DrawGeometry | null) {
 		geometry,
 		geometryType,
 		moveToAddress,
-		onMapReady,
 		requestMapPoint,
 		selectAddress: pickAddress,
 		setError,
 		setGeometryType,
 		startDraw,
 	};
-}
-
-function ContactSection({
-	form,
-	organizationId,
-}: {
-	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
-	readonly form: any;
-	readonly organizationId: string;
-}) {
-	return (
-		<FormSection title="Contact">
-			<form.AppField name="contactId">
-				{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-				{(field: any) => (
-					<ContactPicker
-						onSelect={(contact: { readonly id: string } | null) =>
-							field.handleChange(contact?.id ?? null)
-						}
-						organizationId={organizationId}
-						value={field.state.value}
-					/>
-				)}
-			</form.AppField>
-		</FormSection>
-	);
 }
 
 /**

@@ -557,28 +557,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 					},
 				],
 			},
-			{
-				id: 'public-registrations',
-				label: 'Notification Registrations',
-				items: [
-					{
-						id: 'registrations-explorer',
-						label: 'Map',
-						to: '/public-engagement/registrations',
-						icon: iconRegistry.generic.map.icon,
-					},
-					{
-						id: 'registrations-create',
-						label: 'New Registration',
-						to: '/public-engagement/registrations/create',
-						icon: iconRegistry.actions.add.icon,
-						write: 'manager',
-						action: {
-							keywords: ['notify', 'warn', 'bees', 'no spray', 'buffer', 'subscribe'],
-						},
-					},
-				],
-			},
 		],
 	},
 	{

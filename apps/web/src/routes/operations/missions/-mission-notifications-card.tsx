@@ -139,19 +139,22 @@ function StandingAlert({ message }: { readonly message: StandingMessage }) {
 				<AlertTitle>A buffer unit cannot be measured in metres</AlertTitle>
 				<AlertDescription className="grid gap-3">
 					{/*
-					 * The codes, then somewhere to go. This refusal is agency-wide: one
+					 * The codes, and nowhere to send them. This refusal is agency-wide: one
 					 * registration holding a unit the conversion table cannot price blocks
 					 * generation for every mission, so a message that only said "a unit is
 					 * wrong" would leave the operator with nothing to act on.
+					 *
+					 * There used to be a button to the registrations explorer. Registrations
+					 * are managed from the contact that holds them now, and no page lists
+					 * them across an agency, so naming the codes is the whole of what this
+					 * can offer. A button to the contact directory would be a button to
+					 * somewhere that cannot answer which contact is at fault.
 					 */}
 					<span>
 						{refusal.unitCodes.length === 0
 							? refusal.message
 							: `Registrations are using ${refusal.unitCodes.join(', ')} as a buffer unit, which cannot be converted to metres. Generation is blocked for every mission until those buffers use a distance unit.`}
 					</span>
-					<Button asChild className="justify-self-start" size="sm" variant="outline">
-						<Link to="/public-engagement/registrations">Open registrations</Link>
-					</Button>
 				</AlertDescription>
 			</Alert>
 		);
