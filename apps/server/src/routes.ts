@@ -60,6 +60,7 @@ import { registerProfileCommandRoutes } from './profile-commands.js';
 import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
 import { registerPublicEngagementRecordRoutes } from './public-engagement-records-commands/index.js';
 import { registerRecordDeletionRoutes } from './record-deletion.js';
+import { registerRecordMergeReadRoutes } from './record-merge-reads.js';
 import { registerRegionMembershipRoutes } from './region-membership.js';
 import { registerSearchRoutes } from './search.js';
 import { registerServiceRequestNearbyRoutes } from './service-request-nearby.js';
@@ -148,6 +149,7 @@ export function registerAllRoutes(app: Hono<{ Variables: AuthVariables }>, deps:
 	registerSearchRoutes(app, { db, authContextMiddleware });
 	registerServiceRequestNearbyRoutes(app, { db, authContextMiddleware });
 	registerRecordDeletionRoutes(app, { db, authContextMiddleware });
+	registerRecordMergeReadRoutes(app, { db, authContextMiddleware });
 	registerRegionMembershipRoutes(app, { db, authContextMiddleware });
 	registerGeocoderRoutes(app, { apiKey: deps.geocoderApiKey, authContextMiddleware });
 

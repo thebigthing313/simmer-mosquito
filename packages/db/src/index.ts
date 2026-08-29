@@ -21,6 +21,7 @@ export * from './domains/mission-notification-generation.js';
 export * from './domains/org-owned-writes.js';
 export * from './domains/profile-activity.js';
 export * from './domains/record-deletion.js';
+export * from './domains/record-duplicates.js';
 export * from './domains/record-merge.js';
 export * from './domains/region-membership.js';
 export * from './domains/search.js';
