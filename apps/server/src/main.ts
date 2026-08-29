@@ -17,6 +17,7 @@ import {
 } from './auth-middleware.js';
 import { writeSealedSession } from './auth-session-transport.js';
 import { PRIVATE_READ_PREFIXES, privateNoStore } from './cache-headers.js';
+import { isRecord } from './command-payload.js';
 import { CORS_SURFACES, corsOptionsFor } from './cors-options.js';
 import { createDevSessionProvider } from './dev-impersonation.js';
 import { readServerEnv } from './env.js';
