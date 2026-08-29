@@ -3,6 +3,7 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	customFieldCount,
 	customSchemaFor,
+	FormSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
@@ -35,7 +36,6 @@ import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-ro
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { FormSection } from '../../control-operations/-control-form-parts';
 import { AddressPicker } from '../../control-operations/-control-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */

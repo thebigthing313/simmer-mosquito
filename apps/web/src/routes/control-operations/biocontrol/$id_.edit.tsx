@@ -202,6 +202,7 @@ function EditBiocontrolActionLoader({
 				backLabel: 'Back to biocontrol action',
 			}}
 			initialGeometry={geometryQuery.geometry}
+			mode="edit"
 			onSave={onSave}
 			organizationId={organizationId}
 			profiles={profiles}
@@ -226,6 +227,8 @@ function defaultsFromAction(
 		amountReleased: action.amountReleased,
 		releaseUnitId: action.unitId,
 		metadata: asMetadataValue(action.metadata),
+		// Create-only field; the detail page's thread is where an edit adds a note.
+		comment: '',
 	};
 }
 

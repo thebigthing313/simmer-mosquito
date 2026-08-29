@@ -2,9 +2,11 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
+import { attachFirstComment } from '../../../forms/first-comment';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
+import { useCommentMutations } from '../../../hooks/mutations/use-comment-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
@@ -61,6 +63,7 @@ function CreateBiocontrolActionRoute() {
 	const [biocontrolActionId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'biocontrolAction', id: biocontrolActionId });
 	const { setPersonnel } = useAdditionalPersonnelMutations();
+	const { add: addComment } = useCommentMutations();
 	const { record } = useBiocontrolActionMutations();
 
 	const onSave = useCallback(
@@ -124,6 +127,11 @@ function CreateBiocontrolActionRoute() {
 						profileIds: values.additionalPersonnelIds,
 					}),
 				);
+				await attachFirstComment(
+					addComment,
+					{ type: 'biocontrolAction', id: biocontrolActionId },
+					values.comment,
+				);
 				await mission.navigateAfterSave(async () => {
 					await navigate({
 						to: '/control-operations/biocontrol/$id',
@@ -131,7 +139,16 @@ function CreateBiocontrolActionRoute() {
 					});
 				});
 			}),
-		[organization, actorProfileId, biocontrolActionId, navigate, mission, record, setPersonnel],
+		[
+			organization,
+			actorProfileId,
+			biocontrolActionId,
+			navigate,
+			mission,
+			record,
+			setPersonnel,
+			addComment,
+		],
 	);
 
 	return (
@@ -147,6 +164,7 @@ function CreateBiocontrolActionRoute() {
 					backTo: '/control-operations/biocontrol',
 					backLabel: 'Biocontrol',
 				}}
+				mode="create"
 				initialGeometry={initialGeometry}
 				requireLocation={mission.requireLocation}
 				onSave={onSave}

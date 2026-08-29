@@ -219,6 +219,7 @@ function EditSourceReductionLoader({
 			}}
 			initialGeometry={geometryQuery.geometry}
 			methods={methods}
+			mode="edit"
 			onSave={onSave}
 			organizationId={organizationId}
 			profiles={profiles}
@@ -243,6 +244,8 @@ function defaultsFromSourceReduction(
 		addressId: sourceReduction.addressId,
 		habitatId: sourceReduction.habitatId,
 		metadata: asMetadataValue(sourceReduction.metadata),
+		// Create-only field; the detail page's thread is where an edit adds a note.
+		comment: '',
 	};
 }
 

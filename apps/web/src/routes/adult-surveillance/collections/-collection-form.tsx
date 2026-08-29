@@ -10,6 +10,7 @@ import type { CollectionTimingMode } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
+	FormSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
@@ -744,21 +745,6 @@ function TimingSection({
 }
 
 // --- controls ---------------------------------------------------------------
-
-function FormSection({
-	title,
-	children,
-}: {
-	readonly title: string;
-	readonly children: React.ReactNode;
-}) {
-	return (
-		<section className="grid gap-4">
-			<h2 className="m-0 font-semibold text-foreground text-sm">{title}</h2>
-			{children}
-		</section>
-	);
-}
 
 // --- validation + helpers ---------------------------------------------------
 

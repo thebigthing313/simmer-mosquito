@@ -1,6 +1,6 @@
 import { createTrapCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { FormSection, RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -353,21 +353,6 @@ export function TrapFormPage({
 }
 
 // --- reusable form controls -------------------------------------------------
-
-function FormSection({
-	title,
-	children,
-}: {
-	readonly title: string;
-	readonly children: React.ReactNode;
-}) {
-	return (
-		<section className="grid gap-4">
-			<h2 className="m-0 font-semibold text-foreground text-sm">{title}</h2>
-			{children}
-		</section>
-	);
-}
 
 /**
  * What the form holds, as the write seam takes it.

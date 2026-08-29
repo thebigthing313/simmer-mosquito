@@ -7,6 +7,7 @@ import {
 	customFieldCount,
 	customSchemaFor,
 	type FieldOption,
+	FormSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
@@ -51,7 +52,6 @@ import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
 import { insecticideDisplayName } from '../-control-display';
-import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
 import {
 	componentAmounts,

@@ -434,6 +434,24 @@ A create form pinned permanently above its own list is not a third option. It
 spends vertical space on every visit to serve the rarest action, and it makes
 adding and editing two different experiences of one operation.
 
+### Record form bands
+
+Inside `RecordFormPage`, a form is a stack of bands and there are two kinds.
+`FormSection` is a heading over a group of fields. `LocationSection` is the
+boxed band that holds a record's geography, and it is a box rather than a
+heading because the controls in it move each other: picking a habitat replaces
+the drawn shape, refining off an address moves the point. The border is what
+says they are one answer, and it is also what carries the section-level error,
+which is the one error on a form that belongs to a group rather than a field.
+
+Both live in `@simmer-mosquito/ui-web/components/form`. `FormSection` had five
+copies before, four of them identical and the fifth carrying a `note` slot for a
+rule that applies to a whole section, so only one form could show such a rule.
+The location band had ten, two of which used `aria-label` where the rest used
+`aria-labelledby` and so announced no heading at all. Neither belongs in a route
+folder: `FormSection` used to live under `routes/control-operations/` and three
+domains outside it reached across to import it.
+
 ### Record lists
 
 Record lists should beat tables when the task is inspection plus action. Use

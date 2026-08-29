@@ -6,7 +6,12 @@ import {
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { LarvalDensity } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
-import { RecordFormPage, RequiredMark, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import {
+	FormSection,
+	RecordFormPage,
+	RequiredMark,
+	useAppForm,
+} from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -1017,29 +1022,6 @@ function SearchFallback({ label }: { readonly label: string }) {
 }
 
 // --- reusable form controls -------------------------------------------------
-
-function FormSection({
-	title,
-	note,
-	children,
-}: {
-	readonly title: string;
-	/** A rule the section carries that no single field can be marked for. */
-	readonly note?: string | null;
-	readonly children: React.ReactNode;
-}) {
-	return (
-		<section className="grid gap-4">
-			<div className="grid gap-0.5">
-				<h2 className="m-0 font-semibold text-foreground text-sm">{title}</h2>
-				{note === undefined || note === null ? null : (
-					<p className="m-0 text-muted-foreground text-xs">{note}</p>
-				)}
-			</div>
-			{children}
-		</section>
-	);
-}
 
 function LabeledControl({
 	label,

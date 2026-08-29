@@ -1,6 +1,7 @@
 import { requestControlActionCommand } from '@simmer-mosquito/domain';
 import type { ControlType } from '@simmer-mosquito/sync';
 import {
+	FormSection,
 	type RecordFormHeader,
 	RecordFormPage,
 	useAppForm,
@@ -13,7 +14,6 @@ import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
-import { FormSection } from '../../control-operations/-control-form-parts';
 import { HabitatPicker } from '../../control-operations/-control-pickers';
 import { ControlTypeToggle } from '../-control-type-toggle';
 import { useDrawLocation } from '../-draw-location';
