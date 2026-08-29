@@ -17,6 +17,7 @@ import {
 } from './auth-middleware.js';
 import { writeSealedSession } from './auth-session-transport.js';
 import { PRIVATE_READ_PREFIXES, privateNoStore } from './cache-headers.js';
+import { isRecord } from './command-payload.js';
 import { CORS_SURFACES, corsOptionsFor } from './cors-options.js';
 import { createDevSessionProvider } from './dev-impersonation.js';
 import { readServerEnv } from './env.js';
@@ -156,6 +157,11 @@ const server = serve(
 	},
 	(info) => {
 		console.log(`Server listening on http://${info.address}:${info.port}`);
+		// The dev runner forks this process and waits for this message before it
+		// calls the restart finished, so it cannot report a server that is not
+		// yet bound. `process.send` is undefined without an IPC channel, which
+		// is every case except `pnpm dev:server`.
+		process.send?.({ type: 'simmer:listening', port: info.port });
 	},
 );
 
@@ -199,9 +205,16 @@ function shutdown(signal: NodeJS.Signals): void {
 process.once('SIGINT', shutdown);
 process.once('SIGTERM', shutdown);
 
-export async function disposeServerForRestart(): Promise<void> {
-	await closeServer();
-}
+// Windows has no signal delivery: `process.kill(pid, 'SIGTERM')` from the dev
+// runner calls TerminateProcess and the handler above never runs, so the port
+// can still be held when the replacement binds. The runner asks over IPC
+// instead, on every platform, and only falls back to a signal if the channel is
+// gone.
+process.on('message', (message: unknown) => {
+	if (isRecord(message) && message.type === 'simmer:shutdown') {
+		shutdown('SIGTERM');
+	}
+});
 
 async function closeServer(): Promise<void> {
 	if (isShuttingDown) {
