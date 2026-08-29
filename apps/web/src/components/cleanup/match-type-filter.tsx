@@ -10,12 +10,12 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type { DuplicateGroup, DuplicateReason } from '../../hooks/use-merge-candidates';
-import { DUPLICATE_REASON_LABELS, type RecordCleanupConfig } from './record-cleanup-config';
+import { DUPLICATE_REASON_LABELS, type DuplicatePageConfig } from './record-cleanup-config';
 
 const FilterIcon = iconRegistry.actions.filter.icon;
 
 export interface MatchTypeFilterProps {
-	readonly config: RecordCleanupConfig;
+	readonly config: DuplicatePageConfig;
 	/** Every proposal the server returned, before the filter. */
 	readonly groups: readonly DuplicateGroup[];
 	/** The match types selected. Empty means all of them. */
@@ -106,7 +106,7 @@ function countByReason(groups: readonly DuplicateGroup[]): ReadonlyMap<Duplicate
  * itself and "2 match types" is a number the reader has to open the menu to
  * cash in. Past two it stops being shorter than the menu and becomes a count.
  */
-function triggerLabel(selected: ReadonlySet<DuplicateReason>, config: RecordCleanupConfig): string {
+function triggerLabel(selected: ReadonlySet<DuplicateReason>, config: DuplicatePageConfig): string {
 	if (selected.size === 0) {
 		return 'All match types';
 	}

@@ -3,6 +3,7 @@ import type { LinkProps } from '@tanstack/react-router';
 import type {
 	DuplicateGroup,
 	DuplicateReason,
+	DuplicateRecordType,
 	MergeableRecordType,
 } from '../../hooks/use-merge-candidates';
 
@@ -26,6 +27,16 @@ export interface RecordCleanupConfig {
 	readonly listTo: NonNullable<LinkProps['to']>;
 	/** What the label falls back to for a record that has no name. */
 	readonly unnamed: string;
+}
+
+/**
+ * What a cleanup page needs on top of that.
+ *
+ * Separate because habitats have no cleanup page. They merge the same way as an
+ * address and are found a different way, from one habitat's own detail page, so
+ * they carry the nouns and the routes above and nothing here.
+ */
+export interface DuplicatePageConfig {
 	/** How the server groups this record type, for the empty state. */
 	readonly groupingRule: string;
 	/**
@@ -46,9 +57,6 @@ export const RECORD_CLEANUP_CONFIGS: Record<MergeableRecordType, RecordCleanupCo
 		detailTo: '/gis/addresses/$id',
 		listTo: '/gis/addresses',
 		unnamed: 'Unnamed address',
-		groupingRule:
-			'Addresses are grouped when they share a display name, a street address, or the exact same coordinates.',
-		reasons: ['same_name', 'same_street', 'same_coordinates'],
 	},
 
 	habitat: {
@@ -57,9 +65,6 @@ export const RECORD_CLEANUP_CONFIGS: Record<MergeableRecordType, RecordCleanupCo
 		detailTo: '/larval-surveillance/habitats/$id',
 		listTo: '/larval-surveillance/habitats',
 		unnamed: 'Unnamed habitat',
-		groupingRule:
-			'Habitats are grouped when they share a name, or when they sit within ten metres of each other.',
-		reasons: ['same_name', 'same_place'],
 	},
 
 	contact: {
@@ -68,6 +73,17 @@ export const RECORD_CLEANUP_CONFIGS: Record<MergeableRecordType, RecordCleanupCo
 		detailTo: '/public-engagement/contacts/$id',
 		listTo: '/public-engagement/contacts',
 		unnamed: 'Unnamed contact',
+	},
+};
+
+export const DUPLICATE_PAGE_CONFIGS: Record<DuplicateRecordType, DuplicatePageConfig> = {
+	address: {
+		groupingRule:
+			'Addresses are grouped when they share a display name, a street address, or the exact same coordinates.',
+		reasons: ['same_name', 'same_street', 'same_coordinates'],
+	},
+
+	contact: {
 		groupingRule:
 			'Contacts are grouped when they share a name, an email address, or a phone number.',
 		reasons: ['same_name', 'same_email', 'same_phone'],
@@ -81,7 +97,6 @@ export const DUPLICATE_REASON_LABELS: Record<DuplicateReason, string> = {
 	same_email: 'Same email',
 	same_phone: 'Same phone',
 	same_coordinates: 'Same coordinates',
-	same_place: 'Within ten metres',
 };
 
 /**
@@ -120,8 +135,6 @@ export function duplicateGroupHeading(group: DuplicateGroup): string {
 		case 'same_phone':
 		case 'same_coordinates':
 			return `${reason}: ${group.value ?? ''}`;
-		case 'same_place':
-			return reason;
 	}
 }
 

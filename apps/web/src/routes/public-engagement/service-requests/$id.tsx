@@ -347,7 +347,11 @@ function ContextMap({
 		<>
 			<MapCanvas
 				controls={{ layers: false }}
-				nearbyLayer={{ data: mapData, selectedId, onSelectFeature: onSelect }}
+				nearbyLayer={{
+					data: mapData,
+					selectedIds: selectedId === null ? [] : [selectedId],
+					onSelectFeature: onSelect,
+				}}
 				onMapReady={handleReady}
 			/>
 			{response === undefined ? null : <MapContextCaption response={response} />}

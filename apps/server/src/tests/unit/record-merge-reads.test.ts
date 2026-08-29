@@ -40,6 +40,35 @@ describe('GET /records/:recordType/duplicates', () => {
 	});
 });
 
+describe('GET /records/habitat/:habitatId/nearby', () => {
+	it('refuses an id that is not a uuid rather than letting the cast fail', async () => {
+		// The id reaches a `where id = $1` on a uuid column. A malformed one is a
+		// driver error, which arrives as a 500 with nothing in it to act on.
+		const response = await app().request('/records/habitat/nonsense/nearby?radiusMetres=100');
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_id' });
+	});
+
+	it('refuses a radius that is not a positive number', async () => {
+		const negative = await app().request(`/records/habitat/${habitatId}/nearby?radiusMetres=-5`);
+		const words = await app().request(`/records/habitat/${habitatId}/nearby?radiusMetres=far`);
+
+		expect(negative.status).toBe(400);
+		expect(words.status).toBe(400);
+	});
+
+	it('refuses a radius wider than the cap rather than quietly narrowing it', async () => {
+		// Clamping would answer a search over the whole agency with a different one
+		// and hide that the control on the page is sending nonsense.
+		const response = await app().request(`/records/habitat/${habitatId}/nearby?radiusMetres=50000`);
+
+		expect(response.status).toBe(400);
+		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_query' });
+	});
+});
+
+const habitatId = '11111111-1111-4111-8111-111111111111';
 const organizationId = '33333333-3333-4333-8333-333333333333';
 
 function app() {

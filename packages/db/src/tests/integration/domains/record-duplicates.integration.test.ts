@@ -3,6 +3,7 @@ import {
 	type DuplicateGroup,
 	type Kysely,
 	readDuplicateCandidates,
+	readNearbyHabitats,
 	type SimmerDatabase,
 	sql,
 } from '../../../index.js';
@@ -62,61 +63,6 @@ describeDbIntegration('duplicate candidates', () => {
 
 			const named = groupsFor(groups, 'same_name');
 			expect(named[0]?.records.map((record) => record.id)).toEqual([oldest, middle, newest]);
-		});
-	});
-
-	it('clusters habitats that sit within ten metres and leaves a distant one alone', async () => {
-		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'habitat_place');
-			// Roughly 5 m apart in latitude, then 200 m away.
-			const first = await createHabitatAt(db, org, 'Catch basin 41', -90.5, 35.5);
-			const second = await createHabitatAt(db, org, 'CB-41', -90.5, 35.500045);
-			await createHabitatAt(db, org, 'Ditch behind the school', -90.5, 35.5018);
-
-			const groups = await readDuplicateCandidates(db, {
-				recordType: 'habitat',
-				organizationId: org,
-			});
-
-			const placed = groupsFor(groups, 'same_place');
-			expect(placed).toHaveLength(1);
-			expect(ids(placed[0])).toEqual(new Set([first, second]));
-		});
-	});
-
-	it('chains a cluster through a shared neighbour', async () => {
-		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'habitat_chain');
-			// Each hop is under ten metres; the ends are about twelve metres apart, so
-			// they are one place only if the middle row joins them.
-			const west = await createHabitatAt(db, org, 'West', -90.5, 35.5);
-			const middle = await createHabitatAt(db, org, 'Middle', -90.5, 35.500054);
-			const east = await createHabitatAt(db, org, 'East', -90.5, 35.500108);
-
-			const groups = await readDuplicateCandidates(db, {
-				recordType: 'habitat',
-				organizationId: org,
-			});
-
-			const placed = groupsFor(groups, 'same_place');
-			expect(placed).toHaveLength(1);
-			expect(ids(placed[0])).toEqual(new Set([west, middle, east]));
-		});
-	});
-
-	it('does not propose the same set twice when habitats share a name and a spot', async () => {
-		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'habitat_overlap');
-			await createHabitatAt(db, org, 'Depot', -90.5, 35.5);
-			await createHabitatAt(db, org, 'depot', -90.5, 35.500018);
-
-			const groups = await readDuplicateCandidates(db, {
-				recordType: 'habitat',
-				organizationId: org,
-			});
-
-			expect(groups).toHaveLength(1);
-			expect(groups[0]?.reason).toBe('same_name');
 		});
 	});
 
@@ -228,22 +174,6 @@ describeDbIntegration('duplicate candidates', () => {
 		});
 	});
 
-	it('does not group habitats on a name they do not have', async () => {
-		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'habitat_blank');
-			await createHabitatAt(db, org, null, -90.5, 35.5);
-			await createHabitatAt(db, org, '   ', -90.6, 35.6);
-			await createHabitatAt(db, org, null, -90.7, 35.7);
-
-			const groups = await readDuplicateCandidates(db, {
-				recordType: 'habitat',
-				organizationId: org,
-			});
-
-			expect(groupsFor(groups, 'same_name')).toHaveLength(0);
-		});
-	});
-
 	it('carries the label, the supporting detail and the coordinates the page draws', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'address_fields');
@@ -300,31 +230,153 @@ describeDbIntegration('duplicate candidates', () => {
 			expect(Object.hasOwn(filled?.fields ?? {}, 'wants_email')).toBe(false);
 		});
 	});
+});
 
-	it('carries them on a place group too, which reads its rows by a second query', async () => {
+/**
+ * The habitats standing near one habitat.
+ *
+ * Two records for one catch basin agree about nothing except where they are, so
+ * this is the only evidence a habitat merge has. Every question here is one the
+ * SQL answers: whether the radius means metres at this latitude, whether the
+ * agency and soft-delete filters hold, and whether the habitat being kept is
+ * excluded from its own answer. A search that returned the target would offer a
+ * merge of a record into itself, which the domain refuses after the user has
+ * committed to it.
+ */
+describeDbIntegration('nearby habitats', () => {
+	it('answers the habitats inside the radius, nearest first, and not itself', async () => {
 		await withTestDb(async ({ db }) => {
-			// The proximity path finds ids first and loads the rows separately, so it
-			// is its own select list and can go stale against the value path's.
-			const org = await createOrganization(db, 'place_carry');
-			await createHabitatAt(db, org, 'Depot', -90.5, 35.5);
-			await createHabitatAt(db, org, 'Old depot', -90.50001, 35.50001);
-			await db
-				.updateTable('habitats')
-				.set({ description: 'Culvert' })
-				.where('habitat_name', '=', 'Old depot')
-				.execute();
+			const org = await createOrganization(db, 'nearby_radius');
+			const home = await createHabitatAt(db, org, 'Catch basin 41', -90.5, 35.5);
+			// About 100 m and 220 m north. A degree of latitude is 111 km anywhere.
+			const near = await createHabitatAt(db, org, 'CB-41', -90.5, 35.5009);
+			const further = await createHabitatAt(db, org, 'Basin behind 41', -90.5, 35.502);
+			await createHabitatAt(db, org, 'Ditch by the school', -90.5, 35.52);
 
-			const groups = await readDuplicateCandidates(db, {
-				recordType: 'habitat',
+			const result = await readNearbyHabitats(db, {
+				habitatId: home,
 				organizationId: org,
+				radiusMetres: 250,
 			});
 
-			const place = groupsFor(groups, 'same_place')[0];
-			expect(place?.records).toHaveLength(2);
-			expect(place?.records.map((record) => record.fields.description)).toEqual([
-				'Roadside ditch',
-				'Culvert',
-			]);
+			expect(result?.target.id).toBe(home);
+			expect(result?.candidates.map((candidate) => candidate.id)).toEqual([near, further]);
+			expect(result?.candidates[0]?.distanceMetres).toBeGreaterThan(90);
+			expect(result?.candidates[0]?.distanceMetres).toBeLessThan(110);
+		});
+	});
+
+	it('reaches a habitat the smaller radius left out', async () => {
+		// The control that widens the search is the whole point of taking a radius
+		// as an argument: how far apart two records for one place land depends on
+		// how each was filed.
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'nearby_widen');
+			const home = await createHabitatAt(db, org, 'Culvert', -90.5, 35.5);
+			const distant = await createHabitatAt(db, org, 'Culvert, north end', -90.5, 35.504);
+
+			const tight = await readNearbyHabitats(db, {
+				habitatId: home,
+				organizationId: org,
+				radiusMetres: 100,
+			});
+			const wide = await readNearbyHabitats(db, {
+				habitatId: home,
+				organizationId: org,
+				radiusMetres: 1000,
+			});
+
+			expect(tight?.candidates).toEqual([]);
+			expect(wide?.candidates.map((candidate) => candidate.id)).toEqual([distant]);
+		});
+	});
+
+	it('never answers with another agency habitat or one already deleted', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'nearby_scope');
+			const other = await createOrganization(db, 'nearby_other');
+			const home = await createHabitatAt(db, org, 'Culvert', -90.5, 35.5);
+			const retired = await createHabitatAt(db, org, 'Culvert (dup)', -90.5, 35.5001);
+			await createHabitatAt(db, other, 'Culvert', -90.5, 35.5001);
+			await db
+				.updateTable('habitats')
+				.set({ deleted_at: sql`now()` })
+				.where('id', '=', retired)
+				.execute();
+
+			const result = await readNearbyHabitats(db, {
+				habitatId: home,
+				organizationId: org,
+				radiusMetres: 1000,
+			});
+
+			expect(result?.candidates).toEqual([]);
+		});
+	});
+
+	it('offers an inactive habitat and says that it is one', async () => {
+		// A merge may retire an inactive habitat, so hiding it would leave the only
+		// way to fold it in out of reach. Saying which is which is what stops it
+		// reading as a live duplicate.
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'nearby_inactive');
+			const home = await createHabitatAt(db, org, 'Culvert', -90.5, 35.5);
+			const inactive = await createHabitatAt(db, org, 'Culvert (old)', -90.5, 35.5001);
+			await db
+				.updateTable('habitats')
+				.set({ is_active: false })
+				.where('id', '=', inactive)
+				.execute();
+
+			const result = await readNearbyHabitats(db, {
+				habitatId: home,
+				organizationId: org,
+				radiusMetres: 1000,
+			});
+
+			expect(result?.candidates.map((candidate) => candidate.isActive)).toEqual([false]);
+		});
+	});
+
+	it('carries the values the merge form fills the surviving record from', async () => {
+		// The target comes back through the same select as the candidates. A page
+		// that built its half from a synced row instead would be a second spelling
+		// of the same thing, free to drift.
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'nearby_fields');
+			const home = await createHabitatAt(db, org, 'Culvert', -90.5, 35.5);
+			await createHabitatAt(db, org, '  ', -90.5, 35.5001);
+
+			const result = await readNearbyHabitats(db, {
+				habitatId: home,
+				organizationId: org,
+				radiusMetres: 1000,
+			});
+
+			expect(result?.target.fields).toEqual({
+				habitat_name: 'Culvert',
+				description: 'Roadside ditch',
+			});
+			expect(result?.candidates[0]?.fields.habitat_name).toBeNull();
+			expect(result?.candidates[0]?.label).toBe('  ');
+		});
+	});
+
+	it('answers nothing at all for a habitat this agency does not have', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'nearby_missing');
+			const other = await createOrganization(db, 'nearby_missing_other');
+			const theirs = await createHabitatAt(db, other, 'Culvert', -90.5, 35.5);
+
+			// Undefined rather than an empty list, so the route answers 404 rather
+			// than "no duplicates" for a record the caller cannot see.
+			expect(
+				await readNearbyHabitats(db, {
+					habitatId: theirs,
+					organizationId: org,
+					radiusMetres: 1000,
+				}),
+			).toBeUndefined();
 		});
 	});
 });

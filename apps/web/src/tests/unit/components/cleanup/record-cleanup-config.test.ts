@@ -115,12 +115,6 @@ describe('duplicateGroupHeading', () => {
 
 		expect(duplicateGroupHeading(placed)).toBe('Same coordinates: 35.5, -90.5');
 	});
-
-	it('says the distance for a place group, which shares no value', () => {
-		expect(duplicateGroupHeading(group({ reason: 'same_place', value: null }))).toBe(
-			'Within ten metres',
-		);
-	});
 });
 
 describe('recordCountLabel', () => {

@@ -154,14 +154,6 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.entities.route.icon,
 					},
 					{
-						id: 'habitats-cleanup',
-						label: 'Cleanup Tools',
-						to: '/larval-surveillance/habitats/cleanup',
-						icon: iconRegistry.actions.merge.icon,
-						write: 'manager',
-						action: { keywords: ['merge', 'duplicate', 'dedupe', 'combine', 'tidy'] },
-					},
-					{
 						id: 'habitats-stats',
 						label: 'Statistics',
 						to: '/larval-surveillance/habitats/stats',

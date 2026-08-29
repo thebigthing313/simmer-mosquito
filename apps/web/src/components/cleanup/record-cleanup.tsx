@@ -13,14 +13,16 @@ import {
 	type DuplicateGroup,
 	type DuplicateReason,
 	type DuplicateRecord,
+	type DuplicateRecordType,
 	duplicateCandidatesQueryKey,
-	type MergeableRecordType,
 	useDuplicateCandidates,
 } from '../../hooks/use-merge-candidates';
 import { DuplicateGroupPanel } from './duplicate-group-panel';
 import { MatchTypeFilter } from './match-type-filter';
 import { MergeConfirmDialog } from './merge-confirm-dialog';
 import {
+	DUPLICATE_PAGE_CONFIGS,
+	type DuplicatePageConfig,
 	RECORD_CLEANUP_CONFIGS,
 	type RecordCleanupConfig,
 	recordCountLabel,
@@ -51,8 +53,9 @@ interface PendingMerge {
  * and is not here yet; the page says so rather than leaving the nav entry
  * promising it.
  */
-export function RecordCleanup({ recordType }: { readonly recordType: MergeableRecordType }) {
+export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRecordType }) {
 	const config = RECORD_CLEANUP_CONFIGS[recordType];
+	const pageConfig = DUPLICATE_PAGE_CONFIGS[recordType];
 	const candidates = useDuplicateCandidates(recordType);
 	const merge = useRecordMerge(recordType);
 	const queryClient = useQueryClient();
@@ -113,7 +116,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: MergeableRe
 			{candidates.data === undefined || candidates.data.length === 0 ? null : (
 				<div className="flex justify-end">
 					<MatchTypeFilter
-						config={config}
+						config={pageConfig}
 						groups={candidates.data}
 						onChange={setMatchTypes}
 						selected={matchTypes}
@@ -125,6 +128,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: MergeableRe
 				candidates={candidates}
 				config={config}
 				excluded={excluded}
+				pageConfig={pageConfig}
 				matchTypes={matchTypes}
 				onClearMatchTypes={clearMatchTypes}
 				onExclude={exclude}
@@ -159,6 +163,7 @@ function CleanupBody({
 	config,
 	excluded,
 	matchTypes,
+	pageConfig,
 	onClearMatchTypes,
 	onExclude,
 	onMerge,
@@ -167,6 +172,7 @@ function CleanupBody({
 }: {
 	readonly candidates: ReturnType<typeof useDuplicateCandidates>;
 	readonly config: RecordCleanupConfig;
+	readonly pageConfig: DuplicatePageConfig;
 	readonly excluded: ReadonlySet<string>;
 	readonly matchTypes: ReadonlySet<DuplicateReason>;
 	readonly onClearMatchTypes: () => void;
@@ -192,6 +198,7 @@ function CleanupBody({
 		return (
 			<CleanupEmpty
 				config={config}
+				pageConfig={pageConfig}
 				// Two different answers. "Nothing matched" is a fact about the records;
 				// "nothing matched this way" is a fact about the filter, and offering
 				// the address list to somebody who has only hidden the phone groups
@@ -278,9 +285,11 @@ function CleanupFailure({
 function CleanupEmpty({
 	config,
 	isFiltered,
+	pageConfig,
 	onClearMatchTypes,
 }: {
 	readonly config: RecordCleanupConfig;
+	readonly pageConfig: DuplicatePageConfig;
 	readonly isFiltered: boolean;
 	readonly onClearMatchTypes: () => void;
 }) {
@@ -297,7 +306,7 @@ function CleanupEmpty({
 					)}
 				</Button>
 			}
-			description={isFiltered ? undefined : config.groupingRule}
+			description={isFiltered ? undefined : pageConfig.groupingRule}
 			icon={config.icon}
 			title={
 				isFiltered
