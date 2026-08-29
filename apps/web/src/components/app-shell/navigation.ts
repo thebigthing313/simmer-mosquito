@@ -154,6 +154,14 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.entities.route.icon,
 					},
 					{
+						id: 'habitats-cleanup',
+						label: 'Cleanup Tools',
+						to: '/larval-surveillance/habitats/cleanup',
+						icon: iconRegistry.actions.merge.icon,
+						write: 'manager',
+						action: { keywords: ['merge', 'duplicate', 'dedupe', 'combine', 'tidy'] },
+					},
+					{
 						id: 'habitats-stats',
 						label: 'Statistics',
 						to: '/larval-surveillance/habitats/stats',
@@ -547,6 +555,14 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						write: 'manager',
 						action: { keywords: ['new', 'add', 'person', 'resident', 'caller'] },
 					},
+					{
+						id: 'contacts-cleanup',
+						label: 'Cleanup Tools',
+						to: '/public-engagement/contacts/cleanup',
+						icon: iconRegistry.actions.merge.icon,
+						write: 'manager',
+						action: { keywords: ['merge', 'duplicate', 'dedupe', 'combine', 'tidy'] },
+					},
 				],
 			},
 		],
@@ -626,8 +642,11 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						id: 'addresses-cleanup',
 						label: 'Cleanup Tools',
 						to: '/gis/addresses/cleanup',
-						stub: true,
-						icon: iconRegistry.generic.hammer.icon,
+						icon: iconRegistry.actions.merge.icon,
+						// Manager, matching `foundation.mergeAddresses`. The page reads for
+						// anyone, but everything it exists to start is a merge.
+						write: 'manager',
+						action: { keywords: ['merge', 'duplicate', 'dedupe', 'combine', 'tidy'] },
 					},
 				],
 			},
