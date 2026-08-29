@@ -8,13 +8,13 @@ import type { AuthVariables } from '../../auth-middleware.js';
 import { registerRecordMergeReadRoutes } from '../../record-merge-reads.js';
 
 /**
- * The two merge reads over real rows.
+ * The merge read over real rows.
  *
- * The unit test covers what they refuse before querying. What only a database
- * can answer is whether the agency filter is actually threaded from the auth
- * context into both reads. Both take an organization id as an argument, which is
- * the kind of thing that compiles perfectly while carrying the wrong value, and
- * a duplicate proposal naming another agency's row leads to a merge the writer
+ * The unit test covers what it refuses before querying. What only a database can
+ * answer is whether the agency filter is actually threaded from the auth context
+ * into the read. It takes an organization id as an argument, which is the kind
+ * of thing that compiles perfectly while carrying the wrong value, and a
+ * duplicate proposal naming another agency's row leads to a merge the writer
  * refuses with an id the user cannot see.
  */
 describeDbIntegration('merge reads at the HTTP boundary', () => {
@@ -37,48 +37,6 @@ describeDbIntegration('merge reads at the HTTP boundary', () => {
 			expect(new Set(body.groups[0]?.records.map((record) => record.id))).toEqual(
 				new Set([mine, alsoMine]),
 			);
-		});
-	});
-
-	it('counts what a merge would move, from the rules the write uses', async () => {
-		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'merge_read_impact');
-			const target = await createAddress(db, org, 'Depot');
-			const source = await createAddress(db, org, 'Depot (dup)');
-			await createHabitat(db, org, source);
-			await createHabitat(db, org, source);
-
-			const response = await mergeApp(db, org).request(
-				`/records/address/${target}/merge-impact?source=${source}`,
-			);
-
-			expect(response.status).toBe(200);
-			await expect(response.json()).resolves.toMatchObject({
-				recordType: 'address',
-				targetId: target,
-				sourceIds: [source],
-				moves: [{ key: 'addressHabitats', moved: 2, deduped: 0 }],
-			});
-		});
-	});
-
-	it('counts nothing for records another agency owns, rather than reporting their rows', async () => {
-		await withTestDb(async ({ db }) => {
-			const owner = await createOrganization(db, 'merge_read_owner');
-			const caller = await createOrganization(db, 'merge_read_stranger');
-			const target = await createAddress(db, owner, 'Depot');
-			const source = await createAddress(db, owner, 'Depot (dup)');
-			await createHabitat(db, owner, source);
-
-			const response = await mergeApp(db, caller).request(
-				`/records/address/${target}/merge-impact?source=${source}`,
-			);
-
-			// Zero moves, not a 404: the same answer as a pair of ids that never
-			// existed, so the endpoint cannot be used to probe for another agency's
-			// records. The merge command itself refuses these ids outright.
-			expect(response.status).toBe(200);
-			await expect(response.json()).resolves.toMatchObject({ moves: [] });
 		});
 	});
 });
@@ -117,22 +75,6 @@ async function createAddress(db: Db, organizationId: string, displayName: string
 			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
 			display_name: displayName,
 			country: 'US',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createHabitat(db: Db, organizationId: string, addressId: string): Promise<string> {
-	const row = await db
-		.insertInto('habitats')
-		.values({
-			organization_id: organizationId,
-			address_id: addressId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			habitat_name: 'Ditch',
-			description: 'Roadside ditch',
-			metadata: null,
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();

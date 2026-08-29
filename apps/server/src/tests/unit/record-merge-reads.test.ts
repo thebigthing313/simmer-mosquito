@@ -40,52 +40,6 @@ describe('GET /records/:recordType/duplicates', () => {
 	});
 });
 
-describe('GET /records/:recordType/:recordId/merge-impact', () => {
-	it('answers 404 for a record type that cannot be merged', async () => {
-		const response = await app().request(`/records/sprocket/${targetId}/merge-impact`);
-
-		expect(response.status).toBe(404);
-	});
-
-	it('answers 400 when no source is named, because that merge would move nothing', async () => {
-		const response = await app().request(`/records/address/${targetId}/merge-impact`);
-
-		expect(response.status).toBe(400);
-		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_source_ids' });
-	});
-
-	it('answers 400 for a source id that is not a uuid rather than letting the cast fail', async () => {
-		const response = await app().request(
-			`/records/address/${targetId}/merge-impact?source=not-a-uuid`,
-		);
-
-		expect(response.status).toBe(400);
-		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_source_ids' });
-	});
-
-	it('answers 400 for a target id that is not a uuid', async () => {
-		const response = await app().request(
-			`/records/address/nonsense/merge-impact?source=${sourceId}`,
-		);
-
-		expect(response.status).toBe(400);
-	});
-
-	it('answers 400 when the target is also named as a source', async () => {
-		// The domain builder refuses this too, but only once the user commits.
-		// Counting it here would report the survivor's own rows as moving, so the
-		// number the form shows would be wrong before anything was refused.
-		const response = await app().request(
-			`/records/address/${targetId}/merge-impact?source=${targetId}`,
-		);
-
-		expect(response.status).toBe(400);
-		await expect(response.json()).resolves.toMatchObject({ error: 'invalid_source_ids' });
-	});
-});
-
-const targetId = '11111111-1111-4111-8111-111111111111';
-const sourceId = '22222222-2222-4222-8222-222222222222';
 const organizationId = '33333333-3333-4333-8333-333333333333';
 
 function app() {

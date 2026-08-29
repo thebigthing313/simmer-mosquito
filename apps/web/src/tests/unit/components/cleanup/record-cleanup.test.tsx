@@ -58,13 +58,6 @@ vi.mock('../../../../hooks/use-merge-candidates', async (importOriginal) => {
 			isPending: false,
 			refetch: vi.fn(),
 		}),
-		useMergeImpact: () => ({
-			data: [
-				{ key: 'addressHabitats', moved: 2, deduped: 0, singular: 'habitat', plural: 'habitats' },
-			],
-			isError: false,
-			isPending: false,
-		}),
 	};
 });
 

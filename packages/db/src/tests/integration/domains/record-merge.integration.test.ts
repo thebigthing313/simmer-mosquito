@@ -3,7 +3,6 @@ import {
 	applyRecordMerge,
 	type Kysely,
 	RecordMergeRefusedError,
-	readMergeImpact,
 	type SimmerDatabase,
 	sql,
 } from '../../../index.js';
@@ -32,32 +31,28 @@ describeDbIntegration('record merge policy', () => {
 			const habitatId = await createHabitat(db, org, source, 'Ditch');
 			await createComment(db, org, 'address', source);
 
-			const impact = await readMergeImpact(db, {
-				recordType: 'address',
-				targetId: target,
-				sourceIds: [source],
-				organizationId: org,
-				actorProfileId: null,
-			});
-			expect(entry(impact, 'addressTraps')).toBe(1);
-			expect(entry(impact, 'addressHabitats')).toBe(1);
-			expect(entry(impact, 'addressComments')).toBe(1);
-
 			const before = await db
 				.selectFrom('traps')
 				.select(['trap_name', 'collection_method_id'])
 				.where('id', '=', trapId)
 				.executeTakeFirstOrThrow();
 
-			await db.transaction().execute(async (trx) => {
-				await applyRecordMerge(trx, {
+			const impact = await db.transaction().execute((trx) =>
+				applyRecordMerge(trx, {
 					recordType: 'address',
 					targetId: target,
 					sourceIds: [source],
 					organizationId: org,
 					actorProfileId: null,
-				});
-			});
+				}),
+			);
+
+			// What the write says it did, which is the only report of it now that the
+			// separate count is gone. A rule that names the right table and moves
+			// nothing reads as a merge that worked.
+			expect(entry(impact.moves, 'addressTraps')).toBe(1);
+			expect(entry(impact.moves, 'addressHabitats')).toBe(1);
+			expect(entry(impact.moves, 'addressComments')).toBe(1);
 
 			// The reference moved and nothing else did. An operational row keeps its
 			// own name, its method and, the one the domain doc is explicit about, its

@@ -11,16 +11,9 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { useEffect, useId, useMemo, useState } from 'react';
 import { type MergeFieldUpdates, mergeRefusalReason } from '../../hooks/mutations/use-record-merge';
-import {
-	type DuplicateRecord,
-	type MergeableRecordType,
-	type MergeMoveEntry,
-	moveCountLabel,
-	useMergeImpact,
-} from '../../hooks/use-merge-candidates';
+import type { DuplicateRecord, MergeableRecordType } from '../../hooks/use-merge-candidates';
 import {
 	defaultMergeFieldSelections,
 	mergeFieldProblems,
@@ -53,10 +46,22 @@ export interface MergeConfirmDialogProps {
  * write, and a second vocabulary for the same kind of decision would be worse
  * than a modal.
  *
- * Three things have to be true before the button is live: the impact is known,
- * the user has read which record survives, and they have ticked the
- * acknowledgement. Until then this sends `false` for the flag rather than
- * omitting it, because the server reads an absent flag as agreement.
+ * Two things have to be true before the button is live: no required field has
+ * been emptied, and the user has ticked the acknowledgement. Until then this
+ * sends `false` for the flag rather than omitting it, because the server reads
+ * an absent flag as agreement.
+ *
+ * ## What moves is stated, not counted
+ *
+ * This used to read `/records/{type}/{id}/merge-impact` and list the rows each
+ * referencing table would hand over. The counts were accurate and answered a
+ * question nobody was asking: whichever number came back, everything that named
+ * a retired record ends up naming the survivor, and that is the whole of what a
+ * reader needs before agreeing.
+ *
+ * The acknowledgement label says it, so it is the sentence they tick rather
+ * than a line above the one they tick. Saying it twice would make the copy that
+ * matters look like a repeat.
  */
 export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 	const acknowledgementId = useId();
@@ -73,9 +78,6 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 	// re-seeding on every render would undo the reader's edit as they typed it.
 	const [selections, setSelections] = useState(() => defaultMergeFieldSelections(rows));
 	const problems = mergeFieldProblems(props.recordType, selections);
-
-	const sourceIds = props.sources.map((record) => record.id);
-	const impact = useMergeImpact(props.recordType, props.target.id, sourceIds, props.open);
 
 	// A dialog that reopens holding the previous tick would let a second merge go
 	// through on a confirmation given for a different set of records.
@@ -137,13 +139,6 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 							target={props.target}
 						/>
 					)}
-					<MoveSummary
-						config={props.config}
-						isLoading={impact.isPending}
-						isError={impact.isError}
-						moves={impact.data ?? []}
-					/>
-
 					<EmptyFieldAlert config={props.config} problems={problems} />
 
 					{failure === null ? null : (
@@ -166,7 +161,7 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 				<AlertDialogFooter>
 					<AlertDialogCancel disabled={isMerging}>Cancel</AlertDialogCancel>
 					<AlertDialogAction
-						disabled={!acknowledged || isMerging || impact.isPending || problems.length > 0}
+						disabled={!acknowledged || isMerging || problems.length > 0}
 						onClick={(event) => {
 							// The primitive closes on click. This one has to stay open to show
 							// a refusal, and closes itself once the write settles.
@@ -291,58 +286,6 @@ function RetiredList({
 					</li>
 				))}
 			</ul>
-		</div>
-	);
-}
-
-/**
- * What moves, counted by the server from the rules the write uses.
- *
- * An empty list is a real answer and says so: two duplicates nothing refers to
- * yet is the easiest merge there is, and a blank space here would read as a
- * count that failed to load.
- */
-function MoveSummary({
-	config,
-	isError,
-	isLoading,
-	moves,
-}: {
-	readonly config: RecordCleanupConfig;
-	readonly isError: boolean;
-	readonly isLoading: boolean;
-	readonly moves: readonly MergeMoveEntry[];
-}) {
-	if (isLoading) {
-		return <Skeleton className="h-10 w-full" />;
-	}
-
-	if (isError) {
-		return (
-			<p className="text-destructive">
-				Could not read what this merge would move. The merge itself is still checked by the server,
-				but the counts are not available.
-			</p>
-		);
-	}
-
-	return (
-		<div>
-			<h3 className="font-semibold text-muted-foreground text-xs uppercase">Moves</h3>
-			{moves.length === 0 ? (
-				<p className="mt-1 text-muted-foreground">
-					Nothing refers to{' '}
-					{config.noun.many === 'addresses' ? 'these addresses' : `these ${config.noun.many}`} yet.
-				</p>
-			) : (
-				<ul className="mt-1 grid gap-0.5">
-					{moves.map((entry) => (
-						<li className="text-foreground tabular-nums" key={entry.key}>
-							{moveCountLabel(entry)}
-						</li>
-					))}
-				</ul>
-			)}
 		</div>
 	);
 }

@@ -55,15 +55,6 @@ export interface DuplicateGroup {
 	readonly records: readonly DuplicateRecord[];
 }
 
-/** One referencing table's share of a merge, and how many rows it is. */
-export interface MergeMoveEntry {
-	readonly key: string;
-	readonly moved: number;
-	readonly deduped: number;
-	readonly singular: string;
-	readonly plural: string;
-}
-
 /**
  * The duplicate sets this agency's records suggest.
  *
@@ -93,60 +84,6 @@ export function useDuplicateCandidates(recordType: MergeableRecordType) {
 	});
 }
 
-/**
- * What folding these records into that one would move.
- *
- * Counted from the same registry the write uses, so the number in the
- * confirmation is the number that moves. Asked only once a merge is actually
- * being reviewed: a cleanup page holding twenty proposals would otherwise open
- * with twenty requests for counts nobody has looked at yet.
- */
-export function useMergeImpact(
-	recordType: MergeableRecordType,
-	targetId: string | null,
-	sourceIds: readonly string[],
-	enabled: boolean,
-) {
-	return useQuery({
-		queryKey: mergeImpactQueryKey(recordType, targetId, sourceIds),
-		queryFn: async ({ signal }) => {
-			const url = new URL(`/records/${recordType}/${targetId ?? ''}/merge-impact`, getServerUrl());
-			for (const sourceId of sourceIds) {
-				url.searchParams.append('source', sourceId);
-			}
-			const response = await sessionFetch(url, { credentials: 'include', signal });
-			if (!response.ok) {
-				throw new Error(`Could not read what this merge would move (${response.status}).`);
-			}
-			const body = (await response.json()) as { readonly moves: readonly MergeMoveEntry[] };
-			return body.moves;
-		},
-		staleTime: 15_000,
-		refetchOnWindowFocus: true,
-		enabled: enabled && targetId !== null && sourceIds.length > 0,
-	});
-}
-
 export function duplicateCandidatesQueryKey(recordType: MergeableRecordType): readonly unknown[] {
 	return ['duplicate-candidates', recordType];
-}
-
-/**
- * Keyed by the sources as a sorted set.
- *
- * Excluding one record from a group and putting it back must land on the cached
- * answer for that set rather than on a third one, and the order the page holds
- * them in is not part of what a merge means.
- */
-function mergeImpactQueryKey(
-	recordType: MergeableRecordType,
-	targetId: string | null,
-	sourceIds: readonly string[],
-): readonly unknown[] {
-	return ['merge-impact', recordType, targetId, [...sourceIds].sort().join(',')];
-}
-
-/** `4 inspections`, `1 inspection`. */
-export function moveCountLabel(entry: MergeMoveEntry): string {
-	return `${entry.moved} ${entry.moved === 1 ? entry.singular : entry.plural}`;
 }
