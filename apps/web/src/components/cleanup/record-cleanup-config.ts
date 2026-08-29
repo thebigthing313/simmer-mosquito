@@ -64,11 +64,23 @@ export const RECORD_CLEANUP_CONFIGS: Record<MergeableRecordType, RecordCleanupCo
  * The shared value is in the heading rather than under it because it is the
  * thing a reviewer checks first, and a heading reading only "Same name" makes
  * every group on the page look identical.
+ *
+ * A shared name is shown as the records spell it rather than as the key it was
+ * compared on. The comparison is deliberately blind to case and padding, so the
+ * key for a group of addresses is `113 north 2nd avenue, 1st floor`, and a
+ * heading in that form reads as a typo sitting above rows that spell it
+ * properly.
+ *
+ * The other two keep the compared value, because for them it is the shared thing
+ * itself rather than a flattened spelling of it: an email is written in lower
+ * case anyway, and a phone key is the digits with the punctuation taken out,
+ * which is what makes two spellings of one number match. Neither can come off a
+ * record's label, which for a contact is their name.
  */
 export function duplicateGroupHeading(group: DuplicateGroup): string {
 	switch (group.reason) {
 		case 'same_name':
-			return `Same name: ${group.value ?? ''}`;
+			return `Same name: ${asWritten(group)}`;
 		case 'same_email':
 			return `Same email: ${group.value ?? ''}`;
 		case 'same_phone':
@@ -76,6 +88,12 @@ export function duplicateGroupHeading(group: DuplicateGroup): string {
 		case 'same_place':
 			return 'Within ten metres';
 	}
+}
+
+/** The shared name as the first record spells it, falling back to the compared key. */
+function asWritten(group: DuplicateGroup): string {
+	const written = group.records[0]?.label.trim() ?? '';
+	return written === '' ? (group.value ?? '') : written;
 }
 
 /** `3 addresses`, `1 address`. */

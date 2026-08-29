@@ -93,10 +93,7 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 						Merge {props.sources.length} into {targetLabel}?
 					</AlertDialogTitle>
 					<AlertDialogDescription>
-						{targetLabel} stays. The{' '}
-						{props.sources.length === 1 ? 'other' : `other ${props.sources.length}`}{' '}
-						{props.sources.length === 1 ? props.config.noun.one : props.config.noun.many} are
-						retired.
+						{targetLabel} stays. {retiredPhrase(props.sources.length, props.config)}
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 
@@ -130,12 +127,9 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 							onCheckedChange={(value) => setAcknowledged(value === true)}
 						/>
 						<Label className="font-normal leading-snug" htmlFor={acknowledgementId}>
-							This cannot be undone. The other{' '}
-							{props.sources.length === 1
-								? props.config.noun.one
-								: `${props.sources.length} ${props.config.noun.many}`}{' '}
-							will be retired, and everything that names{' '}
-							{props.sources.length === 1 ? 'it' : 'them'} will name {targetLabel} instead.
+							This cannot be undone. {retiredSubject(props.sources.length, props.config)} will be
+							retired, and everything that names {props.sources.length === 1 ? 'it' : 'them'} will
+							name {targetLabel} instead.
 						</Label>
 					</div>
 				</div>
@@ -157,6 +151,24 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 			</AlertDialogContent>
 		</AlertDialog>
 	);
+}
+
+/**
+ * "The other address is retired." / "The other 3 addresses are retired."
+ *
+ * One sentence rather than four interpolations, because the count decides the
+ * article, the noun and the verb together, and assembling them separately is how
+ * "The other address are retired" reached the screen.
+ */
+function retiredPhrase(count: number, config: RecordCleanupConfig): string {
+	return count === 1
+		? `The other ${config.noun.one} is retired.`
+		: `The other ${count} ${config.noun.many} are retired.`;
+}
+
+/** The same subject, for a sentence that supplies its own verb. */
+function retiredSubject(count: number, config: RecordCleanupConfig): string {
+	return count === 1 ? `The other ${config.noun.one}` : `The other ${count} ${config.noun.many}`;
 }
 
 /** The records that go away, named rather than counted. */
