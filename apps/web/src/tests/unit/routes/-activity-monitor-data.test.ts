@@ -4,6 +4,7 @@ import {
 	ActivityRequestError,
 	activityEntryKey,
 	activityPanelMessage,
+	activityPanelState,
 	activityStatus,
 	buildActivityMapData,
 	countActivityByFamily,
@@ -215,6 +216,74 @@ describe('activityPanelMessage', () => {
 
 	it('loads before it reports emptiness', () => {
 		expect(activityPanelMessage({ ...ready, isLoading: true, isEmpty: true })).toBe('loading');
+	});
+
+	// The person and both dates are in the query key, so a change of any of them
+	// used to hand back an empty log for as long as the read took. A refetch with
+	// entries on screen is not a loading state.
+	it('is not loading while there is a log to keep reading', () => {
+		expect(activityPanelMessage({ ...ready, isLoading: true })).toBeNull();
+	});
+});
+
+// The frame draws the placeholder rows and the empty state on all fifteen
+// explorers. This is which of the panel's states go to it and which the body
+// keeps, and the ones it keeps are the ones that name a reason.
+describe('activityPanelState', () => {
+	const ready = { hasProfile: true, isLoading: false, error: null, isEmpty: false };
+
+	it('hands an empty range to the frame rather than drawing it in the body', () => {
+		expect(activityPanelState({ ...ready, isEmpty: true })).toMatchObject({
+			isEmpty: true,
+			message: null,
+			emptyTitle: 'No activity in this range',
+		});
+	});
+
+	it('hands a first load to the frame, so it draws placeholder rows', () => {
+		expect(activityPanelState({ ...ready, isLoading: true, isEmpty: true })).toMatchObject({
+			isEmpty: true,
+			message: null,
+		});
+	});
+
+	// A refusal names the window the server declined and an outage names neither.
+	// The frame's copy has nowhere to put either, so the body keeps drawing them,
+	// and neither may reach the reader as an empty day.
+	it('keeps a refusal and an outage in the body, both reported as not empty', () => {
+		const refused = activityPanelState({
+			...ready,
+			error: new ActivityRequestError('The date range may span at most 92 days.', true),
+			isEmpty: true,
+		});
+		const outage = activityPanelState({ ...ready, error: new Error('boom'), isEmpty: true });
+
+		expect(refused).toMatchObject({
+			isEmpty: false,
+			message: {
+				title: 'That range was not read',
+				body: 'The date range may span at most 92 days.',
+			},
+		});
+		expect(outage).toMatchObject({
+			isEmpty: false,
+			message: { title: 'Activity could not be loaded' },
+		});
+	});
+
+	it('keeps the ask for a person in the body', () => {
+		expect(activityPanelState({ ...ready, hasProfile: false, isEmpty: true })).toMatchObject({
+			isEmpty: false,
+			message: { title: 'Choose a person' },
+		});
+	});
+
+	// Story 26: reloading with a log on screen leaves the log there.
+	it('leaves the log alone while a new person or window loads', () => {
+		expect(activityPanelState({ ...ready, isLoading: true })).toMatchObject({
+			isEmpty: false,
+			message: null,
+		});
 	});
 });
 

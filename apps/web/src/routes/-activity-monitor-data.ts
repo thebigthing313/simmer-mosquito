@@ -6,7 +6,7 @@ import {
 	type LarvalDensity,
 } from '@simmer-mosquito/domain';
 import { sessionFetch } from '@simmer-mosquito/sync';
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
 import { getServerUrl } from '../auth';
 import {
@@ -296,7 +296,10 @@ export function activityPanelMessage(state: {
 	if (!state.hasProfile) {
 		return { title: 'Choose a person', body: 'Pick someone to see their field work.' };
 	}
-	if (state.isLoading) {
+	// Loading with entries already on screen is not a loading state: the reader
+	// changed the person or the window and the previous log stays until the new
+	// one lands, rather than the panel blanking under them.
+	if (state.isLoading && state.isEmpty) {
 		return 'loading';
 	}
 	// A refusal says which window was refused; anything else is an outage, and an
@@ -310,12 +313,50 @@ export function activityPanelMessage(state: {
 				};
 	}
 	if (state.isEmpty) {
-		return {
-			title: 'No activity in this range',
-			body: 'Nothing is recorded against this person between these dates.',
-		};
+		return ACTIVITY_EMPTY;
 	}
 	return null;
+}
+
+/**
+ * Nothing recorded in the window. Named rather than written inline, so that
+ * {@link activityPanelState} can tell it apart from the messages that carry a
+ * reason and hand it to the explorer frame, which draws every other explorer's
+ * empty state.
+ */
+const ACTIVITY_EMPTY = {
+	title: 'No activity in this range',
+	body: 'Nothing is recorded against this person between these dates.',
+} as const;
+
+/**
+ * How the panel's non-log states split between the frame and the body.
+ *
+ * The frame owns the placeholder rows and the empty state on all fifteen
+ * explorers, so this hands it those two and keeps the rest. What it keeps names
+ * a reason the frame's copy has nowhere to put: no Profile picked yet, a
+ * refusal repeating the window the server declined, or an outage that must
+ * never read as a quiet day.
+ */
+export function activityPanelState(state: {
+	readonly hasProfile: boolean;
+	readonly isLoading: boolean;
+	readonly error: Error | null;
+	readonly isEmpty: boolean;
+}): {
+	/** The frame draws its empty state, or its placeholder rows if still loading. */
+	readonly isEmpty: boolean;
+	/** The body draws this instead of the log. */
+	readonly message: { readonly title: string; readonly body: string } | null;
+	readonly emptyTitle: string;
+	readonly emptyDescription: string;
+} {
+	const message = activityPanelMessage(state);
+	const empty = { emptyTitle: ACTIVITY_EMPTY.title, emptyDescription: ACTIVITY_EMPTY.body };
+	if (message === 'loading' || message === ACTIVITY_EMPTY) {
+		return { isEmpty: true, message: null, ...empty };
+	}
+	return { isEmpty: false, message, ...empty };
 }
 
 /** A refusal is the server declining the question, not the read failing. */
@@ -543,6 +584,11 @@ export function useProfileActivity(input: {
 		queryFn: ({ signal }) => fetchProfileActivity(profileId as string, dateFrom, dateTo, signal),
 		enabled: profileId !== null && dateFrom !== '' && dateTo !== '',
 		staleTime: 30_000,
+		// The person and both dates are in the key, so without this every change
+		// of either drops a populated log back to placeholder rows. The previous
+		// log stays until the new one lands, which is what the rest of the
+		// explorers do when the map moves.
+		placeholderData: keepPreviousData,
 		// A refusal is a permanent answer. Retried, it spends the backoff looking
 		// like a slow load, and the operator never learns the window was refused.
 		retry: (failureCount, error) =>

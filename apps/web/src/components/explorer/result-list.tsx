@@ -7,21 +7,25 @@ import { RESULT_SKELETON_KEYS } from './result-skeleton';
 
 /**
  * The result rail every explorer shows beside its map: placeholders while the
- * first page loads, a reason when nothing matches, then the rows.
+ * first page loads, a reason when nothing matches, then the results.
  *
- * Only the empty-state copy and the row itself differ between explorers. The
- * skeleton stands in only for the *first* load — once rows exist, a refetch
- * leaves them on screen rather than flashing back to placeholders, so panning
- * the map does not blank the list under the cursor.
+ * Only the empty-state copy and the results themselves differ between
+ * explorers. The skeleton stands in only for the *first* load — once there is
+ * something on screen, a refetch leaves it there rather than flashing back to
+ * placeholders, so panning the map does not blank the list under the cursor.
  *
  * A failed request is its own state. Without one the rail fell back to the
  * empty state and told a reader whose request had 500'd to loosen their
- * filters, which is advice that cannot work and hides an outage. With rows
- * already on screen the failure is a strip above them instead, because the
- * rows are real data and blanking them loses more than it says.
+ * filters, which is advice that cannot work and hides an outage. With results
+ * already on screen the failure is a strip above them instead, because they are
+ * real data and blanking them loses more than it says.
+ *
+ * Emptiness is told to this component rather than counted here, because a
+ * caller whose results are a tree or a grouped log has no row count to read it
+ * off. See {@link ExplorerResults}.
  */
-export function ResultList<TRow>({
-	rows,
+export function ResultList({
+	isEmpty,
 	isLoading,
 	isError = false,
 	onRetry,
@@ -30,7 +34,8 @@ export function ResultList<TRow>({
 	skeletonClassName = 'h-[60px]',
 	children,
 }: {
-	readonly rows: readonly TRow[];
+	/** There is nothing to show. Not "the request is still out". */
+	readonly isEmpty: boolean;
 	readonly isLoading: boolean;
 	/** The request failed. Takes precedence over the empty state. */
 	readonly isError?: boolean;
@@ -47,9 +52,10 @@ export function ResultList<TRow>({
 	 * exist in the stylesheet.
 	 */
 	readonly skeletonClassName?: string;
-	readonly children: (row: TRow) => ReactNode;
+	/** The rows, or the whole body a caller composed itself. */
+	readonly children: ReactNode;
 }) {
-	if (isLoading && rows.length === 0) {
+	if (isLoading && isEmpty) {
 		return (
 			// The same ScrollArea the rows arrive into. A plain `overflow-y-auto` here
 			// meant the panel wore the browser's scrollbar while it loaded and the
@@ -65,7 +71,7 @@ export function ResultList<TRow>({
 		);
 	}
 
-	if (isError && rows.length === 0) {
+	if (isError && isEmpty) {
 		return (
 			<div
 				className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center"
@@ -85,7 +91,7 @@ export function ResultList<TRow>({
 		);
 	}
 
-	if (rows.length === 0) {
+	if (isEmpty) {
 		return (
 			<div className="flex flex-1 flex-col items-center justify-center gap-2 p-8 text-center">
 				<MapPinnedIcon aria-hidden="true" className="size-7 text-muted-foreground/60" />
@@ -98,7 +104,7 @@ export function ResultList<TRow>({
 	return (
 		<>
 			{isError ? (
-				// The rows below are the last good answer, so they stay. This says so.
+				// What is below is the last good answer, so it stays. This says so.
 				<div
 					className="flex items-center gap-2 border-destructive/20 border-b bg-destructive/8 px-3 py-2 text-xs"
 					role="alert"
@@ -119,18 +125,42 @@ export function ResultList<TRow>({
 					)}
 				</div>
 			) : null}
-			{/*
-			 * `w-full` on the list, because the Radix viewport wraps its children in a
-			 * `display: table` element that otherwise shrink-wraps to the widest row
-			 * and stops every `truncate` in the rows from having a width to truncate
-			 * against. `auto`, not the Radix default of `hover`: the rail is nearly
-			 * always longer than its panel, and a reader who cannot see a scrollbar
-			 * until they happen to move the pointer over the list has no sign there
-			 * are more rows.
-			 */}
-			<ScrollArea className="min-h-0 flex-1" type="auto">
-				<ul className="w-full divide-y divide-border/40">{rows.map(children)}</ul>
-			</ScrollArea>
+			{children}
 		</>
 	);
+}
+
+/** A flat list of rows, which is what twelve of the fifteen explorers hand over. */
+export function ResultRows<TRow>({
+	rows,
+	children,
+}: {
+	readonly rows: readonly TRow[];
+	readonly children: (row: TRow) => ReactNode;
+}) {
+	return (
+		/*
+		 * `w-full` on the list, because the Radix viewport wraps its children in a
+		 * `display: table` element that otherwise shrink-wraps to the widest row
+		 * and stops every `truncate` in the rows from having a width to truncate
+		 * against. `auto`, not the Radix default of `hover`: the rail is nearly
+		 * always longer than its panel, and a reader who cannot see a scrollbar
+		 * until they happen to move the pointer over the list has no sign there
+		 * are more rows.
+		 */
+		<ScrollArea className="min-h-0 flex-1" type="auto">
+			<ul className="w-full divide-y divide-border/40">{rows.map(children)}</ul>
+		</ScrollArea>
+	);
+}
+
+/**
+ * A caller-composed body, for a panel whose records are not a flat list.
+ *
+ * A plain scroll container rather than the rows' ScrollArea: a tree and a
+ * day-grouped log bring their own headers, sections and sticky bits, and the
+ * Radix viewport's `display: table` wrapper sizes those to their widest child.
+ */
+export function ResultBody({ children }: { readonly children: ReactNode }) {
+	return <div className="min-h-0 flex-1 overflow-y-auto">{children}</div>;
 }

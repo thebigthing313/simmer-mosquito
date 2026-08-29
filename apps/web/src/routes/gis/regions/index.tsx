@@ -7,22 +7,13 @@ import {
 	CollapsibleTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/collapsible';
 import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	ChevronDownIcon,
 	ChevronRightIcon,
 	GripVerticalIcon,
 	iconRegistry,
 	NewFolderIcon,
-	SearchIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -172,35 +163,24 @@ interface RegionTreeView {
 	readonly visibleIds: ReadonlySet<string>;
 }
 
-/** The panel's body: a skeleton, one of two empty states, or the tree itself. */
+/**
+ * The panel's body: the folders, then whatever is filed nowhere.
+ *
+ * Loading and the two empty readings are the frame's, which draws them around
+ * this from the `isEmpty` and the copy `regionsEmptyState` resolves. See
+ * {@link ExplorerResults}.
+ */
 function RegionTreeBody({
 	filtered,
-	hasMatches,
-	isEmpty,
-	isReady,
 	on,
-	search,
 	showUnfiledHeader,
 	view,
 }: {
 	readonly filtered: ReturnType<typeof searchTree>;
-	readonly hasMatches: boolean;
-	readonly isEmpty: boolean;
-	readonly isReady: boolean;
 	readonly on: RegionTreeHandlers;
-	readonly search: string;
 	readonly showUnfiledHeader: boolean;
 	readonly view: RegionTreeView;
 }) {
-	if (!isReady) {
-		return <RegionsSkeleton />;
-	}
-	if (isEmpty) {
-		return <RegionsEmpty />;
-	}
-	if (!hasMatches) {
-		return <RegionsNoMatches query={search.trim()} />;
-	}
 	return (
 		<div className="p-2">
 			{filtered.folders.map((match) => (
@@ -429,6 +409,11 @@ function RegionsExplorerRoute() {
 		[query, sortedFolders, regionsByFolder],
 	);
 	const hasMatches = filtered.folders.length > 0 || filtered.unfiled.length > 0;
+	const emptyState = regionsEmptyState({
+		hasDirectory: regions.length > 0 || sortedFolders.length > 0,
+		hasMatches,
+		query: search.trim(),
+	});
 
 	const visibleArray = useMemo(() => [...visibleIds], [visibleIds]);
 	const serverUrl = getServerUrl();
@@ -522,23 +507,20 @@ function RegionsExplorerRoute() {
 				panel={panel}
 				results={{
 					// A tree, not a list: folders hold regions and rows are dragged between
-					// them, so this panel draws its own body. See {@link ExplorerResults}.
+					// them, so this panel fills the rows slot with its own body and states
+					// its emptiness. See {@link ExplorerResults}.
 					body: (
 						<RegionTreeBody
 							filtered={filtered}
-							hasMatches={hasMatches}
-							isEmpty={regions.length === 0 && sortedFolders.length === 0}
-							isReady={isReady}
 							on={treeHandlers}
-							search={search}
 							showUnfiledHeader={sortedFolders.length > 0}
 							view={treeView}
 						/>
 					),
-					rows: [],
-					renderRow: () => null,
-					emptyTitle: 'No regions yet',
-					emptyDescription: 'Draw or import a boundary to start filing work by area.',
+					...emptyState,
+					// The tree's rows are a folder header and a region, not the 60px
+					// record card the rail sizes its placeholders to by default.
+					skeletonClassName: 'h-9',
 				}}
 			/>
 			{folderDialog === null ? null : (
@@ -904,46 +886,40 @@ function RegionRenameField({
 	);
 }
 
-function RegionsSkeleton() {
-	return (
-		<div className="grid gap-2 p-4">
-			{[0, 1, 2, 3, 4].map((index) => (
-				<Skeleton className="h-9" key={index} />
-			))}
-		</div>
-	);
-}
-
-function RegionsNoMatches({ query }: { readonly query: string }) {
-	return (
-		<div className="flex flex-1 items-center justify-center p-6">
-			<Empty className="min-h-[200px] border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<SearchIcon aria-hidden="true" />
-					</EmptyMedia>
-					<EmptyTitle>No Matches</EmptyTitle>
-					<EmptyDescription>Nothing matches “{query}”.</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
-		</div>
-	);
-}
-
-function RegionsEmpty() {
-	return (
-		<div className="flex flex-1 items-center justify-center p-6">
-			<Empty className="min-h-[200px] border border-border/40 bg-muted/30">
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<RegionIcon aria-hidden="true" />
-					</EmptyMedia>
-					<EmptyTitle>No Regions Yet</EmptyTitle>
-					<EmptyDescription>
-						Create a region or import boundaries from a KML, KMZ, or GeoJSON file.
-					</EmptyDescription>
-				</EmptyHeader>
-			</Empty>
-		</div>
-	);
+/**
+ * Which of the two empty readings the tree is in, and the copy for it.
+ *
+ * An agency that has never drawn a region and a search that matched none of
+ * hundreds are both an empty panel, and the way out of them is opposite: draw
+ * or import one, or clear the search. Exported so the pair is tested without
+ * standing a tree up.
+ *
+ * Not knowing yet reads as empty here, which is what the frame wants: while the
+ * two collections load the heading is still `isLoading`, and the frame draws
+ * placeholder rows rather than either of these.
+ */
+export function regionsEmptyState(input: {
+	/** The agency has at least one Region or one folder. */
+	readonly hasDirectory: boolean;
+	/** The search left something in the tree. */
+	readonly hasMatches: boolean;
+	/** What was searched for, trimmed. */
+	readonly query: string;
+}): {
+	readonly isEmpty: boolean;
+	readonly emptyTitle: string;
+	readonly emptyDescription: string;
+} {
+	if (input.hasDirectory) {
+		return {
+			isEmpty: !input.hasMatches,
+			emptyTitle: 'No matches',
+			emptyDescription: `Nothing matches “${input.query}”.`,
+		};
+	}
+	return {
+		isEmpty: true,
+		emptyTitle: 'No regions yet',
+		emptyDescription: 'Create a region, or import boundaries from a KML, KMZ, or GeoJSON file.',
+	};
 }
