@@ -2,15 +2,14 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
+import { useRecordExtras } from '../../../forms/record-extras';
 import { newRecordId } from '../../../hooks/mutations/shared';
-import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useOutreachMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
 import {
@@ -58,7 +57,7 @@ function CreateOutreachActionRoute() {
 	// — and so their on-demand stream is already warm when the save fires.
 	const [outreachActionId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'outreachAction', id: outreachActionId });
-	const { setPersonnel } = useAdditionalPersonnelMutations();
+	const recordExtras = useRecordExtras();
 	const { record } = useOutreachActionMutations();
 
 	const onSave = useCallback(
@@ -116,13 +115,11 @@ function CreateOutreachActionRoute() {
 					acknowledgements,
 				});
 				// Crew rows reference the action, so they can only be written once it exists.
-				await attachLinksBestEffort('the additional personnel', () =>
-					setPersonnel({
-						target: { type: 'outreachAction', id: outreachActionId },
-						existing: [],
-						profileIds: values.additionalPersonnelIds,
-					}),
-				);
+				await recordExtras.attach({
+					target: { type: 'outreachAction', id: outreachActionId },
+					profileIds: values.additionalPersonnelIds,
+					commentText: values.comment,
+				});
 				await mission.navigateAfterSave(async () => {
 					await navigate({
 						to: '/public-engagement/outreach/$id',
@@ -130,13 +127,14 @@ function CreateOutreachActionRoute() {
 					});
 				});
 			}),
-		[organization, actorProfileId, outreachActionId, navigate, mission, record, setPersonnel],
+		[organization, actorProfileId, outreachActionId, navigate, mission, record, recordExtras],
 	);
 
 	return (
 		<>
 			<OutreachFormPage
 				canSubmit={canSubmit}
+				mode="create"
 				defaultValues={defaultOutreachFormValues(timeZone)}
 				header={{
 					title: 'Record Outreach',

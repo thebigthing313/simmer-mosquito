@@ -7,6 +7,8 @@ import {
 	customFieldCount,
 	customSchemaFor,
 	type FieldOption,
+	FormSection,
+	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
@@ -14,7 +16,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
@@ -37,6 +38,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type {
 	FormulationComponentListing,
@@ -51,7 +53,6 @@ import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
 import { insecticideDisplayName } from '../-control-display';
-import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
 import {
 	componentAmounts,
@@ -146,6 +147,8 @@ export interface ApplicationFormValues {
 	readonly habitatId: string | null;
 	/** Values for the custom fields the chosen application method declares. */
 	readonly metadata: MetadataValue;
+	/** Create only: saved as the application's first comment. Ignored on edit. */
+	readonly comment: string;
 }
 
 export interface ApplicationFormHeader {
@@ -181,6 +184,8 @@ export interface ApplicationFormPageProps {
 	 * optional so the record keeps its existing shape unless the user redraws.
 	 */
 	readonly requireLocation?: boolean;
+	/** Create shows the first-comment box; edit does not (the thread owns it). */
+	readonly mode: 'create' | 'edit';
 	readonly header: ApplicationFormHeader;
 	readonly submitLabel: string;
 	readonly onSave: (input: {
@@ -210,6 +215,7 @@ export function defaultApplicationFormValues(timeZone: string): ApplicationFormV
 		addressId: null,
 		habitatId: null,
 		metadata: null,
+		comment: '',
 	};
 }
 
@@ -227,6 +233,7 @@ export function ApplicationFormPage({
 	defaultValues,
 	initialGeometry = null,
 	requireLocation = true,
+	mode,
 	header,
 	submitLabel,
 	onSave,
@@ -504,26 +511,51 @@ export function ApplicationFormPage({
 					</Alert>
 				)}
 
-				<section
-					aria-labelledby="application-location-label"
-					className={cn(
-						'grid gap-4 rounded-md border bg-muted/30 p-4',
-						locationError === null ? 'border-border/50' : 'border-destructive/60',
+				<form.AppField name="applicationDate">
+					{(field) => (
+						<DateControl
+							label="Application date"
+							required
+							onChange={field.handleChange}
+							value={field.state.value}
+						/>
 					)}
-				>
-					<div className="grid gap-0.5">
-						<span
-							className="font-semibold text-foreground text-sm leading-none"
-							id="application-location-label"
-						>
-							Location
-						</span>
-						<span className="text-muted-foreground text-xs">
-							The geometry is where the product was applied — a point for a spot treatment, a line
-							or area for a treated swath. An address is optional reference.
-						</span>
-					</div>
+				</form.AppField>
 
+				<FormSection title="Personnel">
+					<form.AppField name="applicatorProfileId">
+						{(field) => (
+							<field.AutocompleteField
+								emptyValue={noSelectionValue}
+								label="Applicator"
+								options={profileOptions}
+								placeholder="Unassigned — search profiles"
+							/>
+						)}
+					</form.AppField>
+					<form.Subscribe selector={(state) => state.values.applicatorProfileId}>
+						{(applicatorProfileId) => (
+							<form.AppField name="additionalPersonnelIds">
+								{(field) => (
+									<field.MultiSelectField
+										emptyMessage="No profiles"
+										label="Additional personnel"
+										options={additionalPersonnelOptions(profiles, field.state.value, {
+											excludeProfileId:
+												applicatorProfileId === noSelectionValue ? null : applicatorProfileId,
+										})}
+										placeholder="Search profiles"
+									/>
+								)}
+							</form.AppField>
+						)}
+					</form.Subscribe>
+				</FormSection>
+
+				<LocationSection
+					description="The geometry is where the product was applied — a point for a spot treatment, a line or area for a treated swath. An address is optional reference, and a habitat links the treatment to a known larval site."
+					error={locationError}
+				>
 					<form.AppField name="addressId">
 						{(field) => (
 							<AddressPicker
@@ -553,10 +585,17 @@ export function ApplicationFormPage({
 						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 					/>
 
-					{locationError === null ? null : (
-						<p className="m-0 text-destructive text-sm">{locationError}</p>
-					)}
-				</section>
+					<form.AppField name="habitatId">
+						{(field) => (
+							<HabitatPicker
+								label="Habitat"
+								organizationId={organizationId}
+								onSelect={(habitat) => field.handleChange(habitat?.id ?? null)}
+								value={field.state.value}
+							/>
+						)}
+					</form.AppField>
+				</LocationSection>
 
 				<FormSection title="Product">
 					{formulationEntry ? (
@@ -780,34 +819,14 @@ export function ApplicationFormPage({
 					</form.Subscribe>
 				</FormSection>
 
-				<FormSection title="Work">
+				<FormSection title="Application">
 					<div className="grid gap-5 sm:grid-cols-2">
-						<form.AppField name="applicationDate">
-							{(field) => (
-								<DateControl
-									label="Application date"
-									required
-									onChange={field.handleChange}
-									value={field.state.value}
-								/>
-							)}
-						</form.AppField>
 						<form.AppField name="applicationMethodId">
 							{(field) => (
 								<field.SelectField
 									label="Application method"
 									options={optionalOptions(methodOptions, 'No method')}
 									placeholder="No method"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="applicatorProfileId">
-							{(field) => (
-								<field.AutocompleteField
-									emptyValue={noSelectionValue}
-									label="Applicator"
-									options={profileOptions}
-									placeholder="Unassigned — search profiles"
 								/>
 							)}
 						</form.AppField>
@@ -830,23 +849,6 @@ export function ApplicationFormPage({
 							)}
 						</form.AppField>
 					</div>
-					<form.Subscribe selector={(state) => state.values.applicatorProfileId}>
-						{(applicatorProfileId) => (
-							<form.AppField name="additionalPersonnelIds">
-								{(field) => (
-									<field.MultiSelectField
-										emptyMessage="No profiles"
-										label="Additional personnel"
-										options={additionalPersonnelOptions(profiles, field.state.value, {
-											excludeProfileId:
-												applicatorProfileId === noSelectionValue ? null : applicatorProfileId,
-										})}
-										placeholder="Search profiles"
-									/>
-								)}
-							</form.AppField>
-						)}
-					</form.Subscribe>
 				</FormSection>
 
 				{/* Agencies attach their own fields to an application method; render
@@ -876,23 +878,7 @@ export function ApplicationFormPage({
 					}}
 				</form.Subscribe>
 
-				<FormSection title="Context">
-					<div className="grid gap-1.5">
-						<form.AppField name="habitatId">
-							{(field) => (
-								<HabitatPicker
-									label="Habitat"
-									organizationId={organizationId}
-									onSelect={(habitat) => field.handleChange(habitat?.id ?? null)}
-									value={field.state.value}
-								/>
-							)}
-						</form.AppField>
-						<p className="m-0 text-muted-foreground text-xs">
-							Link the treatment to a known larval site. Leave it empty for standalone work.
-						</p>
-					</div>
-				</FormSection>
+				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>
 		</form.AppForm>
 	);

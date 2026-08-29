@@ -3,13 +3,14 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	customFieldCount,
 	customSchemaFor,
+	FormSection,
+	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
@@ -31,11 +32,11 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { FormSection } from '../../control-operations/-control-form-parts';
 import { AddressPicker } from '../../control-operations/-control-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
@@ -72,6 +73,8 @@ export interface OutreachFormValues {
 	readonly reachDescription: string;
 	/** Values for the custom fields the chosen method declares. */
 	readonly metadata: MetadataValue;
+	/** Create only: saved as the action's first comment. Ignored on edit. */
+	readonly comment: string;
 }
 
 export interface OutreachFormHeader {
@@ -95,6 +98,8 @@ export interface OutreachFormPageProps {
 	 * optional so an action keeps its existing shape unless the user redraws.
 	 */
 	readonly requireLocation?: boolean;
+	/** Create shows the first-comment box; edit does not (the thread owns it). */
+	readonly mode: 'create' | 'edit';
 	readonly header: OutreachFormHeader;
 	readonly submitLabel: string;
 	readonly onSave: (input: {
@@ -116,6 +121,7 @@ export function defaultOutreachFormValues(timeZone: string): OutreachFormValues 
 		reach: null,
 		reachDescription: '',
 		metadata: null,
+		comment: '',
 	};
 }
 
@@ -127,6 +133,7 @@ export function OutreachFormPage({
 	defaultValues,
 	initialGeometry = null,
 	requireLocation = true,
+	mode,
 	header,
 	submitLabel,
 	onSave,
@@ -297,26 +304,50 @@ export function OutreachFormPage({
 					</Alert>
 				)}
 
-				<section
-					aria-labelledby="outreach-location-label"
-					className={cn(
-						'grid gap-4 rounded-md border bg-muted/30 p-4',
-						locationError === null ? 'border-border/50' : 'border-destructive/60',
+				<form.AppField name="outreachDate">
+					{(field) => (
+						<DateControl
+							label="Outreach date"
+							onChange={(next) => field.handleChange(next)}
+							required
+							value={field.state.value}
+						/>
 					)}
-				>
-					<div className="grid gap-0.5">
-						<span
-							className="font-semibold text-foreground text-sm leading-none"
-							id="outreach-location-label"
-						>
-							Location
-						</span>
-						<span className="text-muted-foreground text-xs">
-							The geometry is where the outreach happened — a point for a single stop, a line or
-							area for a canvassed block. An address is optional reference.
-						</span>
-					</div>
+				</form.AppField>
 
+				<FormSection title="Personnel">
+					<form.AppField name="technicianProfileId">
+						{(field) => (
+							<field.SelectField
+								label="Technician"
+								options={technicianOptions}
+								placeholder="Unassigned"
+							/>
+						)}
+					</form.AppField>
+					<form.Subscribe selector={(state) => state.values.technicianProfileId}>
+						{(technicianProfileId) => (
+							<form.AppField name="additionalPersonnelIds">
+								{(field) => (
+									<field.MultiSelectField
+										emptyMessage="No profiles"
+										label="Additional personnel"
+										options={additionalPersonnelOptions(profiles, field.state.value, {
+											excludeProfileId:
+												technicianProfileId === noTechnicianValue ? null : technicianProfileId,
+										})}
+										placeholder="Search profiles"
+									/>
+								)}
+							</form.AppField>
+						)}
+					</form.Subscribe>
+				</FormSection>
+
+				<LocationSection
+					description="The geometry is where the outreach happened — a point for a single stop, a line or area for a canvassed block. An address is optional reference."
+					error={locationError}
+				>
 					<form.AppField name="addressId">
 						{(field) => (
 							<AddressPicker
@@ -345,11 +376,7 @@ export function OutreachFormPage({
 						required={requireLocation}
 						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 					/>
-
-					{locationError === null ? null : (
-						<p className="m-0 text-destructive text-sm">{locationError}</p>
-					)}
-				</section>
+				</LocationSection>
 
 				<FormSection title="Outreach">
 					<form.AppField name="outreachMethodId">
@@ -412,46 +439,7 @@ export function OutreachFormPage({
 					}}
 				</form.Subscribe>
 
-				<FormSection title="Work">
-					<div className="grid gap-5 sm:grid-cols-2">
-						<form.AppField name="outreachDate">
-							{(field) => (
-								<DateControl
-									label="Outreach date"
-									onChange={(next) => field.handleChange(next)}
-									required
-									value={field.state.value}
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="technicianProfileId">
-							{(field) => (
-								<field.SelectField
-									label="Technician"
-									options={technicianOptions}
-									placeholder="Unassigned"
-								/>
-							)}
-						</form.AppField>
-					</div>
-					<form.Subscribe selector={(state) => state.values.technicianProfileId}>
-						{(technicianProfileId) => (
-							<form.AppField name="additionalPersonnelIds">
-								{(field) => (
-									<field.MultiSelectField
-										emptyMessage="No profiles"
-										label="Additional personnel"
-										options={additionalPersonnelOptions(profiles, field.state.value, {
-											excludeProfileId:
-												technicianProfileId === noTechnicianValue ? null : technicianProfileId,
-										})}
-										placeholder="Search profiles"
-									/>
-								)}
-							</form.AppField>
-						)}
-					</form.Subscribe>
-				</FormSection>
+				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>
 		</form.AppForm>
 	);

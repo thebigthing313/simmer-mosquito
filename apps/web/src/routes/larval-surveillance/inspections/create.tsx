@@ -5,8 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
-import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
-import { useCommentMutations } from '../../../hooks/mutations/use-comment-mutations';
+import { useRecordExtras } from '../../../forms/record-extras';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
@@ -112,8 +111,7 @@ function CreateInspectionRoute() {
 	const assignmentItemId = search.assignmentItemId ?? null;
 	const assignmentId = search.assignmentId ?? null;
 	const navigate = useNavigate();
-	const { setPersonnel } = useAdditionalPersonnelMutations();
-	const { add: addComment } = useCommentMutations();
+	const recordExtras = useRecordExtras();
 	const inspectionMutations = useInspectionMutations();
 	const sampleMutations = useSampleMutations();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
@@ -194,27 +192,11 @@ function CreateInspectionRoute() {
 
 				// Crew rows reference the inspection, so they can only be written once it
 				// exists.
-				await attachLinksBestEffort('the additional personnel', () =>
-					setPersonnel({
-						target: { type: 'inspection', id: inspectionId },
-						existing: [],
-						profileIds: values.additionalPersonnelIds,
-					}),
-				);
-
-				// Attach the optional note as the inspection's first comment. The
-				// inspection must be committed first (the comment references it), so this
-				// runs after its persistence — best-effort, so a comment hiccup never
-				// strands the user on a saved-but-unnavigated inspection.
-				const comment = values.comment.trim();
-				if (comment.length > 0) {
-					// Same bind as the crew rows: the inspection is already saved, so a
-					// failed note cannot fail the save — but the text the user typed is not
-					// on the record, so it is reported rather than dropped.
-					await attachLinksBestEffort('the note', async () => {
-						await addComment({ type: 'inspection', id: inspectionId }, comment);
-					});
-				}
+				await recordExtras.attach({
+					target: { type: 'inspection', id: inspectionId },
+					profileIds: values.additionalPersonnelIds,
+					commentText: values.comment,
+				});
 
 				// Back to the worklist the stop came from, not to the inspection: the
 				// crew's next move is the next stop.
@@ -237,8 +219,7 @@ function CreateInspectionRoute() {
 			assignmentItemId,
 			assignmentId,
 			runAcknowledged,
-			setPersonnel,
-			addComment,
+			recordExtras,
 			inspectionMutations,
 			sampleMutations,
 		],

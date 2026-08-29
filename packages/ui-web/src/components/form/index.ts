@@ -43,6 +43,8 @@ export {
 	AppFieldGroup,
 	FormActions,
 	FormErrorAlert,
+	FormSection,
+	LocationSection,
 	RecordFormPage,
 	ResetButton,
 	SubmitButton,

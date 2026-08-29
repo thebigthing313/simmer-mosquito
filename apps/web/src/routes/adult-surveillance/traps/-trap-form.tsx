@@ -1,8 +1,12 @@
 import { createTrapCommand } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import {
+	FormSection,
+	LocationSection,
+	RecordFormPage,
+	useAppForm,
+} from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
@@ -242,26 +246,10 @@ export function TrapFormPage({
 					</Alert>
 				)}
 
-				<section
-					aria-labelledby="trap-location-label"
-					className={cn(
-						'grid gap-4 rounded-md border bg-muted/30 p-4',
-						locationError === null ? 'border-border/50' : 'border-destructive/60',
-					)}
+				<LocationSection
+					description="The point is the trap’s exact location. An address is optional reference — refine the point off it to the precise spot."
+					error={locationError}
 				>
-					<div className="grid gap-0.5">
-						<span
-							className="font-semibold text-foreground text-sm leading-none"
-							id="trap-location-label"
-						>
-							Location
-						</span>
-						<span className="text-muted-foreground text-xs">
-							The point is the trap’s exact location. An address is optional reference — refine the
-							point off it to the precise spot.
-						</span>
-					</div>
-
 					<form.AppField name="addressId">
 						{(field) => (
 							<AddressPicker
@@ -289,11 +277,7 @@ export function TrapFormPage({
 						onDraw={startDraw}
 						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 					/>
-
-					{locationError === null ? null : (
-						<p className="m-0 text-destructive text-sm">{locationError}</p>
-					)}
-				</section>
+				</LocationSection>
 
 				<FormSection title="Configuration">
 					<div className="grid gap-5 sm:grid-cols-2">
@@ -353,21 +337,6 @@ export function TrapFormPage({
 }
 
 // --- reusable form controls -------------------------------------------------
-
-function FormSection({
-	title,
-	children,
-}: {
-	readonly title: string;
-	readonly children: React.ReactNode;
-}) {
-	return (
-		<section className="grid gap-4">
-			<h2 className="m-0 font-semibold text-foreground text-sm">{title}</h2>
-			{children}
-		</section>
-	);
-}
 
 /**
  * What the form holds, as the write seam takes it.

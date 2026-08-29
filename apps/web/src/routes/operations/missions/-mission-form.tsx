@@ -1,5 +1,6 @@
 import type { ControlType } from '@simmer-mosquito/sync';
 import {
+	FormSection,
 	type RecordFormHeader,
 	RecordFormPage,
 	useAppForm,
@@ -13,7 +14,6 @@ import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { localTimeAsInstant, localTimeOfDay, todayInTimeZone } from '../../../lib/local-date';
-import { FormSection } from '../../control-operations/-control-form-parts';
 import { ControlTypeToggle } from '../-control-type-toggle';
 import { useMethodsForControlType } from '../-operations-data';
 

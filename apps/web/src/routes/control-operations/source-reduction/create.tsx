@@ -2,8 +2,8 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
+import { useRecordExtras } from '../../../forms/record-extras';
 import { newRecordId } from '../../../hooks/mutations/shared';
-import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useSourceReductionMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
@@ -11,14 +11,13 @@ import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
 import {
 	defaultSourceReductionFormValues,
-	noTechnicianValue,
 	SourceReductionFormPage,
 	type SourceReductionSaveInput,
+	sourceReductionFieldsFrom,
 } from './-source-reduction-form';
 
 export const Route = createFileRoute('/control-operations/source-reduction/create')({
@@ -59,7 +58,7 @@ function CreateSourceReductionRoute() {
 	// — and so their on-demand stream is already warm when the save fires.
 	const [sourceReductionId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'sourceReduction', id: sourceReductionId });
-	const { setPersonnel } = useAdditionalPersonnelMutations();
+	const recordExtras = useRecordExtras();
 	const { record } = useSourceReductionMutations();
 
 	const onSave = useCallback(
@@ -91,17 +90,7 @@ function CreateSourceReductionRoute() {
 				// rather than making this form say which command it meant.
 				await record({
 					sourceReductionId,
-					values: {
-						methodId: values.sourceReductionMethodId,
-						technicianProfileId:
-							values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-						actionDate: values.sourceReductionDate,
-						addressId: values.addressId,
-						habitatId: values.habitatId,
-						sourcesEliminated: values.sourcesEliminatedAmount,
-						unitId: values.sourcesEliminatedUnitId,
-						metadata: values.metadata,
-					},
+					values: sourceReductionFieldsFrom(values),
 					location: {
 						lat: location.lat,
 						lng: location.lng,
@@ -112,13 +101,11 @@ function CreateSourceReductionRoute() {
 					acknowledgements,
 				});
 				// Crew rows reference the action, so they can only be written once it exists.
-				await attachLinksBestEffort('the additional personnel', () =>
-					setPersonnel({
-						target: { type: 'sourceReduction', id: sourceReductionId },
-						existing: [],
-						profileIds: values.additionalPersonnelIds,
-					}),
-				);
+				await recordExtras.attach({
+					target: { type: 'sourceReduction', id: sourceReductionId },
+					profileIds: values.additionalPersonnelIds,
+					commentText: values.comment,
+				});
 				await mission.navigateAfterSave(async () => {
 					await navigate({
 						to: '/control-operations/source-reduction/$id',
@@ -126,7 +113,7 @@ function CreateSourceReductionRoute() {
 					});
 				});
 			}),
-		[organization, actorProfileId, sourceReductionId, navigate, mission, record, setPersonnel],
+		[organization, actorProfileId, sourceReductionId, navigate, mission, record, recordExtras],
 	);
 
 	return (
@@ -141,6 +128,7 @@ function CreateSourceReductionRoute() {
 					backLabel: 'Source Reduction',
 				}}
 				methods={methods}
+				mode="create"
 				initialGeometry={initialGeometry}
 				requireLocation={mission.requireLocation}
 				onSave={onSave}

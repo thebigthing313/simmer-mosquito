@@ -434,6 +434,54 @@ A create form pinned permanently above its own list is not a third option. It
 spends vertical space on every visit to serve the rarest action, and it makes
 adding and editing two different experiences of one operation.
 
+### Record form bands
+
+Inside `RecordFormPage`, a form is a stack of bands and there are two kinds.
+`FormSection` is a heading over a group of fields. `LocationSection` is the
+boxed band that holds a record's geography, and it is a box rather than a
+heading because the controls in it move each other: picking a habitat replaces
+the drawn shape, refining off an address moves the point. The border is what
+says they are one answer, and it is also what carries the section-level error,
+which is the one error on a form that belongs to a group rather than a field.
+
+Both live in `@simmer-mosquito/ui-web/components/form`. `FormSection` had five
+copies before, four of them identical and the fifth carrying a `note` slot for a
+rule that applies to a whole section, so only one form could show such a rule.
+The location band had thirteen, two of which used `aria-label` where the rest
+used `aria-labelledby` and so announced no heading at all. Neither belongs in a
+route folder: `FormSection` used to live under `routes/control-operations/` and
+three domains outside it reached across to import it.
+
+Operations forms hold their geometry in a `DrawLocation` controller rather than
+in separate pieces of form state, so `routes/operations/-location-section.tsx`
+stays: it wraps the shared band and renders the geometry control off the
+controller. That is the one thing the band cannot know, and it is the only
+reason to wrap it.
+
+**The Dated Record Order.** Every form that records dated field work stacks its
+bands in one order, so a crew that files an inspection and a source reduction on
+the same afternoon fills them in the same sequence:
+
+1. the operational date
+2. personnel, primary actor first, then additional personnel
+3. the location band
+4. the fields that belong to this record type alone
+5. custom fields, when the chosen method or type declares any
+6. child records
+7. the first comment, on create only
+
+Inside the location band the order is address, geometry, then the catalog
+record the work refers to, except on inspections and collections, where the
+habitat or trap is what *sets* the geometry rather than referring to it. There
+the picker comes first, because a form that takes a drawn shape and then
+replaces it from a field below is lying about what it did.
+
+The six forms are larval inspections, adult collections, chemical applications,
+biocontrol releases, source reductions, and outreach actions. They had six
+different orders before: three opened with the location, one with the trap, one
+put the date last, and one put it in a section called Attribution between the
+custom fields and the habitat.
+
 ### Record lists
 
 Record lists should beat tables when the task is inspection plus action. Use

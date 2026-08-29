@@ -10,6 +10,8 @@ import type { CollectionTimingMode } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
+	FormSection,
+	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
@@ -17,7 +19,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
@@ -32,6 +33,7 @@ import {
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
 import type {
 	CatalogListing,
@@ -167,6 +169,8 @@ export interface CollectionFormValues {
 	readonly hasProblem: boolean;
 	/** Values for the custom fields the collection method declares. */
 	readonly metadata: MetadataValue;
+	/** Create only: saved as the collection's first comment. Ignored on edit. */
+	readonly comment: string;
 }
 
 /** The resolved location + method a submit yields, once source mode is applied. */
@@ -204,6 +208,8 @@ export interface CollectionFormPageProps {
 	readonly lockSourceMode?: boolean;
 	/** The ad-hoc collection's point to pre-fill on edit; create starts with none. */
 	readonly initialGeometry?: DrawGeometry | null;
+	/** Create shows the first-comment box; edit does not (the thread owns it). */
+	readonly mode: 'create' | 'edit';
 	readonly header: CollectionFormHeader;
 	readonly submitLabel: string;
 	readonly onSave: (input: CollectionSaveInput) => Promise<void>;
@@ -232,6 +238,7 @@ export function defaultCollectionFormValues(
 		additionalPersonnelIds: [],
 		hasProblem: false,
 		metadata: null,
+		comment: '',
 	};
 }
 
@@ -246,6 +253,7 @@ export function CollectionFormPage({
 	defaultValues,
 	lockSourceMode = false,
 	initialGeometry = null,
+	mode,
 	header,
 	submitLabel,
 	onSave,
@@ -401,7 +409,60 @@ export function CollectionFormPage({
 					</Alert>
 				)}
 
-				<FormSection title="Source">
+				<TimingSection form={form} units={units} />
+
+				<FormSection title="Personnel">
+					<div className="grid gap-5 sm:grid-cols-2">
+						<form.AppField name="setByProfileId">
+							{(field) => (
+								<field.SelectField
+									label="Set by"
+									options={profileOptions(profiles)}
+									placeholder="Unassigned"
+								/>
+							)}
+						</form.AppField>
+						{/* Nobody has emptied a trap that is still out; the field appears on
+						    the visit that does. */}
+						<form.Subscribe selector={(state) => isPendingCollection(state.values)}>
+							{(pending) =>
+								pending ? null : (
+									<form.AppField name="collectedByProfileId">
+										{(field) => (
+											<field.SelectField
+												label="Collected by"
+												options={profileOptions(profiles)}
+												placeholder="Unassigned"
+											/>
+										)}
+									</form.AppField>
+								)
+							}
+						</form.Subscribe>
+					</div>
+					<form.Subscribe selector={(state) => state.values.collectedByProfileId}>
+						{(collectedByProfileId) => (
+							<form.AppField name="additionalPersonnelIds">
+								{(field) => (
+									<field.MultiSelectField
+										emptyMessage="No profiles"
+										label="Additional personnel"
+										options={additionalPersonnelOptions(profiles, field.state.value, {
+											excludeProfileId: collectedByProfileId,
+										})}
+										placeholder="Search profiles"
+									/>
+								)}
+							</form.AppField>
+						)}
+					</form.Subscribe>
+				</FormSection>
+
+				<LocationSection
+					description="A trap collection sits where the trap sits. A one-off carries its own point; an address is optional reference, and the point can be refined off it."
+					error={locationError}
+					title="Source and location"
+				>
 					<form.AppField name="sourceMode">
 						{(field) => (
 							<ToggleGroup
@@ -462,60 +523,56 @@ export function CollectionFormPage({
 									)}
 								</form.AppField>
 							) : (
-								<div className="grid gap-5">
-									<form.AppField name="collectionMethodId">
+								<>
+									<form.AppField name="addressId">
 										{(field) => (
-											<field.SelectField
-												label="Collection method"
-												required
-												options={methodOptions}
-												placeholder="Select method"
+											<AddressPicker
+												create={{ requestMapPoint }}
+												label="Address"
+												onSelect={(address) => {
+													field.handleChange(address?.id ?? null);
+													setLocationError(null);
+													selectAddress(address);
+												}}
+												organizationId={organizationId}
+												value={field.state.value}
 											/>
 										)}
 									</form.AppField>
-									<section
-										aria-label="Collection location"
-										className={cn(
-											'grid gap-4 rounded-md border bg-muted/30 p-4',
-											locationError === null ? 'border-border/50' : 'border-destructive/60',
-										)}
-									>
-										<p className="m-0 text-muted-foreground text-xs">
-											The point is this collection’s exact location. An address is optional
-											reference — refine the point off it to the precise spot.
-										</p>
-										<form.AppField name="addressId">
-											{(field) => (
-												<AddressPicker
-													create={{ requestMapPoint }}
-													label="Address"
-													onSelect={(address) => {
-														field.handleChange(address?.id ?? null);
-														setLocationError(null);
-														selectAddress(address);
-													}}
-													organizationId={organizationId}
-													value={field.state.value}
-												/>
-											)}
-										</form.AppField>
-										<GeometryControl
-											allowedTypes={POINT_DRAW_TYPES}
-											controller={draw}
-											geometry={geometry}
-											geometryType="Point"
-											label="Point"
-											required
-											onClear={clearPoint}
-											onDraw={startDraw}
-											{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
-										/>
-										{locationError === null ? null : (
-											<p className="m-0 text-destructive text-sm">{locationError}</p>
-										)}
-									</section>
-								</div>
+									<GeometryControl
+										allowedTypes={POINT_DRAW_TYPES}
+										controller={draw}
+										geometry={geometry}
+										geometryType="Point"
+										label="Point"
+										required
+										onClear={clearPoint}
+										onDraw={startDraw}
+										{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+									/>
+								</>
 							)
+						}
+					</form.Subscribe>
+				</LocationSection>
+
+				<FormSection title="Collection">
+					{/* Only the one-off picks a method; a trap collection inherits the
+					    trap's, and the picker above says which. */}
+					<form.Subscribe selector={(state) => state.values.sourceMode}>
+						{(sourceMode) =>
+							sourceMode === 'adhoc' ? (
+								<form.AppField name="collectionMethodId">
+									{(field) => (
+										<field.SelectField
+											label="Collection method"
+											required
+											options={methodOptions}
+											placeholder="Select method"
+										/>
+									)}
+								</form.AppField>
+							) : null
 						}
 					</form.Subscribe>
 
@@ -525,6 +582,15 @@ export function CollectionFormPage({
 								label="Lure"
 								options={lureOptions(collectionLures)}
 								placeholder="No lure"
+							/>
+						)}
+					</form.AppField>
+
+					<form.AppField name="hasProblem">
+						{(field) => (
+							<field.SwitchField
+								description="Flag if the trap failed, was tampered with, or the sample is compromised."
+								label="Problem with this collection"
 							/>
 						)}
 					</form.AppField>
@@ -557,69 +623,14 @@ export function CollectionFormPage({
 					}}
 				</form.Subscribe>
 
-				<TimingSection form={form} units={units} />
-
-				<FormSection title="Personnel">
-					<div className="grid gap-5 sm:grid-cols-2">
-						<form.AppField name="setByProfileId">
-							{(field) => (
-								<field.SelectField
-									label="Set by"
-									options={profileOptions(profiles)}
-									placeholder="Unassigned"
-								/>
-							)}
-						</form.AppField>
-						{/* Nobody has emptied a trap that is still out; the field appears on
-						    the visit that does. */}
-						<form.Subscribe selector={(state) => isPendingCollection(state.values)}>
-							{(pending) =>
-								pending ? null : (
-									<form.AppField name="collectedByProfileId">
-										{(field) => (
-											<field.SelectField
-												label="Collected by"
-												options={profileOptions(profiles)}
-												placeholder="Unassigned"
-											/>
-										)}
-									</form.AppField>
-								)
-							}
-						</form.Subscribe>
-					</div>
-					<form.Subscribe selector={(state) => state.values.collectedByProfileId}>
-						{(collectedByProfileId) => (
-							<form.AppField name="additionalPersonnelIds">
-								{(field) => (
-									<field.MultiSelectField
-										emptyMessage="No profiles"
-										label="Additional personnel"
-										options={additionalPersonnelOptions(profiles, field.state.value, {
-											excludeProfileId: collectedByProfileId,
-										})}
-										placeholder="Search profiles"
-									/>
-								)}
-							</form.AppField>
-						)}
-					</form.Subscribe>
-				</FormSection>
-
 				<FormSection title="Results">
-					<form.AppField name="hasProblem">
-						{(field) => (
-							<field.SwitchField
-								description="Flag if the trap failed, was tampered with, or the sample is compromised."
-								label="Problem with this collection"
-							/>
-						)}
-					</form.AppField>
 					<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-2.5 text-muted-foreground text-sm">
 						Record the species identified — and mark a zero result or bycatch — on the collection’s
 						detail page after saving.
 					</p>
 				</FormSection>
+
+				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>
 		</form.AppForm>
 	);
@@ -744,21 +755,6 @@ function TimingSection({
 }
 
 // --- controls ---------------------------------------------------------------
-
-function FormSection({
-	title,
-	children,
-}: {
-	readonly title: string;
-	readonly children: React.ReactNode;
-}) {
-	return (
-		<section className="grid gap-4">
-			<h2 className="m-0 font-semibold text-foreground text-sm">{title}</h2>
-			{children}
-		</section>
-	);
-}
 
 // --- validation + helpers ---------------------------------------------------
 

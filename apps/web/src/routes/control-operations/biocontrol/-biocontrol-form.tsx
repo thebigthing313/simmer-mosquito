@@ -3,13 +3,14 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	customFieldCount,
 	customSchemaFor,
+	FormSection,
+	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
@@ -31,6 +32,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
+import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
@@ -38,7 +40,6 @@ import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { unitOptions } from '../../../lib/unit-options';
-import { FormSection } from '../-control-form-parts';
 import { AddressPicker, HabitatPicker } from '../-control-pickers';
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
@@ -76,6 +77,8 @@ export interface BiocontrolFormValues {
 	readonly releaseUnitId: string;
 	/** Values for the custom fields the chosen method declares. */
 	readonly metadata: MetadataValue;
+	/** Create only: saved as the action's first comment. Ignored on edit. */
+	readonly comment: string;
 }
 
 export interface BiocontrolFormHeader {
@@ -100,6 +103,8 @@ export interface BiocontrolFormPageProps {
 	 * optional so an action keeps its existing shape unless the user redraws.
 	 */
 	readonly requireLocation?: boolean;
+	/** Create shows the first-comment box; edit does not (the thread owns it). */
+	readonly mode: 'create' | 'edit';
 	readonly header: BiocontrolFormHeader;
 	readonly submitLabel: string;
 	readonly onSave: (input: {
@@ -122,6 +127,7 @@ export function defaultBiocontrolFormValues(timeZone: string): BiocontrolFormVal
 		amountReleased: null,
 		releaseUnitId: '',
 		metadata: null,
+		comment: '',
 	};
 }
 
@@ -134,6 +140,7 @@ export function BiocontrolFormPage({
 	defaultValues,
 	initialGeometry = null,
 	requireLocation = true,
+	mode,
 	header,
 	submitLabel,
 	onSave,
@@ -346,26 +353,50 @@ export function BiocontrolFormPage({
 					</Alert>
 				)}
 
-				<section
-					aria-labelledby="biocontrol-location-label"
-					className={cn(
-						'grid gap-4 rounded-md border bg-muted/30 p-4',
-						locationError === null ? 'border-border/50' : 'border-destructive/60',
+				<form.AppField name="biocontrolDate">
+					{(field) => (
+						<DateControl
+							label="Release date"
+							required
+							onChange={(next) => field.handleChange(next)}
+							value={field.state.value}
+						/>
 					)}
-				>
-					<div className="grid gap-0.5">
-						<span
-							className="font-semibold text-foreground text-sm leading-none"
-							id="biocontrol-location-label"
-						>
-							Location
-						</span>
-						<span className="text-muted-foreground text-xs">
-							The geometry is where the agents were released — a point for a single release, a line
-							or area for a distributed one. An address is optional reference.
-						</span>
-					</div>
+				</form.AppField>
 
+				<FormSection title="Personnel">
+					<form.AppField name="technicianProfileId">
+						{(field) => (
+							<field.SelectField
+								label="Technician"
+								options={technicianOptions}
+								placeholder="Unassigned"
+							/>
+						)}
+					</form.AppField>
+					<form.Subscribe selector={(state) => state.values.technicianProfileId}>
+						{(technicianProfileId) => (
+							<form.AppField name="additionalPersonnelIds">
+								{(field) => (
+									<field.MultiSelectField
+										emptyMessage="No profiles"
+										label="Additional personnel"
+										options={additionalPersonnelOptions(profiles, field.state.value, {
+											excludeProfileId:
+												technicianProfileId === noTechnicianValue ? null : technicianProfileId,
+										})}
+										placeholder="Search profiles"
+									/>
+								)}
+							</form.AppField>
+						)}
+					</form.Subscribe>
+				</FormSection>
+
+				<LocationSection
+					description="The geometry is where the agents were released — a point for a single release, a line or area for a distributed one. An address is optional reference, and a habitat links the release to the larval site it was performed against."
+					error={locationError}
+				>
 					<form.AppField name="addressId">
 						{(field) => (
 							<AddressPicker
@@ -395,10 +426,20 @@ export function BiocontrolFormPage({
 						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 					/>
 
-					{locationError === null ? null : (
-						<p className="m-0 text-destructive text-sm">{locationError}</p>
-					)}
-				</section>
+					<form.AppField name="habitatId">
+						{(field) => (
+							<HabitatPicker
+								label="Habitat"
+								organizationId={organizationId}
+								onSelect={(habitat) => {
+									field.handleChange(habitat?.id ?? null);
+									handleHabitatSelected(habitat);
+								}}
+								value={field.state.value}
+							/>
+						)}
+					</form.AppField>
+				</LocationSection>
 
 				<FormSection title="Release">
 					<form.AppField name="biocontrolMethodId">
@@ -461,64 +502,7 @@ export function BiocontrolFormPage({
 					}}
 				</form.Subscribe>
 
-				<FormSection title="Work">
-					<div className="grid gap-5 sm:grid-cols-2">
-						<form.AppField name="biocontrolDate">
-							{(field) => (
-								<DateControl
-									label="Release date"
-									required
-									onChange={(next) => field.handleChange(next)}
-									value={field.state.value}
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="technicianProfileId">
-							{(field) => (
-								<field.SelectField
-									label="Technician"
-									options={technicianOptions}
-									placeholder="Unassigned"
-								/>
-							)}
-						</form.AppField>
-					</div>
-					<form.Subscribe selector={(state) => state.values.technicianProfileId}>
-						{(technicianProfileId) => (
-							<form.AppField name="additionalPersonnelIds">
-								{(field) => (
-									<field.MultiSelectField
-										emptyMessage="No profiles"
-										label="Additional personnel"
-										options={additionalPersonnelOptions(profiles, field.state.value, {
-											excludeProfileId:
-												technicianProfileId === noTechnicianValue ? null : technicianProfileId,
-										})}
-										placeholder="Search profiles"
-									/>
-								)}
-							</form.AppField>
-						)}
-					</form.Subscribe>
-					<div className="grid gap-1.5">
-						<form.AppField name="habitatId">
-							{(field) => (
-								<HabitatPicker
-									label="Habitat"
-									organizationId={organizationId}
-									onSelect={(habitat) => {
-										field.handleChange(habitat?.id ?? null);
-										handleHabitatSelected(habitat);
-									}}
-									value={field.state.value}
-								/>
-							)}
-						</form.AppField>
-						<span className="text-muted-foreground text-xs">
-							Link the release to the larval site it was performed against.
-						</span>
-					</div>
-				</FormSection>
+				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>
 		</form.AppForm>
 	);
@@ -527,5 +511,26 @@ export function BiocontrolFormPage({
 // --- controls ---------------------------------------------------------------
 
 // --- helpers ----------------------------------------------------------------
+
+/**
+ * What the form holds, as the write seam takes it.
+ *
+ * The sentinel stops here: Radix forbids an empty Select value, so "Unassigned"
+ * is a string the domain has never heard of. Create and edit both map the same
+ * way, so they map through here.
+ */
+export function biocontrolFieldsFrom(values: BiocontrolFormValues) {
+	return {
+		methodId: values.biocontrolMethodId,
+		technicianProfileId:
+			values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+		actionDate: values.biocontrolDate,
+		addressId: values.addressId,
+		habitatId: values.habitatId,
+		amountReleased: values.amountReleased ?? 0,
+		unitId: values.releaseUnitId,
+		metadata: values.metadata,
+	};
+}
 
 export type { DrawGeometry } from '../../../components/map/use-map-draw';

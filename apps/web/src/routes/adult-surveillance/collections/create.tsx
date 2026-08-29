@@ -5,8 +5,8 @@ import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
+import { useRecordExtras } from '../../../forms/record-extras';
 import { newRecordId } from '../../../hooks/mutations/shared';
-import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import {
 	type CollectionPlacement,
 	useCollectionMutations,
@@ -22,7 +22,6 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
-import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { todayInTimeZone } from '../-overview-data';
 import {
@@ -100,7 +99,7 @@ function CreateCollectionRoute() {
 	// lands — and so their on-demand stream is already warm when the save fires.
 	const [collectionId] = useState(() => newRecordId());
 	useAdditionalPersonnel({ type: 'collection', id: collectionId });
-	const { setPersonnel } = useAdditionalPersonnelMutations();
+	const recordExtras = useRecordExtras();
 
 	// The whole save re-runs on a confirmed acknowledgement, crew rows included;
 	// every id is minted up front, so a second attempt writes the same rows.
@@ -151,13 +150,11 @@ function CreateCollectionRoute() {
 
 				// Crew rows reference the collection, so they can only be written once it
 				// exists.
-				await attachLinksBestEffort('the additional personnel', () =>
-					setPersonnel({
-						target: { type: 'collection', id: collectionId },
-						existing: [],
-						profileIds: values.additionalPersonnelIds,
-					}),
-				);
+				await recordExtras.attach({
+					target: { type: 'collection', id: collectionId },
+					profileIds: values.additionalPersonnelIds,
+					commentText: values.comment,
+				});
 				// Back to the worklist the stop came from, not to the collection: the
 				// crew's next move is the next stop.
 				if (assignmentId !== null) {
@@ -173,7 +170,7 @@ function CreateCollectionRoute() {
 			assignmentId,
 			runAcknowledged,
 			timeZone,
-			setPersonnel,
+			recordExtras,
 			mutations,
 		],
 	);
@@ -182,6 +179,7 @@ function CreateCollectionRoute() {
 		<>
 			<CollectionFormPage
 				canSubmit={mutations.canWrite}
+				mode="create"
 				collectionLures={lures}
 				collectionMethods={methods}
 				defaultValues={seededDefaults(

@@ -6,7 +6,13 @@ import {
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { LarvalDensity } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
-import { RecordFormPage, RequiredMark, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import {
+	FormSection,
+	LocationSection,
+	RecordFormPage,
+	RequiredMark,
+	useAppForm,
+} from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -40,12 +46,15 @@ import {
 	GeometryControl,
 	useFitToGeometry,
 } from '../../../components/map/geometry-control';
+import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import {
 	type DrawGeometry,
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
+import { AddressPicker } from '../../../components/pickers/address-picker';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { InspectionResult } from '../../../hooks/mutations/use-inspection-mutations';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
@@ -312,7 +321,27 @@ export function InspectionFormPage({
 		value: adhocGeometry,
 		onChange: handleAdhocGeometryChange,
 	});
-	const { start } = draw;
+	const { start, requestPoint } = draw;
+
+	// The address picker's own "Create Address" places its point against this
+	// form's map, so a new address can be sited without leaving the inspection.
+	const requestMapPoint = useCallback(
+		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
+		[requestPoint],
+	);
+
+	// Same rule as every other located record: linking an address fills an empty
+	// location and never overwrites a shape the crew drew. Moving onto it stays an
+	// explicit act.
+	const placeAddressPoint = useCallback((point: DrawPoint) => {
+		setAdhocGeometry(point);
+		setAdhocGeometryType('Point');
+		setLocationError(null);
+	}, []);
+	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
+		geometry: adhocGeometry,
+		onPlacePoint: placeAddressPoint,
+	});
 
 	// Ease the map to frame whatever location is currently chosen (a selected
 	// habitat's geometry or freshly drawn ad-hoc geometry) without a manual pan.
@@ -448,27 +477,60 @@ export function InspectionFormPage({
 					</Alert>
 				)}
 
-				<section
-					aria-labelledby="inspection-location-label"
-					className={cn(
-						'grid gap-4 rounded-md border bg-muted/30 p-4',
-						locationError === null ? 'border-border/50' : 'border-destructive/60',
+				<form.AppField name="inspectionDate">
+					{(field) => (
+						<LabeledControl label="Inspection date" required>
+							<DatePicker
+								ariaLabel="Inspection date"
+								className="w-full"
+								max={parseLocalDate(today)}
+								onChange={(date) =>
+									field.handleChange(date === undefined ? '' : formatLocalDate(date))
+								}
+								placeholder="Select date"
+								value={parseLocalDate(field.state.value)}
+							/>
+						</LabeledControl>
 					)}
-				>
-					<div className="grid gap-0.5">
-						<span
-							className="font-semibold text-foreground text-sm leading-none"
-							id="inspection-location-label"
-						>
-							Location
-						</span>
-						<span className="text-muted-foreground text-xs">
-							{isEditing
-								? 'Where the inspection happened is fixed. Record a new inspection to cover a different site.'
-								: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers.'}
-						</span>
-					</div>
+				</form.AppField>
 
+				<FormSection title="Personnel">
+					<form.AppField name="inspectedByProfileId">
+						{(field) => (
+							<field.AutocompleteField
+								label="Inspector"
+								options={profileOptions(profiles)}
+								placeholder="Search people"
+								required
+							/>
+						)}
+					</form.AppField>
+					<form.Subscribe selector={(state) => state.values.inspectedByProfileId}>
+						{(inspectedByProfileId) => (
+							<form.AppField name="additionalPersonnelIds">
+								{(field) => (
+									<field.MultiSelectField
+										emptyMessage="No profiles"
+										label="Additional personnel"
+										options={additionalPersonnelOptions(profiles, field.state.value, {
+											excludeProfileId: inspectedByProfileId,
+										})}
+										placeholder="Search profiles"
+									/>
+								)}
+							</form.AppField>
+						)}
+					</form.Subscribe>
+				</FormSection>
+
+				<LocationSection
+					description={
+						isEditing
+							? 'The habitat or ad-hoc choice is fixed. Record a new inspection to cover a different site.'
+							: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers. An address is optional reference.'
+					}
+					error={locationError}
+				>
 					<form.AppField name="locationMode">
 						{(field) => (
 							<ToggleGroup
@@ -516,6 +578,25 @@ export function InspectionFormPage({
 								</form.AppField>
 							) : (
 								<div className="grid gap-4">
+									{/* Address before geometry, as on every other located record:
+									    it is what an empty point is seeded from and what a drawn
+									    one is refined off. */}
+									<form.AppField name="addressId">
+										{(field) => (
+											<AddressPicker
+												create={{ requestMapPoint }}
+												label="Address"
+												onSelect={(address) => {
+													field.handleChange(address?.id ?? null);
+													setLocationError(null);
+													selectAddress(address);
+												}}
+												organizationId={organizationId}
+												value={field.state.value}
+											/>
+										)}
+									</form.AppField>
+
 									<GeometryControl
 										controller={draw}
 										geometry={adhocGeometry}
@@ -526,6 +607,7 @@ export function InspectionFormPage({
 										onTypeChange={handleAdhocTypeChange}
 										organizationId={organizationId}
 										required
+										{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 									/>
 									<form.AppField name="habitatTypeId">
 										{(field) => (
@@ -543,58 +625,7 @@ export function InspectionFormPage({
 							)
 						}
 					</form.Subscribe>
-
-					{locationError === null ? null : (
-						<p className="m-0 text-destructive text-sm">{locationError}</p>
-					)}
-				</section>
-
-				<FormSection title="Inspection">
-					<div className="grid gap-5 sm:grid-cols-2">
-						<form.AppField name="inspectionDate">
-							{(field) => (
-								<LabeledControl label="Inspection date" required>
-									<DatePicker
-										ariaLabel="Inspection date"
-										className="w-full"
-										max={parseLocalDate(today)}
-										onChange={(date) =>
-											field.handleChange(date === undefined ? '' : formatLocalDate(date))
-										}
-										placeholder="Select date"
-										value={parseLocalDate(field.state.value)}
-									/>
-								</LabeledControl>
-							)}
-						</form.AppField>
-						<form.AppField name="inspectedByProfileId">
-							{(field) => (
-								<field.AutocompleteField
-									label="Inspector"
-									options={profileOptions(profiles)}
-									placeholder="Search people"
-									required
-								/>
-							)}
-						</form.AppField>
-					</div>
-					<form.Subscribe selector={(state) => state.values.inspectedByProfileId}>
-						{(inspectedByProfileId) => (
-							<form.AppField name="additionalPersonnelIds">
-								{(field) => (
-									<field.MultiSelectField
-										emptyMessage="No profiles"
-										label="Additional personnel"
-										options={additionalPersonnelOptions(profiles, field.state.value, {
-											excludeProfileId: inspectedByProfileId,
-										})}
-										placeholder="Search profiles"
-									/>
-								)}
-							</form.AppField>
-						)}
-					</form.Subscribe>
-				</FormSection>
+				</LocationSection>
 
 				<FormSection title="Findings" note={findingsRequirement(entryMode)}>
 					<form.AppField name="isWet">
@@ -700,18 +731,7 @@ export function InspectionFormPage({
 					}
 				</form.Subscribe>
 
-				<FormSection title="Notes">
-					<form.AppField name="comment">
-						{(field) => (
-							<field.TextareaField
-								description="Saved as the first comment on this inspection. Add access details, conditions, or follow-up."
-								label="Comment"
-								placeholder="Add a note for this inspection…"
-								rows={3}
-							/>
-						)}
-					</form.AppField>
-				</FormSection>
+				<FirstCommentSection form={form} mode={isEditing ? 'edit' : 'create'} />
 			</RecordFormPage>
 
 			<AlertDialog onOpenChange={setPendingDry} open={pendingDry}>
@@ -1017,29 +1037,6 @@ function SearchFallback({ label }: { readonly label: string }) {
 }
 
 // --- reusable form controls -------------------------------------------------
-
-function FormSection({
-	title,
-	note,
-	children,
-}: {
-	readonly title: string;
-	/** A rule the section carries that no single field can be marked for. */
-	readonly note?: string | null;
-	readonly children: React.ReactNode;
-}) {
-	return (
-		<section className="grid gap-4">
-			<div className="grid gap-0.5">
-				<h2 className="m-0 font-semibold text-foreground text-sm">{title}</h2>
-				{note === undefined || note === null ? null : (
-					<p className="m-0 text-muted-foreground text-xs">{note}</p>
-				)}
-			</div>
-			{children}
-		</section>
-	);
-}
 
 function LabeledControl({
 	label,

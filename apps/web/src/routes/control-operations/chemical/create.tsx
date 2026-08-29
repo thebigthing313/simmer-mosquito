@@ -4,8 +4,8 @@ import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
+import { useRecordExtras } from '../../../forms/record-extras';
 import { newRecordId } from '../../../hooks/mutations/shared';
-import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useApplicationBatches } from '../../../hooks/queries/use-application-batches';
@@ -25,7 +25,6 @@ import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
 import {
@@ -80,7 +79,7 @@ function CreateApplicationRoute() {
 	// warm when the save fires. A formulation mints the rest at save.
 	const [applicationId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'application', id: applicationId });
-	const { setPersonnel } = useAdditionalPersonnelMutations();
+	const recordExtras = useRecordExtras();
 	// The batches ride in the create's own command now, so nothing here needs this
 	// list. It stays mounted for the stream: a write cannot wait for its own txid on
 	// a collection nobody is subscribed to.
@@ -183,17 +182,17 @@ function CreateApplicationRoute() {
 					saved.push(product);
 				}
 
-				// Crew rows reference the application, so they can only be written once it
-				// exists. The batches used to be here too, and are not any more.
+				// Crew rows and the note reference the application, so they can only be
+				// written once it exists. The batches used to be here too, and are not any
+				// more. A formulation splits into one application per component, so both
+				// go on each of them rather than on whichever one happens to be first.
 				await Promise.all(
 					saved.map((product) =>
-						attachLinksBestEffort('the additional personnel', () =>
-							setPersonnel({
-								target: { type: 'application', id: product.id },
-								existing: [],
-								profileIds: values.additionalPersonnelIds,
-							}),
-						),
+						recordExtras.attach({
+							target: { type: 'application', id: product.id },
+							profileIds: values.additionalPersonnelIds,
+							commentText: values.comment,
+						}),
 					),
 				);
 
@@ -216,7 +215,7 @@ function CreateApplicationRoute() {
 			formulationComponents,
 			navigate,
 			record,
-			setPersonnel,
+			recordExtras,
 		],
 	);
 
@@ -225,6 +224,7 @@ function CreateApplicationRoute() {
 			<ApplicationFormPage
 				applicationMethods={methods}
 				canSubmit={canSubmit}
+				mode="create"
 				defaultValues={defaultApplicationFormValues(timeZone)}
 				equipment={equipment}
 				formulationComponents={formulationComponents}

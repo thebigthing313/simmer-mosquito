@@ -157,6 +157,7 @@ function EditCollectionLoader({
 	return (
 		<CollectionFormPage
 			canSubmit={mutations.canWrite}
+			mode="edit"
 			collectionLures={collectionLures}
 			collectionMethods={collectionMethods}
 			defaultValues={formValuesFrom(collection, personnel, timeZone)}
@@ -214,6 +215,8 @@ function formValuesFrom(
 		additionalPersonnelIds: personnel.profileIds,
 		hasProblem: collection.hasProblem,
 		metadata: asMetadataValue(collection.metadata),
+		// Create-only field; the detail page's thread is where an edit adds a note.
+		comment: '',
 	};
 }
 
