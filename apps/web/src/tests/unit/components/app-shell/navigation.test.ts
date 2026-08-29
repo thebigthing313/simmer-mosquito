@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { AuthMe } from '../../../../auth';
 import { shellDomainsForRole } from '../../../../components/app-shell/navigation';
@@ -11,10 +13,36 @@ import { shellDomainsForRole } from '../../../../components/app-shell/navigation
  * hidden below one takes work away from an account entitled to it.
  */
 describe('shellDomainsForRole', () => {
+	it('gives every create route exactly one navigation item', () => {
+		// The gap this closes: `/gis/addresses/create` and `/gis/weather/create`
+		// shipped with no sidebar item and were reachable only by typing the URL
+		// (#270). Pinning the ladder per item never caught it, because an item that
+		// does not exist has no floor to be wrong. The route list is read off the
+		// generated route tree rather than written out here, since a hand-written
+		// one goes stale the same way the sidebar did.
+		const items = shellDomainsForRole(authWithRole('owner'))
+			.flatMap((domain) => domain.groups)
+			.flatMap((group) => group.items);
+		const paths = createRoutePaths();
+
+		// Without this the assertion below passes on an empty list, which is what a
+		// rename of the generated file or of its import shape would produce.
+		expect(paths.length).toBeGreaterThan(0);
+		for (const path of paths) {
+			expect(items.filter((item) => String(item.to) === path).map((item) => item.id)).toHaveLength(
+				1,
+			);
+		}
+	});
+
 	it('offers a collector the recording forms and none of the planning ones', () => {
 		const paths = formPathsFor('collector');
 
 		expect(paths).toContain('/larval-surveillance/inspections/create');
+		// The GIS exception. A collector entering a field record needs to name a
+		// location the address book does not hold yet, so `foundation.createAddress`
+		// sits at collector while every other address command sits at manager.
+		expect(paths).toContain('/gis/addresses/create');
 		expect(paths).toContain('/adult-surveillance/collections/create');
 		expect(paths).toContain('/control-operations/chemical/create');
 		expect(paths).toContain('/public-engagement/outreach/create');
@@ -27,6 +55,7 @@ describe('shellDomainsForRole', () => {
 		expect(paths).not.toContain('/public-engagement/contacts/create');
 		expect(paths).not.toContain('/public-engagement/service-requests/create');
 		expect(paths).not.toContain('/gis/regions/create');
+		expect(paths).not.toContain('/gis/weather/create');
 		expect(paths).not.toContain('/gis/regions/import');
 		expect(paths).not.toContain('/operations/assignments/create');
 		expect(paths).not.toContain('/operations/missions/create');
@@ -99,6 +128,24 @@ describe('shellDomainsForRole', () => {
 		}
 	});
 });
+
+/**
+ * Every `create.tsx` route, read off the generated route tree.
+ *
+ * The tree is parsed as text rather than imported: importing it pulls in every
+ * route module and the whole component tree behind them, which is a browser
+ * bundle, not something a unit test can load.
+ */
+function createRoutePaths(): readonly string[] {
+	const tree = readFileSync(
+		fileURLToPath(new URL('../../../../routeTree.gen.ts', import.meta.url)),
+		'utf8',
+	);
+
+	return [...tree.matchAll(/from '\.\/routes\/([\w\-/]+)\/create'/g)].flatMap((match) =>
+		match[1] === undefined ? [] : [`/${match[1]}/create`],
+	);
+}
 
 function formPathsFor(role: string): readonly string[] {
 	return formPaths(shellDomainsForRole(authWithRole(role)));

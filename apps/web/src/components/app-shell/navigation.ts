@@ -611,6 +611,18 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.actions.searchCheck.icon,
 					},
 					{
+						id: 'addresses-create',
+						label: 'Create Address',
+						to: '/gis/addresses/create',
+						icon: iconRegistry.actions.add.icon,
+						// Collector, not manager like the rest of GIS. A collector entering a
+						// field record needs to name a location the address book does not
+						// hold yet, so creating an entry is field entry. Editing, deleting,
+						// and merging one stay at manager, and so does every other GIS form.
+						write: 'collector',
+						action: { keywords: ['new', 'add', 'street', 'parcel', 'property', 'location'] },
+					},
+					{
 						id: 'addresses-cleanup',
 						label: 'Cleanup Tools',
 						to: '/gis/addresses/cleanup',
@@ -628,6 +640,14 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Weather Stations',
 						to: '/gis/weather',
 						icon: iconRegistry.domains.weather.icon,
+					},
+					{
+						id: 'weather-create',
+						label: 'Add Weather Station',
+						to: '/gis/weather/create',
+						icon: iconRegistry.actions.add.icon,
+						write: 'manager',
+						action: { keywords: ['new', 'create', 'sensor', 'gauge', 'met', 'station'] },
 					},
 					{
 						id: 'weather-stats',
