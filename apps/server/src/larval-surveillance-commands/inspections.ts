@@ -296,6 +296,11 @@ export async function writeInspectionCommand(
 				recordId: command.payload.inspectionId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedAssociatedRecordsDeletion:
+						command.payload.acknowledgedAssociatedRecordsDeletion,
+					acknowledgedCrossDomainDetach: command.payload.acknowledgedCrossDomainDetach,
+				},
 			});
 			const row = await trx
 				.updateTable('inspections')

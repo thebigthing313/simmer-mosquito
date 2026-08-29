@@ -230,6 +230,10 @@ export async function writeSampleCommand(
 				recordId: command.payload.sampleId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedAssociatedRecordsDeletion:
+						command.payload.acknowledgedAssociatedRecordsDeletion,
+				},
 			});
 			const row = await trx
 				.updateTable('samples')

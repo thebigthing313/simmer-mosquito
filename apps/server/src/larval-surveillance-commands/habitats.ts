@@ -401,6 +401,10 @@ export async function writeHabitatCommand(
 				recordId: command.payload.habitatId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedInspectionDetach: command.payload.acknowledgedInspectionDetach,
+					acknowledgedCrossDomainDetach: command.payload.acknowledgedCrossDomainDetach,
+				},
 			});
 			const row = await trx
 				.updateTable('habitats')

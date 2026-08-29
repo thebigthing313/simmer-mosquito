@@ -19,6 +19,7 @@ import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
+	acknowledged,
 	readMissionExecutionOptions,
 	readNullableText,
 	readNumber,
@@ -93,13 +94,15 @@ export function registerApplicationRoutes(
 		'/control-operations/applications/:applicationId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			body: 'optional',
+			build: ({ agency: ctx, param, payload }) =>
 				deleteChemicalApplicationCommand({
 					...ctx,
 					applicationId: param('applicationId'),
-					acknowledgedSupportRecordDeletion: true,
-					acknowledgedBatchDeletion: true,
+					acknowledgedSupportRecordDeletion: acknowledged(
+						payload.acknowledgedSupportRecordDeletion,
+					),
+					acknowledgedBatchDeletion: acknowledged(payload.acknowledgedBatchDeletion),
 				}),
 			run: (context, commands) => runApplicationCommands(context, options.db, commands),
 		}),
@@ -462,6 +465,10 @@ export async function writeApplicationCommand(
 				recordId: command.payload.applicationId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedBatchDeletion: command.payload.acknowledgedBatchDeletion,
+					acknowledgedSupportRecordDeletion: command.payload.acknowledgedSupportRecordDeletion,
+				},
 			});
 			return softDelete(
 				trx,

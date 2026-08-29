@@ -16,7 +16,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import { moveItems } from '../ordered-items.js';
 import {
 	assertAssignmentTransition,
@@ -121,12 +121,14 @@ export function registerAssignmentRoutes(
 		'/field-work/assignments/:assignmentId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			body: 'optional',
+			build: ({ agency: ctx, param, payload }) =>
 				deleteAssignmentCommand({
 					...ctx,
 					assignmentId: param('assignmentId'),
-					acknowledgedAssignmentItemDeletion: true,
+					acknowledgedAssignmentItemDeletion: acknowledged(
+						payload.acknowledgedAssignmentItemDeletion,
+					),
 				}),
 			run: (context, commands) => runAssignmentCommands(context, options.db, commands),
 		}),
@@ -376,6 +378,9 @@ export async function writeAssignmentCommand(
 				recordId: command.payload.assignmentId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedAssignmentItemDeletion: command.payload.acknowledgedAssignmentItemDeletion,
+				},
 			});
 			return softDelete(
 				trx,

@@ -22,9 +22,7 @@ import { readText } from '../command-payload.js';
  * map that spells it `!== false` and a map that spells it `=== true` cannot
  * both exist.
  */
-export function acknowledged(value: unknown): boolean {
-	return value !== false;
-}
+export { acknowledged } from '../command-payload.js';
 
 /**
  * The ids a command is being told to act on, with anything malformed kept.

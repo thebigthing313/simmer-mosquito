@@ -205,6 +205,11 @@ export async function writeRegionCommand(
 				recordId: command.payload.regionId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				// Nothing to confirm: a region's only consequences are its own
+				// comments and tags, which the registry performs unasked.
+				// `acknowledgedRegionDelete` is the domain builder's, and it is about
+				// meaning to delete rather than about what the delete reaches.
+				acknowledged: {},
 			});
 			return softDelete(
 				trx,

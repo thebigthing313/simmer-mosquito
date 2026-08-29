@@ -9,7 +9,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readText } from '../command-payload.js';
+import { acknowledged, readText } from '../command-payload.js';
 import { moveItems } from '../ordered-items.js';
 import {
 	type CommandContext,
@@ -67,12 +67,12 @@ export function registerRouteRoutes(
 		'/field-work/routes/:routeId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			body: 'optional',
+			build: ({ agency: ctx, param, payload }) =>
 				deleteRouteCommand({
 					...ctx,
 					routeId: param('routeId'),
-					acknowledgedRouteItemDeletion: true,
+					acknowledgedRouteItemDeletion: acknowledged(payload.acknowledgedRouteItemDeletion),
 				}),
 			run: (context, commands) => runRouteCommands(context, options.db, commands),
 		}),
@@ -148,6 +148,9 @@ export async function writeRouteCommand(
 				recordId: command.payload.routeId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedRouteItemDeletion: command.payload.acknowledgedRouteItemDeletion,
+				},
 			});
 			return softDelete(
 				trx,

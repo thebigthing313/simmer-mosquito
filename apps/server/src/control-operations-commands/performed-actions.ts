@@ -30,6 +30,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
+	acknowledged,
 	readMissionExecutionOptions,
 	readNullableText,
 	readNumber,
@@ -99,7 +100,11 @@ interface ActionConfig<TRow> {
 		id: string,
 		payload: Record<string, unknown>,
 	) => CommandsResult;
-	readonly buildDelete: (ctx: AgencyContext, id: string) => ControlOperationsCommand;
+	readonly buildDelete: (
+		ctx: AgencyContext,
+		id: string,
+		payload: Record<string, unknown>,
+	) => ControlOperationsCommand;
 	readonly write: (
 		trx: ControlOperationsTransaction,
 		command: ActionCommand,
@@ -135,8 +140,9 @@ export function registerActionRoutes<TRow>(
 		`${config.basePath}/:${config.idParam}`,
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency, param }) => config.buildDelete(agency, param(config.idParam)),
+			body: 'optional',
+			build: ({ agency, param, payload }) =>
+				config.buildDelete(agency, param(config.idParam), payload),
 			run: (context, commands) => runActionCommands(context, options.db, config, commands),
 		}),
 	);
@@ -261,11 +267,11 @@ export const sourceReductionConfig: ActionConfig<SourceReductionRow> = {
 		}
 		return commands.length === 0 ? invalidUpdate('source reduction') : { ok: true, commands };
 	},
-	buildDelete: (ctx, id) =>
+	buildDelete: (ctx, id, payload) =>
 		deleteSourceReductionCommand({
 			...ctx,
 			sourceReductionId: id,
-			acknowledgedSupportRecordDeletion: true,
+			acknowledgedSupportRecordDeletion: acknowledged(payload.acknowledgedSupportRecordDeletion),
 		}),
 	write: writeSourceReductionCommand,
 };
@@ -540,6 +546,9 @@ export async function writeSourceReductionCommand(
 				recordId: command.payload.sourceReductionId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedSupportRecordDeletion: command.payload.acknowledgedSupportRecordDeletion,
+				},
 			});
 			return softDelete(
 				trx,
@@ -651,11 +660,11 @@ export const outreachActionConfig: ActionConfig<OutreachActionRow> = {
 		}
 		return commands.length === 0 ? invalidUpdate('outreach action') : { ok: true, commands };
 	},
-	buildDelete: (ctx, id) =>
+	buildDelete: (ctx, id, payload) =>
 		deleteOutreachActionCommand({
 			...ctx,
 			outreachActionId: id,
-			acknowledgedSupportRecordDeletion: true,
+			acknowledgedSupportRecordDeletion: acknowledged(payload.acknowledgedSupportRecordDeletion),
 		}),
 	write: writeOutreachActionCommand,
 };
@@ -764,6 +773,9 @@ export async function writeOutreachActionCommand(
 				recordId: command.payload.outreachActionId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedSupportRecordDeletion: command.payload.acknowledgedSupportRecordDeletion,
+				},
 			});
 			return softDelete(
 				trx,
@@ -877,11 +889,11 @@ export const biocontrolActionConfig: ActionConfig<BiocontrolActionRow> = {
 		}
 		return commands.length === 0 ? invalidUpdate('biocontrol action') : { ok: true, commands };
 	},
-	buildDelete: (ctx, id) =>
+	buildDelete: (ctx, id, payload) =>
 		deleteBiocontrolActionCommand({
 			...ctx,
 			biocontrolActionId: id,
-			acknowledgedSupportRecordDeletion: true,
+			acknowledgedSupportRecordDeletion: acknowledged(payload.acknowledgedSupportRecordDeletion),
 		}),
 	write: writeBiocontrolActionCommand,
 };
@@ -989,6 +1001,9 @@ export async function writeBiocontrolActionCommand(
 				recordId: command.payload.biocontrolActionId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedSupportRecordDeletion: command.payload.acknowledgedSupportRecordDeletion,
+				},
 			});
 			return softDelete(
 				trx,

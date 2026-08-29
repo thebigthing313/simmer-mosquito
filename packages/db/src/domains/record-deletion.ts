@@ -87,6 +87,33 @@ export interface ChildSet {
  */
 export type ReferenceEffect = 'block' | 'cascade' | 'detach';
 
+/**
+ * The confirmation a consequence rides on.
+ *
+ * Every name here is a flag the matching delete command already declares, so
+ * the registry and the command vocabulary use one spelling. A rule tagged
+ * `null` is performed without asking: the record's own support rows, which
+ * carry nothing the agency recorded separately.
+ */
+export type DeleteAcknowledgement =
+	| 'acknowledgedActionDetach'
+	| 'acknowledgedActualActionDetach'
+	| 'acknowledgedAssignmentItemDeletion'
+	| 'acknowledgedAssociatedRecordsDeletion'
+	| 'acknowledgedBatchDeletion'
+	| 'acknowledgedCascadeDelete'
+	| 'acknowledgedCrossDomainDetach'
+	| 'acknowledgedInspectionDetach'
+	| 'acknowledgedMissionDetach'
+	| 'acknowledgedMissionItemDeletion'
+	| 'acknowledgedNotificationDeletion'
+	| 'acknowledgedRouteItemDeletion'
+	| 'acknowledgedSpeciesCountDeletion'
+	| 'acknowledgedSupportRecordDeletion';
+
+/** What the caller has confirmed, keyed by flag. Absent reads as withheld. */
+export type DeleteAcknowledgements = Partial<Record<DeleteAcknowledgement, boolean>>;
+
 interface ReferenceRule {
 	/** Stable id for this consequence, so the UI can key and test it. */
 	readonly key: string;
@@ -96,6 +123,17 @@ interface ReferenceRule {
 	/** Domain noun for the rows, for copy that reads like the rest of the app. */
 	readonly singular: string;
 	readonly plural: string;
+	/**
+	 * The flag that has to be confirmed before this consequence happens, or
+	 * `null` when it happens unasked.
+	 *
+	 * Required rather than optional, and that is the point of it. A rule reaches
+	 * this registry through one of the shorthands below, and every shorthand
+	 * that cascades or detaches takes this argument, so a new consequence cannot
+	 * be added without someone deciding whether the agency is asked about it.
+	 * `blocks` sets it to `null` itself: a refusal is not a confirmation.
+	 */
+	readonly acknowledgement: DeleteAcknowledgement | null;
 }
 
 interface DeletableRecordConfig {
@@ -148,6 +186,49 @@ export class RecordDeleteBlockedError extends Error {
 	}
 }
 
+/**
+ * Thrown by `applyRecordDeletion` when the caller withheld a confirmation the
+ * delete needed.
+ *
+ * `consequences` is the same entry shape `/records/:type/:id/delete-impact`
+ * returns, so a client that asked before pressing the button and a client that
+ * only finds out from the refusal render the same list. The delete has done
+ * nothing at this point: the guard runs before the first cascade.
+ */
+export class DeleteAcknowledgementRequiredError extends Error {
+	readonly recordType: DeletableRecordType;
+	readonly recordId: string;
+	readonly acknowledgement: DeleteAcknowledgement;
+	readonly consequences: readonly DeleteImpactEntry[];
+
+	constructor(
+		recordType: DeletableRecordType,
+		recordId: string,
+		acknowledgement: DeleteAcknowledgement,
+		consequences: readonly DeleteImpactEntry[],
+	) {
+		super(
+			`Deleting this ${deletableRecordLabel(recordType)} also affects ${countPhrase(consequences)}.`,
+		);
+		this.name = 'DeleteAcknowledgementRequiredError';
+		this.recordType = recordType;
+		this.recordId = recordId;
+		this.acknowledgement = acknowledgement;
+		this.consequences = consequences;
+	}
+}
+
+/** "3 inspections and 1 chemical application", for the refusal's sentence. */
+function countPhrase(consequences: readonly DeleteImpactEntry[]): string {
+	const parts = consequences.map(
+		(entry) => `${entry.count} ${entry.count === 1 ? entry.singular : entry.plural}`,
+	);
+	if (parts.length <= 1) {
+		return parts[0] ?? 'other records';
+	}
+	return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
 // ---------------------------------------------------------------------------
 // Rule shorthands
 // ---------------------------------------------------------------------------
@@ -159,7 +240,15 @@ function blocks(
 	singular: string,
 	plural: string,
 ): ReferenceRule {
-	return { key, effect: 'block', table, scope: { kind: 'direct', column }, singular, plural };
+	return {
+		key,
+		effect: 'block',
+		table,
+		scope: { kind: 'direct', column },
+		singular,
+		plural,
+		acknowledgement: null,
+	};
 }
 
 function detaches(
@@ -168,8 +257,17 @@ function detaches(
 	column: string,
 	singular: string,
 	plural: string,
+	acknowledgement: DeleteAcknowledgement | null,
 ): ReferenceRule {
-	return { key, effect: 'detach', table, scope: { kind: 'direct', column }, singular, plural };
+	return {
+		key,
+		effect: 'detach',
+		table,
+		scope: { kind: 'direct', column },
+		singular,
+		plural,
+		acknowledgement,
+	};
 }
 
 function detachesUnderChild(
@@ -179,6 +277,7 @@ function detachesUnderChild(
 	child: ChildSet,
 	singular: string,
 	plural: string,
+	acknowledgement: DeleteAcknowledgement | null,
 ): ReferenceRule {
 	return {
 		key,
@@ -187,6 +286,7 @@ function detachesUnderChild(
 		scope: { kind: 'childColumn', child, column },
 		singular,
 		plural,
+		acknowledgement,
 	};
 }
 
@@ -196,8 +296,17 @@ function cascades(
 	column: string,
 	singular: string,
 	plural: string,
+	acknowledgement: DeleteAcknowledgement | null,
 ): ReferenceRule {
-	return { key, effect: 'cascade', table, scope: { kind: 'direct', column }, singular, plural };
+	return {
+		key,
+		effect: 'cascade',
+		table,
+		scope: { kind: 'direct', column },
+		singular,
+		plural,
+		acknowledgement,
+	};
 }
 
 function cascadesUnderChild(
@@ -207,6 +316,7 @@ function cascadesUnderChild(
 	child: ChildSet,
 	singular: string,
 	plural: string,
+	acknowledgement: DeleteAcknowledgement | null,
 ): ReferenceRule {
 	return {
 		key,
@@ -215,6 +325,7 @@ function cascadesUnderChild(
 		scope: { kind: 'childColumn', child, column },
 		singular,
 		plural,
+		acknowledgement,
 	};
 }
 
@@ -225,6 +336,7 @@ function cascadesSupport(
 	entityType: string,
 	singular: string,
 	plural: string,
+	acknowledgement: DeleteAcknowledgement | null,
 ): ReferenceRule {
 	return {
 		key,
@@ -233,6 +345,7 @@ function cascadesSupport(
 		scope: { kind: 'polymorphic', entityType },
 		singular,
 		plural,
+		acknowledgement,
 	};
 }
 
@@ -244,6 +357,7 @@ function cascadesSupportUnderChild(
 	child: ChildSet,
 	singular: string,
 	plural: string,
+	acknowledgement: DeleteAcknowledgement | null,
 ): ReferenceRule {
 	return {
 		key,
@@ -252,6 +366,7 @@ function cascadesSupportUnderChild(
 		scope: { kind: 'childPolymorphic', child, entityType },
 		singular,
 		plural,
+		acknowledgement,
 	};
 }
 
@@ -272,13 +387,21 @@ function controlActionConfig(
 		table,
 		singular,
 		rules: [
-			cascadesSupport(`${entityType}Comments`, 'comments', entityType, 'comment', 'comments'),
+			cascadesSupport(
+				`${entityType}Comments`,
+				'comments',
+				entityType,
+				'comment',
+				'comments',
+				'acknowledgedSupportRecordDeletion',
+			),
 			cascadesSupport(
 				`${entityType}Personnel`,
 				'additional_personnel',
 				entityType,
 				'assisting person',
 				'assisting people',
+				'acknowledgedSupportRecordDeletion',
 			),
 		],
 	};
@@ -353,8 +476,8 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'notification registrations',
 			),
 			blocks('addressMissionItems', 'mission_items', 'address_id', 'mission stop', 'mission stops'),
-			cascadesSupport('addressComments', 'comments', 'address', 'comment', 'comments'),
-			cascadesSupport('addressTags', 'tag_items', 'address', 'tag', 'tags'),
+			cascadesSupport('addressComments', 'comments', 'address', 'comment', 'comments', null),
+			cascadesSupport('addressTags', 'tag_items', 'address', 'tag', 'tags', null),
 		],
 	},
 
@@ -367,8 +490,8 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 		table: 'regions',
 		singular: 'region',
 		rules: [
-			cascadesSupport('regionComments', 'comments', 'region', 'comment', 'comments'),
-			cascadesSupport('regionTags', 'tag_items', 'region', 'tag', 'tags'),
+			cascadesSupport('regionComments', 'comments', 'region', 'comment', 'comments', null),
+			cascadesSupport('regionTags', 'tag_items', 'region', 'tag', 'tags', null),
 		],
 	},
 
@@ -389,6 +512,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				COLLECTIONS_OF_TRAP,
 				'species count',
 				'species counts',
+				'acknowledgedCascadeDelete',
 			),
 			cascadesSupportUnderChild(
 				'trapCollectionComments',
@@ -397,6 +521,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				COLLECTIONS_OF_TRAP,
 				'collection comment',
 				'collection comments',
+				'acknowledgedCascadeDelete',
 			),
 			cascadesSupportUnderChild(
 				'trapCollectionPersonnel',
@@ -405,6 +530,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				COLLECTIONS_OF_TRAP,
 				'assisting person',
 				'assisting people',
+				'acknowledgedCascadeDelete',
 			),
 			detachesUnderChild(
 				'trapCollectionApplications',
@@ -413,6 +539,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				COLLECTIONS_OF_TRAP,
 				'chemical application',
 				'chemical applications',
+				'acknowledgedCascadeDelete',
 			),
 			detachesUnderChild(
 				'trapCollectionControlRequests',
@@ -421,17 +548,40 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				COLLECTIONS_OF_TRAP,
 				'control request',
 				'control requests',
+				'acknowledgedCascadeDelete',
 			),
-			cascades('trapCollections', 'collections', 'trap_id', 'collection', 'collections'),
-			cascadesSupport('trapComments', 'comments', 'trap', 'comment', 'comments'),
-			cascadesSupport('trapTags', 'tag_items', 'trap', 'tag', 'tags'),
-			cascadesSupport('trapRouteItems', 'route_items', 'trap', 'route stop', 'route stops'),
+			cascades(
+				'trapCollections',
+				'collections',
+				'trap_id',
+				'collection',
+				'collections',
+				'acknowledgedCascadeDelete',
+			),
+			cascadesSupport(
+				'trapComments',
+				'comments',
+				'trap',
+				'comment',
+				'comments',
+				'acknowledgedCascadeDelete',
+			),
+			cascadesSupport('trapTags', 'tag_items', 'trap', 'tag', 'tags', 'acknowledgedCascadeDelete'),
+			cascadesSupport(
+				'trapRouteItems',
+				'route_items',
+				'trap',
+				'route stop',
+				'route stops',
+				'acknowledgedCascadeDelete',
+			),
 			cascadesSupport(
 				'trapAssignmentItems',
 				'assignment_items',
 				'trap',
 				'assignment stop',
 				'assignment stops',
+				'acknowledgedCascadeDelete',
 			),
 		],
 	},
@@ -446,14 +596,16 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'collection_id',
 				'species count',
 				'species counts',
+				'acknowledgedSpeciesCountDeletion',
 			),
-			cascadesSupport('collectionComments', 'comments', 'collection', 'comment', 'comments'),
+			cascadesSupport('collectionComments', 'comments', 'collection', 'comment', 'comments', null),
 			cascadesSupport(
 				'collectionPersonnel',
 				'additional_personnel',
 				'collection',
 				'assisting person',
 				'assisting people',
+				null,
 			),
 			detaches(
 				'collectionApplications',
@@ -461,6 +613,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'collection_id',
 				'chemical application',
 				'chemical applications',
+				null,
 			),
 			detaches(
 				'collectionControlRequests',
@@ -468,6 +621,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'collection_id',
 				'control request',
 				'control requests',
+				null,
 			),
 		],
 	},
@@ -482,23 +636,39 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 		table: 'habitats',
 		singular: 'habitat',
 		rules: [
-			cascadesSupport('habitatComments', 'comments', 'habitat', 'comment', 'comments'),
-			cascadesSupport('habitatTags', 'tag_items', 'habitat', 'tag', 'tags'),
-			cascadesSupport('habitatRouteItems', 'route_items', 'habitat', 'route stop', 'route stops'),
+			cascadesSupport('habitatComments', 'comments', 'habitat', 'comment', 'comments', null),
+			cascadesSupport('habitatTags', 'tag_items', 'habitat', 'tag', 'tags', null),
+			cascadesSupport(
+				'habitatRouteItems',
+				'route_items',
+				'habitat',
+				'route stop',
+				'route stops',
+				null,
+			),
 			cascadesSupport(
 				'habitatAssignmentItems',
 				'assignment_items',
 				'habitat',
 				'assignment stop',
 				'assignment stops',
+				null,
 			),
-			detaches('habitatInspections', 'inspections', 'habitat_id', 'inspection', 'inspections'),
+			detaches(
+				'habitatInspections',
+				'inspections',
+				'habitat_id',
+				'inspection',
+				'inspections',
+				'acknowledgedInspectionDetach',
+			),
 			detaches(
 				'habitatApplications',
 				'applications',
 				'habitat_id',
 				'chemical application',
 				'chemical applications',
+				'acknowledgedCrossDomainDetach',
 			),
 			detaches(
 				'habitatSourceReductions',
@@ -506,6 +676,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'habitat_id',
 				'source reduction',
 				'source reductions',
+				'acknowledgedCrossDomainDetach',
 			),
 			detaches(
 				'habitatBiocontrolActions',
@@ -513,6 +684,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'habitat_id',
 				'biocontrol action',
 				'biocontrol actions',
+				'acknowledgedCrossDomainDetach',
 			),
 			detaches(
 				'habitatControlRequests',
@@ -520,6 +692,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'habitat_id',
 				'control request',
 				'control requests',
+				'acknowledgedCrossDomainDetach',
 			),
 		],
 	},
@@ -535,6 +708,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				SAMPLES_OF_INSPECTION,
 				'species count',
 				'species counts',
+				'acknowledgedAssociatedRecordsDeletion',
 			),
 			cascadesSupportUnderChild(
 				'inspectionSampleComments',
@@ -543,15 +717,31 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				SAMPLES_OF_INSPECTION,
 				'sample comment',
 				'sample comments',
+				'acknowledgedAssociatedRecordsDeletion',
 			),
-			cascades('inspectionSamples', 'samples', 'inspection_id', 'sample', 'samples'),
-			cascadesSupport('inspectionComments', 'comments', 'inspection', 'comment', 'comments'),
+			cascades(
+				'inspectionSamples',
+				'samples',
+				'inspection_id',
+				'sample',
+				'samples',
+				'acknowledgedAssociatedRecordsDeletion',
+			),
+			cascadesSupport(
+				'inspectionComments',
+				'comments',
+				'inspection',
+				'comment',
+				'comments',
+				'acknowledgedAssociatedRecordsDeletion',
+			),
 			cascadesSupport(
 				'inspectionPersonnel',
 				'additional_personnel',
 				'inspection',
 				'assisting person',
 				'assisting people',
+				'acknowledgedAssociatedRecordsDeletion',
 			),
 			detaches(
 				'inspectionApplications',
@@ -559,6 +749,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'inspection_id',
 				'chemical application',
 				'chemical applications',
+				'acknowledgedCrossDomainDetach',
 			),
 			detaches(
 				'inspectionSourceReductions',
@@ -566,6 +757,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'inspection_id',
 				'source reduction',
 				'source reductions',
+				'acknowledgedCrossDomainDetach',
 			),
 			detaches(
 				'inspectionOutreachActions',
@@ -573,6 +765,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'inspection_id',
 				'outreach action',
 				'outreach actions',
+				'acknowledgedCrossDomainDetach',
 			),
 			detaches(
 				'inspectionBiocontrolActions',
@@ -580,6 +773,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'inspection_id',
 				'biocontrol action',
 				'biocontrol actions',
+				'acknowledgedCrossDomainDetach',
 			),
 			detaches(
 				'inspectionControlRequests',
@@ -587,6 +781,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'inspection_id',
 				'control request',
 				'control requests',
+				'acknowledgedCrossDomainDetach',
 			),
 		],
 	},
@@ -595,8 +790,22 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 		table: 'samples',
 		singular: 'sample',
 		rules: [
-			cascades('sampleSpecies', 'sample_species', 'sample_id', 'species count', 'species counts'),
-			cascadesSupport('sampleComments', 'comments', 'sample', 'comment', 'comments'),
+			cascades(
+				'sampleSpecies',
+				'sample_species',
+				'sample_id',
+				'species count',
+				'species counts',
+				'acknowledgedAssociatedRecordsDeletion',
+			),
+			cascadesSupport(
+				'sampleComments',
+				'comments',
+				'sample',
+				'comment',
+				'comments',
+				'acknowledgedAssociatedRecordsDeletion',
+			),
 		],
 	},
 
@@ -610,14 +819,23 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'application_id',
 				'batch record',
 				'batch records',
+				'acknowledgedBatchDeletion',
 			),
-			cascadesSupport('applicationComments', 'comments', 'application', 'comment', 'comments'),
+			cascadesSupport(
+				'applicationComments',
+				'comments',
+				'application',
+				'comment',
+				'comments',
+				'acknowledgedSupportRecordDeletion',
+			),
 			cascadesSupport(
 				'applicationPersonnel',
 				'additional_personnel',
 				'application',
 				'assisting person',
 				'assisting people',
+				'acknowledgedSupportRecordDeletion',
 			),
 		],
 	},
@@ -660,8 +878,8 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'sent notification',
 				'sent notifications',
 			),
-			cascadesSupport('contactComments', 'comments', 'contact', 'comment', 'comments'),
-			cascadesSupport('contactTags', 'tag_items', 'contact', 'tag', 'tags'),
+			cascadesSupport('contactComments', 'comments', 'contact', 'comment', 'comments', null),
+			cascadesSupport('contactTags', 'tag_items', 'contact', 'tag', 'tags', null),
 		],
 	},
 
@@ -675,14 +893,16 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'service_request',
 				'comment',
 				'comments',
+				null,
 			),
-			cascadesSupport('serviceRequestTags', 'tag_items', 'service_request', 'tag', 'tags'),
+			cascadesSupport('serviceRequestTags', 'tag_items', 'service_request', 'tag', 'tags', null),
 			cascadesSupport(
 				'serviceRequestAssignmentItems',
 				'assignment_items',
 				'service_request',
 				'assignment stop',
 				'assignment stops',
+				'acknowledgedAssignmentItemDeletion',
 			),
 		],
 	},
@@ -692,8 +912,15 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 		table: 'routes',
 		singular: 'route',
 		rules: [
-			cascades('routeItems', 'route_items', 'route_id', 'stop', 'stops'),
-			cascadesSupport('routeComments', 'comments', 'route', 'comment', 'comments'),
+			cascades(
+				'routeItems',
+				'route_items',
+				'route_id',
+				'stop',
+				'stops',
+				'acknowledgedRouteItemDeletion',
+			),
+			cascadesSupport('routeComments', 'comments', 'route', 'comment', 'comments', null),
 		],
 	},
 
@@ -701,8 +928,15 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 		table: 'assignments',
 		singular: 'assignment',
 		rules: [
-			cascades('assignmentItems', 'assignment_items', 'assignment_id', 'stop', 'stops'),
-			cascadesSupport('assignmentComments', 'comments', 'assignment', 'comment', 'comments'),
+			cascades(
+				'assignmentItems',
+				'assignment_items',
+				'assignment_id',
+				'stop',
+				'stops',
+				'acknowledgedAssignmentItemDeletion',
+			),
+			cascadesSupport('assignmentComments', 'comments', 'assignment', 'comment', 'comments', null),
 		],
 	},
 
@@ -717,6 +951,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'requested_control_action',
 				'comment',
 				'comments',
+				null,
 			),
 			detaches(
 				'controlRequestApplications',
@@ -724,6 +959,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'requested_control_action_id',
 				'chemical application',
 				'chemical applications',
+				'acknowledgedActionDetach',
 			),
 			detaches(
 				'controlRequestSourceReductions',
@@ -731,6 +967,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'requested_control_action_id',
 				'source reduction',
 				'source reductions',
+				'acknowledgedActionDetach',
 			),
 			detaches(
 				'controlRequestOutreachActions',
@@ -738,6 +975,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'requested_control_action_id',
 				'outreach action',
 				'outreach actions',
+				'acknowledgedActionDetach',
 			),
 			detaches(
 				'controlRequestBiocontrolActions',
@@ -745,6 +983,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'requested_control_action_id',
 				'biocontrol action',
 				'biocontrol actions',
+				'acknowledgedActionDetach',
 			),
 			detaches(
 				'controlRequestMissionItems',
@@ -752,6 +991,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				'requested_control_action_id',
 				'mission stop',
 				'mission stops',
+				'acknowledgedMissionDetach',
 			),
 		],
 	},
@@ -767,6 +1007,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				ITEMS_OF_MISSION,
 				'chemical application',
 				'chemical applications',
+				'acknowledgedActualActionDetach',
 			),
 			detachesUnderChild(
 				'missionItemSourceReductions',
@@ -775,6 +1016,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				ITEMS_OF_MISSION,
 				'source reduction',
 				'source reductions',
+				'acknowledgedActualActionDetach',
 			),
 			detachesUnderChild(
 				'missionItemOutreachActions',
@@ -783,6 +1025,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				ITEMS_OF_MISSION,
 				'outreach action',
 				'outreach actions',
+				'acknowledgedActualActionDetach',
 			),
 			detachesUnderChild(
 				'missionItemBiocontrolActions',
@@ -791,16 +1034,25 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 				ITEMS_OF_MISSION,
 				'biocontrol action',
 				'biocontrol actions',
+				'acknowledgedActualActionDetach',
 			),
-			cascades('missionItems', 'mission_items', 'mission_id', 'stop', 'stops'),
+			cascades(
+				'missionItems',
+				'mission_items',
+				'mission_id',
+				'stop',
+				'stops',
+				'acknowledgedMissionItemDeletion',
+			),
 			cascades(
 				'missionNotifications',
 				'mission_notifications',
 				'mission_id',
 				'notification',
 				'notifications',
+				'acknowledgedNotificationDeletion',
 			),
-			cascadesSupport('missionComments', 'comments', 'mission', 'comment', 'comments'),
+			cascadesSupport('missionComments', 'comments', 'mission', 'comment', 'comments', null),
 		],
 	},
 
@@ -1073,14 +1325,18 @@ export function deletableRecordTable(recordType: DeletableRecordType): string {
  * than trusting two hand-written lists to stay in step.
  */
 export function deleteReferenceScopes(recordType: DeletableRecordType): readonly {
+	readonly key: string;
 	readonly table: string;
 	readonly effect: ReferenceEffect;
 	readonly scope: ReferenceScope;
+	readonly acknowledgement: DeleteAcknowledgement | null;
 }[] {
 	return DELETABLE_RECORDS[recordType].rules.map((rule) => ({
+		key: rule.key,
 		table: rule.table,
 		effect: rule.effect,
 		scope: rule.scope,
+		acknowledgement: rule.acknowledgement,
 	}));
 }
 
@@ -1276,6 +1532,69 @@ export async function assertRecordDeletable(
 }
 
 /**
+ * Refuse the delete when a confirmation it needed was withheld.
+ *
+ * The counting half already existed: `readDeleteImpact` walks the same rules to
+ * tell the detail page what a delete would take with it. What was missing was
+ * anyone asking. Fifty-nine `acknowledged*` flags were declared on command
+ * payloads, normalized by the domain builders, carried into the write, and read
+ * by nothing, so a client that withheld one got its record deleted anyway.
+ *
+ * One flag at a time, in registry order, because a form can only ask one
+ * question at a time and the first consequence is the one to name. The
+ * remaining questions arrive on the next attempt.
+ *
+ * A rule whose acknowledgement is `null` is never counted here. Nothing about
+ * it is refusable: it is the record's own comments and tags going with it.
+ *
+ * @throws DeleteAcknowledgementRequiredError when a covered rule matched rows
+ * and its flag was not `true`.
+ */
+async function assertDeleteAcknowledged(
+	db: DbExecutor,
+	input: {
+		readonly recordType: DeletableRecordType;
+		readonly recordId: string;
+		readonly organizationId: string;
+		readonly acknowledged: DeleteAcknowledgements;
+	},
+): Promise<void> {
+	const { recordType, recordId, organizationId, acknowledged } = input;
+	const withheld = DELETABLE_RECORDS[recordType].rules.filter(
+		(rule) =>
+			rule.effect !== 'block' &&
+			rule.acknowledgement !== null &&
+			acknowledged[rule.acknowledgement] !== true,
+	);
+	if (withheld.length === 0) {
+		return;
+	}
+
+	const counts = await countRules(db, withheld, recordId, organizationId);
+	for (const flag of orderedAcknowledgements(withheld)) {
+		const covered = withheld.filter((rule) => rule.acknowledgement === flag);
+		const consequences = [
+			...toEntries(covered, counts, 'cascade'),
+			...toEntries(covered, counts, 'detach'),
+		];
+		if (consequences.length > 0) {
+			throw new DeleteAcknowledgementRequiredError(recordType, recordId, flag, consequences);
+		}
+	}
+}
+
+/** The distinct flags across these rules, keeping the registry's order. */
+function orderedAcknowledgements(rules: readonly ReferenceRule[]): DeleteAcknowledgement[] {
+	const seen: DeleteAcknowledgement[] = [];
+	for (const rule of rules) {
+		if (rule.acknowledgement !== null && !seen.includes(rule.acknowledgement)) {
+			seen.push(rule.acknowledgement);
+		}
+	}
+	return seen;
+}
+
+/**
  * Run the record's delete policy inside the caller's transaction.
  *
  * Call this before soft-deleting the record itself: it refuses the delete when
@@ -1284,7 +1603,12 @@ export async function assertRecordDeletable(
  * other-agency record — so the caller's own soft delete stays idempotent
  * instead of the request failing on a repeat.
  *
+ * Both refusals happen before anything is written, so a delete that comes back
+ * refused has changed nothing.
+ *
  * @throws RecordDeleteBlockedError when a `block` rule matched.
+ * @throws DeleteAcknowledgementRequiredError when a cascade or detach the
+ * caller did not confirm matched rows.
  */
 export async function applyRecordDeletion(
 	trx: Transaction<SimmerDatabase>,
@@ -1293,6 +1617,14 @@ export async function applyRecordDeletion(
 		readonly recordId: string;
 		readonly organizationId: string;
 		readonly actorProfileId: string | null;
+		/**
+		 * The confirmations the command carried, straight from its payload.
+		 *
+		 * Required, so that adding a delete writer means answering this. A flag
+		 * left out is withheld, and the delete is refused the moment the rules it
+		 * covers match anything.
+		 */
+		readonly acknowledged: DeleteAcknowledgements;
 	},
 ): Promise<boolean> {
 	const { recordType, recordId, organizationId, actorProfileId } = input;
@@ -1303,6 +1635,12 @@ export async function applyRecordDeletion(
 	}
 
 	await assertRecordDeletable(trx, { recordType, recordId, organizationId });
+	await assertDeleteAcknowledged(trx, {
+		recordType,
+		recordId,
+		organizationId,
+		acknowledged: input.acknowledged,
+	});
 
 	for (const rule of orderRules(config.rules.filter((rule) => rule.effect !== 'block'))) {
 		const match = scopeMatch(rule, recordId, organizationId);

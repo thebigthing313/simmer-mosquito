@@ -23,7 +23,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import { insertLifecycleComment } from '../lifecycle-comment.js';
 import { moveMissionItemRows } from './mission-items.js';
 import {
@@ -98,9 +98,21 @@ export function registerMissionRoutes(
 		'/mission-dispatch/missions/:missionId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
-				deleteMissionCommand({ ...ctx, missionId: param('missionId') }),
+			body: 'optional',
+			build: ({ agency: ctx, param, payload }) =>
+				deleteMissionCommand({
+					...ctx,
+					missionId: param('missionId'),
+					acknowledgedMissionItemDeletion: acknowledged(payload.acknowledgedMissionItemDeletion),
+					acknowledgedActualActionDetach: acknowledged(payload.acknowledgedActualActionDetach),
+					acknowledgedNotificationDeletion: acknowledged(payload.acknowledgedNotificationDeletion),
+					// Not read by anything yet: whether the mission was completed is
+					// the mission's own state rather than something hanging off it, and
+					// that group is the next slice of #165.
+					acknowledgedCompletedMissionDeletion: acknowledged(
+						payload.acknowledgedCompletedMissionDeletion,
+					),
+				}),
 			run: (context, commands) => runMissionCommands(context, options.db, commands),
 		}),
 	);
@@ -479,6 +491,11 @@ export async function writeMissionCommand(
 				recordId: command.payload.missionId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedMissionItemDeletion: command.payload.acknowledgedMissionItemDeletion,
+					acknowledgedActualActionDetach: command.payload.acknowledgedActualActionDetach,
+					acknowledgedNotificationDeletion: command.payload.acknowledgedNotificationDeletion,
+				},
 			});
 			return softDelete(
 				trx,

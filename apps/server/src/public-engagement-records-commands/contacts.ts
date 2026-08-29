@@ -231,6 +231,10 @@ export async function writeContactCommand(
 				recordId: command.payload.contactId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				// Nothing to confirm: a contact with any service request, registration,
+				// or sent notification is blocked outright, and what remains is the
+				// contact's own comments and tags.
+				acknowledged: {},
 			});
 			return softDelete(
 				trx,
