@@ -112,20 +112,27 @@ async function restartServer() {
 	try {
 		do {
 			pendingChange = false;
-			console.log('[dev] Change detected. Stopping the server...');
-			await stopChild();
-			await buildServerDependencies();
-			if (!(await ensurePortIsFree(serverPort, shutdownGraceMs))) {
-				throw new Error(`Port ${serverPort} is still in use after restart cleanup.`);
-			}
-
-			await startChild();
+			await replaceChild();
 		} while (pendingChange && !isStopping);
 	} catch (error) {
 		console.error(error);
 	} finally {
 		isRestarting = false;
 	}
+}
+
+// One stop, build, start cycle. `ensurePortIsFree` is a guard here rather than
+// the mechanism: `stopChild` has already waited for the old process to exit, so
+// a listener still on the port is something this runner did not start.
+async function replaceChild() {
+	console.log('[dev] Change detected. Stopping the server...');
+	await stopChild();
+	await buildServerDependencies();
+	if (!(await ensurePortIsFree(serverPort, shutdownGraceMs))) {
+		throw new Error(`Port ${serverPort} is still in use after restart cleanup.`);
+	}
+
+	await startChild();
 }
 
 // Resolves once the forked process has reported it is listening, or has exited
