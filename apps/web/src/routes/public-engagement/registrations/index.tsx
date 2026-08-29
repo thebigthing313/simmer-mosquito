@@ -114,45 +114,13 @@ function RegistrationsExplorerRoute() {
 	return (
 		<ExplorerMapPage
 			filters={
-				<>
-					<SearchField
-						label="Search registrations"
-						onChange={searchInput.setInput}
-						onClear={searchInput.clear}
-						placeholder="Search by contact"
-						value={searchInput.input}
-					/>
-					<ToggleFilter
-						label="No-spray only"
-						onChange={(next) => setFilters({ noSprayOnly: next })}
-						value={filters.noSprayOnly}
-					/>
-					<ToggleFilter
-						label="Include inactive"
-						onChange={(next) => setFilters({ includeInactive: next })}
-						value={filters.includeInactive}
-					/>
-
-					{activeCount > 0 ? (
-						<ActiveFilterBar onClearAll={reset}>
-							{search.trim().length > 0 ? (
-								<FilterChip label={`Search: ${search}`} onRemove={searchInput.clear} />
-							) : null}
-							{filters.noSprayOnly ? (
-								<FilterChip
-									label="No-spray only"
-									onRemove={() => setFilters({ noSprayOnly: false })}
-								/>
-							) : null}
-							{filters.includeInactive ? (
-								<FilterChip
-									label="Including inactive"
-									onRemove={() => setFilters({ includeInactive: false })}
-								/>
-							) : null}
-						</ActiveFilterBar>
-					) : null}
-				</>
+				<RegistrationFilterPanel
+					activeCount={activeCount}
+					filters={filters}
+					onReset={reset}
+					search={searchInput}
+					setFilters={setFilters}
+				/>
 			}
 			footer={
 				pageCount > 1 ? (
@@ -215,6 +183,70 @@ function RegistrationsExplorerRoute() {
 				),
 			}}
 		/>
+	);
+}
+
+/**
+ * The three questions worth narrowing this list by.
+ *
+ * Separate from the page because the page is already a map, a list and a
+ * generation of buffer rings, and the filter rail is the part of it that has
+ * nothing to do with any of those.
+ */
+function RegistrationFilterPanel({
+	activeCount,
+	filters,
+	onReset,
+	search,
+	setFilters,
+}: {
+	readonly activeCount: number;
+	readonly filters: RegistrationFilters;
+	readonly onReset: () => void;
+	readonly search: {
+		readonly input: string;
+		readonly setInput: (next: string) => void;
+		readonly clear: () => void;
+	};
+	readonly setFilters: (patch: Partial<RegistrationFilters>) => void;
+}) {
+	return (
+		<>
+			<SearchField
+				label="Search registrations"
+				onChange={search.setInput}
+				onClear={search.clear}
+				placeholder="Search by contact"
+				value={search.input}
+			/>
+			<ToggleFilter
+				label="No-spray only"
+				onChange={(next) => setFilters({ noSprayOnly: next })}
+				value={filters.noSprayOnly}
+			/>
+			<ToggleFilter
+				label="Include inactive"
+				onChange={(next) => setFilters({ includeInactive: next })}
+				value={filters.includeInactive}
+			/>
+
+			{activeCount === 0 ? null : (
+				<ActiveFilterBar onClearAll={onReset}>
+					{filters.search.trim().length === 0 ? null : (
+						<FilterChip label={`Search: ${filters.search}`} onRemove={search.clear} />
+					)}
+					{filters.noSprayOnly ? (
+						<FilterChip label="No-spray only" onRemove={() => setFilters({ noSprayOnly: false })} />
+					) : null}
+					{filters.includeInactive ? (
+						<FilterChip
+							label="Including inactive"
+							onRemove={() => setFilters({ includeInactive: false })}
+						/>
+					) : null}
+				</ActiveFilterBar>
+			)}
+		</>
 	);
 }
 

@@ -27,7 +27,9 @@ const ADDRESS = '33333333-3333-4333-8333-333333333333';
 const METRES = '44444444-4444-4444-8444-444444444444';
 const FEET = '55555555-5555-4555-8555-555555555555';
 
-const POINT = { type: 'Point' as const, coordinates: [-90.5, 35.5] };
+import type { GeoJsonPoint } from '@simmer-mosquito/mapping';
+
+const POINT: GeoJsonPoint = { type: 'Point', coordinates: [-90.5, 35.5] };
 
 function fields(overrides: Partial<RegistrationFields> = {}): RegistrationFields {
 	return {

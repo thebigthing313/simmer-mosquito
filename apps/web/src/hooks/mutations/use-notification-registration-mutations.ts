@@ -129,59 +129,114 @@ export function registrationUpdatePlan(input: {
 	/** The redrawn shape, or null when the user did not touch it. */
 	readonly geometry: GeoJsonGeometry | null;
 }): RegistrationUpdatePlan | null {
-	const { fields, current } = input;
-	const intents: RegistrationUpdateIntent[] = [];
-	const changes: Partial<NotificationRegistration> = {};
-	const args: Record<string, unknown> = {};
+	const parts = [
+		contactPart(input.fields, input.current),
+		locationPart(input.fields, input.current, input.geometry),
+		bufferPart(input.fields, input.current),
+		flagsPart(input.fields, input.current),
+	].filter((part): part is PlanPart => part !== null);
 
-	if (fields.contactId !== current.contactId) {
-		intents.push('publicEngagement.updateNotificationRegistrationContact');
-		changes.contact_id = fields.contactId;
-		args.contact = { kind: 'existing', contactId: fields.contactId };
+	if (parts.length === 0) {
+		return null;
 	}
 
-	if (input.geometry !== null || fields.addressId !== current.addressId) {
-		intents.push('publicEngagement.updateNotificationRegistrationLocation');
-		changes.address_id = fields.addressId;
-		args.location = {
-			address:
-				fields.addressId === null
-					? { kind: 'none' }
-					: { kind: 'existing', addressId: fields.addressId },
-			// The command requires a shape. An address-only edit re-sends the one the
-			// registration already has, which the caller passes as the current
-			// geometry rather than null.
-			geometry: input.geometry,
-		};
-		if (input.geometry !== null) {
-			const centroid = ownedCentroidFromGeoJson(input.geometry);
-			if (centroid !== null) {
-				changes.lat = centroid.lat;
-				changes.lng = centroid.lng;
-				changes.geom_type = centroid.geomType;
-			}
-		}
+	return {
+		intents: parts.map((part) => part.intent),
+		changes: Object.assign({}, ...parts.map((part) => part.changes)),
+		arguments: Object.assign({}, ...parts.map((part) => part.arguments ?? {})),
+	};
+}
+
+/** One group of fields that moved, and the command that says so. */
+interface PlanPart {
+	readonly intent: RegistrationUpdateIntent;
+	readonly changes: Partial<NotificationRegistration>;
+	readonly arguments?: Readonly<Record<string, unknown>>;
+}
+
+function contactPart(fields: RegistrationFields, current: RegistrationFields): PlanPart | null {
+	if (fields.contactId === current.contactId) {
+		return null;
+	}
+	return {
+		intent: 'publicEngagement.updateNotificationRegistrationContact',
+		changes: { contact_id: fields.contactId },
+		arguments: { contact: { kind: 'existing', contactId: fields.contactId } },
+	};
+}
+
+/**
+ * The location group, which is the awkward one.
+ *
+ * The drawn shape does not sync as a column — only the trigger-maintained
+ * centroid does — so nothing about the row can tell whether it moved. A caller
+ * passing `null` means "not redrawn", the same convention `regionUpdatePlan`
+ * uses, and a redrawn shape is a location edit even when the address did not
+ * move. The centroid columns only shift when a shape actually arrived; inventing
+ * one for an address-only edit would rewrite geometry nobody opened.
+ */
+function locationPart(
+	fields: RegistrationFields,
+	current: RegistrationFields,
+	geometry: GeoJsonGeometry | null,
+): PlanPart | null {
+	if (geometry === null && fields.addressId === current.addressId) {
+		return null;
 	}
 
+	const centroid = geometry === null ? null : ownedCentroidFromGeoJson(geometry);
+	return {
+		intent: 'publicEngagement.updateNotificationRegistrationLocation',
+		changes: {
+			address_id: fields.addressId,
+			...(centroid === null
+				? {}
+				: { lat: centroid.lat, lng: centroid.lng, geom_type: centroid.geomType }),
+		},
+		arguments: {
+			location: {
+				address:
+					fields.addressId === null
+						? { kind: 'none' }
+						: { kind: 'existing', addressId: fields.addressId },
+				// The command requires a shape. An address-only edit re-sends the one
+				// the registration already has, which the caller passes rather than null.
+				geometry,
+			},
+		},
+	};
+}
+
+/** Both halves or neither: 500 metres and 500 feet are the same number and a different catchment. */
+function bufferPart(fields: RegistrationFields, current: RegistrationFields): PlanPart | null {
+	if (bufferKey(fields.buffer) === bufferKey(current.buffer)) {
+		return null;
+	}
+	return {
+		intent: 'publicEngagement.updateNotificationRegistrationBuffer',
+		changes: {
+			buffer_distance: fields.buffer?.distance ?? null,
+			buffer_unit_id: fields.buffer?.unitId ?? null,
+		},
+	};
+}
+
+/** One comparable value for a buffer, so a null one is not four separate comparisons. */
+function bufferKey(buffer: RegistrationBuffer | null): string {
+	return buffer === null ? '' : `${buffer.distance}:${buffer.unitId}`;
+}
+
+function flagsPart(fields: RegistrationFields, current: RegistrationFields): PlanPart | null {
 	if (
-		fields.buffer?.distance !== current.buffer?.distance ||
-		fields.buffer?.unitId !== current.buffer?.unitId
+		fields.flags.hasBees === current.flags.hasBees &&
+		fields.flags.isNoSpray === current.flags.isNoSpray
 	) {
-		intents.push('publicEngagement.updateNotificationRegistrationBuffer');
-		changes.buffer_distance = fields.buffer?.distance ?? null;
-		changes.buffer_unit_id = fields.buffer?.unitId ?? null;
+		return null;
 	}
-
-	if (
-		fields.flags.hasBees !== current.flags.hasBees ||
-		fields.flags.isNoSpray !== current.flags.isNoSpray
-	) {
-		intents.push('publicEngagement.updateNotificationRegistrationFlags');
-		changes.has_bees = fields.flags.hasBees;
-		changes.is_no_spray = fields.flags.isNoSpray;
-	}
-
-	return intents.length === 0 ? null : { intents, changes, arguments: args };
+	return {
+		intent: 'publicEngagement.updateNotificationRegistrationFlags',
+		changes: { has_bees: fields.flags.hasBees, is_no_spray: fields.flags.isNoSpray },
+	};
 }
 
 export interface NotificationRegistrationMutations {

@@ -35,6 +35,7 @@ import { formatOperationalDate } from '../-operations-data';
 import { MissionStatusBadge, StopProgressSummary, stopSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
 import { WorklistTabs } from '../-worklist-tabs';
+import { MissionNotificationsCard } from './-mission-notifications-card';
 import { type MissionRun, useMissionRun } from './-mission-run';
 import { MissionStopList, RequestStopPicker } from './-mission-stops';
 
@@ -147,6 +148,12 @@ function MissionPanel({
 					stops={run.stops}
 				/>
 			</WorklistTabs>
+
+			{run.mission === null ? null : (
+				<div className="shrink-0 border-border/40 border-t p-3">
+					<MissionNotificationsCard missionId={missionId} />
+				</div>
+			)}
 
 			{run.mission === null ? null : (
 				<div className="shrink-0 border-border/40 border-t p-3">

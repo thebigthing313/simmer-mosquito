@@ -67,16 +67,27 @@ function RegistrationDetailRoute() {
  */
 function RegistrationDetail({ registration }: { readonly registration: RegistrationRecord }) {
 	const { contact } = useContact(registration.contactId);
-	const { subscriptions } = useRegistrationSubscriptions(registration.id);
-	const { byId: unitsById } = useUnitLabels();
-	const notificationTypes = useNotificationTypeRoster();
-	const mutations = useNotificationRegistrationMutations();
 
-	const typeNames = subscriptions.map(
-		(subscription) =>
-			notificationTypes.find((type) => type.id === subscription.notificationTypeId)?.name ??
-			'Unknown type',
+	return (
+		<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
+			<RegistrationHeader contactName={contact?.contactName ?? null} registration={registration} />
+			<ContactCard contactId={registration.contactId} />
+			<CoverageCard registration={registration} />
+			<PurposeCard registration={registration} />
+			<DeleteRegistrationCard registrationId={registration.id} />
+		</div>
 	);
+}
+
+/** The name, the state it is in, and the two controls that change that state. */
+function RegistrationHeader({
+	contactName,
+	registration,
+}: {
+	readonly contactName: string | null;
+	readonly registration: RegistrationRecord;
+}) {
+	const mutations = useNotificationRegistrationMutations();
 
 	const setActive = useCallback(
 		async (next: boolean) => {
@@ -92,105 +103,128 @@ function RegistrationDetail({ registration }: { readonly registration: Registrat
 		[mutations, registration.id],
 	);
 
-	const bufferUnit =
-		registration.bufferUnitId === null ? null : unitsById.get(registration.bufferUnitId);
+	return (
+		<header className="flex flex-wrap items-start justify-between gap-3">
+			<div className="grid gap-1">
+				<h1 className="font-semibold text-2xl text-foreground">{contactName ?? 'Registration'}</h1>
+				<div className="flex flex-wrap items-center gap-2">
+					<Badge variant={registration.isActive ? 'secondary' : 'outline'}>
+						{registration.isActive ? 'Active' : 'Inactive'}
+					</Badge>
+					{registration.isNoSpray ? <Badge variant="destructive">Do not spray</Badge> : null}
+					{registration.hasBees ? <Badge variant="outline">Bees</Badge> : null}
+				</div>
+			</div>
+			<WriteOnly minimum="manager">
+				<div className="flex flex-wrap gap-2">
+					<Button
+						onClick={() => void setActive(!registration.isActive)}
+						size="sm"
+						variant="outline"
+					>
+						{registration.isActive ? 'Deactivate' : 'Reactivate'}
+					</Button>
+					<Button asChild size="sm">
+						<Link params={{ id: registration.id }} to="/public-engagement/registrations/$id/edit">
+							<EditIcon aria-hidden="true" />
+							Edit
+						</Link>
+					</Button>
+				</div>
+			</WriteOnly>
+		</header>
+	);
+}
+
+function ContactCard({ contactId }: { readonly contactId: string }) {
+	const { contact } = useContact(contactId);
 
 	return (
-		<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-			<header className="flex flex-wrap items-start justify-between gap-3">
-				<div className="grid gap-1">
-					<h1 className="font-semibold text-2xl text-foreground">
-						{contact?.contactName ?? 'Registration'}
-					</h1>
-					<div className="flex flex-wrap items-center gap-2">
-						<Badge variant={registration.isActive ? 'secondary' : 'outline'}>
-							{registration.isActive ? 'Active' : 'Inactive'}
-						</Badge>
-						{registration.isNoSpray ? <Badge variant="destructive">Do not spray</Badge> : null}
-						{registration.hasBees ? <Badge variant="outline">Bees</Badge> : null}
-					</div>
-				</div>
-				<div className="flex flex-wrap gap-2">
-					<WriteOnly minimum="manager">
-						<Button
-							onClick={() => void setActive(!registration.isActive)}
-							size="sm"
-							variant="outline"
-						>
-							{registration.isActive ? 'Deactivate' : 'Reactivate'}
-						</Button>
-						<Button asChild size="sm">
-							<Link params={{ id: registration.id }} to="/public-engagement/registrations/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Edit
-							</Link>
-						</Button>
-					</WriteOnly>
-				</div>
-			</header>
+		<Card variant="surface">
+			<CardHeader className="px-4 py-4">
+				<CardTitle>Contact</CardTitle>
+			</CardHeader>
+			<CardContent padding="compact">
+				{contact === undefined ? (
+					<EmptyValue />
+				) : (
+					<Link
+						className="text-primary underline-offset-4 hover:underline"
+						params={{ id: contact.id }}
+						to="/public-engagement/contacts/$id"
+					>
+						{contact.contactName ?? 'Unnamed contact'}
+					</Link>
+				)}
+			</CardContent>
+		</Card>
+	);
+}
 
-			<Card variant="surface">
-				<CardHeader className="px-4 py-4">
-					<CardTitle>Contact</CardTitle>
-				</CardHeader>
-				<CardContent padding="compact">
-					{contact === undefined ? (
-						<EmptyValue />
+/** The shape and the buffer: together, the ground a mission has to reach. */
+function CoverageCard({ registration }: { readonly registration: RegistrationRecord }) {
+	const { byId: unitsById } = useUnitLabels();
+	const bufferUnit =
+		registration.bufferUnitId === null ? undefined : unitsById.get(registration.bufferUnitId);
+
+	return (
+		<Card variant="surface">
+			<CardHeader className="px-4 py-4">
+				<CardTitle>Coverage</CardTitle>
+			</CardHeader>
+			<CardContent className="grid gap-4 sm:grid-cols-2" padding="compact">
+				<Fact label="Shape">{geometryLabel(registration.geomType)}</Fact>
+				<Fact label="Buffer">
+					{registration.bufferDistance === null || bufferUnit === undefined ? (
+						<span className="text-muted-foreground">Exact shape, with nothing added around it</span>
 					) : (
-						<Link
-							className="text-primary underline-offset-4 hover:underline"
-							params={{ id: contact.id }}
-							to="/public-engagement/contacts/$id"
-						>
-							{contact.contactName ?? 'Unnamed contact'}
-						</Link>
+						`${registration.bufferDistance} ${bufferUnit.abbreviation}`
 					)}
-				</CardContent>
-			</Card>
+				</Fact>
+			</CardContent>
+		</Card>
+	);
+}
 
-			<Card variant="surface">
-				<CardHeader className="px-4 py-4">
-					<CardTitle>Coverage</CardTitle>
-				</CardHeader>
-				<CardContent className="grid gap-4 sm:grid-cols-2" padding="compact">
-					<Fact label="Shape">{geometryLabel(registration.geomType)}</Fact>
-					<Fact label="Buffer">
-						{registration.bufferDistance === null ||
-						bufferUnit === undefined ||
-						bufferUnit === null ? (
-							<span className="text-muted-foreground">
-								Exact shape, with nothing added around it
-							</span>
-						) : (
-							`${registration.bufferDistance} ${bufferUnit.abbreviation}`
-						)}
-					</Fact>
-				</CardContent>
-			</Card>
+/**
+ * What the registration is for.
+ *
+ * A registration with neither a flag nor a subscription is a row that will never
+ * be notified. The domain refuses one on create, but a type retired afterwards
+ * can leave an existing row in that state, so the page says so rather than
+ * showing an empty list that reads as "nothing yet".
+ */
+function PurposeCard({ registration }: { readonly registration: RegistrationRecord }) {
+	const { subscriptions } = useRegistrationSubscriptions(registration.id);
+	const notificationTypes = useNotificationTypeRoster();
 
-			<Card variant="surface">
-				<CardHeader className="px-4 py-4">
-					<CardTitle>What this warns about</CardTitle>
-				</CardHeader>
-				<CardContent padding="compact">
-					{typeNames.length === 0 ? (
-						<p className="text-muted-foreground text-sm">
-							{registration.hasBees || registration.isNoSpray
-								? 'No notification types. The warning flags above are what this registration is for.'
-								: 'Nothing. This registration has no purpose and will never be notified.'}
-						</p>
-					) : (
-						<ul className="grid gap-1 text-sm">
-							{typeNames.map((name) => (
-								<li key={name}>{name}</li>
-							))}
-						</ul>
-					)}
-				</CardContent>
-			</Card>
+	const typeNames = subscriptions.map(
+		(subscription) =>
+			notificationTypes.find((type) => type.id === subscription.notificationTypeId)?.name ??
+			'Unknown type',
+	);
 
-			<DeleteRegistrationCard registrationId={registration.id} />
-		</div>
+	return (
+		<Card variant="surface">
+			<CardHeader className="px-4 py-4">
+				<CardTitle>What this warns about</CardTitle>
+			</CardHeader>
+			<CardContent padding="compact">
+				{typeNames.length === 0 ? (
+					<p className="text-muted-foreground text-sm">
+						{registration.hasBees || registration.isNoSpray
+							? 'No notification types. The warning flags above are what this registration is for.'
+							: 'Nothing. This registration has no purpose and will never be notified.'}
+					</p>
+				) : (
+					<ul className="grid gap-1 text-sm">
+						{typeNames.map((name) => (
+							<li key={name}>{name}</li>
+						))}
+					</ul>
+				)}
+			</CardContent>
+		</Card>
 	);
 }
 

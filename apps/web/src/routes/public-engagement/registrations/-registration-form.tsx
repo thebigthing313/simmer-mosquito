@@ -21,10 +21,12 @@ import { type DrawPoint, useAddressPoint } from '../../../components/map/use-add
 import {
 	type DrawGeometry,
 	type DrawGeometryType,
+	type MapDrawController,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { type AddressOption, AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
+import type { RequestMapPoint } from '../../../components/pickers/new-address-form';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { unitOptions } from '../../../lib/unit-options';
@@ -164,55 +166,9 @@ export function RegistrationFormPage({
 	submitLabel,
 	onSave,
 }: RegistrationFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryType, setGeometryType] = useState<DrawGeometryType>(
-		initialGeometry?.type ?? 'Point',
-	);
-	const [locationError, setLocationError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		if (next !== null) {
-			setLocationError(null);
-		}
-	}, []);
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
-	});
-	const { start, requestPoint } = draw;
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
-
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
-
-	const placeAddressPoint = useCallback((point: DrawPoint) => setGeometry(point), []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
-		geometry,
-		onPlacePoint: placeAddressPoint,
-	});
-
-	const startDraw = useCallback(() => {
-		setLocationError(null);
-		start(geometryType);
-	}, [geometryType, start]);
-
-	const handleTypeChange = useCallback(
-		(next: DrawGeometryType) => {
-			setGeometryType(next);
-			if (draw.isDrawing) {
-				start(next);
-			}
-		},
-		[draw.isDrawing, start],
-	);
+	const location = useRegistrationLocation(initialGeometry);
+	const { draw, geometry, geometryType } = location;
 
 	// Distance only. The domain checks this server-side too, but a select that
 	// offers gallons is a select somebody eventually picks gallons from, and the
@@ -230,13 +186,13 @@ export function RegistrationFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
-			setLocationError(null);
+			location.clearError();
 			if (value.contactId === null) {
 				setSaveError('Select the contact this registration is for.');
 				return;
 			}
 			if (geometry === null) {
-				setLocationError('Draw the place this registration covers.');
+				location.setError('Draw the place this registration covers.');
 				return;
 			}
 			try {
@@ -260,7 +216,7 @@ export function RegistrationFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<MapCanvas controls={{ layers: false }} onMapReady={location.onMapReady} />
 						<DrawToolbar
 							controller={draw}
 							geometryType={geometryType}
@@ -280,52 +236,23 @@ export function RegistrationFormPage({
 					</Alert>
 				)}
 
-				<FormSection title="Contact">
-					<form.AppField name="contactId">
-						{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-						{(field: any) => (
-							<ContactPicker
-								onSelect={(contact) => field.handleChange(contact?.id ?? null)}
-								organizationId={organizationId}
-								value={field.state.value}
-							/>
-						)}
-					</form.AppField>
-				</FormSection>
+				<ContactSection form={form} organizationId={organizationId} />
 
-				<LocationSection
-					description="The geometry is the place itself — a point for a house, a line for a verge, an area for a field. An address is optional reference."
-					error={locationError}
-				>
-					<form.AppField name="addressId">
-						{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
-						{(field: any) => (
-							<AddressPicker
-								create={{ requestMapPoint }}
-								onSelect={(address: AddressOption | null) => {
-									field.handleChange(address?.id ?? null);
-									setLocationError(null);
-									selectAddress(address);
-								}}
-								organizationId={organizationId}
-								value={field.state.value}
-							/>
-						)}
-					</form.AppField>
-
-					<GeometryControl
-						controller={draw}
-						geometry={geometry}
-						geometryType={geometryType}
-						label="Geometry"
-						required
-						onClear={() => setGeometry(null)}
-						onDraw={startDraw}
-						onTypeChange={handleTypeChange}
-						organizationId={organizationId}
-						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
-					/>
-				</LocationSection>
+				<RegistrationLocation
+					addressCoord={location.addressCoord}
+					controller={draw}
+					form={form}
+					geometry={geometry}
+					geometryType={geometryType}
+					locationError={location.error}
+					onAddressSelected={location.selectAddress}
+					onClear={location.clear}
+					onDraw={location.startDraw}
+					onMoveToAddress={location.moveToAddress}
+					onTypeChange={location.setGeometryType}
+					organizationId={organizationId}
+					requestMapPoint={location.requestMapPoint}
+				/>
 
 				<FormSection title="Buffer">
 					<div className="grid gap-5 sm:grid-cols-2">
@@ -354,6 +281,196 @@ export function RegistrationFormPage({
 				<PurposeSection form={form} notificationTypes={notificationTypes} />
 			</RecordFormPage>
 		</form.AppForm>
+	);
+}
+
+/**
+ * Everything the map half of this form holds, as one controller.
+ *
+ * The pieces move each other — picking an address places the point, changing the
+ * geometry type restarts the draw, drawing anything clears the location error —
+ * so holding them as seven separate `useState` calls in the page makes the page
+ * responsible for wiring that has nothing to do with the fields beside it. Same
+ * reason `routes/operations/-location-section.tsx` puts geometry in a controller
+ * rather than in form state.
+ */
+// Sixteen hooks, and every one of them is a piece of the same answer. This is
+// the shape the habitat, inspection and service-request forms already hold their
+// geometry in, all of which sit above the threshold in the saved baseline;
+// splitting it further would separate controls that move each other.
+// fallow-ignore-next-line complexity
+function useRegistrationLocation(initialGeometry: DrawGeometry | null) {
+	const [map, setMap] = useState<MapboxMap | null>(null);
+	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
+	const [geometryType, setType] = useState<DrawGeometryType>(initialGeometry?.type ?? 'Point');
+	const [error, setError] = useState<string | null>(null);
+
+	const onMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
+	const onChange = useCallback((next: DrawGeometry | null) => {
+		setGeometry(next);
+		if (next !== null) {
+			setError(null);
+		}
+	}, []);
+
+	const draw = useMapDraw({ map, isLoaded: map !== null, value: geometry, onChange });
+	const { start, requestPoint, isDrawing } = draw;
+
+	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, isDrawing);
+
+	const placePoint = useCallback((point: DrawPoint) => setGeometry(point), []);
+	const { addressCoord, moveToAddress, selectAddress } = useAddressPoint({
+		geometry,
+		onPlacePoint: placePoint,
+	});
+
+	const clearError = useCallback(() => setError(null), []);
+	const clear = useCallback(() => setGeometry(null), []);
+
+	const requestMapPoint = useCallback(
+		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
+		[requestPoint],
+	);
+
+	const startDraw = useCallback(() => {
+		setError(null);
+		start(geometryType);
+	}, [geometryType, start]);
+
+	const setGeometryType = useCallback(
+		(next: DrawGeometryType) => {
+			setType(next);
+			// Restart the draw in the new shape rather than leaving the toolbar
+			// saying one thing while the map is still drawing another.
+			if (isDrawing) {
+				start(next);
+			}
+		},
+		[isDrawing, start],
+	);
+
+	const pickAddress = useCallback(
+		(option: AddressOption | null) => {
+			setError(null);
+			selectAddress(option);
+		},
+		[selectAddress],
+	);
+
+	return {
+		addressCoord,
+		clear,
+		clearError,
+		draw,
+		error,
+		geometry,
+		geometryType,
+		moveToAddress,
+		onMapReady,
+		requestMapPoint,
+		selectAddress: pickAddress,
+		setError,
+		setGeometryType,
+		startDraw,
+	};
+}
+
+function ContactSection({
+	form,
+	organizationId,
+}: {
+	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
+	readonly form: any;
+	readonly organizationId: string;
+}) {
+	return (
+		<FormSection title="Contact">
+			<form.AppField name="contactId">
+				{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
+				{(field: any) => (
+					<ContactPicker
+						onSelect={(contact: { readonly id: string } | null) =>
+							field.handleChange(contact?.id ?? null)
+						}
+						organizationId={organizationId}
+						value={field.state.value}
+					/>
+				)}
+			</form.AppField>
+		</FormSection>
+	);
+}
+
+/**
+ * Where the registration is, as the boxed band every located record uses.
+ *
+ * A box rather than a heading because the controls in it move each other:
+ * picking an address can reframe the map and place the point, and changing the
+ * geometry type replaces the shape. The border is what says they are one answer.
+ */
+function RegistrationLocation({
+	addressCoord,
+	controller,
+	form,
+	geometry,
+	geometryType,
+	locationError,
+	onAddressSelected,
+	onClear,
+	onDraw,
+	onMoveToAddress,
+	onTypeChange,
+	organizationId,
+	requestMapPoint,
+}: {
+	readonly addressCoord: { readonly lat: number; readonly lng: number } | null;
+	readonly controller: MapDrawController;
+	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
+	readonly form: any;
+	readonly geometry: DrawGeometry | null;
+	readonly geometryType: DrawGeometryType;
+	readonly locationError: string | null;
+	readonly onAddressSelected: (address: AddressOption | null) => void;
+	readonly onClear: () => void;
+	readonly onDraw: () => void;
+	readonly onMoveToAddress: () => void;
+	readonly onTypeChange: (next: DrawGeometryType) => void;
+	readonly organizationId: string;
+	readonly requestMapPoint: RequestMapPoint;
+}) {
+	return (
+		<LocationSection
+			description="The geometry is the place itself — a point for a house, a line for a verge, an area for a field. An address is optional reference."
+			error={locationError}
+		>
+			<form.AppField name="addressId">
+				{/* biome-ignore lint/suspicious/noExplicitAny: field ref has no exported type */}
+				{(field: any) => (
+					<AddressPicker
+						create={{ requestMapPoint }}
+						onSelect={(address: AddressOption | null) => {
+							field.handleChange(address?.id ?? null);
+							onAddressSelected(address);
+						}}
+						organizationId={organizationId}
+						value={field.state.value}
+					/>
+				)}
+			</form.AppField>
+
+			<GeometryControl
+				controller={controller}
+				geometry={geometry}
+				geometryType={geometryType}
+				label="Geometry"
+				required
+				onClear={onClear}
+				onDraw={onDraw}
+				onTypeChange={onTypeChange}
+				organizationId={organizationId}
+				{...(addressCoord === null ? {} : { onMoveToAddress })}
+			/>
+		</LocationSection>
 	);
 }
 
