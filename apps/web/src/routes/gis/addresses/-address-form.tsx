@@ -1,6 +1,7 @@
 import { createAddressCommand } from '@simmer-mosquito/domain';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
+import { LocationSection } from '@simmer-mosquito/ui-web/components/form';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -10,7 +11,6 @@ import {
 	MapPinnedIcon,
 	SearchIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -285,25 +285,12 @@ export function AddressFormPage({
 							</div>
 						</section>
 
-						<section
-							aria-labelledby="address-location-label"
-							className={cn(
-								'grid gap-3 rounded-md border bg-muted/30 p-4',
-								locationError === null ? 'border-border/50' : 'border-destructive/60',
-							)}
+						<LocationSection
+							description="Geocode from the fields above, or place the point by hand."
+							error={locationError}
+							gap="tight"
+							title="Address location"
 						>
-							<div className="grid gap-0.5">
-								<span
-									className="font-semibold text-foreground text-sm leading-none"
-									id="address-location-label"
-								>
-									Address location
-								</span>
-								<span className="text-muted-foreground text-xs">
-									Geocode from the fields above, or place the point by hand.
-								</span>
-							</div>
-
 							<GeometryControl
 								allowedTypes={POINT_DRAW_TYPES}
 								controller={draw}
@@ -334,11 +321,7 @@ export function AddressFormPage({
 								onDraw={() => void drawManualPoint()}
 								required
 							/>
-
-							{locationError === null ? null : (
-								<p className="m-0 text-destructive text-sm">{locationError}</p>
-							)}
-						</section>
+						</LocationSection>
 
 						<div className="flex flex-wrap justify-end gap-2 border-border/50 border-t pt-5">
 							<Button asChild type="button" variant="ghost">

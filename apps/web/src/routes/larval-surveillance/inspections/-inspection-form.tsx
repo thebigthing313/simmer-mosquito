@@ -46,11 +46,13 @@ import {
 	GeometryControl,
 	useFitToGeometry,
 } from '../../../components/map/geometry-control';
+import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import {
 	type DrawGeometry,
 	type DrawGeometryType,
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
+import { AddressPicker } from '../../../components/pickers/address-picker';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import {
 	firstCommentDescription,
@@ -324,7 +326,27 @@ export function InspectionFormPage({
 		value: adhocGeometry,
 		onChange: handleAdhocGeometryChange,
 	});
-	const { start } = draw;
+	const { start, requestPoint } = draw;
+
+	// The address picker's own "Create Address" places its point against this
+	// form's map, so a new address can be sited without leaving the inspection.
+	const requestMapPoint = useCallback(
+		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
+		[requestPoint],
+	);
+
+	// Same rule as every other located record: linking an address fills an empty
+	// location and never overwrites a shape the crew drew. Moving onto it stays an
+	// explicit act.
+	const placeAddressPoint = useCallback((point: DrawPoint) => {
+		setAdhocGeometry(point);
+		setAdhocGeometryType('Point');
+		setLocationError(null);
+	}, []);
+	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
+		geometry: adhocGeometry,
+		onPlacePoint: placeAddressPoint,
+	});
 
 	// Ease the map to frame whatever location is currently chosen (a selected
 	// habitat's geometry or freshly drawn ad-hoc geometry) without a manual pan.
@@ -509,8 +531,8 @@ export function InspectionFormPage({
 				<LocationSection
 					description={
 						isEditing
-							? 'Where the inspection happened is fixed. Record a new inspection to cover a different site.'
-							: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers.'
+							? 'The habitat or ad-hoc choice is fixed. Record a new inspection to cover a different site.'
+							: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers. An address is optional reference.'
 					}
 					error={locationError}
 				>
@@ -561,6 +583,25 @@ export function InspectionFormPage({
 								</form.AppField>
 							) : (
 								<div className="grid gap-4">
+									{/* Address before geometry, as on every other located record:
+									    it is what an empty point is seeded from and what a drawn
+									    one is refined off. */}
+									<form.AppField name="addressId">
+										{(field) => (
+											<AddressPicker
+												create={{ requestMapPoint }}
+												label="Address"
+												onSelect={(address) => {
+													field.handleChange(address?.id ?? null);
+													setLocationError(null);
+													selectAddress(address);
+												}}
+												organizationId={organizationId}
+												value={field.state.value}
+											/>
+										)}
+									</form.AppField>
+
 									<GeometryControl
 										controller={draw}
 										geometry={adhocGeometry}
@@ -571,6 +612,7 @@ export function InspectionFormPage({
 										onTypeChange={handleAdhocTypeChange}
 										organizationId={organizationId}
 										required
+										{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 									/>
 									<form.AppField name="habitatTypeId">
 										{(field) => (

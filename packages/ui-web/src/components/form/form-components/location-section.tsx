@@ -20,6 +20,7 @@ export function LocationSection({
 	title = 'Location',
 	description,
 	error = null,
+	gap = 'default',
 	children,
 }: {
 	readonly title?: string;
@@ -27,6 +28,8 @@ export function LocationSection({
 	readonly description: string;
 	/** Shown under the fields and reddens the border. */
 	readonly error?: string | null;
+	/** Rhythm between the controls. `tight` for a band of one or two. */
+	readonly gap?: 'default' | 'tight';
 	readonly children: ReactNode;
 }) {
 	const labelId = useId();
@@ -34,7 +37,8 @@ export function LocationSection({
 		<section
 			aria-labelledby={labelId}
 			className={cn(
-				'grid gap-4 rounded-md border bg-muted/30 p-4',
+				'grid rounded-md border bg-muted/30 p-4',
+				gap === 'tight' ? 'gap-3' : 'gap-4',
 				error === null ? 'border-border/50' : 'border-destructive/60',
 			)}
 		>

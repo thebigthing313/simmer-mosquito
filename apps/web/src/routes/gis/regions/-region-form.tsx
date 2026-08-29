@@ -1,9 +1,12 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import { createRegionCommand } from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import {
+	LocationSection,
+	RecordFormPage,
+	useAppForm,
+} from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
@@ -224,25 +227,12 @@ export function RegionFormPage({
 					</form.AppField>
 				</div>
 
-				<section
-					aria-labelledby="region-geometry-label"
-					className={cn(
-						'grid gap-3 rounded-md border bg-muted/30 p-4',
-						geometryError === null ? 'border-border/50' : 'border-destructive/60',
-					)}
+				<LocationSection
+					description="Draw the region's area on the map."
+					error={geometryError}
+					gap="tight"
+					title="Region boundary"
 				>
-					<div className="grid gap-0.5">
-						<span
-							className="font-semibold text-foreground text-sm leading-none"
-							id="region-geometry-label"
-						>
-							Region boundary
-						</span>
-						<span className="text-muted-foreground text-xs">
-							Draw the region's area on the map.
-						</span>
-					</div>
-
 					<GeometryControl
 						allowedTypes={POLYGON_DRAW_TYPES}
 						controller={draw}
@@ -253,11 +243,7 @@ export function RegionFormPage({
 						onDraw={startDraw}
 						required
 					/>
-
-					{geometryError === null ? null : (
-						<p className="m-0 text-destructive text-sm">{geometryError}</p>
-					)}
-				</section>
+				</LocationSection>
 
 				<form.AppField name="description">
 					{(field) => (

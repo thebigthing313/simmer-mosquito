@@ -4,10 +4,14 @@ import {
 	type RequestIntakeType,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { FormSection, RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import {
+	FormSection,
+	LocationSection,
+	RecordFormPage,
+	useAppForm,
+} from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { DateControl } from '../../../components/date-control';
@@ -317,7 +321,7 @@ export function ServiceRequestFormPage({
 				/>
 
 				{hideLocation ? null : (
-					<LocationSection
+					<RequestLocation
 						addressCoord={addressCoord}
 						controller={draw}
 						form={form}
@@ -451,7 +455,7 @@ function ContactSection({
 	);
 }
 
-function LocationSection({
+function RequestLocation({
 	form,
 	organizationId,
 	geometry,
@@ -480,7 +484,10 @@ function LocationSection({
 	readonly onClearPoint: () => void;
 }) {
 	return (
-		<FormSection title="Location">
+		<LocationSection
+			description="The point is the request’s exact location. Use an address to frame the map, then refine the point to the precise spot."
+			error={locationError}
+		>
 			{/*
 			 * One way in to a new address: the picker's own "Create Address", which
 			 * geocodes the entry and can place its point on this form's map. The form
@@ -503,33 +510,18 @@ function LocationSection({
 				)}
 			</form.AppField>
 
-			<section
-				aria-label="Request point"
-				className={cn(
-					'grid gap-4 rounded-md border bg-muted/30 p-4',
-					locationError === null ? 'border-border/50' : 'border-destructive/60',
-				)}
-			>
-				<p className="m-0 text-muted-foreground text-xs">
-					The point is the request’s exact location. Use an address to frame the map, then refine
-					the point to the precise spot.
-				</p>
-				<GeometryControl
-					allowedTypes={POINT_DRAW_TYPES}
-					controller={controller}
-					geometry={geometry}
-					geometryType="Point"
-					label="Point"
-					required={requireLocation}
-					onClear={onClearPoint}
-					onDraw={onDrawPoint}
-					{...(addressCoord === null ? {} : { onMoveToAddress })}
-				/>
-				{locationError === null ? null : (
-					<p className="m-0 text-destructive text-sm">{locationError}</p>
-				)}
-			</section>
-		</FormSection>
+			<GeometryControl
+				allowedTypes={POINT_DRAW_TYPES}
+				controller={controller}
+				geometry={geometry}
+				geometryType="Point"
+				label="Point"
+				required={requireLocation}
+				onClear={onClearPoint}
+				onDraw={onDrawPoint}
+				{...(addressCoord === null ? {} : { onMoveToAddress })}
+			/>
+		</LocationSection>
 	);
 }
 

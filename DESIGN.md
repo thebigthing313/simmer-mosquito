@@ -447,10 +447,16 @@ which is the one error on a form that belongs to a group rather than a field.
 Both live in `@simmer-mosquito/ui-web/components/form`. `FormSection` had five
 copies before, four of them identical and the fifth carrying a `note` slot for a
 rule that applies to a whole section, so only one form could show such a rule.
-The location band had ten, two of which used `aria-label` where the rest used
-`aria-labelledby` and so announced no heading at all. Neither belongs in a route
-folder: `FormSection` used to live under `routes/control-operations/` and three
-domains outside it reached across to import it.
+The location band had thirteen, two of which used `aria-label` where the rest
+used `aria-labelledby` and so announced no heading at all. Neither belongs in a
+route folder: `FormSection` used to live under `routes/control-operations/` and
+three domains outside it reached across to import it.
+
+Operations forms hold their geometry in a `DrawLocation` controller rather than
+in separate pieces of form state, so `routes/operations/-location-section.tsx`
+stays: it wraps the shared band and renders the geometry control off the
+controller. That is the one thing the band cannot know, and it is the only
+reason to wrap it.
 
 **The Dated Record Order.** Every form that records dated field work stacks its
 bands in one order, so a crew that files an inspection and a source reduction on

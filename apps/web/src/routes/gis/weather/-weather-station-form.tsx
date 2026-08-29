@@ -1,9 +1,12 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import { createWeatherStationCommand } from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import {
+	LocationSection as LocationBand,
+	RecordFormPage,
+	useAppForm,
+} from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
@@ -263,23 +266,12 @@ function LocationSection({
 	readonly onClear: () => void;
 }) {
 	return (
-		<section
-			aria-labelledby="station-geometry-label"
-			className={cn(
-				'grid gap-3 rounded-md border bg-muted/30 p-4',
-				error === null ? 'border-border/50' : 'border-destructive/60',
-			)}
+		<LocationBand
+			description="Place the station where it stands."
+			error={error}
+			gap="tight"
+			title="Station location"
 		>
-			<div className="grid gap-0.5">
-				<span
-					className="font-semibold text-foreground text-sm leading-none"
-					id="station-geometry-label"
-				>
-					Station location
-				</span>
-				<span className="text-muted-foreground text-xs">Place the station where it stands.</span>
-			</div>
-
 			<GeometryControl
 				allowedTypes={POINT_DRAW_TYPES}
 				controller={controller}
@@ -290,9 +282,7 @@ function LocationSection({
 				onDraw={onDraw}
 				required
 			/>
-
-			{error === null ? null : <p className="m-0 text-destructive text-sm">{error}</p>}
-		</section>
+		</LocationBand>
 	);
 }
 

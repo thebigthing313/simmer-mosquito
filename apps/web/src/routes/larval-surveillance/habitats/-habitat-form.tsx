@@ -4,13 +4,13 @@ import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapp
 import {
 	customFieldCount,
 	customSchemaFor,
+	LocationSection,
 	type MetadataValue,
 	RecordFormPage,
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useState } from 'react';
 import { getServerUrl } from '../../../auth';
@@ -277,26 +277,10 @@ export function HabitatFormPage({
 				{/* Address above geometry, in one section — the same Location block
 							    every other located record's form uses. */}
 				<WriteOnly minimum="manager">
-					<section
-						aria-labelledby="habitat-location-label"
-						className={cn(
-							'grid gap-4 rounded-md border bg-muted/30 p-4',
-							geometryError === null ? 'border-border/50' : 'border-destructive/60',
-						)}
+					<LocationSection
+						description="The geometry is the habitat itself — a point for a single site, a line or area for a stretch of one. An address is optional reference."
+						error={geometryError}
 					>
-						<div className="grid gap-0.5">
-							<span
-								className="font-semibold text-foreground text-sm leading-none"
-								id="habitat-location-label"
-							>
-								Location
-							</span>
-							<span className="text-muted-foreground text-xs">
-								The geometry is the habitat itself — a point for a single site, a line or area for a
-								stretch of one. An address is optional reference.
-							</span>
-						</div>
-
 						<form.AppField name="addressId">
 							{(field) => (
 								<AddressPicker
@@ -323,11 +307,7 @@ export function HabitatFormPage({
 							organizationId={organizationId}
 							{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
 						/>
-
-						{geometryError === null ? null : (
-							<p className="m-0 text-destructive text-sm">{geometryError}</p>
-						)}
-					</section>
+					</LocationSection>
 				</WriteOnly>
 
 				<form.AppField
