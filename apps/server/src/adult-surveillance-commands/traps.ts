@@ -276,6 +276,9 @@ export async function writeTrapCommand(
 				recordId: command.payload.trapId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedCascadeDelete: command.payload.acknowledgedCascadeDelete,
+				},
 			});
 			const row = await trx
 				.updateTable('traps')

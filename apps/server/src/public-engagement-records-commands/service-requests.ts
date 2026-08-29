@@ -15,7 +15,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import { insertLifecycleComment } from '../lifecycle-comment.js';
 import {
 	agencyCommandContext,
@@ -108,11 +108,19 @@ export function registerServiceRequestRoutes(
 		'/public-engagement/service-requests/:serviceRequestId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			body: 'optional',
+			build: ({ agency: ctx, param, payload }) =>
 				deleteServiceRequestCommand({
 					...ctx,
 					serviceRequestId: param('serviceRequestId'),
+					acknowledgedAssignmentItemDeletion: acknowledged(
+						payload.acknowledgedAssignmentItemDeletion,
+					),
+					// See the mission delete: whether the request was closed is its own
+					// state, and nothing reads this yet.
+					acknowledgedClosedRequestDeletion: acknowledged(
+						payload.acknowledgedClosedRequestDeletion,
+					),
 				}),
 			run: (context, commands) => runServiceRequestCommands(context, options.db, commands),
 		}),
@@ -394,6 +402,9 @@ async function deleteServiceRequest(
 		recordId: payload.serviceRequestId,
 		organizationId: payload.organizationId,
 		actorProfileId: payload.actorProfileId,
+		acknowledged: {
+			acknowledgedAssignmentItemDeletion: payload.acknowledgedAssignmentItemDeletion,
+		},
 	});
 	return softDelete(
 		trx,

@@ -12,7 +12,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -85,13 +85,13 @@ export function registerRequestedControlActionRoutes(
 		'/control-operations/requested-control-actions/:requestedControlActionId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			body: 'optional',
+			build: ({ agency: ctx, param, payload }) =>
 				deleteRequestedControlActionCommand({
 					...ctx,
 					requestedControlActionId: param('requestedControlActionId'),
-					acknowledgedActionDetach: true,
-					acknowledgedMissionDetach: true,
+					acknowledgedActionDetach: acknowledged(payload.acknowledgedActionDetach),
+					acknowledgedMissionDetach: acknowledged(payload.acknowledgedMissionDetach),
 				}),
 			run: (context, commands) => runRequestedControlActionCommands(context, options.db, commands),
 		}),
@@ -316,6 +316,10 @@ export async function writeRequestedControlActionCommand(
 				recordId: command.payload.requestedControlActionId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedActionDetach: command.payload.acknowledgedActionDetach,
+					acknowledgedMissionDetach: command.payload.acknowledgedMissionDetach,
+				},
 			});
 			return softDelete(
 				trx,

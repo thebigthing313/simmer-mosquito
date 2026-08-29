@@ -1,4 +1,6 @@
 import {
+	type DeleteAcknowledgement,
+	type DeleteAcknowledgementRequiredError,
 	type DeleteImpactEntry,
 	isDeletableRecordType,
 	type Kysely,
@@ -28,6 +30,37 @@ export function deleteBlockedBody(error: RecordDeleteBlockedError): DeleteBlocke
 		error: 'delete_blocked',
 		message: error.message,
 		blockers: error.blockers,
+	};
+}
+
+/**
+ * The refusal a delete gets when it withheld a confirmation.
+ *
+ * Its own error rather than a `delete_blocked`, because the two ask the client
+ * for different things. A blocked delete cannot proceed at all until the agency
+ * deals with the referring records; this one proceeds the moment the same
+ * request arrives with `flag` set. A form that could not tell them apart would
+ * have to guess whether to offer a Confirm button.
+ *
+ * `consequences` carries the same entries as `/records/:type/:id/delete-impact`,
+ * so the sentence is the client's to write and the counts are the server's.
+ * One flag per refusal: the next withheld one arrives on the next attempt.
+ */
+export interface AcknowledgementRequiredBody {
+	readonly error: 'acknowledgement_required';
+	readonly message: string;
+	readonly flag: DeleteAcknowledgement;
+	readonly consequences: readonly DeleteImpactEntry[];
+}
+
+export function acknowledgementRequiredBody(
+	error: DeleteAcknowledgementRequiredError,
+): AcknowledgementRequiredBody {
+	return {
+		error: 'acknowledgement_required',
+		message: error.message,
+		flag: error.acknowledgement,
+		consequences: error.consequences,
 	};
 }
 

@@ -2,6 +2,7 @@ import {
 	applyRecordDeletion,
 	assertWriteReferences,
 	checkedValues,
+	type DeleteAcknowledgements,
 	sql,
 } from '@simmer-mosquito/db';
 import {
@@ -491,6 +492,11 @@ export async function writeCollectionCommand(
 				command.payload.collectionId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
+				// A pending collection has not been collected, so it has no species
+				// counts to confirm the loss of, and the command carries no flag that
+				// could confirm one. Withholding here would refuse a cancel no client
+				// could ever complete.
+				{ acknowledgedSpeciesCountDeletion: true },
 			);
 		case 'adultSurveillance.updateCollectionFieldDetails':
 			return updateCollection(trx, command.payload.collectionId, command.payload.organizationId, {
@@ -544,6 +550,7 @@ export async function writeCollectionCommand(
 				command.payload.collectionId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
+				{ acknowledgedSpeciesCountDeletion: command.payload.acknowledgedSpeciesCountDeletion },
 			);
 		case 'adultSurveillance.markCollectionZeroResult': {
 			await trx
@@ -792,12 +799,14 @@ async function softDeleteCollection(
 	collectionId: string,
 	organizationId: string,
 	actorProfileId: string,
+	acknowledged: DeleteAcknowledgements,
 ): Promise<CollectionRow | null> {
 	await applyRecordDeletion(trx, {
 		recordType: 'collection',
 		recordId: collectionId,
 		organizationId,
 		actorProfileId,
+		acknowledged,
 	});
 	const row = await trx
 		.updateTable('collections')

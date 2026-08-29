@@ -146,6 +146,9 @@ export async function writeAddressDeleteWithTxid(
 			recordId: addressId,
 			organizationId: input.organizationId,
 			actorProfileId: input.actorProfileId,
+			// See the address command handler: every rule that reaches another
+			// record blocks, so there is no consequence to confirm.
+			acknowledged: {},
 		});
 		const row = await deleteAddress(trx, addressId, input);
 		return { row, txid: await readCurrentTransactionId(trx) };

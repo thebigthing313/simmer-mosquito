@@ -1,10 +1,14 @@
-import { RecordDeleteBlockedError } from '@simmer-mosquito/db';
+import { DeleteAcknowledgementRequiredError, RecordDeleteBlockedError } from '@simmer-mosquito/db';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables } from '../../auth-middleware.js';
-import { deleteBlockedBody, registerRecordDeletionRoutes } from '../../record-deletion.js';
+import {
+	acknowledgementRequiredBody,
+	deleteBlockedBody,
+	registerRecordDeletionRoutes,
+} from '../../record-deletion.js';
 
 /**
  * The delete-impact endpoint and the 409 body, at the HTTP boundary.
@@ -54,6 +58,57 @@ describe('deleteBlockedBody', () => {
 			message: error.message,
 			blockers,
 		});
+	});
+});
+
+describe('acknowledgementRequiredBody', () => {
+	it('names the flag that would let the delete through', () => {
+		// The difference from `delete_blocked` that the form acts on: this refusal
+		// tells the client what to set, so the same request can be sent again.
+		const consequences = [
+			{ key: 'habitatInspections', count: 3, singular: 'inspection', plural: 'inspections' },
+		] as const;
+		const error = new DeleteAcknowledgementRequiredError(
+			'habitat',
+			recordId,
+			'acknowledgedInspectionDetach',
+			consequences,
+		);
+
+		expect(acknowledgementRequiredBody(error)).toEqual({
+			error: 'acknowledgement_required',
+			message: error.message,
+			flag: 'acknowledgedInspectionDetach',
+			consequences,
+		});
+	});
+
+	it('counts the records in the sentence, in domain language', () => {
+		const error = new DeleteAcknowledgementRequiredError(
+			'habitat',
+			recordId,
+			'acknowledgedCrossDomainDetach',
+			[
+				{
+					key: 'habitatApplications',
+					count: 1,
+					singular: 'chemical application',
+					plural: 'chemical applications',
+				},
+				{
+					key: 'habitatControlRequests',
+					count: 2,
+					singular: 'control request',
+					plural: 'control requests',
+				},
+			],
+		);
+
+		// Singular at one, plural above it, and the record's own domain noun
+		// rather than the registry key — the same rule the blocked message follows.
+		expect(error.message).toBe(
+			'Deleting this habitat also affects 1 chemical application and 2 control requests.',
+		);
 	});
 });
 

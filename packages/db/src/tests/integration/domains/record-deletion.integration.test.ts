@@ -2,6 +2,8 @@ import { expect, it } from 'vitest';
 import {
 	applyRecordDeletion,
 	assertRecordDeletable,
+	type DeleteAcknowledgement,
+	DeleteAcknowledgementRequiredError,
 	type Kysely,
 	RecordDeleteBlockedError,
 	readDeleteImpact,
@@ -9,6 +11,29 @@ import {
 	sql,
 } from '../../../index.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
+
+/**
+ * Every confirmation given, for the cases that are about what a delete does
+ * rather than about what it asks. Typed as a total record so a new flag has to
+ * be added here rather than silently defaulting to withheld and turning an
+ * unrelated case red.
+ */
+const CONFIRMED: Record<DeleteAcknowledgement, boolean> = {
+	acknowledgedActionDetach: true,
+	acknowledgedActualActionDetach: true,
+	acknowledgedAssignmentItemDeletion: true,
+	acknowledgedAssociatedRecordsDeletion: true,
+	acknowledgedBatchDeletion: true,
+	acknowledgedCascadeDelete: true,
+	acknowledgedCrossDomainDetach: true,
+	acknowledgedInspectionDetach: true,
+	acknowledgedMissionDetach: true,
+	acknowledgedMissionItemDeletion: true,
+	acknowledgedNotificationDeletion: true,
+	acknowledgedRouteItemDeletion: true,
+	acknowledgedSpeciesCountDeletion: true,
+	acknowledgedSupportRecordDeletion: true,
+};
 
 /**
  * The delete policy against real tables.
@@ -43,6 +68,7 @@ describeDbIntegration('record deletion policy', () => {
 					recordId: habitatId,
 					organizationId: org,
 					actorProfileId: null,
+					acknowledged: CONFIRMED,
 				});
 			});
 
@@ -58,6 +84,86 @@ describeDbIntegration('record deletion policy', () => {
 
 			expect(await liveCommentCount(db, 'habitat', habitatId)).toBe(0);
 			expect(await liveCommentCount(db, 'inspection', inspectionId)).toBe(1);
+		});
+	});
+
+	it('refuses a habitat delete that withheld the inspection detach, and writes nothing', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'habitat_withheld');
+			const habitatId = await createHabitat(db, org);
+			const inspectionId = await createInspection(db, org, habitatId);
+
+			const refusal = await db
+				.transaction()
+				.execute(async (trx) =>
+					applyRecordDeletion(trx, {
+						recordType: 'habitat',
+						recordId: habitatId,
+						organizationId: org,
+						actorProfileId: null,
+						acknowledged: { ...CONFIRMED, acknowledgedInspectionDetach: false },
+					}),
+				)
+				.catch((error: unknown) => error);
+
+			expect(refusal).toBeInstanceOf(DeleteAcknowledgementRequiredError);
+			const error = refusal as DeleteAcknowledgementRequiredError;
+			expect(error.acknowledgement).toBe('acknowledgedInspectionDetach');
+			expect(entry(error.consequences, 'habitatInspections')).toBe(1);
+
+			// The refusal runs before the first cascade, so the inspection still has
+			// its habitat. A guard that answered after the writes would leave the
+			// caller a record that is half deleted and a message saying it is not.
+			const inspection = await db
+				.selectFrom('inspections')
+				.select(['habitat_id', 'deleted_at'])
+				.where('id', '=', inspectionId)
+				.executeTakeFirstOrThrow();
+			expect(inspection.habitat_id).toBe(habitatId);
+			expect(inspection.deleted_at).toBeNull();
+		});
+	});
+
+	it('asks nothing of a habitat that has nothing hanging off it', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'habitat_bare');
+			const habitatId = await createHabitat(db, org);
+
+			// Every flag withheld, and it still goes through: the guard counts rows
+			// rather than reading the flag, so a delete with no consequences never
+			// asks a question the user would not understand.
+			const applied = await db.transaction().execute(async (trx) =>
+				applyRecordDeletion(trx, {
+					recordType: 'habitat',
+					recordId: habitatId,
+					organizationId: org,
+					actorProfileId: null,
+					acknowledged: {},
+				}),
+			);
+
+			expect(applied).toBe(true);
+		});
+	});
+
+	it('names one withheld confirmation at a time', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'habitat_two_questions');
+			const unit = await createUnit(db);
+			const habitatId = await createHabitat(db, org);
+			await createInspection(db, org, habitatId);
+			await createApplication(db, org, unit, { habitatId });
+
+			const first = await habitatRefusal(db, org, habitatId, {});
+			expect(first.acknowledgement).toBe('acknowledgedInspectionDetach');
+
+			// Confirming the first surfaces the second rather than letting the
+			// delete through: the client answers one question per attempt.
+			const second = await habitatRefusal(db, org, habitatId, {
+				acknowledgedInspectionDetach: true,
+			});
+			expect(second.acknowledgement).toBe('acknowledgedCrossDomainDetach');
+			expect(entry(second.consequences, 'habitatApplications')).toBe(1);
 		});
 	});
 
@@ -81,6 +187,7 @@ describeDbIntegration('record deletion policy', () => {
 						recordId: addressId,
 						organizationId: org,
 						actorProfileId: null,
+						acknowledged: CONFIRMED,
 					});
 				}),
 			).rejects.toBeInstanceOf(RecordDeleteBlockedError);
@@ -104,6 +211,7 @@ describeDbIntegration('record deletion policy', () => {
 					recordId: addressId,
 					organizationId: org,
 					actorProfileId: null,
+					acknowledged: CONFIRMED,
 				}),
 			);
 			expect(applied).toBe(true);
@@ -135,6 +243,7 @@ describeDbIntegration('record deletion policy', () => {
 					recordId: trapId,
 					organizationId: org,
 					actorProfileId: null,
+					acknowledged: CONFIRMED,
 				});
 			});
 
@@ -205,6 +314,7 @@ describeDbIntegration('record deletion policy', () => {
 					recordId: missionId,
 					organizationId: org,
 					actorProfileId: null,
+					acknowledged: CONFIRMED,
 				});
 			});
 
@@ -277,6 +387,7 @@ describeDbIntegration('record deletion policy', () => {
 					recordId: requestId,
 					organizationId: org,
 					actorProfileId: null,
+					acknowledged: CONFIRMED,
 				});
 			});
 
@@ -327,6 +438,10 @@ describeDbIntegration('record deletion policy', () => {
 					recordId: habitatId,
 					organizationId: other,
 					actorProfileId: null,
+					// Withheld, deliberately: a record the caller cannot see answers
+					// false before the guard runs, so a refusal here would be this
+					// endpoint admitting the habitat exists.
+					acknowledged: {},
 				}),
 			);
 			expect(applied).toBe(false);
@@ -429,6 +544,31 @@ describeDbIntegration('record deletion policy', () => {
 // ---------------------------------------------------------------------------
 
 type Db = Kysely<SimmerDatabase>;
+
+/** The refusal a habitat delete answers with, for the case that expects one. */
+async function habitatRefusal(
+	db: Db,
+	organizationId: string,
+	habitatId: string,
+	acknowledged: Partial<Record<DeleteAcknowledgement, boolean>>,
+): Promise<DeleteAcknowledgementRequiredError> {
+	const result = await db
+		.transaction()
+		.execute(async (trx) =>
+			applyRecordDeletion(trx, {
+				recordType: 'habitat',
+				recordId: habitatId,
+				organizationId,
+				actorProfileId: null,
+				acknowledged,
+			}),
+		)
+		.catch((error: unknown) => error);
+	if (!(result instanceof DeleteAcknowledgementRequiredError)) {
+		throw new Error(`Expected a withheld-acknowledgement refusal, got ${String(result)}`);
+	}
+	return result;
+}
 
 function entry(
 	entries: readonly { readonly key: string; readonly count: number }[],
@@ -678,6 +818,7 @@ async function createRequestedControlAction(db: Db, organizationId: string): Pro
 interface ActionLinks {
 	readonly missionItemId?: string;
 	readonly requestId?: string;
+	readonly habitatId?: string;
 }
 
 /** Each application brings its own insecticide: the trade name is unique per agency. */
@@ -713,6 +854,7 @@ async function createApplication(
 			application_unit_id: unitId,
 			mission_item_id: links.missionItemId ?? null,
 			requested_control_action_id: links.requestId ?? null,
+			habitat_id: links.habitatId ?? null,
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();

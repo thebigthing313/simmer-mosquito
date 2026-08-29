@@ -227,6 +227,10 @@ export async function writeAddressCommand(
 				recordId: command.payload.addressId,
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
+				// Nothing to confirm: every operational rule on an address blocks, so
+				// the delete is refused outright rather than asked about, and what is
+				// left is the address's own comments and tags.
+				acknowledged: {},
 			});
 			return deleteAddress(trx, command.payload.addressId, {
 				organizationId: command.payload.organizationId,

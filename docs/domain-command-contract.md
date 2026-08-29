@@ -211,6 +211,37 @@ hand-rolling cleanup in the handler. A blocked delete answers 409 with the same
 entry shape the impact read returns, so a client that raced a new reference can
 still name what stopped it.
 
+### Confirmations
+
+A cascade or a detach can also need the caller to have confirmed it. Each rule
+in the registry names the `acknowledged*` flag it rides on, or `null` when the
+delete performs it unasked, and `applyRecordDeletion` refuses the delete when a
+covered rule matches rows and its flag is not `true`. The flag names are the
+ones the matching delete command already declares, so the registry and the
+command vocabulary spell them the same way.
+
+The refusal is `409 acknowledgement_required`, with the flag that would let the
+delete through and the same entry shape the impact read returns. It is not
+`delete_blocked`: a blocked delete cannot proceed until the agency deals with
+the referring records, while this one proceeds the moment the request arrives
+again with the flag set. One flag per refusal, because a form asks one question
+at a time.
+
+A client withholds a confirmation by sending the flag as `false`. Absent means
+confirmed, which is what every endpoint did before any of them was read, so a
+client that has never heard of a flag behaves as it always did. `acknowledged`
+in `apps/server/src/command-payload.ts` is the one reading of that convention.
+
+The flag on a rule is required rather than optional. A new consequence cannot
+reach the registry without someone deciding whether the agency is asked about
+it, which is the hole #165 describes: fifty-nine flags were declared, carried
+into the write, and read by nothing.
+
+Only the deletion and detach flags are guarded so far. The historical-label and
+semantics flags need an existence check against citing records, and the
+mission-dispatch group needs the mission's own state; both are still unbuilt,
+and a flag in those groups is still recorded and unread.
+
 ### Catalogs are block-only
 
 The registry covers the catalogs as well as the operational records, and every

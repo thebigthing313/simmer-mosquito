@@ -23,6 +23,7 @@
  */
 
 import {
+	DeleteAcknowledgementRequiredError,
 	MissionNotificationRefusedError,
 	RecordDeleteBlockedError,
 	RecordMergeRefusedError,
@@ -33,7 +34,7 @@ import type { Context } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
-import { deleteBlockedBody } from './record-deletion.js';
+import { acknowledgementRequiredBody, deleteBlockedBody } from './record-deletion.js';
 
 /** A request that has been through `authContextMiddleware`. */
 export type CommandContext = Context<{ Variables: AuthVariables }>;
@@ -90,6 +91,13 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 	}
 	if (error instanceof RecordDeleteBlockedError) {
 		return context.json(deleteBlockedBody(error), 409);
+	}
+	// A delete the caller could have had, had they confirmed what it reaches.
+	// 409 like the blocked delete, and for the same reason: the request is
+	// well-formed and the row is there, and it is the state of what hangs off it
+	// that decides. The body says which flag and what it covers.
+	if (error instanceof DeleteAcknowledgementRequiredError) {
+		return context.json(acknowledgementRequiredBody(error), 409);
 	}
 	// A merge names rows the caller has to have seen to name, so a refusal is
 	// either that one of them is gone, which is a 404 and the same answer as a row

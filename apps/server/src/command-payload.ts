@@ -59,6 +59,24 @@ export function readNumber(value: unknown): number | undefined {
 }
 
 /**
+ * An acknowledgement the caller did not withhold.
+ *
+ * The delete and lifecycle commands take flags a client sets to `false` to say
+ * "I have not confirmed this yet"; absent means confirmed, which is what the
+ * endpoints already did before any of them was read. One reading rather than
+ * one per route, so a door that spells it `!== false` and a door that spells it
+ * `=== true` cannot both exist.
+ *
+ * This lived in `table-commands/shared.ts` while the per-table endpoints were
+ * the only ones asking. The per-domain routes hard-coded `true` instead, which
+ * is the half of #165 that made the flags unaskable: a route that has decided
+ * the answer is not carrying a question.
+ */
+export function acknowledged(value: unknown): boolean {
+	return value !== false;
+}
+
+/**
  * The flags an assignment-execution write carries alongside the record.
  *
  * Read as a group because they travel as a group, and because the two defaults
