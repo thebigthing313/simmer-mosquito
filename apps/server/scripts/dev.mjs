@@ -1,4 +1,17 @@
-import { spawn } from 'node:child_process';
+// The dev runner restarts the server *process*, not the server module.
+//
+// It used to re-import `../src/main.ts?devRestart=N` in-process. Node's ESM
+// loader keys its cache by resolved URL, so the query made `main.ts` fresh and
+// left every module it imports on the copy it had at process start. A restart
+// reloaded one file out of the hundreds being watched and printed the same
+// "Server listening" line either way, including after `tsc -b` had visibly
+// rebuilt five workspace packages. See issue #281.
+//
+// Forking gets module freshness for free. What it costs is a graceful stop:
+// the old process has to be gone before the new one binds, so `stopChild` waits
+// for the exit and `ensurePortIsFree` is left as a guard rather than the
+// mechanism.
+import { fork, spawn } from 'node:child_process';
 import { watch } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -6,7 +19,10 @@ import process from 'node:process';
 
 const isWindows = process.platform === 'win32';
 const pnpmCommand = isWindows ? 'pnpm.cmd' : 'pnpm';
+const serverEntry = resolve('src/main.ts');
 const serverPort = await readConfiguredPort();
+const shutdownGraceMs = 10_000;
+const startupTimeoutMs = 60_000;
 const serverDependencyPackages = [
 	'@simmer-mosquito/config',
 	'@simmer-mosquito/auth',
@@ -23,17 +39,19 @@ const watchedSourceRoots = [
 	resolve('../../packages/sync/src'),
 ];
 
+let child = null;
+let restartTimer;
+let isRestarting = false;
+let isStopping = false;
+let pendingChange = false;
+
 await buildServerDependencies();
 
-if (!(await ensurePortIsFree(serverPort, 10_000))) {
+if (!(await ensurePortIsFree(serverPort, shutdownGraceMs))) {
 	throw new Error(`Port ${serverPort} is still in use after stale listener cleanup.`);
 }
 
-let restartId = 0;
-let restartTimer;
-let activeModule = await importServer();
-let isRestarting = false;
-let isStopping = false;
+await startChild();
 
 const watchers = watchedSourceRoots.map((sourceRoot) =>
 	watch(sourceRoot, { recursive: true }, (_eventType, filename) => {
@@ -61,12 +79,20 @@ async function stopDevServer(exitCode) {
 	isStopping = true;
 	clearTimeout(restartTimer);
 	closeWatchers();
-	await disposeActiveModule();
+	await stopChild();
 	process.exit(exitCode);
 }
 
 function scheduleRestart() {
 	if (isStopping) {
+		return;
+	}
+
+	// A change that lands mid-restart is not dropped. The build reads the file
+	// tree at the moment it runs, so an edit made during one is not guaranteed
+	// to be in it, and re-running is cheaper than serving a stale module again.
+	if (isRestarting) {
+		pendingChange = true;
 		return;
 	}
 
@@ -84,14 +110,17 @@ async function restartServer() {
 
 	isRestarting = true;
 	try {
-		console.log('Restarting server...');
-		await disposeActiveModule();
-		await buildServerDependencies();
-		if (!(await ensurePortIsFree(serverPort, 10_000))) {
-			throw new Error(`Port ${serverPort} is still in use after restart cleanup.`);
-		}
+		do {
+			pendingChange = false;
+			console.log('[dev] Change detected. Stopping the server...');
+			await stopChild();
+			await buildServerDependencies();
+			if (!(await ensurePortIsFree(serverPort, shutdownGraceMs))) {
+				throw new Error(`Port ${serverPort} is still in use after restart cleanup.`);
+			}
 
-		activeModule = await importServer();
+			await startChild();
+		} while (pendingChange && !isStopping);
 	} catch (error) {
 		console.error(error);
 	} finally {
@@ -99,13 +128,89 @@ async function restartServer() {
 	}
 }
 
-async function importServer() {
-	restartId += 1;
-	return import(`../src/main.ts?devRestart=${restartId}`);
+// Resolves once the forked process has reported it is listening, or has exited
+// trying. The runner prints nothing that claims the server is live: the "Server
+// listening on ..." line comes from the server itself, on the same stdout.
+function startChild() {
+	const started = fork(serverEntry, [], {
+		stdio: ['inherit', 'inherit', 'inherit', 'ipc'],
+		windowsHide: true,
+	});
+	child = started;
+
+	return new Promise((resolveStart) => {
+		const startupTimer = setTimeout(() => {
+			console.warn(
+				`[dev] The server has not reported a listener after ${startupTimeoutMs / 1000}s. Still waiting; edit a watched file to restart it.`,
+			);
+			finish();
+		}, startupTimeoutMs);
+		startupTimer.unref();
+
+		function finish() {
+			clearTimeout(startupTimer);
+			started.off('message', onMessage);
+			started.off('exit', onExit);
+			resolveStart();
+		}
+
+		function onMessage(message) {
+			if (message !== null && typeof message === 'object' && message.type === 'simmer:listening') {
+				finish();
+			}
+		}
+
+		function onExit(code, signal) {
+			if (child === started) {
+				child = null;
+				console.error(
+					`[dev] The server exited with ${signal ?? `code ${code ?? 'unknown'}`}. Edit a watched file to start it again.`,
+				);
+			}
+
+			finish();
+		}
+
+		started.on('message', onMessage);
+		started.once('exit', onExit);
+		started.on('error', (error) => {
+			console.error(error);
+			finish();
+		});
+	});
 }
 
-async function disposeActiveModule() {
-	await activeModule.disposeServerForRestart?.();
+// Asks the server to close over IPC, because on Windows a SIGTERM sent to
+// another process is a TerminateProcess and the handler in `main.ts` never
+// runs. Falls back to a signal, then to a forced kill, so the port is free
+// before the replacement binds.
+async function stopChild() {
+	const stopping = child;
+	if (stopping === null) {
+		return;
+	}
+
+	child = null;
+	const exited = new Promise((resolveExit) => {
+		stopping.once('exit', () => resolveExit(true));
+	});
+
+	if (stopping.connected) {
+		stopping.send({ type: 'simmer:shutdown' });
+	} else {
+		stopping.kill('SIGTERM');
+	}
+
+	const stoppedInTime = await Promise.race([exited, delay(shutdownGraceMs).then(() => false)]);
+	if (stoppedInTime) {
+		return;
+	}
+
+	console.warn(
+		`[dev] The server did not close within ${shutdownGraceMs / 1000}s. Killing process ${stopping.pid}.`,
+	);
+	await killProcessTree(stopping.pid);
+	await exited;
 }
 
 async function buildServerDependencies() {
