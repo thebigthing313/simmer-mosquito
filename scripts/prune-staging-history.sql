@@ -11,11 +11,32 @@
 -- while leaving a database that syncs, re-snapshots, and restores in a fraction
 -- of the time.
 --
--- What is NOT pruned: reference data an agency accumulates rather than performs
--- — habitats, traps, addresses, regions, contacts, routes, taxonomy, methods,
--- products, units, profiles, memberships. Deleting those would change what the
--- app *is*, not how much history it holds, and a habitat is still the habitat it
--- was in 2011.
+-- What is NOT pruned: reference data an agency accumulates rather than
+-- performs. Habitats, traps, addresses, regions, contacts, routes, taxonomy,
+-- methods, products, units, profiles, memberships. Deleting those would change
+-- what the app *is*, not how much history it holds, and a habitat is still the
+-- habitat it was in 2011.
+--
+-- The cascade does not reach them either, and that is the same walk section 0
+-- makes. The closure of the 13 dated roots is 18 tables: the roots, plus
+-- application_batches, collection_species, assignment_items, mission_items and
+-- mission_notifications. No reference table is in it. Every foreign key between
+-- a reference table and a pruned one points the other way and is ON DELETE
+-- RESTRICT: 12 into `addresses` (`service_requests.address_id`,
+-- `inspections.address_id`, and ten more) and 3 into `contacts`. Deleting a
+-- service request deletes the row holding the pointer, so the address and the
+-- contact stay. `regions` is referenced by no foreign key at all, because
+-- region membership is computed on read (ADR 0015). Re-check any of this by
+-- running section 0's recursive `doomed` query and reading the closure instead
+-- of the missing indexes.
+--
+-- Do not size these three off staging even so. Issue #273 measured a restored
+-- staging against prod and found contacts 6% short (8,471 to 7,933), regions
+-- 47% (345 to 182) and addresses 53% (9,792 to 4,597). Those rows did not go
+-- through this file: nothing below deletes from them and the closure above does
+-- not reach them, so the gap is still unexplained. Until it is, a staging row
+-- count for addresses, regions or contacts is not a prod figure, and reading
+-- one as prod is what produced the wrong measurement in #265.
 --
 -- Rows that cannot be dated are KEPT. Every predicate below is `<` against a
 -- column that may be null, and `null < date` is null, so an undatable row falls
