@@ -631,6 +631,11 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 	 * retiring is the lifecycle move. Its inspections are real observations, so
 	 * they survive as ad hoc records with their snapshot geometry, type, and
 	 * address intact — only the habitat link goes.
+	 *
+	 * Its route stops and assignment stops go with it, unasked. A stop is a
+	 * place on a list to visit, not a record of a visit, so a habitat that
+	 * should never have existed takes its stops with it and there is nothing to
+	 * confirm. `acknowledgedRouteRemoval` is retire's question, not delete's.
 	 */
 	habitat: {
 		table: 'habitats',
