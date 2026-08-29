@@ -9,7 +9,6 @@ import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import { RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
-import { useCommentMutations } from '../../../hooks/mutations/use-comment-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import {
@@ -127,7 +126,6 @@ function EditInspectionLoader({
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const { setPersonnel } = useAdditionalPersonnelMutations();
-	const { add: addComment } = useCommentMutations();
 	const isAdhoc = inspection.habitatId === null;
 	const inspectionMutations = useInspectionMutations();
 	const sampleMutations = useSampleMutations();
@@ -227,13 +225,6 @@ function EditInspectionLoader({
 				});
 			}
 
-			const comment = values.comment.trim();
-			if (comment.length > 0) {
-				await attachLinksBestEffort('the note', async () => {
-					await addComment({ type: 'inspection', id: inspection.id }, comment);
-				});
-			}
-
 			// The detail page reads the inspection over HTTP, so its cached copy would
 			// still hold the pre-edit values on arrival.
 			await queryClient.invalidateQueries({ queryKey: ['inspection-detail', inspection.id] });
@@ -247,7 +238,6 @@ function EditInspectionLoader({
 			navigate,
 			queryClient,
 			setPersonnel,
-			addComment,
 			inspectionMutations,
 			sampleMutations,
 		],

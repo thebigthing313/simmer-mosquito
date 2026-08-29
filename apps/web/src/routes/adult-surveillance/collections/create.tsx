@@ -5,12 +5,14 @@ import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
+import { attachFirstComment } from '../../../forms/first-comment';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import {
 	type CollectionPlacement,
 	useCollectionMutations,
 } from '../../../hooks/mutations/use-collection-mutations';
+import { useCommentMutations } from '../../../hooks/mutations/use-comment-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import {
 	useCollectionLureRoster,
@@ -101,6 +103,7 @@ function CreateCollectionRoute() {
 	const [collectionId] = useState(() => newRecordId());
 	useAdditionalPersonnel({ type: 'collection', id: collectionId });
 	const { setPersonnel } = useAdditionalPersonnelMutations();
+	const { add: addComment } = useCommentMutations();
 
 	// The whole save re-runs on a confirmed acknowledgement, crew rows included;
 	// every id is minted up front, so a second attempt writes the same rows.
@@ -158,6 +161,11 @@ function CreateCollectionRoute() {
 						profileIds: values.additionalPersonnelIds,
 					}),
 				);
+				await attachFirstComment(
+					addComment,
+					{ type: 'collection', id: collectionId },
+					values.comment,
+				);
 				// Back to the worklist the stop came from, not to the collection: the
 				// crew's next move is the next stop.
 				if (assignmentId !== null) {
@@ -175,6 +183,7 @@ function CreateCollectionRoute() {
 			timeZone,
 			setPersonnel,
 			mutations,
+			addComment,
 		],
 	);
 
@@ -182,6 +191,7 @@ function CreateCollectionRoute() {
 		<>
 			<CollectionFormPage
 				canSubmit={mutations.canWrite}
+				mode="create"
 				collectionLures={lures}
 				collectionMethods={methods}
 				defaultValues={seededDefaults(

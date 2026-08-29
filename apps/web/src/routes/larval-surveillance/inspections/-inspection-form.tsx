@@ -8,6 +8,7 @@ import type { LarvalDensity } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import {
 	FormSection,
+	LocationSection,
 	RecordFormPage,
 	RequiredMark,
 	useAppForm,
@@ -51,6 +52,12 @@ import {
 	useMapDraw,
 } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
+import {
+	firstCommentDescription,
+	firstCommentLabel,
+	firstCommentPlaceholder,
+	firstCommentTitle,
+} from '../../../forms/first-comment';
 import type { InspectionResult } from '../../../hooks/mutations/use-inspection-mutations';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
@@ -453,27 +460,60 @@ export function InspectionFormPage({
 					</Alert>
 				)}
 
-				<section
-					aria-labelledby="inspection-location-label"
-					className={cn(
-						'grid gap-4 rounded-md border bg-muted/30 p-4',
-						locationError === null ? 'border-border/50' : 'border-destructive/60',
+				<form.AppField name="inspectionDate">
+					{(field) => (
+						<LabeledControl label="Inspection date" required>
+							<DatePicker
+								ariaLabel="Inspection date"
+								className="w-full"
+								max={parseLocalDate(today)}
+								onChange={(date) =>
+									field.handleChange(date === undefined ? '' : formatLocalDate(date))
+								}
+								placeholder="Select date"
+								value={parseLocalDate(field.state.value)}
+							/>
+						</LabeledControl>
 					)}
-				>
-					<div className="grid gap-0.5">
-						<span
-							className="font-semibold text-foreground text-sm leading-none"
-							id="inspection-location-label"
-						>
-							Location
-						</span>
-						<span className="text-muted-foreground text-xs">
-							{isEditing
-								? 'Where the inspection happened is fixed. Record a new inspection to cover a different site.'
-								: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers.'}
-						</span>
-					</div>
+				</form.AppField>
 
+				<FormSection title="Personnel">
+					<form.AppField name="inspectedByProfileId">
+						{(field) => (
+							<field.AutocompleteField
+								label="Inspector"
+								options={profileOptions(profiles)}
+								placeholder="Search people"
+								required
+							/>
+						)}
+					</form.AppField>
+					<form.Subscribe selector={(state) => state.values.inspectedByProfileId}>
+						{(inspectedByProfileId) => (
+							<form.AppField name="additionalPersonnelIds">
+								{(field) => (
+									<field.MultiSelectField
+										emptyMessage="No profiles"
+										label="Additional personnel"
+										options={additionalPersonnelOptions(profiles, field.state.value, {
+											excludeProfileId: inspectedByProfileId,
+										})}
+										placeholder="Search profiles"
+									/>
+								)}
+							</form.AppField>
+						)}
+					</form.Subscribe>
+				</FormSection>
+
+				<LocationSection
+					description={
+						isEditing
+							? 'Where the inspection happened is fixed. Record a new inspection to cover a different site.'
+							: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers.'
+					}
+					error={locationError}
+				>
 					<form.AppField name="locationMode">
 						{(field) => (
 							<ToggleGroup
@@ -548,58 +588,7 @@ export function InspectionFormPage({
 							)
 						}
 					</form.Subscribe>
-
-					{locationError === null ? null : (
-						<p className="m-0 text-destructive text-sm">{locationError}</p>
-					)}
-				</section>
-
-				<FormSection title="Inspection">
-					<div className="grid gap-5 sm:grid-cols-2">
-						<form.AppField name="inspectionDate">
-							{(field) => (
-								<LabeledControl label="Inspection date" required>
-									<DatePicker
-										ariaLabel="Inspection date"
-										className="w-full"
-										max={parseLocalDate(today)}
-										onChange={(date) =>
-											field.handleChange(date === undefined ? '' : formatLocalDate(date))
-										}
-										placeholder="Select date"
-										value={parseLocalDate(field.state.value)}
-									/>
-								</LabeledControl>
-							)}
-						</form.AppField>
-						<form.AppField name="inspectedByProfileId">
-							{(field) => (
-								<field.AutocompleteField
-									label="Inspector"
-									options={profileOptions(profiles)}
-									placeholder="Search people"
-									required
-								/>
-							)}
-						</form.AppField>
-					</div>
-					<form.Subscribe selector={(state) => state.values.inspectedByProfileId}>
-						{(inspectedByProfileId) => (
-							<form.AppField name="additionalPersonnelIds">
-								{(field) => (
-									<field.MultiSelectField
-										emptyMessage="No profiles"
-										label="Additional personnel"
-										options={additionalPersonnelOptions(profiles, field.state.value, {
-											excludeProfileId: inspectedByProfileId,
-										})}
-										placeholder="Search profiles"
-									/>
-								)}
-							</form.AppField>
-						)}
-					</form.Subscribe>
-				</FormSection>
+				</LocationSection>
 
 				<FormSection title="Findings" note={findingsRequirement(entryMode)}>
 					<form.AppField name="isWet">
@@ -705,18 +694,20 @@ export function InspectionFormPage({
 					}
 				</form.Subscribe>
 
-				<FormSection title="Notes">
-					<form.AppField name="comment">
-						{(field) => (
-							<field.TextareaField
-								description="Saved as the first comment on this inspection. Add access details, conditions, or follow-up."
-								label="Comment"
-								placeholder="Add a note for this inspection…"
-								rows={3}
-							/>
-						)}
-					</form.AppField>
-				</FormSection>
+				{isEditing ? null : (
+					<FormSection title={firstCommentTitle}>
+						<form.AppField name="comment">
+							{(field) => (
+								<field.TextareaField
+									description={firstCommentDescription}
+									label={firstCommentLabel}
+									placeholder={firstCommentPlaceholder}
+									rows={3}
+								/>
+							)}
+						</form.AppField>
+					</FormSection>
+				)}
 			</RecordFormPage>
 
 			<AlertDialog onOpenChange={setPendingDry} open={pendingDry}>

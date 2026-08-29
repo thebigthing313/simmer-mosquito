@@ -452,6 +452,30 @@ The location band had ten, two of which used `aria-label` where the rest used
 folder: `FormSection` used to live under `routes/control-operations/` and three
 domains outside it reached across to import it.
 
+**The Dated Record Order.** Every form that records dated field work stacks its
+bands in one order, so a crew that files an inspection and a source reduction on
+the same afternoon fills them in the same sequence:
+
+1. the operational date
+2. personnel, primary actor first, then additional personnel
+3. the location band
+4. the fields that belong to this record type alone
+5. custom fields, when the chosen method or type declares any
+6. child records
+7. the first comment, on create only
+
+Inside the location band the order is address, geometry, then the catalog
+record the work refers to, except on inspections and collections, where the
+habitat or trap is what *sets* the geometry rather than referring to it. There
+the picker comes first, because a form that takes a drawn shape and then
+replaces it from a field below is lying about what it did.
+
+The six forms are larval inspections, adult collections, chemical applications,
+biocontrol releases, source reductions, and outreach actions. They had six
+different orders before: three opened with the location, one with the trap, one
+put the date last, and one put it in a section called Attribution between the
+custom fields and the habitat.
+
 ### Record lists
 
 Record lists should beat tables when the task is inspection plus action. Use

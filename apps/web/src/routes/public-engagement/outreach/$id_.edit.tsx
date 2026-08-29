@@ -187,6 +187,7 @@ function EditOutreachActionLoader({
 	return (
 		<OutreachFormPage
 			canSubmit={canSubmit}
+			mode="edit"
 			defaultValues={defaultsFromAction(action, personnel)}
 			header={{
 				title: 'Edit Outreach',
@@ -219,6 +220,8 @@ function defaultsFromAction(
 		reach: action.reach,
 		reachDescription: action.reachDescription ?? '',
 		metadata: asMetadataValue(action.metadata),
+		// Create-only field; the detail page's thread is where an edit adds a note.
+		comment: '',
 	};
 }
 

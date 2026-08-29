@@ -229,6 +229,7 @@ function EditApplicationLoader({
 	return (
 		<ApplicationFormPage
 			applicationMethods={applicationMethods}
+			mode="edit"
 			canSubmit={canSubmit}
 			defaultValues={defaultsFromApplication(application, personnel, batches)}
 			equipment={equipment}
@@ -276,6 +277,8 @@ function defaultsFromApplication(
 		addressId: application.addressId,
 		habitatId: application.habitatId,
 		metadata: asMetadataValue(application.metadata),
+		// Create-only field; the detail page's thread is where an edit adds a note.
+		comment: '',
 	};
 }
 

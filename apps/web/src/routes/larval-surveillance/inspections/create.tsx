@@ -5,6 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
+import { attachFirstComment } from '../../../forms/first-comment';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCommentMutations } from '../../../hooks/mutations/use-comment-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
@@ -202,19 +203,11 @@ function CreateInspectionRoute() {
 					}),
 				);
 
-				// Attach the optional note as the inspection's first comment. The
-				// inspection must be committed first (the comment references it), so this
-				// runs after its persistence — best-effort, so a comment hiccup never
-				// strands the user on a saved-but-unnavigated inspection.
-				const comment = values.comment.trim();
-				if (comment.length > 0) {
-					// Same bind as the crew rows: the inspection is already saved, so a
-					// failed note cannot fail the save — but the text the user typed is not
-					// on the record, so it is reported rather than dropped.
-					await attachLinksBestEffort('the note', async () => {
-						await addComment({ type: 'inspection', id: inspectionId }, comment);
-					});
-				}
+				await attachFirstComment(
+					addComment,
+					{ type: 'inspection', id: inspectionId },
+					values.comment,
+				);
 
 				// Back to the worklist the stop came from, not to the inspection: the
 				// crew's next move is the next stop.
