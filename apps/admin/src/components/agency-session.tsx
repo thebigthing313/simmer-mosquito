@@ -120,7 +120,20 @@ function useEnterAgency(
 
 		setPending(true);
 		try {
-			const outcome = await switchOrganization({ organizationId: workosOrganizationId });
+			// Through `exchange`, not straight at the endpoint. Re-sealing the session
+			// against another agency spends the same single-use refresh token a
+			// renewal spends, and a shape stream that met an expired access token at
+			// this moment would be renewing through `/auth/me`. Spending it twice is
+			// what WorkOS reads as reuse, and it ends the session (#301), so the two
+			// take turns.
+			//
+			// The switch alone goes inside. Reading who we now are is `refresh`, which
+			// takes the same browser-wide lock, and that lock is not reentrant: asking
+			// from in here would wait on the exchange that is holding it.
+			const outcome = await appAuthController.exchange(() =>
+				switchOrganization({ organizationId: workosOrganizationId }),
+			);
+
 			if (outcome.status !== 'switched') {
 				// A refusal is not a malfunction, and the two want different words. The
 				// refusal has a fix — somebody grants the membership — and saying so is

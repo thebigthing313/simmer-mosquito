@@ -27,6 +27,24 @@
  */
 export type SessionRecovery = () => Promise<boolean>;
 
+/**
+ * One per app, and it has to stay one.
+ *
+ * Both front ends reach this module by two specifiers: the `./session-fetch`
+ * subpath, where the recovery is installed, and the package barrel, which every
+ * collection and most of the app's own fetches import `sessionFetch` from. Two
+ * module instances would leave the barrel's copy at `null` and silently put the
+ * bug back, with nothing failing.
+ *
+ * They resolve to one file, and both production builds were checked for it:
+ * exactly one copy of this module per app, with the collection barrel still in
+ * its own lazy chunk in `apps/admin`.
+ *
+ * To re-check after a bundler or package change, build an app and look for the
+ * retry in the output: the pair `clone()` and a `status !== 401` test, in one
+ * chunk only. Match on the pair rather than the status alone, because mapbox-gl
+ * carries its own unrelated 401 check and will answer a looser search.
+ */
 let recoverSession: SessionRecovery | null = null;
 
 /**

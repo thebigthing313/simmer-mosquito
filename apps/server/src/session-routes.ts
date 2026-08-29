@@ -62,6 +62,9 @@ export interface SessionRouteOptions {
 	readonly finalizeSession: FinalizeWorkOsSession;
 }
 
+/** What `authenticateSession` answers a caller that presented no session at all. */
+const NO_SESSION_REASON = 'no_session_cookie_provided';
+
 export function registerSessionRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: SessionRouteOptions,
@@ -131,7 +134,22 @@ export function registerSessionRoutes(
 		}
 
 		if (!result.ok) {
-			return context.json(toAuthFailureBody(result), result.status);
+			const body = toAuthFailureBody(result);
+			// Only the refusals that mean something, and only from here. This is the
+			// endpoint that may renew, so a refusal is a decision rather than the
+			// routine 401 every other route answers a stale access token with.
+			//
+			// A caller with no cookie is not one of them. Every first visit to a
+			// guarded path, every bounce off an expired session and every crawler
+			// produces one, and a line per anonymous request is a log nobody reads.
+			// What #304 needed was the other kind: a session that was presented and
+			// could not be renewed, which until now was named only in a response body
+			// nobody kept.
+			if (body.reason !== NO_SESSION_REASON) {
+				console.warn(`[auth] /auth/me refused: ${body.error} (${body.reason})`);
+			}
+
+			return context.json(body, result.status);
 		}
 
 		return context.json(toAuthMeBody(result.context));

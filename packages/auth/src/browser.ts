@@ -570,6 +570,29 @@ export interface AppAuthController {
 	 * be as happy with an answer somebody else is already waiting for.
 	 */
 	readonly renew: () => Promise<AuthMe>;
+	/**
+	 * Run something that changes the session, with no renewal overlapping it.
+	 *
+	 * Entering an agency re-seals the session against another organization, which
+	 * spends the same single-use refresh token a renewal spends. #298 gave
+	 * rotation to one endpoint; this is the other write that was left outside that
+	 * rule, and running the two at once is WorkOS's reuse signature (#301).
+	 *
+	 * **The operation must be the session-changing call and nothing else.** It must
+	 * not call `renew` or `refresh`, and must not issue a request that can renew:
+	 * `sessionFetch` answers a 401 by renewing. All three take the same
+	 * browser-wide lock this is holding, and that lock is not reentrant, so the
+	 * operation would wait on the exchange that is waiting on it. Ask afterwards
+	 * instead, which is what the enter-agency flow does.
+	 *
+	 * The wait is bounded, so this costs seconds rather than the page, but seconds
+	 * on every agency entry is still a bug. It is stated rather than prevented
+	 * because both preventions are worse: a shorter timeout weakens the ordering
+	 * this exists to guarantee, and a flag cannot tell a renewal called from inside
+	 * the operation apart from one that merely happened at the same time, which is
+	 * the race being fixed.
+	 */
+	readonly exchange: <T>(operation: () => Promise<T>) => Promise<T>;
 	readonly subscribe: (listener: () => void) => () => void;
 }
 
@@ -622,7 +645,7 @@ export function sessionLostDestination(options: {
  * from one of them is usually an access token that aged out and is cured by
  * asking `/auth/me`.
  * When that answers "no", the session is genuinely gone, and the workspace has
- * to stop pretending otherwise: `refresh()` records the refusal, which is what
+ * to stop pretending otherwise: `renew()` records the refusal, which is what
  * lets the shell see a signed-out snapshot instead of reading an empty synced
  * collection as a broken agency (#299).
  *
@@ -632,12 +655,19 @@ export function sessionLostDestination(options: {
  * a storm. A session that comes back re-arms it, so a later expiry is reported
  * again rather than swallowed for the life of the page.
  *
+ * It answers whether it acted, and only a loss that was acted on latches. A
+ * reader already on a public path has nowhere to be sent, and latching on that
+ * would swallow the next genuine loss: no redirect, no prompt, just collections
+ * that fail quietly. That case only came right by accident, because a redirect
+ * reloads the page and takes the latch with it.
+ *
  * A round trip that broke is not a refusal. The controller keeps the session it
  * knows in that case, and so does this: `true`, retry, no sign-out.
  */
 export function createSessionRecovery(options: {
 	readonly controller: AppAuthController;
-	readonly onSessionLost: () => void;
+	/** Send the reader to sign in. `false` when there was nowhere to send them. */
+	readonly onSessionLost: () => boolean;
 }): () => Promise<boolean> {
 	let reported = false;
 
@@ -649,12 +679,71 @@ export function createSessionRecovery(options: {
 		}
 
 		if (!reported) {
-			reported = true;
-			options.onSessionLost();
+			reported = options.onSessionLost();
 		}
 
 		return false;
 	};
+}
+
+/**
+ * The lock every tab of this origin takes before it rotates the sealed session.
+ *
+ * **Of this origin.** Web Locks are partitioned per origin and the sealed session
+ * is one cookie on the API's origin, which the workspace and the console both
+ * send. So this covers several tabs of one app, which is the ordinary case, and
+ * does not cover an operator holding the console and the workspace at once: those
+ * are two origins taking two different locks over one refresh token, and the
+ * double spend survives there (ADR 0011 makes that pairing routine).
+ *
+ * Closing that needs the serialization to sit where the token is actually spent,
+ * on the server, keyed by the session. #298 turned that down for `/auth/me`
+ * because it is per process and a second Railway replica reintroduces the race.
+ * That argument says it is incomplete rather than wrong, and it is the only place
+ * that can see both origins.
+ *
+ * Exported so a test can name it rather than restate the string.
+ */
+export const SESSION_LOCK_NAME = 'simmer.session-rotation';
+
+/**
+ * The one method this reads off the Web Locks API.
+ *
+ * Written out rather than taken from the DOM's `LockManager`, because this
+ * package compiles without the DOM library: `apps/mobile` has no such thing.
+ */
+export interface SessionLockManager {
+	request<T>(
+		name: string,
+		options: { readonly signal: AbortSignal },
+		operation: () => Promise<T>,
+	): Promise<T>;
+}
+
+/**
+ * How long a tab waits for the lock before going ahead without it.
+ *
+ * The lock is browser-wide, and `load()` runs in the root route's guard, so an
+ * unbounded wait means one tab whose `/auth/me` hangs leaves every other tab of
+ * the origin on a spinner with no error and no navigation. Before the lock, tabs
+ * failed independently; that is worth keeping. Serializing is the common case
+ * and this is the ceiling on what it can cost.
+ */
+const DEFAULT_LOCK_WAIT_MS = 5_000;
+
+/**
+ * The platform's lock manager, or `null` where there is none.
+ *
+ * React Native has no Web Locks and no tabs to race, and a browser too old for
+ * the API should lose the cross-tab guarantee rather than the ability to sign in.
+ */
+function platformLocks(): SessionLockManager | null {
+	const locks = (globalThis as { readonly navigator?: { readonly locks?: unknown } }).navigator
+		?.locks;
+
+	return typeof (locks as SessionLockManager | undefined)?.request === 'function'
+		? (locks as SessionLockManager)
+		: null;
 }
 
 /**
@@ -666,12 +755,82 @@ export function createSessionRecovery(options: {
  */
 export function createAppAuthController(options: {
 	readonly getAuthMe: () => Promise<AuthMe>;
+	/**
+	 * Where the cross-tab lock comes from. Omitted, the platform's own; `null`
+	 * turns it off, which is what a platform without Web Locks gets.
+	 */
+	readonly locks?: SessionLockManager | null;
+	/** Override {@link DEFAULT_LOCK_WAIT_MS}. For tests; no app sets it. */
+	readonly lockWaitMs?: number;
 }): AppAuthController {
 	const { getAuthMe } = options;
+	const locks = options.locks === undefined ? platformLocks() : options.locks;
+	const lockWaitMs = options.lockWaitMs ?? DEFAULT_LOCK_WAIT_MS;
 
 	let snapshot: AuthMe | null = null;
 	let pending: Promise<AuthMe> | null = null;
 	const listeners = new Set<() => void>();
+
+	/**
+	 * The tail of everything that rotates the sealed session, so the next one waits.
+	 *
+	 * A promise chain rather than a flag, because the queue has to survive a
+	 * failure: a refused switch is ordinary, and a gate that only opens on success
+	 * would leave every later renewal waiting forever.
+	 */
+	let gate: Promise<unknown> = Promise.resolve();
+
+	function serialize<T>(operation: () => Promise<T>): Promise<T> {
+		const queued = () => holdSessionLock(operation);
+		const run = gate.then(queued, queued);
+		gate = run.then(
+			() => undefined,
+			() => undefined,
+		);
+		return run;
+	}
+
+	/**
+	 * The same turn-taking, across tabs.
+	 *
+	 * `gate` is per tab and the sealed session cookie is per browser, so two tabs
+	 * renewing on their own schedules spend the same single-use refresh token,
+	 * which is the failure #298 fixed, on a boundary an in-memory chain cannot see
+	 * (#304). Web Locks is the one mutex a browser shares between tabs, and it
+	 * releases on its own when a tab holding it goes away.
+	 *
+	 * Taken inside `gate` rather than around it, so a tab queues its own work
+	 * first and contends for the lock once rather than once per waiting caller.
+	 */
+	async function holdSessionLock<T>(operation: () => Promise<T>): Promise<T> {
+		if (locks === null) {
+			return operation();
+		}
+
+		const waited = new AbortController();
+		const timer = setTimeout(() => waited.abort(), lockWaitMs);
+		let started = false;
+
+		try {
+			return await locks.request(SESSION_LOCK_NAME, { signal: waited.signal }, () => {
+				started = true;
+				return operation();
+			});
+		} catch (error) {
+			// The operation ran and threw, which is the caller's business.
+			if (started) {
+				throw error;
+			}
+
+			// The lock did not arrive, or could not be asked for at all: `request`
+			// rejects in an opaque origin, and with `InvalidStateError` once the
+			// document is no longer fully active, which is what the sign-out redirect
+			// makes it. Losing the cross-tab guarantee beats losing the session read.
+			return operation();
+		} finally {
+			clearTimeout(timer);
+		}
+	}
 
 	function load(): Promise<AuthMe> {
 		if (snapshot !== null) {
@@ -704,16 +863,21 @@ export function createAppAuthController(options: {
 	 * trip sent before the change would answer for the session they left.
 	 */
 	function renew(): Promise<AuthMe> {
-		pending ??= ask().finally(() => {
+		pending ??= serialize(ask).finally(() => {
 			pending = null;
 		});
 
 		return pending;
 	}
 
+	/** Serialize a session change against renewals. See {@link AppAuthController.exchange}. */
+	function exchange<T>(operation: () => Promise<T>): Promise<T> {
+		return serialize(operation);
+	}
+
 	/** Ask now, unshared. See {@link AppAuthController.refresh}. */
 	function refresh(): Promise<AuthMe> {
-		return ask();
+		return holdSessionLock(ask);
 	}
 
 	async function ask(): Promise<AuthMe> {
@@ -761,6 +925,7 @@ export function createAppAuthController(options: {
 		load,
 		refresh,
 		renew,
+		exchange,
 		subscribe(listener) {
 			listeners.add(listener);
 			return () => {

@@ -56,9 +56,12 @@ export const recoverSession = createSessionRecovery({
 			location: window.location,
 		});
 
-		if (destination !== null) {
-			window.location.assign(destination);
+		if (destination === null) {
+			return false;
 		}
+
+		window.location.assign(destination);
+		return true;
 	},
 });
 
