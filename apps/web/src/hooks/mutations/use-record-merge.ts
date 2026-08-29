@@ -51,11 +51,28 @@
  * does not define is a compile error rather than a 400.
  */
 
-import type { MultiRowCommandType } from '@simmer-mosquito/domain';
+import type { MultiRowCommandType, SingleRowCommandType } from '@simmer-mosquito/domain';
 import { CommandError, writeCommand } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../auth';
 import type { MergeableRecordType } from '../use-merge-candidates';
+
+/**
+ * Values carried onto the survivor as part of the merge.
+ *
+ * Built by `mergeFieldPlan` on the cleanup page, which is where the rule about
+ * which value wins lives. The shape is here because the request is: these
+ * columns travel in the same body as the merge and commit in the same
+ * transaction, and splitting them into a second write is the failure this avoids
+ * (the merge lands, the values do not, and the record they came from is already
+ * retired).
+ */
+export interface MergeFieldUpdates {
+	/** The commands that write these columns. Empty when nothing changes. */
+	readonly intents: readonly SingleRowCommandType[];
+	/** Keyed by Postgres column, which is what the command endpoint reads. */
+	readonly values: Readonly<Record<string, string | null>>;
+}
 
 /**
  * A merge, stated so the survivor cannot be confused with the retired records.
@@ -70,6 +87,8 @@ export interface RecordMergePlan {
 	 * server reads an absent flag as agreement.
 	 */
 	readonly acknowledged: boolean;
+	/** Values kept from the retired records. Absent when the survivor keeps its own. */
+	readonly fieldUpdates?: MergeFieldUpdates;
 }
 
 /** Why the server refused a merge. */
@@ -142,7 +161,15 @@ export function recordMergeRequest(
 	recordType: MergeableRecordType,
 	plan: RecordMergePlan,
 ): {
-	readonly intent: (typeof MERGE_COMMANDS)[MergeableRecordType]['intent'];
+	/**
+	 * The commands this one request means, updates before the merge.
+	 *
+	 * `runCommands` commits them in the order they arrive. Either order writes the
+	 * same rows, because the survivor is not one of the records a merge retires,
+	 * but updating first is the order that reads the way the dialog does: keep
+	 * these values, then fold the rest in.
+	 */
+	readonly intents: readonly (MultiRowCommandType | SingleRowCommandType)[];
 	readonly request: {
 		readonly table: string;
 		readonly method: 'PATCH';
@@ -151,14 +178,19 @@ export function recordMergeRequest(
 	};
 } {
 	const command = MERGE_COMMANDS[recordType];
+	const updates = plan.fieldUpdates;
 	return {
-		intent: command.intent,
+		intents: [...(updates?.intents ?? []), command.intent],
 		request: {
 			table: command.table,
 			method: 'PATCH',
 			// The record that stays. Everything else is retired.
 			key: plan.targetId,
 			body: {
+				// Columns first, so a field named the same as a merge argument could
+				// never displace one. Nothing shares a name today; the merge arguments
+				// are camelCase and the columns are snake_case.
+				...(updates?.values ?? {}),
 				[command.sourceKey]: [...plan.sourceIds],
 				[command.acknowledgementKey]: plan.acknowledged,
 			},
@@ -169,11 +201,11 @@ export function recordMergeRequest(
 export function useRecordMerge(recordType: MergeableRecordType) {
 	return useCallback(
 		async (plan: RecordMergePlan): Promise<void> => {
-			const { intent, request } = recordMergeRequest(recordType, plan);
+			const { intents, request } = recordMergeRequest(recordType, plan);
 			await writeCommand(
 				`${getServerUrl()}/commands/${request.table}/${request.key}`,
 				request.method,
-				{ ...request.body, intents: [intent] },
+				{ ...request.body, intents },
 				'Unable to merge these records.',
 			);
 		},

@@ -29,6 +29,15 @@ export interface DuplicateRecord {
 	readonly createdAt: string;
 	readonly lat: number | null;
 	readonly lng: number | null;
+	/**
+	 * The editable columns this record fills in, keyed by Postgres column name.
+	 *
+	 * What `merge-field-plan.ts` compares to work out where two records disagree,
+	 * and what it sends back when the user keeps a value from a record the merge
+	 * is about to retire. Blank arrives as null: the server normalizes it, because
+	 * an empty string and a null are the same answer.
+	 */
+	readonly fields: Readonly<Record<string, string | null>>;
 }
 
 export interface DuplicateGroup {

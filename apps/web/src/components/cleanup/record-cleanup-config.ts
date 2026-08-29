@@ -1,6 +1,10 @@
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type { LinkProps } from '@tanstack/react-router';
-import type { DuplicateGroup, MergeableRecordType } from '../../hooks/use-merge-candidates';
+import type {
+	DuplicateGroup,
+	DuplicateReason,
+	MergeableRecordType,
+} from '../../hooks/use-merge-candidates';
 
 type RegistryIcon = typeof iconRegistry.entities.address.icon;
 
@@ -24,6 +28,15 @@ export interface RecordCleanupConfig {
 	readonly unnamed: string;
 	/** How the server groups this record type, for the empty state. */
 	readonly groupingRule: string;
+	/**
+	 * Every reason this record type can be grouped for, in the order they appear.
+	 *
+	 * Declared rather than read off the results, so the filter offers the same
+	 * choices on every visit. Taking them from the data would hide a match type
+	 * the moment an agency had none of it, which is when a reader most wants to
+	 * see that it was looked for and found nothing.
+	 */
+	readonly reasons: readonly DuplicateReason[];
 }
 
 export const RECORD_CLEANUP_CONFIGS: Record<MergeableRecordType, RecordCleanupConfig> = {
@@ -35,6 +48,7 @@ export const RECORD_CLEANUP_CONFIGS: Record<MergeableRecordType, RecordCleanupCo
 		unnamed: 'Unnamed address',
 		groupingRule:
 			'Addresses are grouped when they share a display name, or when they sit within ten metres of each other.',
+		reasons: ['same_name', 'same_place'],
 	},
 
 	habitat: {
@@ -45,6 +59,7 @@ export const RECORD_CLEANUP_CONFIGS: Record<MergeableRecordType, RecordCleanupCo
 		unnamed: 'Unnamed habitat',
 		groupingRule:
 			'Habitats are grouped when they share a name, or when they sit within ten metres of each other.',
+		reasons: ['same_name', 'same_place'],
 	},
 
 	contact: {
@@ -55,7 +70,16 @@ export const RECORD_CLEANUP_CONFIGS: Record<MergeableRecordType, RecordCleanupCo
 		unnamed: 'Unnamed contact',
 		groupingRule:
 			'Contacts are grouped when they share a name, an email address, or a phone number.',
+		reasons: ['same_name', 'same_email', 'same_phone'],
 	},
+};
+
+/** What the filter calls each way of matching, and what a group heading leads with. */
+export const DUPLICATE_REASON_LABELS: Record<DuplicateReason, string> = {
+	same_name: 'Same name',
+	same_email: 'Same email',
+	same_phone: 'Same phone',
+	same_place: 'Within ten metres',
 };
 
 /**
@@ -78,15 +102,15 @@ export const RECORD_CLEANUP_CONFIGS: Record<MergeableRecordType, RecordCleanupCo
  * record's label, which for a contact is their name.
  */
 export function duplicateGroupHeading(group: DuplicateGroup): string {
+	const reason = DUPLICATE_REASON_LABELS[group.reason];
 	switch (group.reason) {
 		case 'same_name':
-			return `Same name: ${asWritten(group)}`;
+			return `${reason}: ${asWritten(group)}`;
 		case 'same_email':
-			return `Same email: ${group.value ?? ''}`;
 		case 'same_phone':
-			return `Same phone: ${group.value ?? ''}`;
+			return `${reason}: ${group.value ?? ''}`;
 		case 'same_place':
-			return 'Within ten metres';
+			return reason;
 	}
 }
 

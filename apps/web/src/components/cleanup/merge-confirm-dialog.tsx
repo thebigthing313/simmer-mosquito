@@ -12,8 +12,8 @@ import {
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { useEffect, useId, useState } from 'react';
-import { mergeRefusalReason } from '../../hooks/mutations/use-record-merge';
+import { useEffect, useId, useMemo, useState } from 'react';
+import { type MergeFieldUpdates, mergeRefusalReason } from '../../hooks/mutations/use-record-merge';
 import {
 	type DuplicateRecord,
 	type MergeableRecordType,
@@ -21,6 +21,13 @@ import {
 	moveCountLabel,
 	useMergeImpact,
 } from '../../hooks/use-merge-candidates';
+import {
+	defaultMergeFieldSelections,
+	mergeFieldProblems,
+	mergeFieldRows,
+	mergeFieldUpdates,
+} from './merge-field-plan';
+import { MergeRecordBuilder } from './merge-record-builder';
 import type { RecordCleanupConfig } from './record-cleanup-config';
 
 export interface MergeConfirmDialogProps {
@@ -33,7 +40,7 @@ export interface MergeConfirmDialogProps {
 	/** The records folded into it and retired. */
 	readonly sources: readonly DuplicateRecord[];
 	/** Runs the merge. Rejects with the server's refusal. */
-	readonly onConfirm: (acknowledged: boolean) => Promise<void>;
+	readonly onConfirm: (acknowledged: boolean, fieldUpdates: MergeFieldUpdates) => Promise<void>;
 }
 
 /**
@@ -57,6 +64,16 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 	const [failure, setFailure] = useState<string | null>(null);
 	const [isMerging, setIsMerging] = useState(false);
 
+	const rows = useMemo(
+		() => mergeFieldRows(props.recordType, props.target, props.sources),
+		[props.recordType, props.target, props.sources],
+	);
+	// Seeded once. The page unmounts this dialog when the set or the survivor
+	// changes, so there is no open dialog whose defaults could go stale, and
+	// re-seeding on every render would undo the reader's edit as they typed it.
+	const [selections, setSelections] = useState(() => defaultMergeFieldSelections(rows));
+	const problems = mergeFieldProblems(props.recordType, selections);
+
 	const sourceIds = props.sources.map((record) => record.id);
 	const impact = useMergeImpact(props.recordType, props.target.id, sourceIds, props.open);
 
@@ -76,7 +93,10 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 		setIsMerging(true);
 		setFailure(null);
 		try {
-			await props.onConfirm(acknowledged);
+			await props.onConfirm(
+				acknowledged,
+				mergeFieldUpdates(props.recordType, props.target, selections),
+			);
 			props.onOpenChange(false);
 		} catch (error) {
 			setFailure(refusalMessage(error, props.config));
@@ -97,14 +117,34 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 					</AlertDialogDescription>
 				</AlertDialogHeader>
 
-				<div className="grid gap-4 text-sm">
+				{/*
+				 * Scrolls on its own so the title and the acknowledgement stay put. A
+				 * set disagreeing about six fields is a tall dialog, and the control
+				 * that agrees to something irreversible must not be the part that
+				 * scrolls out of sight.
+				 */}
+				<div className="grid max-h-[55vh] gap-4 overflow-y-auto pr-1 text-sm">
 					<RetiredList config={props.config} sources={props.sources} />
+					{rows.length === 0 ? null : (
+						<MergeRecordBuilder
+							config={props.config}
+							onChange={(column, value) =>
+								setSelections((current) => ({ ...current, [column]: value }))
+							}
+							rows={rows}
+							selections={selections}
+							sources={props.sources}
+							target={props.target}
+						/>
+					)}
 					<MoveSummary
 						config={props.config}
 						isLoading={impact.isPending}
 						isError={impact.isError}
 						moves={impact.data ?? []}
 					/>
+
+					<EmptyFieldAlert config={props.config} problems={problems} />
 
 					{failure === null ? null : (
 						<Alert variant="destructive">
@@ -113,31 +153,20 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 						</Alert>
 					)}
 
-					{/*
-					 * The no-undo sentence is the label of the control that agrees to it,
-					 * so the thing they tick is the thing that says it. A warning beside a
-					 * plainer checkbox separates the fact from the consent, and the fact is
-					 * then the skippable half.
-					 */}
-					<div className="flex items-start gap-3 rounded-md border border-border bg-muted/50 p-3">
-						<Checkbox
-							checked={acknowledged}
-							className="mt-0.5"
-							id={acknowledgementId}
-							onCheckedChange={(value) => setAcknowledged(value === true)}
-						/>
-						<Label className="font-normal leading-snug" htmlFor={acknowledgementId}>
-							This cannot be undone. {retiredSubject(props.sources.length, props.config)} will be
-							retired, and everything that names {props.sources.length === 1 ? 'it' : 'them'} will
-							name {targetLabel} instead.
-						</Label>
-					</div>
+					<Acknowledgement
+						checked={acknowledged}
+						config={props.config}
+						id={acknowledgementId}
+						onChange={setAcknowledged}
+						sourceCount={props.sources.length}
+						targetLabel={targetLabel}
+					/>
 				</div>
 
 				<AlertDialogFooter>
 					<AlertDialogCancel disabled={isMerging}>Cancel</AlertDialogCancel>
 					<AlertDialogAction
-						disabled={!acknowledged || isMerging || impact.isPending}
+						disabled={!acknowledged || isMerging || impact.isPending || problems.length > 0}
 						onClick={(event) => {
 							// The primitive closes on click. This one has to stay open to show
 							// a refusal, and closes itself once the write settles.
@@ -150,6 +179,76 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 				</AlertDialogFooter>
 			</AlertDialogContent>
 		</AlertDialog>
+	);
+}
+
+/**
+ * A required field the reader has emptied.
+ *
+ * Held here rather than sent and refused. The domain rejects an empty one, so a
+ * round trip would spend the user's click to tell them what the dialog already
+ * knows.
+ */
+function EmptyFieldAlert({
+	config,
+	problems,
+}: {
+	readonly config: RecordCleanupConfig;
+	readonly problems: readonly string[];
+}) {
+	if (problems.length === 0) {
+		return null;
+	}
+
+	return (
+		<Alert variant="destructive">
+			<AlertTitle>
+				{problems.length === 1 ? `${problems[0]} cannot be empty` : 'Some fields cannot be empty'}
+			</AlertTitle>
+			<AlertDescription>
+				{problems.length === 1
+					? `Every ${config.noun.one} needs one.`
+					: `${problems.join(', ')} each need a value.`}
+			</AlertDescription>
+		</Alert>
+	);
+}
+
+/**
+ * Agreeing to the part with no undo.
+ *
+ * The no-undo sentence is the label of the control that agrees to it, so the
+ * thing they tick is the thing that says it. A warning beside a plainer checkbox
+ * separates the fact from the consent, and the fact is then the skippable half.
+ */
+function Acknowledgement({
+	checked,
+	config,
+	id,
+	onChange,
+	sourceCount,
+	targetLabel,
+}: {
+	readonly checked: boolean;
+	readonly config: RecordCleanupConfig;
+	readonly id: string;
+	readonly onChange: (checked: boolean) => void;
+	readonly sourceCount: number;
+	readonly targetLabel: string;
+}) {
+	return (
+		<div className="flex items-start gap-3 rounded-md border border-border bg-muted/50 p-3">
+			<Checkbox
+				checked={checked}
+				className="mt-0.5"
+				id={id}
+				onCheckedChange={(value) => onChange(value === true)}
+			/>
+			<Label className="font-normal leading-snug" htmlFor={id}>
+				This cannot be undone. {retiredSubject(sourceCount, config)} will be retired, and everything
+				that names {sourceCount === 1 ? 'it' : 'them'} will name {targetLabel} instead.
+			</Label>
+		</div>
 	);
 }
 

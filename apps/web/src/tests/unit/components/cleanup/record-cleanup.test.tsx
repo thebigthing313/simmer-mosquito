@@ -87,15 +87,31 @@ function nameGroup(): DuplicateGroup {
 	};
 }
 
-function record(id: string, label: string, createdAt: string) {
-	return { id, label, detail: 'Marion', createdAt, lat: 35.5, lng: -90.5 };
+function record(
+	id: string,
+	label: string,
+	createdAt: string,
+	fields: Readonly<Record<string, string | null>> = {},
+) {
+	return {
+		id,
+		label,
+		detail: 'Marion',
+		createdAt,
+		lat: 35.5,
+		lng: -90.5,
+		// Every address has a display name, because the column is required at create.
+		// Defaulted here so a fixture that overrides one field does not blank it and
+		// leave the dialog holding the merge over a field the test is not about.
+		fields: { display_name: label, ...fields },
+	};
 }
 
-function renderPage() {
+function renderPage(recordType: 'address' | 'contact' = 'address') {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return render(
 		<QueryClientProvider client={client}>
-			<RecordCleanup recordType="address" />
+			<RecordCleanup recordType={recordType} />
 		</QueryClientProvider>,
 	);
 }
@@ -145,6 +161,9 @@ describe('RecordCleanup', () => {
 			targetId: MIDDLE,
 			sourceIds: [OLDEST, NEWEST],
 			acknowledged: true,
+			// These records agree about every field, so there is nothing to keep and
+			// no update command to name.
+			fieldUpdates: { intents: [], values: {} },
 		});
 	});
 
@@ -198,6 +217,204 @@ describe('RecordCleanup', () => {
 		// both of its own.
 		expect(screen.getByRole('button', { name: 'Merge 1 into 412 Oak St' })).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Merge 1 into 412 OAK ST' })).toBeTruthy();
+	});
+
+	it('narrows the page to the match types the menu selects', async () => {
+		// Contacts are compared three ways and addresses two, so working through
+		// duplicates means working through one kind of evidence at a time: a shared
+		// phone number is a different judgement from two rows on one rooftop.
+		groups = [
+			nameGroup(),
+			{
+				key: `same_place:${MIDDLE}.${NEWEST}`,
+				reason: 'same_place',
+				value: null,
+				records: [
+					record(MIDDLE, '412 OAK ST', '2025-06-11T00:00:00.000Z'),
+					record(NEWEST, '412 Oak Street', '2026-01-04T00:00:00.000Z'),
+				],
+			},
+		];
+		renderPage();
+
+		expect(screen.getAllByRole('button', { name: /^Merge/ })).toHaveLength(2);
+
+		fireEvent.pointerDown(screen.getByRole('button', { name: /All match types/ }), {
+			button: 0,
+			ctrlKey: false,
+		});
+		fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /Within ten metres/ }));
+
+		const remaining = screen.getAllByRole('button', { name: /^Merge/ });
+		expect(remaining).toHaveLength(1);
+		expect(remaining[0]?.textContent).toContain('412 OAK ST');
+	});
+
+	it('says a filter is what emptied the page, rather than offering the list', async () => {
+		// "Nothing matched" is a fact about the records and "nothing matched this
+		// way" is a fact about the filter. Sending somebody to the address list when
+		// they have only hidden the group they were reading is the wrong direction.
+		renderPage();
+
+		fireEvent.pointerDown(screen.getByRole('button', { name: /All match types/ }), {
+			button: 0,
+			ctrlKey: false,
+		});
+		fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /Within ten metres/ }));
+
+		expect(screen.getByText('No duplicate addresses of this kind')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Show all match types' })).toBeTruthy();
+	});
+
+	it('offers a value only a retired record holds, and sends it with the merge', async () => {
+		// Without this the postal code is gone the moment the merge runs: the merge
+		// re-points references and retires the row, and never touches the survivor's
+		// own columns.
+		groups = [
+			{
+				key: 'same_name:412 oak st',
+				reason: 'same_name',
+				value: '412 oak st',
+				records: [
+					record(OLDEST, '412 Oak St', '2024-03-01T00:00:00.000Z', { postal_code: null }),
+					record(MIDDLE, '412 OAK ST', '2025-06-11T00:00:00.000Z', { postal_code: '72364' }),
+				],
+			},
+		];
+		renderPage();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Merge 1 into 412 Oak St' }));
+		const dialog = await screen.findByRole('alertdialog');
+
+		// Started at the retired record's value rather than at blank, so a reader who
+		// changes nothing still keeps it.
+		expect((within(dialog).getByLabelText('Postal code') as HTMLInputElement).value).toBe('72364');
+
+		fireEvent.click(within(dialog).getByRole('checkbox'));
+		fireEvent.click(within(dialog).getByRole('button', { name: 'Merge' }));
+
+		await vi.waitFor(() => expect(merges).toHaveBeenCalledTimes(1));
+		expect(merges.mock.calls[0]?.[0].fieldUpdates).toEqual({
+			intents: ['foundation.updateAddressDetails'],
+			values: { postal_code: '72364' },
+		});
+	});
+
+	it('does not send a value the survivor already has', async () => {
+		// The survivor's answer stands by default, so a merge nobody edited must not
+		// name an update command at all: the domain refuses one with no change.
+		groups = [
+			{
+				key: 'same_name:412 oak st',
+				reason: 'same_name',
+				value: '412 oak st',
+				records: [
+					record(OLDEST, '412 Oak St', '2024-03-01T00:00:00.000Z', { postal_code: '72364' }),
+					record(MIDDLE, '412 OAK ST', '2025-06-11T00:00:00.000Z', { postal_code: '38103' }),
+				],
+			},
+		];
+		renderPage();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Merge 1 into 412 Oak St' }));
+		const dialog = await screen.findByRole('alertdialog');
+		fireEvent.click(within(dialog).getByRole('checkbox'));
+		fireEvent.click(within(dialog).getByRole('button', { name: 'Merge' }));
+
+		await vi.waitFor(() => expect(merges).toHaveBeenCalledTimes(1));
+		expect(merges.mock.calls[0]?.[0].fieldUpdates).toEqual({ intents: [], values: {} });
+	});
+
+	it('moves a retired phone number into the alternate when asked', async () => {
+		// Two rows for one person routinely hold two real numbers. The merge that
+		// keeps both is the one that puts the second in the other field, which no
+		// amount of choosing between rows can do.
+		groups = [
+			{
+				key: 'same_name:ana reyes',
+				reason: 'same_name',
+				value: 'ana reyes',
+				records: [
+					record(OLDEST, 'Ana Reyes', '2024-03-01T00:00:00.000Z', {
+						contact_name: 'Ana Reyes',
+						preferred_phone: '555-0100',
+					}),
+					record(MIDDLE, 'A Reyes', '2025-06-11T00:00:00.000Z', {
+						contact_name: 'Ana Reyes',
+						preferred_phone: '555-0199',
+					}),
+				],
+			},
+		];
+		renderPage('contact');
+
+		fireEvent.click(screen.getByRole('button', { name: 'Merge 1 into Ana Reyes' }));
+		const dialog = await screen.findByRole('alertdialog');
+
+		// Nothing disagrees about the alternate, so it sits behind the disclosure
+		// with the rest of the fields that are not asking anything.
+		fireEvent.click(within(dialog).getByRole('button', { name: /Edit the other/ }));
+		const alternate = within(dialog).getByLabelText('Alternate phone') as HTMLInputElement;
+		expect(alternate.value).toBe('');
+
+		fireEvent.click(within(dialog).getByRole('button', { name: /555-0199.*preferred phone/ }));
+		expect(alternate.value).toBe('555-0199');
+
+		fireEvent.click(within(dialog).getByRole('checkbox'));
+		fireEvent.click(within(dialog).getByRole('button', { name: 'Merge' }));
+
+		await vi.waitFor(() => expect(merges).toHaveBeenCalledTimes(1));
+		expect(merges.mock.calls[0]?.[0].fieldUpdates).toEqual({
+			intents: ['publicEngagement.updateContactCommunication'],
+			values: { alternate_phone: '555-0199' },
+		});
+	});
+
+	it('takes a value the user types that no record holds', async () => {
+		// The merge is often the moment somebody notices the name is wrong on both
+		// rows, so the fields are editable rather than a set of choices.
+		groups = [
+			{
+				key: 'same_name:ana reyes',
+				reason: 'same_name',
+				value: 'ana reyes',
+				records: [
+					record(OLDEST, 'Ana Reyes', '2024-03-01T00:00:00.000Z', { contact_name: 'Ana Reyes' }),
+					record(MIDDLE, 'A Reyes', '2025-06-11T00:00:00.000Z', { contact_name: 'Ana Reyes' }),
+				],
+			},
+		];
+		renderPage('contact');
+
+		fireEvent.click(screen.getByRole('button', { name: 'Merge 1 into Ana Reyes' }));
+		const dialog = await screen.findByRole('alertdialog');
+		fireEvent.click(within(dialog).getByRole('button', { name: /Edit the other/ }));
+		fireEvent.change(within(dialog).getByLabelText('Name'), {
+			target: { value: 'Ana Reyes-Cruz' },
+		});
+		fireEvent.click(within(dialog).getByRole('checkbox'));
+		fireEvent.click(within(dialog).getByRole('button', { name: 'Merge' }));
+
+		await vi.waitFor(() => expect(merges).toHaveBeenCalledTimes(1));
+		expect(merges.mock.calls[0]?.[0].fieldUpdates.values).toEqual({
+			contact_name: 'Ana Reyes-Cruz',
+		});
+	});
+
+	it('holds the merge when a required field has been emptied', async () => {
+		// The domain refuses an empty display name, so sending it would spend the
+		// user's click to tell them what the dialog already knows.
+		renderPage();
+
+		fireEvent.click(screen.getByRole('button', { name: /^Merge 2 into/ }));
+		const dialog = await screen.findByRole('alertdialog');
+		fireEvent.click(within(dialog).getByRole('checkbox'));
+		fireEvent.change(within(dialog).getByLabelText('Name'), { target: { value: '  ' } });
+
+		expect(within(dialog).getByText('Name cannot be empty')).toBeTruthy();
+		expect(within(dialog).getByRole('button', { name: 'Merge' }).hasAttribute('disabled')).toBe(
+			true,
+		);
 	});
 
 	it('stops proposing a group that excluding leaves with one record', () => {

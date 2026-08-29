@@ -208,6 +208,62 @@ describeDbIntegration('duplicate candidates', () => {
 			expect(record?.createdAt).toBeInstanceOf(Date);
 		});
 	});
+
+	it('carries the values a merge could keep, with blank read as nothing said', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'contact_carry');
+			await createContact(db, org, { name: 'Ana Reyes', phone: '555-0100' });
+			const other = await createContact(db, org, { name: 'Ana Reyes', phone: '555-0100' });
+			await db
+				.updateTable('contacts')
+				.set({ email: '  ana@example.org ', company: '   ', title: null })
+				.where('id', '=', other)
+				.execute();
+
+			const groups = await readDuplicateCandidates(db, {
+				recordType: 'contact',
+				organizationId: org,
+			});
+
+			const filled = groupsFor(groups, 'same_name')[0]?.records.find(
+				(record) => record.id === other,
+			);
+			expect(filled?.fields.email).toBe('ana@example.org');
+			// A column of spaces and a null are the same answer, and the page's
+			// carry-forward rule turns on which records answer at all.
+			expect(filled?.fields.company).toBeNull();
+			expect(filled?.fields.title).toBeNull();
+			// Named on the config, so present as a key even when the record is empty.
+			expect(Object.hasOwn(filled?.fields ?? {}, 'department')).toBe(true);
+			// Never the consent columns: false is an answer, and carrying it forward
+			// would raise a flag nobody gave.
+			expect(Object.hasOwn(filled?.fields ?? {}, 'wants_email')).toBe(false);
+		});
+	});
+
+	it('carries them on a place group too, which reads its rows by a second query', async () => {
+		await withTestDb(async ({ db }) => {
+			// The proximity path finds ids first and loads the rows separately, so it
+			// is its own select list and can go stale against the value path's.
+			const org = await createOrganization(db, 'place_carry');
+			await createAddressAt(db, org, 'Depot', -90.5, 35.5);
+			await createAddressAt(db, org, 'Old depot', -90.50001, 35.50001);
+			await db
+				.updateTable('addresses')
+				.set({ locality: 'Marion' })
+				.where('display_name', '=', 'Old depot')
+				.execute();
+
+			const groups = await readDuplicateCandidates(db, {
+				recordType: 'address',
+				organizationId: org,
+			});
+
+			const place = groupsFor(groups, 'same_place')[0];
+			expect(place?.records).toHaveLength(2);
+			expect(place?.records.map((record) => record.fields.locality)).toEqual([null, 'Marion']);
+		});
+	});
 });
 
 type Db = Kysely<SimmerDatabase>;

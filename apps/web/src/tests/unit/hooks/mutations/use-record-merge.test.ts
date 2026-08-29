@@ -41,6 +41,46 @@ describe('recordMergeRequest', () => {
 		expect(request.body.sourceAddressIds).not.toContain(SURVIVOR);
 	});
 
+	it('carries kept values in the same body, so they commit with the merge', () => {
+		// Two writes would mean the merge could land while the values it was meant
+		// to carry did not, with the record they came from already retired and no
+		// way back to it.
+		const { intents, request } = recordMergeRequest('contact', {
+			targetId: SURVIVOR,
+			sourceIds: [RETIRED],
+			acknowledged: true,
+			fieldUpdates: {
+				intents: ['publicEngagement.updateContactCommunication'],
+				values: { preferred_phone: '555-0100' },
+			},
+		});
+
+		expect(request.body).toEqual({
+			preferred_phone: '555-0100',
+			sourceContactIds: [RETIRED],
+			acknowledgedContactMerge: true,
+		});
+		// Updates before the merge. Either order writes the same rows, because the
+		// survivor is not one of the records a merge retires.
+		expect(intents).toEqual([
+			'publicEngagement.updateContactCommunication',
+			'publicEngagement.mergeContacts',
+		]);
+	});
+
+	it('names only the merge when nothing is being kept', () => {
+		// An update command with no fields is refused by the domain builder, so an
+		// intent named unconditionally would 400 every merge that changed nothing.
+		const { intents } = recordMergeRequest('contact', {
+			targetId: SURVIVOR,
+			sourceIds: [RETIRED],
+			acknowledged: true,
+			fieldUpdates: { intents: [], values: {} },
+		});
+
+		expect(intents).toEqual(['publicEngagement.mergeContacts']);
+	});
+
 	it('sends the acknowledgement as false rather than leaving it out', () => {
 		const { request } = recordMergeRequest('address', {
 			targetId: SURVIVOR,
@@ -61,7 +101,7 @@ describe('recordMergeRequest', () => {
 			acknowledged: true,
 		});
 
-		expect(result.intent).toBe('larvalSurveillance.mergeHabitats');
+		expect(result.intents).toEqual(['larvalSurveillance.mergeHabitats']);
 		expect(result.request.table).toBe('habitats');
 		expect(result.request.body).toEqual({
 			sourceHabitatIds: [RETIRED],
@@ -79,7 +119,7 @@ describe('recordMergeRequest', () => {
 			acknowledged: false,
 		});
 
-		expect(result.intent).toBe('publicEngagement.mergeContacts');
+		expect(result.intents).toEqual(['publicEngagement.mergeContacts']);
 		expect(result.request.body).toEqual({
 			sourceContactIds: [RETIRED],
 			acknowledgedContactMerge: false,

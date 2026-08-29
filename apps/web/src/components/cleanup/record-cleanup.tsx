@@ -8,17 +8,23 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
-import { useRecordMerge } from '../../hooks/mutations/use-record-merge';
+import { type MergeFieldUpdates, useRecordMerge } from '../../hooks/mutations/use-record-merge';
 import {
 	type DuplicateGroup,
+	type DuplicateReason,
 	type DuplicateRecord,
 	duplicateCandidatesQueryKey,
 	type MergeableRecordType,
 	useDuplicateCandidates,
 } from '../../hooks/use-merge-candidates';
 import { DuplicateGroupPanel } from './duplicate-group-panel';
+import { MatchTypeFilter } from './match-type-filter';
 import { MergeConfirmDialog } from './merge-confirm-dialog';
-import { RECORD_CLEANUP_CONFIGS, recordCountLabel } from './record-cleanup-config';
+import {
+	RECORD_CLEANUP_CONFIGS,
+	type RecordCleanupConfig,
+	recordCountLabel,
+} from './record-cleanup-config';
 
 const MergeIcon = iconRegistry.actions.merge.icon;
 
@@ -54,6 +60,14 @@ export function RecordCleanup({ recordType }: { readonly recordType: MergeableRe
 	const [survivors, setSurvivors] = useState<Record<string, string>>({});
 	const [excluded, setExcluded] = useState<ReadonlySet<string>>(() => new Set());
 	const [pending, setPending] = useState<PendingMerge | null>(null);
+	/*
+	 * Held here rather than in the URL, like every other choice on this page.
+	 * Which records are refused and which one survives are local too, and a link
+	 * that restored the filter but not those would come back as a different page
+	 * from the one that was shared.
+	 */
+	const [matchTypes, setMatchTypes] = useState<ReadonlySet<DuplicateReason>>(() => new Set());
+	const clearMatchTypes = useCallback(() => setMatchTypes(new Set()), []);
 
 	/*
 	 * Keyed by group, not by record. A contact is compared three ways, so the same
@@ -66,7 +80,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: MergeableRe
 	}, []);
 
 	const runMerge = useCallback(
-		async (acknowledged: boolean): Promise<void> => {
+		async (acknowledged: boolean, fieldUpdates: MergeFieldUpdates): Promise<void> => {
 			if (pending === null) {
 				return;
 			}
@@ -74,6 +88,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: MergeableRe
 				targetId: pending.target.id,
 				sourceIds: pending.sources.map((record) => record.id),
 				acknowledged,
+				fieldUpdates,
 			});
 			toast.success(
 				`Merged ${recordCountLabel(pending.sources.length, config)} into ${
@@ -95,10 +110,23 @@ export function RecordCleanup({ recordType }: { readonly recordType: MergeableRe
 				title="Cleanup Tools"
 			/>
 
+			{candidates.data === undefined || candidates.data.length === 0 ? null : (
+				<div className="flex justify-end">
+					<MatchTypeFilter
+						config={config}
+						groups={candidates.data}
+						onChange={setMatchTypes}
+						selected={matchTypes}
+					/>
+				</div>
+			)}
+
 			<CleanupBody
 				candidates={candidates}
 				config={config}
 				excluded={excluded}
+				matchTypes={matchTypes}
+				onClearMatchTypes={clearMatchTypes}
 				onExclude={exclude}
 				onMerge={setPending}
 				onSurvivorChange={(groupKey, recordId) =>
@@ -130,14 +158,18 @@ function CleanupBody({
 	candidates,
 	config,
 	excluded,
+	matchTypes,
+	onClearMatchTypes,
 	onExclude,
 	onMerge,
 	onSurvivorChange,
 	survivors,
 }: {
 	readonly candidates: ReturnType<typeof useDuplicateCandidates>;
-	readonly config: (typeof RECORD_CLEANUP_CONFIGS)[MergeableRecordType];
+	readonly config: RecordCleanupConfig;
 	readonly excluded: ReadonlySet<string>;
+	readonly matchTypes: ReadonlySet<DuplicateReason>;
+	readonly onClearMatchTypes: () => void;
 	readonly onExclude: (groupKey: string, recordId: string) => void;
 	readonly onMerge: (pending: PendingMerge) => void;
 	readonly onSurvivorChange: (groupKey: string, recordId: string) => void;
@@ -148,37 +180,24 @@ function CleanupBody({
 	}
 
 	if (candidates.isError) {
-		return (
-			<Alert variant="destructive">
-				<AlertTitle>Could not look for duplicates</AlertTitle>
-				<AlertDescription className="grid gap-3">
-					<span>{candidates.error.message}</span>
-					<Button
-						className="justify-self-start"
-						onClick={() => void candidates.refetch()}
-						size="sm"
-						variant="outline"
-					>
-						Try again
-					</Button>
-				</AlertDescription>
-			</Alert>
-		);
+		return <CleanupFailure message={candidates.error.message} onRetry={candidates.refetch} />;
 	}
 
-	const groups = (candidates.data ?? []).filter((group) => liveRecords(group, excluded).length > 1);
+	const proposed = (candidates.data ?? []).filter(
+		(group) => liveRecords(group, excluded).length > 1,
+	);
+	const groups = proposed.filter((group) => matchTypes.size === 0 || matchTypes.has(group.reason));
 
 	if (groups.length === 0) {
 		return (
-			<ListEmpty
-				action={
-					<Button asChild size="sm" variant="outline">
-						<Link to={config.listTo}>Open the list</Link>
-					</Button>
-				}
-				description={config.groupingRule}
-				icon={config.icon}
-				title={`No duplicate ${config.noun.many} found`}
+			<CleanupEmpty
+				config={config}
+				// Two different answers. "Nothing matched" is a fact about the records;
+				// "nothing matched this way" is a fact about the filter, and offering
+				// the address list to somebody who has only hidden the phone groups
+				// sends them away from the page that was about to answer them.
+				isFiltered={matchTypes.size > 0 && proposed.length > 0}
+				onClearMatchTypes={onClearMatchTypes}
 			/>
 		);
 	}
@@ -220,4 +239,71 @@ function liveRecords(
 /** One record's standing in one group. The id leads, because a uuid never holds a pipe. */
 function exclusionKey(groupKey: string, recordId: string): string {
 	return `${recordId}|${groupKey}`;
+}
+
+/** The read failed, which is not the same as finding no duplicates. */
+function CleanupFailure({
+	message,
+	onRetry,
+}: {
+	readonly message: string;
+	readonly onRetry: () => void;
+}) {
+	return (
+		<Alert variant="destructive">
+			<AlertTitle>Could not look for duplicates</AlertTitle>
+			<AlertDescription className="grid gap-3">
+				<span>{message}</span>
+				<Button
+					className="justify-self-start"
+					onClick={() => void onRetry()}
+					size="sm"
+					variant="outline"
+				>
+					Try again
+				</Button>
+			</AlertDescription>
+		</Alert>
+	);
+}
+
+/**
+ * Nothing to propose, said two ways.
+ *
+ * A page that found no duplicates has to say what it looked for, or "no
+ * duplicates" reads as "this tool does nothing". A page emptied by its own
+ * filter has to say that instead, and offer the way back rather than a link off
+ * to the list.
+ */
+function CleanupEmpty({
+	config,
+	isFiltered,
+	onClearMatchTypes,
+}: {
+	readonly config: RecordCleanupConfig;
+	readonly isFiltered: boolean;
+	readonly onClearMatchTypes: () => void;
+}) {
+	return (
+		<ListEmpty
+			action={
+				<Button asChild size="sm" variant="outline">
+					{isFiltered ? (
+						<button onClick={onClearMatchTypes} type="button">
+							Show all match types
+						</button>
+					) : (
+						<Link to={config.listTo}>Open the list</Link>
+					)}
+				</Button>
+			}
+			description={isFiltered ? undefined : config.groupingRule}
+			icon={config.icon}
+			title={
+				isFiltered
+					? `No duplicate ${config.noun.many} of this kind`
+					: `No duplicate ${config.noun.many} found`
+			}
+		/>
+	);
 }

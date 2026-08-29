@@ -34,6 +34,20 @@ export interface DuplicateRecord {
 	readonly createdAt: Date;
 	readonly lat: number | null;
 	readonly lng: number | null;
+	/**
+	 * The editable columns this record fills in, keyed by column name.
+	 *
+	 * A merge retires the source rows, so a phone number only a source holds is
+	 * gone from every surface once it runs. The page offers to carry those values
+	 * onto the survivor, and it can only offer what it can see: reading the label
+	 * alone would mean a second request per candidate to find out whether there
+	 * was anything to carry.
+	 *
+	 * Blank is normalized to null here rather than on the page, because an empty
+	 * string and a null both mean "this record does not say", and the whole
+	 * carry-forward rule turns on which records say nothing.
+	 */
+	readonly fields: Readonly<Record<string, string | null>>;
 }
 
 export interface DuplicateGroup {
@@ -100,6 +114,18 @@ interface DuplicateConfig {
 	readonly keys: readonly DuplicateKey[];
 	/** Whether the table carries geometry, and so whether a place group is possible. */
 	readonly located: boolean;
+	/**
+	 * The columns a merge can carry from a retired record onto the survivor.
+	 *
+	 * Every one of these has to be writable through an update command on the same
+	 * table, because that is how the page carries it: one request naming the
+	 * update and the merge together. A column with no command behind it would read
+	 * back a value the page then offers and cannot send.
+	 *
+	 * Geometry is deliberately absent. It is not text, it is not comparable as a
+	 * value, and moving it is a different decision from keeping a phone number.
+	 */
+	readonly fields: readonly string[];
 }
 
 /** `lower(btrim(x))`, mapped to null when it is left with nothing. */
@@ -112,6 +138,23 @@ function joined(columns: readonly string[]): RawBuilder<unknown> {
 	return sql`nullif(btrim(concat_ws(', ', ${sql.join(columns.map((column) => sql.ref(column)))})), '')`;
 }
 
+/**
+ * The record's field values as one json column, rather than one column each.
+ *
+ * Aliasing them individually would put column names next to this query's own
+ * aliases, and two of those aliases (`lat`, `lng`) are already real columns on
+ * the located tables. One object keeps the field names in their own namespace,
+ * so a config can name any column without colliding with the shape of the read.
+ */
+function fieldsObject(columns: readonly string[]): RawBuilder<unknown> {
+	return sql`jsonb_build_object(${sql.join(
+		columns.flatMap((column) => [
+			sql.lit(column),
+			sql`nullif(btrim(${sql.ref(column)}::text), '')`,
+		]),
+	)})`;
+}
+
 const DUPLICATE_CONFIGS: Record<MergeableRecordType, DuplicateConfig> = {
 	address: {
 		table: 'addresses',
@@ -119,6 +162,14 @@ const DUPLICATE_CONFIGS: Record<MergeableRecordType, DuplicateConfig> = {
 		detail: joined(['address_line_1', 'locality', 'region', 'postal_code']),
 		keys: [{ reason: 'same_name', expression: normalized('display_name') }],
 		located: true,
+		fields: [
+			'display_name',
+			'address_line_1',
+			'address_line_2',
+			'locality',
+			'region',
+			'postal_code',
+		],
 	},
 
 	habitat: {
@@ -127,6 +178,7 @@ const DUPLICATE_CONFIGS: Record<MergeableRecordType, DuplicateConfig> = {
 		detail: sql`nullif(btrim(${sql.ref('description')}), '')`,
 		keys: [{ reason: 'same_name', expression: normalized('habitat_name') }],
 		located: true,
+		fields: ['habitat_name', 'description'],
 	},
 
 	/**
@@ -150,6 +202,22 @@ const DUPLICATE_CONFIGS: Record<MergeableRecordType, DuplicateConfig> = {
 			},
 		],
 		located: false,
+		/*
+		 * The three consent columns are deliberately not here. `wants_email` and its
+		 * pair are a record of what a person agreed to, and false is an answer rather
+		 * than a blank, so the carry-forward rule that fills an empty field from a
+		 * retired row would be raising a consent flag nobody gave. The survivor keeps
+		 * its own.
+		 */
+		fields: [
+			'contact_name',
+			'company',
+			'department',
+			'title',
+			'email',
+			'preferred_phone',
+			'alternate_phone',
+		],
 	},
 };
 
@@ -160,6 +228,8 @@ interface CandidateRow {
 	readonly created_at: Date;
 	readonly lat: number | null;
 	readonly lng: number | null;
+	/** `jsonb_build_object` over the config's field columns. */
+	readonly fields: Record<string, string | null>;
 }
 
 interface KeyedRow extends CandidateRow {
@@ -226,7 +296,8 @@ async function readValueGroups(
 				${config.detail} as detail,
 				created_at,
 				${coordinate(config, 'lat')} as lat,
-				${coordinate(config, 'lng')} as lng
+				${coordinate(config, 'lng')} as lng,
+				${fieldsObject(config.fields)} as fields
 			from ${sql.table(config.table)}
 			where organization_id = ${input.organizationId}
 				and deleted_at is null
@@ -242,7 +313,8 @@ async function readValueGroups(
 			order by dup_key
 			limit ${limit}
 		)
-		select named.dup_key, named.id, named.label, named.detail, named.created_at, named.lat, named.lng
+		select named.dup_key, named.id, named.label, named.detail, named.created_at,
+			named.lat, named.lng, named.fields
 		from named
 		join duplicated on duplicated.dup_key = named.dup_key
 		order by named.dup_key, named.created_at, named.id
@@ -345,7 +417,8 @@ async function readRecordsById(
 			${config.detail} as detail,
 			created_at,
 			lat,
-			lng
+			lng,
+			${fieldsObject(config.fields)} as fields
 		from ${sql.table(config.table)}
 		where organization_id = ${organizationId}
 			and deleted_at is null
@@ -419,5 +492,6 @@ function toRecord(row: CandidateRow): DuplicateRecord {
 		createdAt: row.created_at,
 		lat: row.lat,
 		lng: row.lng,
+		fields: row.fields,
 	};
 }
