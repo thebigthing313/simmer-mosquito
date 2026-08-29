@@ -30,7 +30,10 @@ function group(overrides: Partial<DuplicateGroup>): DuplicateGroup {
 	};
 }
 
-function record(label: string): DuplicateRecord {
+function record(
+	label: string,
+	fields: Readonly<Record<string, string | null>> = {},
+): DuplicateRecord {
 	return {
 		id: label,
 		label,
@@ -38,7 +41,7 @@ function record(label: string): DuplicateRecord {
 		createdAt: '2026-01-01T00:00:00.000Z',
 		lat: null,
 		lng: null,
-		fields: {},
+		fields,
 	};
 }
 
@@ -75,6 +78,42 @@ describe('duplicateGroupHeading', () => {
 		});
 
 		expect(duplicateGroupHeading(phones)).toBe('Same phone: 5550100');
+	});
+
+	it('spells a shared street the way the records write it, off the column', () => {
+		// Same flattening as a name, and a different way out of it: an address is
+		// labelled by its display name, so the properly spelled street is only in
+		// the record's own field values.
+		const streets = group({
+			reason: 'same_street',
+			value: '412 oak st',
+			records: [
+				record('Depot', { address_line_1: '412 Oak St' }),
+				record('Rear entrance', { address_line_1: '412 OAK ST' }),
+			],
+		});
+
+		expect(duplicateGroupHeading(streets)).toBe('Same street address: 412 Oak St');
+	});
+
+	it('falls back to the compared street when the first record does not carry one', () => {
+		const streets = group({
+			reason: 'same_street',
+			value: '412 oak st',
+			records: [record('Depot'), record('Rear entrance')],
+		});
+
+		expect(duplicateGroupHeading(streets)).toBe('Same street address: 412 oak st');
+	});
+
+	it('shows the pair for a coordinate group, which is already exact', () => {
+		const placed = group({
+			reason: 'same_coordinates',
+			value: '35.5, -90.5',
+			records: [record('Depot'), record('Rear entrance')],
+		});
+
+		expect(duplicateGroupHeading(placed)).toBe('Same coordinates: 35.5, -90.5');
 	});
 
 	it('says the distance for a place group, which shares no value', () => {

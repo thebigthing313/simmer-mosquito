@@ -104,19 +104,79 @@ describeDbIntegration('duplicate candidates', () => {
 		});
 	});
 
-	it('does not propose the same set twice when rows share a name and a spot', async () => {
+	it('does not propose the same set twice when habitats share a name and a spot', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'address_overlap');
-			await createAddressAt(db, org, 'Depot', -90.5, 35.5);
-			await createAddressAt(db, org, 'depot', -90.5, 35.500018);
+			const org = await createOrganization(db, 'habitat_overlap');
+			await createHabitatAt(db, org, 'Depot', -90.5, 35.5);
+			await createHabitatAt(db, org, 'depot', -90.5, 35.500018);
+
+			const groups = await readDuplicateCandidates(db, {
+				recordType: 'habitat',
+				organizationId: org,
+			});
+
+			expect(groups).toHaveLength(1);
+			expect(groups[0]?.reason).toBe('same_name');
+		});
+	});
+
+	it('groups addresses on a street address and on exact coordinates', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'address_keys');
+			const first = await createAddressAt(db, org, 'Depot', -90.5, 35.5);
+			const second = await createAddressAt(db, org, 'Rear entrance', -90.5, 35.5);
+			await createAddressAt(db, org, 'Office', -90.6, 35.6);
+			await db
+				.updateTable('addresses')
+				.set({ address_line_1: '412 Oak St' })
+				.where('id', 'in', [first, second])
+				.execute();
 
 			const groups = await readDuplicateCandidates(db, {
 				recordType: 'address',
 				organizationId: org,
 			});
 
-			expect(groups).toHaveLength(1);
-			expect(groups[0]?.reason).toBe('same_name');
+			const street = groupsFor(groups, 'same_street');
+			expect(street).toHaveLength(1);
+			expect(ids(street[0])).toEqual(new Set([first, second]));
+			// Deduped: the coordinate group names the same two records, and one merge
+			// under two headings makes the second look like more work still to do.
+			expect(groupsFor(groups, 'same_coordinates')).toHaveLength(0);
+		});
+	});
+
+	it('never proposes addresses that are merely near each other', async () => {
+		await withTestDb(async ({ db }) => {
+			// Two metres apart. An address book's duplicates come from the same
+			// geocode of the same string and land on the same point, so a radius here
+			// proposes the house next door rather than a duplicate.
+			await withNearbyAddresses(db, async (org) => {
+				const groups = await readDuplicateCandidates(db, {
+					recordType: 'address',
+					organizationId: org,
+				});
+
+				expect(groups).toEqual([]);
+			});
+		});
+	});
+
+	it('groups addresses whose coordinates match exactly', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'address_exact');
+			const first = await createAddressAt(db, org, 'Depot', -90.5, 35.5);
+			const second = await createAddressAt(db, org, 'Rear entrance', -90.5, 35.5);
+
+			const groups = await readDuplicateCandidates(db, {
+				recordType: 'address',
+				organizationId: org,
+			});
+
+			const placed = groupsFor(groups, 'same_coordinates');
+			expect(placed).toHaveLength(1);
+			expect(ids(placed[0])).toEqual(new Set([first, second]));
+			expect(placed[0]?.value).toBe('35.5, -90.5');
 		});
 	});
 
@@ -246,22 +306,25 @@ describeDbIntegration('duplicate candidates', () => {
 			// The proximity path finds ids first and loads the rows separately, so it
 			// is its own select list and can go stale against the value path's.
 			const org = await createOrganization(db, 'place_carry');
-			await createAddressAt(db, org, 'Depot', -90.5, 35.5);
-			await createAddressAt(db, org, 'Old depot', -90.50001, 35.50001);
+			await createHabitatAt(db, org, 'Depot', -90.5, 35.5);
+			await createHabitatAt(db, org, 'Old depot', -90.50001, 35.50001);
 			await db
-				.updateTable('addresses')
-				.set({ locality: 'Marion' })
-				.where('display_name', '=', 'Old depot')
+				.updateTable('habitats')
+				.set({ description: 'Culvert' })
+				.where('habitat_name', '=', 'Old depot')
 				.execute();
 
 			const groups = await readDuplicateCandidates(db, {
-				recordType: 'address',
+				recordType: 'habitat',
 				organizationId: org,
 			});
 
 			const place = groupsFor(groups, 'same_place')[0];
 			expect(place?.records).toHaveLength(2);
-			expect(place?.records.map((record) => record.fields.locality)).toEqual([null, 'Marion']);
+			expect(place?.records.map((record) => record.fields.description)).toEqual([
+				'Roadside ditch',
+				'Culvert',
+			]);
 		});
 	});
 });
@@ -350,4 +413,15 @@ async function createContact(
 		.returning(['id'])
 		.executeTakeFirstOrThrow();
 	return row.id;
+}
+
+/** Two addresses a couple of metres apart, which is not a duplicate any more. */
+async function withNearbyAddresses(
+	db: Db,
+	body: (organizationId: string) => Promise<void>,
+): Promise<void> {
+	const org = await createOrganization(db, 'address_near');
+	await createAddressAt(db, org, 'Depot', -90.5, 35.5);
+	await createAddressAt(db, org, 'Neighbour', -90.5, 35.500018);
+	await body(org);
 }

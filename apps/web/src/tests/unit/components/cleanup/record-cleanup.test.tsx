@@ -226,9 +226,9 @@ describe('RecordCleanup', () => {
 		groups = [
 			nameGroup(),
 			{
-				key: `same_place:${MIDDLE}.${NEWEST}`,
-				reason: 'same_place',
-				value: null,
+				key: 'same_coordinates:35.5, -90.5',
+				reason: 'same_coordinates',
+				value: '35.5, -90.5',
 				records: [
 					record(MIDDLE, '412 OAK ST', '2025-06-11T00:00:00.000Z'),
 					record(NEWEST, '412 Oak Street', '2026-01-04T00:00:00.000Z'),
@@ -243,7 +243,7 @@ describe('RecordCleanup', () => {
 			button: 0,
 			ctrlKey: false,
 		});
-		fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /Within ten metres/ }));
+		fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /Same coordinates/ }));
 
 		const remaining = screen.getAllByRole('button', { name: /^Merge/ });
 		expect(remaining).toHaveLength(1);
@@ -260,7 +260,7 @@ describe('RecordCleanup', () => {
 			button: 0,
 			ctrlKey: false,
 		});
-		fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /Within ten metres/ }));
+		fireEvent.click(await screen.findByRole('menuitemcheckbox', { name: /Same coordinates/ }));
 
 		expect(screen.getByText('No duplicate addresses of this kind')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Show all match types' })).toBeTruthy();
@@ -447,7 +447,7 @@ describe('RecordCleanup', () => {
 		// "No duplicates" alone reads as a tool that does nothing. The rule it
 		// applied is what makes an empty page an answer.
 		expect(screen.getByText('No duplicate addresses found')).toBeTruthy();
-		expect(screen.getByText(/within ten metres/)).toBeTruthy();
+		expect(screen.getByText(/share a display name, a street address/)).toBeTruthy();
 	});
 
 	it('offers a retry rather than an empty state when the read failed', () => {

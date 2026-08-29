@@ -22,7 +22,13 @@ import type { MergeableRecordType } from './record-merge.js';
  * exactly where this runs: habitat handles come off one template, so they are
  * all similar to each other and a similarity score groups the whole agency.
  */
-export type DuplicateReason = 'same_name' | 'same_email' | 'same_phone' | 'same_place';
+export type DuplicateReason =
+	| 'same_name'
+	| 'same_street'
+	| 'same_email'
+	| 'same_phone'
+	| 'same_coordinates'
+	| 'same_place';
 
 /** One candidate, with what the page needs to show it without a second read. */
 export interface DuplicateRecord {
@@ -56,14 +62,22 @@ export interface DuplicateGroup {
 	readonly reason: DuplicateReason;
 	/**
 	 * The value the rows share, normalized as it was compared. Null for
-	 * `same_place`, where what they share is a location rather than a string.
+	 * `same_place`, where what they share is a neighbourhood rather than a value.
 	 */
 	readonly value: string | null;
 	/** Oldest first, which is the survivor a page preselects. */
 	readonly records: readonly DuplicateRecord[];
 }
 
-/** How close two records must be to read as one place. */
+/**
+ * How close two habitats must be to read as one place.
+ *
+ * Habitats only. An address is compared on its coordinates exactly, because an
+ * address book's duplicates come from the same geocode of the same string and
+ * land on the same point; a radius over a dense book proposes the house next
+ * door. A habitat is a place a crew found twice and named twice, from two GPS
+ * fixes that will not agree to the metre, which is what a radius is for.
+ */
 const PROXIMITY_METRES = 10;
 
 /**
@@ -84,16 +98,16 @@ const DEFAULT_GROUP_LIMIT = 50;
 /**
  * How many near pairs the proximity query will return.
  *
- * A self-join has no natural bound, and the case this whole module exists for is
- * the one that blows it up: an import that geocodes badly puts thousands of
- * addresses on one rooftop, and n rows at one point is n(n-1)/2 pairs. Ten
- * thousand of them is fifty million rows streamed into the process to build a
- * handful of proposals.
+ * A self-join has no natural bound, and the case that blows it up is the one
+ * this module exists for: a season of inspections filed against one wet spot
+ * puts thousands of habitats within a few metres, and n rows at one point is
+ * n(n-1)/2 pairs. Ten thousand of them is fifty million rows streamed into the
+ * process to build a handful of proposals.
  *
  * The cap trims pairs rather than whole groups, so hitting it can leave a
  * cluster split across two proposals. That is the safe direction: each half is
- * still a real set of records within ten metres of each other, and merging one half
- * then refetching proposes the rest. The alternative, an unbounded read, takes
+ * still a real set of records within ten metres of each other, and merging one
+ * half then refetching proposes the rest. The alternative, an unbounded read, takes
  * the page down instead.
  *
  * Ordered before the limit so the same pairs come back on every read, and a
@@ -112,8 +126,19 @@ interface DuplicateConfig {
 	readonly label: RawBuilder<unknown>;
 	readonly detail: RawBuilder<unknown>;
 	readonly keys: readonly DuplicateKey[];
-	/** Whether the table carries geometry, and so whether a place group is possible. */
-	readonly located: boolean;
+	/** Whether the table carries geometry, and so whether a record has coordinates to show. */
+	readonly hasGeometry: boolean;
+	/**
+	 * Whether to also group records that merely sit near each other.
+	 *
+	 * Separate from `hasGeometry`, because a table can have coordinates and still
+	 * want them compared exactly. Addresses do: an address book's duplicates come
+	 * from the same geocode run, so they land on the same point rather than near
+	 * it, and a radius over a dense book proposes neighbours as duplicates. A
+	 * habitat is a place a crew found and named twice from two GPS fixes, which is
+	 * the case a radius is for.
+	 */
+	readonly proximity: boolean;
 	/**
 	 * The columns a merge can carry from a retired record onto the survivor.
 	 *
@@ -131,6 +156,25 @@ interface DuplicateConfig {
 /** `lower(btrim(x))`, mapped to null when it is left with nothing. */
 function normalized(column: string): RawBuilder<unknown> {
 	return sql`nullif(lower(btrim(${sql.ref(column)})), '')`;
+}
+
+/**
+ * The coordinate pair as one key, so two records on the same point group.
+ *
+ * Exact rather than a radius. `lat` and `lng` are maintained from `geom` by a
+ * trigger, so two rows geocoded from the same string in the same run hold the
+ * same doubles, and `::text` renders a double as the shortest string that reads
+ * back as itself. Two records that agree here agree exactly.
+ *
+ * Both halves have to be present. `concat_ws` skips a null argument, so a row
+ * with a latitude and no longitude would key on the latitude alone and group
+ * with anything sharing it.
+ */
+function coordinateKey(): RawBuilder<unknown> {
+	return sql`case
+		when ${sql.ref('lat')} is null or ${sql.ref('lng')} is null then null
+		else ${sql.ref('lat')}::text || ', ' || ${sql.ref('lng')}::text
+	end`;
 }
 
 /** The postal line, skipping the parts this address does not have. */
@@ -160,8 +204,13 @@ const DUPLICATE_CONFIGS: Record<MergeableRecordType, DuplicateConfig> = {
 		table: 'addresses',
 		label: sql.ref('display_name'),
 		detail: joined(['address_line_1', 'locality', 'region', 'postal_code']),
-		keys: [{ reason: 'same_name', expression: normalized('display_name') }],
-		located: true,
+		keys: [
+			{ reason: 'same_name', expression: normalized('display_name') },
+			{ reason: 'same_street', expression: normalized('address_line_1') },
+			{ reason: 'same_coordinates', expression: coordinateKey() },
+		],
+		hasGeometry: true,
+		proximity: false,
 		fields: [
 			'display_name',
 			'address_line_1',
@@ -177,7 +226,8 @@ const DUPLICATE_CONFIGS: Record<MergeableRecordType, DuplicateConfig> = {
 		label: sql`coalesce(${sql.ref('habitat_name')}, '')`,
 		detail: sql`nullif(btrim(${sql.ref('description')}), '')`,
 		keys: [{ reason: 'same_name', expression: normalized('habitat_name') }],
-		located: true,
+		hasGeometry: true,
+		proximity: true,
 		fields: ['habitat_name', 'description'],
 	},
 
@@ -201,7 +251,8 @@ const DUPLICATE_CONFIGS: Record<MergeableRecordType, DuplicateConfig> = {
 				)}, ''), '[^0-9]', '', 'g'), '')`,
 			},
 		],
-		located: false,
+		hasGeometry: false,
+		proximity: false,
 		/*
 		 * The three consent columns are deliberately not here. `wants_email` and its
 		 * pair are a record of what a person agreed to, and false is an answer rather
@@ -263,8 +314,8 @@ export async function readDuplicateCandidates(
 		await Promise.all(config.keys.map((key) => readValueGroups(db, config, key, input, limit)))
 	).flat();
 
-	if (!config.located) {
-		return valueGroups;
+	if (!config.proximity) {
+		return dropRepeats(valueGroups);
 	}
 
 	const seen = valueGroups.map((group) => new Set(group.records.map((record) => record.id)));
@@ -272,7 +323,37 @@ export async function readDuplicateCandidates(
 		(group) => !seen.some((set) => coversAll(set, group)),
 	);
 
-	return [...valueGroups, ...placeGroups];
+	return dropRepeats([...valueGroups, ...placeGroups]);
+}
+
+/**
+ * One proposal per set of records, however many ways they match.
+ *
+ * Two rows for one address usually share their name *and* their coordinates, and
+ * a contact who rang in twice usually repeats a name and a phone number. Each of
+ * those is one merge, and listing it under every heading that found it makes the
+ * second copy look like more work still to do.
+ *
+ * The first heading wins, which is declaration order: the evidence a person can
+ * check at a glance leads, so a set matched by name and by coordinates is filed
+ * under the name.
+ *
+ * Only an identical set is dropped. A group that merely sits inside a larger one
+ * is a different, smaller merge, and the reader has no way to ask for it back.
+ */
+function dropRepeats(groups: readonly DuplicateGroup[]): readonly DuplicateGroup[] {
+	const seen = new Set<string>();
+	return groups.filter((group) => {
+		const signature = group.records
+			.map((record) => record.id)
+			.sort()
+			.join(',');
+		if (seen.has(signature)) {
+			return false;
+		}
+		seen.add(signature);
+		return true;
+	});
 }
 
 /** Whether a value group already proposes every record this place group names. */
@@ -473,7 +554,7 @@ function connectedComponents(
 
 /** `lat`/`lng` where the table has them, and null where it does not. */
 function coordinate(config: DuplicateConfig, column: 'lat' | 'lng'): RawBuilder<unknown> {
-	return config.located ? sql.ref(column) : sql`null::double precision`;
+	return config.hasGeometry ? sql.ref(column) : sql`null::double precision`;
 }
 
 function byAge(left: CandidateRow, right: CandidateRow): number {

@@ -18,7 +18,13 @@ import { getServerUrl } from '../auth';
 export type MergeableRecordType = 'address' | 'habitat' | 'contact';
 
 /** Why the server put a set of records together. */
-export type DuplicateReason = 'same_name' | 'same_email' | 'same_phone' | 'same_place';
+export type DuplicateReason =
+	| 'same_name'
+	| 'same_street'
+	| 'same_email'
+	| 'same_phone'
+	| 'same_coordinates'
+	| 'same_place';
 
 export interface DuplicateRecord {
 	readonly id: string;
@@ -43,7 +49,7 @@ export interface DuplicateRecord {
 export interface DuplicateGroup {
 	readonly key: string;
 	readonly reason: DuplicateReason;
-	/** The shared value, or null for `same_place`. */
+	/** The shared value, or null for `same_place`, which shares a neighbourhood. */
 	readonly value: string | null;
 	/** Oldest first, which is the survivor the page preselects. */
 	readonly records: readonly DuplicateRecord[];

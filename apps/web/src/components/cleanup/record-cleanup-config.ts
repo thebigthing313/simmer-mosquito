@@ -47,8 +47,8 @@ export const RECORD_CLEANUP_CONFIGS: Record<MergeableRecordType, RecordCleanupCo
 		listTo: '/gis/addresses',
 		unnamed: 'Unnamed address',
 		groupingRule:
-			'Addresses are grouped when they share a display name, or when they sit within ten metres of each other.',
-		reasons: ['same_name', 'same_place'],
+			'Addresses are grouped when they share a display name, a street address, or the exact same coordinates.',
+		reasons: ['same_name', 'same_street', 'same_coordinates'],
 	},
 
 	habitat: {
@@ -77,8 +77,10 @@ export const RECORD_CLEANUP_CONFIGS: Record<MergeableRecordType, RecordCleanupCo
 /** What the filter calls each way of matching, and what a group heading leads with. */
 export const DUPLICATE_REASON_LABELS: Record<DuplicateReason, string> = {
 	same_name: 'Same name',
+	same_street: 'Same street address',
 	same_email: 'Same email',
 	same_phone: 'Same phone',
+	same_coordinates: 'Same coordinates',
 	same_place: 'Within ten metres',
 };
 
@@ -95,29 +97,38 @@ export const DUPLICATE_REASON_LABELS: Record<DuplicateReason, string> = {
  * heading in that form reads as a typo sitting above rows that spell it
  * properly.
  *
- * The other two keep the compared value, because for them it is the shared thing
+ * A shared street address has the same problem and a different answer. It is
+ * flattened the same way, and it is not the record's label either, because an
+ * address is labelled by its display name. It comes off the column instead: the
+ * candidate carries its own field values for the merge form, so the heading can
+ * spell the street the way the records do.
+ *
+ * The rest keep the compared value, because for them it is the shared thing
  * itself rather than a flattened spelling of it: an email is written in lower
- * case anyway, and a phone key is the digits with the punctuation taken out,
- * which is what makes two spellings of one number match. Neither can come off a
- * record's label, which for a contact is their name.
+ * case anyway, a phone key is the digits with the punctuation taken out, which
+ * is what makes two spellings of one number match, and a coordinate pair is
+ * already exact.
  */
 export function duplicateGroupHeading(group: DuplicateGroup): string {
 	const reason = DUPLICATE_REASON_LABELS[group.reason];
 	switch (group.reason) {
 		case 'same_name':
-			return `${reason}: ${asWritten(group)}`;
+			return `${reason}: ${asWritten(group, group.records[0]?.label)}`;
+		case 'same_street':
+			return `${reason}: ${asWritten(group, group.records[0]?.fields.address_line_1)}`;
 		case 'same_email':
 		case 'same_phone':
+		case 'same_coordinates':
 			return `${reason}: ${group.value ?? ''}`;
 		case 'same_place':
 			return reason;
 	}
 }
 
-/** The shared name as the first record spells it, falling back to the compared key. */
-function asWritten(group: DuplicateGroup): string {
-	const written = group.records[0]?.label.trim() ?? '';
-	return written === '' ? (group.value ?? '') : written;
+/** The shared value as the first record spells it, falling back to the compared key. */
+function asWritten(group: DuplicateGroup, written: string | null | undefined): string {
+	const spelled = written?.trim() ?? '';
+	return spelled === '' ? (group.value ?? '') : spelled;
 }
 
 /** `3 addresses`, `1 address`. */
