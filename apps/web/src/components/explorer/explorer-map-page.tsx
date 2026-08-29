@@ -11,7 +11,7 @@ import type { CSSProperties, ReactNode } from 'react';
 import { OutletFullPageMap } from '../app-shell/outlet/full-page-map';
 import { MAP_CHROME_SURFACE } from '../map/chrome';
 import { type ExplorerCreateAction, ExplorerHeader } from './explorer-header';
-import { ResultList } from './result-list';
+import { ResultBody, ResultList, ResultRows } from './result-list';
 import { ResultMeta } from './result-meta';
 import type { ExplorerPanel } from './use-explorer-panel';
 
@@ -38,17 +38,8 @@ export interface ExplorerHeading {
 	readonly create?: ExplorerCreateAction | undefined;
 }
 
-/** The rows, and what stands in for them when there are none. */
-export interface ExplorerResults<TRow> {
-	/**
-	 * The whole scroll area, for a panel whose records are not a flat list: the
-	 * Regions folder tree, the Activity Monitor's day-grouped log. Given this, the
-	 * frame draws it in place of the rows and every field below is ignored: a
-	 * caller with its own body owns its own empty and loading states too.
-	 */
-	readonly body?: ReactNode | undefined;
-	readonly rows: readonly TRow[];
-	readonly renderRow: (row: TRow) => ReactNode;
+/** What every panel needs, whether it hands over rows or a whole body. */
+interface ExplorerResultsBase {
 	/** What is missing, e.g. `No habitats in view`. */
 	readonly emptyTitle: string;
 	/** What to change to find some. */
@@ -60,6 +51,34 @@ export interface ExplorerResults<TRow> {
 	/** Runs the request again, behind the failure state's retry. */
 	readonly onRetry?: (() => void) | undefined;
 }
+
+/** A flat list of rows, which is what thirteen of the fifteen explorers hand over. */
+interface ExplorerRowResults<TRow> extends ExplorerResultsBase {
+	readonly body?: undefined;
+	readonly isEmpty?: undefined;
+	readonly rows: readonly TRow[];
+	readonly renderRow: (row: TRow) => ReactNode;
+}
+
+/**
+ * The rows slot, filled by a caller whose records are not a flat list: the
+ * Regions folder tree, the Activity Monitor's day-grouped log.
+ *
+ * The frame still draws the placeholder rows, the failure state and the empty
+ * state around it, so a body caller says whether it is empty rather than having
+ * it counted off a row array it cannot fill. It is not optional: a body that
+ * never reports emptiness is a panel that goes blank instead of saying why.
+ */
+interface ExplorerBodyResults extends ExplorerResultsBase {
+	readonly body: ReactNode;
+	/** There is nothing in the body. The frame draws its empty state instead. */
+	readonly isEmpty: boolean;
+	readonly rows?: undefined;
+	readonly renderRow?: undefined;
+}
+
+/** The results, and what stands in for them when there are none. */
+export type ExplorerResults<TRow> = ExplorerRowResults<TRow> | ExplorerBodyResults;
 
 /**
  * A map-first record page: the map owns the stage, and what matched floats over
@@ -241,16 +260,8 @@ function ResultsPanel<TRow>({
 	readonly menuItems: ReactNode;
 	readonly onResetFilters?: (() => void) | undefined;
 }) {
-	const {
-		body,
-		rows,
-		renderRow,
-		emptyTitle,
-		emptyDescription,
-		skeletonClassName,
-		isError,
-		onRetry,
-	} = results;
+	const { emptyTitle, emptyDescription, skeletonClassName, isError, onRetry } = results;
+	const { isEmpty, content } = resultContent(results);
 
 	return (
 		<div className={cn(PANEL_SHELL, 'min-h-0 flex-1')}>
@@ -282,25 +293,42 @@ function ResultsPanel<TRow>({
 				total={heading.total}
 			/>
 
-			{body === undefined ? (
-				<ResultList
-					emptyDescription={emptyDescription}
-					emptyTitle={emptyTitle}
-					isError={isError ?? false}
-					isLoading={heading.isLoading}
-					onRetry={onRetry}
-					rows={rows}
-					{...(skeletonClassName === undefined ? {} : { skeletonClassName })}
-				>
-					{renderRow}
-				</ResultList>
-			) : (
-				<div className="min-h-0 flex-1 overflow-y-auto">{body}</div>
-			)}
+			<ResultList
+				emptyDescription={emptyDescription}
+				emptyTitle={emptyTitle}
+				isEmpty={isEmpty}
+				isError={isError ?? false}
+				isLoading={heading.isLoading}
+				onRetry={onRetry}
+				{...(skeletonClassName === undefined ? {} : { skeletonClassName })}
+			>
+				{content}
+			</ResultList>
 
 			{footer === undefined ? null : <div className="border-border/50 border-t p-3">{footer}</div>}
 		</div>
 	);
+}
+
+/**
+ * The two shapes a caller can hand over, resolved to the one pair the rail
+ * reads: is there anything to show, and what draws it.
+ *
+ * A rows caller has its emptiness counted, because a row array is the whole of
+ * what it has. A body caller states it, because the frame cannot look inside a
+ * tree and count leaves.
+ */
+function resultContent<TRow>(results: ExplorerResults<TRow>): {
+	readonly isEmpty: boolean;
+	readonly content: ReactNode;
+} {
+	if (results.isEmpty === undefined) {
+		return {
+			isEmpty: results.rows.length === 0,
+			content: <ResultRows rows={results.rows}>{results.renderRow}</ResultRows>,
+		};
+	}
+	return { isEmpty: results.isEmpty, content: <ResultBody>{results.body}</ResultBody> };
 }
 
 /**

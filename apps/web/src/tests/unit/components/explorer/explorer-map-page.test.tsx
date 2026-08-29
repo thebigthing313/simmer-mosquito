@@ -99,6 +99,7 @@ function Page({
 	isLoading = false,
 	activeFilterCount = 2,
 	body,
+	bodyIsEmpty = false,
 	hasCreate = true,
 	hasPager = true,
 	hasReset = true,
@@ -110,6 +111,7 @@ function Page({
 	readonly isLoading?: boolean;
 	readonly activeFilterCount?: number;
 	readonly body?: ReactNode;
+	readonly bodyIsEmpty?: boolean;
 	readonly hasCreate?: boolean;
 	readonly hasPager?: boolean;
 	readonly hasReset?: boolean;
@@ -133,15 +135,28 @@ function Page({
 			map={<p>map surface</p>}
 			onResetFilters={hasReset ? () => {} : undefined}
 			panel={panel}
-			results={{
-				...(body === undefined ? {} : { body }),
-				rows,
-				emptyTitle: 'No habitats in view',
-				emptyDescription: 'Loosen the filters to bring habitats into range.',
-				renderRow: (row) => <li key={row.id}>{row.name}</li>,
-			}}
+			results={
+				body === undefined
+					? {
+							rows,
+							emptyTitle: 'No habitats in view',
+							emptyDescription: 'Loosen the filters to bring habitats into range.',
+							renderRow: (row) => <li key={row.id}>{row.name}</li>,
+						}
+					: {
+							body,
+							isEmpty: bodyIsEmpty,
+							emptyTitle: 'No habitats in view',
+							emptyDescription: 'Loosen the filters to bring habitats into range.',
+						}
+			}
 		/>
 	);
+}
+
+/** The placeholder rows the frame draws for a first load, which carry no text. */
+function skeletonCount() {
+	return document.querySelectorAll('[data-slot="skeleton"]').length;
 }
 
 describe('ExplorerMapPage', () => {
@@ -188,19 +203,44 @@ describe('ExplorerMapPage', () => {
 	});
 
 	// The Regions tree and the Activity Monitor's day-grouped log are not flat
-	// lists, so they hand the panel a body instead of rows.
+	// lists, so they fill the rows slot with a body instead of rows.
 	it('draws a caller-supplied body in place of the rows', () => {
 		render(<Page body={<p>folder tree</p>} />);
 
 		expect(screen.getByText('folder tree')).toBeTruthy();
-		// The rows are ignored rather than drawn underneath it, and so is the empty
-		// state a caller with its own body is responsible for.
+		// The rows are ignored rather than drawn underneath it.
 		expect(screen.queryByText('Culvert 12')).toBeNull();
-		expect(screen.queryByText('No habitats in view')).toBeNull();
 		// Everything else the frame owns still stands: the header, the pager and the
 		// collapse. The filter card is shut, as it is on any first render.
 		expect(screen.getByText('pager')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Hide results' })).toBeTruthy();
+	});
+
+	// Story 26 for a body caller: the Activity Monitor's log used to blank back to
+	// placeholders every time the reader changed the person or the date window.
+	it('leaves a body on screen while it reloads, rather than going back to placeholders', () => {
+		render(<Page body={<p>folder tree</p>} isLoading />);
+
+		expect(screen.getByText('folder tree')).toBeTruthy();
+		expect(skeletonCount()).toBe(0);
+	});
+
+	// Story 27 for a body caller: the copy both body callers were passing into a
+	// branch that dropped it now reaches the reader.
+	it('says why a body is empty, in the copy the caller passed', () => {
+		render(<Page body={<p>folder tree</p>} bodyIsEmpty />);
+
+		expect(screen.getByText('No habitats in view')).toBeTruthy();
+		expect(screen.getByText('Loosen the filters to bring habitats into range.')).toBeTruthy();
+		expect(screen.queryByText('folder tree')).toBeNull();
+	});
+
+	// Story 25 for a body caller: empty and still loading is not yet empty.
+	it('draws placeholder rows rather than the empty state while an empty body loads', () => {
+		render(<Page body={<p>folder tree</p>} bodyIsEmpty isLoading />);
+
+		expect(skeletonCount()).toBeGreaterThan(0);
+		expect(screen.queryByText('No habitats in view')).toBeNull();
 	});
 
 	it('gives the panel back from the same control it was collapsed with', () => {

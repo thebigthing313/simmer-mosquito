@@ -9,7 +9,6 @@ import {
 	CollapsibleContent,
 	CollapsibleTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/collapsible';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute } from '@tanstack/react-router';
@@ -45,7 +44,7 @@ import {
 	type ActivityEntry,
 	type ActivityStateToken,
 	activityEntryKey,
-	activityPanelMessage,
+	activityPanelState,
 	activityStatus,
 	buildActivityMapData,
 	countActivityByFamily,
@@ -112,6 +111,12 @@ function ActivityMonitorRoute() {
 	const selection = useActivitySelection(activity.data?.items);
 	const { view } = selection;
 	const reach = activityReach(activity.data, view.items.length);
+	const panelState = activityPanelState({
+		hasProfile: filters.window.profileId !== null,
+		isLoading: activity.isLoading,
+		error: activity.error,
+		isEmpty: view.days.length === 0,
+	});
 
 	// The person picker and the date window are this page, not a way of cutting
 	// it down, so the card they live in opens with it.
@@ -152,26 +157,27 @@ function ActivityMonitorRoute() {
 			}
 			panel={panel}
 			results={{
-				// A log grouped by day, not a flat list: the panel draws its own body,
-				// including the cap notice. See {@link ExplorerResults}.
+				// A log grouped by day, not a flat list: the panel fills the rows slot
+				// with its own body, including the cap notice and the messages that
+				// name a reason. See {@link ExplorerResults}.
 				body: (
 					<ActivityPanel
 						days={view.days}
-						error={activity.error}
-						isLoading={activity.isLoading}
 						lookups={lookups}
+						message={panelState.message}
 						onSelect={selection.select}
-						profileId={filters.window.profileId}
 						selectedKey={selection.selectedKey}
 						timeZone={filters.timeZone}
 						total={reach.total}
 						truncated={reach.truncated}
 					/>
 				),
-				rows: [],
-				renderRow: () => null,
-				emptyTitle: 'No activity in range',
-				emptyDescription: 'Pick another person, or widen the time window.',
+				isEmpty: panelState.isEmpty,
+				emptyTitle: panelState.emptyTitle,
+				emptyDescription: panelState.emptyDescription,
+				// A log line is one dot and one line of text, not the 60px record card
+				// the rail sizes its placeholders to by default.
+				skeletonClassName: 'h-8',
 			}}
 		/>
 	);
@@ -356,44 +362,36 @@ function FamilyDot({ family }: { readonly family: ActivityFamily }) {
 
 function ActivityPanel({
 	days,
-	isLoading,
-	error,
+	message,
 	truncated,
 	total,
 	lookups,
-	profileId,
 	timeZone,
 	selectedKey,
 	onSelect,
 }: {
 	readonly days: readonly ActivityDayGroup[];
-	readonly isLoading: boolean;
-	readonly error: Error | null;
+	/**
+	 * A reason the frame's empty copy cannot carry: no Profile picked, a refusal
+	 * naming the window the server declined, or an outage. Loading and an empty
+	 * range are the frame's, so they never arrive here.
+	 */
+	readonly message: { readonly title: string; readonly body: string } | null;
 	readonly truncated: boolean;
 	/** What the response reports for the whole question, cap ignored. */
 	readonly total: number;
 	readonly lookups: ActivityLookups;
-	readonly profileId: string | null;
 	readonly selectedKey: string | null;
 	readonly timeZone: string | undefined;
 	readonly onSelect: (key: string) => void;
 }) {
 	const shownCount = days.reduce((running, day) => running + day.entries.length, 0);
-	const message = activityPanelMessage({
-		hasProfile: profileId !== null,
-		isLoading,
-		error,
-		isEmpty: days.length === 0,
-	});
-	if (message === 'loading') {
-		return <ActivityLoading />;
-	}
 	if (message !== null) {
 		return <PanelMessage title={message.title}>{message.body}</PanelMessage>;
 	}
 
 	return (
-		<div className="min-h-0 flex-1 overflow-y-auto">
+		<>
 			{truncated ? <TruncationNotice shown={shownCount} total={total} /> : null}
 			<ol className="grid gap-4 p-3">
 				{days.map((day) => (
@@ -408,7 +406,7 @@ function ActivityPanel({
 				))}
 			</ol>
 			<WhatThisDoesNotShow />
-		</div>
+		</>
 	);
 }
 
@@ -716,19 +714,6 @@ function PanelMessage({
 				<p className="font-medium text-foreground text-sm">{title}</p>
 				<p className="text-muted-foreground text-sm">{children}</p>
 			</div>
-		</div>
-	);
-}
-
-function ActivityLoading() {
-	return (
-		<div aria-hidden="true" className="grid gap-1.5 p-3">
-			{['a-1', 'a-2', 'a-3', 'a-4', 'a-5'].map((key) => (
-				<div className="flex items-center gap-2.5 px-2 py-1.5" key={key}>
-					<Skeleton className="size-2.5 rounded-full" />
-					<Skeleton className="h-4 flex-1" />
-				</div>
-			))}
 		</div>
 	);
 }

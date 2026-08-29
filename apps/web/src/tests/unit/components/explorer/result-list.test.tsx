@@ -28,12 +28,16 @@ function renderList(props: {
 		<ResultList
 			emptyDescription="Loosen the filters to bring habitats into range."
 			emptyTitle="No habitats in view"
+			isEmpty={props.rows.length === 0}
 			isError={props.isError ?? false}
 			isLoading={props.isLoading ?? false}
 			onRetry={props.onRetry}
-			rows={props.rows}
 		>
-			{(row: Row) => <li key={row.id}>{row.name}</li>}
+			<ul>
+				{props.rows.map((row) => (
+					<li key={row.id}>{row.name}</li>
+				))}
+			</ul>
 		</ResultList>,
 	);
 }
