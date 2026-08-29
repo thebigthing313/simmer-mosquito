@@ -32,12 +32,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
-import {
-	firstCommentDescription,
-	firstCommentLabel,
-	firstCommentPlaceholder,
-	firstCommentTitle,
-} from '../../../forms/first-comment';
+import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
@@ -496,20 +491,7 @@ export function SourceReductionFormPage({
 					}}
 				</form.Subscribe>
 
-				{mode === 'edit' ? null : (
-					<FormSection title={firstCommentTitle}>
-						<form.AppField name="comment">
-							{(field) => (
-								<field.TextareaField
-									description={firstCommentDescription}
-									label={firstCommentLabel}
-									placeholder={firstCommentPlaceholder}
-									rows={3}
-								/>
-							)}
-						</form.AppField>
-					</FormSection>
-				)}
+				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>
 		</form.AppForm>
 	);
@@ -540,6 +522,27 @@ function validate(values: SourceReductionFormValues): string | null {
 		return 'Enter the date this work was performed.';
 	}
 	return null;
+}
+
+/**
+ * What the form holds, as the write seam takes it.
+ *
+ * The two sentinels stop here: Radix forbids an empty Select value, so
+ * "Unassigned" is a string the domain has never heard of. Create and edit both
+ * map the same way, so they map through here.
+ */
+export function sourceReductionFieldsFrom(values: SourceReductionFormValues) {
+	return {
+		methodId: values.sourceReductionMethodId,
+		technicianProfileId:
+			values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+		actionDate: values.sourceReductionDate,
+		addressId: values.addressId,
+		habitatId: values.habitatId,
+		sourcesEliminated: values.sourcesEliminatedAmount ?? 0,
+		unitId: values.sourcesEliminatedUnitId,
+		metadata: values.metadata,
+	};
 }
 
 function technicianOptions(profiles: readonly ProfileListing[]) {

@@ -5,9 +5,7 @@ import { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
-import { attachFirstComment } from '../../../forms/first-comment';
-import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
-import { useCommentMutations } from '../../../hooks/mutations/use-comment-mutations';
+import { useRecordExtras } from '../../../forms/record-extras';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
@@ -113,8 +111,7 @@ function CreateInspectionRoute() {
 	const assignmentItemId = search.assignmentItemId ?? null;
 	const assignmentId = search.assignmentId ?? null;
 	const navigate = useNavigate();
-	const { setPersonnel } = useAdditionalPersonnelMutations();
-	const { add: addComment } = useCommentMutations();
+	const recordExtras = useRecordExtras();
 	const inspectionMutations = useInspectionMutations();
 	const sampleMutations = useSampleMutations();
 	const workspace = useOrganizationWorkspace(auth.snapshot);
@@ -195,19 +192,11 @@ function CreateInspectionRoute() {
 
 				// Crew rows reference the inspection, so they can only be written once it
 				// exists.
-				await attachLinksBestEffort('the additional personnel', () =>
-					setPersonnel({
-						target: { type: 'inspection', id: inspectionId },
-						existing: [],
-						profileIds: values.additionalPersonnelIds,
-					}),
-				);
-
-				await attachFirstComment(
-					addComment,
-					{ type: 'inspection', id: inspectionId },
-					values.comment,
-				);
+				await recordExtras.attach({
+					target: { type: 'inspection', id: inspectionId },
+					profileIds: values.additionalPersonnelIds,
+					commentText: values.comment,
+				});
 
 				// Back to the worklist the stop came from, not to the inspection: the
 				// crew's next move is the next stop.
@@ -230,8 +219,7 @@ function CreateInspectionRoute() {
 			assignmentItemId,
 			assignmentId,
 			runAcknowledged,
-			setPersonnel,
-			addComment,
+			recordExtras,
 			inspectionMutations,
 			sampleMutations,
 		],

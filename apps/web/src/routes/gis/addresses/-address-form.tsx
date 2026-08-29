@@ -288,7 +288,6 @@ export function AddressFormPage({
 						<LocationSection
 							description="Geocode from the fields above, or place the point by hand."
 							error={locationError}
-							gap="tight"
 							title="Address location"
 						>
 							<GeometryControl

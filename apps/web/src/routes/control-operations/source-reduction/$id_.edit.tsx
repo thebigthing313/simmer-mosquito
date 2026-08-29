@@ -29,6 +29,7 @@ import {
 	SourceReductionFormPage,
 	type SourceReductionFormValues,
 	type SourceReductionSaveInput,
+	sourceReductionFieldsFrom,
 } from './-source-reduction-form';
 
 const sourceReductionGcTimeMs = 30_000;
@@ -145,17 +146,7 @@ function EditSourceReductionLoader({
 			// actually moved — the field details and the placement are different
 			// builders, and naming one with nothing to read is refused.
 			await update(sourceReduction, {
-				values: {
-					methodId: values.sourceReductionMethodId,
-					technicianProfileId:
-						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-					actionDate: values.sourceReductionDate,
-					addressId: values.addressId,
-					habitatId: values.habitatId,
-					sourcesEliminated: values.sourcesEliminatedAmount,
-					unitId: values.sourcesEliminatedUnitId,
-					metadata: values.metadata,
-				},
+				values: sourceReductionFieldsFrom(values),
 				...(centroid === null || refinedShape === null
 					? {}
 					: {

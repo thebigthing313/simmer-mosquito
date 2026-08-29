@@ -24,6 +24,7 @@ import { isWriteBlocked } from '../../../lib/write-access';
 import {
 	BiocontrolFormPage,
 	type BiocontrolFormValues,
+	biocontrolFieldsFrom,
 	type DrawGeometry,
 	noTechnicianValue,
 } from './-biocontrol-form';
@@ -133,17 +134,7 @@ function EditBiocontrolActionLoader({
 			// actually moved — the field details and the placement are different
 			// builders, and naming one with nothing to read is refused.
 			await update(action, {
-				values: {
-					methodId: values.biocontrolMethodId,
-					technicianProfileId:
-						values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-					actionDate: values.biocontrolDate,
-					addressId: values.addressId,
-					habitatId: values.habitatId,
-					amountReleased: values.amountReleased,
-					unitId: values.releaseUnitId,
-					metadata: values.metadata,
-				},
+				values: biocontrolFieldsFrom(values),
 				...(centroid === null || redrawn === null
 					? {}
 					: {

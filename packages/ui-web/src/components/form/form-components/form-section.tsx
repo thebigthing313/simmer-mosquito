@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
  * A titled band of fields inside a {@link RecordFormPage}.
  *
  * Five forms had grown their own copy of this, four of them byte-identical and
- * the fifth carrying a `note` — so a rule that applied to a whole section could
+ * the fifth carrying a `note`, so a rule that applied to a whole section could
  * only be shown on the one form whose copy had the slot. One component, and the
  * slot is there for every form that needs it.
  */

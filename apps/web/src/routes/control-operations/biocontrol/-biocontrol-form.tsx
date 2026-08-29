@@ -32,12 +32,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
-import {
-	firstCommentDescription,
-	firstCommentLabel,
-	firstCommentPlaceholder,
-	firstCommentTitle,
-} from '../../../forms/first-comment';
+import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
@@ -507,20 +502,7 @@ export function BiocontrolFormPage({
 					}}
 				</form.Subscribe>
 
-				{mode === 'edit' ? null : (
-					<FormSection title={firstCommentTitle}>
-						<form.AppField name="comment">
-							{(field) => (
-								<field.TextareaField
-									description={firstCommentDescription}
-									label={firstCommentLabel}
-									placeholder={firstCommentPlaceholder}
-									rows={3}
-								/>
-							)}
-						</form.AppField>
-					</FormSection>
-				)}
+				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>
 		</form.AppForm>
 	);
@@ -529,5 +511,26 @@ export function BiocontrolFormPage({
 // --- controls ---------------------------------------------------------------
 
 // --- helpers ----------------------------------------------------------------
+
+/**
+ * What the form holds, as the write seam takes it.
+ *
+ * The sentinel stops here: Radix forbids an empty Select value, so "Unassigned"
+ * is a string the domain has never heard of. Create and edit both map the same
+ * way, so they map through here.
+ */
+export function biocontrolFieldsFrom(values: BiocontrolFormValues) {
+	return {
+		methodId: values.biocontrolMethodId,
+		technicianProfileId:
+			values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
+		actionDate: values.biocontrolDate,
+		addressId: values.addressId,
+		habitatId: values.habitatId,
+		amountReleased: values.amountReleased ?? 0,
+		unitId: values.releaseUnitId,
+		metadata: values.metadata,
+	};
+}
 
 export type { DrawGeometry } from '../../../components/map/use-map-draw';

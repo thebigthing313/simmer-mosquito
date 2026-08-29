@@ -33,12 +33,7 @@ import {
 import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import {
-	firstCommentDescription,
-	firstCommentLabel,
-	firstCommentPlaceholder,
-	firstCommentTitle,
-} from '../../../forms/first-comment';
+import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
 import type {
 	CatalogListing,
@@ -635,20 +630,7 @@ export function CollectionFormPage({
 					</p>
 				</FormSection>
 
-				{mode === 'edit' ? null : (
-					<FormSection title={firstCommentTitle}>
-						<form.AppField name="comment">
-							{(field) => (
-								<field.TextareaField
-									description={firstCommentDescription}
-									label={firstCommentLabel}
-									placeholder={firstCommentPlaceholder}
-									rows={3}
-								/>
-							)}
-						</form.AppField>
-					</FormSection>
-				)}
+				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>
 		</form.AppForm>
 	);

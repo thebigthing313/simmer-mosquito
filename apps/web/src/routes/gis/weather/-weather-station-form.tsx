@@ -181,7 +181,6 @@ export function WeatherStationFormPage({
 						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
 					</>
 				}
-				gap="tight"
 				header={header}
 				aside={
 					<>
@@ -269,7 +268,6 @@ function LocationSection({
 		<LocationBand
 			description="Place the station where it stands."
 			error={error}
-			gap="tight"
 			title="Station location"
 		>
 			<GeometryControl

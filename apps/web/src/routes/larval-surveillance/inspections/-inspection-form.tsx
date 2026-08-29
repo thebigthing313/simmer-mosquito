@@ -54,12 +54,7 @@ import {
 } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
-import {
-	firstCommentDescription,
-	firstCommentLabel,
-	firstCommentPlaceholder,
-	firstCommentTitle,
-} from '../../../forms/first-comment';
+import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { InspectionResult } from '../../../hooks/mutations/use-inspection-mutations';
 import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
@@ -736,20 +731,7 @@ export function InspectionFormPage({
 					}
 				</form.Subscribe>
 
-				{isEditing ? null : (
-					<FormSection title={firstCommentTitle}>
-						<form.AppField name="comment">
-							{(field) => (
-								<field.TextareaField
-									description={firstCommentDescription}
-									label={firstCommentLabel}
-									placeholder={firstCommentPlaceholder}
-									rows={3}
-								/>
-							)}
-						</form.AppField>
-					</FormSection>
-				)}
+				<FirstCommentSection form={form} mode={isEditing ? 'edit' : 'create'} />
 			</RecordFormPage>
 
 			<AlertDialog onOpenChange={setPendingDry} open={pendingDry}>

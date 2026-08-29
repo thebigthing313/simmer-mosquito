@@ -2,26 +2,23 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useMissionStopExecution } from '../../../components/mission-stop-execution';
-import { attachFirstComment } from '../../../forms/first-comment';
+import { useRecordExtras } from '../../../forms/record-extras';
 import { newRecordId } from '../../../hooks/mutations/shared';
-import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
-import { useCommentMutations } from '../../../hooks/mutations/use-comment-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
 import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
 import {
 	BiocontrolFormPage,
 	type BiocontrolFormValues,
+	biocontrolFieldsFrom,
 	type DrawGeometry,
 	defaultBiocontrolFormValues,
-	noTechnicianValue,
 } from './-biocontrol-form';
 
 export const Route = createFileRoute('/control-operations/biocontrol/create')({
@@ -62,8 +59,7 @@ function CreateBiocontrolActionRoute() {
 	// — and so their on-demand stream is already warm when the save fires.
 	const [biocontrolActionId] = useState(newRecordId);
 	useAdditionalPersonnel({ type: 'biocontrolAction', id: biocontrolActionId });
-	const { setPersonnel } = useAdditionalPersonnelMutations();
-	const { add: addComment } = useCommentMutations();
+	const recordExtras = useRecordExtras();
 	const { record } = useBiocontrolActionMutations();
 
 	const onSave = useCallback(
@@ -99,17 +95,7 @@ function CreateBiocontrolActionRoute() {
 				// rather than making this form say which command it meant.
 				await record({
 					biocontrolActionId,
-					values: {
-						methodId: values.biocontrolMethodId,
-						technicianProfileId:
-							values.technicianProfileId === noTechnicianValue ? null : values.technicianProfileId,
-						actionDate: values.biocontrolDate,
-						addressId: values.addressId,
-						habitatId: values.habitatId,
-						amountReleased: values.amountReleased,
-						unitId: values.releaseUnitId,
-						metadata: values.metadata,
-					},
+					values: biocontrolFieldsFrom(values),
 					location: {
 						lat: location.lat,
 						lng: location.lng,
@@ -120,18 +106,11 @@ function CreateBiocontrolActionRoute() {
 					acknowledgements,
 				});
 				// Crew rows reference the release, so they can only be written once it exists.
-				await attachLinksBestEffort('the additional personnel', () =>
-					setPersonnel({
-						target: { type: 'biocontrolAction', id: biocontrolActionId },
-						existing: [],
-						profileIds: values.additionalPersonnelIds,
-					}),
-				);
-				await attachFirstComment(
-					addComment,
-					{ type: 'biocontrolAction', id: biocontrolActionId },
-					values.comment,
-				);
+				await recordExtras.attach({
+					target: { type: 'biocontrolAction', id: biocontrolActionId },
+					profileIds: values.additionalPersonnelIds,
+					commentText: values.comment,
+				});
 				await mission.navigateAfterSave(async () => {
 					await navigate({
 						to: '/control-operations/biocontrol/$id',
@@ -139,16 +118,7 @@ function CreateBiocontrolActionRoute() {
 					});
 				});
 			}),
-		[
-			organization,
-			actorProfileId,
-			biocontrolActionId,
-			navigate,
-			mission,
-			record,
-			setPersonnel,
-			addComment,
-		],
+		[organization, actorProfileId, biocontrolActionId, navigate, mission, record, recordExtras],
 	);
 
 	return (

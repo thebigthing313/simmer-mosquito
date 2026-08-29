@@ -185,7 +185,6 @@ export function RegionFormPage({
 						<form.SubmitButton disabled={!canSubmit}>{submitLabel}</form.SubmitButton>
 					</>
 				}
-				gap="tight"
 				header={header}
 				aside={
 					<>
@@ -230,7 +229,6 @@ export function RegionFormPage({
 				<LocationSection
 					description="Draw the region's area on the map."
 					error={geometryError}
-					gap="tight"
 					title="Region boundary"
 				>
 					<GeometryControl

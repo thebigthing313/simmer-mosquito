@@ -32,12 +32,7 @@ import {
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
-import {
-	firstCommentDescription,
-	firstCommentLabel,
-	firstCommentPlaceholder,
-	firstCommentTitle,
-} from '../../../forms/first-comment';
+import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
@@ -444,20 +439,7 @@ export function OutreachFormPage({
 					}}
 				</form.Subscribe>
 
-				{mode === 'edit' ? null : (
-					<FormSection title={firstCommentTitle}>
-						<form.AppField name="comment">
-							{(field) => (
-								<field.TextareaField
-									description={firstCommentDescription}
-									label={firstCommentLabel}
-									placeholder={firstCommentPlaceholder}
-									rows={3}
-								/>
-							)}
-						</form.AppField>
-					</FormSection>
-				)}
+				<FirstCommentSection form={form} mode={mode} />
 			</RecordFormPage>
 		</form.AppForm>
 	);
