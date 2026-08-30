@@ -103,6 +103,7 @@ export function usePaletteContent(auth: AuthMe | null, query: string): PaletteCo
 	 * DOM for `[cmdk-item][aria-selected="true"]` rather than reading its state.
 	 * Fixing it properly is a change to cmdk.
 	 */
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `rowValues` is the joined row set, and the rows can swap while `firstValue` stays the same
 	useEffect(() => {
 		setValue(firstValue);
 	}, [rowValues, firstValue]);

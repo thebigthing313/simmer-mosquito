@@ -34,9 +34,19 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      # The cheapest gate in the file, and the only one that can see a build-order
-      # drift. `typecheck` and `build` both go through Nx, so they order from the
-      # package.json dependency graph and can never disagree with themselves.
+      # Lint, format, and import order, in one pass over every file, and first
+      # because it is a second's work. Nothing else here reads style. `typecheck`
+      # and `build` are indifferent to it, and `fallow` reads structure rather
+      # than syntax. Errors fail the job and the warning backlog does not,
+      # because Biome exits on severity. Four errors sat on `staging` because
+      # nothing here ran it (#291).
+      - name: Lint and format
+        run: pnpm check
+
+      # The cheapest of the structural gates, and the only one that can see a
+      # build-order drift. `typecheck` and `build` both go through Nx, so they
+      # order from the package.json dependency graph and can never disagree with
+      # themselves.
       # Every deploy orders from tsconfig `references` instead. This asserts the
       # two name the same edges; the `shipped-build` job below proves it by
       # running the deploy's own command.
