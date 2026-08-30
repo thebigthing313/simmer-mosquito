@@ -1,5 +1,6 @@
 import {
 	applyRecordDeletion,
+	assertClearanceAcknowledged,
 	assertWriteReferences,
 	type CatalogReference,
 	checkedValues,
@@ -215,7 +216,7 @@ function buildApplicationUpdateCommands(
 				...('vehicleId' in payload ? { vehicleId: readNullableText(payload.vehicleId) } : {}),
 				...('equipmentId' in payload ? { equipmentId: readNullableText(payload.equipmentId) } : {}),
 				...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
-				acknowledgedBatchClearance: true,
+				acknowledgedBatchClearance: acknowledged(payload.acknowledgedBatchClearance),
 			}),
 		);
 		if (!result.ok) {
@@ -421,6 +422,15 @@ export async function writeApplicationCommand(
 			return writeMissionApplication(trx, command.payload);
 		case 'controlOperations.updateChemicalApplicationFieldDetails': {
 			const changes = command.payload.changes;
+			if (changes.insecticideId !== undefined) {
+				await clearIncompatibleBatches(trx, {
+					applicationId: command.payload.applicationId,
+					organizationId: command.payload.organizationId,
+					insecticideId: changes.insecticideId,
+					actorProfileId: command.payload.actorProfileId,
+					acknowledged: command.payload.acknowledgedBatchClearance,
+				});
+			}
 			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'update', table: 'applications', recordId: command.payload.applicationId },
@@ -481,6 +491,59 @@ export async function writeApplicationCommand(
 		default:
 			throw new Error(`Unsupported application command: ${command.type}`);
 	}
+}
+
+/**
+ * Drop the batch links a corrected insecticide leaves behind.
+ *
+ * `application_batches` records which physical batches of the product went out.
+ * Correcting the application's insecticide makes every batch of the old product
+ * a link to something that was not applied, so those rows go. The batches of the
+ * new product, if any are already linked, stay.
+ *
+ * Counted before anything is written, because the agency is being told it is
+ * about to lose the batch numbers it recorded in the field. An application whose
+ * batches all belong to the new insecticide loses nothing and is not asked.
+ */
+async function clearIncompatibleBatches(
+	trx: ControlOperationsTransaction,
+	input: {
+		readonly applicationId: string;
+		readonly organizationId: string;
+		readonly insecticideId: string;
+		readonly actorProfileId: string;
+		readonly acknowledged: boolean;
+	},
+): Promise<void> {
+	const incompatible = sql`application_id = ${input.applicationId}
+		and organization_id = ${input.organizationId}
+		and deleted_at is null
+		and insecticide_batch_id in (
+			select id from insecticide_batches
+			where organization_id = ${input.organizationId}
+				and insecticide_id <> ${input.insecticideId}
+		)`;
+
+	await assertClearanceAcknowledged(trx, {
+		acknowledgement: 'acknowledgedBatchClearance',
+		acknowledged: input.acknowledged,
+		rule: {
+			key: 'applicationBatches',
+			table: 'application_batches',
+			singular: 'batch record',
+			plural: 'batch records',
+			match: incompatible,
+		},
+	});
+
+	await sql`
+		update application_batches
+		set deleted_at = now(),
+			deleted_by_profile_id = ${input.actorProfileId},
+			updated_by_profile_id = ${input.actorProfileId},
+			updated_at = now()
+		where ${incompatible}
+	`.execute(trx);
 }
 
 async function updateApplication(

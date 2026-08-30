@@ -96,7 +96,8 @@ exist because summaries do not snapshot station location.
 
 Deleting a station is an explicit cleanup action. It hard-deletes all
 `weather_summaries` for the station, then soft-deletes the station. If summaries
-exist, `deleteWeatherStation` requires `acknowledgedSummaryDeletion`. The station
+exist, `deleteWeatherStation` requires `acknowledgedSummaryDeletion`, and the
+refusal is the shared `409 acknowledgement_required` carrying the count. The station
 does not have to be inactive before deletion.
 
 Station mutation commands include optional `expectedUpdatedAt`. If supplied and

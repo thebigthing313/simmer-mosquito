@@ -31,6 +31,7 @@ const EXPECTED_TYPES = [
 	'notificationRegistration',
 	'outreachAction',
 	'region',
+	'regionFolder',
 	'requestedControlAction',
 	'route',
 	'sample',

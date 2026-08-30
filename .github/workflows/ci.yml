@@ -74,6 +74,15 @@ jobs:
       - name: Search corpus
         run: pnpm check:search-corpus
 
+      # An acknowledgement is a flag a client sets to say it meant to remove
+      # something. Seventy-three are declared on command payloads, and until
+      # #314 nothing read any of them, because a flag lives next to the command
+      # that needs it and nothing counted the set. This holds the vocabulary,
+      # the payloads and the map of what checks each one together, and ratchets
+      # the number nothing checks.
+      - name: Acknowledgements
+        run: pnpm check:acknowledgements
+
       - name: Typecheck
         run: pnpm typecheck
 

@@ -10,7 +10,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readNumber, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readNumber, readText } from '../command-payload.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -67,12 +67,12 @@ export function registerFormulationRoutes(
 		'/control-operations/formulations/:formulationId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			body: 'optional',
+			build: ({ payload, agency: ctx, param }) =>
 				deleteFormulationCommand({
 					...ctx,
 					formulationId: param('formulationId'),
-					acknowledgedComponentDeletion: true,
+					acknowledgedComponentDeletion: acknowledged(payload.acknowledgedComponentDeletion),
 				}),
 			run: (context, commands) => runFormulationCommands(context, options.db, commands),
 		}),

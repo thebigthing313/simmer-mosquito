@@ -9,6 +9,7 @@
 		"changeset": "changeset",
 		"changeset:status": "changeset status --since=origin/staging",
 		"check": "biome check .",
+		"check:acknowledgements": "node scripts/check-acknowledgements.mjs",
 		"check:build-graph": "node scripts/check-build-graph.mjs",
 		"check:command-columns": "node scripts/check-command-columns.mjs",
 		"check:schema-drift": "node scripts/check-schema-drift.mjs",

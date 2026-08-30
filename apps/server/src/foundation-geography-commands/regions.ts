@@ -10,7 +10,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -69,12 +69,14 @@ export function registerRegionRoutes(
 		'/foundation/regions/:regionId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			// `optional`, not `none`: the flag arrives in a body, and a DELETE that
+			// refused to read one was the half of #165 that made this unaskable.
+			body: 'optional',
+			build: ({ payload, agency: ctx, param }) =>
 				deleteRegionCommand({
 					...ctx,
 					regionId: param('regionId'),
-					acknowledgedRegionDelete: true,
+					acknowledgedRegionDelete: acknowledged(payload.acknowledgedRegionDelete),
 				}),
 			run: (context, commands) => runRegionCommands(context, options.db, commands),
 		}),
@@ -121,7 +123,7 @@ function buildRegionUpdateCommands(
 				...ctx,
 				regionId,
 				geometry: payload.geometry,
-				acknowledgedRegionBoundaryChange: true,
+				acknowledgedRegionBoundaryChange: acknowledged(payload.acknowledgedRegionBoundaryChange),
 			}),
 		);
 		if (!result.ok) return result;

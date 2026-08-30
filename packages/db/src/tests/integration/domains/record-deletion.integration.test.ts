@@ -30,6 +30,7 @@ const CONFIRMED: Record<DeleteAcknowledgement, boolean> = {
 	acknowledgedMissionDetach: true,
 	acknowledgedMissionItemDeletion: true,
 	acknowledgedNotificationDeletion: true,
+	acknowledgedRegionDetach: true,
 	acknowledgedRouteItemDeletion: true,
 	acknowledgedSpeciesCountDeletion: true,
 	acknowledgedSupportRecordDeletion: true,
