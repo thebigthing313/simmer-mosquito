@@ -106,7 +106,7 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedClosedRequestDeletion: stateGuard,
 	acknowledgedCompletedItemAdditionalAction: unchecked(316),
 	acknowledgedCompletedItemAdditionalRecord: unchecked(336),
-	acknowledgedCompletedMissionDeletion: unchecked(316),
+	acknowledgedCompletedMissionDeletion: stateGuard,
 	// The registry blocks rather than cascades: a formulation with live
 	// ingredient rows cannot be deleted at all, so the caller gets
 	// `delete_blocked` naming them before this flag can be reached. That is the
@@ -132,10 +132,10 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedHistoricalProductChange: unchecked(315),
 	acknowledgedHistoricalStationIdentityChange: legacyRefusal(315),
 	acknowledgedHistoricalVehicleLabelChange: unchecked(315),
-	acknowledgedInProgressAssignmentChange: unchecked(316),
-	acknowledgedInProgressMissionChange: unchecked(316),
+	acknowledgedInProgressAssignmentChange: stateGuard,
+	acknowledgedInProgressMissionChange: stateGuard,
 	acknowledgedInspectionDetach: deleteRegistry,
-	acknowledgedItemProgressDeletion: unchecked(316),
+	acknowledgedItemProgressDeletion: stateGuard,
 	acknowledgedMergeConsolidatesHistory: domainBuilder,
 	acknowledgedMethodMismatch: unchecked(316),
 	acknowledgedMissionDetach: deleteRegistry,
@@ -147,11 +147,11 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedNotificationRegenerationImpact: unchecked(316),
 	acknowledgedNotificationTimingChange: unchecked(316),
 	acknowledgedPartialImport: importAssessment,
-	acknowledgedPartialWorkCancellation: unchecked(316),
+	acknowledgedPartialWorkCancellation: stateGuard,
 	acknowledgedPendingTrapCollection: stateGuard,
-	acknowledgedProgressedItemLinkChange: unchecked(316),
-	acknowledgedProgressedItemReorder: unchecked(316),
-	acknowledgedProgressedMissionCancellation: unchecked(316),
+	acknowledgedProgressedItemLinkChange: stateGuard,
+	acknowledgedProgressedItemReorder: stateGuard,
+	acknowledgedProgressedMissionCancellation: stateGuard,
 	acknowledgedRegionBoundaryChange: domainBuilder,
 	acknowledgedRegionDelete: domainBuilder,
 	acknowledgedRegionDetach: deleteRegistry,
@@ -169,8 +169,8 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedTrapMethodSemanticsChange: domainBuilder,
 	acknowledgedUnitCodeChange: domainBuilder,
 	acknowledgedUpdates: importAssessment,
-	acknowledgedWorkedMissionPlanChange: unchecked(316),
-	acknowledgedWorkedMissionScheduleChange: unchecked(316),
+	acknowledgedWorkedMissionPlanChange: stateGuard,
+	acknowledgedWorkedMissionScheduleChange: stateGuard,
 };
 
 /**
@@ -179,23 +179,39 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
  * Lower it when a branch guards one. `pnpm check:acknowledgements` fails when
  * this and the map disagree, so the number cannot rot in either direction.
  */
-export const UNCHECKED_ACKNOWLEDGEMENTS = 36;
+export const UNCHECKED_ACKNOWLEDGEMENTS = 26;
 
 // ===========================================================================
 // The state refusal
 // ===========================================================================
 
 /**
- * The acknowledgements that turn on the record's own state.
+ * The acknowledgements that turn on state rather than on a count.
  *
- * Not what hangs off it. "This request is closed" and "this trap already has a
- * collection nobody has come back for" are facts about one row, so there is
- * nothing to count and the sentence is the whole answer.
+ * "This request is closed" and "this trap already has a collection nobody has
+ * come back for" are facts about one row. The mission ones are facts about a
+ * mission or a stop, and two of them read past the row to answer: whether any
+ * work has been recorded against a mission's stops, whether notifications have
+ * gone out for it. They are still state, because the number is not the
+ * question. A mission that has been worked once and a mission that has been
+ * worked forty times pose the caller the same decision, and listing what would
+ * happen to those records is wrong anyway: nothing happens to them, which is
+ * exactly the problem being pointed at.
  */
 export type StateAcknowledgement =
 	| 'acknowledgedClosedRequestChange'
 	| 'acknowledgedClosedRequestDeletion'
-	| 'acknowledgedPendingTrapCollection';
+	| 'acknowledgedCompletedMissionDeletion'
+	| 'acknowledgedInProgressAssignmentChange'
+	| 'acknowledgedInProgressMissionChange'
+	| 'acknowledgedItemProgressDeletion'
+	| 'acknowledgedPartialWorkCancellation'
+	| 'acknowledgedPendingTrapCollection'
+	| 'acknowledgedProgressedItemLinkChange'
+	| 'acknowledgedProgressedItemReorder'
+	| 'acknowledgedProgressedMissionCancellation'
+	| 'acknowledgedWorkedMissionPlanChange'
+	| 'acknowledgedWorkedMissionScheduleChange';
 
 /**
  * Thrown when a write against a record in a particular state withheld the

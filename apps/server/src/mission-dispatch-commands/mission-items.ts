@@ -16,8 +16,14 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import { moveItems, nextItemPosition } from '../ordered-items.js';
+import {
+	assertInProgressMissionChangeAcknowledged,
+	assertItemProgressDeletionAcknowledged,
+	assertProgressedItemLinkChangeAcknowledged,
+	assertProgressedItemReorderAcknowledged,
+} from './mission-acknowledgements.js';
 import { assertMissionItemProgress, autoStartMissionIfScheduled } from './mission-lifecycle.js';
 import {
 	agencyCommandContext,
@@ -66,6 +72,9 @@ export function registerMissionItemRoutes(
 							...(payload.placement === undefined
 								? {}
 								: { placement: payload.placement as MissionItemPlacement }),
+							acknowledgedInProgressMissionChange: acknowledged(
+								payload.acknowledgedInProgressMissionChange,
+							),
 						})
 					: addMissionItemCommand({
 							...ctx,
@@ -80,6 +89,9 @@ export function registerMissionItemRoutes(
 							...(payload.placement === undefined
 								? {}
 								: { placement: payload.placement as MissionItemPlacement }),
+							acknowledgedInProgressMissionChange: acknowledged(
+								payload.acknowledgedInProgressMissionChange,
+							),
 						});
 			},
 			run: (context, commands) => runMissionItemCommands(context, options.db, commands, 201),
@@ -100,9 +112,15 @@ export function registerMissionItemRoutes(
 		'/mission-dispatch/mission-items/:missionItemId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
-				removeMissionItemCommand({ ...ctx, missionItemId: param('missionItemId') }),
+			// Optional, not none: a delete that removes a stop's progress has a
+			// question to answer, and a body is the only place the answer fits.
+			body: 'optional',
+			build: ({ agency: ctx, param, payload }) =>
+				removeMissionItemCommand({
+					...ctx,
+					missionItemId: param('missionItemId'),
+					acknowledgedItemProgressDeletion: acknowledged(payload.acknowledgedItemProgressDeletion),
+				}),
 			run: (context, commands) => runMissionItemCommands(context, options.db, commands),
 		}),
 	);
@@ -117,6 +135,9 @@ export function registerMissionItemRoutes(
 					missionId: param('missionId'),
 					missionItemIds: readStringArray(payload.missionItemIds),
 					placement: payload.placement as MissionItemPlacement,
+					acknowledgedProgressedItemReorder: acknowledged(
+						payload.acknowledgedProgressedItemReorder,
+					),
 				}),
 			run: (context, commands) => runMissionItemCommands(context, options.db, commands),
 		}),
@@ -151,7 +172,9 @@ function buildMissionItemUpdateCommands(
 					: {}),
 				acknowledgedNotificationGeometryChange: true,
 				acknowledgedActualActionContextChange: true,
-				acknowledgedProgressedItemLinkChange: true,
+				acknowledgedProgressedItemLinkChange: acknowledged(
+					payload.acknowledgedProgressedItemLinkChange,
+				),
 				acknowledgedMethodMismatch: true,
 				acknowledgedDuplicateRequestedActionMissioning: true,
 			}),
@@ -218,6 +241,12 @@ export async function writeMissionItemCommand(
 ): Promise<MissionItemRow | null> {
 	switch (command.type) {
 		case 'missionDispatch.addMissionItem': {
+			await assertInProgressMissionChangeAcknowledged(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				command.payload.acknowledgedInProgressMissionChange,
+			);
 			await insertMissionItem(trx, {
 				missionItemId: command.payload.missionItemId,
 				organizationId: command.payload.organizationId,
@@ -235,6 +264,12 @@ export async function writeMissionItemCommand(
 			return loadMissionItem(trx, command.payload.missionItemId, command.payload.organizationId);
 		}
 		case 'missionDispatch.addMissionItemFromRequestedControlAction': {
+			await assertInProgressMissionChangeAcknowledged(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				command.payload.acknowledgedInProgressMissionChange,
+			);
 			await insertMissionItem(trx, {
 				missionItemId: command.payload.missionItemId,
 				organizationId: command.payload.organizationId,
@@ -253,6 +288,12 @@ export async function writeMissionItemCommand(
 			return loadMissionItem(trx, command.payload.missionItemId, command.payload.organizationId);
 		}
 		case 'missionDispatch.updateMissionItemLocationAndLink': {
+			await assertProgressedItemLinkChangeAcknowledged(
+				trx,
+				command.payload.missionItemId,
+				command.payload.organizationId,
+				command.payload.acknowledgedProgressedItemLinkChange,
+			);
 			const changes = command.payload.changes;
 			const geomChange =
 				changes.geometry !== undefined || changes.locationSource !== undefined
@@ -384,6 +425,12 @@ export async function writeMissionItemCommand(
 				},
 			);
 		case 'missionDispatch.removeMissionItem':
+			await assertItemProgressDeletionAcknowledged(
+				trx,
+				command.payload.missionItemId,
+				command.payload.organizationId,
+				command.payload.acknowledgedItemProgressDeletion,
+			);
 			return softDelete(
 				trx,
 				'mission_items',
@@ -478,8 +525,18 @@ export async function moveMissionItemRows(
 		readonly actorProfileId: string;
 		readonly missionItemIds: readonly string[];
 		readonly placement: MissionItemPlacement;
+		readonly acknowledgedProgressedItemReorder: boolean;
 	},
 ): Promise<void> {
+	// Guarded here rather than at either caller: a move is a command on the
+	// mission and a write on the stops, so both writers route through this, and
+	// a guard at one of them would be a guard at one door.
+	await assertProgressedItemReorderAcknowledged(
+		trx,
+		payload.organizationId,
+		payload.missionItemIds,
+		payload.acknowledgedProgressedItemReorder,
+	);
 	await moveItems(
 		trx,
 		{
