@@ -41,6 +41,7 @@ import {
 	AlertTriangleIcon,
 	ArrowLeftIcon,
 	CheckCircle2Icon,
+	iconRegistry,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
@@ -95,6 +96,8 @@ interface HabitatDetailProps {
 	readonly backTo?: HabitatDetailBackTo;
 }
 
+const MergeIcon = iconRegistry.actions.merge.icon;
+
 export function HabitatDetail({
 	habitatId,
 	backTo = '/larval-surveillance/habitats',
@@ -111,13 +114,30 @@ export function HabitatDetail({
 						Back to habitats
 					</Link>
 					{backTo === '/larval-surveillance/habitats' ? (
-						<WriteOnly>
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/edit">
-									Edit Habitat
-								</Link>
-							</Button>
-						</WriteOnly>
+						<div className="flex items-center gap-2">
+							{/*
+							 * Merging is reached from a habitat rather than from a list of
+							 * proposals, because two records for one catch basin agree about
+							 * nothing except where they are. The habitat somebody is already
+							 * looking at is the one that survives, which is the choice a
+							 * cleanup page has to make with a radio and get wrong in silence.
+							 */}
+							<WriteOnly minimum="manager">
+								<Button asChild size="sm" variant="outline">
+									<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/merge">
+										<MergeIcon aria-hidden="true" />
+										Merge duplicates
+									</Link>
+								</Button>
+							</WriteOnly>
+							<WriteOnly>
+								<Button asChild size="sm" variant="outline">
+									<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/edit">
+										Edit Habitat
+									</Link>
+								</Button>
+							</WriteOnly>
+						</div>
 					) : null}
 				</div>
 				<Suspense fallback={<HabitatDetailSkeleton />}>

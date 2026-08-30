@@ -25,13 +25,13 @@ is a plan rather than a description.
   then continue filling a broader collection in the background.
 - Eager and on-demand are declared per app, not per package: each module under
   `apps/web/src/lib/collections` passes `syncMode` to the collection factory.
-  The matrix below is what those fifty modules say, so a table that changes
+  The matrix below is what those fifty-three modules say, so a table that changes
   mode changes it there and this table follows.
 - Web is online-only in v1. Mobile uses automatic scoped offline persistence.
 
 ## Web matrix
 
-Twenty-four eager, twenty-six on-demand.
+Twenty-four eager, twenty-nine on-demand.
 
 | Area | Eager | On-demand | Excluded |
 | --- | --- | --- | --- |
@@ -41,15 +41,14 @@ Twenty-four eager, twenty-six on-demand.
 | Larval surveillance | none | `habitats`, `inspections`, `samples`, `sample_species` | none |
 | Field-work support | `tags`, `routes` | `tag_items`, `comments`, `additional_personnel`, `route_items`, `assignments`, `assignment_items` | none |
 | Control operations | `application_methods`, `source_reduction_methods`, `outreach_methods`, `biocontrol_methods`, `vehicles`, `equipment`, `insecticides`, `formulations`, `formulation_insecticides` | `applications`, `application_batches`, `insecticide_batches`, `source_reductions`, `outreach_actions`, `biocontrol_actions`, `requested_control_actions` | none |
-| Public engagement | `notification_types` | `contacts`, `service_requests` | `notification_registrations`, `notification_registration_types`, `mission_notifications` |
+| Public engagement | `notification_types` | `contacts`, `service_requests`, `notification_registrations`, `notification_registration_types`, `mission_notifications` | none |
 | Mission dispatch | none | `missions`, `mission_items` | none |
 | Weather | `weather_sources` | `weather_summaries` | `weather_source_subscriptions` |
 
 **Excluded** here means no collection module exists, so nothing in `apps/web`
 reads the table through sync. `users` is read through the server. `genera` is
 excluded because `species` already carries the genus name every surface asks
-for. The three notification tables were declared in the old seam and never read
-from it; the workflow that will need them is not built.
+for.
 
 `search_documents` is in none of the three columns, because it is not a table a
 client reads at all. It is a derived index, maintained by triggers on the

@@ -58,15 +58,23 @@ const familyColor: ExpressionSpecification = [
 	'#6b7280',
 ];
 
-function selectedFilter(selectedId: string | null): ExpressionSpecification {
-	return ['all', nearbyOnly, ['==', ['get', 'id'], selectedId ?? NO_SELECTION]];
+/**
+ * Which nearby points wear the selection ring.
+ *
+ * A list rather than one id, because a habitat merge selects several at once and
+ * a single-selection filter would show a ring on whichever was clicked last. The
+ * sentinel keeps an empty list from matching a feature with no id.
+ */
+function selectedFilter(selectedIds: readonly string[]): ExpressionSpecification {
+	const ids = selectedIds.length === 0 ? [NO_SELECTION] : [...selectedIds];
+	return ['all', nearbyOnly, ['in', ['get', 'id'], ['literal', ids]]];
 }
 
 export interface NearbyLayerConfig {
 	/** Ring + center + nearby features, each tagged with a `role` property. */
 	readonly data: GeoJSON.GeoJSON | null;
-	/** Currently selected nearby record id; drives the on-map highlight. */
-	readonly selectedId?: string | null;
+	/** Currently selected nearby record ids; drives the on-map highlight. */
+	readonly selectedIds?: readonly string[];
 	/** Fired with a nearby record id on click, or null when clicking empty map. */
 	readonly onSelectFeature?: (id: string | null) => void;
 }
@@ -108,7 +116,7 @@ function nearbyLayers(): (
 			id: SELECTED_LAYER_ID,
 			type: 'circle',
 			source: SOURCE_ID,
-			filter: selectedFilter(null),
+			filter: selectedFilter([]),
 			paint: {
 				'circle-color': 'rgba(0,0,0,0)',
 				'circle-radius': 10,
@@ -139,7 +147,10 @@ export function useNearbyLayer(
 ): void {
 	const data = config?.data ?? null;
 	const enabled = data !== null;
-	const selectedId = config?.selectedId ?? null;
+	const selectedIds = config?.selectedIds;
+	// Joined rather than passed as an array, because a caller that rebuilds the
+	// list every render would otherwise re-run the effect on every render.
+	const selectionKey = (selectedIds ?? []).join(',');
 
 	useGeoJsonSource({
 		map,
@@ -162,10 +173,13 @@ export function useNearbyLayer(
 		}
 		try {
 			if (map.getLayer(SELECTED_LAYER_ID) !== undefined) {
-				map.setFilter(SELECTED_LAYER_ID, selectedFilter(selectedId));
+				map.setFilter(
+					SELECTED_LAYER_ID,
+					selectedFilter(selectionKey === '' ? [] : selectionKey.split(',')),
+				);
 			}
 		} catch {
 			// Map style not available; nothing to re-scope.
 		}
-	}, [map, isLoaded, enabled, selectedId]);
+	}, [map, isLoaded, enabled, selectionKey]);
 }

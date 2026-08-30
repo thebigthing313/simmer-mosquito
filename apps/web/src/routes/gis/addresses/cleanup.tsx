@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { UpcomingPage } from '../../../components/app-shell/upcoming-page';
+import { RecordCleanup } from '../../../components/cleanup/record-cleanup';
 
 export const Route = createFileRoute('/gis/addresses/cleanup')({
-	component: UpcomingPage,
+	component: () => <RecordCleanup recordType="address" />,
 });

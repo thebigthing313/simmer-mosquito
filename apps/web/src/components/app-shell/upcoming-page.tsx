@@ -82,12 +82,6 @@ const insecticides: Elsewhere = {
 	to: '/control-operations/chemical/insecticides',
 	icon: iconRegistry.entities.insecticide.icon,
 };
-const addressBook: Elsewhere = {
-	label: 'Address Book',
-	description: 'Geocoded addresses shared across surveillance and control work',
-	to: '/gis/addresses',
-	icon: iconRegistry.actions.searchCheck.icon,
-};
 const regions: Elsewhere = {
 	label: 'Regions',
 	description: 'The boundaries the agency works and reports by',
@@ -213,17 +207,6 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 			'Product rotation informed by which active ingredients still perform locally',
 		],
 		elsewhere: [insecticides, controlOverview, adultOverview],
-	},
-	'/gis/addresses/cleanup': {
-		title: 'Cleanup Tools',
-		summary:
-			'Resolving the duplicates an address book accumulates. Imports create rows rather than matching them, and a collector entering a record can add an address that already exists, so the same place ends up in the book more than once.',
-		willLand: [
-			'Addresses that share a display name or sit on the same spot, grouped for review',
-			'Merge that re-points every record onto the surviving address and carries its comments and tags across',
-			'Addresses no record references any more, listed so they can be removed',
-		],
-		elsewhere: [addressBook, regions, larvalOverview],
 	},
 	'/larval-surveillance/habitats/stats': {
 		title: 'Habitat Statistics',

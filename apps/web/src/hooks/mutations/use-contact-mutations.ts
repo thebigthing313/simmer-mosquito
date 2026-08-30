@@ -15,9 +15,10 @@
  * changed — so an edit that only fixed a spelling no longer claims to have
  * revisited how the agency may contact somebody.
  *
- * `mergeContacts` is not here. It writes N rows — every contact folded into the
- * survivor — so it belongs in a transaction rather than a single mutation, and
- * nothing in the app offers a merge yet.
+ * `mergeContacts` is not here. It writes N rows, one per contact folded into the
+ * survivor, so it belongs in a transaction rather than a single mutation. It
+ * lives in `use-record-merge.ts` with the address and habitat merges, because
+ * all three are the same command in three vocabularies.
  */
 
 import { type Contact, settleWrite } from '@simmer-mosquito/sync';

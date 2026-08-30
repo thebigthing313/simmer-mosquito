@@ -65,6 +65,7 @@ import { Route as PublicEngagementOutreachMethodsRouteImport } from './routes/pu
 import { Route as PublicEngagementOutreachCreateRouteImport } from './routes/public-engagement/outreach/create'
 import { Route as PublicEngagementOutreachIdRouteImport } from './routes/public-engagement/outreach/$id'
 import { Route as PublicEngagementContactsCreateRouteImport } from './routes/public-engagement/contacts/create'
+import { Route as PublicEngagementContactsCleanupRouteImport } from './routes/public-engagement/contacts/cleanup'
 import { Route as PublicEngagementContactsIdRouteImport } from './routes/public-engagement/contacts/$id'
 import { Route as OperationsRequestsForControlCreateRouteImport } from './routes/operations/requests-for-control/create'
 import { Route as OperationsRequestsForControlIdRouteImport } from './routes/operations/requests-for-control/$id'
@@ -115,6 +116,7 @@ import { Route as LarvalSurveillanceHabitatsRoutesIndexRouteImport } from './rou
 import { Route as AdultSurveillanceTrapsRoutesIndexRouteImport } from './routes/adult-surveillance/traps/routes/index'
 import { Route as PublicEngagementServiceRequestsIdEditRouteImport } from './routes/public-engagement/service-requests/$id_.edit'
 import { Route as PublicEngagementOutreachIdEditRouteImport } from './routes/public-engagement/outreach/$id_.edit'
+import { Route as PublicEngagementContactsIdRegistrationsRouteImport } from './routes/public-engagement/contacts/$id_.registrations'
 import { Route as PublicEngagementContactsIdEditRouteImport } from './routes/public-engagement/contacts/$id_.edit'
 import { Route as OperationsRequestsForControlIdEditRouteImport } from './routes/operations/requests-for-control/$id_.edit'
 import { Route as OperationsMissionsIdEditRouteImport } from './routes/operations/missions/$id_.edit'
@@ -122,6 +124,7 @@ import { Route as OperationsMissionsIdAddStopRouteImport } from './routes/operat
 import { Route as OperationsAssignmentsIdEditRouteImport } from './routes/operations/assignments/$id_.edit'
 import { Route as LarvalSurveillanceInspectionsIdEditRouteImport } from './routes/larval-surveillance/inspections/$id_.edit'
 import { Route as LarvalSurveillanceHabitatsRoutesIdRouteImport } from './routes/larval-surveillance/habitats/routes/$id'
+import { Route as LarvalSurveillanceHabitatsIdMergeRouteImport } from './routes/larval-surveillance/habitats/$id_.merge'
 import { Route as LarvalSurveillanceHabitatsIdEditRouteImport } from './routes/larval-surveillance/habitats/$id_.edit'
 import { Route as GisWeatherIdImportRouteImport } from './routes/gis/weather/$id_.import'
 import { Route as GisWeatherIdEditRouteImport } from './routes/gis/weather/$id_.edit'
@@ -446,6 +449,12 @@ const PublicEngagementContactsCreateRoute =
     path: '/public-engagement/contacts/create',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PublicEngagementContactsCleanupRoute =
+  PublicEngagementContactsCleanupRouteImport.update({
+    id: '/public-engagement/contacts/cleanup',
+    path: '/public-engagement/contacts/cleanup',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PublicEngagementContactsIdRoute =
   PublicEngagementContactsIdRouteImport.update({
     id: '/public-engagement/contacts/$id',
@@ -735,6 +744,12 @@ const PublicEngagementOutreachIdEditRoute =
     path: '/public-engagement/outreach/$id/edit',
     getParentRoute: () => rootRouteImport,
   } as any)
+const PublicEngagementContactsIdRegistrationsRoute =
+  PublicEngagementContactsIdRegistrationsRouteImport.update({
+    id: '/public-engagement/contacts/$id_/registrations',
+    path: '/public-engagement/contacts/$id/registrations',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const PublicEngagementContactsIdEditRoute =
   PublicEngagementContactsIdEditRouteImport.update({
     id: '/public-engagement/contacts/$id_/edit',
@@ -775,6 +790,12 @@ const LarvalSurveillanceHabitatsRoutesIdRoute =
   LarvalSurveillanceHabitatsRoutesIdRouteImport.update({
     id: '/larval-surveillance/habitats/routes/$id',
     path: '/larval-surveillance/habitats/routes/$id',
+    getParentRoute: () => rootRouteImport,
+  } as any)
+const LarvalSurveillanceHabitatsIdMergeRoute =
+  LarvalSurveillanceHabitatsIdMergeRouteImport.update({
+    id: '/larval-surveillance/habitats/$id_/merge',
+    path: '/larval-surveillance/habitats/$id/merge',
     getParentRoute: () => rootRouteImport,
   } as any)
 const LarvalSurveillanceHabitatsIdEditRoute =
@@ -931,6 +952,7 @@ export interface FileRoutesByFullPath {
   '/operations/requests-for-control/$id': typeof OperationsRequestsForControlIdRoute
   '/operations/requests-for-control/create': typeof OperationsRequestsForControlCreateRoute
   '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRoute
+  '/public-engagement/contacts/cleanup': typeof PublicEngagementContactsCleanupRoute
   '/public-engagement/contacts/create': typeof PublicEngagementContactsCreateRoute
   '/public-engagement/outreach/$id': typeof PublicEngagementOutreachIdRoute
   '/public-engagement/outreach/create': typeof PublicEngagementOutreachCreateRoute
@@ -966,6 +988,7 @@ export interface FileRoutesByFullPath {
   '/gis/weather/$id/edit': typeof GisWeatherIdEditRoute
   '/gis/weather/$id/import': typeof GisWeatherIdImportRoute
   '/larval-surveillance/habitats/$id/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
+  '/larval-surveillance/habitats/$id/merge': typeof LarvalSurveillanceHabitatsIdMergeRoute
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
   '/larval-surveillance/inspections/$id/edit': typeof LarvalSurveillanceInspectionsIdEditRoute
   '/operations/assignments/$id/edit': typeof OperationsAssignmentsIdEditRoute
@@ -973,6 +996,7 @@ export interface FileRoutesByFullPath {
   '/operations/missions/$id/edit': typeof OperationsMissionsIdEditRoute
   '/operations/requests-for-control/$id/edit': typeof OperationsRequestsForControlIdEditRoute
   '/public-engagement/contacts/$id/edit': typeof PublicEngagementContactsIdEditRoute
+  '/public-engagement/contacts/$id/registrations': typeof PublicEngagementContactsIdRegistrationsRoute
   '/public-engagement/outreach/$id/edit': typeof PublicEngagementOutreachIdEditRoute
   '/public-engagement/service-requests/$id/edit': typeof PublicEngagementServiceRequestsIdEditRoute
   '/adult-surveillance/traps/routes/': typeof AdultSurveillanceTrapsRoutesIndexRoute
@@ -1058,6 +1082,7 @@ export interface FileRoutesByTo {
   '/operations/requests-for-control/$id': typeof OperationsRequestsForControlIdRoute
   '/operations/requests-for-control/create': typeof OperationsRequestsForControlCreateRoute
   '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRoute
+  '/public-engagement/contacts/cleanup': typeof PublicEngagementContactsCleanupRoute
   '/public-engagement/contacts/create': typeof PublicEngagementContactsCreateRoute
   '/public-engagement/outreach/$id': typeof PublicEngagementOutreachIdRoute
   '/public-engagement/outreach/create': typeof PublicEngagementOutreachCreateRoute
@@ -1093,6 +1118,7 @@ export interface FileRoutesByTo {
   '/gis/weather/$id/edit': typeof GisWeatherIdEditRoute
   '/gis/weather/$id/import': typeof GisWeatherIdImportRoute
   '/larval-surveillance/habitats/$id/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
+  '/larval-surveillance/habitats/$id/merge': typeof LarvalSurveillanceHabitatsIdMergeRoute
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
   '/larval-surveillance/inspections/$id/edit': typeof LarvalSurveillanceInspectionsIdEditRoute
   '/operations/assignments/$id/edit': typeof OperationsAssignmentsIdEditRoute
@@ -1100,6 +1126,7 @@ export interface FileRoutesByTo {
   '/operations/missions/$id/edit': typeof OperationsMissionsIdEditRoute
   '/operations/requests-for-control/$id/edit': typeof OperationsRequestsForControlIdEditRoute
   '/public-engagement/contacts/$id/edit': typeof PublicEngagementContactsIdEditRoute
+  '/public-engagement/contacts/$id/registrations': typeof PublicEngagementContactsIdRegistrationsRoute
   '/public-engagement/outreach/$id/edit': typeof PublicEngagementOutreachIdEditRoute
   '/public-engagement/service-requests/$id/edit': typeof PublicEngagementServiceRequestsIdEditRoute
   '/adult-surveillance/traps/routes': typeof AdultSurveillanceTrapsRoutesIndexRoute
@@ -1187,6 +1214,7 @@ export interface FileRoutesById {
   '/operations/requests-for-control/$id': typeof OperationsRequestsForControlIdRoute
   '/operations/requests-for-control/create': typeof OperationsRequestsForControlCreateRoute
   '/public-engagement/contacts/$id': typeof PublicEngagementContactsIdRoute
+  '/public-engagement/contacts/cleanup': typeof PublicEngagementContactsCleanupRoute
   '/public-engagement/contacts/create': typeof PublicEngagementContactsCreateRoute
   '/public-engagement/outreach/$id': typeof PublicEngagementOutreachIdRoute
   '/public-engagement/outreach/create': typeof PublicEngagementOutreachCreateRoute
@@ -1222,6 +1250,7 @@ export interface FileRoutesById {
   '/gis/weather/$id_/edit': typeof GisWeatherIdEditRoute
   '/gis/weather/$id_/import': typeof GisWeatherIdImportRoute
   '/larval-surveillance/habitats/$id_/edit': typeof LarvalSurveillanceHabitatsIdEditRoute
+  '/larval-surveillance/habitats/$id_/merge': typeof LarvalSurveillanceHabitatsIdMergeRoute
   '/larval-surveillance/habitats/routes/$id': typeof LarvalSurveillanceHabitatsRoutesIdRoute
   '/larval-surveillance/inspections/$id_/edit': typeof LarvalSurveillanceInspectionsIdEditRoute
   '/operations/assignments/$id_/edit': typeof OperationsAssignmentsIdEditRoute
@@ -1229,6 +1258,7 @@ export interface FileRoutesById {
   '/operations/missions/$id_/edit': typeof OperationsMissionsIdEditRoute
   '/operations/requests-for-control/$id_/edit': typeof OperationsRequestsForControlIdEditRoute
   '/public-engagement/contacts/$id_/edit': typeof PublicEngagementContactsIdEditRoute
+  '/public-engagement/contacts/$id_/registrations': typeof PublicEngagementContactsIdRegistrationsRoute
   '/public-engagement/outreach/$id_/edit': typeof PublicEngagementOutreachIdEditRoute
   '/public-engagement/service-requests/$id_/edit': typeof PublicEngagementServiceRequestsIdEditRoute
   '/adult-surveillance/traps/routes/': typeof AdultSurveillanceTrapsRoutesIndexRoute
@@ -1317,6 +1347,7 @@ export interface FileRouteTypes {
     | '/operations/requests-for-control/$id'
     | '/operations/requests-for-control/create'
     | '/public-engagement/contacts/$id'
+    | '/public-engagement/contacts/cleanup'
     | '/public-engagement/contacts/create'
     | '/public-engagement/outreach/$id'
     | '/public-engagement/outreach/create'
@@ -1352,6 +1383,7 @@ export interface FileRouteTypes {
     | '/gis/weather/$id/edit'
     | '/gis/weather/$id/import'
     | '/larval-surveillance/habitats/$id/edit'
+    | '/larval-surveillance/habitats/$id/merge'
     | '/larval-surveillance/habitats/routes/$id'
     | '/larval-surveillance/inspections/$id/edit'
     | '/operations/assignments/$id/edit'
@@ -1359,6 +1391,7 @@ export interface FileRouteTypes {
     | '/operations/missions/$id/edit'
     | '/operations/requests-for-control/$id/edit'
     | '/public-engagement/contacts/$id/edit'
+    | '/public-engagement/contacts/$id/registrations'
     | '/public-engagement/outreach/$id/edit'
     | '/public-engagement/service-requests/$id/edit'
     | '/adult-surveillance/traps/routes/'
@@ -1444,6 +1477,7 @@ export interface FileRouteTypes {
     | '/operations/requests-for-control/$id'
     | '/operations/requests-for-control/create'
     | '/public-engagement/contacts/$id'
+    | '/public-engagement/contacts/cleanup'
     | '/public-engagement/contacts/create'
     | '/public-engagement/outreach/$id'
     | '/public-engagement/outreach/create'
@@ -1479,6 +1513,7 @@ export interface FileRouteTypes {
     | '/gis/weather/$id/edit'
     | '/gis/weather/$id/import'
     | '/larval-surveillance/habitats/$id/edit'
+    | '/larval-surveillance/habitats/$id/merge'
     | '/larval-surveillance/habitats/routes/$id'
     | '/larval-surveillance/inspections/$id/edit'
     | '/operations/assignments/$id/edit'
@@ -1486,6 +1521,7 @@ export interface FileRouteTypes {
     | '/operations/missions/$id/edit'
     | '/operations/requests-for-control/$id/edit'
     | '/public-engagement/contacts/$id/edit'
+    | '/public-engagement/contacts/$id/registrations'
     | '/public-engagement/outreach/$id/edit'
     | '/public-engagement/service-requests/$id/edit'
     | '/adult-surveillance/traps/routes'
@@ -1572,6 +1608,7 @@ export interface FileRouteTypes {
     | '/operations/requests-for-control/$id'
     | '/operations/requests-for-control/create'
     | '/public-engagement/contacts/$id'
+    | '/public-engagement/contacts/cleanup'
     | '/public-engagement/contacts/create'
     | '/public-engagement/outreach/$id'
     | '/public-engagement/outreach/create'
@@ -1607,6 +1644,7 @@ export interface FileRouteTypes {
     | '/gis/weather/$id_/edit'
     | '/gis/weather/$id_/import'
     | '/larval-surveillance/habitats/$id_/edit'
+    | '/larval-surveillance/habitats/$id_/merge'
     | '/larval-surveillance/habitats/routes/$id'
     | '/larval-surveillance/inspections/$id_/edit'
     | '/operations/assignments/$id_/edit'
@@ -1614,6 +1652,7 @@ export interface FileRouteTypes {
     | '/operations/missions/$id_/edit'
     | '/operations/requests-for-control/$id_/edit'
     | '/public-engagement/contacts/$id_/edit'
+    | '/public-engagement/contacts/$id_/registrations'
     | '/public-engagement/outreach/$id_/edit'
     | '/public-engagement/service-requests/$id_/edit'
     | '/adult-surveillance/traps/routes/'
@@ -1692,6 +1731,7 @@ export interface RootRouteChildren {
   OperationsRequestsForControlIdRoute: typeof OperationsRequestsForControlIdRoute
   OperationsRequestsForControlCreateRoute: typeof OperationsRequestsForControlCreateRoute
   PublicEngagementContactsIdRoute: typeof PublicEngagementContactsIdRoute
+  PublicEngagementContactsCleanupRoute: typeof PublicEngagementContactsCleanupRoute
   PublicEngagementContactsCreateRoute: typeof PublicEngagementContactsCreateRoute
   PublicEngagementOutreachIdRoute: typeof PublicEngagementOutreachIdRoute
   PublicEngagementOutreachCreateRoute: typeof PublicEngagementOutreachCreateRoute
@@ -1727,6 +1767,7 @@ export interface RootRouteChildren {
   GisWeatherIdEditRoute: typeof GisWeatherIdEditRoute
   GisWeatherIdImportRoute: typeof GisWeatherIdImportRoute
   LarvalSurveillanceHabitatsIdEditRoute: typeof LarvalSurveillanceHabitatsIdEditRoute
+  LarvalSurveillanceHabitatsIdMergeRoute: typeof LarvalSurveillanceHabitatsIdMergeRoute
   LarvalSurveillanceHabitatsRoutesIdRoute: typeof LarvalSurveillanceHabitatsRoutesIdRoute
   LarvalSurveillanceInspectionsIdEditRoute: typeof LarvalSurveillanceInspectionsIdEditRoute
   OperationsAssignmentsIdEditRoute: typeof OperationsAssignmentsIdEditRoute
@@ -1734,6 +1775,7 @@ export interface RootRouteChildren {
   OperationsMissionsIdEditRoute: typeof OperationsMissionsIdEditRoute
   OperationsRequestsForControlIdEditRoute: typeof OperationsRequestsForControlIdEditRoute
   PublicEngagementContactsIdEditRoute: typeof PublicEngagementContactsIdEditRoute
+  PublicEngagementContactsIdRegistrationsRoute: typeof PublicEngagementContactsIdRegistrationsRoute
   PublicEngagementOutreachIdEditRoute: typeof PublicEngagementOutreachIdEditRoute
   PublicEngagementServiceRequestsIdEditRoute: typeof PublicEngagementServiceRequestsIdEditRoute
   AdultSurveillanceTrapsRoutesIndexRoute: typeof AdultSurveillanceTrapsRoutesIndexRoute
@@ -2136,6 +2178,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicEngagementContactsCreateRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/public-engagement/contacts/cleanup': {
+      id: '/public-engagement/contacts/cleanup'
+      path: '/public-engagement/contacts/cleanup'
+      fullPath: '/public-engagement/contacts/cleanup'
+      preLoaderRoute: typeof PublicEngagementContactsCleanupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/public-engagement/contacts/$id': {
       id: '/public-engagement/contacts/$id'
       path: '/public-engagement/contacts/$id'
@@ -2486,6 +2535,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PublicEngagementOutreachIdEditRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/public-engagement/contacts/$id_/registrations': {
+      id: '/public-engagement/contacts/$id_/registrations'
+      path: '/public-engagement/contacts/$id/registrations'
+      fullPath: '/public-engagement/contacts/$id/registrations'
+      preLoaderRoute: typeof PublicEngagementContactsIdRegistrationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/public-engagement/contacts/$id_/edit': {
       id: '/public-engagement/contacts/$id_/edit'
       path: '/public-engagement/contacts/$id/edit'
@@ -2533,6 +2589,13 @@ declare module '@tanstack/react-router' {
       path: '/larval-surveillance/habitats/routes/$id'
       fullPath: '/larval-surveillance/habitats/routes/$id'
       preLoaderRoute: typeof LarvalSurveillanceHabitatsRoutesIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/larval-surveillance/habitats/$id_/merge': {
+      id: '/larval-surveillance/habitats/$id_/merge'
+      path: '/larval-surveillance/habitats/$id/merge'
+      fullPath: '/larval-surveillance/habitats/$id/merge'
+      preLoaderRoute: typeof LarvalSurveillanceHabitatsIdMergeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/larval-surveillance/habitats/$id_/edit': {
@@ -2752,6 +2815,7 @@ const rootRouteChildren: RootRouteChildren = {
   OperationsRequestsForControlCreateRoute:
     OperationsRequestsForControlCreateRoute,
   PublicEngagementContactsIdRoute: PublicEngagementContactsIdRoute,
+  PublicEngagementContactsCleanupRoute: PublicEngagementContactsCleanupRoute,
   PublicEngagementContactsCreateRoute: PublicEngagementContactsCreateRoute,
   PublicEngagementOutreachIdRoute: PublicEngagementOutreachIdRoute,
   PublicEngagementOutreachCreateRoute: PublicEngagementOutreachCreateRoute,
@@ -2797,6 +2861,8 @@ const rootRouteChildren: RootRouteChildren = {
   GisWeatherIdEditRoute: GisWeatherIdEditRoute,
   GisWeatherIdImportRoute: GisWeatherIdImportRoute,
   LarvalSurveillanceHabitatsIdEditRoute: LarvalSurveillanceHabitatsIdEditRoute,
+  LarvalSurveillanceHabitatsIdMergeRoute:
+    LarvalSurveillanceHabitatsIdMergeRoute,
   LarvalSurveillanceHabitatsRoutesIdRoute:
     LarvalSurveillanceHabitatsRoutesIdRoute,
   LarvalSurveillanceInspectionsIdEditRoute:
@@ -2807,6 +2873,8 @@ const rootRouteChildren: RootRouteChildren = {
   OperationsRequestsForControlIdEditRoute:
     OperationsRequestsForControlIdEditRoute,
   PublicEngagementContactsIdEditRoute: PublicEngagementContactsIdEditRoute,
+  PublicEngagementContactsIdRegistrationsRoute:
+    PublicEngagementContactsIdRegistrationsRoute,
   PublicEngagementOutreachIdEditRoute: PublicEngagementOutreachIdEditRoute,
   PublicEngagementServiceRequestsIdEditRoute:
     PublicEngagementServiceRequestsIdEditRoute,

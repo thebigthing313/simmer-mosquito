@@ -83,6 +83,7 @@ export type MapSurfaceName =
 	| 'biocontrol'
 	| 'outreach'
 	| 'requestedControlAction'
+	| 'notificationRegistration'
 	| 'address'
 	| 'region';
 
@@ -97,6 +98,7 @@ const surfaceNames: readonly MapSurfaceName[] = [
 	'biocontrol',
 	'outreach',
 	'requestedControlAction',
+	'notificationRegistration',
 	'address',
 	'region',
 ];
@@ -243,6 +245,7 @@ interface OrganizationRefs {
 	readonly biocontrolMethodId: string;
 	readonly outreachMethodId: string;
 	readonly insecticideId: string;
+	readonly contactId: string;
 }
 
 /** Derived from the organization id so the two agencies' lookups cannot collide. */
@@ -257,6 +260,7 @@ function organizationRefs(organizationId: string): OrganizationRefs {
 		biocontrolMethodId: seedId(95, slot),
 		outreachMethodId: seedId(96, slot),
 		insecticideId: seedId(97, slot),
+		contactId: seedId(98, slot),
 	};
 }
 
@@ -270,6 +274,17 @@ async function seedOrganizationLookups(db: DbExecutor, organizationId: string): 
 			organization_id: organizationId,
 			display_name: 'Map Surface Technician',
 			email: `tech.${refs.profileId}@example.test`,
+		})
+		.execute();
+
+	// A registration always names a contact, so the notification surface needs one
+	// per agency before its rows can exist.
+	await db
+		.insertInto('contacts')
+		.values({
+			id: refs.contactId,
+			organization_id: organizationId,
+			contact_name: 'Map Surface Resident',
 		})
 		.execute();
 
@@ -581,6 +596,22 @@ async function seedSurfaceRows(db: DbExecutor): Promise<void> {
 				deleted_at: row.deleted_at,
 				control_type: 'application' as const,
 				requested_by_profile_id: row.refs.profileId,
+			})),
+		)
+		.execute();
+
+	// Areas rather than points: a registration covers ground, and its geometry is
+	// what generation measures the buffer from, so a seed of bare points would
+	// never exercise the shape the read exists to return.
+	await db
+		.insertInto('notification_registrations')
+		.values(
+			surfaceRows('notificationRegistration', box).map((row) => ({
+				id: row.id,
+				organization_id: row.organization_id,
+				geom: row.geom,
+				deleted_at: row.deleted_at,
+				contact_id: row.refs.contactId,
 			})),
 		)
 		.execute();
