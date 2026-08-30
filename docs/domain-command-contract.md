@@ -242,23 +242,27 @@ into the write, and read by nothing.
 The registry is one of seven ways an acknowledgement gets read, and it is the
 only one that describes a record delete. Four more raise the same 409:
 
-- **A clearance.** A write that removes rows without deleting a record: marking
-  a collection zero-result drops its species counts, correcting an
-  application's insecticide drops the batch links that no longer match,
-  retiring a habitat takes it off its routes, deleting a weather station
-  destroys its summaries. `assertClearanceAcknowledged` in
-  `packages/db/src/domains/record-deletion.ts` counts the rows and refuses.
-  These are deliberately not a fourth `ReferenceEffect`: the registry's rules
-  are read twice, once to say what a delete would cost and once to perform it,
-  and a rule no delete performs would make the impact read answer with
-  consequences that never happen.
+- **A count.** A write that turns on how many rows are there. Four of them
+  remove what they counted: marking a collection zero-result drops its species
+  counts, correcting an application's insecticide drops the batch links that no
+  longer match, retiring a habitat takes it off its routes, deleting a weather
+  station destroys its summaries. The fifth counts what is already there and
+  removes none of it: a second record against an assignment stop that is already
+  complete. `assertClearanceAcknowledged` in
+  `packages/db/src/domains/record-deletion.ts` counts the rows and refuses, and
+  a caller that is not removing them supplies its own sentence. These are
+  deliberately not a fourth `ReferenceEffect`: the registry's rules are read
+  twice, once to say what a delete would cost and once to perform it, and a rule
+  no delete performs would make the impact read answer with consequences that
+  never happen.
 - **A state.** The record's own condition rather than what hangs off it: the
-  request is closed, the trap already has a pending collection.
-  `requireStateAcknowledgement` in `apps/server/src/acknowledgements.ts`
-  refuses. There is nothing to count, so `consequences` is an empty list rather
-  than a missing field, and `message` carries the whole answer. The client keys
-  its wording off `flag`, which it has to do anyway: two counted refusals under
-  one code need two different sentences.
+  request is closed, the trap already has a pending collection, the stop names a
+  different trap than the record does. `requireStateAcknowledgement` in
+  `apps/server/src/acknowledgements.ts` refuses. There is nothing to count, so
+  `consequences` is an empty list rather than a missing field, and `message`
+  carries the whole answer. The client keys its wording off `flag`, which it has
+  to do anyway: two counted refusals under one code need two different
+  sentences.
 - **A citation.** Rows that already read under the value being changed: the
   four hundred collections behind a renamed collection method, the summaries
   behind a moved weather station, every agency's counts behind a renamed
@@ -296,8 +300,10 @@ Which mechanism reads which flag is `ACKNOWLEDGEMENT_MECHANISMS` in
 naming the issue that will settle it. `pnpm check:acknowledgements` asserts the
 map, the vocabulary and the flags on command payloads name the same set, and
 ratchets `UNCHECKED_ACKNOWLEDGEMENTS` so a flag cannot be added without somebody
-deciding. The mission-dispatch group (#316), the two assignment-execution flags
-(#336) and the two dependent-deactivation flags (#341) are what remains.
+deciding. Five remain: the two dependent-deactivation flags (#341), and three
+mission flags still labelled #316 that are in fact already read, through a
+bespoke 400 rather than the settled 409, so relabelling them alone would move
+the ratchet with no guard written.
 
 ### Catalogs are block-only
 

@@ -67,8 +67,9 @@ export type AcknowledgementMechanism =
 	 */
 	| { readonly kind: 'domainBuilder' }
 	/**
-	 * `assertClearanceAcknowledged` counts the rows a non-delete write is about
-	 * to remove and refuses with `409 acknowledgement_required`.
+	 * `assertClearanceAcknowledged` counts the rows a non-delete write turns on
+	 * — the ones it removes, or the ones already there — and refuses with
+	 * `409 acknowledgement_required`.
 	 */
 	| { readonly kind: 'clearanceCheck' }
 	/**
@@ -116,7 +117,12 @@ const unchecked = (issue: number) => ({ kind: 'unchecked', issue }) as const;
 export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, AcknowledgementMechanism> = {
 	acknowledgedActionDetach: deleteRegistry,
 	acknowledgedActiveSubscriptionImpact: historyCheck,
-	acknowledgedActualActionContextChange: unchecked(316),
+	acknowledgedActualActionContextChange: stateGuard,
+	// The one flag two mechanisms read, because two commands ask it. Deleting a
+	// mission detaches the actual actions under its stops, which is the registry
+	// counting rows; removing a single stop detaches nothing, so the guard in
+	// `mission-acknowledgements.ts` asks the state instead. The registry is the
+	// stronger of the two and names it.
 	acknowledgedActualActionDetach: deleteRegistry,
 	acknowledgedAssignmentItemDeletion: deleteRegistry,
 	acknowledgedAssociatedRecordsDeletion: deleteRegistry,
@@ -126,8 +132,8 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedClosedRequestChange: stateGuard,
 	acknowledgedClosedRequestDeletion: stateGuard,
 	acknowledgedCompletedItemAdditionalAction: unchecked(316),
-	acknowledgedCompletedItemAdditionalRecord: unchecked(336),
-	acknowledgedCompletedMissionDeletion: unchecked(316),
+	acknowledgedCompletedItemAdditionalRecord: clearanceCheck,
+	acknowledgedCompletedMissionDeletion: stateGuard,
 	// The registry blocks rather than cascades: a formulation with live
 	// ingredient rows cannot be deleted at all, so the caller gets
 	// `delete_blocked` naming them before this flag can be reached. That is the
@@ -138,9 +144,9 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedCrossDomainDetach: deleteRegistry,
 	acknowledgedDeactivateEmptyFormulation: unchecked(341),
 	acknowledgedDependentDeactivation: unchecked(341),
-	acknowledgedDuplicateRequestedActionMissioning: unchecked(316),
+	acknowledgedDuplicateRequestedActionMissioning: stateGuard,
 	acknowledgedDuplicateTrapCode: collisionCheck,
-	acknowledgedEarlyStart: unchecked(316),
+	acknowledgedEarlyStart: stateGuard,
 	acknowledgedFutureOnlyChange: historyCheck,
 	acknowledgedHabitatConfigurationSemanticsChange: domainBuilder,
 	acknowledgedHabitatDelete: domainBuilder,
@@ -153,26 +159,26 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedHistoricalProductChange: historyCheck,
 	acknowledgedHistoricalStationIdentityChange: historyCheck,
 	acknowledgedHistoricalVehicleLabelChange: historyCheck,
-	acknowledgedInProgressAssignmentChange: unchecked(316),
-	acknowledgedInProgressMissionChange: unchecked(316),
+	acknowledgedInProgressAssignmentChange: stateGuard,
+	acknowledgedInProgressMissionChange: stateGuard,
 	acknowledgedInspectionDetach: deleteRegistry,
-	acknowledgedItemProgressDeletion: unchecked(316),
+	acknowledgedItemProgressDeletion: stateGuard,
 	acknowledgedMergeConsolidatesHistory: domainBuilder,
-	acknowledgedMethodMismatch: unchecked(316),
+	acknowledgedMethodMismatch: stateGuard,
 	acknowledgedMissionDetach: deleteRegistry,
 	acknowledgedMissionGeometryNotCovered: unchecked(316),
 	acknowledgedMissionItemDeletion: deleteRegistry,
 	acknowledgedNotificationDeletion: deleteRegistry,
-	acknowledgedNotificationGeometryChange: unchecked(316),
-	acknowledgedNotificationPlanChange: unchecked(316),
-	acknowledgedNotificationRegenerationImpact: unchecked(316),
-	acknowledgedNotificationTimingChange: unchecked(316),
+	acknowledgedNotificationGeometryChange: stateGuard,
+	acknowledgedNotificationPlanChange: stateGuard,
+	acknowledgedNotificationRegenerationImpact: stateGuard,
+	acknowledgedNotificationTimingChange: stateGuard,
 	acknowledgedPartialImport: importAssessment,
-	acknowledgedPartialWorkCancellation: unchecked(316),
+	acknowledgedPartialWorkCancellation: stateGuard,
 	acknowledgedPendingTrapCollection: stateGuard,
-	acknowledgedProgressedItemLinkChange: unchecked(316),
-	acknowledgedProgressedItemReorder: unchecked(316),
-	acknowledgedProgressedMissionCancellation: unchecked(316),
+	acknowledgedProgressedItemLinkChange: stateGuard,
+	acknowledgedProgressedItemReorder: stateGuard,
+	acknowledgedProgressedMissionCancellation: stateGuard,
 	acknowledgedRegionBoundaryChange: domainBuilder,
 	acknowledgedRegionDelete: domainBuilder,
 	acknowledgedRegionDetach: deleteRegistry,
@@ -183,15 +189,15 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedSpeciesCountsClearance: clearanceCheck,
 	acknowledgedSummaryDeletion: clearanceCheck,
 	acknowledgedSupportRecordDeletion: deleteRegistry,
-	acknowledgedTargetMismatch: unchecked(336),
+	acknowledgedTargetMismatch: stateGuard,
 	acknowledgedTaxonomyLabelChange: historyCheck,
 	acknowledgedTaxonomyMeaningChange: historyCheck,
 	acknowledgedTrapLocationSemanticsChange: domainBuilder,
 	acknowledgedTrapMethodSemanticsChange: domainBuilder,
 	acknowledgedUnitCodeChange: domainBuilder,
 	acknowledgedUpdates: importAssessment,
-	acknowledgedWorkedMissionPlanChange: unchecked(316),
-	acknowledgedWorkedMissionScheduleChange: unchecked(316),
+	acknowledgedWorkedMissionPlanChange: stateGuard,
+	acknowledgedWorkedMissionScheduleChange: stateGuard,
 };
 
 /**
@@ -200,23 +206,52 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
  * Lower it when a branch guards one. `pnpm check:acknowledgements` fails when
  * this and the map disagree, so the number cannot rot in either direction.
  */
-export const UNCHECKED_ACKNOWLEDGEMENTS = 25;
+export const UNCHECKED_ACKNOWLEDGEMENTS = 5;
 
 // ===========================================================================
 // The state refusal
 // ===========================================================================
 
 /**
- * The acknowledgements that turn on the record's own state.
+ * The acknowledgements that turn on state rather than on a count.
  *
- * Not what hangs off it. "This request is closed" and "this trap already has a
- * collection nobody has come back for" are facts about one row, so there is
- * nothing to count and the sentence is the whole answer.
+ * Not what hangs off it. "This request is closed", "this trap already has a
+ * collection nobody has come back for" and "this stop names a different trap"
+ * are facts about one row, so there is nothing to count and the sentence is the
+ * whole answer.
+ *
+ * The mission ones are facts about a mission or a stop, and two of them read
+ * past the row to answer: whether any work has been recorded against a
+ * mission's stops, whether notifications have gone out for it. They are still
+ * state, because the number is not the question. A mission worked once and a
+ * mission worked forty times pose the caller the same decision, and listing
+ * what would happen to those records is wrong anyway: nothing happens to them,
+ * which is exactly the problem being pointed at.
  */
 export type StateAcknowledgement =
+	| 'acknowledgedActualActionContextChange'
+	| 'acknowledgedActualActionDetach'
 	| 'acknowledgedClosedRequestChange'
 	| 'acknowledgedClosedRequestDeletion'
-	| 'acknowledgedPendingTrapCollection';
+	| 'acknowledgedCompletedMissionDeletion'
+	| 'acknowledgedDuplicateRequestedActionMissioning'
+	| 'acknowledgedEarlyStart'
+	| 'acknowledgedInProgressAssignmentChange'
+	| 'acknowledgedInProgressMissionChange'
+	| 'acknowledgedItemProgressDeletion'
+	| 'acknowledgedMethodMismatch'
+	| 'acknowledgedNotificationGeometryChange'
+	| 'acknowledgedNotificationPlanChange'
+	| 'acknowledgedNotificationRegenerationImpact'
+	| 'acknowledgedNotificationTimingChange'
+	| 'acknowledgedPartialWorkCancellation'
+	| 'acknowledgedPendingTrapCollection'
+	| 'acknowledgedProgressedItemLinkChange'
+	| 'acknowledgedProgressedItemReorder'
+	| 'acknowledgedProgressedMissionCancellation'
+	| 'acknowledgedTargetMismatch'
+	| 'acknowledgedWorkedMissionPlanChange'
+	| 'acknowledgedWorkedMissionScheduleChange';
 
 /**
  * Thrown when a write against a record in a particular state withheld the

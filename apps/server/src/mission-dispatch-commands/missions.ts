@@ -25,6 +25,18 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import { insertLifecycleComment } from '../lifecycle-comment.js';
+import {
+	assertCompletedMissionDeletionAcknowledged,
+	assertEarlyStartAcknowledged,
+	assertInProgressAssignmentChangeAcknowledged,
+	assertNotificationImpactAcknowledged,
+	assertPartialWorkCancellationAcknowledged,
+	assertProgressedMissionCancellationAcknowledged,
+	assertRequestedActionAcknowledged,
+	assertWorkedMissionPlanChangeAcknowledged,
+	assertWorkedMissionScheduleChangeAcknowledged,
+	NOTIFICATION_IMPACT_MESSAGES,
+} from './mission-acknowledgements.js';
 import { moveMissionItemRows } from './mission-items.js';
 import {
 	assertMissionTransition,
@@ -79,6 +91,10 @@ export function registerMissionRoutes(
 					scheduledEndAt: readDate(payload.scheduledEndAt),
 					rainDate: readNullableText(payload.rainDate),
 					notificationTypeId: readNullableText(payload.notificationTypeId),
+					acknowledgedDuplicateRequestedActionMissioning: acknowledged(
+						payload.acknowledgedDuplicateRequestedActionMissioning,
+					),
+					acknowledgedMethodMismatch: acknowledged(payload.acknowledgedMethodMismatch),
 				}),
 			run: (context, commands) => runMissionCommands(context, options.db, commands, 201),
 		}),
@@ -106,9 +122,8 @@ export function registerMissionRoutes(
 					acknowledgedMissionItemDeletion: acknowledged(payload.acknowledgedMissionItemDeletion),
 					acknowledgedActualActionDetach: acknowledged(payload.acknowledgedActualActionDetach),
 					acknowledgedNotificationDeletion: acknowledged(payload.acknowledgedNotificationDeletion),
-					// Not read by anything yet: whether the mission was completed is
-					// the mission's own state rather than something hanging off it, and
-					// that group is the next slice of #165.
+					// The mission's own state rather than something hanging off it, so
+					// it is read by the state guard rather than by the registry.
 					acknowledgedCompletedMissionDeletion: acknowledged(
 						payload.acknowledgedCompletedMissionDeletion,
 					),
@@ -152,8 +167,12 @@ function buildMissionUpdateCommands(
 					? { scheduledEndAt: readDate(payload.scheduledEndAt) }
 					: {}),
 				...('rainDate' in payload ? { rainDate: readNullableText(payload.rainDate) } : {}),
-				acknowledgedNotificationTimingChange: true,
-				acknowledgedWorkedMissionScheduleChange: true,
+				acknowledgedNotificationTimingChange: acknowledged(
+					payload.acknowledgedNotificationTimingChange,
+				),
+				acknowledgedWorkedMissionScheduleChange: acknowledged(
+					payload.acknowledgedWorkedMissionScheduleChange,
+				),
 			}),
 		);
 		if (!result.ok) return result;
@@ -171,8 +190,12 @@ function buildMissionUpdateCommands(
 				...('plannedMethodId' in payload
 					? { plannedMethodId: readNullableText(payload.plannedMethodId) }
 					: {}),
-				acknowledgedNotificationPlanChange: true,
-				acknowledgedWorkedMissionPlanChange: true,
+				acknowledgedNotificationPlanChange: acknowledged(
+					payload.acknowledgedNotificationPlanChange,
+				),
+				acknowledgedWorkedMissionPlanChange: acknowledged(
+					payload.acknowledgedWorkedMissionPlanChange,
+				),
 			}),
 		);
 		if (!result.ok) return result;
@@ -185,7 +208,9 @@ function buildMissionUpdateCommands(
 				...ctx,
 				missionId,
 				assignedToProfileId: readNullableText(payload.assignedToProfileId),
-				acknowledgedInProgressAssignmentChange: true,
+				acknowledgedInProgressAssignmentChange: acknowledged(
+					payload.acknowledgedInProgressAssignmentChange,
+				),
 			}),
 		);
 		if (!result.ok) return result;
@@ -198,7 +223,9 @@ function buildMissionUpdateCommands(
 				...ctx,
 				missionId,
 				notificationTypeId: readNullableText(payload.notificationTypeId),
-				acknowledgedNotificationRegenerationImpact: true,
+				acknowledgedNotificationRegenerationImpact: acknowledged(
+					payload.acknowledgedNotificationRegenerationImpact,
+				),
 			}),
 		);
 		if (!result.ok) return result;
@@ -220,13 +247,24 @@ function buildMissionUpdateCommands(
 				cancellationCommentId: randomUUID(),
 				cancellationReason: readText(payload.cancellationReason) ?? 'Cancelled',
 				cancelledAt: readDate(payload.cancelledAt),
+				acknowledgedProgressedMissionCancellation: acknowledged(
+					payload.acknowledgedProgressedMissionCancellation,
+				),
+				acknowledgedPartialWorkCancellation: acknowledged(
+					payload.acknowledgedPartialWorkCancellation,
+				),
 			}),
 		);
 		if (!result.ok) return result;
 		commands.push(result.command);
 	} else if (lifecycle === 'start') {
 		const result = createCommand(() =>
-			startMissionCommand({ ...ctx, missionId, startedAt: readDate(payload.startedAt) }),
+			startMissionCommand({
+				...ctx,
+				missionId,
+				startedAt: readDate(payload.startedAt),
+				acknowledgedEarlyStart: acknowledged(payload.acknowledgedEarlyStart),
+			}),
 		);
 		if (!result.ok) return result;
 		commands.push(result.command);
@@ -281,6 +319,18 @@ export async function writeMissionCommand(
 ): Promise<MissionRow | null> {
 	switch (command.type) {
 		case 'missionDispatch.createMission': {
+			// The mission is not in the database yet, so the plan the stops are
+			// judged against is the one the command carries rather than a stored one.
+			for (const item of command.payload.items) {
+				await assertRequestedActionAcknowledged(trx, {
+					organizationId: command.payload.organizationId,
+					plan: { plannedMethodId: command.payload.plannedMethodId },
+					requestedControlActionId: item.requestedControlActionId ?? null,
+					acknowledgedMethodMismatch: command.payload.acknowledgedMethodMismatch,
+					acknowledgedDuplicateRequestedActionMissioning:
+						command.payload.acknowledgedDuplicateRequestedActionMissioning,
+				});
+			}
 			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
@@ -336,6 +386,19 @@ export async function writeMissionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.updateMissionSchedule': {
+			await assertWorkedMissionScheduleChangeAcknowledged(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				command.payload.acknowledgedWorkedMissionScheduleChange,
+			);
+			await assertNotificationImpactAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				mission: { missionId: command.payload.missionId },
+				acknowledgement: 'acknowledgedNotificationTimingChange',
+				acknowledged: command.payload.acknowledgedNotificationTimingChange,
+				message: NOTIFICATION_IMPACT_MESSAGES.acknowledgedNotificationTimingChange,
+			});
 			const changes = command.payload.changes;
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				...('scheduledStartAt' in changes && changes.scheduledStartAt !== undefined
@@ -351,6 +414,19 @@ export async function writeMissionCommand(
 			});
 		}
 		case 'missionDispatch.updateMissionPlan': {
+			await assertWorkedMissionPlanChangeAcknowledged(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				command.payload.acknowledgedWorkedMissionPlanChange,
+			);
+			await assertNotificationImpactAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				mission: { missionId: command.payload.missionId },
+				acknowledgement: 'acknowledgedNotificationPlanChange',
+				acknowledged: command.payload.acknowledgedNotificationPlanChange,
+				message: NOTIFICATION_IMPACT_MESSAGES.acknowledgedNotificationPlanChange,
+			});
 			const changes = command.payload.changes;
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				...('controlType' in changes ? { control_type: changes.controlType } : {}),
@@ -361,12 +437,25 @@ export async function writeMissionCommand(
 			});
 		}
 		case 'missionDispatch.assignMission':
+			await assertInProgressAssignmentChangeAcknowledged(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				command.payload.acknowledgedInProgressAssignmentChange,
+			);
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				assigned_to_profile_id: command.payload.assignedToProfileId,
 				assigned_by_profile_id: command.payload.actorProfileId,
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.updateMissionNotificationType':
+			await assertNotificationImpactAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				mission: { missionId: command.payload.missionId },
+				acknowledgement: 'acknowledgedNotificationRegenerationImpact',
+				acknowledged: command.payload.acknowledgedNotificationRegenerationImpact,
+				message: NOTIFICATION_IMPACT_MESSAGES.acknowledgedNotificationRegenerationImpact,
+			});
 			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'update', table: 'missions', recordId: command.payload.missionId },
@@ -383,6 +472,12 @@ export async function writeMissionCommand(
 				command.payload.organizationId,
 				checkStartMission,
 			);
+			await assertEarlyStartAcknowledged(trx, {
+				missionId: command.payload.missionId,
+				organizationId: command.payload.organizationId,
+				at: command.payload.startedAt,
+				acknowledged: command.payload.acknowledgedEarlyStart,
+			});
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				started_at: command.payload.startedAt === null ? sql`now()` : command.payload.startedAt,
 				updated_by_profile_id: command.payload.actorProfileId,
@@ -419,6 +514,20 @@ export async function writeMissionCommand(
 				command.payload.missionId,
 				command.payload.organizationId,
 				checkCancelMission,
+			);
+			// Both after the transition check, so a mission that cannot be cancelled
+			// at all is told that rather than asked to confirm what it is losing.
+			await assertProgressedMissionCancellationAcknowledged(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				command.payload.acknowledgedProgressedMissionCancellation,
+			);
+			await assertPartialWorkCancellationAcknowledged(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				command.payload.acknowledgedPartialWorkCancellation,
 			);
 			const cancelled = await updateMission(
 				trx,
@@ -486,6 +595,15 @@ export async function writeMissionCommand(
 			return reopened;
 		}
 		case 'missionDispatch.deleteMission':
+			// Before the registry, because "this mission ran" is a reason not to
+			// delete it at all, and hearing it after a list of what would go with it
+			// puts the smaller question first.
+			await assertCompletedMissionDeletionAcknowledged(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				command.payload.acknowledgedCompletedMissionDeletion,
+			);
 			await applyRecordDeletion(trx, {
 				recordType: 'mission',
 				recordId: command.payload.missionId,

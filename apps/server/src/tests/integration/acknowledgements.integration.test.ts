@@ -234,6 +234,216 @@ describeDbIntegration('acknowledgement refusals', () => {
 	});
 
 	// -----------------------------------------------------------------------
+	// Assignment execution: the stop's own state, one counted and one not
+	// -----------------------------------------------------------------------
+
+	it('refuses a second inspection on a completed stop, counting the first, and writes nothing', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'second_record_withheld');
+			const actor = await createProfile(db, org);
+			const habitatId = await createHabitat(db, org);
+			const assignmentId = await createAssignment(db, org);
+			const stopId = await createAssignmentItem(db, org, assignmentId, habitatId);
+			const app = habitatApp(db, org, actor);
+
+			// The stop is completed the ordinary way: by recording the work it was
+			// created for. That is also what puts the first inspection on it.
+			const first = await app.request('/larval-surveillance/inspections', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					id: crypto.randomUUID(),
+					assignmentItemId: stopId,
+					inspectionDate: '2026-08-05',
+					isWet: false,
+				}),
+			});
+			expect(first.status).toBe(201);
+
+			const response = await app.request('/larval-surveillance/inspections', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					id: crypto.randomUUID(),
+					assignmentItemId: stopId,
+					inspectionDate: '2026-08-05',
+					isWet: false,
+					acknowledgedCompletedItemAdditionalRecord: false,
+				}),
+			});
+
+			expect(response.status).toBe(409);
+			await expect(response.json()).resolves.toMatchObject({
+				error: 'acknowledgement_required',
+				flag: 'acknowledgedCompletedItemAdditionalRecord',
+				consequences: [{ key: 'stopInspections', count: 1, singular: 'inspection' }],
+			});
+
+			const inspections = await db
+				.selectFrom('inspections')
+				.select(['id'])
+				.where('assignment_item_id', '=', stopId)
+				.execute();
+			expect(inspections).toHaveLength(1);
+		});
+	});
+
+	it('records the second inspection once the double submit is confirmed', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'second_record_confirmed');
+			const actor = await createProfile(db, org);
+			const habitatId = await createHabitat(db, org);
+			const assignmentId = await createAssignment(db, org);
+			const stopId = await createAssignmentItem(db, org, assignmentId, habitatId);
+			const app = habitatApp(db, org, actor);
+
+			for (const acknowledgedSecondRecord of [false, true]) {
+				const response = await app.request('/larval-surveillance/inspections', {
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						id: crypto.randomUUID(),
+						assignmentItemId: stopId,
+						inspectionDate: '2026-08-05',
+						isWet: false,
+						// The first of the two runs against a pending stop, where the
+						// question does not arise however the flag is set.
+						acknowledgedCompletedItemAdditionalRecord: acknowledgedSecondRecord,
+					}),
+				});
+				expect(response.status).toBe(201);
+			}
+
+			const inspections = await db
+				.selectFrom('inspections')
+				.select(['id'])
+				.where('assignment_item_id', '=', stopId)
+				.execute();
+			expect(inspections).toHaveLength(2);
+		});
+	});
+
+	it('refuses an inspection of another habitat, with an empty consequences list', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'target_mismatch_withheld');
+			const actor = await createProfile(db, org);
+			const stopHabitatId = await createHabitat(db, org);
+			const otherHabitatId = await createHabitat(db, org);
+			const assignmentId = await createAssignment(db, org);
+			const stopId = await createAssignmentItem(db, org, assignmentId, stopHabitatId);
+
+			const response = await habitatApp(db, org, actor).request(
+				'/larval-surveillance/inspections',
+				{
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						id: crypto.randomUUID(),
+						assignmentItemId: stopId,
+						habitatId: otherHabitatId,
+						inspectionDate: '2026-08-05',
+						isWet: false,
+						acknowledgedTargetMismatch: false,
+					}),
+				},
+			);
+
+			expect(response.status).toBe(409);
+			const body = (await response.json()) as {
+				readonly error: string;
+				readonly flag: string;
+				readonly message: string;
+				readonly consequences: readonly unknown[];
+			};
+			expect(body.error).toBe('acknowledgement_required');
+			expect(body.flag).toBe('acknowledgedTargetMismatch');
+			// A mismatch counts nothing, so the sentence is the whole answer.
+			expect(body.consequences).toEqual([]);
+			expect(body.message).toContain('habitat');
+
+			const inspections = await db.selectFrom('inspections').select(['id']).execute();
+			expect(inspections).toHaveLength(0);
+
+			// Nothing was stamped on the way to the refusal either: the stop is still
+			// pending and the assignment was not auto-started.
+			const stop = await db
+				.selectFrom('assignment_items')
+				.select(['completed_at'])
+				.where('id', '=', stopId)
+				.executeTakeFirstOrThrow();
+			expect(stop.completed_at).toBeNull();
+			const assignment = await db
+				.selectFrom('assignments')
+				.select(['started_at'])
+				.where('id', '=', assignmentId)
+				.executeTakeFirstOrThrow();
+			expect(assignment.started_at).toBeNull();
+		});
+	});
+
+	it('records against the other habitat once the mismatch is confirmed', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'target_mismatch_confirmed');
+			const actor = await createProfile(db, org);
+			const stopHabitatId = await createHabitat(db, org);
+			const otherHabitatId = await createHabitat(db, org);
+			const assignmentId = await createAssignment(db, org);
+			const stopId = await createAssignmentItem(db, org, assignmentId, stopHabitatId);
+
+			const response = await habitatApp(db, org, actor).request(
+				'/larval-surveillance/inspections',
+				{
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						id: crypto.randomUUID(),
+						assignmentItemId: stopId,
+						habitatId: otherHabitatId,
+						inspectionDate: '2026-08-05',
+						isWet: false,
+						acknowledgedTargetMismatch: true,
+					}),
+				},
+			);
+
+			expect(response.status).toBe(201);
+			const inspection = await db
+				.selectFrom('inspections')
+				.select(['habitat_id'])
+				.executeTakeFirstOrThrow();
+			expect(inspection.habitat_id).toBe(otherHabitatId);
+		});
+	});
+
+	it('does not ask about the habitat the stop itself names', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'target_match');
+			const actor = await createProfile(db, org);
+			const habitatId = await createHabitat(db, org);
+			const assignmentId = await createAssignment(db, org);
+			const stopId = await createAssignmentItem(db, org, assignmentId, habitatId);
+
+			const response = await habitatApp(db, org, actor).request(
+				'/larval-surveillance/inspections',
+				{
+					method: 'POST',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						id: crypto.randomUUID(),
+						assignmentItemId: stopId,
+						habitatId,
+						inspectionDate: '2026-08-05',
+						isWet: false,
+						acknowledgedTargetMismatch: false,
+					}),
+				},
+			);
+
+			expect(response.status).toBe(201);
+		});
+	});
+
+	// -----------------------------------------------------------------------
 	// The registry, reaching a record it did not hold
 	// -----------------------------------------------------------------------
 
@@ -470,6 +680,38 @@ async function createHabitat(db: Db, organizationId: string): Promise<string> {
 			habitat_name: 'Ditch',
 			description: 'Roadside ditch',
 			metadata: null,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+async function createAssignment(db: Db, organizationId: string): Promise<string> {
+	const row = await db
+		.insertInto('assignments')
+		.values({
+			organization_id: organizationId,
+			assignment_name: 'Thursday larval run',
+			assignment_date: sql`date '2026-08-05'`,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createAssignmentItem(
+	db: Db,
+	organizationId: string,
+	assignmentId: string,
+	habitatId: string,
+): Promise<string> {
+	const row = await db
+		.insertInto('assignment_items')
+		.values({
+			organization_id: organizationId,
+			assignment_id: assignmentId,
+			entity_type: 'habitat',
+			entity_id: habitatId,
+			position: 1,
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();
