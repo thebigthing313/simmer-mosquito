@@ -18,14 +18,16 @@ describe('ExplorerRow', () => {
 	it('offers the map control when the record has somewhere to fly to', () => {
 		render(
 			<ul>
-				<ExplorerRow
-					detailLabel="View details for Kendall Park"
-					detailLink={DETAIL}
-					isSelected={false}
-					onSelect={() => {}}
-					selectLabel="Show Kendall Park on the map"
-					title="Kendall Park"
-				/>
+				<li>
+					<ExplorerRow
+						detailLabel="View details for Kendall Park"
+						detailLink={DETAIL}
+						isSelected={false}
+						onSelect={() => {}}
+						selectLabel="Show Kendall Park on the map"
+						title="Kendall Park"
+					/>
+				</li>
 			</ul>,
 		);
 
@@ -39,15 +41,17 @@ describe('ExplorerRow', () => {
 	it('puts the badges under the title on a dated row and beside it otherwise', () => {
 		const { container, rerender } = render(
 			<ul>
-				<ExplorerRow
-					badges={<span>Very heavy</span>}
-					date="Aug 12, 2026"
-					detailLabel="View details"
-					detailLink={DETAIL}
-					isSelected={false}
-					selectLabel="Show on the map"
-					title="CAR - S1 - 12"
-				/>
+				<li>
+					<ExplorerRow
+						badges={<span>Very heavy</span>}
+						date="Aug 12, 2026"
+						detailLabel="View details"
+						detailLink={DETAIL}
+						isSelected={false}
+						selectLabel="Show on the map"
+						title="CAR - S1 - 12"
+					/>
+				</li>
 			</ul>,
 		);
 		// Stacked: the badge sits inside the block the title heads, not in a column
@@ -57,14 +61,16 @@ describe('ExplorerRow', () => {
 
 		rerender(
 			<ul>
-				<ExplorerRow
-					badges={<span>Very heavy</span>}
-					detailLabel="View details"
-					detailLink={DETAIL}
-					isSelected={false}
-					selectLabel="Show on the map"
-					title="CAR - S1 - 12"
-				/>
+				<li>
+					<ExplorerRow
+						badges={<span>Very heavy</span>}
+						detailLabel="View details"
+						detailLink={DETAIL}
+						isSelected={false}
+						selectLabel="Show on the map"
+						title="CAR - S1 - 12"
+					/>
+				</li>
 			</ul>,
 		);
 		expect(
@@ -78,14 +84,16 @@ describe('ExplorerRow', () => {
 	it('stacks the year under the day, and leaves a date with no year alone', () => {
 		const { rerender } = render(
 			<ul>
-				<ExplorerRow
-					date="Aug 12, 2026"
-					detailLabel="View details"
-					detailLink={DETAIL}
-					isSelected={false}
-					selectLabel="Show on the map"
-					title="CAR - S1 - 12"
-				/>
+				<li>
+					<ExplorerRow
+						date="Aug 12, 2026"
+						detailLabel="View details"
+						detailLink={DETAIL}
+						isSelected={false}
+						selectLabel="Show on the map"
+						title="CAR - S1 - 12"
+					/>
+				</li>
 			</ul>,
 		);
 		expect(screen.getByText('Aug 12')).toBeTruthy();
@@ -95,14 +103,16 @@ describe('ExplorerRow', () => {
 		// that would not parse. Neither has a comma to split on.
 		rerender(
 			<ul>
-				<ExplorerRow
-					date="Aug 12"
-					detailLabel="View details"
-					detailLink={DETAIL}
-					isSelected={false}
-					selectLabel="Show on the map"
-					title="CAR - S1 - 12"
-				/>
+				<li>
+					<ExplorerRow
+						date="Aug 12"
+						detailLabel="View details"
+						detailLink={DETAIL}
+						isSelected={false}
+						selectLabel="Show on the map"
+						title="CAR - S1 - 12"
+					/>
+				</li>
 			</ul>,
 		);
 		expect(screen.getByText('Aug 12')).toBeTruthy();
@@ -114,13 +124,15 @@ describe('ExplorerRow', () => {
 	it('draws no map control for a record with no coordinates', () => {
 		render(
 			<ul>
-				<ExplorerRow
-					detailLabel="View details for Kendall Park"
-					detailLink={DETAIL}
-					isSelected={false}
-					selectLabel="Show Kendall Park on the map"
-					title="Kendall Park"
-				/>
+				<li>
+					<ExplorerRow
+						detailLabel="View details for Kendall Park"
+						detailLink={DETAIL}
+						isSelected={false}
+						selectLabel="Show Kendall Park on the map"
+						title="Kendall Park"
+					/>
+				</li>
 			</ul>,
 		);
 

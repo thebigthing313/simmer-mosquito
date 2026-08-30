@@ -5,8 +5,20 @@ import type * as React from 'react';
 function ScrollArea({
 	className,
 	children,
+	viewportRef,
 	...props
-}: React.ComponentProps<typeof ScrollAreaPrimitive.Root>) {
+}: React.ComponentProps<typeof ScrollAreaPrimitive.Root> & {
+	/**
+	 * The node that actually scrolls, handed to a caller that has to read or
+	 * drive the scroll itself.
+	 *
+	 * The root is not it. Radix puts the overflow on an inner viewport, so a
+	 * caller measuring the root reads the padding box of an element that never
+	 * scrolls: a virtualizer handed the root sees zero scroll offset forever and
+	 * its rows sit still while the list moves under them.
+	 */
+	readonly viewportRef?: React.Ref<HTMLDivElement> | undefined;
+}) {
 	return (
 		<ScrollAreaPrimitive.Root
 			data-slot="scroll-area"
@@ -15,6 +27,7 @@ function ScrollArea({
 		>
 			<ScrollAreaPrimitive.Viewport
 				data-slot="scroll-area-viewport"
+				ref={viewportRef}
 				/*
 				 * `[&>div]:block` overrides the `display: table` Radix wraps the content
 				 * in. A table sizes to its widest row, so content that would otherwise

@@ -2,7 +2,9 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { ScrollArea } from '@simmer-mosquito/ui-web/components/ui/scroll-area';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { MapPinnedIcon, OctagonXIcon } from '@simmer-mosquito/ui-web/icons/registry';
-import type { ReactNode } from 'react';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
+import { useVirtualizer } from '@tanstack/react-virtual';
+import { type ReactNode, useState } from 'react';
 import { RESULT_SKELETON_KEYS } from './result-skeleton';
 
 /**
@@ -130,7 +132,43 @@ export function ResultList({
 	);
 }
 
-/** A flat list of rows, which is what twelve of the fifteen explorers hand over. */
+/**
+ * The height a row is assumed to be until it has been measured.
+ *
+ * Only the first paint and the scrollbar's early guess ride on it: every row
+ * that mounts reports its real height back, so a rail of stacked inspection
+ * rows settles at its true length rather than this one. It matches the
+ * one-line row the shortest explorers draw.
+ */
+const ESTIMATED_ROW_HEIGHT = 60;
+
+/**
+ * How many rows past each edge of the window stay mounted.
+ *
+ * Enough that a flick of the wheel lands on rows that are already there, and
+ * few enough that the tab order does not become the list again.
+ */
+const ROW_OVERSCAN = 6;
+
+/**
+ * A flat list of rows, which is what thirteen of the fifteen explorers hand
+ * over. Only the rows in view are mounted.
+ *
+ * A page is 50 records and a panel shows about a dozen, so rendering the whole
+ * page spent React reconciliation on 38 rows nobody could see. That was a 55ms
+ * long task on every viewport settle while the map was being dragged, and the
+ * same drag with the rail collapsed had none.
+ *
+ * The keyboard is the better reason. Each row is three tab stops, a select
+ * button and two links, so a full page put 150 of them between the rail and the
+ * pager under it with nothing to skip past them. Mounting the window instead
+ * leaves the reader tabbing through what they can see.
+ *
+ * `content-visibility: auto` was tried first and is not the fix. It skips
+ * layout and paint for the off-screen rows, and the cost here is neither: the
+ * long task survived it, and the unrendered rows taking their real size drifted
+ * the scroll height by 19px.
+ */
 export function ResultRows<TRow>({
 	rows,
 	children,
@@ -138,6 +176,26 @@ export function ResultRows<TRow>({
 	readonly rows: readonly TRow[];
 	readonly children: (row: TRow) => ReactNode;
 }) {
+	/*
+	 * State rather than a ref, because the virtualizer has to be told the
+	 * viewport exists. Radix mounts it below this component, so the node is not
+	 * there on the render that starts the virtualizer, and a plain ref would
+	 * leave it measuring nothing until something else happened to re-render.
+	 */
+	const [viewport, setViewport] = useState<HTMLDivElement | null>(null);
+
+	const virtualizer = useVirtualizer({
+		count: rows.length,
+		// The scrolling node is the Radix viewport, not the ScrollArea root. The
+		// root never scrolls, so a virtualizer handed it reads an offset of zero
+		// for the life of the page and the rows sit still under a moving list.
+		getScrollElement: () => viewport,
+		estimateSize: () => ESTIMATED_ROW_HEIGHT,
+		overscan: ROW_OVERSCAN,
+	});
+
+	const virtualRows = virtualizer.getVirtualItems();
+
 	return (
 		/*
 		 * `w-full` on the list, because the Radix viewport wraps its children in a
@@ -148,8 +206,36 @@ export function ResultRows<TRow>({
 		 * until they happen to move the pointer over the list has no sign there
 		 * are more rows.
 		 */
-		<ScrollArea className="min-h-0 flex-1" type="auto">
-			<ul className="w-full divide-y divide-border/40">{rows.map(children)}</ul>
+		<ScrollArea className="min-h-0 flex-1" type="auto" viewportRef={setViewport}>
+			<ul className="relative w-full" style={{ height: virtualizer.getTotalSize() }}>
+				{virtualRows.map((virtualRow) => {
+					const row = rows[virtualRow.index];
+					if (row === undefined) {
+						return null;
+					}
+					return (
+						<li
+							className={cn(
+								'absolute top-0 left-0 w-full',
+								// The divider belongs to the row above it, and `divide-y` cannot
+								// draw it: it skips the first child, and the first child here is
+								// whichever row the window happens to start on rather than the
+								// first record.
+								virtualRow.index === 0 ? undefined : 'border-border/40 border-t',
+							)}
+							data-index={virtualRow.index}
+							key={virtualRow.key}
+							// Rows are not one height. A dated row with a life-stage strip is
+							// twice a bare one, so each is measured where it stands rather
+							// than assumed to match the estimate.
+							ref={virtualizer.measureElement}
+							style={{ transform: `translateY(${virtualRow.start}px)` }}
+						>
+							{children(row)}
+						</li>
+					);
+				})}
+			</ul>
 		</ScrollArea>
 	);
 }

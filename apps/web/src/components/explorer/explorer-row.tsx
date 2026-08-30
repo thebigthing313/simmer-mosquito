@@ -24,6 +24,12 @@ interface RowSwatch {
  * line up down the list even where dated and undated records mix. Dates carry
  * the year: an explorer can be pointed at any window, and "Mar 4" in a list that
  * spans two seasons is ambiguous.
+ *
+ * The row draws its own contents and nothing else. The list item around it
+ * belongs to the list, which is what positions and measures it: the rail
+ * renders only the rows in view, so the element that carries a row's index and
+ * its measured height has to be one the list owns. Callers put this inside an
+ * `li` of their own.
  */
 export function ExplorerRow({
 	title,
@@ -87,7 +93,7 @@ export function ExplorerRow({
 	const isStacked = badges !== undefined && date !== undefined;
 
 	return (
-		<li className="relative">
+		<div className="relative">
 			<SelectOverlay isSelected={isSelected} label={selectLabel} onSelect={onSelect} />
 			<div
 				className={cn(
@@ -116,7 +122,7 @@ export function ExplorerRow({
 					<ChevronRightIcon aria-hidden="true" className="size-4" />
 				</Link>
 			</div>
-		</li>
+		</div>
 	);
 }
 

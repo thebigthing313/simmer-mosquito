@@ -7,7 +7,7 @@ import {
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import type { CSSProperties, ReactNode } from 'react';
+import { type CSSProperties, type ReactNode, type RefObject, useRef } from 'react';
 import { OutletFullPageMap } from '../app-shell/outlet/full-page-map';
 import { MAP_CHROME_SURFACE } from '../map/chrome';
 import { type ExplorerCreateAction, ExplorerHeader } from './explorer-header';
@@ -262,6 +262,7 @@ function ResultsPanel<TRow>({
 }) {
 	const { emptyTitle, emptyDescription, skeletonClassName, isError, onRetry } = results;
 	const { isEmpty, content } = resultContent(results);
+	const footerRef = useRef<HTMLDivElement | null>(null);
 
 	return (
 		<div className={cn(PANEL_SHELL, 'min-h-0 flex-1')}>
@@ -293,6 +294,8 @@ function ResultsPanel<TRow>({
 				total={heading.total}
 			/>
 
+			{footer === undefined || isEmpty ? null : <SkipResults targetRef={footerRef} />}
+
 			<ResultList
 				emptyDescription={emptyDescription}
 				emptyTitle={emptyTitle}
@@ -305,8 +308,37 @@ function ResultsPanel<TRow>({
 				{content}
 			</ResultList>
 
-			{footer === undefined ? null : <div className="border-border/50 border-t p-3">{footer}</div>}
+			{footer === undefined ? null : (
+				// `tabIndex={-1}`: the skip control focuses this, and the next Tab
+				// carries on into the pager's own buttons from here.
+				<div className="border-border/50 border-t p-3" ref={footerRef} tabIndex={-1}>
+					{footer}
+				</div>
+			)}
 		</div>
+	);
+}
+
+/**
+ * The way past the rows to the pager under them.
+ *
+ * The rail mounts only what is in view, but tabbing into the last mounted row
+ * scrolls it and mounts the next, so Tab alone still walks a page of records
+ * three stops at a time. This is the bypass, and it is the reason the rows are
+ * reachable at all: without it the pager sits behind every record on the page.
+ *
+ * Hidden until it has focus, which is where a reader who cannot use it is not
+ * shown it and one who can arrives at it first.
+ */
+function SkipResults({ targetRef }: { readonly targetRef: RefObject<HTMLDivElement | null> }) {
+	return (
+		<button
+			className="sr-only focus:not-sr-only focus:m-2 focus:rounded-md focus:bg-background focus:px-3 focus:py-1.5 focus:font-medium focus:text-foreground focus:text-xs focus:shadow-sm focus:outline-none focus:ring-2 focus:ring-ring"
+			onClick={() => targetRef.current?.focus()}
+			type="button"
+		>
+			Skip to paging
+		</button>
 	);
 }
 
