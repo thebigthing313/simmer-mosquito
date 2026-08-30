@@ -12,6 +12,7 @@ import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
+import { AddressSurveillanceLinks } from '../components/address-surveillance';
 import { searchResultIcon } from '../components/search/search-destinations';
 import { RetiredMarker } from '../components/search/search-result-row';
 import {
@@ -20,6 +21,10 @@ import {
 	useGlobalSearch,
 } from '../components/search/use-global-search';
 import { useSearchResultOpen } from '../components/search/use-search-navigation';
+import {
+	type AddressSurveillance,
+	useAddressSurveillance,
+} from '../hooks/queries/use-address-surveillance';
 import {
 	type FilterCodecs,
 	type SearchCodec,
@@ -78,6 +83,11 @@ function SearchResultsRoute() {
 	const list = useSearchResultList(urlQuery, documentClass);
 	const { counts, first, hasMore, next, rows, sentinel, total } = list;
 
+	// One pair of subsets for the whole list rather than one per address row. The
+	// hook caps the ids, so a long scroll through addresses stops growing the
+	// predicate rather than growing it without bound.
+	const surveillance = useAddressSurveillance(addressResultIds(rows));
+
 	// A route comment opened before the routes collection has answered has no
 	// destination yet, and guessing a tree is the bug this replaced. The row is
 	// held and opened when the lookup lands.
@@ -124,6 +134,7 @@ function SearchResultsRoute() {
 					onRetry={() => void (first.isError ? first.refetch() : next.refetch())}
 					rows={rows}
 					sentinel={sentinel}
+					surveillance={surveillance}
 					waitingValue={opening.waitingValue}
 				>
 					{refused || emptyResult ? (
@@ -438,6 +449,7 @@ function ResultList({
 	onRetry,
 	rows,
 	sentinel,
+	surveillance,
 	waitingValue,
 }: {
 	readonly children: ReactNode;
@@ -449,6 +461,8 @@ function ResultList({
 	readonly onRetry: () => void;
 	readonly rows: readonly SearchResult[];
 	readonly sentinel: RefObject<HTMLDivElement | null>;
+	/** The Habitats and Traps at every address on screen, keyed by address id. */
+	readonly surveillance: AddressSurveillance;
 	/** The row that was opened and is waiting on a lookup, drawn as pending. */
 	readonly waitingValue: string | undefined;
 }) {
@@ -487,6 +501,7 @@ function ResultList({
 						onOpen={onOpen}
 						pending={searchResultValue(result) === waitingValue}
 						result={result}
+						surveillance={surveillance}
 					/>
 				))}
 			</ul>
@@ -504,19 +519,25 @@ function ResultRow({
 	onOpen,
 	pending,
 	result,
+	surveillance,
 }: {
 	readonly onOpen: (result: SearchResult) => void;
 	/** Opened, and waiting on the lookup that says where it goes. */
 	readonly pending: boolean;
 	readonly result: SearchResult;
+	readonly surveillance: AddressSurveillance;
 }) {
 	const Icon = searchResultIcon(result);
+	const addressId =
+		result.kind === 'record' && result.table === 'addresses' ? result.id : undefined;
 
 	return (
-		<li>
+		// The border moves to the row rather than the button, or the links would
+		// hang below the line that is meant to close the row.
+		<li className="border-b">
 			<button
 				aria-busy={pending ? true : undefined}
-				className="flex w-full items-center gap-3 border-b px-2 py-3 text-left hover:bg-accent"
+				className="flex w-full items-center gap-3 px-2 py-3 text-left hover:bg-accent"
 				onClick={() => onOpen(result)}
 				type="button"
 			>
@@ -533,6 +554,22 @@ function ResultRow({
 					<span className="truncate text-muted-foreground text-xs">{result.subtitle}</span>
 				)}
 			</button>
+			{/* Search will not match an address row on what sits at it, so the row
+			    carries the sites instead, one click rather than a second search. */}
+			{addressId === undefined ? null : (
+				<AddressSurveillanceLinks
+					className="px-2 pb-3"
+					habitats={surveillance.habitatsByAddress.get(addressId) ?? []}
+					traps={surveillance.trapsByAddress.get(addressId) ?? []}
+				/>
+			)}
 		</li>
 	);
+}
+
+/** The ids of the address rows on screen, which are the only rows that grow links. */
+function addressResultIds(rows: readonly SearchResult[]): readonly string[] {
+	return rows
+		.filter((row) => row.kind === 'record' && row.table === 'addresses')
+		.map((row) => row.id);
 }
