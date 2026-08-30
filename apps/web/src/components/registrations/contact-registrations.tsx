@@ -16,6 +16,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useMemo, useState } from 'react';
 import { toast } from 'sonner';
 import { newRecordId } from '../../hooks/mutations/shared';
+import type { Contact } from '../../hooks/queries/contact-view';
 import { useContact } from '../../hooks/queries/use-contact-record';
 import type { RegistrationListing } from '../../hooks/queries/use-registration-directory';
 import { useBreadcrumbLabel } from '../app-shell';
@@ -113,6 +114,7 @@ export function ContactRegistrations({ contactId }: { readonly contactId: string
 							/>
 						) : null}
 					</div>
+					<ContactBrief contact={contact} />
 				</div>
 
 				<div className="min-h-0 flex-1 overflow-y-auto p-3">
@@ -191,6 +193,57 @@ function RegistrationList({
 				/>
 			))}
 		</ItemGroup>
+	);
+}
+
+/**
+ * Who these registrations are for, read-only.
+ *
+ * In the header rather than at the top of the list, so it survives both the
+ * list scrolling and the switch into the form. Deciding whether a shape is the
+ * right one to warn about is a question about a person, and while the form is
+ * open the person is otherwise named nowhere but the breadcrumb.
+ *
+ * The consent flags are here for the same reason. A registration is a promise to
+ * warn somebody, and a contact who wants no email, no SMS and no phone is a
+ * promise the agency cannot keep; that is worth reading before recording another
+ * place to keep it about. All three are shown either way, because a missing
+ * badge would leave "wants it" and "nobody said" looking the same.
+ *
+ * Editing any of it is the contact's own page, one press away on the back link.
+ */
+function ContactBrief({ contact }: { readonly contact: Contact | undefined }) {
+	if (contact === undefined) {
+		return null;
+	}
+
+	const role = [contact.title, contact.company, contact.department].filter(Boolean).join(' · ');
+	const reach = [contact.preferredPhone, contact.alternatePhone, contact.email].filter(Boolean);
+
+	return (
+		<div className="grid gap-1 rounded-md border border-border bg-muted/40 p-2.5">
+			<p className="font-medium text-foreground text-sm">
+				{contact.contactName ?? 'Unnamed contact'}
+			</p>
+			{role === '' ? null : <p className="text-muted-foreground text-xs">{role}</p>}
+			<p className="break-words text-muted-foreground text-xs">
+				{reach.length === 0 ? 'No phone number or email recorded.' : reach.join(' · ')}
+			</p>
+			<div className="mt-0.5 flex flex-wrap gap-1">
+				<ConsentBadge label="Email" wanted={contact.wantsEmail} />
+				<ConsentBadge label="SMS" wanted={contact.wantsSms} />
+				<ConsentBadge label="Phone" wanted={contact.wantsPhone} />
+			</div>
+		</div>
+	);
+}
+
+/** The same wording the contact's own page uses, so the two do not disagree. */
+function ConsentBadge({ label, wanted }: { readonly label: string; readonly wanted: boolean }) {
+	return (
+		<Badge tone={wanted ? 'success' : 'neutral'} variant="outline">
+			{wanted ? `Wants ${label}` : `No ${label}`}
+		</Badge>
 	);
 }
 

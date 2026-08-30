@@ -41,8 +41,9 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 
 vi.mock('../../../../components/app-shell', () => ({ useBreadcrumbLabel: () => undefined }));
 vi.mock('../../../../components/map', () => ({ MapCanvas: () => <div data-testid="map" /> }));
+let contact: Record<string, unknown> | undefined;
 vi.mock('../../../../hooks/queries/use-contact-record', () => ({
-	useContact: () => ({ contact: { id: CONTACT, contactName: 'Ana Reyes' }, isReady: true }),
+	useContact: () => ({ contact, isReady: true }),
 }));
 
 // The draft is its own file with its own reads. What this file is about is the
@@ -104,11 +105,74 @@ function renderPage() {
 beforeEach(() => {
 	signedInRole = 'manager';
 	listings = [listing()];
+	contact = {
+		id: CONTACT,
+		contactName: 'Ana Reyes',
+		company: 'City Works',
+		department: null,
+		title: 'Property Manager',
+		preferredPhone: '555-0100',
+		alternatePhone: null,
+		email: 'ana@example.org',
+		wantsEmail: true,
+		wantsSms: false,
+		wantsPhone: false,
+	};
 });
 
 afterEach(cleanup);
 
 describe('ContactRegistrations', () => {
+	it('names the contact these registrations are for, and how to reach them', () => {
+		// While the form is open the person is otherwise named nowhere but the
+		// breadcrumb, and whether a shape is the right one to warn about is a
+		// question about a person.
+		renderPage();
+
+		expect(screen.getByText('Ana Reyes')).toBeTruthy();
+		expect(screen.getByText('Property Manager · City Works')).toBeTruthy();
+		expect(screen.getByText('555-0100 · ana@example.org')).toBeTruthy();
+	});
+
+	it('says which channels the contact agreed to, either way', () => {
+		// A registration is a promise to warn somebody. A missing badge would leave
+		// "wants it" and "nobody said" looking the same, so all three are shown.
+		renderPage();
+
+		expect(screen.getByText('Wants Email')).toBeTruthy();
+		expect(screen.getByText('No SMS')).toBeTruthy();
+		expect(screen.getByText('No Phone')).toBeTruthy();
+	});
+
+	it('says so when there is no way to reach the contact at all', () => {
+		contact = {
+			id: CONTACT,
+			contactName: null,
+			company: null,
+			department: null,
+			title: null,
+			preferredPhone: null,
+			alternatePhone: null,
+			email: null,
+			wantsEmail: false,
+			wantsSms: false,
+			wantsPhone: false,
+		};
+		renderPage();
+
+		expect(screen.getByText('Unnamed contact')).toBeTruthy();
+		expect(screen.getByText('No phone number or email recorded.')).toBeTruthy();
+	});
+
+	it('keeps the contact on screen while a registration is being added', () => {
+		renderPage();
+
+		fireEvent.click(screen.getByRole('button', { name: 'Add registration' }));
+
+		expect(screen.getByText('Registration form')).toBeTruthy();
+		expect(screen.getByText('Ana Reyes')).toBeTruthy();
+	});
+
 	it('lists only the registrations this contact holds', () => {
 		listings = [
 			listing({ id: 'mine' }),
