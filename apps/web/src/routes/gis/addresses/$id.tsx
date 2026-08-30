@@ -12,6 +12,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import { AddressSurveillanceCard } from '../../../components/address-surveillance';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -111,6 +112,7 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 						lng={geometryQuery.data?.lng ?? null}
 					/>
 					<RecordRegionsBand noun="address" recordId={address.id} recordType="addresses" />
+					<AddressSurveillanceCard addressId={address.id} />
 				</div>
 				<div className="grid content-start gap-5">
 					<AddressDetailsCard address={address} />
