@@ -103,7 +103,7 @@ function useWeatherUpload(stationId: string) {
 	// detail page this was opened from is already querying them, which is what
 	// keeps the on-demand subset warm.
 	const { summaries, isReady } = useWeatherSummaries(stationId);
-	const { run, dialog } = useAcknowledgedWrite({ askable: IMPORT_REFUSALS });
+	const { run, dialog } = useAcknowledgedWrite({ askable: IMPORT_REFUSALS, ask: true });
 
 	const [fileName, setFileName] = useState<string | null>(null);
 	const [parsed, setParsed] = useState<ParseResult | null>(null);
@@ -144,10 +144,11 @@ function useWeatherUpload(stationId: string) {
 		// still refuse one, but it is not asked to write a line the user has already
 		// been shown as unwritable.
 		//
-		// Both acknowledgements go out unset. What the file would overwrite is the
-		// server's to answer against stored rows, and it answers by refusing once and
-		// naming what it found, which is a better question than one asked from the
-		// client's own estimate.
+		// Both acknowledgements go out withheld, which `ask: true` sends as `false`
+		// so the guards run at all. What the file would overwrite is the server's to
+		// answer against stored rows, and it answers by refusing once and naming what
+		// it found, which is a better question than one asked from the client's own
+		// estimate.
 		void run(async (acknowledgements) => {
 			setResult(
 				await commitWeatherImport({
@@ -183,8 +184,6 @@ function ImportWeatherPage({ station }: { readonly station: WeatherStation }) {
 	// name the station itself or the crumb shows the bare id.
 	useBreadcrumbLabel(station.id, station.name);
 	const navigate = useNavigate();
-	const { run, dialog } = useAcknowledgedWrite({ askable: IMPORT_REFUSALS });
-
 	const upload = useWeatherUpload(station.id);
 
 	return (

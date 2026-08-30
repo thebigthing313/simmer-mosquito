@@ -23,6 +23,18 @@ import { acknowledgeableRefusalOf, consequencesOf } from '../lib/acknowledgement
 export type Acknowledgements = Readonly<Record<string, boolean>>;
 
 /**
+ * `run`, as a component takes it from the one above.
+ *
+ * A delete is optimistic, so the record leaves its collection the moment the
+ * button is pressed and the card holding the button unmounts before the refusal
+ * lands. The hook therefore lives in whatever survives that, and the button gets
+ * this.
+ */
+export type AskAcknowledged = (
+	write: (acknowledgements: Acknowledgements) => Promise<void>,
+) => Promise<void>;
+
+/**
  * A write that may be refused with a question, and the question.
  *
  * An acknowledgeable refusal is a condition the server can only discover once it

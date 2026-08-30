@@ -19,6 +19,8 @@ import { newRecordId } from '../../hooks/mutations/shared';
 import type { Contact } from '../../hooks/queries/contact-view';
 import { useContact } from '../../hooks/queries/use-contact-record';
 import type { RegistrationListing } from '../../hooks/queries/use-registration-directory';
+import { REGISTRATION_SAVE_REFUSALS } from '../../lib/acknowledgement-copy';
+import { useAcknowledgedWrite } from '../acknowledged-write';
 import { useBreadcrumbLabel } from '../app-shell';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import { ToggleFilter } from '../explorer';
@@ -63,6 +65,16 @@ export function ContactRegistrations({ contactId }: { readonly contactId: string
 	 * and a parent that held it in state would re-render itself forever.
 	 */
 	const [toolbarSlot, setToolbarSlot] = useState<HTMLDivElement | null>(null);
+	/*
+	 * Held on the page rather than in the draft, and rendered here too. The edit
+	 * form remounts as a skeleton the instant a save is applied: the geometry it
+	 * loaded is keyed on the row's `updated_at`, which the optimistic update moves,
+	 * so the form is gone by the time a refusal comes back. This survives it.
+	 */
+	const { run: askSave, dialog } = useAcknowledgedWrite({
+		askable: REGISTRATION_SAVE_REFUSALS,
+		ask: true,
+	});
 
 	// The uuid otherwise stands in the trail where the contact's name belongs, the
 	// way it does on every other by-id page.
@@ -126,6 +138,7 @@ export function ContactRegistrations({ contactId }: { readonly contactId: string
 						/>
 					) : (
 						<RegistrationDraft
+							askSave={askSave}
 							contactId={contactId}
 							draft={draft}
 							// Keyed, so switching drafts remounts the form. Both
@@ -157,6 +170,8 @@ export function ContactRegistrations({ contactId }: { readonly contactId: string
 						</div>
 					</WriteOnly>
 				) : null}
+
+				{dialog}
 			</div>
 		</MapSplitPage>
 	);

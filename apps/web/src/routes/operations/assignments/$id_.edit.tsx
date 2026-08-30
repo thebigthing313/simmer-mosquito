@@ -29,6 +29,7 @@ import {
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
@@ -47,6 +48,7 @@ import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-
 import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { ASSIGNMENT_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { isBelowRole } from '../../../lib/write-access';
 import { WorklistMap } from '../-worklist-map';
 import {
@@ -112,6 +114,13 @@ function AssignmentPlanRoute() {
 	const organizationId = identity?.organizationId ?? null;
 
 	const { updateDetails, remove: removeAssignment, moveStops } = useAssignmentMutations();
+	// Held on the route itself, and rendered on both of its branches. The delete
+	// is optimistic, so the assignment leaves the collection the moment the button
+	// is pressed and the card unmounts before the registry's refusal comes back.
+	const { run: askDelete, dialog: acknowledgementDialog } = useAcknowledgedWrite({
+		askable: ASSIGNMENT_DELETE_REFUSALS,
+		ask: true,
+	});
 	const items = useAssignmentItemMutations();
 
 	const { assignment, isReady } = useAssignment(id);
@@ -260,7 +269,12 @@ function AssignmentPlanRoute() {
 	}, [removeTarget, items]);
 
 	if (isReady && assignment === null) {
-		return <AssignmentNotFound />;
+		return (
+			<>
+				<AssignmentNotFound />
+				{acknowledgementDialog}
+			</>
+		);
 	}
 
 	return (
@@ -370,9 +384,10 @@ function AssignmentPlanRoute() {
 					{assignment === null ? null : (
 						<div className="shrink-0 border-border/40 border-t p-3">
 							<DangerZoneCard
+								ask={askDelete}
 								name={displayName ?? 'this assignment'}
 								noun="assignment"
-								onDelete={() => removeAssignment(assignment.id)}
+								onDelete={(acknowledgements) => removeAssignment(assignment.id, acknowledgements)}
 								recordId={assignment.id}
 								recordType="assignment"
 								returnTo="/operations/assignments"
@@ -400,6 +415,8 @@ function AssignmentPlanRoute() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+
+			{acknowledgementDialog}
 		</>
 	);
 }

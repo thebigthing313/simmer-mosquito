@@ -13,6 +13,7 @@ import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
@@ -132,7 +133,10 @@ function CreateInspectionRoute() {
 	// the samples, crew, and comment below only exist once the inspection lands,
 	// so a confirmed retry has to carry them too. Every id is minted up front, so
 	// running twice writes the same rows rather than a second set.
-	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite({
+		askable: STOP_RECORD_REFUSALS,
+		ask: true,
+	});
 
 	const onSave = useCallback(
 		async (input: {

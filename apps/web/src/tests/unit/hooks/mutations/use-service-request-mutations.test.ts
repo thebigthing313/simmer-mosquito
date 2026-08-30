@@ -39,6 +39,8 @@ function plan(overrides: { readonly fields?: ServiceRequestFields; readonly cont
 		current: fields(),
 		contactId: overrides.contactId ?? CONTACT,
 		currentContactId: CONTACT,
+		// Withheld, which is what a first attempt sends.
+		acknowledgedHistoricalContactChange: false,
 	});
 }
 

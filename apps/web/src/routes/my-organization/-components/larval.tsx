@@ -48,6 +48,7 @@ import {
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import { EmptyValue } from '../../../components/empty-value';
@@ -504,6 +505,7 @@ function HabitatTypeDrawer({
 	readonly trigger: React.ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
+	const { run, dialog } = useAcknowledgedWrite({ askable: mutations.refusals, ask: true });
 	const defaultValues = catalogFormValues(habitatType);
 	const form = useAppForm({
 		defaultValues,
@@ -516,15 +518,23 @@ function HabitatTypeDrawer({
 					habitatType === undefined
 						? 'Unable to create habitat type.'
 						: `Unable to save ${habitatType.name}.`,
-				onWritten: () => setOpen(false),
+				// Closing is inside `run` rather than `onWritten`: `run` resolves on a
+				// refusal too, so dismissing on the way past would take the form away
+				// before the question could be asked.
 				save: () =>
-					habitatType === undefined
-						? mutations.create(catalogFields(value)).then(() => undefined)
-						: mutations.save(
+					run(async (acknowledgements) => {
+						if (habitatType === undefined) {
+							await mutations.create(catalogFields(value));
+						} else {
+							await mutations.save(
 								habitatType.id,
 								catalogFields(value),
 								catalogFields(catalogFormValues(habitatType)),
-							),
+								acknowledgements,
+							);
+						}
+						setOpen(false);
+					}),
 			});
 		},
 	});
@@ -537,70 +547,73 @@ function HabitatTypeDrawer({
 	}
 
 	return (
-		<Drawer direction="right" open={open} onOpenChange={updateOpen}>
-			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-			<DrawerContent className="w-[min(680px,100%)] sm:max-w-[680px]">
-				<DrawerHeader>
-					<DrawerTitle>
-						{habitatType === undefined ? 'Add habitat type' : `Edit ${habitatType.name}`}
-					</DrawerTitle>
-					<DrawerDescription>
-						Manage the label, lifecycle state, and optional custom fields.
-					</DrawerDescription>
-				</DrawerHeader>
-				<form.AppForm>
-					<form
-						className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
-						}}
-					>
-						<form.FormErrorAlert />
-						<form.AppField
-							name="name"
-							validators={{
-								onSubmit: ({ value }) =>
-									value.trim().length === 0 ? 'Habitat type name is required.' : undefined,
+		<>
+			<Drawer direction="right" open={open} onOpenChange={updateOpen}>
+				<DrawerTrigger asChild>{trigger}</DrawerTrigger>
+				<DrawerContent className="w-[min(680px,100%)] sm:max-w-[680px]">
+					<DrawerHeader>
+						<DrawerTitle>
+							{habitatType === undefined ? 'Add habitat type' : `Edit ${habitatType.name}`}
+						</DrawerTitle>
+						<DrawerDescription>
+							Manage the label, lifecycle state, and optional custom fields.
+						</DrawerDescription>
+					</DrawerHeader>
+					<form.AppForm>
+						<form
+							className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
+							onSubmit={(event) => {
+								event.preventDefault();
+								void form.handleSubmit();
 							}}
 						>
-							{(field) => (
-								<field.TextField
-									label="Habitat type name"
-									disabled={!canManage}
-									placeholder="e.g. Catch basin"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="description">
-							{(field) => (
-								<field.TextareaField
-									label="Description"
-									disabled={!canManage}
-									className="min-h-24"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="isActive">
-							{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
-						</form.AppField>
-						<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-							{(field) => <field.JsonSchemaField label="Custom Fields" disabled={!canManage} />}
-						</form.AppField>
-						<DrawerFooter className="px-0">
-							<form.FormActions>
-								<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
-								<DrawerClose asChild>
-									<Button type="button" variant="outline">
-										<CloseIcon data-icon="inline-start" aria-hidden="true" />
-										Cancel
-									</Button>
-								</DrawerClose>
-							</form.FormActions>
-						</DrawerFooter>
-					</form>
-				</form.AppForm>
-			</DrawerContent>
-		</Drawer>
+							<form.FormErrorAlert />
+							<form.AppField
+								name="name"
+								validators={{
+									onSubmit: ({ value }) =>
+										value.trim().length === 0 ? 'Habitat type name is required.' : undefined,
+								}}
+							>
+								{(field) => (
+									<field.TextField
+										label="Habitat type name"
+										disabled={!canManage}
+										placeholder="e.g. Catch basin"
+									/>
+								)}
+							</form.AppField>
+							<form.AppField name="description">
+								{(field) => (
+									<field.TextareaField
+										label="Description"
+										disabled={!canManage}
+										className="min-h-24"
+									/>
+								)}
+							</form.AppField>
+							<form.AppField name="isActive">
+								{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
+							</form.AppField>
+							<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
+								{(field) => <field.JsonSchemaField label="Custom Fields" disabled={!canManage} />}
+							</form.AppField>
+							<DrawerFooter className="px-0">
+								<form.FormActions>
+									<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
+									<DrawerClose asChild>
+										<Button type="button" variant="outline">
+											<CloseIcon data-icon="inline-start" aria-hidden="true" />
+											Cancel
+										</Button>
+									</DrawerClose>
+								</form.FormActions>
+							</DrawerFooter>
+						</form>
+					</form.AppForm>
+				</DrawerContent>
+			</Drawer>
+			{dialog}
+		</>
 	);
 }

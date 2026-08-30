@@ -3,16 +3,6 @@ import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -51,7 +41,10 @@ import {
 import { ArrowLeftIcon, iconRegistry, KeyboardIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
+import {
+	type Acknowledgements,
+	useAcknowledgedWrite,
+} from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
@@ -81,6 +74,10 @@ import {
 import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useSpeciesCatalog } from '../../../hooks/queries/use-species-catalog';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import {
+	COLLECTION_DELETE_REFUSALS,
+	COLLECTION_ZERO_RESULT_REFUSALS,
+} from '../../../lib/acknowledgement-copy';
 import { operationalDayAsTimestamp } from '../../../lib/local-date';
 import {
 	CollectionFlagBadges,
@@ -134,6 +131,15 @@ function CollectionDetail({
 	const { collection, isReady } = useAdultCollection(collectionId, {
 		gcTime: collectionGcTimeMs,
 	});
+	// Held here rather than in the danger zone, and rendered here too. The delete
+	// is optimistic, so the record leaves its collection the moment the button is
+	// pressed and everything below this line unmounts before the registry's
+	// refusal comes back. This component survives it: the row going is what makes
+	// it render `RecordUnavailable` instead.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: COLLECTION_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -145,9 +151,15 @@ function CollectionDetail({
 				{!isReady ? (
 					<CollectionDetailSkeleton />
 				) : collection === undefined ? (
-					<RecordUnavailable noun="collection" reason="not-found" />
+					<>
+						<RecordUnavailable noun="collection" reason="not-found" />
+						{dialog}
+					</>
 				) : (
-					<CollectionDetailContent canEdit={canEdit} collection={collection} />
+					<>
+						<CollectionDetailContent askDelete={run} canEdit={canEdit} collection={collection} />
+						{dialog}
+					</>
 				)}
 			</div>
 		</div>
@@ -157,9 +169,13 @@ function CollectionDetail({
 function CollectionDetailContent({
 	collection,
 	canEdit,
+	askDelete,
 }: {
 	readonly collection: AdultCollection;
 	readonly canEdit: boolean;
+	readonly askDelete: (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+	) => Promise<void>;
 }) {
 	const titleTimeZone = useOrganizationTimeZone();
 	const title = collectionTitle(collection, titleTimeZone);
@@ -234,9 +250,10 @@ function CollectionDetailContent({
 					</div>
 					<ResultsCard canEdit={canEdit} collection={collection} />
 					<DangerZoneCard
+						ask={askDelete}
 						name={title}
 						noun="collection"
-						onDelete={() => mutations.remove(collection.id)}
+						onDelete={(acknowledgements) => mutations.remove(collection.id, acknowledgements)}
 						recordId={collection.id}
 						recordType="collection"
 						returnTo="/adult-surveillance/collections"
@@ -357,24 +374,25 @@ function ResultsCard({
 		[entries],
 	);
 
-	const [confirmZeroResult, setConfirmZeroResult] = useState(false);
 	const [keyEntryOpen, setKeyEntryOpen] = useState(false);
 
 	const { setZeroResult, setBycatch, setProblem } = useCollectionMutations();
 	const speciesMutations = useCollectionSpeciesMutations();
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: COLLECTION_ZERO_RESULT_REFUSALS,
+		ask: true,
+	});
 
 	// Marking a collection zero-result clears every recorded species server-side
-	// (see markCollectionZeroResult). Guard the destructive turn-on when specimens
-	// exist; turning it off — or on with an already-empty list — applies straight away.
+	// (see markCollectionZeroResult), so the flag goes out withheld and the count
+	// in the question is the server's own. This page used to count `entries` and
+	// ask on its own, which meant a list that had not finished streaming, or one
+	// another crew had added to, asked about the wrong number or did not ask.
 	const handleZeroResultChange = useCallback(
 		(value: boolean) => {
-			if (value && entries.length > 0) {
-				setConfirmZeroResult(true);
-				return;
-			}
-			void setZeroResult(collection.id, value);
+			void run((acknowledgements) => setZeroResult(collection.id, value, acknowledgements));
 		},
-		[entries.length, setZeroResult, collection.id],
+		[run, setZeroResult, collection.id],
 	);
 
 	return (
@@ -511,23 +529,7 @@ function ResultsCard({
 				open={keyEntryOpen}
 			/>
 
-			<AlertDialog onOpenChange={setConfirmZeroResult} open={confirmZeroResult}>
-				<AlertDialogContent>
-					<AlertDialogHeader>
-						<AlertDialogTitle>Mark as Zero Result?</AlertDialogTitle>
-						<AlertDialogDescription>
-							This clears the {entries.length} species {entries.length === 1 ? 'record' : 'records'}{' '}
-							already recorded for this collection, and can't be undone.
-						</AlertDialogDescription>
-					</AlertDialogHeader>
-					<AlertDialogFooter>
-						<AlertDialogCancel>Cancel</AlertDialogCancel>
-						<AlertDialogAction onClick={() => void setZeroResult(collection.id, true)}>
-							Mark Zero Result
-						</AlertDialogAction>
-					</AlertDialogFooter>
-				</AlertDialogContent>
-			</AlertDialog>
+			{dialog}
 		</Card>
 	);
 }

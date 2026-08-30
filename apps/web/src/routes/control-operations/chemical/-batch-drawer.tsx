@@ -9,6 +9,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	CatalogDeleteDialog,
 	CatalogDrawerCancel,
@@ -23,6 +24,7 @@ import type {
 	InsecticideBatchRecord,
 	InsecticideRecord,
 } from '../../../hooks/queries/use-insecticide-records';
+import { INSECTICIDE_BATCH_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { insecticideDisplayName } from '../-control-display';
 
 const DeleteIcon = iconRegistry.actions.delete.icon;
@@ -59,6 +61,13 @@ export function InsecticideBatchDrawer({
 		() => selectableProducts.map(insecticideOption),
 		[selectableProducts],
 	);
+	// Held on the drawer component rather than inside the drawer's content, which
+	// unmounts: `commitCatalogSave` closes on the way past, before the server has
+	// answered, so a question raised here has to outlive the close.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: INSECTICIDE_BATCH_SAVE_REFUSALS,
+		ask: true,
+	});
 	const form = useAppForm({
 		defaultValues,
 		validators: {
@@ -69,13 +78,19 @@ export function InsecticideBatchDrawer({
 				failureMessage:
 					batch === undefined ? 'Unable to create batch.' : `Unable to save ${batch.batchName}.`,
 				onWritten: () => setOpen(false),
+				// A create has no history to relabel, so only the edit goes through
+				// `run`. `run` swallows a refusal a flag can answer and turns it into
+				// the dialog; anything else still reaches the toast here.
 				save: () =>
 					batch === undefined
 						? mutations.create(batchFields(value)).then(() => undefined)
-						: mutations.save(
-								batch.id,
-								batchFields(value),
-								batchFields(insecticideBatchFormValues(batch, batch.insecticideId)),
+						: run((acknowledgements) =>
+								mutations.save(
+									batch.id,
+									batchFields(value),
+									batchFields(insecticideBatchFormValues(batch, batch.insecticideId)),
+									acknowledgements,
+								),
 							),
 			});
 		},
@@ -147,6 +162,7 @@ export function InsecticideBatchDrawer({
 					)}
 				</form.AppField>
 			</CatalogRecordDrawer>
+			{dialog}
 		</form.AppForm>
 	);
 }

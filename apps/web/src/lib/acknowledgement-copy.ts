@@ -27,7 +27,14 @@
  * already shows, the 10 `domainBuilder` flags refuse with a 400 naming a field
  * path, and 5 are unread. `apps/server/src/acknowledgements.ts` is the map.
  *
- * ## Adding the fourth surface
+ * Five of the 36 have no entry because this app has no way to raise them:
+ * `acknowledgedRegionDetach` and `acknowledgedRouteRemoval` belong to a folder
+ * delete and a habitat retirement no control calls, `acknowledgedComponentDeletion`
+ * sits behind a formulation delete the registry blocks outright, and the two
+ * taxonomy flags belong to the global taxonomy, which is `apps/admin`. Wiring
+ * one means building the control first.
+ *
+ * ## Adding a surface
  *
  * 1. Find the flags the surface's commands can be refused over, from the
  *    payload type in `packages/domain` and `ACKNOWLEDGEMENT_MECHANISMS`.
@@ -66,6 +73,46 @@ export interface AcknowledgementCopy {
  * with no entry here has to fall back rather than read `undefined`.
  */
 const ACKNOWLEDGEMENT_COPY: Readonly<Record<string, AcknowledgementCopy>> = {
+	acknowledgedActionDetach: {
+		title: 'Unlink the work done?',
+		body: 'The work recorded in answer to this request is kept, with its link to the request cleared.',
+		confirm: 'Delete it',
+	},
+	acknowledgedActiveSubscriptionImpact: {
+		title: 'Retire it with subscribers?',
+		body: 'Registrations subscribed to this type stop being notified under it.',
+		confirm: 'Retire it',
+	},
+	acknowledgedActualActionDetach: {
+		title: 'Unlink the work recorded?',
+		body: "The work recorded at this mission's stops is kept, with its link to them cleared.",
+		confirm: 'Delete it',
+	},
+	acknowledgedAssignmentItemDeletion: {
+		title: 'Delete the stops?',
+		body: 'The assignment stops that name this record go with it.',
+		confirm: 'Delete them',
+	},
+	acknowledgedAssociatedRecordsDeletion: {
+		title: 'Delete what was recorded here?',
+		body: 'Everything filed under this record is deleted with it.',
+		confirm: 'Delete it all',
+	},
+	acknowledgedBatchClearance: {
+		title: 'Drop the batch records?',
+		body: 'Batch records naming a different product are removed from this application.',
+		confirm: 'Drop them',
+	},
+	acknowledgedBatchDeletion: {
+		title: 'Delete the batch records?',
+		body: 'What was mixed for this application goes with it.',
+		confirm: 'Delete them',
+	},
+	acknowledgedCascadeDelete: {
+		title: 'Delete the trapping record too?',
+		body: 'The collections taken at this trap and their species counts go with it.',
+		confirm: 'Delete it all',
+	},
 	acknowledgedCompletedItemAdditionalAction: {
 		title: 'Record against a closed stop?',
 		body: 'This mission stop is already closed. The action is filed against it and the stop stays closed.',
@@ -78,17 +125,57 @@ const ACKNOWLEDGEMENT_COPY: Readonly<Record<string, AcknowledgementCopy>> = {
 	},
 	acknowledgedCrossDomainDetach: {
 		title: 'Unlink the control work?',
-		body: 'The control work recorded here is kept, with its link to this habitat cleared.',
+		body: 'The control work recorded here is kept, with its link to this record cleared.',
 		confirm: 'Delete it',
+	},
+	acknowledgedDuplicateTrapCode: {
+		title: 'Use a code another trap has?',
+		body: 'The code stays on both traps.',
+		confirm: 'Use it',
+	},
+	acknowledgedFutureOnlyChange: {
+		title: 'Change it from here on?',
+		body: 'Notices already sent keep what they said, and the change applies to the ones still to come.',
+		confirm: 'Change it',
+	},
+	acknowledgedHistoricalBatchLabelChange: {
+		title: 'Rename the batch?',
+		body: 'Every application recorded from this batch is relabelled.',
+		confirm: 'Rename it',
+	},
+	acknowledgedHistoricalContactChange: {
+		title: 'Change the contact?',
+		body: 'Everything already recorded against this reads under the new contact.',
+		confirm: 'Change it',
+	},
+	acknowledgedHistoricalEquipmentLabelChange: {
+		title: 'Rename the equipment?',
+		body: 'Every record that names this equipment is relabelled.',
+		confirm: 'Rename it',
+	},
+	acknowledgedHistoricalLabelChange: {
+		title: 'Rename it?',
+		body: 'Every record filed under this name is relabelled.',
+		confirm: 'Rename it',
 	},
 	acknowledgedHistoricalLocationChange: {
 		title: 'Move the station?',
 		body: 'Summaries do not store where the station stood, so every reading taken here moves with it.',
 		confirm: 'Move it',
 	},
+	acknowledgedHistoricalProductChange: {
+		title: 'Change the product?',
+		body: 'Every application, batch and formulation naming it is relabelled.',
+		confirm: 'Change it',
+	},
 	acknowledgedHistoricalStationIdentityChange: {
 		title: 'Rename the station?',
 		body: 'Summaries do not store what the station was called, so every reading taken here is relabelled.',
+		confirm: 'Rename it',
+	},
+	acknowledgedHistoricalVehicleLabelChange: {
+		title: 'Rename the vehicle?',
+		body: 'Every record that names this vehicle is relabelled.',
 		confirm: 'Rename it',
 	},
 	acknowledgedInspectionDetach: {
@@ -96,10 +183,25 @@ const ACKNOWLEDGEMENT_COPY: Readonly<Record<string, AcknowledgementCopy>> = {
 		body: 'The inspections recorded here are kept, with their link to this habitat cleared.',
 		confirm: 'Delete it',
 	},
+	acknowledgedMissionDetach: {
+		title: 'Unlink the mission stops?',
+		body: 'The mission stops that name this request are kept, with their link to it cleared.',
+		confirm: 'Delete it',
+	},
 	acknowledgedMissionGeometryNotCovered: {
 		title: 'Record outside the stop?',
 		body: 'The treated area falls outside the ground this stop names.',
 		confirm: 'Record it',
+	},
+	acknowledgedMissionItemDeletion: {
+		title: 'Delete the stops?',
+		body: 'The stops planned on this mission go with it.',
+		confirm: 'Delete them',
+	},
+	acknowledgedNotificationDeletion: {
+		title: 'Delete the notifications?',
+		body: 'The notifications raised for this mission go with it.',
+		confirm: 'Delete them',
 	},
 	acknowledgedPartialImport: {
 		title: 'Import the rest?',
@@ -111,9 +213,29 @@ const ACKNOWLEDGEMENT_COPY: Readonly<Record<string, AcknowledgementCopy>> = {
 		body: 'The action cites a different control request from the one this stop names.',
 		confirm: 'Record it',
 	},
+	acknowledgedRouteItemDeletion: {
+		title: 'Delete the stops?',
+		body: 'The stops on this route go with it, and assignments already cut from it are untouched.',
+		confirm: 'Delete them',
+	},
+	acknowledgedSpeciesCountDeletion: {
+		title: 'Delete the species counts?',
+		body: 'The counts recorded against this collection go with it.',
+		confirm: 'Delete them',
+	},
+	acknowledgedSpeciesCountsClearance: {
+		title: 'Clear the species counts?',
+		body: 'Marking this zero result deletes the counts already recorded against it.',
+		confirm: 'Clear them',
+	},
 	acknowledgedSummaryDeletion: {
 		title: 'Delete the readings too?',
 		body: 'Deleting the station deletes every reading recorded against it.',
+		confirm: 'Delete them',
+	},
+	acknowledgedSupportRecordDeletion: {
+		title: 'Delete the notes and crew?',
+		body: 'The comments and the people recorded as assisting go with the record.',
 		confirm: 'Delete them',
 	},
 	acknowledgedTargetMismatch: {
@@ -248,4 +370,170 @@ export const IMPORT_REFUSALS = {
 export const HABITAT_DELETE_REFUSALS = {
 	acknowledgedInspectionDetach: 'acknowledgedInspectionDetach',
 	acknowledgedCrossDomainDetach: 'acknowledgedCrossDomainDetach',
+} as const satisfies Readonly<Record<string, string>>;
+
+/**
+ * The one question recording against an assignment stop can be asked with a
+ * count behind it.
+ *
+ * {@link STOP_ACKNOWLEDGEABLE_REFUSALS} is wider, and the four it holds beyond
+ * this one are state refusals rather than counted ones. A state refusal repeats
+ * a condition the form already shows, so it stays silent and this map is what
+ * the three assignment-stop surfaces send withheld.
+ */
+export const STOP_RECORD_REFUSALS = {
+	acknowledgedCompletedItemAdditionalRecord: 'acknowledgedCompletedItemAdditionalRecord',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** Deleting a trap takes the collections taken at it, and everything under them. */
+export const TRAP_DELETE_REFUSALS = {
+	acknowledgedCascadeDelete: 'acknowledgedCascadeDelete',
+} as const satisfies Readonly<Record<string, string>>;
+
+/**
+ * The two a trap's form can be asked.
+ *
+ * The code collision is asked on a create and on bringing a retired trap back,
+ * because retiring frees the code for another trap to take. The rename is asked
+ * on an edit. One map serves both forms: neither can be posed on a page that
+ * cannot pose the other.
+ */
+export const TRAP_SAVE_REFUSALS = {
+	acknowledgedDuplicateTrapCode: 'acknowledgedDuplicateTrapCode',
+	acknowledgedHistoricalLabelChange: 'acknowledgedHistoricalLabelChange',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** Deleting a collection takes the species counts recorded against it. */
+export const COLLECTION_DELETE_REFUSALS = {
+	acknowledgedSpeciesCountDeletion: 'acknowledgedSpeciesCountDeletion',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** Marking a collection zero result deletes the counts already on it. */
+export const COLLECTION_ZERO_RESULT_REFUSALS = {
+	acknowledgedSpeciesCountsClearance: 'acknowledgedSpeciesCountsClearance',
+} as const satisfies Readonly<Record<string, string>>;
+
+/**
+ * The two an inspection delete may be asked.
+ *
+ * Its samples, their species counts and its support rows go with it; the control
+ * work recorded against it is kept and unlinked, the same question a habitat
+ * delete puts.
+ */
+export const INSPECTION_DELETE_REFUSALS = {
+	acknowledgedAssociatedRecordsDeletion: 'acknowledgedAssociatedRecordsDeletion',
+	acknowledgedCrossDomainDetach: 'acknowledgedCrossDomainDetach',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** A sample takes its species counts and comments with it, and nothing else. */
+export const SAMPLE_DELETE_REFUSALS = {
+	acknowledgedAssociatedRecordsDeletion: 'acknowledgedAssociatedRecordsDeletion',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** Deleting a chemical application takes its batch records and its support rows. */
+export const APPLICATION_DELETE_REFUSALS = {
+	acknowledgedBatchDeletion: 'acknowledgedBatchDeletion',
+	acknowledgedSupportRecordDeletion: 'acknowledgedSupportRecordDeletion',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** Changing an application's product drops the batches mixed from another one. */
+export const APPLICATION_SAVE_REFUSALS = {
+	acknowledgedBatchClearance: 'acknowledgedBatchClearance',
+} as const satisfies Readonly<Record<string, string>>;
+
+/**
+ * Source reduction, outreach and biocontrol deletes.
+ *
+ * One map for the three because the registry gives them one rule set: comments
+ * and assisting people, and nothing that survives.
+ */
+export const CONTROL_ACTION_DELETE_REFUSALS = {
+	acknowledgedSupportRecordDeletion: 'acknowledgedSupportRecordDeletion',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** Deleting a service request takes the assignment stops cut from it. */
+export const SERVICE_REQUEST_DELETE_REFUSALS = {
+	acknowledgedAssignmentItemDeletion: 'acknowledgedAssignmentItemDeletion',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** Moving a request to another contact relabels the stops already worked for it. */
+export const SERVICE_REQUEST_SAVE_REFUSALS = {
+	acknowledgedHistoricalContactChange: 'acknowledgedHistoricalContactChange',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** A control request goes; the work and the mission stops naming it are unlinked. */
+export const CONTROL_REQUEST_DELETE_REFUSALS = {
+	acknowledgedActionDetach: 'acknowledgedActionDetach',
+	acknowledgedMissionDetach: 'acknowledgedMissionDetach',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** A mission takes its stops and its notifications; the work recorded is unlinked. */
+export const MISSION_DELETE_REFUSALS = {
+	acknowledgedActualActionDetach: 'acknowledgedActualActionDetach',
+	acknowledgedMissionItemDeletion: 'acknowledgedMissionItemDeletion',
+	acknowledgedNotificationDeletion: 'acknowledgedNotificationDeletion',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** Deleting a route takes its stops. Assignments already cut from it are untouched. */
+export const ROUTE_DELETE_REFUSALS = {
+	acknowledgedRouteItemDeletion: 'acknowledgedRouteItemDeletion',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** Deleting an assignment takes the stops on it. */
+export const ASSIGNMENT_DELETE_REFUSALS = {
+	acknowledgedAssignmentItemDeletion: 'acknowledgedAssignmentItemDeletion',
+} as const satisfies Readonly<Record<string, string>>;
+
+/**
+ * Renaming a lookup catalog row.
+ *
+ * The seven catalogs whose only counted question is the rename. Notification
+ * types are the eighth and have {@link NOTIFICATION_TYPE_SAVE_REFUSALS}, because
+ * retiring one is a second question.
+ */
+export const CATALOG_SAVE_REFUSALS = {
+	acknowledgedHistoricalLabelChange: 'acknowledgedHistoricalLabelChange',
+} as const satisfies Readonly<Record<string, string>>;
+
+/**
+ * A notification type's save, which can be a rename and a retirement at once.
+ *
+ * Retiring one is not a relabelling: the registrations subscribed to it stop
+ * being notified under it, and that is what the second flag answers.
+ */
+export const NOTIFICATION_TYPE_SAVE_REFUSALS = {
+	acknowledgedActiveSubscriptionImpact: 'acknowledgedActiveSubscriptionImpact',
+	acknowledgedHistoricalLabelChange: 'acknowledgedHistoricalLabelChange',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** An insecticide's identity: trade name, ingredient, EPA number, type, unit. */
+export const INSECTICIDE_SAVE_REFUSALS = {
+	acknowledgedHistoricalProductChange: 'acknowledgedHistoricalProductChange',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** A batch's label, which every application mixed from it reads under. */
+export const INSECTICIDE_BATCH_SAVE_REFUSALS = {
+	acknowledgedHistoricalBatchLabelChange: 'acknowledgedHistoricalBatchLabelChange',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** A vehicle's name. */
+export const VEHICLE_SAVE_REFUSALS = {
+	acknowledgedHistoricalVehicleLabelChange: 'acknowledgedHistoricalVehicleLabelChange',
+} as const satisfies Readonly<Record<string, string>>;
+
+/** An equipment record's name or serial number. */
+export const EQUIPMENT_SAVE_REFUSALS = {
+	acknowledgedHistoricalEquipmentLabelChange: 'acknowledgedHistoricalEquipmentLabelChange',
+} as const satisfies Readonly<Record<string, string>>;
+
+/**
+ * A notification registration's edits.
+ *
+ * Where it is, how wide, which notices it takes and who it belongs to. Every one
+ * of them reads back on notices already sent, so the two questions are whether
+ * the change is future-only and whether the contact behind it moves.
+ */
+export const REGISTRATION_SAVE_REFUSALS = {
+	acknowledgedFutureOnlyChange: 'acknowledgedFutureOnlyChange',
+	acknowledgedHistoricalContactChange: 'acknowledgedHistoricalContactChange',
 } as const satisfies Readonly<Record<string, string>>;

@@ -69,9 +69,15 @@ export interface UpdateOutreachActionInput {
 export interface OutreachActionMutations {
 	readonly record: (input: RecordOutreachActionInput) => Promise<void>;
 	readonly update: (current: OutreachAction, input: UpdateOutreachActionInput) => Promise<void>;
+	/**
+	 * Delete an outreach action.
+	 *
+	 * `acknowledgements` is what the user answered. Withheld flags go on the wire
+	 * as `false`, which is the only reading that makes the registry refuse.
+	 */
 	readonly remove: (
 		outreachActionId: string,
-		acknowledgements?: StopAcknowledgements,
+		acknowledgements?: Readonly<Record<string, boolean>>,
 	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
@@ -208,13 +214,15 @@ export function useOutreachActionMutations(): OutreachActionMutations {
 	);
 
 	const remove = useCallback(
-		async (outreachActionId: string, acknowledgements?: StopAcknowledgements) => {
+		async (outreachActionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
 				mutateCollection(outreach_actions, {
 					operation: 'delete',
 					intent: 'controlOperations.deleteOutreachAction',
 					key: outreachActionId,
-					...(acknowledgements === undefined ? {} : { acknowledgements }),
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
 				}),
 			);
 		},

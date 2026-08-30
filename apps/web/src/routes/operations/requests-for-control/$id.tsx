@@ -15,6 +15,10 @@ import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/regis
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo } from 'react';
+import {
+	type Acknowledgements,
+	useAcknowledgedWrite,
+} from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
@@ -48,6 +52,7 @@ import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
+import { CONTROL_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { useCommandRunner } from '../-command-runner';
 import { MissionStatusBadge, RequestStatusBadge } from '../-operations-display';
 
@@ -72,6 +77,15 @@ function RequestDetailRoute() {
 
 	const subject = request === undefined ? null : requestDisplayName(request);
 	useBreadcrumbLabel(id, subject);
+	// Held here rather than in the danger zone, and rendered here too. The delete
+	// is optimistic, so the request leaves the collection the moment the button is
+	// pressed and the content below unmounts before the registry's refusal comes
+	// back. This component survives it: the row going is what makes it render
+	// `RecordUnavailable` instead.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: CONTROL_REQUEST_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -87,8 +101,9 @@ function RequestDetailRoute() {
 						<RequestDetailSkeleton />
 					)
 				) : (
-					<RequestDetailContent request={request} subject={subject ?? ''} />
+					<RequestDetailContent askDelete={run} request={request} subject={subject ?? ''} />
 				)}
+				{dialog}
 			</div>
 		</div>
 	);
@@ -97,9 +112,13 @@ function RequestDetailRoute() {
 function RequestDetailContent({
 	request,
 	subject,
+	askDelete,
 }: {
 	readonly request: RequestRecord;
 	readonly subject: string;
+	readonly askDelete: (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+	) => Promise<void>;
 }) {
 	const auth = useAuthSnapshot();
 	const _actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
@@ -144,9 +163,10 @@ function RequestDetailContent({
 					</div>
 					<RequestMissionsCard requestId={request.id} />
 					<DangerZoneCard
+						ask={askDelete}
 						name={subject}
 						noun="request for control"
-						onDelete={() => requestWrites.remove(request.id)}
+						onDelete={(acknowledgements) => requestWrites.remove(request.id, acknowledgements)}
 						recordId={request.id}
 						recordType="requestedControlAction"
 						returnTo="/operations/requests-for-control"

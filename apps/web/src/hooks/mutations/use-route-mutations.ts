@@ -46,8 +46,17 @@ export interface RouteMutations {
 		readonly routeType: RouteType;
 	}) => Promise<string>;
 	readonly rename: (routeId: string, routeName: string) => Promise<void>;
-	/** Takes the route's stops with it. The records those stops pointed at are untouched. */
-	readonly remove: (routeId: string) => Promise<void>;
+	/**
+	 * Takes the route's stops with it. The records those stops pointed at are
+	 * untouched.
+	 *
+	 * `acknowledgements` is what the user answered. Withheld flags go on the wire
+	 * as `false`, which is the only reading that makes the registry refuse.
+	 */
+	readonly remove: (
+		routeId: string,
+		acknowledgements?: Readonly<Record<string, boolean>>,
+	) => Promise<void>;
 	readonly moveStops: (routeId: string, plan: MovePlan) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
@@ -124,15 +133,21 @@ export function useRouteMutations(): RouteMutations {
 		[actorProfileId],
 	);
 
-	const remove = useCallback(async (routeId: string) => {
-		await settleWrite(
-			mutateCollection(routes, {
-				operation: 'delete',
-				intent: 'fieldWork.deleteRoute',
-				key: routeId,
-			}),
-		);
-	}, []);
+	const remove = useCallback(
+		async (routeId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
+			await settleWrite(
+				mutateCollection(routes, {
+					operation: 'delete',
+					intent: 'fieldWork.deleteRoute',
+					key: routeId,
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
+				}),
+			);
+		},
+		[],
+	);
 
 	const moveStops = useCallback(async (routeId: string, plan: MovePlan) => {
 		await settleWrite(

@@ -75,8 +75,16 @@ export interface AssignmentMutations {
 	readonly complete: (assignmentId: string) => Promise<void>;
 	readonly cancel: (assignmentId: string, cancellationReason: string | null) => Promise<void>;
 	readonly reopen: (assignmentId: string) => Promise<void>;
-	/** Takes its stops with it. The records those stops pointed at are untouched. */
-	readonly remove: (assignmentId: string) => Promise<void>;
+	/**
+	 * Takes its stops with it. The records those stops pointed at are untouched.
+	 *
+	 * `acknowledgements` is what the user answered. Withheld flags go on the wire
+	 * as `false`, which is the only reading that makes the registry refuse.
+	 */
+	readonly remove: (
+		assignmentId: string,
+		acknowledgements?: Readonly<Record<string, boolean>>,
+	) => Promise<void>;
 	readonly moveStops: (assignmentId: string, plan: MovePlan) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
@@ -307,15 +315,21 @@ export function useAssignmentMutations(): AssignmentMutations {
 		[actorProfileId],
 	);
 
-	const remove = useCallback(async (assignmentId: string) => {
-		await settleWrite(
-			mutateCollection(assignments, {
-				operation: 'delete',
-				intent: 'fieldWork.deleteAssignment',
-				key: assignmentId,
-			}),
-		);
-	}, []);
+	const remove = useCallback(
+		async (assignmentId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
+			await settleWrite(
+				mutateCollection(assignments, {
+					operation: 'delete',
+					intent: 'fieldWork.deleteAssignment',
+					key: assignmentId,
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
+				}),
+			);
+		},
+		[],
+	);
 
 	const moveStops = useCallback(async (assignmentId: string, plan: MovePlan) => {
 		await settleWrite(

@@ -31,6 +31,11 @@ import type {
 	NotificationType,
 } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
+import type { Acknowledgements } from '../../components/acknowledged-write';
+import {
+	CATALOG_SAVE_REFUSALS,
+	NOTIFICATION_TYPE_SAVE_REFUSALS,
+} from '../../lib/acknowledgement-copy';
 import { application_methods } from '../../lib/collections/application_methods';
 import { biocontrol_methods } from '../../lib/collections/biocontrol_methods';
 import { collection_lures } from '../../lib/collections/collection_lures';
@@ -50,6 +55,43 @@ import {
 	setCatalogRowActive,
 } from './catalog-writes';
 import { newRecordId, optimisticStamp } from './shared';
+
+/**
+ * The questions a catalog's writes can be refused over, keyed and valued by the
+ * flag that answers each.
+ *
+ * `CATALOG_SAVE_REFUSALS` for seven of the eight, and
+ * `NOTIFICATION_TYPE_SAVE_REFUSALS` for notification types, which carry a second
+ * question.
+ */
+export type CatalogRefusals = Readonly<Record<string, string>>;
+
+/**
+ * The flags a catalog write carries, answered only where the write can actually
+ * be refused over them.
+ *
+ * Two tests, and a flag needs both. The write has to raise the question: a
+ * description-only edit renames nothing, and a save that leaves the switch alone
+ * retires nothing. And the catalog has to have it: retiring a habitat type
+ * strands no subscribers, so its map does not carry that flag, and sending a
+ * `false` for it would answer a question no page can put.
+ */
+function catalogAcknowledgements(
+	refusals: CatalogRefusals,
+	answered: Acknowledgements,
+	raised: { readonly renames: boolean; readonly retires: boolean },
+): Acknowledgements {
+	const askable: readonly string[] = Object.values(refusals);
+	const flags: Record<string, boolean> = {};
+	if (raised.renames && askable.includes('acknowledgedHistoricalLabelChange')) {
+		flags.acknowledgedHistoricalLabelChange = answered.acknowledgedHistoricalLabelChange === true;
+	}
+	if (raised.retires && askable.includes('acknowledgedActiveSubscriptionImpact')) {
+		flags.acknowledgedActiveSubscriptionImpact =
+			answered.acknowledgedActiveSubscriptionImpact === true;
+	}
+	return flags;
+}
 
 /**
  * A catalog record as its dialog holds it.
@@ -79,10 +121,28 @@ export interface CatalogMutations {
 	 * `deactivate` or `reactivate`, and doing both at once is both names on one
 	 * write.
 	 */
-	readonly save: (id: string, fields: CatalogFields, current: CatalogFields) => Promise<void>;
+	readonly save: (
+		id: string,
+		fields: CatalogFields,
+		current: CatalogFields,
+		acknowledgements: Acknowledgements,
+	) => Promise<void>;
 	/** The one-click retire and restore on the row menu. */
-	readonly setActive: (id: string, isActive: boolean) => Promise<void>;
+	readonly setActive: (
+		id: string,
+		isActive: boolean,
+		acknowledgements: Acknowledgements,
+	) => Promise<void>;
 	readonly remove: (id: string) => Promise<void>;
+	/**
+	 * The questions this catalog's writes can be refused over.
+	 *
+	 * Carried on the mutations rather than read off the page, because which
+	 * questions there are is a property of the catalog and not of the screen it is
+	 * edited on. A page holds whichever catalog it was handed and passes this
+	 * straight to `useAcknowledgedWrite`.
+	 */
+	readonly refusals: CatalogRefusals;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
 }
@@ -143,28 +203,40 @@ export function useCollectionMethodMutations(): CatalogMutations {
 		[organizationId, actorProfileId],
 	);
 
-	const save = useCallback(async (id: string, fields: CatalogFields, current: CatalogFields) => {
-		const changes: Partial<CollectionMethod> = {};
-		if (fields.name !== current.name) {
-			changes.name = fields.name;
-		}
-		if (fields.description !== current.description) {
-			changes.description = fields.description ?? null;
-		}
-		if (fields.customSchema !== current.customSchema) {
-			changes.custom_schema = fields.customSchema ?? null;
-		}
-		if (fields.actionThreshold !== current.actionThreshold) {
-			changes.action_threshold = fields.actionThreshold ?? null;
-		}
-		await saveCatalogRow(collection_methods, collectionMethodCommands, id, {
-			changes,
-			isActive: fields.isActive,
-			wasActive: current.isActive,
-		});
-	}, []);
+	const save = useCallback(
+		async (
+			id: string,
+			fields: CatalogFields,
+			current: CatalogFields,
+			acknowledgements: Acknowledgements,
+		) => {
+			const changes: Partial<CollectionMethod> = {};
+			if (fields.name !== current.name) {
+				changes.name = fields.name;
+			}
+			if (fields.description !== current.description) {
+				changes.description = fields.description ?? null;
+			}
+			if (fields.customSchema !== current.customSchema) {
+				changes.custom_schema = fields.customSchema ?? null;
+			}
+			if (fields.actionThreshold !== current.actionThreshold) {
+				changes.action_threshold = fields.actionThreshold ?? null;
+			}
+			await saveCatalogRow(collection_methods, collectionMethodCommands, id, {
+				changes,
+				isActive: fields.isActive,
+				wasActive: current.isActive,
+				acknowledgements: catalogAcknowledgements(CATALOG_SAVE_REFUSALS, acknowledgements, {
+					renames: changes.name !== undefined,
+					retires: !fields.isActive && current.isActive,
+				}),
+			});
+		},
+		[],
+	);
 
-	return catalogMutations(collection_methods, collectionMethodCommands, {
+	return catalogMutations(collection_methods, collectionMethodCommands, CATALOG_SAVE_REFUSALS, {
 		create,
 		save,
 		canWrite: organizationId !== null && actorProfileId !== null,
@@ -199,22 +271,34 @@ export function useCollectionLureMutations(): CatalogMutations {
 		[organizationId, actorProfileId],
 	);
 
-	const save = useCallback(async (id: string, fields: CatalogFields, current: CatalogFields) => {
-		const changes: Partial<CollectionLure> = {};
-		if (fields.name !== current.name) {
-			changes.name = fields.name;
-		}
-		if (fields.description !== current.description) {
-			changes.description = fields.description ?? null;
-		}
-		await saveCatalogRow(collection_lures, collectionLureCommands, id, {
-			changes,
-			isActive: fields.isActive,
-			wasActive: current.isActive,
-		});
-	}, []);
+	const save = useCallback(
+		async (
+			id: string,
+			fields: CatalogFields,
+			current: CatalogFields,
+			acknowledgements: Acknowledgements,
+		) => {
+			const changes: Partial<CollectionLure> = {};
+			if (fields.name !== current.name) {
+				changes.name = fields.name;
+			}
+			if (fields.description !== current.description) {
+				changes.description = fields.description ?? null;
+			}
+			await saveCatalogRow(collection_lures, collectionLureCommands, id, {
+				changes,
+				isActive: fields.isActive,
+				wasActive: current.isActive,
+				acknowledgements: catalogAcknowledgements(CATALOG_SAVE_REFUSALS, acknowledgements, {
+					renames: changes.name !== undefined,
+					retires: !fields.isActive && current.isActive,
+				}),
+			});
+		},
+		[],
+	);
 
-	return catalogMutations(collection_lures, collectionLureCommands, {
+	return catalogMutations(collection_lures, collectionLureCommands, CATALOG_SAVE_REFUSALS, {
 		create,
 		save,
 		canWrite: organizationId !== null && actorProfileId !== null,
@@ -250,25 +334,37 @@ export function useHabitatTypeMutations(): CatalogMutations {
 		[organizationId, actorProfileId],
 	);
 
-	const save = useCallback(async (id: string, fields: CatalogFields, current: CatalogFields) => {
-		const changes: Partial<HabitatType> = {};
-		if (fields.name !== current.name) {
-			changes.name = fields.name;
-		}
-		if (fields.description !== current.description) {
-			changes.description = fields.description ?? null;
-		}
-		if (fields.customSchema !== current.customSchema) {
-			changes.custom_schema = fields.customSchema ?? null;
-		}
-		await saveCatalogRow(habitat_types, habitatTypeCommands, id, {
-			changes,
-			isActive: fields.isActive,
-			wasActive: current.isActive,
-		});
-	}, []);
+	const save = useCallback(
+		async (
+			id: string,
+			fields: CatalogFields,
+			current: CatalogFields,
+			acknowledgements: Acknowledgements,
+		) => {
+			const changes: Partial<HabitatType> = {};
+			if (fields.name !== current.name) {
+				changes.name = fields.name;
+			}
+			if (fields.description !== current.description) {
+				changes.description = fields.description ?? null;
+			}
+			if (fields.customSchema !== current.customSchema) {
+				changes.custom_schema = fields.customSchema ?? null;
+			}
+			await saveCatalogRow(habitat_types, habitatTypeCommands, id, {
+				changes,
+				isActive: fields.isActive,
+				wasActive: current.isActive,
+				acknowledgements: catalogAcknowledgements(CATALOG_SAVE_REFUSALS, acknowledgements, {
+					renames: changes.name !== undefined,
+					retires: !fields.isActive && current.isActive,
+				}),
+			});
+		},
+		[],
+	);
 
-	return catalogMutations(habitat_types, habitatTypeCommands, {
+	return catalogMutations(habitat_types, habitatTypeCommands, CATALOG_SAVE_REFUSALS, {
 		create,
 		save,
 		canWrite: organizationId !== null && actorProfileId !== null,
@@ -303,26 +399,47 @@ export function useNotificationTypeMutations(): CatalogMutations {
 		[organizationId, actorProfileId],
 	);
 
-	const save = useCallback(async (id: string, fields: CatalogFields, current: CatalogFields) => {
-		const changes: Partial<NotificationType> = {};
-		if (fields.name !== current.name) {
-			changes.name = fields.name;
-		}
-		if (fields.description !== current.description) {
-			changes.description = fields.description ?? null;
-		}
-		await saveCatalogRow(notification_types, notificationTypeCommands, id, {
-			changes,
-			isActive: fields.isActive,
-			wasActive: current.isActive,
-		});
-	}, []);
+	const save = useCallback(
+		async (
+			id: string,
+			fields: CatalogFields,
+			current: CatalogFields,
+			acknowledgements: Acknowledgements,
+		) => {
+			const changes: Partial<NotificationType> = {};
+			if (fields.name !== current.name) {
+				changes.name = fields.name;
+			}
+			if (fields.description !== current.description) {
+				changes.description = fields.description ?? null;
+			}
+			await saveCatalogRow(notification_types, notificationTypeCommands, id, {
+				changes,
+				isActive: fields.isActive,
+				wasActive: current.isActive,
+				acknowledgements: catalogAcknowledgements(
+					NOTIFICATION_TYPE_SAVE_REFUSALS,
+					acknowledgements,
+					{
+						renames: changes.name !== undefined,
+						retires: !fields.isActive && current.isActive,
+					},
+				),
+			});
+		},
+		[],
+	);
 
-	return catalogMutations(notification_types, notificationTypeCommands, {
-		create,
-		save,
-		canWrite: organizationId !== null && actorProfileId !== null,
-	});
+	return catalogMutations(
+		notification_types,
+		notificationTypeCommands,
+		NOTIFICATION_TYPE_SAVE_REFUSALS,
+		{
+			create,
+			save,
+			canWrite: organizationId !== null && actorProfileId !== null,
+		},
+	);
 }
 
 export function useApplicationMethodMutations(): CatalogMutations {
@@ -398,7 +515,12 @@ function useControlMethodMutations(
 	);
 
 	const save = useCallback(
-		async (id: string, fields: CatalogFields, current: CatalogFields) => {
+		async (
+			id: string,
+			fields: CatalogFields,
+			current: CatalogFields,
+			acknowledgements: Acknowledgements,
+		) => {
 			const changes: Partial<ApplicationMethod> = {};
 			if (fields.name !== current.name) {
 				changes.name = fields.name;
@@ -410,12 +532,16 @@ function useControlMethodMutations(
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
+				acknowledgements: catalogAcknowledgements(CATALOG_SAVE_REFUSALS, acknowledgements, {
+					renames: changes.name !== undefined,
+					retires: !fields.isActive && current.isActive,
+				}),
 			});
 		},
 		[collection, names],
 	);
 
-	return catalogMutations(collection, names, {
+	return catalogMutations(collection, names, CATALOG_SAVE_REFUSALS, {
 		create,
 		save,
 		canWrite: organizationId !== null && actorProfileId !== null,
@@ -433,17 +559,34 @@ function useControlMethodMutations(
 function catalogMutations<TRow extends CatalogRow>(
 	collection: CatalogCollection<TRow>,
 	names: CatalogCommandNames,
+	refusals: CatalogRefusals,
 	bound: {
 		readonly create: (fields: CatalogFields) => Promise<string>;
-		readonly save: (id: string, fields: CatalogFields, current: CatalogFields) => Promise<void>;
+		readonly save: (
+			id: string,
+			fields: CatalogFields,
+			current: CatalogFields,
+			acknowledgements: Acknowledgements,
+		) => Promise<void>;
 		readonly canWrite: boolean;
 	},
 ): CatalogMutations {
 	return {
 		create: bound.create,
 		save: bound.save,
-		setActive: (id, isActive) => setCatalogRowActive(collection, names, id, isActive),
+		setActive: (id, isActive, acknowledgements) =>
+			setCatalogRowActive(
+				collection,
+				names,
+				id,
+				isActive,
+				catalogAcknowledgements(refusals, acknowledgements, {
+					renames: false,
+					retires: !isActive,
+				}),
+			),
 		remove: (id) => deleteCatalogRow(collection, names, id),
+		refusals,
 		canWrite: bound.canWrite,
 	};
 }

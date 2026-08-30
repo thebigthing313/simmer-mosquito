@@ -49,6 +49,10 @@ function plan(overrides: {
 		fields: overrides.fields ?? fields(),
 		current: fields(),
 		geometry: overrides.geometry ?? null,
+		// Withheld, which is what a first attempt sends. Which of the two a plan
+		// carries is the assertion; the value is only ever the caller's answer.
+		acknowledgedFutureOnlyChange: false,
+		acknowledgedHistoricalContactChange: false,
 	});
 }
 

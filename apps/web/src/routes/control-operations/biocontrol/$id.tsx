@@ -12,6 +12,10 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
+import {
+	type Acknowledgements,
+	useAcknowledgedWrite,
+} from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -30,6 +34,7 @@ import { useBiocontrolMethodRoster } from '../../../hooks/queries/use-catalog-ro
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
+import { CONTROL_ACTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { ContextBadge, formatActionDate, formatMeasure } from '../-control-display';
 
 const BiocontrolIcon = iconRegistry.entities.biocontrolAction.icon;
@@ -53,6 +58,15 @@ function BiocontrolDetail({ actionId }: { readonly actionId: string }) {
 	const { action, isReady, isError } = useBiocontrolAction(actionId, {
 		gcTime: biocontrolGcTimeMs,
 	});
+	// Held here rather than in the danger zone, and rendered here too. The delete
+	// is optimistic, so the release leaves the collection the moment the button is
+	// pressed and everything below this line unmounts before the registry's
+	// refusal comes back. This component survives it: the row going is what makes
+	// it render `RecordUnavailable` instead.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: CONTROL_ACTION_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -68,14 +82,23 @@ function BiocontrolDetail({ actionId }: { readonly actionId: string }) {
 				) : action === undefined ? (
 					<RecordUnavailable noun="biocontrol action" reason="not-found" />
 				) : (
-					<BiocontrolDetailContent action={action} />
+					<BiocontrolDetailContent action={action} askDelete={run} />
 				)}
+				{dialog}
 			</div>
 		</div>
 	);
 }
 
-function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction }) {
+function BiocontrolDetailContent({
+	action,
+	askDelete,
+}: {
+	readonly action: BiocontrolAction;
+	readonly askDelete: (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+	) => Promise<void>;
+}) {
 	// The roster is still read, but only for the custom-field schema the chosen
 	// method declares — the method's *name* arrives joined.
 	const methods = useBiocontrolMethodRoster();
@@ -134,9 +157,10 @@ function BiocontrolDetailContent({ action }: { readonly action: BiocontrolAction
 						/>
 					</div>
 					<DangerZoneCard
+						ask={askDelete}
 						name={methodName}
 						noun="biocontrol action"
-						onDelete={() => remove(action.id)}
+						onDelete={(acknowledgements) => remove(action.id, acknowledgements)}
 						recordId={action.id}
 						recordType="biocontrolAction"
 						returnTo="/control-operations/biocontrol"

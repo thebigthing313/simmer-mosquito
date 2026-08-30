@@ -24,6 +24,10 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, Suspense } from 'react';
 import { getServerUrl } from '../../../auth';
+import {
+	type Acknowledgements,
+	useAcknowledgedWrite,
+} from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -57,6 +61,7 @@ import { useProfileNames } from '../../../hooks/queries/use-profile-names';
 import { useSpeciesNames } from '../../../hooks/queries/use-species-names';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { INSPECTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { adhocLabel } from '../../../lib/coordinate-label';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
@@ -129,6 +134,14 @@ interface SampleEntry {
 
 function InspectionDetail({ inspectionId }: { readonly inspectionId: string }) {
 	const query = useInspectionDetail(inspectionId);
+	// Held here rather than in the danger zone, and rendered here too. The delete
+	// is optimistic, so everything below this line can unmount before the
+	// registry's refusal comes back, and state set there would be set on a
+	// component that is gone.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: INSPECTION_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -137,9 +150,15 @@ function InspectionDetail({ inspectionId }: { readonly inspectionId: string }) {
 				{query.isPending ? (
 					<InspectionDetailSkeleton />
 				) : query.isError || query.data == null ? (
-					<RecordUnavailable noun="inspection" reason="not-found" />
+					<>
+						<RecordUnavailable noun="inspection" reason="not-found" />
+						{dialog}
+					</>
 				) : (
-					<InspectionDetailContent inspection={query.data} />
+					<>
+						<InspectionDetailContent askDelete={run} inspection={query.data} />
+						{dialog}
+					</>
 				)}
 			</div>
 		</div>
@@ -168,7 +187,15 @@ function InspectionTopBar({ habitatId }: { readonly habitatId: string | null }) 
 	);
 }
 
-function InspectionDetailContent({ inspection }: { readonly inspection: InspectionDetailRow }) {
+function InspectionDetailContent({
+	inspection,
+	askDelete,
+}: {
+	readonly inspection: InspectionDetailRow;
+	readonly askDelete: (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+	) => Promise<void>;
+}) {
 	// Surface the inspection date in the breadcrumb trail in place of its uuid.
 	useBreadcrumbLabel(inspection.id, breadcrumbLabel(inspection));
 	const mutations = useInspectionMutations();
@@ -189,9 +216,10 @@ function InspectionDetailContent({ inspection }: { readonly inspection: Inspecti
 					<InspectionSamplesCard inspectionId={inspection.id} isWet={inspection.isWet} />
 					<LinkedControlActionsCard inspectionId={inspection.id} />
 					<DangerZoneCard
+						ask={askDelete}
 						name={breadcrumbLabel(inspection)}
 						noun="inspection"
-						onDelete={() => mutations.remove(inspection.id)}
+						onDelete={(acknowledgements) => mutations.remove(inspection.id, acknowledgements)}
 						recordId={inspection.id}
 						recordType="inspection"
 						returnTo="/larval-surveillance/inspections"

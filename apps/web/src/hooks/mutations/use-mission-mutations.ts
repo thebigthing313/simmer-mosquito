@@ -81,8 +81,16 @@ export interface MissionMutations {
 	readonly cancel: (missionId: string, cancellationReason: string) => Promise<void>;
 	/** The reason is required: a mission reopened silently is a hole in its record. */
 	readonly reopen: (missionId: string, reopenReason: string) => Promise<void>;
-	/** Takes its stops with it. The requests those stops named are untouched. */
-	readonly remove: (missionId: string) => Promise<void>;
+	/**
+	 * Takes its stops with it. The requests those stops named are untouched.
+	 *
+	 * `acknowledgements` is what the user answered. Withheld flags go on the wire
+	 * as `false`, which is the only reading that makes the registry refuse.
+	 */
+	readonly remove: (
+		missionId: string,
+		acknowledgements?: Readonly<Record<string, boolean>>,
+	) => Promise<void>;
 	readonly moveStops: (missionId: string, plan: MovePlan) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
@@ -333,15 +341,21 @@ export function useMissionMutations(): MissionMutations {
 		[actorProfileId],
 	);
 
-	const remove = useCallback(async (missionId: string) => {
-		await settleWrite(
-			mutateCollection(missions, {
-				operation: 'delete',
-				intent: 'missionDispatch.deleteMission',
-				key: missionId,
-			}),
-		);
-	}, []);
+	const remove = useCallback(
+		async (missionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
+			await settleWrite(
+				mutateCollection(missions, {
+					operation: 'delete',
+					intent: 'missionDispatch.deleteMission',
+					key: missionId,
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
+				}),
+			);
+		},
+		[],
+	);
 
 	const moveStops = useCallback(async (missionId: string, plan: MovePlan) => {
 		await settleWrite(

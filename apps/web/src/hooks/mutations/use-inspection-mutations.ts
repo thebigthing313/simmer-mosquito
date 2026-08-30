@@ -131,7 +131,16 @@ export interface InspectionMutations {
 		readonly adhoc: { readonly next: AdHocPlacement; readonly current: AdHocPlacement } | null;
 		readonly centroid: InspectionCentroid | null;
 	}) => Promise<void>;
-	readonly remove: (inspectionId: string) => Promise<void>;
+	/**
+	 * Delete an inspection.
+	 *
+	 * `acknowledgements` is what the user answered. A withheld flag goes on the
+	 * wire as `false`, which is the only reading that makes the registry refuse.
+	 */
+	readonly remove: (
+		inspectionId: string,
+		acknowledgements?: Readonly<Record<string, boolean>>,
+	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
 }
@@ -299,15 +308,21 @@ export function useInspectionMutations(): InspectionMutations {
 		[actorProfileId],
 	);
 
-	const remove = useCallback(async (inspectionId: string) => {
-		await settleWrite(
-			mutateCollection(inspections, {
-				operation: 'delete',
-				intent: 'larvalSurveillance.deleteInspection',
-				key: inspectionId,
-			}),
-		);
-	}, []);
+	const remove = useCallback(
+		async (inspectionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
+			await settleWrite(
+				mutateCollection(inspections, {
+					operation: 'delete',
+					intent: 'larvalSurveillance.deleteInspection',
+					key: inspectionId,
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
+				}),
+			);
+		},
+		[],
+	);
 
 	return {
 		record,

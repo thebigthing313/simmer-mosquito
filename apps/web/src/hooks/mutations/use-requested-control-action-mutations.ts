@@ -72,7 +72,16 @@ export interface RequestMutations {
 	/** Handled, duplicate, or not feasible all close the same row — which it was belongs in the comments. */
 	readonly resolve: (requestId: string) => Promise<void>;
 	readonly reopen: (requestId: string) => Promise<void>;
-	readonly remove: (requestId: string) => Promise<void>;
+	/**
+	 * Delete a request for control.
+	 *
+	 * `acknowledgements` is what the user answered. Withheld flags go on the wire
+	 * as `false`, which is the only reading that makes the registry refuse.
+	 */
+	readonly remove: (
+		requestId: string,
+		acknowledgements?: Readonly<Record<string, boolean>>,
+	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
 }
@@ -240,15 +249,21 @@ export function useRequestedControlActionMutations(): RequestMutations {
 		[actorProfileId],
 	);
 
-	const remove = useCallback(async (requestId: string) => {
-		await settleWrite(
-			mutateCollection(requested_control_actions, {
-				operation: 'delete',
-				intent: 'controlOperations.deleteRequestedControlAction',
-				key: requestId,
-			}),
-		);
-	}, []);
+	const remove = useCallback(
+		async (requestId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
+			await settleWrite(
+				mutateCollection(requested_control_actions, {
+					operation: 'delete',
+					intent: 'controlOperations.deleteRequestedControlAction',
+					key: requestId,
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
+				}),
+			);
+		},
+		[],
+	);
 
 	return {
 		create,

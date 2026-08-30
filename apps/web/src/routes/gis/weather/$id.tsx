@@ -21,7 +21,7 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useState } from 'react';
-import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
+import { type AskAcknowledged, useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
@@ -51,6 +51,11 @@ function RouteComponent() {
 function WeatherStationDetail({ stationId }: { readonly stationId: string }) {
 	// Stations are eager, so this resolves without a fetch.
 	const { station, isReady } = useWeatherStation(stationId);
+	// Held here rather than in the lifecycle card. The delete is optimistic, so
+	// the station leaves the collection the moment the button is pressed and the
+	// card is gone before the refusal arrives. This component survives it: the row
+	// going is what makes it render `RecordUnavailable` instead.
+	const { run, dialog } = useAcknowledgedWrite({ askable: STATION_DELETE_REFUSALS, ask: true });
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -64,14 +69,21 @@ function WeatherStationDetail({ stationId }: { readonly stationId: string }) {
 				) : station === undefined ? (
 					<RecordUnavailable noun="weather station" reason="not-found" />
 				) : (
-					<WeatherStationContent station={station} />
+					<WeatherStationContent askDelete={run} station={station} />
 				)}
+				{dialog}
 			</div>
 		</div>
 	);
 }
 
-function WeatherStationContent({ station }: { readonly station: WeatherStation }) {
+function WeatherStationContent({
+	station,
+	askDelete,
+}: {
+	readonly station: WeatherStation;
+	readonly askDelete: AskAcknowledged;
+}) {
 	useBreadcrumbLabel(station.id, station.name);
 
 	// A station an agency does not own is one of the shared provider rows, which no
@@ -97,7 +109,7 @@ function WeatherStationContent({ station }: { readonly station: WeatherStation }
 					<StationDetailsCard station={station} />
 					{isOwned ? (
 						<WriteOnly minimum="manager">
-							<StationLifecycleCard station={station} />
+							<StationLifecycleCard askDelete={askDelete} station={station} />
 						</WriteOnly>
 					) : null}
 				</div>
@@ -202,10 +214,15 @@ function StationDetailsCard({ station }: { readonly station: WeatherStation }) {
  * question is not "what stops this" but "do you know what goes with it", which is
  * what `acknowledgedSummaryDeletion` asks and the server raises by name.
  */
-function StationLifecycleCard({ station }: { readonly station: WeatherStation }) {
+function StationLifecycleCard({
+	station,
+	askDelete,
+}: {
+	readonly station: WeatherStation;
+	readonly askDelete: AskAcknowledged;
+}) {
 	const navigate = useNavigate();
 	const mutations = useWeatherStationMutations();
-	const { run, dialog } = useAcknowledgedWrite({ askable: STATION_DELETE_REFUSALS, ask: true });
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [isBusy, setIsBusy] = useState(false);
@@ -232,7 +249,7 @@ function StationLifecycleCard({ station }: { readonly station: WeatherStation })
 			//
 			// The navigation is inside the callback because `run` resolves on a
 			// refusal too, see the same note on the edit page.
-			await run(async (acknowledgements) => {
+			await askDelete(async (acknowledgements) => {
 				await mutations.remove(station.id, acknowledgements.acknowledgedSummaryDeletion === true);
 				await navigate({ to: '/gis/weather' });
 			});
@@ -242,7 +259,7 @@ function StationLifecycleCard({ station }: { readonly station: WeatherStation })
 			setIsBusy(false);
 			setConfirmingDelete(false);
 		}
-	}, [mutations, navigate, run, station.id]);
+	}, [askDelete, mutations, navigate, station.id]);
 
 	return (
 		<Card variant="surface">
@@ -289,7 +306,6 @@ function StationLifecycleCard({ station }: { readonly station: WeatherStation })
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
-			{dialog}
 		</Card>
 	);
 }

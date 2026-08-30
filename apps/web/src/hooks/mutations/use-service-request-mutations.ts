@@ -28,11 +28,15 @@
  *
  * ## The acknowledgement flags
  *
- * `updateServiceRequestDetails` and the two references each carry one, and
- * `deleteServiceRequest` carries two. None is sent: no writer reads any of them
- * today, so they are vocabulary the domain states and nothing enforces. When one
- * starts being enforced it will arrive as a refusal, which is what
- * `useAcknowledgedWrite` is for.
+ * Two are sent, both withheld, because the server refuses over them and names
+ * the flag when it does. Moving a request to another contact makes everything
+ * already recorded against it read under the new one, and deleting a request
+ * takes the assignment stops cut from it. The rest are vocabulary the domain
+ * states and no writer reads, so nothing sends them; a flag joins this list when
+ * a refusal can name it.
+ *
+ * The contact flag rides only on the contact command, so a save that edits the
+ * details and leaves the caller alone does not answer a question nobody asked.
  */
 
 import { type GeoJsonPoint, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
@@ -57,7 +61,15 @@ type ServiceRequestUpdateIntent =
 	| 'publicEngagement.updateServiceRequestDetails'
 	| 'publicEngagement.updateServiceRequestContact';
 
-/** What an edit means, the columns it moves, and the reference it carries. */
+/**
+ * What an edit means, the columns it moves, the reference it carries, and the
+ * confirmation it answers.
+ *
+ * `arguments` and `acknowledgements` are kept apart because the transport treats
+ * them differently: an argument is folded in before the "did anything change"
+ * check, while an acknowledgement is not, so answering a refusal cannot on its
+ * own turn an untouched form into a write.
+ */
 export interface ServiceRequestUpdatePlan {
 	readonly intents: readonly ServiceRequestUpdateIntent[];
 	readonly changes: Partial<ServiceRequest>;
@@ -67,6 +79,8 @@ export interface ServiceRequestUpdatePlan {
 	 * anyway makes the body claim an edit it is not making.
 	 */
 	readonly arguments?: Readonly<Record<string, unknown>>;
+	/** Empty unless the contact moved, which is the only refusable half of a save. */
+	readonly acknowledgements: Readonly<Record<string, boolean>>;
 }
 
 /**
@@ -84,6 +98,7 @@ export function serviceRequestUpdatePlan(input: {
 	readonly current: ServiceRequestFields;
 	readonly contactId: string;
 	readonly currentContactId: string;
+	readonly acknowledgedHistoricalContactChange: boolean;
 }): ServiceRequestUpdatePlan | null {
 	const { fields, current } = input;
 	const intents: ServiceRequestUpdateIntent[] = [];
@@ -117,6 +132,12 @@ export function serviceRequestUpdatePlan(input: {
 		...(contactMoved
 			? { arguments: { contact: { kind: 'existing', contactId: input.contactId } } }
 			: {}),
+		// Only the move to another contact can be refused over what the request
+		// already reads under, so a details-only edit sends nothing. The server
+		// draws the same line.
+		acknowledgements: contactMoved
+			? { acknowledgedHistoricalContactChange: input.acknowledgedHistoricalContactChange }
+			: {},
 	};
 }
 
@@ -143,12 +164,23 @@ export interface ServiceRequestMutations {
 		readonly current: ServiceRequestFields;
 		readonly contactId: string;
 		readonly currentContactId: string;
+		/** What the user answered about what is already recorded under the old contact. */
+		readonly acknowledgedHistoricalContactChange: boolean;
 	}) => Promise<void>;
 	/** Close it, with the summary that becomes the resolution comment. */
 	readonly close: (requestId: string, resolutionSummary: string) => Promise<void>;
 	/** Reopen it, with the reason that becomes the comment recording the reopen. */
 	readonly reopen: (requestId: string, reopenReason: string) => Promise<void>;
-	readonly remove: (requestId: string) => Promise<void>;
+	/**
+	 * Delete a request. The assignment stops cut from it go with it.
+	 *
+	 * `acknowledgements` is what the user answered. Withheld flags go on the wire
+	 * as `false`, which is the only reading that makes the registry refuse.
+	 */
+	readonly remove: (
+		requestId: string,
+		acknowledgements?: Readonly<Record<string, boolean>>,
+	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
 }
@@ -226,6 +258,7 @@ export function useServiceRequestMutations(): ServiceRequestMutations {
 			readonly current: ServiceRequestFields;
 			readonly contactId: string;
 			readonly currentContactId: string;
+			readonly acknowledgedHistoricalContactChange: boolean;
 		}) => {
 			const plan = serviceRequestUpdatePlan(input);
 			if (plan === null) {
@@ -243,6 +276,7 @@ export function useServiceRequestMutations(): ServiceRequestMutations {
 						updated_at: optimisticStamp(),
 					},
 					...(plan.arguments === undefined ? {} : { arguments: plan.arguments }),
+					acknowledgements: plan.acknowledgements,
 				}),
 			);
 		},
@@ -295,15 +329,21 @@ export function useServiceRequestMutations(): ServiceRequestMutations {
 		[actorProfileId],
 	);
 
-	const remove = useCallback(async (requestId: string) => {
-		await settleWrite(
-			mutateCollection(service_requests, {
-				operation: 'delete',
-				intent: 'publicEngagement.deleteServiceRequest',
-				key: requestId,
-			}),
-		);
-	}, []);
+	const remove = useCallback(
+		async (requestId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
+			await settleWrite(
+				mutateCollection(service_requests, {
+					operation: 'delete',
+					intent: 'publicEngagement.deleteServiceRequest',
+					key: requestId,
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
+				}),
+			);
+		},
+		[],
+	);
 
 	return {
 		record,

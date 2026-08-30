@@ -32,8 +32,9 @@
  * One consequence worth knowing: changing the *product* clears the links
  * server-side, because lots of the old insecticide cannot describe the new one.
  * The form already empties its batch field when the product changes, so the two
- * agree — but a caller that skipped the form would need to answer
- * `acknowledgedBatchClearance`.
+ * agree — and `acknowledgedBatchClearance` goes out withheld on a save that
+ * moves the product, so a record with batches of the old one is refused with the
+ * count rather than losing them quietly. See `lib/acknowledgement-copy.ts`.
  */
 
 import {
@@ -95,7 +96,14 @@ export interface UpdateApplicationInput {
 	readonly values: ApplicationValues;
 	/** Only when the user moved the point this session. */
 	readonly location?: ActionLocation;
-	readonly acknowledgements?: StopAcknowledgements;
+	/**
+	 * What the user has answered so far.
+	 *
+	 * Wider than a stop's flags because an edit can also be refused over the
+	 * batches a product change would clear. Which of them reaches the wire is
+	 * {@link update}'s to decide, not the form's.
+	 */
+	readonly acknowledgements?: Readonly<Record<string, boolean>>;
 }
 
 /** One linked lot, as much of it as reconciling needs. */
@@ -121,9 +129,15 @@ export interface ApplicationMutations {
 	readonly removeBatch: (applicationBatchId: string) => Promise<void>;
 	/** Both of the above, until the links match a selection. What an edit form saves. */
 	readonly setBatches: (input: SetApplicationBatchesInput) => Promise<void>;
+	/**
+	 * Delete an application.
+	 *
+	 * `acknowledgements` is what the user answered. Withheld flags go on the wire
+	 * as `false`, which is the only reading that makes the registry refuse.
+	 */
 	readonly remove: (
 		applicationId: string,
-		acknowledgements?: StopAcknowledgements,
+		acknowledgements?: Readonly<Record<string, boolean>>,
 	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
@@ -244,8 +258,9 @@ export function useApplicationMutations(): ApplicationMutations {
 				throw new Error('Your profile is still loading.');
 			}
 
+			const productMoved = current.insecticideId !== values.insecticideId;
 			const fieldsMoved =
-				current.insecticideId !== values.insecticideId ||
+				productMoved ||
 				current.amountApplied !== values.amountApplied ||
 				current.unitId !== values.unitId ||
 				current.actionDate !== values.actionDate ||
@@ -306,7 +321,7 @@ export function useApplicationMutations(): ApplicationMutations {
 					// Only when the attachment is what changed, and carrying the Inspection
 					// through — see `contextFor`.
 					...(habitatMoved ? { context: contextFor(values.habitatId, current.inspectionId) } : {}),
-					...(acknowledgements === undefined ? {} : { acknowledgements }),
+					acknowledgements: outgoingAcknowledgements(acknowledgements, productMoved),
 				}),
 			);
 		},
@@ -369,13 +384,15 @@ export function useApplicationMutations(): ApplicationMutations {
 	);
 
 	const remove = useCallback(
-		async (applicationId: string, acknowledgements?: StopAcknowledgements) => {
+		async (applicationId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
 				mutateCollection(applications, {
 					operation: 'delete',
 					intent: 'controlOperations.deleteChemicalApplication',
 					key: applicationId,
-					...(acknowledgements === undefined ? {} : { acknowledgements }),
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
 				}),
 			);
 		},
@@ -391,4 +408,24 @@ export function useApplicationMutations(): ApplicationMutations {
 		remove,
 		canWrite: organizationId !== null && actorProfileId !== null,
 	};
+}
+
+/**
+ * The flags an edit actually puts on the wire.
+ *
+ * Only a product change clears batch records, so a save that left the product
+ * alone drops `acknowledgedBatchClearance` rather than answering a question
+ * nobody asked. The server draws the same line, and a `false` it would never
+ * read is still a claim the form is not entitled to make. Anything else the
+ * caller answered is passed through untouched.
+ */
+function outgoingAcknowledgements(
+	answered: Readonly<Record<string, boolean>> | undefined,
+	productMoved: boolean,
+): Readonly<Record<string, boolean>> {
+	const flags: Record<string, boolean> = { ...answered };
+	if (!productMoved) {
+		delete flags.acknowledgedBatchClearance;
+	}
+	return flags;
 }

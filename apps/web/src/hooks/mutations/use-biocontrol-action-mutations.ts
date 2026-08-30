@@ -62,9 +62,15 @@ export interface UpdateBiocontrolActionInput {
 export interface BiocontrolActionMutations {
 	readonly record: (input: RecordBiocontrolActionInput) => Promise<void>;
 	readonly update: (current: BiocontrolAction, input: UpdateBiocontrolActionInput) => Promise<void>;
+	/**
+	 * Delete a biocontrol release.
+	 *
+	 * `acknowledgements` is what the user answered. Withheld flags go on the wire
+	 * as `false`, which is the only reading that makes the registry refuse.
+	 */
 	readonly remove: (
 		biocontrolActionId: string,
-		acknowledgements?: StopAcknowledgements,
+		acknowledgements?: Readonly<Record<string, boolean>>,
 	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
@@ -201,13 +207,18 @@ export function useBiocontrolActionMutations(): BiocontrolActionMutations {
 	);
 
 	const remove = useCallback(
-		async (biocontrolActionId: string, acknowledgements?: StopAcknowledgements) => {
+		async (
+			biocontrolActionId: string,
+			acknowledgements: Readonly<Record<string, boolean>> = {},
+		) => {
 			await settleWrite(
 				mutateCollection(biocontrol_actions, {
 					operation: 'delete',
 					intent: 'controlOperations.deleteBiocontrolAction',
 					key: biocontrolActionId,
-					...(acknowledgements === undefined ? {} : { acknowledgements }),
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
 				}),
 			);
 		},

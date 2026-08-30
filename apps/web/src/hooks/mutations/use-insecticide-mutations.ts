@@ -46,10 +46,18 @@ export interface InsecticideFields {
 
 export interface InsecticideMutations {
 	readonly create: (fields: InsecticideFields) => Promise<string>;
+	/**
+	 * Save an edited product.
+	 *
+	 * `acknowledgements` is what the user has answered. Only a save that moves the
+	 * product's identity puts a flag on the wire; {@link useInsecticideMutations}
+	 * is what draws that line, so the form passes everything it has.
+	 */
 	readonly save: (
 		id: string,
 		fields: InsecticideFields,
 		current: InsecticideFields,
+		acknowledgements?: Readonly<Record<string, boolean>>,
 	) => Promise<void>;
 	readonly setActive: (id: string, isActive: boolean) => Promise<void>;
 	readonly remove: (id: string) => Promise<void>;
@@ -64,6 +72,66 @@ const insecticideCommands: CatalogCommandNames = {
 	reactivate: 'controlOperations.reactivateInsecticide',
 	remove: 'controlOperations.deleteInsecticide',
 };
+
+/**
+ * The columns that say what the product *is*.
+ *
+ * A past application, batch or formulation stores none of this and reads it back
+ * off the product, so moving any one of them relabels history and the server
+ * asks about it. Split from the rest for that reason rather than for length:
+ * whether a save answers `acknowledgedHistoricalProductChange` is exactly
+ * "did anything in here move", and the two lists used to be written out
+ * separately and could drift apart.
+ */
+function insecticideIdentityChanges(
+	fields: InsecticideFields,
+	current: InsecticideFields,
+): Partial<Insecticide> {
+	const changes: Partial<Insecticide> = {};
+	if (fields.tradeName !== current.tradeName) {
+		changes.trade_name = fields.tradeName;
+	}
+	if (fields.activeIngredient !== current.activeIngredient) {
+		changes.active_ingredient = fields.activeIngredient;
+	}
+	if (fields.type !== current.type) {
+		changes.type = fields.type;
+	}
+	if (fields.registrationNumber !== current.registrationNumber) {
+		changes.registration_number = fields.registrationNumber;
+	}
+	if (fields.defaultUnitId !== current.defaultUnitId) {
+		changes.default_unit_id = fields.defaultUnitId;
+	}
+	return changes;
+}
+
+/**
+ * The columns that point at the product without being it.
+ *
+ * Where its label and safety sheet live, the agency's own abbreviation for it,
+ * and its notes. A save that moved only these answers no question, and the
+ * server draws the same line.
+ */
+function insecticideReferenceChanges(
+	fields: InsecticideFields,
+	current: InsecticideFields,
+): Partial<Insecticide> {
+	const changes: Partial<Insecticide> = {};
+	if (fields.labelUrl !== current.labelUrl) {
+		changes.label_url = fields.labelUrl;
+	}
+	if (fields.msdsUrl !== current.msdsUrl) {
+		changes.msds_url = fields.msdsUrl;
+	}
+	if (fields.shorthand !== current.shorthand) {
+		changes.shorthand = fields.shorthand;
+	}
+	if (fields.metadata !== current.metadata) {
+		changes.metadata = fields.metadata;
+	}
+	return changes;
+}
 
 export function useInsecticideMutations(): InsecticideMutations {
 	const { organizationId, actorProfileId } = useProductWriterIdentity();
@@ -101,39 +169,27 @@ export function useInsecticideMutations(): InsecticideMutations {
 	);
 
 	const save = useCallback(
-		async (id: string, fields: InsecticideFields, current: InsecticideFields) => {
-			const changes: Partial<Insecticide> = {};
-			if (fields.tradeName !== current.tradeName) {
-				changes.trade_name = fields.tradeName;
-			}
-			if (fields.activeIngredient !== current.activeIngredient) {
-				changes.active_ingredient = fields.activeIngredient;
-			}
-			if (fields.type !== current.type) {
-				changes.type = fields.type;
-			}
-			if (fields.registrationNumber !== current.registrationNumber) {
-				changes.registration_number = fields.registrationNumber;
-			}
-			if (fields.defaultUnitId !== current.defaultUnitId) {
-				changes.default_unit_id = fields.defaultUnitId;
-			}
-			if (fields.labelUrl !== current.labelUrl) {
-				changes.label_url = fields.labelUrl;
-			}
-			if (fields.msdsUrl !== current.msdsUrl) {
-				changes.msds_url = fields.msdsUrl;
-			}
-			if (fields.shorthand !== current.shorthand) {
-				changes.shorthand = fields.shorthand;
-			}
-			if (fields.metadata !== current.metadata) {
-				changes.metadata = fields.metadata;
-			}
+		async (
+			id: string,
+			fields: InsecticideFields,
+			current: InsecticideFields,
+			acknowledgements: Readonly<Record<string, boolean>> = {},
+		) => {
+			const identity = insecticideIdentityChanges(fields, current);
+			const identityMoved = Object.keys(identity).length > 0;
+
 			await saveCatalogRow(insecticides, insecticideCommands, id, {
-				changes,
+				changes: { ...identity, ...insecticideReferenceChanges(fields, current) },
 				isActive: fields.isActive,
 				wasActive: current.isActive,
+				...(identityMoved
+					? {
+							acknowledgements: {
+								acknowledgedHistoricalProductChange:
+									acknowledgements.acknowledgedHistoricalProductChange === true,
+							},
+						}
+					: {}),
 			});
 		},
 		[],
@@ -158,10 +214,17 @@ export interface InsecticideBatchFields {
 
 export interface InsecticideBatchMutations {
 	readonly create: (fields: InsecticideBatchFields) => Promise<string>;
+	/**
+	 * Save an edited batch.
+	 *
+	 * `acknowledgements` is what the user has answered. Only a rename puts a flag
+	 * on the wire, and the switch is not a rename.
+	 */
 	readonly save: (
 		id: string,
 		fields: InsecticideBatchFields,
 		current: InsecticideBatchFields,
+		acknowledgements?: Readonly<Record<string, boolean>>,
 	) => Promise<void>;
 	readonly setActive: (id: string, isActive: boolean) => Promise<void>;
 	readonly remove: (id: string) => Promise<void>;
@@ -203,7 +266,12 @@ export function useInsecticideBatchMutations(): InsecticideBatchMutations {
 	);
 
 	const save = useCallback(
-		async (id: string, fields: InsecticideBatchFields, current: InsecticideBatchFields) => {
+		async (
+			id: string,
+			fields: InsecticideBatchFields,
+			current: InsecticideBatchFields,
+			acknowledgements: Readonly<Record<string, boolean>> = {},
+		) => {
 			// Only the name: `updateInsecticideBatch` does not move a batch between
 			// products, because an application already recorded against it was made
 			// with what was in that tin.
@@ -215,6 +283,16 @@ export function useInsecticideBatchMutations(): InsecticideBatchMutations {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
+				// The name is the whole of what an application's batch link reads back
+				// under, so retiring a batch on its own answers nothing.
+				...(changes.batch_name === undefined
+					? {}
+					: {
+							acknowledgements: {
+								acknowledgedHistoricalBatchLabelChange:
+									acknowledgements.acknowledgedHistoricalBatchLabelChange === true,
+							},
+						}),
 			});
 		},
 		[],
