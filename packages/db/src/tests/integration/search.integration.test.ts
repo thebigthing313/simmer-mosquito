@@ -432,6 +432,42 @@ describeDbIntegration('search documents reader', () => {
 		);
 	});
 
+	/*
+	 * `weather_sources` is the one corpus table whose tenancy column is nullable,
+	 * and the one place the migration deliberately leaves a corpus row out of the
+	 * index. A null `organization_id` is a platform-owned station, which is
+	 * nobody's agency record.
+	 *
+	 * #279 settled that it stays out once provider stations land: an Agency will
+	 * see only the stations it has subscribed to through
+	 * `weather_source_subscriptions`, so an unsubscribed station has no Agency to
+	 * be indexed under. Whoever builds that feed owes the index one document per
+	 * subscribing Agency, and this test is what they trip over.
+	 *
+	 * The reader takes an `organizationId`, so it cannot tell "no document" from
+	 * "a document the tenancy filter dropped". Both directions are read off
+	 * `search_documents` itself.
+	 */
+	it('indexes an agency station and leaves a platform-owned one out', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await seedOrganization(db, 'workos_org_search_platform_station');
+			const owned = await seedWeatherSource(db, org, 'Cedar Bend station', 'CDB-1');
+			const platform = await seedWeatherSource(db, null, 'Cedar Bend NWS', 'KCDB');
+
+			expect(await documentsFor(db, 'weather_sources', owned)).toBe(1);
+			expect(await documentsFor(db, 'weather_sources', platform)).toBe(0);
+
+			// The platform station is a real row, and its shape scope streams it to
+			// every Agency. Search is what excludes it, not the row failing to exist.
+			const stations = await db
+				.selectFrom('weather_sources')
+				.select(['id'])
+				.where('source_name', 'like', 'Cedar Bend%')
+				.execute();
+			expect(stations).toHaveLength(2);
+		});
+	});
+
 	// `to_tsquery` raises syntax errors rather than swallowing them, which is why
 	// every token goes through `quote_literal`. Without that these 500.
 	it('takes operator characters and apostrophes as literal text', async () => {
@@ -461,6 +497,22 @@ describeDbIntegration('search documents reader', () => {
 		});
 	});
 });
+
+/**
+ * Index rows for one corpus row. `search_documents` is derived and is not in the
+ * Kysely types, so this is raw SQL.
+ */
+async function documentsFor(
+	db: Kysely<SimmerDatabase>,
+	sourceTable: string,
+	sourceId: string,
+): Promise<number> {
+	const result = await sql<{ documents: string }>`
+		select count(*)::text as documents from search_documents
+		where source_table = ${sourceTable} and source_id = ${sourceId}::uuid
+	`.execute(db);
+	return Number(result.rows[0]?.documents ?? '0');
+}
 
 function classOf(
 	rows: readonly { readonly fields: Record<string, string>; readonly matchClass: string }[],
@@ -533,9 +585,10 @@ async function seedTrap(
 	return row.id;
 }
 
+/** A null `organizationId` seeds a platform-owned station, which no product surface writes. */
 async function seedWeatherSource(
 	db: Kysely<SimmerDatabase>,
-	organizationId: string,
+	organizationId: string | null,
 	name: string,
 	code: string,
 ): Promise<string> {
@@ -544,7 +597,7 @@ async function seedWeatherSource(
 		.values({
 			organization_id: organizationId,
 			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			source_type: 'organization',
+			source_type: organizationId === null ? 'nws' : 'organization',
 			source_name: name,
 			source_code: code,
 		})
