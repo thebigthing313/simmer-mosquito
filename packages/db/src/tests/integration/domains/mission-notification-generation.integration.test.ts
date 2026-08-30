@@ -6,6 +6,7 @@ import {
 	readRegistrationBufferUnits,
 	type SimmerDatabase,
 	sql,
+	UNPRICEABLE_REGISTRATION_CAP,
 	type UnitMetres,
 } from '../../../index.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
@@ -147,11 +148,12 @@ describeDbIntegration('mission notification generation', () => {
 		await withTestDb(async ({ db }) => {
 			const world = await seedWorld(db, 'mn_unpriced');
 			await createMissionItem(db, world, -90.499);
+			const contactId = await createContact(db, world, { email: 'sam@example.test' });
 			const registration = await createRegistration(db, world, {
 				longitude: -90.5,
 				bufferDistance: 1,
 				unitId: world.mileUnitId,
-				contactId: await createContact(db, world, { email: 'sam@example.test' }),
+				contactId,
 			});
 			await subscribe(db, world, registration);
 
@@ -167,6 +169,17 @@ describeDbIntegration('mission notification generation', () => {
 				reason: 'buffer_unit_not_convertible',
 				// Names the unit to fix, not the uuid holding it.
 				unitCodes: ['mile'],
+				// And the row holding it, because nothing lists registrations across
+				// an agency: the contact is the only place the buffer can be changed.
+				registrations: [
+					{
+						registrationId: registration,
+						contactId,
+						contactName: 'Sam Rivera',
+						unitCode: 'mile',
+					},
+				],
+				registrationsNotShown: 0,
 			});
 
 			// And nothing was written on the way to the refusal.
@@ -176,6 +189,38 @@ describeDbIntegration('mission notification generation', () => {
 				.where('mission_id', '=', world.missionId)
 				.execute();
 			expect(written).toEqual([]);
+		});
+	});
+
+	it('caps the registrations it names and counts the rest', async () => {
+		await withTestDb(async ({ db }) => {
+			const world = await seedWorld(db, 'mn_unpriced_many');
+			await createMissionItem(db, world, -90.499);
+			for (let index = 0; index < UNPRICEABLE_REGISTRATION_CAP + 3; index += 1) {
+				await createRegistration(db, world, {
+					longitude: -90.5,
+					bufferDistance: 1,
+					unitId: world.mileUnitId,
+					contactId: await createContact(db, world, { email: `sam${index}@example.test` }),
+				});
+			}
+
+			const refusal = await db
+				.transaction()
+				.execute(async (trx) =>
+					generateMissionNotifications(trx, {
+						...generateInput(world),
+						unitMetres: [{ unitId: world.meterUnitId, metresPerUnit: 1 }],
+					}),
+				)
+				.catch((error: unknown) => error);
+
+			expect(refusal).toBeInstanceOf(MissionNotificationRefusedError);
+			const refused = refusal as MissionNotificationRefusedError;
+			expect(refused.registrations).toHaveLength(UNPRICEABLE_REGISTRATION_CAP);
+			// The read is limited, so the count comes from a window over the whole
+			// set. Counting the rows that came back would say none were left out.
+			expect(refused.registrationsNotShown).toBe(3);
 		});
 	});
 
