@@ -37,6 +37,7 @@ import {
 } from '../../../hooks/queries/assignment-view';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { operationalDayAsTimestamp, todayInTimeZone } from '../../../lib/local-date';
 import { useCommandRunner } from '../-command-runner';
 import { StopProgressSummary } from '../-operations-display';
@@ -539,7 +540,10 @@ function CollectStopButton({
 	readonly enabled: boolean;
 }) {
 	const [open, setOpen] = useState(false);
-	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite({
+		askable: STOP_RECORD_REFUSALS,
+		ask: true,
+	});
 	const timeZone = useOrganizationTimeZone();
 	const { collect } = useCollectionMutations();
 

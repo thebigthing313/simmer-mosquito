@@ -39,6 +39,7 @@
 
 import type { SingleRowCommandType } from '@simmer-mosquito/domain';
 import { settleWrite } from '@simmer-mosquito/sync';
+import type { Acknowledgements } from '../../components/acknowledged-write';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { optimisticStamp } from './shared';
 
@@ -105,6 +106,16 @@ export async function saveCatalogRow<TRow extends CatalogRow>(
 		readonly changes: Partial<TRow>;
 		readonly isActive: boolean;
 		readonly wasActive: boolean;
+		/**
+		 * The flags this write answers, already narrowed by the caller to the ones
+		 * it can be refused over.
+		 *
+		 * Narrowed there rather than here because what a write raises is a property
+		 * of the catalog: a lure has no history to relabel beyond its name, an
+		 * insecticide's identity is five columns, and this function sees only a
+		 * `Partial<TRow>` it cannot read column names out of.
+		 */
+		readonly acknowledgements?: Acknowledgements;
 	},
 ): Promise<void> {
 	const intents: SingleRowCommandType[] = [];
@@ -134,16 +145,24 @@ export async function saveCatalogRow<TRow extends CatalogRow>(
 				is_active: options.isActive,
 				updated_at: optimisticStamp(),
 			} as Partial<TRow>,
+			acknowledgements: options.acknowledgements ?? {},
 		}),
 	);
 }
 
-/** Retire a catalog row, or put it back — the reversible one-click toggle. */
+/**
+ * Retire a catalog row, or put it back — the reversible one-click toggle.
+ *
+ * It issues `deactivate` on its own, so it can be refused over what the
+ * retirement strands just as a save that flips the switch can.
+ */
 export async function setCatalogRowActive<TRow extends CatalogRow>(
 	collection: CatalogCollection<TRow>,
 	names: CatalogCommandNames,
 	id: string,
 	isActive: boolean,
+	/** The flags this write answers, narrowed by the caller. */
+	acknowledgements: Acknowledgements = {},
 ): Promise<void> {
 	await settleWrite(
 		mutateCollection(collection, {
@@ -151,6 +170,7 @@ export async function setCatalogRowActive<TRow extends CatalogRow>(
 			intent: isActive ? names.reactivate : names.deactivate,
 			key: id,
 			changes: { is_active: isActive, updated_at: optimisticStamp() } as Partial<TRow>,
+			acknowledgements,
 		}),
 	);
 }

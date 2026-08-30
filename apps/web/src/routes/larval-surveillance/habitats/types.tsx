@@ -9,6 +9,7 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	CatalogActionsHead,
 	CatalogDialogCancel,
@@ -238,6 +239,9 @@ function HabitatTypeRowActions({
 	readonly mutations: CatalogMutations;
 }) {
 	const [editOpen, setEditOpen] = useState(false);
+	// The retire here issues `deactivate` on its own, so it carries the catalog's
+	// own questions rather than the dialog's.
+	const { run, dialog } = useAcknowledgedWrite({ askable: mutations.refusals, ask: true });
 
 	return (
 		<>
@@ -247,7 +251,10 @@ function HabitatTypeRowActions({
 				onEdit={() => setEditOpen(true)}
 				onToggle={() =>
 					toggleCatalogActive({
-						apply: (isActive) => mutations.setActive(habitatType.id, isActive),
+						apply: (isActive) =>
+							run((acknowledgements) =>
+								mutations.setActive(habitatType.id, isActive, acknowledgements),
+							),
 						isActive: habitatType.isActive,
 						name: habitatType.name,
 					})
@@ -259,6 +266,7 @@ function HabitatTypeRowActions({
 				open={editOpen}
 				mutations={mutations}
 			/>
+			{dialog}
 		</>
 	);
 }
@@ -280,6 +288,7 @@ function HabitatTypeDialog({
 }) {
 	const [open, setOpen] = useCatalogDialogOpen(controlledOpen, onOpenChange);
 	const isEditing = habitatType !== undefined;
+	const { run, dialog } = useAcknowledgedWrite({ askable: mutations.refusals, ask: true });
 
 	const form = useAppForm({
 		defaultValues: catalogFormValues(habitatType),
@@ -291,15 +300,23 @@ function HabitatTypeDialog({
 				failureMessage: isEditing
 					? `Unable to save ${habitatType.name}.`
 					: 'Unable to create habitat type.',
-				onWritten: () => setOpen(false),
+				// Closing is inside `run` rather than `onWritten`: `run` resolves on a
+				// refusal too, so dismissing on the way past would take the form away
+				// before the question could be asked.
 				save: () =>
-					isEditing
-						? mutations.save(
+					run(async (acknowledgements) => {
+						if (isEditing) {
+							await mutations.save(
 								habitatType.id,
 								catalogFields(value),
 								catalogFields(catalogFormValues(habitatType)),
-							)
-						: mutations.create(catalogFields(value)).then(() => undefined),
+								acknowledgements,
+							);
+						} else {
+							await mutations.create(catalogFields(value));
+						}
+						setOpen(false);
+					}),
 			});
 		},
 	});
@@ -307,46 +324,51 @@ function HabitatTypeDialog({
 	useResetOnOpen(open, habitatType, () => form.reset(catalogFormValues(habitatType)));
 
 	return (
-		<form.AppForm>
-			<CatalogRecordDialog
-				actions={
-					<form.FormActions>
-						<form.SubmitButton disabled={!mutations.canWrite} />
-						<CatalogDialogCancel />
-					</form.FormActions>
-				}
-				description="Manage the label, lifecycle state, and optional custom fields."
-				onOpenChange={setOpen}
-				onSubmit={() => void form.handleSubmit()}
-				open={open}
-				title={isEditing ? `Edit ${habitatType.name}` : 'Add Habitat Type'}
-				trigger={trigger}
-			>
-				<form.FormErrorAlert />
-				<form.AppField
-					name="name"
-					validators={{
-						onSubmit: ({ value }) =>
-							value.trim().length === 0 ? 'Habitat type name is required.' : undefined,
-					}}
+		<>
+			<form.AppForm>
+				<CatalogRecordDialog
+					actions={
+						<form.FormActions>
+							<form.SubmitButton disabled={!mutations.canWrite} />
+							<CatalogDialogCancel />
+						</form.FormActions>
+					}
+					description="Manage the label, lifecycle state, and optional custom fields."
+					onOpenChange={setOpen}
+					onSubmit={() => void form.handleSubmit()}
+					open={open}
+					title={isEditing ? `Edit ${habitatType.name}` : 'Add Habitat Type'}
+					trigger={trigger}
 				>
-					{(field) => <field.TextField label="Habitat type name" placeholder="e.g. Catch basin" />}
-				</form.AppField>
-				<form.AppField name="description">
-					{(field) => <field.TextareaField className="min-h-24" label="Description" />}
-				</form.AppField>
-				<form.AppField name="isActive">
-					{(field) => <field.SwitchField label="Active" />}
-				</form.AppField>
-				<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-					{(field) => (
-						<field.JsonSchemaField
-							description="Optional fields crews fill in when recording this habitat type."
-							label="Custom fields"
-						/>
-					)}
-				</form.AppField>
-			</CatalogRecordDialog>
-		</form.AppForm>
+					<form.FormErrorAlert />
+					<form.AppField
+						name="name"
+						validators={{
+							onSubmit: ({ value }) =>
+								value.trim().length === 0 ? 'Habitat type name is required.' : undefined,
+						}}
+					>
+						{(field) => (
+							<field.TextField label="Habitat type name" placeholder="e.g. Catch basin" />
+						)}
+					</form.AppField>
+					<form.AppField name="description">
+						{(field) => <field.TextareaField className="min-h-24" label="Description" />}
+					</form.AppField>
+					<form.AppField name="isActive">
+						{(field) => <field.SwitchField label="Active" />}
+					</form.AppField>
+					<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
+						{(field) => (
+							<field.JsonSchemaField
+								description="Optional fields crews fill in when recording this habitat type."
+								label="Custom fields"
+							/>
+						)}
+					</form.AppField>
+				</CatalogRecordDialog>
+			</form.AppForm>
+			{dialog}
+		</>
 	);
 }

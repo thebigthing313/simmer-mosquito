@@ -26,19 +26,16 @@
  * applied optimistically. Subscribing or unsubscribing afterwards is an ordinary
  * single-row write against the link table.
  *
- * ## The acknowledgement flags are not sent
+ * ## The acknowledgement flags
  *
- * The four edit commands and the unsubscribe each take one, and
- * `docs/public-engagement-domain.md` says an edit needs it once mission
- * notifications reference the registration. No writer reads any of them today
- * and the domain only records them, so they are vocabulary nothing enforces,
- * exactly as in `useServiceRequestMutations`. When one starts being enforced it
- * will arrive as a refusal, which is what `useAcknowledgedWrite` is for. Sending
- * one now would be a confirmation dialog for a rule that does not exist.
+ * The four edit commands and the unsubscribe carry one each, withheld, and the
+ * server names the flag when it refuses. Moving a registration, resizing its
+ * buffer, changing its flags and dropping a type all read back on notices
+ * already sent, which is the future-only question; moving it to another contact
+ * is the second. Each rides only on the command that takes it, so a save that
+ * touched the buffer alone does not answer a question about the contact.
  *
- * Note this is the opposite of the merge commands, whose flag the domain does
- * check (`!== true`), so `useRecordMerge` must send it and sends `false` until
- * the user agrees.
+ * The registration's own delete does not send one yet.
  */
 
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
@@ -100,11 +97,21 @@ export interface RegistrationFields {
 	readonly flags: RegistrationFlags;
 }
 
-/** What an edit means, the columns it moves, and the instructions it carries. */
+/**
+ * What an edit means, the columns it moves, the instructions it carries, and the
+ * confirmations it answers.
+ *
+ * `arguments` and `acknowledgements` are kept apart because the transport treats
+ * them differently: an argument is folded in before the "did anything change"
+ * check, while an acknowledgement is not, so answering a refusal cannot on its
+ * own turn an untouched form into a write.
+ */
 export interface RegistrationUpdatePlan {
 	readonly intents: readonly RegistrationUpdateIntent[];
 	readonly changes: Partial<NotificationRegistration>;
 	readonly arguments: Readonly<Record<string, unknown>>;
+	/** Only the flags the named commands can be refused over. */
+	readonly acknowledgements: Readonly<Record<string, boolean>>;
 }
 
 /**
@@ -128,6 +135,10 @@ export function registrationUpdatePlan(input: {
 	readonly current: RegistrationFields;
 	/** The redrawn shape, or null when the user did not touch it. */
 	readonly geometry: GeoJsonGeometry | null;
+	/** Answers the three commands that rewrite what a notice still to come will say. */
+	readonly acknowledgedFutureOnlyChange: boolean;
+	/** Answers the move to another contact, which is the fourth. */
+	readonly acknowledgedHistoricalContactChange: boolean;
 }): RegistrationUpdatePlan | null {
 	const parts = [
 		contactPart(input.fields, input.current),
@@ -140,10 +151,23 @@ export function registrationUpdatePlan(input: {
 		return null;
 	}
 
+	const intents = parts.map((part) => part.intent);
+	const movesContact = intents.includes('publicEngagement.updateNotificationRegistrationContact');
 	return {
-		intents: parts.map((part) => part.intent),
+		intents,
 		changes: Object.assign({}, ...parts.map((part) => part.changes)),
 		arguments: Object.assign({}, ...parts.map((part) => part.arguments ?? {})),
+		// A flag the named commands cannot be refused over is a question nobody
+		// asked, so each one only rides when its own command is on the list. The
+		// server draws the same line.
+		acknowledgements: {
+			...(movesContact
+				? { acknowledgedHistoricalContactChange: input.acknowledgedHistoricalContactChange }
+				: {}),
+			...(intents.length > (movesContact ? 1 : 0)
+				? { acknowledgedFutureOnlyChange: input.acknowledgedFutureOnlyChange }
+				: {}),
+		},
 	};
 }
 
@@ -254,6 +278,10 @@ export interface NotificationRegistrationMutations {
 		readonly fields: RegistrationFields;
 		readonly current: RegistrationFields;
 		readonly geometry: GeoJsonGeometry | null;
+		/** What the user answered about the notices still to come. */
+		readonly acknowledgedFutureOnlyChange: boolean;
+		/** What the user answered about the notices already sent under the old contact. */
+		readonly acknowledgedHistoricalContactChange: boolean;
 	}) => Promise<void>;
 	/** Opting out, which is not the same as never having registered. */
 	readonly deactivate: (registrationId: string) => Promise<void>;
@@ -263,7 +291,17 @@ export interface NotificationRegistrationMutations {
 		readonly registrationId: string;
 		readonly notificationTypeId: string;
 	}) => Promise<void>;
-	readonly unsubscribe: (subscriptionId: string) => Promise<void>;
+	/**
+	 * Drop a type this registration was taking.
+	 *
+	 * `acknowledgedFutureOnlyChange` is the caller's, because the notices already
+	 * sent under this type keep what they said and the dialog that asks is what
+	 * earns it.
+	 */
+	readonly unsubscribe: (
+		subscriptionId: string,
+		acknowledgedFutureOnlyChange: boolean,
+	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
 }
@@ -366,6 +404,8 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 			readonly fields: RegistrationFields;
 			readonly current: RegistrationFields;
 			readonly geometry: GeoJsonGeometry | null;
+			readonly acknowledgedFutureOnlyChange: boolean;
+			readonly acknowledgedHistoricalContactChange: boolean;
 		}) => {
 			const plan = registrationUpdatePlan(input);
 			if (plan === null) {
@@ -383,6 +423,7 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 						updated_at: optimisticStamp(),
 					},
 					arguments: plan.arguments,
+					acknowledgements: plan.acknowledgements,
 				}),
 			);
 		},
@@ -454,15 +495,21 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 		[organizationId, actorProfileId],
 	);
 
-	const unsubscribe = useCallback(async (subscriptionId: string) => {
-		await settleWrite(
-			mutateCollection(notification_registration_types, {
-				operation: 'delete',
-				intent: 'publicEngagement.unsubscribeNotificationRegistrationType',
-				key: subscriptionId,
-			}),
-		);
-	}, []);
+	const unsubscribe = useCallback(
+		async (subscriptionId: string, acknowledgedFutureOnlyChange: boolean) => {
+			await settleWrite(
+				mutateCollection(notification_registration_types, {
+					operation: 'delete',
+					intent: 'publicEngagement.unsubscribeNotificationRegistrationType',
+					key: subscriptionId,
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements: { acknowledgedFutureOnlyChange },
+				}),
+			);
+		},
+		[],
+	);
 
 	return {
 		record,

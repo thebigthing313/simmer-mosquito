@@ -46,6 +46,10 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import {
+	type Acknowledgements,
+	useAcknowledgedWrite,
+} from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
@@ -70,6 +74,7 @@ import {
 	useTrapCollections,
 } from '../../../hooks/queries/use-trap-collections';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { TRAP_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import {
 	aggregateSpeciesDistribution,
 	CollectionFlagBadges,
@@ -96,6 +101,15 @@ function RouteComponent() {
 function TrapDetail({ trapId }: { readonly trapId: string }) {
 	// traps is an eager collection, so this resolves without a fetch.
 	const { trap, isReady } = useTrap(trapId);
+	// Held here rather than in the danger zone, and rendered here too. The delete
+	// is optimistic, so the trap leaves the collection the moment the button is
+	// pressed and everything below this line unmounts before the registry's
+	// refusal comes back. This component survives it: the row going is what makes
+	// it render `RecordUnavailable` instead.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: TRAP_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -107,16 +121,30 @@ function TrapDetail({ trapId }: { readonly trapId: string }) {
 				{!isReady ? (
 					<TrapDetailSkeleton />
 				) : trap === undefined ? (
-					<RecordUnavailable noun="trap" reason="not-found" />
+					<>
+						<RecordUnavailable noun="trap" reason="not-found" />
+						{dialog}
+					</>
 				) : (
-					<TrapDetailContent trap={trap} />
+					<>
+						<TrapDetailContent askDelete={run} trap={trap} />
+						{dialog}
+					</>
 				)}
 			</div>
 		</div>
 	);
 }
 
-function TrapDetailContent({ trap }: { readonly trap: Trap }) {
+function TrapDetailContent({
+	trap,
+	askDelete,
+}: {
+	readonly trap: Trap;
+	readonly askDelete: (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+	) => Promise<void>;
+}) {
 	useBreadcrumbLabel(trap.id, trapDisplayName(trap));
 
 	const mutations = useTrapMutations();
@@ -162,9 +190,10 @@ function TrapDetailContent({ trap }: { readonly trap: Trap }) {
 					</div>
 					<TrapCollectionsCard trapId={trap.id} />
 					<DangerZoneCard
+						ask={askDelete}
 						name={trapDisplayName(trap)}
 						noun="trap"
-						onDelete={() => mutations.remove(trap.id)}
+						onDelete={(acknowledgements) => mutations.remove(trap.id, acknowledgements)}
 						recordId={trap.id}
 						recordType="trap"
 						returnTo="/adult-surveillance/traps"

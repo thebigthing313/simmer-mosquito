@@ -46,10 +46,18 @@ export interface InsecticideFields {
 
 export interface InsecticideMutations {
 	readonly create: (fields: InsecticideFields) => Promise<string>;
+	/**
+	 * Save an edited product.
+	 *
+	 * `acknowledgements` is what the user has answered. Only a save that moves the
+	 * product's identity puts a flag on the wire; {@link useInsecticideMutations}
+	 * is what draws that line, so the form passes everything it has.
+	 */
 	readonly save: (
 		id: string,
 		fields: InsecticideFields,
 		current: InsecticideFields,
+		acknowledgements?: Readonly<Record<string, boolean>>,
 	) => Promise<void>;
 	readonly setActive: (id: string, isActive: boolean) => Promise<void>;
 	readonly remove: (id: string) => Promise<void>;
@@ -101,7 +109,12 @@ export function useInsecticideMutations(): InsecticideMutations {
 	);
 
 	const save = useCallback(
-		async (id: string, fields: InsecticideFields, current: InsecticideFields) => {
+		async (
+			id: string,
+			fields: InsecticideFields,
+			current: InsecticideFields,
+			acknowledgements: Readonly<Record<string, boolean>> = {},
+		) => {
 			const changes: Partial<Insecticide> = {};
 			if (fields.tradeName !== current.tradeName) {
 				changes.trade_name = fields.tradeName;
@@ -130,10 +143,30 @@ export function useInsecticideMutations(): InsecticideMutations {
 			if (fields.metadata !== current.metadata) {
 				changes.metadata = fields.metadata;
 			}
+			// What the product *is* is what a past application, batch or formulation
+			// reads back under; it stores none of it itself. The label links, the
+			// shorthand and the metadata are references to the product rather than
+			// the product, so a save that moved only those answers no question. The
+			// server draws the same line.
+			const identityMoved =
+				changes.trade_name !== undefined ||
+				changes.active_ingredient !== undefined ||
+				changes.type !== undefined ||
+				changes.registration_number !== undefined ||
+				changes.default_unit_id !== undefined;
+
 			await saveCatalogRow(insecticides, insecticideCommands, id, {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
+				...(identityMoved
+					? {
+							acknowledgements: {
+								acknowledgedHistoricalProductChange:
+									acknowledgements.acknowledgedHistoricalProductChange === true,
+							},
+						}
+					: {}),
 			});
 		},
 		[],
@@ -158,10 +191,17 @@ export interface InsecticideBatchFields {
 
 export interface InsecticideBatchMutations {
 	readonly create: (fields: InsecticideBatchFields) => Promise<string>;
+	/**
+	 * Save an edited batch.
+	 *
+	 * `acknowledgements` is what the user has answered. Only a rename puts a flag
+	 * on the wire, and the switch is not a rename.
+	 */
 	readonly save: (
 		id: string,
 		fields: InsecticideBatchFields,
 		current: InsecticideBatchFields,
+		acknowledgements?: Readonly<Record<string, boolean>>,
 	) => Promise<void>;
 	readonly setActive: (id: string, isActive: boolean) => Promise<void>;
 	readonly remove: (id: string) => Promise<void>;
@@ -203,7 +243,12 @@ export function useInsecticideBatchMutations(): InsecticideBatchMutations {
 	);
 
 	const save = useCallback(
-		async (id: string, fields: InsecticideBatchFields, current: InsecticideBatchFields) => {
+		async (
+			id: string,
+			fields: InsecticideBatchFields,
+			current: InsecticideBatchFields,
+			acknowledgements: Readonly<Record<string, boolean>> = {},
+		) => {
 			// Only the name: `updateInsecticideBatch` does not move a batch between
 			// products, because an application already recorded against it was made
 			// with what was in that tin.
@@ -215,6 +260,16 @@ export function useInsecticideBatchMutations(): InsecticideBatchMutations {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
+				// The name is the whole of what an application's batch link reads back
+				// under, so retiring a batch on its own answers nothing.
+				...(changes.batch_name === undefined
+					? {}
+					: {
+							acknowledgements: {
+								acknowledgedHistoricalBatchLabelChange:
+									acknowledgements.acknowledgedHistoricalBatchLabelChange === true,
+							},
+						}),
 			});
 		},
 		[],

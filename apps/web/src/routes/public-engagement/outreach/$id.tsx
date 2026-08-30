@@ -12,6 +12,10 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
+import {
+	type Acknowledgements,
+	useAcknowledgedWrite,
+} from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -28,6 +32,7 @@ import type { OutreachAction } from '../../../hooks/queries/outreach-view';
 import { useOutreachMethodRoster } from '../../../hooks/queries/use-catalog-rosters';
 import { useOutreachAction } from '../../../hooks/queries/use-outreach-action';
 import { OUTREACH_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
+import { CONTROL_ACTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { formatActionDate } from '../../control-operations/-control-display';
 import { formatReach } from '../-public-engagement-display';
 
@@ -50,6 +55,15 @@ function OutreachDetail({ actionId }: { readonly actionId: string }) {
 	// this page used to do for itself. `outreach_actions` is on-demand, so this is
 	// status-gated rather than suspending; see the hook.
 	const { action, isReady, isError } = useOutreachAction(actionId, { gcTime: outreachGcTimeMs });
+	// Held here rather than in the danger zone, and rendered here too. The delete
+	// is optimistic, so the action leaves the collection the moment the button is
+	// pressed and everything below this line unmounts before the registry's
+	// refusal comes back. This component survives it: the row going is what makes
+	// it render `RecordUnavailable` instead.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: CONTROL_ACTION_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -65,14 +79,23 @@ function OutreachDetail({ actionId }: { readonly actionId: string }) {
 				) : action === undefined ? (
 					<RecordUnavailable noun="outreach action" reason="not-found" />
 				) : (
-					<OutreachDetailContent action={action} />
+					<OutreachDetailContent action={action} askDelete={run} />
 				)}
+				{dialog}
 			</div>
 		</div>
 	);
 }
 
-function OutreachDetailContent({ action }: { readonly action: OutreachAction }) {
+function OutreachDetailContent({
+	action,
+	askDelete,
+}: {
+	readonly action: OutreachAction;
+	readonly askDelete: (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+	) => Promise<void>;
+}) {
 	// The roster is still read, but only for the custom-field schema the chosen
 	// method declares — the method's *name* arrives joined.
 	const methods = useOutreachMethodRoster();
@@ -119,9 +142,10 @@ function OutreachDetailContent({ action }: { readonly action: OutreachAction }) 
 						/>
 					</div>
 					<DangerZoneCard
+						ask={askDelete}
 						name={methodName}
 						noun="outreach action"
-						onDelete={() => remove(action.id)}
+						onDelete={(acknowledgements) => remove(action.id, acknowledgements)}
 						recordId={action.id}
 						recordType="outreachAction"
 						returnTo="/public-engagement/outreach"

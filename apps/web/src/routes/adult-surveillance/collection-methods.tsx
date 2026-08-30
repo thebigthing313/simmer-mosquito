@@ -5,6 +5,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
+import { useAcknowledgedWrite } from '../../components/acknowledged-write';
 import {
 	CatalogActionsHead,
 	CatalogDialogCancel,
@@ -221,6 +222,9 @@ function CollectionMethodRowActions({
 	readonly mutations: CatalogMutations;
 }) {
 	const [editOpen, setEditOpen] = useState(false);
+	// The retire here issues `deactivate` on its own, so it carries the catalog's
+	// own questions rather than the dialog's.
+	const { run, dialog } = useAcknowledgedWrite({ askable: mutations.refusals, ask: true });
 	// The server blocks deactivation while active traps still reference the method.
 	// Traps sync locally, so disable the doomed action rather than surface its error.
 	const deactivateBlocked = method.isActive && activeTrapCount > 0;
@@ -233,7 +237,8 @@ function CollectionMethodRowActions({
 				onEdit={() => setEditOpen(true)}
 				onToggle={() =>
 					toggleCatalogActive({
-						apply: (isActive) => mutations.setActive(method.id, isActive),
+						apply: (isActive) =>
+							run((acknowledgements) => mutations.setActive(method.id, isActive, acknowledgements)),
 						isActive: method.isActive,
 						name: method.name,
 					})
@@ -247,6 +252,7 @@ function CollectionMethodRowActions({
 				onOpenChange={setEditOpen}
 				open={editOpen}
 			/>
+			{dialog}
 		</>
 	);
 }
@@ -268,6 +274,7 @@ function CollectionMethodDialog({
 }) {
 	const [open, setOpen] = useCatalogDialogOpen(controlledOpen, onOpenChange);
 	const isEditing = method !== undefined;
+	const { run, dialog } = useAcknowledgedWrite({ askable: mutations.refusals, ask: true });
 
 	const form = useAppForm({
 		defaultValues: catalogFormValues(method),
@@ -279,15 +286,23 @@ function CollectionMethodDialog({
 				failureMessage: isEditing
 					? `Unable to save ${method.name}.`
 					: 'Unable to create collection method.',
-				onWritten: () => setOpen(false),
+				// Closing is inside `run` rather than `onWritten`: `run` resolves on a
+				// refusal too, so dismissing on the way past would take the form away
+				// before the question could be asked.
 				save: () =>
-					isEditing
-						? mutations.save(
+					run(async (acknowledgements) => {
+						if (isEditing) {
+							await mutations.save(
 								method.id,
 								catalogFields(value),
 								catalogFields(catalogFormValues(method)),
-							)
-						: mutations.create(catalogFields(value)).then(() => undefined),
+								acknowledgements,
+							);
+						} else {
+							await mutations.create(catalogFields(value));
+						}
+						setOpen(false);
+					}),
 			});
 		},
 	});
@@ -295,57 +310,60 @@ function CollectionMethodDialog({
 	useResetOnOpen(open, method, () => form.reset(catalogFormValues(method)));
 
 	return (
-		<form.AppForm>
-			<CatalogRecordDialog
-				actions={
-					<form.FormActions>
-						<form.SubmitButton disabled={!mutations.canWrite} />
-						<CatalogDialogCancel />
-					</form.FormActions>
-				}
-				description="Manage the label, action threshold, lifecycle state, and optional custom fields."
-				onOpenChange={setOpen}
-				onSubmit={() => void form.handleSubmit()}
-				open={open}
-				title={isEditing ? `Edit ${method.name}` : 'Add collection method'}
-				trigger={trigger}
-			>
-				<form.FormErrorAlert />
-				<form.AppField
-					name="name"
-					validators={{
-						onSubmit: ({ value }) =>
-							value.trim().length === 0 ? 'Method name is required.' : undefined,
-					}}
+		<>
+			<form.AppForm>
+				<CatalogRecordDialog
+					actions={
+						<form.FormActions>
+							<form.SubmitButton disabled={!mutations.canWrite} />
+							<CatalogDialogCancel />
+						</form.FormActions>
+					}
+					description="Manage the label, action threshold, lifecycle state, and optional custom fields."
+					onOpenChange={setOpen}
+					onSubmit={() => void form.handleSubmit()}
+					open={open}
+					title={isEditing ? `Edit ${method.name}` : 'Add collection method'}
+					trigger={trigger}
 				>
-					{(field) => <field.TextField label="Method name" placeholder="e.g. CDC light trap" />}
-				</form.AppField>
-				<form.AppField name="description">
-					{(field) => <field.TextareaField className="min-h-24" label="Description" />}
-				</form.AppField>
-				<form.AppField name="actionThreshold">
-					{(field) => (
-						<field.NumberField
-							description="The count at or above which collections made this way warrant a response. Leave blank when the method has no count trigger."
-							emptyValue={null}
-							label="Action threshold"
-							min={0}
-							step={1}
-						/>
-					)}
-				</form.AppField>
-				<form.AppField name="isActive">
-					{(field) => <field.SwitchField label="Active" />}
-				</form.AppField>
-				<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-					{(field) => (
-						<field.JsonSchemaField
-							description="Optional fields crews fill in when recording a collection with this method."
-							label="Custom fields"
-						/>
-					)}
-				</form.AppField>
-			</CatalogRecordDialog>
-		</form.AppForm>
+					<form.FormErrorAlert />
+					<form.AppField
+						name="name"
+						validators={{
+							onSubmit: ({ value }) =>
+								value.trim().length === 0 ? 'Method name is required.' : undefined,
+						}}
+					>
+						{(field) => <field.TextField label="Method name" placeholder="e.g. CDC light trap" />}
+					</form.AppField>
+					<form.AppField name="description">
+						{(field) => <field.TextareaField className="min-h-24" label="Description" />}
+					</form.AppField>
+					<form.AppField name="actionThreshold">
+						{(field) => (
+							<field.NumberField
+								description="The count at or above which collections made this way warrant a response. Leave blank when the method has no count trigger."
+								emptyValue={null}
+								label="Action threshold"
+								min={0}
+								step={1}
+							/>
+						)}
+					</form.AppField>
+					<form.AppField name="isActive">
+						{(field) => <field.SwitchField label="Active" />}
+					</form.AppField>
+					<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
+						{(field) => (
+							<field.JsonSchemaField
+								description="Optional fields crews fill in when recording a collection with this method."
+								label="Custom fields"
+							/>
+						)}
+					</form.AppField>
+				</CatalogRecordDialog>
+			</form.AppForm>
+			{dialog}
+		</>
 	);
 }

@@ -38,6 +38,10 @@ import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/regis
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import {
+	type Acknowledgements,
+	useAcknowledgedWrite,
+} from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -56,6 +60,7 @@ import { useApplicationMethodRoster } from '../../../hooks/queries/use-catalog-r
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
+import { APPLICATION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { insecticide_batches } from '../../../lib/collections/insecticide_batches';
 import { ContextBadge, formatActionDate, formatMeasure, nameById } from '../-control-display';
 
@@ -96,6 +101,15 @@ function ApplicationDetail({
 	const { application, isReady, isError } = useApplication(applicationId, {
 		gcTime: applicationGcTimeMs,
 	});
+	// Held here rather than in the danger zone, and rendered here too. The delete
+	// is optimistic, so the application leaves the collection the moment the button
+	// is pressed and everything below this line unmounts before the registry's
+	// refusal comes back. This component survives it: the row going is what makes
+	// it render `RecordUnavailable` instead.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: APPLICATION_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -111,8 +125,9 @@ function ApplicationDetail({
 				) : application === undefined ? (
 					<RecordUnavailable noun="application" reason="not-found" />
 				) : (
-					<ApplicationDetailContent application={application} canEdit={canEdit} />
+					<ApplicationDetailContent application={application} askDelete={run} canEdit={canEdit} />
 				)}
+				{dialog}
 			</div>
 		</div>
 	);
@@ -120,9 +135,13 @@ function ApplicationDetail({
 
 function ApplicationDetailContent({
 	application,
+	askDelete,
 	canEdit,
 }: {
 	readonly application: ChemicalApplication;
+	readonly askDelete: (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+	) => Promise<void>;
 	readonly canEdit: boolean;
 }) {
 	// The roster is still read, but only for the custom-field schema the chosen
@@ -197,9 +216,10 @@ function ApplicationDetailContent({
 						productName={productName}
 					/>
 					<DangerZoneCard
+						ask={askDelete}
 						name={productName}
 						noun="chemical application"
-						onDelete={() => remove(application.id)}
+						onDelete={(acknowledgements) => remove(application.id, acknowledgements)}
 						recordId={application.id}
 						recordType="application"
 						returnTo="/control-operations/chemical"

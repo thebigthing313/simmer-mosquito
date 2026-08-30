@@ -38,6 +38,10 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
+import {
+	type Acknowledgements,
+	useAcknowledgedWrite,
+} from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
@@ -51,6 +55,7 @@ import {
 } from '../../../hooks/mutations/use-sample-species-mutations';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { SAMPLE_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { sample_species } from '../../../lib/collections/sample_species';
 import { samples } from '../../../lib/collections/samples';
 import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
@@ -167,6 +172,14 @@ interface SampleGeoRow {
 
 function SampleDetail({ sampleId }: { readonly sampleId: string }) {
 	const query = useSampleGeoContext(sampleId);
+	// Held here rather than in the danger zone, and rendered here too. The delete
+	// is optimistic, so everything below this line can unmount before the
+	// registry's refusal comes back, and state set there would be set on a
+	// component that is gone.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: SAMPLE_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -178,9 +191,15 @@ function SampleDetail({ sampleId }: { readonly sampleId: string }) {
 				{query.isPending ? (
 					<SampleDetailSkeleton />
 				) : query.isError || query.data == null ? (
-					<RecordUnavailable noun="sample" reason="not-found" />
+					<>
+						<RecordUnavailable noun="sample" reason="not-found" />
+						{dialog}
+					</>
 				) : (
-					<SampleDetailContent geo={query.data} />
+					<>
+						<SampleDetailContent askDelete={run} geo={query.data} />
+						{dialog}
+					</>
 				)}
 			</div>
 		</div>
@@ -225,7 +244,15 @@ function SampleTopBar({
 	);
 }
 
-function SampleDetailContent({ geo }: { readonly geo: SampleGeoRow }) {
+function SampleDetailContent({
+	geo,
+	askDelete,
+}: {
+	readonly geo: SampleGeoRow;
+	readonly askDelete: (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+	) => Promise<void>;
+}) {
 	useBreadcrumbLabel(geo.id, breadcrumbLabel(geo));
 
 	const auth = useAuthSnapshot();
@@ -249,9 +276,10 @@ function SampleDetailContent({ geo }: { readonly geo: SampleGeoRow }) {
 						seed={geo}
 					/>
 					<DangerZoneCard
+						ask={askDelete}
 						name={breadcrumbLabel(geo)}
 						noun="sample"
-						onDelete={() => sampleMutations.remove(geo.id)}
+						onDelete={(acknowledgements) => sampleMutations.remove(geo.id, acknowledgements)}
 						recordId={geo.id}
 						recordType="sample"
 						returnTo="/larval-surveillance/samples"

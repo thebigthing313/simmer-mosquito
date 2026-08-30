@@ -3,6 +3,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { TableCell, TableHead, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { useState } from 'react';
+import { useAcknowledgedWrite } from '../../components/acknowledged-write';
 import {
 	CatalogActionsHead,
 	CatalogDialogCancel,
@@ -213,6 +214,9 @@ function ControlMethodRowActions({
 }: MethodDialogContext & { readonly canManage: boolean; readonly method: ControlMethodRecord }) {
 	const [editOpen, setEditOpen] = useState(false);
 	const { mutations } = dialogContext;
+	// The retire here issues `deactivate` on its own, so it carries the catalog's
+	// own questions rather than the dialog's.
+	const { run, dialog } = useAcknowledgedWrite({ askable: mutations.refusals, ask: true });
 
 	return (
 		<>
@@ -233,7 +237,10 @@ function ControlMethodRowActions({
 					canManage
 						? () =>
 								toggleCatalogActive({
-									apply: (isActive) => mutations.setActive(method.id, isActive),
+									apply: (isActive) =>
+										run((acknowledgements) =>
+											mutations.setActive(method.id, isActive, acknowledgements),
+										),
 									isActive: method.isActive,
 									name: method.name,
 								})
@@ -246,6 +253,7 @@ function ControlMethodRowActions({
 				onOpenChange={setEditOpen}
 				open={editOpen}
 			/>
+			{dialog}
 		</>
 	);
 }
@@ -269,6 +277,7 @@ function ControlMethodDialog({
 }) {
 	const [open, setOpen] = useCatalogDialogOpen(controlledOpen, onOpenChange);
 	const isEditing = method !== undefined;
+	const { run, dialog } = useAcknowledgedWrite({ askable: mutations.refusals, ask: true });
 
 	const form = useAppForm({
 		defaultValues: catalogFormValues(method),
@@ -280,11 +289,23 @@ function ControlMethodDialog({
 				failureMessage: isEditing
 					? `Unable to save ${method.name}.`
 					: `Unable to create ${singularLabel}.`,
-				onWritten: () => setOpen(false),
+				// Closing is inside `run` rather than `onWritten`: `run` resolves on a
+				// refusal too, so dismissing on the way past would take the form away
+				// before the question could be asked.
 				save: () =>
-					isEditing
-						? mutations.save(method.id, catalogFields(value), catalogFormRecord(method))
-						: mutations.create(catalogFields(value)).then(() => undefined),
+					run(async (acknowledgements) => {
+						if (isEditing) {
+							await mutations.save(
+								method.id,
+								catalogFields(value),
+								catalogFormRecord(method),
+								acknowledgements,
+							);
+						} else {
+							await mutations.create(catalogFields(value));
+						}
+						setOpen(false);
+					}),
 			});
 		},
 	});
@@ -292,41 +313,44 @@ function ControlMethodDialog({
 	useResetOnOpen(open, method, () => form.reset(catalogFormValues(method)));
 
 	return (
-		<form.AppForm>
-			<CatalogRecordDialog
-				actions={
-					<form.FormActions>
-						<form.SubmitButton disabled={!mutations.canWrite} />
-						<CatalogDialogCancel />
-					</form.FormActions>
-				}
-				description="Manage the label, lifecycle state, and optional custom fields."
-				onOpenChange={setOpen}
-				onSubmit={() => void form.handleSubmit()}
-				open={open}
-				title={isEditing ? `Edit ${method.name}` : `Add ${singularLabel}`}
-				trigger={trigger}
-			>
-				<form.FormErrorAlert />
-				<form.AppField
-					name="name"
-					validators={{
-						onSubmit: ({ value }) =>
-							value.trim().length === 0 ? 'Method name is required.' : undefined,
-					}}
+		<>
+			<form.AppForm>
+				<CatalogRecordDialog
+					actions={
+						<form.FormActions>
+							<form.SubmitButton disabled={!mutations.canWrite} />
+							<CatalogDialogCancel />
+						</form.FormActions>
+					}
+					description="Manage the label, lifecycle state, and optional custom fields."
+					onOpenChange={setOpen}
+					onSubmit={() => void form.handleSubmit()}
+					open={open}
+					title={isEditing ? `Edit ${method.name}` : `Add ${singularLabel}`}
+					trigger={trigger}
 				>
-					{(field) => <field.TextField label="Method name" placeholder={namePlaceholder} />}
-				</form.AppField>
-				<form.AppField name="isActive">
-					{(field) => <field.SwitchField label="Active" />}
-				</form.AppField>
-				<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-					{(field) => (
-						<field.JsonSchemaField description={customFieldsDescription} label="Custom fields" />
-					)}
-				</form.AppField>
-			</CatalogRecordDialog>
-		</form.AppForm>
+					<form.FormErrorAlert />
+					<form.AppField
+						name="name"
+						validators={{
+							onSubmit: ({ value }) =>
+								value.trim().length === 0 ? 'Method name is required.' : undefined,
+						}}
+					>
+						{(field) => <field.TextField label="Method name" placeholder={namePlaceholder} />}
+					</form.AppField>
+					<form.AppField name="isActive">
+						{(field) => <field.SwitchField label="Active" />}
+					</form.AppField>
+					<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
+						{(field) => (
+							<field.JsonSchemaField description={customFieldsDescription} label="Custom fields" />
+						)}
+					</form.AppField>
+				</CatalogRecordDialog>
+			</form.AppForm>
+			{dialog}
+		</>
 	);
 }
 

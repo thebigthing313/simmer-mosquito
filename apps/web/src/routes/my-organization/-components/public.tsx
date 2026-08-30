@@ -20,6 +20,7 @@ import {
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	type CatalogFormValues,
 	catalogFields,
@@ -282,6 +283,7 @@ function NotificationTypeDrawer({
 	readonly trigger: React.ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
+	const { run, dialog } = useAcknowledgedWrite({ askable: mutations.refusals, ask: true });
 	const defaultValues: CatalogFormValues = catalogFormValues(notificationType);
 	const form = useAppForm({
 		defaultValues,
@@ -294,15 +296,23 @@ function NotificationTypeDrawer({
 					notificationType === undefined
 						? 'Unable to create notification type.'
 						: `Unable to save ${notificationType.name}.`,
-				onWritten: () => setOpen(false),
+				// Closing is inside `run` rather than `onWritten`: `run` resolves on a
+				// refusal too, so dismissing on the way past would take the form away
+				// before the question could be asked.
 				save: () =>
-					notificationType === undefined
-						? mutations.create(catalogFields(value)).then(() => undefined)
-						: mutations.save(
+					run(async (acknowledgements) => {
+						if (notificationType === undefined) {
+							await mutations.create(catalogFields(value));
+						} else {
+							await mutations.save(
 								notificationType.id,
 								catalogFields(value),
 								catalogFields(catalogFormValues(notificationType)),
-							),
+								acknowledgements,
+							);
+						}
+						setOpen(false);
+					}),
 			});
 		},
 	});
@@ -315,69 +325,72 @@ function NotificationTypeDrawer({
 	}
 
 	return (
-		<Drawer direction="right" open={open} onOpenChange={updateOpen}>
-			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-			<DrawerContent className="w-[min(680px,100%)] sm:max-w-[680px]">
-				<DrawerHeader>
-					<DrawerTitle>
-						{notificationType === undefined
-							? 'Add Notification Type'
-							: `Edit ${notificationType.name}`}
-					</DrawerTitle>
-					<DrawerDescription>
-						Manage the display name, description, and lifecycle state.
-					</DrawerDescription>
-				</DrawerHeader>
-				<form.AppForm>
-					<form
-						className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
-						}}
-					>
-						<form.FormErrorAlert />
-						<form.AppField
-							name="name"
-							validators={{
-								onSubmit: ({ value }) =>
-									value.trim().length === 0 ? 'Notification type is required.' : undefined,
+		<>
+			<Drawer direction="right" open={open} onOpenChange={updateOpen}>
+				<DrawerTrigger asChild>{trigger}</DrawerTrigger>
+				<DrawerContent className="w-[min(680px,100%)] sm:max-w-[680px]">
+					<DrawerHeader>
+						<DrawerTitle>
+							{notificationType === undefined
+								? 'Add Notification Type'
+								: `Edit ${notificationType.name}`}
+						</DrawerTitle>
+						<DrawerDescription>
+							Manage the display name, description, and lifecycle state.
+						</DrawerDescription>
+					</DrawerHeader>
+					<form.AppForm>
+						<form
+							className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
+							onSubmit={(event) => {
+								event.preventDefault();
+								void form.handleSubmit();
 							}}
 						>
-							{(field) => (
-								<field.TextField
-									label="Notification type"
-									disabled={!canManage}
-									placeholder="e.g. Phone call"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="description">
-							{(field) => (
-								<field.TextareaField
-									label="Description"
-									disabled={!canManage}
-									className="min-h-24"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="isActive">
-							{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
-						</form.AppField>
-						<DrawerFooter className="px-0">
-							<form.FormActions>
-								<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
-								<DrawerClose asChild>
-									<Button type="button" variant="outline">
-										<CloseIcon data-icon="inline-start" aria-hidden="true" />
-										Cancel
-									</Button>
-								</DrawerClose>
-							</form.FormActions>
-						</DrawerFooter>
-					</form>
-				</form.AppForm>
-			</DrawerContent>
-		</Drawer>
+							<form.FormErrorAlert />
+							<form.AppField
+								name="name"
+								validators={{
+									onSubmit: ({ value }) =>
+										value.trim().length === 0 ? 'Notification type is required.' : undefined,
+								}}
+							>
+								{(field) => (
+									<field.TextField
+										label="Notification type"
+										disabled={!canManage}
+										placeholder="e.g. Phone call"
+									/>
+								)}
+							</form.AppField>
+							<form.AppField name="description">
+								{(field) => (
+									<field.TextareaField
+										label="Description"
+										disabled={!canManage}
+										className="min-h-24"
+									/>
+								)}
+							</form.AppField>
+							<form.AppField name="isActive">
+								{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
+							</form.AppField>
+							<DrawerFooter className="px-0">
+								<form.FormActions>
+									<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
+									<DrawerClose asChild>
+										<Button type="button" variant="outline">
+											<CloseIcon data-icon="inline-start" aria-hidden="true" />
+											Cancel
+										</Button>
+									</DrawerClose>
+								</form.FormActions>
+							</DrawerFooter>
+						</form>
+					</form.AppForm>
+				</DrawerContent>
+			</Drawer>
+			{dialog}
+		</>
 	);
 }

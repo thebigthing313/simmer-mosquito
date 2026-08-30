@@ -13,6 +13,8 @@ import { ArrowLeftIcon, iconRegistry, MapPinnedIcon } from '@simmer-mosquito/ui-
 import { Link } from '@tanstack/react-router';
 import { type ReactNode, Suspense, useState } from 'react';
 import { useRouteMutations } from '../../hooks/mutations/use-route-mutations';
+import { ROUTE_DELETE_REFUSALS } from '../../lib/acknowledgement-copy';
+import { useAcknowledgedWrite } from '../acknowledged-write';
 import { useBreadcrumbLabel } from '../app-shell';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../danger-zone-card';
@@ -66,12 +68,26 @@ export function RouteDetailPage({
 	const [selectedStopId, setSelectedStopId] = useState<string | null>(null);
 	const [highlightId, setHighlightId] = useState<string | null>(null);
 	const { remove: removeRoute } = useRouteMutations();
+	// Held at the top of the page rather than beside the danger zone. The delete
+	// is optimistic, so the route leaves the collection the moment the button is
+	// pressed and the card unmounts before the registry's refusal comes back.
+	// This component survives it: the row going is what makes it render
+	// `RouteNotFound` instead.
+	const { run: askDelete, dialog } = useAcknowledgedWrite({
+		askable: ROUTE_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	// Render the route's name in the breadcrumb trail instead of its raw id.
 	useBreadcrumbLabel(routeId, route?.routeName ?? null);
 
 	if (isReady && route === null) {
-		return <RouteNotFound surface={surface} />;
+		return (
+			<>
+				<RouteNotFound surface={surface} />
+				{dialog}
+			</>
+		);
 	}
 
 	return (
@@ -147,9 +163,10 @@ export function RouteDetailPage({
 					<WriteOnly minimum="manager">
 						<div className="shrink-0 border-border/40 border-t p-3">
 							<DangerZoneCard
+								ask={askDelete}
 								name={route.routeName}
 								noun="route"
-								onDelete={() => removeRoute(route.id)}
+								onDelete={(acknowledgements) => removeRoute(route.id, acknowledgements)}
 								recordId={route.id}
 								recordType="route"
 								returnTo={surface.indexLink.to as NonNullable<typeof surface.indexLink.to>}
@@ -157,6 +174,8 @@ export function RouteDetailPage({
 						</div>
 					</WriteOnly>
 				)}
+
+				{dialog}
 			</div>
 		</MapSplitPage>
 	);

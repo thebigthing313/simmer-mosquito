@@ -23,6 +23,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { EmptyValue } from '../../../components/empty-value';
 import {
@@ -256,6 +257,7 @@ function CollectionLureDrawer({
 	readonly trigger: React.ReactNode;
 }) {
 	const [open, setOpen] = useState(false);
+	const { run, dialog } = useAcknowledgedWrite({ askable: mutations.refusals, ask: true });
 	const defaultValues = catalogFormValues(lure);
 	const form = useAppForm({
 		defaultValues,
@@ -266,11 +268,23 @@ function CollectionLureDrawer({
 			commitCatalogSave({
 				failureMessage:
 					lure === undefined ? 'Unable to create collection lure.' : `Unable to save ${lure.name}.`,
-				onWritten: () => setOpen(false),
+				// Closing is inside `run` rather than `onWritten`: `run` resolves on a
+				// refusal too, so dismissing on the way past would take the form away
+				// before the question could be asked.
 				save: () =>
-					lure === undefined
-						? mutations.create(catalogFields(value)).then(() => undefined)
-						: mutations.save(lure.id, catalogFields(value), catalogFields(catalogFormValues(lure))),
+					run(async (acknowledgements) => {
+						if (lure === undefined) {
+							await mutations.create(catalogFields(value));
+						} else {
+							await mutations.save(
+								lure.id,
+								catalogFields(value),
+								catalogFields(catalogFormValues(lure)),
+								acknowledgements,
+							);
+						}
+						setOpen(false);
+					}),
 			});
 		},
 	});
@@ -283,61 +297,66 @@ function CollectionLureDrawer({
 	}
 
 	return (
-		<Drawer direction="right" open={open} onOpenChange={updateOpen}>
-			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-			<DrawerContent className="w-[min(520px,100%)] sm:max-w-[520px]">
-				<DrawerHeader>
-					<DrawerTitle>
-						{lure === undefined ? 'Add Collection Lure' : `Edit ${lure.name}`}
-					</DrawerTitle>
-					<DrawerDescription>Manage the label, description, and lifecycle state.</DrawerDescription>
-				</DrawerHeader>
-				<form.AppForm>
-					<form
-						className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
-						}}
-					>
-						<form.FormErrorAlert />
-						<form.AppField
-							name="name"
-							validators={{
-								onSubmit: ({ value }) =>
-									value.trim().length === 0 ? 'Lure name is required.' : undefined,
+		<>
+			<Drawer direction="right" open={open} onOpenChange={updateOpen}>
+				<DrawerTrigger asChild>{trigger}</DrawerTrigger>
+				<DrawerContent className="w-[min(520px,100%)] sm:max-w-[520px]">
+					<DrawerHeader>
+						<DrawerTitle>
+							{lure === undefined ? 'Add Collection Lure' : `Edit ${lure.name}`}
+						</DrawerTitle>
+						<DrawerDescription>
+							Manage the label, description, and lifecycle state.
+						</DrawerDescription>
+					</DrawerHeader>
+					<form.AppForm>
+						<form
+							className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
+							onSubmit={(event) => {
+								event.preventDefault();
+								void form.handleSubmit();
 							}}
 						>
-							{(field) => (
-								<field.TextField label="Lure name" disabled={!canManage} placeholder="e.g. CO2" />
-							)}
-						</form.AppField>
-						<form.AppField name="description">
-							{(field) => (
-								<field.TextareaField
-									label="Description"
-									disabled={!canManage}
-									className="min-h-24"
-								/>
-							)}
-						</form.AppField>
-						<form.AppField name="isActive">
-							{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
-						</form.AppField>
-						<DrawerFooter className="px-0">
-							<form.FormActions>
-								<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
-								<DrawerClose asChild>
-									<Button type="button" variant="outline">
-										<CloseIcon data-icon="inline-start" aria-hidden="true" />
-										Cancel
-									</Button>
-								</DrawerClose>
-							</form.FormActions>
-						</DrawerFooter>
-					</form>
-				</form.AppForm>
-			</DrawerContent>
-		</Drawer>
+							<form.FormErrorAlert />
+							<form.AppField
+								name="name"
+								validators={{
+									onSubmit: ({ value }) =>
+										value.trim().length === 0 ? 'Lure name is required.' : undefined,
+								}}
+							>
+								{(field) => (
+									<field.TextField label="Lure name" disabled={!canManage} placeholder="e.g. CO2" />
+								)}
+							</form.AppField>
+							<form.AppField name="description">
+								{(field) => (
+									<field.TextareaField
+										label="Description"
+										disabled={!canManage}
+										className="min-h-24"
+									/>
+								)}
+							</form.AppField>
+							<form.AppField name="isActive">
+								{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
+							</form.AppField>
+							<DrawerFooter className="px-0">
+								<form.FormActions>
+									<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
+									<DrawerClose asChild>
+										<Button type="button" variant="outline">
+											<CloseIcon data-icon="inline-start" aria-hidden="true" />
+											Cancel
+										</Button>
+									</DrawerClose>
+								</form.FormActions>
+							</DrawerFooter>
+						</form>
+					</form.AppForm>
+				</DrawerContent>
+			</Drawer>
+			{dialog}
+		</>
 	);
 }

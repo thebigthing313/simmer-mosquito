@@ -57,7 +57,16 @@ export interface SampleMutations {
 		sampleId: string,
 		unidentifiableReason: string | null,
 	) => Promise<void>;
-	readonly remove: (sampleId: string) => Promise<void>;
+	/**
+	 * Delete a sample.
+	 *
+	 * `acknowledgements` is what the user answered. A withheld flag goes on the
+	 * wire as `false`, which is the only reading that makes the registry refuse.
+	 */
+	readonly remove: (
+		sampleId: string,
+		acknowledgements?: Readonly<Record<string, boolean>>,
+	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
 }
@@ -184,15 +193,21 @@ export function useSampleMutations(): SampleMutations {
 		[actorProfileId],
 	);
 
-	const remove = useCallback(async (sampleId: string) => {
-		await settleWrite(
-			mutateCollection(samples, {
-				operation: 'delete',
-				intent: 'larvalSurveillance.deleteInspectionSample',
-				key: sampleId,
-			}),
-		);
-	}, []);
+	const remove = useCallback(
+		async (sampleId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
+			await settleWrite(
+				mutateCollection(samples, {
+					operation: 'delete',
+					intent: 'larvalSurveillance.deleteInspectionSample',
+					key: sampleId,
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
+				}),
+			);
+		},
+		[],
+	);
 
 	return {
 		add,

@@ -12,6 +12,10 @@ import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
+import {
+	type Acknowledgements,
+	useAcknowledgedWrite,
+} from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -33,6 +37,7 @@ import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
+import { CONTROL_ACTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { formatActionDate, formatMeasure } from '../-control-display';
 
 export const Route = createFileRoute('/control-operations/source-reduction/$id')({
@@ -56,6 +61,15 @@ function SourceReductionDetail({ sourceReductionId }: { readonly sourceReduction
 	const { action: sourceReduction, isReady } = useSourceReduction(sourceReductionId, {
 		gcTime: sourceReductionGcTimeMs,
 	});
+	// Held here rather than in the danger zone, and rendered here too. The delete
+	// is optimistic, so the action leaves the collection the moment the button is
+	// pressed and everything below this line unmounts before the registry's
+	// refusal comes back. This component survives it: the row going is what makes
+	// it render `RecordUnavailable` instead.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: CONTROL_ACTION_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	return (
 		<div className="h-full min-h-0 overflow-y-auto">
@@ -73,16 +87,21 @@ function SourceReductionDetail({ sourceReductionId }: { readonly sourceReduction
 						title="Source Reduction Unavailable"
 					/>
 				) : (
-					<SourceReductionDetailContent sourceReduction={sourceReduction} />
+					<SourceReductionDetailContent askDelete={run} sourceReduction={sourceReduction} />
 				)}
+				{dialog}
 			</div>
 		</div>
 	);
 }
 
 function SourceReductionDetailContent({
+	askDelete,
 	sourceReduction,
 }: {
+	readonly askDelete: (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+	) => Promise<void>;
 	readonly sourceReduction: SourceReduction;
 }) {
 	// The method roster is still read, but only for the custom-field schema the
@@ -151,9 +170,10 @@ function SourceReductionDetailContent({
 						/>
 					</div>
 					<DangerZoneCard
+						ask={askDelete}
 						name={methodName}
 						noun="source reduction"
-						onDelete={() => remove(sourceReduction.id)}
+						onDelete={(acknowledgements) => remove(sourceReduction.id, acknowledgements)}
 						recordId={sourceReduction.id}
 						recordType="sourceReduction"
 						returnTo="/control-operations/source-reduction"

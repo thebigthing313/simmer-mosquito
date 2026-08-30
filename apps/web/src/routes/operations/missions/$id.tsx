@@ -22,6 +22,10 @@ import {
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { ArrowLeftIcon, iconRegistry, MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
+import {
+	type Acknowledgements,
+	useAcknowledgedWrite,
+} from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
@@ -31,6 +35,7 @@ import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutati
 import { controlTypeLabel, formatScheduledStart } from '../../../hooks/queries/operations-view';
 import type { MissionRecord } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { MISSION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { formatOperationalDate } from '../-operations-data';
 import { MissionStatusBadge, StopProgressSummary, stopSummary } from '../-operations-display';
 import { WorklistMap } from '../-worklist-map';
@@ -59,9 +64,23 @@ function MissionDetailRoute() {
 	const { id } = Route.useParams();
 	const run = useMissionRun(id);
 	useBreadcrumbLabel(id, run.displayName);
+	// Held here rather than in the panel, and rendered here too. The delete is
+	// optimistic, so the mission leaves the collection the moment the button is
+	// pressed and the panel unmounts before the registry's refusal comes back.
+	// This component survives it: the row going is what makes it render
+	// `MissionNotFound` instead.
+	const { run: askDelete, dialog } = useAcknowledgedWrite({
+		askable: MISSION_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	if (run.isReady && run.mission === null) {
-		return <MissionNotFound />;
+		return (
+			<>
+				<MissionNotFound />
+				{dialog}
+			</>
+		);
 	}
 
 	return (
@@ -80,10 +99,11 @@ function MissionDetailRoute() {
 					/>
 				}
 			>
-				<MissionPanel missionId={id} run={run} />
+				<MissionPanel askDelete={askDelete} missionId={id} run={run} />
 			</MapSplitPage>
 
 			<MissionDialogs run={run} />
+			{dialog}
 		</>
 	);
 }
@@ -92,9 +112,13 @@ function MissionDetailRoute() {
 function MissionPanel({
 	missionId,
 	run,
+	askDelete,
 }: {
 	readonly missionId: string;
 	readonly run: MissionRun;
+	readonly askDelete: (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+	) => Promise<void>;
 }) {
 	const missionWrites = useMissionMutations();
 
@@ -158,9 +182,10 @@ function MissionPanel({
 			{run.mission === null ? null : (
 				<div className="shrink-0 border-border/40 border-t p-3">
 					<DangerZoneCard
+						ask={askDelete}
 						name={run.displayName ?? 'this mission'}
 						noun="mission"
-						onDelete={() => missionWrites.remove(missionId)}
+						onDelete={(acknowledgements) => missionWrites.remove(missionId, acknowledgements)}
 						recordId={missionId}
 						recordType="mission"
 						returnTo="/operations/missions"

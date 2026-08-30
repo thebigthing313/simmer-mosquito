@@ -2,6 +2,7 @@ import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { RecordUnavailable } from '../../../components/record';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
 import {
@@ -11,6 +12,7 @@ import {
 	useCollectionMethodRoster,
 } from '../../../hooks/queries/use-catalog-rosters';
 import { type TrapRecord, useTrapRecord } from '../../../hooks/queries/use-trap-record';
+import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { isBelowRole } from '../../../lib/write-access';
 import {
 	type DrawGeometry,
@@ -63,6 +65,7 @@ function EditTrapLoader({
 }) {
 	const navigate = useNavigate();
 	const mutations = useTrapMutations();
+	const { run, dialog } = useAcknowledgedWrite({ askable: TRAP_SAVE_REFUSALS, ask: true });
 
 	const onSave = useCallback(
 		async ({
@@ -85,36 +88,49 @@ function EditTrapLoader({
 				throw new Error('Unable to determine the trap location.');
 			}
 
-			await mutations.save(
-				trap.id,
-				trapFieldsFrom(values),
-				trapFieldsFrom(trapFormValuesFrom(trap)),
-				shape === null || centroid === null ? null : { geometry: shape, centroid },
-			);
-			await navigate({ to: '/adult-surveillance/traps/$id', params: { id: trap.id } });
+			// Both questions go out unanswered, and each rides only with the command
+			// that reads it, so a description-only edit answers nothing.
+			//
+			// The navigation is *inside* the callback on purpose: `run` resolves on a
+			// refusal as well as on a success, because a refusal is a question rather
+			// than a failure. Leaving here on the way past would abandon the page
+			// before the question could be asked, and read as a save that worked.
+			await run(async (acknowledgements) => {
+				await mutations.save(
+					trap.id,
+					trapFieldsFrom(values),
+					trapFieldsFrom(trapFormValuesFrom(trap)),
+					shape === null || centroid === null ? null : { geometry: shape, centroid },
+					acknowledgements,
+				);
+				await navigate({ to: '/adult-surveillance/traps/$id', params: { id: trap.id } });
+			});
 		},
-		[trap, mutations, navigate],
+		[trap, mutations, navigate, run],
 	);
 
 	return (
-		<TrapFormPage
-			canSubmit={mutations.canWrite}
-			collectionLures={collectionLures}
-			collectionMethods={collectionMethods}
-			defaultValues={trapFormValuesFrom(trap)}
-			header={{
-				title: 'Edit Trap',
-				description: 'Update this trap’s details, method, lure, or location.',
-				backTo: '/adult-surveillance/traps/$id',
-				backParams: { id: trap.id },
-				backLabel: 'Back to trap',
-			}}
-			initialGeometry={{ type: 'Point', coordinates: [trap.longitude, trap.latitude] }}
-			onSave={onSave}
-			organizationId={trap.organizationId}
-			requireLocation={false}
-			submitLabel="Save Changes"
-		/>
+		<>
+			<TrapFormPage
+				canSubmit={mutations.canWrite}
+				collectionLures={collectionLures}
+				collectionMethods={collectionMethods}
+				defaultValues={trapFormValuesFrom(trap)}
+				header={{
+					title: 'Edit Trap',
+					description: 'Update this trap’s details, method, lure, or location.',
+					backTo: '/adult-surveillance/traps/$id',
+					backParams: { id: trap.id },
+					backLabel: 'Back to trap',
+				}}
+				initialGeometry={{ type: 'Point', coordinates: [trap.longitude, trap.latitude] }}
+				onSave={onSave}
+				organizationId={trap.organizationId}
+				requireLocation={false}
+				submitLabel="Save Changes"
+			/>
+			{dialog}
+		</>
 	);
 }
 

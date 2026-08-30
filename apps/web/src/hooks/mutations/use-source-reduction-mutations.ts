@@ -87,9 +87,15 @@ export interface UpdateSourceReductionInput {
 export interface SourceReductionMutations {
 	readonly record: (input: RecordSourceReductionInput) => Promise<void>;
 	readonly update: (current: SourceReduction, input: UpdateSourceReductionInput) => Promise<void>;
+	/**
+	 * Delete a source reduction action.
+	 *
+	 * `acknowledgements` is what the user answered. Withheld flags go on the wire
+	 * as `false`, which is the only reading that makes the registry refuse.
+	 */
 	readonly remove: (
 		sourceReductionId: string,
-		acknowledgements?: StopAcknowledgements,
+		acknowledgements?: Readonly<Record<string, boolean>>,
 	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
@@ -233,13 +239,15 @@ export function useSourceReductionMutations(): SourceReductionMutations {
 	);
 
 	const remove = useCallback(
-		async (sourceReductionId: string, acknowledgements?: StopAcknowledgements) => {
+		async (sourceReductionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
 				mutateCollection(source_reductions, {
 					operation: 'delete',
 					intent: 'controlOperations.deleteSourceReduction',
 					key: sourceReductionId,
-					...(acknowledgements === undefined ? {} : { acknowledgements }),
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
 				}),
 			);
 		},

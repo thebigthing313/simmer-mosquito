@@ -50,7 +50,8 @@
  * - Zero result is a pair read for its direction. Marking it *clears every
  *   species count on the collection* and clearing it does not put them back, so
  *   `markCollectionZeroResult` and `clearCollectionZeroResult` are separate
- *   commands and the destructive one is the only one the page confirms.
+ *   commands, and marking is the one that can be refused until the caller
+ *   agrees to lose the counts.
  * - Bycatch is an observation, so the value is the point and one command takes
  *   it either way.
  * - Problem is part of the field record, so it rides on
@@ -158,13 +159,33 @@ export interface CollectionMutations {
 		readonly assignmentItemId?: string | null;
 		readonly acknowledgements?: StopAcknowledgements;
 	}) => Promise<void>;
-	/** Nothing was caught. Marking it clears every species count — two commands, not a column. */
-	readonly setZeroResult: (collectionId: string, isZeroResult: boolean) => Promise<void>;
+	/**
+	 * Nothing was caught. Marking it clears every species count — two commands,
+	 * not a column.
+	 *
+	 * `acknowledgements` is what the user answered. Withheld, the counts already
+	 * recorded are what the server refuses over, and the number it names is its
+	 * own rather than whatever the page happens to have loaded.
+	 */
+	readonly setZeroResult: (
+		collectionId: string,
+		isZeroResult: boolean,
+		acknowledgements?: Readonly<Record<string, boolean>>,
+	) => Promise<void>;
 	/** Non-target specimens were present. An observation, so one command either way. */
 	readonly setBycatch: (collectionId: string, hasBycatch: boolean) => Promise<void>;
 	/** Trap failure, tampering, or a compromised sample — part of the field record. */
 	readonly setProblem: (collectionId: string, hasProblem: boolean) => Promise<void>;
-	readonly remove: (collectionId: string) => Promise<void>;
+	/**
+	 * Delete a collection.
+	 *
+	 * `acknowledgements` is what the user answered. A withheld flag goes on the
+	 * wire as `false`, which is the only reading that makes the registry refuse.
+	 */
+	readonly remove: (
+		collectionId: string,
+		acknowledgements?: Readonly<Record<string, boolean>>,
+	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
 }
@@ -413,7 +434,11 @@ export function useCollectionMutations(): CollectionMutations {
 	);
 
 	const setZeroResult = useCallback(
-		async (collectionId: string, isZeroResult: boolean) => {
+		async (
+			collectionId: string,
+			isZeroResult: boolean,
+			acknowledgements: Readonly<Record<string, boolean>> = {},
+		) => {
 			await settleWrite(
 				mutateCollection(collections, {
 					operation: 'update',
@@ -426,6 +451,10 @@ export function useCollectionMutations(): CollectionMutations {
 						updated_by_profile_id: actorProfileId,
 						updated_at: optimisticStamp(),
 					},
+					// Sent in both directions. Only marking can be refused, and clearing
+					// carries a flag the command has no reader for rather than making
+					// this callback branch on which of the two it named.
+					acknowledgements,
 				}),
 			);
 		},
@@ -468,15 +497,21 @@ export function useCollectionMutations(): CollectionMutations {
 		[actorProfileId],
 	);
 
-	const remove = useCallback(async (collectionId: string) => {
-		await settleWrite(
-			mutateCollection(collections, {
-				operation: 'delete',
-				intent: 'adultSurveillance.deleteCollection',
-				key: collectionId,
-			}),
-		);
-	}, []);
+	const remove = useCallback(
+		async (collectionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
+			await settleWrite(
+				mutateCollection(collections, {
+					operation: 'delete',
+					intent: 'adultSurveillance.deleteCollection',
+					key: collectionId,
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
+				}),
+			);
+		},
+		[],
+	);
 
 	return {
 		record,

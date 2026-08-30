@@ -21,6 +21,7 @@ import { useTrapOptions } from '../../../hooks/queries/use-trap-options';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { isWriteBlocked } from '../../../lib/write-access';
 import { todayInTimeZone } from '../-overview-data';
@@ -103,7 +104,10 @@ function CreateCollectionRoute() {
 
 	// The whole save re-runs on a confirmed acknowledgement, crew rows included;
 	// every id is minted up front, so a second attempt writes the same rows.
-	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite();
+	const { run: runAcknowledged, dialog: acknowledgeDialog } = useAcknowledgedWrite({
+		askable: STOP_RECORD_REFUSALS,
+		ask: true,
+	});
 
 	const onSave = useCallback(
 		async (input: CollectionSaveInput) =>

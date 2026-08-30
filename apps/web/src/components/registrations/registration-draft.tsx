@@ -19,6 +19,7 @@ import {
 	NOTIFICATION_REGISTRATION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../hooks/use-owned-geometry';
+import type { Acknowledgements } from '../acknowledged-write';
 import { DangerZoneCard } from '../danger-zone-card';
 import { DrawToolbar } from '../map/geometry-control';
 import type { DrawGeometryType, MapDrawController } from '../map/use-map-draw';
@@ -36,6 +37,16 @@ import { formValuesOf, reconcileSubscriptions, savedFieldsOf } from './registrat
 export interface RegistrationDraftProps {
 	readonly contactId: string;
 	readonly draft: RegistrationDraftState;
+	/**
+	 * Runs an edit's save so a refusal a confirmation can answer becomes a
+	 * question.
+	 *
+	 * Held by the page rather than here: an applied save moves the row's
+	 * `updated_at`, the geometry read is keyed on it, and this form is a skeleton
+	 * again before the refusal lands. A create answers no questions, so only the
+	 * edit path uses it.
+	 */
+	readonly askSave: (write: (acknowledgements: Acknowledgements) => Promise<void>) => Promise<void>;
 	/** The page's canvas. The draft draws on it rather than owning one. */
 	readonly map: MapboxMap | null;
 	readonly onCancel: () => void;
@@ -108,6 +119,7 @@ function CreateDraft({
 }
 
 function EditDraft({
+	askSave,
 	map,
 	onCancel,
 	onSaved,
@@ -129,6 +141,7 @@ function EditDraft({
 
 	return (
 		<EditDraftLoader
+			askSave={askSave}
 			map={map}
 			mutations={mutations}
 			onCancel={onCancel}
@@ -140,6 +153,7 @@ function EditDraft({
 }
 
 function EditDraftLoader({
+	askSave,
 	map,
 	mutations,
 	onCancel,
@@ -147,6 +161,7 @@ function EditDraftLoader({
 	registration,
 	toolbarSlot,
 }: {
+	readonly askSave: RegistrationDraftProps['askSave'];
 	readonly map: MapboxMap | null;
 	readonly mutations: ReturnType<typeof useNotificationRegistrationMutations>;
 	readonly onCancel: () => void;
@@ -168,26 +183,36 @@ function EditDraftLoader({
 
 	const onSave = useCallback(
 		async (values: RegistrationFormValues, geometry: NonNullable<DraftGeometry>) => {
-			await mutations.save({
-				registrationId: registration.id,
-				fields: {
-					contactId: registration.contactId,
-					addressId: values.addressId,
-					buffer: bufferFrom(values),
-					flags: { hasBees: values.hasBees, isNoSpray: values.isNoSpray },
-				},
-				current: savedFieldsOf(registration),
-				geometry,
+			// Closing the panel is *inside* the callback on purpose: `askSave`
+			// resolves on a refusal as well as on a success, because a refusal is a
+			// question rather than a failure. Closing on the way past would read as a
+			// save that worked.
+			await askSave(async (acknowledgements) => {
+				await mutations.save({
+					registrationId: registration.id,
+					fields: {
+						contactId: registration.contactId,
+						addressId: values.addressId,
+						buffer: bufferFrom(values),
+						flags: { hasBees: values.hasBees, isNoSpray: values.isNoSpray },
+					},
+					current: savedFieldsOf(registration),
+					geometry,
+					acknowledgedFutureOnlyChange: acknowledgements.acknowledgedFutureOnlyChange === true,
+					acknowledgedHistoricalContactChange:
+						acknowledgements.acknowledgedHistoricalContactChange === true,
+				});
+				await reconcileSubscriptions({
+					chosen: values.notificationTypeIds,
+					current: subscriptions,
+					mutations,
+					registrationId: registration.id,
+					acknowledgedFutureOnlyChange: acknowledgements.acknowledgedFutureOnlyChange === true,
+				});
+				onSaved('Registration updated.');
 			});
-			await reconcileSubscriptions({
-				chosen: values.notificationTypeIds,
-				current: subscriptions,
-				mutations,
-				registrationId: registration.id,
-			});
-			onSaved('Registration updated.');
 		},
-		[mutations, onSaved, registration, subscriptions],
+		[askSave, mutations, onSaved, registration, subscriptions],
 	);
 
 	if (savedGeometry.isError) {

@@ -39,10 +39,20 @@ export interface ControlAssetFields {
 
 export interface ControlAssetMutations {
 	readonly create: (fields: ControlAssetFields) => Promise<string>;
+	/**
+	 * Save an edited asset.
+	 *
+	 * `acknowledgements` is what the user has answered, keyed by the flag the
+	 * endpoint reads. The two hooks read different keys — `/commands/vehicles` and
+	 * `/commands/equipment` each take their own, unlike the older per-kind REST
+	 * route that fanned one name out to both — so the caller passes everything it
+	 * has and the hook picks its own.
+	 */
 	readonly save: (
 		id: string,
 		fields: ControlAssetFields,
 		current: ControlAssetFields,
+		acknowledgements?: Readonly<Record<string, boolean>>,
 	) => Promise<void>;
 	readonly setActive: (id: string, isActive: boolean) => Promise<void>;
 	readonly remove: (id: string) => Promise<void>;
@@ -85,7 +95,12 @@ export function useVehicleMutations(): ControlAssetMutations {
 	);
 
 	const save = useCallback(
-		async (id: string, fields: ControlAssetFields, current: ControlAssetFields) => {
+		async (
+			id: string,
+			fields: ControlAssetFields,
+			current: ControlAssetFields,
+			acknowledgements: Readonly<Record<string, boolean>> = {},
+		) => {
 			const changes: Partial<Vehicle> = {};
 			if (fields.name !== current.name) {
 				changes.vehicle_name = fields.name;
@@ -97,6 +112,17 @@ export function useVehicleMutations(): ControlAssetMutations {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
+				// An application names the vehicle it was made from and keeps no copy
+				// of what it was called, so the rename is the only thing this save can
+				// be refused over. The metadata is notes.
+				...(changes.vehicle_name === undefined
+					? {}
+					: {
+							acknowledgements: {
+								acknowledgedHistoricalVehicleLabelChange:
+									acknowledgements.acknowledgedHistoricalVehicleLabelChange === true,
+							},
+						}),
 			});
 		},
 		[],
@@ -147,7 +173,12 @@ export function useEquipmentMutations(): ControlAssetMutations {
 	);
 
 	const save = useCallback(
-		async (id: string, fields: ControlAssetFields, current: ControlAssetFields) => {
+		async (
+			id: string,
+			fields: ControlAssetFields,
+			current: ControlAssetFields,
+			acknowledgements: Readonly<Record<string, boolean>> = {},
+		) => {
 			const changes: Partial<Equipment> = {};
 			if (fields.name !== current.name) {
 				changes.equipment_name = fields.name;
@@ -162,6 +193,16 @@ export function useEquipmentMutations(): ControlAssetMutations {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
+				// The name and the serial number are both what a past application is
+				// read back under, so either one is the question. The metadata is notes.
+				...(changes.equipment_name === undefined && changes.serial_number === undefined
+					? {}
+					: {
+							acknowledgements: {
+								acknowledgedHistoricalEquipmentLabelChange:
+									acknowledgements.acknowledgedHistoricalEquipmentLabelChange === true,
+							},
+						}),
 			});
 		},
 		[],

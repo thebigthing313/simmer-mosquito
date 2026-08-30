@@ -59,6 +59,8 @@ export async function reconcileSubscriptions(input: {
 	readonly current: readonly RegistrationSubscriptionRecord[];
 	readonly mutations: ReturnType<typeof useNotificationRegistrationMutations>;
 	readonly registrationId: string;
+	/** What the user answered about the notices already sent under a dropped type. */
+	readonly acknowledgedFutureOnlyChange: boolean;
 }): Promise<void> {
 	const before = new Set(input.current.map((row) => row.notificationTypeId));
 	const after = new Set(input.chosen);
@@ -73,7 +75,7 @@ export async function reconcileSubscriptions(input: {
 	}
 	for (const subscription of input.current) {
 		if (!after.has(subscription.notificationTypeId)) {
-			await input.mutations.unsubscribe(subscription.id);
+			await input.mutations.unsubscribe(subscription.id, input.acknowledgedFutureOnlyChange);
 		}
 	}
 }

@@ -48,15 +48,23 @@
  * that changed the address without redrawing the pin sends no location source at
  * all.
  *
- * ## The acknowledgements are not questions this app asks
+ * ## The acknowledgements are the caller's answers
  *
- * `acknowledgedHistoricalLabelChange` and the two trap-semantics flags were
- * hard-coded to `true` by the route being replaced, so a client had no way to
- * withhold one. Omitting them here preserves that exactly — `acknowledged()` on
- * the server reads an absent flag as answered. `acknowledgedDuplicateTrapCode`
- * is the opposite convention, defaulting to unanswered, and nothing on the
- * server reads it yet; when that check lands, this is the file that grows a
- * parameter for it.
+ * Three of these writes carry one. {@link create} and {@link save} take what the
+ * form answered and send it, so a withheld flag arrives as `false` and the
+ * server refuses with the count behind it. {@link remove} does the same for the
+ * collections a trap delete takes with it.
+ *
+ * Which flag belongs to which command is why `save` does not send both every
+ * time. `acknowledgedHistoricalLabelChange` is `updateTrapDetails`, and only a
+ * changed name or code can be refused over it, so a description-only edit
+ * answers a question nobody asked. `acknowledgedDuplicateTrapCode` is read by
+ * `createTrap` and `reactivateTrap` and by neither update command, because
+ * retiring a trap frees its code for another to take, so on a save it rides only
+ * on the one bringing a retired trap back.
+ *
+ * That flag is also the one the server reads as `=== true` rather than through
+ * `acknowledged()`, so it has been live since before this file sent it.
  */
 
 import type { SingleRowCommandType } from '@simmer-mosquito/domain';
@@ -91,11 +99,19 @@ export interface TrapFields {
 }
 
 export interface TrapMutations {
-	/** Returns the new trap's id, so the caller can navigate to it. */
+	/**
+	 * Returns the new trap's id, so the caller can navigate to it.
+	 *
+	 * `acknowledgements` is what the form answered. Only
+	 * `acknowledgedDuplicateTrapCode` is read here, and it reaches the wire
+	 * whether the trap is created active or retired, because the code collision
+	 * is `createTrap`'s question either way.
+	 */
 	readonly create: (
 		fields: TrapFields,
 		geometry: GeoJsonGeometry,
 		centroid: TrapCentroid,
+		acknowledgements?: Readonly<Record<string, boolean>>,
 	) => Promise<string>;
 	/**
 	 * Save an edited trap.
@@ -106,16 +122,30 @@ export interface TrapMutations {
 	 *
 	 * Resolves without sending anything when nothing moved, so a form's Save on an
 	 * untouched record is not a refused request.
+	 *
+	 * `acknowledgements` is what the form answered. Each flag is sent only with
+	 * the command that reads it, so an edit that changed neither the label nor the
+	 * Active switch carries none of them.
 	 */
 	readonly save: (
 		trapId: string,
 		fields: TrapFields,
 		current: TrapFields,
 		geometry: { readonly geometry: GeoJsonGeometry; readonly centroid: TrapCentroid } | null,
+		acknowledgements?: Readonly<Record<string, boolean>>,
 	) => Promise<void>;
 	/** In or out of service — two commands rather than a boolean read for its direction. */
 	readonly setActive: (trapId: string, isActive: boolean) => Promise<void>;
-	readonly remove: (trapId: string) => Promise<void>;
+	/**
+	 * Delete a trap.
+	 *
+	 * `acknowledgements` is what the user answered. A withheld flag goes on the
+	 * wire as `false`, which is the only reading that makes the registry refuse.
+	 */
+	readonly remove: (
+		trapId: string,
+		acknowledgements?: Readonly<Record<string, boolean>>,
+	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
 }
@@ -127,7 +157,12 @@ export function useTrapMutations(): TrapMutations {
 	const actorProfileId = identity?.profileId ?? null;
 
 	const create = useCallback(
-		async (fields: TrapFields, geometry: GeoJsonGeometry, centroid: TrapCentroid) => {
+		async (
+			fields: TrapFields,
+			geometry: GeoJsonGeometry,
+			centroid: TrapCentroid,
+			acknowledgements: Readonly<Record<string, boolean>> = {},
+		) => {
 			if (organizationId === null) {
 				throw new Error('Organization details are still loading.');
 			}
@@ -159,6 +194,11 @@ export function useTrapMutations(): TrapMutations {
 						updated_at: now,
 					} satisfies Trap,
 					locationSource: { kind: 'geometry', geometry },
+					// Passed through whole. The form's askable map covers both trap
+					// questions, and a flag no handler reads is a key on the body and
+					// nothing more, while filtering here would be this file deciding
+					// what the endpoint reads.
+					acknowledgements,
 				}),
 			);
 			return trapId;
@@ -172,19 +212,26 @@ export function useTrapMutations(): TrapMutations {
 			fields: TrapFields,
 			current: TrapFields,
 			geometry: { readonly geometry: GeoJsonGeometry; readonly centroid: TrapCentroid } | null,
+			acknowledgements: Readonly<Record<string, boolean>> = {},
 		) => {
 			const intents: SingleRowCommandType[] = [];
 			const changes: Partial<Trap> = {};
+			const answers: Record<string, boolean> = {};
 
-			if (
-				fields.trapName !== current.trapName ||
-				fields.trapCode !== current.trapCode ||
-				fields.description !== current.description
-			) {
+			const changesLabel =
+				fields.trapName !== current.trapName || fields.trapCode !== current.trapCode;
+			if (changesLabel || fields.description !== current.description) {
 				intents.push('adultSurveillance.updateTrapDetails');
 				changes.trap_name = fields.trapName;
 				changes.trap_code = fields.trapCode;
 				changes.description = fields.description;
+				// Only a changed name or code can be refused over the trap's history,
+				// so a description-only edit does not answer a question nobody asked.
+				// The server draws the same line.
+				if (changesLabel) {
+					answers.acknowledgedHistoricalLabelChange =
+						acknowledgements.acknowledgedHistoricalLabelChange === true;
+				}
 			}
 
 			if (
@@ -209,6 +256,12 @@ export function useTrapMutations(): TrapMutations {
 					fields.isActive ? 'adultSurveillance.reactivateTrap' : 'adultSurveillance.retireTrap',
 				);
 				changes.is_active = fields.isActive;
+				// Retiring a trap frees its code, so bringing one back is where the
+				// collision can be found. Retiring it can never hit one.
+				if (fields.isActive) {
+					answers.acknowledgedDuplicateTrapCode =
+						acknowledgements.acknowledgedDuplicateTrapCode === true;
+				}
 			}
 
 			if (intents.length === 0) {
@@ -225,6 +278,7 @@ export function useTrapMutations(): TrapMutations {
 						updated_by_profile_id: actorProfileId,
 						updated_at: optimisticStamp(),
 					},
+					acknowledgements: answers,
 					// Absent unless the point was redrawn: a shape sent under a command
 					// with no reader for it is a key the server ignores, and sending one
 					// anyway makes the body claim an edit it is not making.
@@ -255,15 +309,21 @@ export function useTrapMutations(): TrapMutations {
 		[actorProfileId],
 	);
 
-	const remove = useCallback(async (trapId: string) => {
-		await settleWrite(
-			mutateCollection(traps, {
-				operation: 'delete',
-				intent: 'adultSurveillance.deleteTrap',
-				key: trapId,
-			}),
-		);
-	}, []);
+	const remove = useCallback(
+		async (trapId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
+			await settleWrite(
+				mutateCollection(traps, {
+					operation: 'delete',
+					intent: 'adultSurveillance.deleteTrap',
+					key: trapId,
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
+				}),
+			);
+		},
+		[],
+	);
 
 	return {
 		create,

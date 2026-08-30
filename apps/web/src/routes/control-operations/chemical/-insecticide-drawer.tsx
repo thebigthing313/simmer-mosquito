@@ -12,6 +12,7 @@ import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type React from 'react';
 import { useMemo, useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import {
 	CatalogDeleteDialog,
 	CatalogDrawerCancel,
@@ -24,6 +25,7 @@ import type {
 } from '../../../hooks/mutations/use-insecticide-mutations';
 import type { InsecticideRecord } from '../../../hooks/queries/use-insecticide-records';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
+import { INSECTICIDE_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { jsonObjectValue } from '../../../lib/record-display';
 
 const DeleteIcon = iconRegistry.actions.delete.icon;
@@ -54,6 +56,13 @@ export function InsecticideDrawer({
 	const [open, setOpen] = useState(false);
 	const defaultValues = insecticideFormValues(insecticide, units[0]?.id ?? '');
 	const unitChoices = useMemo(() => units.map(unitOption), [units]);
+	// Held on the drawer component rather than inside the drawer's content, which
+	// unmounts: `commitCatalogSave` closes on the way past, before the server has
+	// answered, so a question raised here has to outlive the close.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: INSECTICIDE_SAVE_REFUSALS,
+		ask: true,
+	});
 	const form = useAppForm({
 		defaultValues,
 		validators: {
@@ -66,13 +75,19 @@ export function InsecticideDrawer({
 						? 'Unable to create insecticide.'
 						: `Unable to save ${insecticide.tradeName}.`,
 				onWritten: () => setOpen(false),
+				// A create has no history to rewrite, so only the edit goes through
+				// `run`. `run` swallows a refusal a flag can answer and turns it into
+				// the dialog; anything else still reaches the toast here.
 				save: () =>
 					insecticide === undefined
 						? mutations.create(insecticideFields(value)).then(() => undefined)
-						: mutations.save(
-								insecticide.id,
-								insecticideFields(value),
-								insecticideFields(insecticideFormValues(insecticide, insecticide.defaultUnitId)),
+						: run((acknowledgements) =>
+								mutations.save(
+									insecticide.id,
+									insecticideFields(value),
+									insecticideFields(insecticideFormValues(insecticide, insecticide.defaultUnitId)),
+									acknowledgements,
+								),
 							),
 			});
 		},
@@ -195,6 +210,7 @@ export function InsecticideDrawer({
 					)}
 				</form.AppField>
 			</CatalogRecordDrawer>
+			{dialog}
 		</form.AppForm>
 	);
 }

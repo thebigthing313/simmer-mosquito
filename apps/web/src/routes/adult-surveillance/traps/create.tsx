@@ -1,6 +1,7 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
 import {
@@ -8,6 +9,7 @@ import {
 	useCollectionMethodRoster,
 } from '../../../hooks/queries/use-catalog-rosters';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
+import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { isBelowRole } from '../../../lib/write-access';
 import {
 	type DrawGeometry,
@@ -38,6 +40,7 @@ function CreateTrapRoute() {
 	const methods = useCollectionMethodRoster();
 	const lures = useCollectionLureRoster();
 	const mutations = useTrapMutations();
+	const { run, dialog } = useAcknowledgedWrite({ askable: TRAP_SAVE_REFUSALS, ask: true });
 
 	const onSave = useCallback(
 		async ({
@@ -61,29 +64,46 @@ function CreateTrapRoute() {
 				throw new Error('Unable to determine the trap location.');
 			}
 
-			const trapId = await mutations.create(trapFieldsFrom(values), shape, centroid);
-			await navigate({ to: '/adult-surveillance/traps/$id', params: { id: trapId } });
+			// The code question goes out unanswered and comes back as a refusal only
+			// if another trap already carries the code.
+			//
+			// The navigation is *inside* the callback on purpose: `run` resolves on a
+			// refusal as well as on a success, because a refusal is a question rather
+			// than a failure. Leaving here on the way past would abandon the page
+			// before the question could be asked, and read as a save that worked.
+			await run(async (acknowledgements) => {
+				const trapId = await mutations.create(
+					trapFieldsFrom(values),
+					shape,
+					centroid,
+					acknowledgements,
+				);
+				await navigate({ to: '/adult-surveillance/traps/$id', params: { id: trapId } });
+			});
 		},
-		[mutations, navigate],
+		[mutations, navigate, run],
 	);
 
 	return (
-		<TrapFormPage
-			canSubmit={mutations.canWrite}
-			collectionLures={lures}
-			collectionMethods={methods}
-			defaultValues={defaultTrapFormValues()}
-			header={{
-				title: 'Add Trap',
-				description:
-					'Place the trap point, optionally reference an address, and set its method and lure.',
-				backTo: '/adult-surveillance/traps',
-				backLabel: 'Traps',
-			}}
-			initialGeometry={initialGeometry}
-			onSave={onSave}
-			organizationId={organization?.id ?? ''}
-			submitLabel="Add Trap"
-		/>
+		<>
+			<TrapFormPage
+				canSubmit={mutations.canWrite}
+				collectionLures={lures}
+				collectionMethods={methods}
+				defaultValues={defaultTrapFormValues()}
+				header={{
+					title: 'Add Trap',
+					description:
+						'Place the trap point, optionally reference an address, and set its method and lure.',
+					backTo: '/adult-surveillance/traps',
+					backLabel: 'Traps',
+				}}
+				initialGeometry={initialGeometry}
+				onSave={onSave}
+				organizationId={organization?.id ?? ''}
+				submitLabel="Add Trap"
+			/>
+			{dialog}
+		</>
 	);
 }

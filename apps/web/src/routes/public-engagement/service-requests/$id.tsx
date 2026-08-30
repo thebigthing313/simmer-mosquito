@@ -26,6 +26,10 @@ import {
 	useMemo,
 	useState,
 } from 'react';
+import {
+	type Acknowledgements,
+	useAcknowledgedWrite,
+} from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { CommentsSection } from '../../../components/comments-section';
@@ -46,6 +50,7 @@ import {
 	type ServiceRequestRecord,
 	useServiceRequestRecord,
 } from '../../../hooks/queries/use-service-request-record';
+import { SERVICE_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { HabitatMapCard } from '../../-habitat-map-card';
 import { CollectionMapCard } from '../../adult-surveillance/-collection-map-card';
 import { TrapMapCard } from '../../adult-surveillance/-trap-map-card';
@@ -90,24 +95,41 @@ const ALL_FAMILIES: readonly NearbyFamily[] = ['infrastructure', 'surveillance',
 function ServiceRequestDetailRoute() {
 	const { id } = Route.useParams();
 	const { request, isReady } = useServiceRequestRecord(id);
+	// Held here rather than in the danger zone, and rendered here too. The delete
+	// is optimistic, so the request leaves the collection the moment the button is
+	// pressed and the content below unmounts before the registry's refusal comes
+	// back. This component survives it: the row going is what makes it render
+	// `RecordUnavailable` instead.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: SERVICE_REQUEST_DELETE_REFUSALS,
+		ask: true,
+	});
 
 	if (!isReady) {
 		return <ServiceRequestStatePage>{<ServiceRequestDetailSkeleton />}</ServiceRequestStatePage>;
 	}
 	if (request === undefined) {
 		return (
-			<ServiceRequestStatePage>
-				{
-					<RecordUnavailable
-						noun="request"
-						reason="not-found"
-						title="Service Request Unavailable"
-					/>
-				}
-			</ServiceRequestStatePage>
+			<>
+				<ServiceRequestStatePage>
+					{
+						<RecordUnavailable
+							noun="request"
+							reason="not-found"
+							title="Service Request Unavailable"
+						/>
+					}
+				</ServiceRequestStatePage>
+				{dialog}
+			</>
 		);
 	}
-	return <ServiceRequestDetailContent request={request} />;
+	return (
+		<>
+			<ServiceRequestDetailContent askDelete={run} request={request} />
+			{dialog}
+		</>
+	);
 }
 
 /** Full-height, back-linked frame for the loading / unavailable states. */
@@ -134,7 +156,15 @@ function BackLink() {
 	);
 }
 
-function ServiceRequestDetailContent({ request }: { readonly request: ServiceRequestRecord }) {
+function ServiceRequestDetailContent({
+	request,
+	askDelete,
+}: {
+	readonly request: ServiceRequestRecord;
+	readonly askDelete: (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+	) => Promise<void>;
+}) {
 	const title = serviceRequestTitle(request);
 	useBreadcrumbLabel(request.id, title);
 	const open = isServiceRequestOpen(request);
@@ -235,9 +265,10 @@ function ServiceRequestDetailContent({ request }: { readonly request: ServiceReq
 							target={{ type: 'serviceRequest', id: request.id }}
 						/>
 						<DangerZoneCard
+							ask={askDelete}
 							name={title}
 							noun="service request"
-							onDelete={() => mutations.remove(request.id)}
+							onDelete={(acknowledgements) => mutations.remove(request.id, acknowledgements)}
 							recordId={request.id}
 							recordType="serviceRequest"
 							returnTo="/public-engagement/service-requests"

@@ -25,6 +25,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
+import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
 import type { CatalogMutations } from '../../../hooks/mutations/use-catalog-mutations';
@@ -48,6 +49,7 @@ import {
 	useEquipmentRecords,
 	useVehicleRecords,
 } from '../../../hooks/queries/use-control-asset-records';
+import { EQUIPMENT_SAVE_REFUSALS, VEHICLE_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { hasMetadata } from '../../../lib/record-display';
 import {
 	AddIcon,
@@ -289,6 +291,7 @@ function ControlMethodDrawer({
 	// Creating is admin-only; editing an existing method is open to managers.
 	const canSubmit = method === undefined ? canManage : canEdit;
 	const [open, setOpen] = useState(false);
+	const { run, dialog } = useAcknowledgedWrite({ askable: mutations.refusals, ask: true });
 	const config = controlMethodListConfigs[collectionKey];
 	const defaultValues = catalogFormValues(method);
 	const form = useAppForm({
@@ -302,15 +305,23 @@ function ControlMethodDrawer({
 					method === undefined
 						? `Unable to create ${config.singularLabel}.`
 						: `Unable to save ${method.name}.`,
-				onWritten: () => setOpen(false),
+				// Closing is inside `run` rather than `onWritten`: `run` resolves on a
+				// refusal too, so dismissing on the way past would take the form away
+				// before the question could be asked.
 				save: () =>
-					method === undefined
-						? mutations.create(catalogFields(value)).then(() => undefined)
-						: mutations.save(
+					run(async (acknowledgements) => {
+						if (method === undefined) {
+							await mutations.create(catalogFields(value));
+						} else {
+							await mutations.save(
 								method.id,
 								catalogFields(value),
 								catalogFields(catalogFormValues(method)),
-							),
+								acknowledgements,
+							);
+						}
+						setOpen(false);
+					}),
 			});
 		},
 	});
@@ -323,65 +334,68 @@ function ControlMethodDrawer({
 	}
 
 	return (
-		<Drawer direction="right" open={open} onOpenChange={updateOpen}>
-			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-			<DrawerContent className="w-[min(680px,100%)] sm:max-w-[680px]">
-				<DrawerHeader>
-					<DrawerTitle>
-						{method === undefined ? `Add ${config.singularLabel}` : `Edit ${method.name}`}
-					</DrawerTitle>
-					<DrawerDescription>
-						Manage the label, lifecycle state, and optional custom fields.
-					</DrawerDescription>
-				</DrawerHeader>
-				<form.AppForm>
-					<form
-						className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
-						}}
-					>
-						<form.FormErrorAlert />
-						<form.AppField
-							name="name"
-							validators={{
-								onSubmit: ({ value }) =>
-									value.trim().length === 0 ? `${config.fieldLabel} is required.` : undefined,
+		<>
+			<Drawer direction="right" open={open} onOpenChange={updateOpen}>
+				<DrawerTrigger asChild>{trigger}</DrawerTrigger>
+				<DrawerContent className="w-[min(680px,100%)] sm:max-w-[680px]">
+					<DrawerHeader>
+						<DrawerTitle>
+							{method === undefined ? `Add ${config.singularLabel}` : `Edit ${method.name}`}
+						</DrawerTitle>
+						<DrawerDescription>
+							Manage the label, lifecycle state, and optional custom fields.
+						</DrawerDescription>
+					</DrawerHeader>
+					<form.AppForm>
+						<form
+							className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
+							onSubmit={(event) => {
+								event.preventDefault();
+								void form.handleSubmit();
 							}}
 						>
-							{(field) => (
-								<field.TextField
-									label={config.fieldLabel}
-									disabled={!canSubmit}
-									placeholder={config.placeholder}
-								/>
-							)}
-						</form.AppField>
-						{/* The lifecycle switch stays at the admin floor even inside an edit a
-						    manager may make: flipping it emits `deactivate*Method` /
-						    `reactivate*Method`, which the server holds at `ADMIN`. */}
-						<form.AppField name="isActive">
-							{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
-						</form.AppField>
-						<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
-							{(field) => <field.JsonSchemaField label="Custom Fields" disabled={!canSubmit} />}
-						</form.AppField>
-						<DrawerFooter className="px-0">
-							<form.FormActions>
-								<form.SubmitButton disabled={!canSubmit || !mutations.canWrite} />
-								<DrawerClose asChild>
-									<Button type="button" variant="outline">
-										<CloseIcon data-icon="inline-start" aria-hidden="true" />
-										Cancel
-									</Button>
-								</DrawerClose>
-							</form.FormActions>
-						</DrawerFooter>
-					</form>
-				</form.AppForm>
-			</DrawerContent>
-		</Drawer>
+							<form.FormErrorAlert />
+							<form.AppField
+								name="name"
+								validators={{
+									onSubmit: ({ value }) =>
+										value.trim().length === 0 ? `${config.fieldLabel} is required.` : undefined,
+								}}
+							>
+								{(field) => (
+									<field.TextField
+										label={config.fieldLabel}
+										disabled={!canSubmit}
+										placeholder={config.placeholder}
+									/>
+								)}
+							</form.AppField>
+							{/* The lifecycle switch stays at the admin floor even inside an edit a
+							    manager may make: flipping it emits `deactivate*Method` /
+							    `reactivate*Method`, which the server holds at `ADMIN`. */}
+							<form.AppField name="isActive">
+								{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
+							</form.AppField>
+							<form.AppField name="customSchema" validators={{ onSubmit: validateJsonSchemaValue }}>
+								{(field) => <field.JsonSchemaField label="Custom Fields" disabled={!canSubmit} />}
+							</form.AppField>
+							<DrawerFooter className="px-0">
+								<form.FormActions>
+									<form.SubmitButton disabled={!canSubmit || !mutations.canWrite} />
+									<DrawerClose asChild>
+										<Button type="button" variant="outline">
+											<CloseIcon data-icon="inline-start" aria-hidden="true" />
+											Cancel
+										</Button>
+									</DrawerClose>
+								</form.FormActions>
+							</DrawerFooter>
+						</form>
+					</form.AppForm>
+				</DrawerContent>
+			</Drawer>
+			{dialog}
+		</>
 	);
 }
 
@@ -538,6 +552,15 @@ function ControlAssetDrawer({
 	const [open, setOpen] = useState(false);
 	const config = controlAssetListConfigs[collectionKey];
 	const defaultValues = controlAssetFormValues(asset);
+	// One drawer serves both kinds, and each takes its own flag, so the map is
+	// picked by the kind rather than shared: a vehicle's page must not be able to
+	// offer an answer about equipment. Held out here rather than inside the
+	// drawer's content, which unmounts — `commitCatalogSave` closes on the way
+	// past, before the server has answered.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: collectionKey === 'vehicles' ? VEHICLE_SAVE_REFUSALS : EQUIPMENT_SAVE_REFUSALS,
+		ask: true,
+	});
 	const form = useAppForm({
 		defaultValues,
 		validators: {
@@ -550,13 +573,19 @@ function ControlAssetDrawer({
 						? `Unable to create ${config.singularLabel}.`
 						: `Unable to save ${asset.name}.`,
 				onWritten: () => setOpen(false),
+				// A create has no history to relabel, so only the edit goes through
+				// `run`. `run` swallows a refusal a flag can answer and turns it into
+				// the dialog; anything else still reaches the toast here.
 				save: () =>
 					asset === undefined
 						? mutations.create(controlAssetFields(value)).then(() => undefined)
-						: mutations.save(
-								asset.id,
-								controlAssetFields(value),
-								controlAssetFields(controlAssetFormValues(asset)),
+						: run((acknowledgements) =>
+								mutations.save(
+									asset.id,
+									controlAssetFields(value),
+									controlAssetFields(controlAssetFormValues(asset)),
+									acknowledgements,
+								),
 							),
 			});
 		},
@@ -570,80 +599,83 @@ function ControlAssetDrawer({
 	}
 
 	return (
-		<Drawer direction="right" open={open} onOpenChange={updateOpen}>
-			<DrawerTrigger asChild>{trigger}</DrawerTrigger>
-			<DrawerContent className="w-[min(680px,100%)] sm:max-w-[680px]">
-				<DrawerHeader>
-					<DrawerTitle>
-						{asset === undefined ? `Add ${config.singularLabel}` : `Edit ${asset.name}`}
-					</DrawerTitle>
-					<DrawerDescription>
-						Manage the label, lifecycle state, and optional metadata fields.
-					</DrawerDescription>
-				</DrawerHeader>
-				<form.AppForm>
-					<form
-						className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
-						onSubmit={(event) => {
-							event.preventDefault();
-							void form.handleSubmit();
-						}}
-					>
-						<form.FormErrorAlert />
-						<form.AppField
-							name="name"
-							validators={{
-								onSubmit: ({ value }) =>
-									value.trim().length === 0 ? `${config.fieldLabel} is required.` : undefined,
+		<>
+			<Drawer direction="right" open={open} onOpenChange={updateOpen}>
+				<DrawerTrigger asChild>{trigger}</DrawerTrigger>
+				<DrawerContent className="w-[min(680px,100%)] sm:max-w-[680px]">
+					<DrawerHeader>
+						<DrawerTitle>
+							{asset === undefined ? `Add ${config.singularLabel}` : `Edit ${asset.name}`}
+						</DrawerTitle>
+						<DrawerDescription>
+							Manage the label, lifecycle state, and optional metadata fields.
+						</DrawerDescription>
+					</DrawerHeader>
+					<form.AppForm>
+						<form
+							className="grid min-h-0 gap-3.5 overflow-y-auto px-4"
+							onSubmit={(event) => {
+								event.preventDefault();
+								void form.handleSubmit();
 							}}
 						>
-							{(field) => (
-								<field.TextField
-									label={config.fieldLabel}
-									disabled={!canManage}
-									placeholder={config.placeholder}
-								/>
-							)}
-						</form.AppField>
-						{collectionKey === 'equipment' ? (
-							<form.AppField name="serialNumber">
+							<form.FormErrorAlert />
+							<form.AppField
+								name="name"
+								validators={{
+									onSubmit: ({ value }) =>
+										value.trim().length === 0 ? `${config.fieldLabel} is required.` : undefined,
+								}}
+							>
 								{(field) => (
 									<field.TextField
-										label="Serial number"
+										label={config.fieldLabel}
 										disabled={!canManage}
-										placeholder="e.g. SN-1042"
+										placeholder={config.placeholder}
 									/>
 								)}
 							</form.AppField>
-						) : null}
-						<form.AppField name="isActive">
-							{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
-						</form.AppField>
-						<form.AppField name="metadata" validators={{ onSubmit: validateMetadataValue }}>
-							{(field) => (
-								<field.MetadataField
-									description={config.metadataDescription}
-									disabled={!canManage}
-									label="Metadata"
-									mode={{ kind: 'manual' }}
-								/>
-							)}
-						</form.AppField>
-						<DrawerFooter className="px-0">
-							<form.FormActions>
-								<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
-								<DrawerClose asChild>
-									<Button type="button" variant="outline">
-										<CloseIcon data-icon="inline-start" aria-hidden="true" />
-										Cancel
-									</Button>
-								</DrawerClose>
-							</form.FormActions>
-						</DrawerFooter>
-					</form>
-				</form.AppForm>
-			</DrawerContent>
-		</Drawer>
+							{collectionKey === 'equipment' ? (
+								<form.AppField name="serialNumber">
+									{(field) => (
+										<field.TextField
+											label="Serial number"
+											disabled={!canManage}
+											placeholder="e.g. SN-1042"
+										/>
+									)}
+								</form.AppField>
+							) : null}
+							<form.AppField name="isActive">
+								{(field) => <field.SwitchField label="Active" disabled={!canManage} />}
+							</form.AppField>
+							<form.AppField name="metadata" validators={{ onSubmit: validateMetadataValue }}>
+								{(field) => (
+									<field.MetadataField
+										description={config.metadataDescription}
+										disabled={!canManage}
+										label="Metadata"
+										mode={{ kind: 'manual' }}
+									/>
+								)}
+							</form.AppField>
+							<DrawerFooter className="px-0">
+								<form.FormActions>
+									<form.SubmitButton disabled={!canManage || !mutations.canWrite} />
+									<DrawerClose asChild>
+										<Button type="button" variant="outline">
+											<CloseIcon data-icon="inline-start" aria-hidden="true" />
+											Cancel
+										</Button>
+									</DrawerClose>
+								</form.FormActions>
+							</DrawerFooter>
+						</form>
+					</form.AppForm>
+				</DrawerContent>
+			</Drawer>
+			{dialog}
+		</>
 	);
 }
 
