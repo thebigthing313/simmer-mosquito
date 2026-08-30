@@ -17,8 +17,8 @@ import {
 } from './auth-middleware.js';
 import { writeSealedSession } from './auth-session-transport.js';
 import { PRIVATE_READ_PREFIXES, privateNoStore } from './cache-headers.js';
-import { isRecord } from './command-payload.js';
 import { CORS_SURFACES, corsOptionsFor } from './cors-options.js';
+import { isRunnerShutdownMessage, serverListeningMessage } from './dev/dev-ipc.js';
 import { createDevSessionProvider } from './dev-impersonation.js';
 import { readServerEnv } from './env.js';
 import { COMPRESSED_READ_PREFIXES, compressReads } from './response-compression.js';
@@ -161,7 +161,7 @@ const server = serve(
 		// calls the restart finished, so it cannot report a server that is not
 		// yet bound. `process.send` is undefined without an IPC channel, which
 		// is every case except `pnpm dev:server`.
-		process.send?.({ type: 'simmer:listening', port: info.port });
+		process.send?.(serverListeningMessage(info.port));
 	},
 );
 
@@ -211,7 +211,7 @@ process.once('SIGTERM', shutdown);
 // instead, on every platform, and only falls back to a signal if the channel is
 // gone.
 process.on('message', (message: unknown) => {
-	if (isRecord(message) && message.type === 'simmer:shutdown') {
+	if (isRunnerShutdownMessage(message)) {
 		shutdown('SIGTERM');
 	}
 });

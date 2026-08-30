@@ -6,7 +6,7 @@
 	"scripts": {
 		"build": "tsc -b",
 		"check:role-ladder": "tsx src/check-role-ladder.ts",
-		"dev": "node --import tsx scripts/dev.mjs",
+		"dev": "node --import tsx src/dev/run-dev-server.ts",
 		"start": "node dist/main.js",
 		"test": "vitest run --passWithNoTests",
 		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
