@@ -139,6 +139,8 @@ pnpm --filter @simmer-mosquito/server test
 
 Never point `TEST_DATABASE_URL` at the Railway staging `DATABASE_URL`. The migration set applies as one transaction creating 326 relations, which overruns the logical decoder's 1 GB reorder buffer and kills the walsender for good. That is how staging's Electric sync died (#166, #236). `withTestDb` reads `pg_replication_slots` and refuses to run when it finds a row, with no flag or variable past it.
 
+If you have ever started mode B, that same container carries Electric's `electric_slot_default` and the suites refuse it until you drop the slot with `select pg_drop_replication_slot('electric_slot_default');`. A local Electric recreates it on next boot, so it costs one re-snapshot. The refusal message says this too, and says it only for the container in front of you.
+
 The compose service is also the only local Postgres these suites run on out of the box. Several files build their schemas at once, so the lock table holds every object of all of them and the stock `max_locks_per_transaction=64` fails twelve files at once with `out of shared memory` (SQLSTATE 53200). `docker-compose.yml` raises it to 1024 and creates `postgis`, `pgcrypto`, `pg_trgm` and `btree_gin` in `public` first, so the migrations' `create extension if not exists` is the no-op it expects; a hand-started container needs both.
 
 Each test builds a throwaway `simmer_test_*` schema, applies every migration into it as a single query, and drops it afterwards, so `public` is never touched. That is about a second per test against the container, and `describeDbIntegration` sets its own 45s timeout; do not run these suites under vitest's default. Without `TEST_DATABASE_URL` they **skip silently**, so a green `pnpm test` does not mean they ran.

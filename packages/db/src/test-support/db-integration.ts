@@ -151,6 +151,13 @@ export interface SlotReadable {
  * There is deliberately no override. An escape hatch gets copied into somebody's
  * script and becomes the documented workflow again, which is how this happened
  * the first time.
+ *
+ * So the message has to carry the way out instead. `docker-compose.yml` runs
+ * Electric against its own `postgres` service, so anyone who has started mode B
+ * has `electric_slot_default` in the container these suites are told to use, and
+ * a refusal that only said "use the local container" would be a closed loop.
+ * Dropping the slot is safe on that container and nowhere else, so the message
+ * says which database it is talking about before it says what to run.
  */
 export async function refuseDatabaseWithReplicationSlot(pool: SlotReadable): Promise<void> {
 	const { rows } = await pool.query('select slot_name from pg_replication_slots');
@@ -158,12 +165,20 @@ export async function refuseDatabaseWithReplicationSlot(pool: SlotReadable): Pro
 		return;
 	}
 
-	const slots = rows.map((row) => row.slot_name).join(', ');
+	const slots = rows.map((row) => row.slot_name);
+	const drops = slots.map((slot) => `select pg_drop_replication_slot('${slot}');`).join(' ');
 	throw new Error(
-		`Refusing to run integration tests against a database with a replication slot (${slots}). ` +
-			'The migration set applies as one transaction of 326 relations, which overruns the ' +
-			"logical decoder's 1 GB reorder buffer and kills the walsender for good. Start the " +
-			'local Postgres from docker-compose.yml and point TEST_DATABASE_URL at that instead.',
+		[
+			'Refusing to run integration tests against a database with a replication slot ' +
+				`(${slots.join(', ')}). The migration set applies as one transaction of 326 ` +
+				"relations, which overruns the logical decoder's 1 GB reorder buffer and kills " +
+				'the walsender for good.',
+			"If this is your own container from docker-compose.yml, the slot is Electric's from " +
+				`mode B. Drop it on that container and run again: ${drops} A local Electric ` +
+				'recreates its slot on next boot, so it costs one re-snapshot and nothing else.',
+			'If this is a remote database, staging included, leave the slot alone and point ' +
+				'TEST_DATABASE_URL at the local container instead.',
+		].join('\n'),
 	);
 }
 
