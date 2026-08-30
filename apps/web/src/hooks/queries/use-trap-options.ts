@@ -2,11 +2,11 @@
  * Every Trap a collection form can be recorded against.
  *
  * Distinct from {@link useActiveTraps}, which lists the standing inventory. This
- * one carries retired traps too, and deliberately: the picker itself filters to
- * the active ones when it is being searched, but an *edit* of a collection taken
- * from a trap that has since been retired still has to be able to name that trap.
- * Filtering here would leave the source field blank on exactly those records, and
- * a save would then have nothing to inherit a location from.
+ * one carries retired traps too, and deliberately: a trap retired yesterday
+ * still needs last week's collection recorded, and an *edit* of a collection
+ * taken from a trap since retired has to be able to name that trap. Filtering
+ * here would leave the source field blank on exactly those records, and a save
+ * would then have nothing to inherit a location from.
  *
  * It also carries what the form derives from a chosen trap rather than only what
  * a picker row shows: the method and lure a trap-mode collection inherits, and
@@ -26,8 +26,6 @@ export interface TrapOption {
 	readonly trapCode: string | null;
 	/** The second line of a picker row. */
 	readonly description: string | null;
-	/** What the picker filters on — a retired trap is listed to be read, not chosen. */
-	readonly isActive: boolean;
 	/** Inherited by a trap-mode collection unless the form overrides it. */
 	readonly collectionMethodId: string;
 	/** Inherited the same way; `null` on a trap that runs unbaited. */
@@ -48,7 +46,6 @@ export function useTrapOptions(): {
 				trapName: trap.trap_name,
 				trapCode: trap.trap_code,
 				description: trap.description,
-				isActive: trap.is_active,
 				collectionMethodId: trap.collection_method_id,
 				collectionLureId: trap.collection_lure_id,
 				latitude: trap.lat,
