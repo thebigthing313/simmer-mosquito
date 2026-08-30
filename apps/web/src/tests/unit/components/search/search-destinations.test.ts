@@ -135,6 +135,26 @@ describe('every other result', () => {
 		});
 	});
 
+	// Retirement is a lifecycle, not a deletion. Search returns a retired habitat
+	// so its page can be opened and its history read; only a create form seeded
+	// off it refuses, and that refusal lives in `forms/record-seed.ts`.
+	it('resolves a retired record to the same detail route as an active one', () => {
+		const retiredHabitat: SearchResult = {
+			kind: 'record',
+			id: 'habitat-2',
+			title: 'Mill Pond',
+			table: 'habitats',
+			matchedField: 'name',
+			matchClass: 'exact',
+			retired: true,
+		};
+
+		expect(searchResultDestination(retiredHabitat, LOADING)).toEqual({
+			status: 'ready',
+			destination: { to: '/larval-surveillance/habitats/$id', params: { id: 'habitat-2' } },
+		});
+	});
+
 	it('resolves a comment on a non-route target with no lookup', () => {
 		const onTrap: SearchResult = {
 			kind: 'comment',

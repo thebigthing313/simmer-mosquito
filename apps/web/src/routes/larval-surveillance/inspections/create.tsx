@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useRecordExtras } from '../../../forms/record-extras';
+import { SeededFormSkeleton, useRecordSeed } from '../../../forms/record-seed';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import { useAdditionalPersonnel } from '../../../hooks/queries/use-additional-personnel';
@@ -127,6 +128,9 @@ function CreateInspectionRoute() {
 	const policy = settings.larvalSurveillance.inspectionEntryPolicy;
 
 	const inspectionId = useNewInspectionDraft();
+	// A retired habitat is a search result and is not new work, so the id is
+	// checked before the form takes it.
+	const habitatSeed = useRecordSeed('habitat', search.habitatId ?? null);
 
 	// The whole save is the unit an acknowledgement re-runs, not just the insert:
 	// the samples, crew, and comment below only exist once the inspection lands,
@@ -225,6 +229,10 @@ function CreateInspectionRoute() {
 		],
 	);
 
+	if (habitatSeed.status === 'pending') {
+		return <SeededFormSkeleton />;
+	}
+
 	return (
 		<>
 			<InspectionFormPage
@@ -232,7 +240,7 @@ function CreateInspectionRoute() {
 				defaultValues={seededDefaults(
 					defaultInspectionFormValues(today, actorProfileId),
 					initialGeometry,
-					search.habitatId ?? null,
+					habitatSeed.id,
 				)}
 				habitatTypes={habitatTypes}
 				mode="create"

@@ -6,6 +6,7 @@ import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { useRecordExtras } from '../../../forms/record-extras';
+import { SeededFormSkeleton, useRecordSeed } from '../../../forms/record-seed';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import {
 	type CollectionPlacement,
@@ -78,7 +79,9 @@ function CreateCollectionRoute() {
 	const { auth } = Route.useRouteContext();
 	const search = Route.useSearch();
 	const initialGeometry = pointFromSearch(search);
-	const { trapId } = search;
+	// A retired trap is a search result and is not new work, so the id is checked
+	// before the form takes it.
+	const trapSeed = useRecordSeed('trap', search.trapId ?? null);
 	// Recording off a stop makes this one write, not two: the command writes the
 	// collection and closes the stop in the same transaction.
 	const assignmentItemId = search.assignmentItemId ?? null;
@@ -175,6 +178,10 @@ function CreateCollectionRoute() {
 		],
 	);
 
+	if (trapSeed.status === 'pending') {
+		return <SeededFormSkeleton />;
+	}
+
 	return (
 		<>
 			<CollectionFormPage
@@ -185,7 +192,7 @@ function CreateCollectionRoute() {
 				defaultValues={seededDefaults(
 					defaultCollectionFormValues(
 						today,
-						trapId ?? null,
+						trapSeed.id,
 						settings.adultSurveillance.collectionTimingMode,
 					),
 					initialGeometry,
