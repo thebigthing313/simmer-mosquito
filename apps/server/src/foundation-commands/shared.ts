@@ -51,7 +51,7 @@ import {
 	invalidUpdate,
 	type PayloadResult,
 } from '../command-endpoint.js';
-import { isRecord } from '../command-payload.js';
+import { acknowledged, isRecord } from '../command-payload.js';
 import type { CommandDb, CommandTransaction } from '../command-write.js';
 
 export type FoundationCommandDb = CommandDb;
@@ -180,7 +180,7 @@ export function buildUpdateCommands(
 				...(payload.actionThreshold === undefined
 					? {}
 					: { actionThreshold: payload.actionThreshold }),
-				acknowledgedHistoricalLabelChange: true,
+				acknowledgedHistoricalLabelChange: payload.acknowledgedHistoricalLabelChange,
 			}),
 		);
 		if (!commandResult.ok) {
@@ -238,7 +238,7 @@ export function buildCollectionLureUpdateCommands(
 				collectionLureId,
 				...(payload.name === undefined ? {} : { name: payload.name }),
 				...(payload.description === undefined ? {} : { description: payload.description }),
-				acknowledgedHistoricalLabelChange: true,
+				acknowledgedHistoricalLabelChange: payload.acknowledgedHistoricalLabelChange,
 			}),
 		);
 		if (!commandResult.ok) {
@@ -293,7 +293,7 @@ export function buildHabitatTypeUpdateCommands(
 				...(payload.name === undefined ? {} : { name: payload.name }),
 				...(payload.description === undefined ? {} : { description: payload.description }),
 				...(payload.customSchema === undefined ? {} : { customSchema: payload.customSchema }),
-				acknowledgedHistoricalLabelChange: true,
+				acknowledgedHistoricalLabelChange: payload.acknowledgedHistoricalLabelChange,
 			}),
 		);
 		if (!commandResult.ok) {
@@ -376,6 +376,7 @@ export interface CollectionMethodUpdatePayload {
 	readonly customSchema?: unknown | null;
 	readonly actionThreshold?: number | null;
 	readonly isActive?: boolean;
+	readonly acknowledgedHistoricalLabelChange: boolean;
 }
 
 export function readAddressCreatePayload(
@@ -513,6 +514,7 @@ export function readCollectionMethodUpdatePayload(
 				: { customSchema: readOptionalJson(raw.customSchema) }),
 			...(raw.actionThreshold === undefined ? {} : { actionThreshold }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
+			acknowledgedHistoricalLabelChange: acknowledged(raw.acknowledgedHistoricalLabelChange),
 		},
 	};
 }

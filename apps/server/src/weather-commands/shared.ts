@@ -267,20 +267,6 @@ export async function loadStationSummaries(
 	}));
 }
 
-/** Whether a station has any summaries, which is what the acknowledgements turn on. */
-export async function stationHasSummaries(
-	trx: WeatherTransaction,
-	weatherStationId: string,
-): Promise<boolean> {
-	const row = await trx
-		.selectFrom('weather_summaries')
-		.select('id')
-		.where('weather_source_id', '=', weatherStationId)
-		.limit(1)
-		.executeTakeFirst();
-	return row !== undefined;
-}
-
 // ===========================================================================
 // The refusals
 // ===========================================================================
@@ -299,22 +285,6 @@ export function assertFresh(expected: Date | null, actual: Date, entity: string)
 			error: `${entity}_conflict`,
 			reason: 'This record changed since it was loaded.',
 		});
-	}
-}
-
-/**
- * An acknowledgement the caller has to have given, raised as a 409 rather than a
- * 400.
- *
- * The request is well-formed and the domain built the command; what is missing is
- * confirmation that a consequence is intended. That turns on the stored rows,
- * whether summaries exist, so it cannot be a builder rule, and a 400 would tell
- * a client its payload was malformed when the fix is a second question to the
- * user.
- */
-export function assertAcknowledged(acknowledged: boolean, error: string, reason: string): void {
-	if (!acknowledged) {
-		throw new CommandError(409, { error, reason });
 	}
 }
 

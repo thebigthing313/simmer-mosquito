@@ -222,7 +222,7 @@ export class DeleteAcknowledgementRequiredError extends Error {
 }
 
 /** "3 inspections and 1 chemical application", for the refusal's sentence. */
-function countPhrase(consequences: readonly DeleteImpactEntry[]): string {
+export function countPhrase(consequences: readonly DeleteImpactEntry[]): string {
 	const parts = consequences.map(
 		(entry) => `${entry.count} ${entry.count === 1 ? entry.singular : entry.plural}`,
 	);
@@ -1541,6 +1541,77 @@ export function deleteReferenceScopes(recordType: DeletableRecordType): readonly
 		scope: rule.scope,
 		acknowledgement: rule.acknowledgement,
 	}));
+}
+
+// ---------------------------------------------------------------------------
+// Citations
+// ---------------------------------------------------------------------------
+
+/**
+ * A row set that already reads under the record's current label.
+ *
+ * Same fields a `ClearanceRule` carries, and deliberately so: both are "count
+ * these rows and say what they are", and both end up in a `DeleteImpactEntry`.
+ * They stay separate types because a clearance's rows are about to disappear
+ * and a citation's are about to be re-read, and a caller that confused the two
+ * would tell the agency its history was being deleted.
+ *
+ * `match` is the whole `where` clause, including the tenancy and soft-delete
+ * filters, because the tables outside the registry — `weather_summaries`, the
+ * global taxonomy — do not have the columns the registry's filters assume.
+ */
+export interface CitingRule {
+	/** Stable id for this consequence, so the UI can key and test it. */
+	readonly key: string;
+	readonly table: string;
+	/** Domain noun for the rows, for copy that reads like the rest of the app. */
+	readonly singular: string;
+	readonly plural: string;
+	readonly match: RawBuilder<unknown>;
+}
+
+/**
+ * The rows that cite a record by name, read out of the delete registry.
+ *
+ * A label change and a delete ask about the same tables. The registry already
+ * enumerates, for every deletable record, which other tables name it and what
+ * to call those rows, so reading the citations back out of it is what stops a
+ * second map drifting from the first — the same argument `deleteReferenceScopes`
+ * makes for the merge policy.
+ *
+ * **The default is every `direct` scope.** A citation is a row whose own column
+ * names this record. The polymorphic rules are the record's comments, tags,
+ * personnel and stops, which hang off it rather than reading under its label,
+ * and the child scopes reach a generation past the row that does the naming: a
+ * trap's collections read under the trap's code, their species counts read
+ * under the collection's. Counting either by default would put rows in the
+ * sentence that a rename does not touch.
+ *
+ * `only` names the rules to use instead, for a flag whose question is narrower
+ * or differently shaped than "everything that names this row" — a notification
+ * type's live subscriptions rather than everything that ever cited it, or the
+ * stops worked against a service request, which nothing names by column. A
+ * named rule is taken whatever its scope, except a child scope, which is never
+ * a citation of this record.
+ */
+export function citingRules(
+	recordType: DeletableRecordType,
+	recordId: string,
+	organizationId: string,
+	only?: readonly string[],
+): readonly CitingRule[] {
+	return DELETABLE_RECORDS[recordType].rules
+		.filter((rule) => (only === undefined ? rule.scope.kind === 'direct' : only.includes(rule.key)))
+		.filter((rule) => rule.scope.kind !== 'childColumn' && rule.scope.kind !== 'childPolymorphic')
+		.map((rule) => ({
+			key: rule.key,
+			table: rule.table,
+			singular: rule.singular,
+			plural: rule.plural,
+			match: sql`${scopeMatch(rule, recordId, organizationId)}
+				and organization_id = ${organizationId}
+				and deleted_at is null`,
+		}));
 }
 
 // ---------------------------------------------------------------------------

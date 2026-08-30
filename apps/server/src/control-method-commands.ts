@@ -59,7 +59,9 @@ import {
 	invalidUpdate,
 	type PayloadResult,
 } from './command-endpoint.js';
+import { acknowledged } from './command-payload.js';
 import { type CommandDb, type CommandTransaction, runCommands } from './command-write.js';
+import { assertCitedHistoryAcknowledged } from './record-history.js';
 
 type ControlMethodCommandDb = CommandDb;
 type ControlMethodTransaction = CommandTransaction;
@@ -179,6 +181,35 @@ function requiredKind(value: string): ControlMethodKind {
 	return kind.kind;
 }
 
+/**
+ * The four method catalogs share one rename question, so they share one call.
+ *
+ * Nothing snapshots a method's name onto the actions performed with it, so a
+ * rename relabels every one of them. The custom schema is not what a past
+ * action is read back under, so editing it alone asks nothing.
+ */
+async function assertMethodRename(
+	db: ControlMethodTransaction,
+	recordType: DeletableRecordType,
+	subject: string,
+	recordId: string,
+	payload: {
+		readonly organizationId: string;
+		readonly changes: { readonly name?: string };
+		readonly acknowledgedHistoricalLabelChange: boolean;
+	},
+): Promise<void> {
+	await assertCitedHistoryAcknowledged(db, {
+		recordType,
+		subject,
+		recordId,
+		organizationId: payload.organizationId,
+		acknowledgement: 'acknowledgedHistoricalLabelChange',
+		acknowledged: payload.acknowledgedHistoricalLabelChange,
+		relabels: payload.changes.name !== undefined,
+	});
+}
+
 export async function writeControlMethodCommand(
 	db: ControlMethodTransaction,
 	command: ControlMethodCommand,
@@ -194,6 +225,13 @@ export async function writeControlMethodCommand(
 				actorProfileId: command.payload.actorProfileId,
 			});
 		case 'controlOperations.updateApplicationMethod':
+			await assertMethodRename(
+				db,
+				'applicationMethod',
+				'application method',
+				command.payload.applicationMethodId,
+				command.payload,
+			);
 			return updateControlMethod(db, 'application_methods', command.payload.applicationMethodId, {
 				organizationId: command.payload.organizationId,
 				...command.payload.changes,
@@ -236,6 +274,13 @@ export async function writeControlMethodCommand(
 				actorProfileId: command.payload.actorProfileId,
 			});
 		case 'controlOperations.updateSourceReductionMethod':
+			await assertMethodRename(
+				db,
+				'sourceReductionMethod',
+				'source reduction method',
+				command.payload.sourceReductionMethodId,
+				command.payload,
+			);
 			return updateControlMethod(
 				db,
 				'source_reduction_methods',
@@ -288,6 +333,13 @@ export async function writeControlMethodCommand(
 				actorProfileId: command.payload.actorProfileId,
 			});
 		case 'controlOperations.updateOutreachMethod':
+			await assertMethodRename(
+				db,
+				'outreachMethod',
+				'outreach method',
+				command.payload.outreachMethodId,
+				command.payload,
+			);
 			return updateControlMethod(db, 'outreach_methods', command.payload.outreachMethodId, {
 				organizationId: command.payload.organizationId,
 				...command.payload.changes,
@@ -320,6 +372,13 @@ export async function writeControlMethodCommand(
 				actorProfileId: command.payload.actorProfileId,
 			});
 		case 'controlOperations.updateBiocontrolMethod':
+			await assertMethodRename(
+				db,
+				'biocontrolMethod',
+				'biocontrol method',
+				command.payload.biocontrolMethodId,
+				command.payload,
+			);
 			return updateControlMethod(db, 'biocontrol_methods', command.payload.biocontrolMethodId, {
 				organizationId: command.payload.organizationId,
 				...command.payload.changes,
@@ -584,7 +643,7 @@ function buildDetailUpdateCommand(
 		...context,
 		...(payload.name === undefined ? {} : { name: payload.name }),
 		...(payload.customSchema === undefined ? {} : { customSchema: payload.customSchema }),
-		acknowledgedHistoricalLabelChange: true,
+		acknowledgedHistoricalLabelChange: payload.acknowledgedHistoricalLabelChange,
 	};
 	switch (kind) {
 		case 'application-methods':
@@ -652,6 +711,7 @@ interface ControlMethodUpdatePayload {
 	readonly name?: string;
 	readonly customSchema?: unknown | null;
 	readonly isActive?: boolean;
+	readonly acknowledgedHistoricalLabelChange: boolean;
 }
 
 function readCreatePayload(
@@ -688,6 +748,7 @@ function readUpdatePayload(
 				? {}
 				: { customSchema: readOptionalJson(raw.customSchema) }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
+			acknowledgedHistoricalLabelChange: acknowledged(raw.acknowledgedHistoricalLabelChange),
 		},
 	};
 }

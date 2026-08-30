@@ -32,8 +32,9 @@ import {
 	invalidUpdate,
 	type PayloadResult,
 } from './command-endpoint.js';
-import { isRecord } from './command-payload.js';
+import { acknowledged, isRecord } from './command-payload.js';
 import { runCommands } from './command-write.js';
+import { assertCitedHistoryAcknowledged } from './record-history.js';
 
 type PublicEngagementDb = Kysely<SimmerDatabase>;
 type PublicEngagementTransaction = Transaction<SimmerDatabase>;
@@ -130,12 +131,39 @@ export async function writeNotificationTypeCommand(
 				actorProfileId: command.payload.actorProfileId,
 			});
 		case 'publicEngagement.updateNotificationType':
+			// A sent notification, a registration's subscription and a mission all
+			// store `notification_type_id` and no copy of the name, so a rename
+			// relabels every one of them. The description is not what any of them is
+			// read back under.
+			await assertCitedHistoryAcknowledged(db, {
+				recordType: 'notificationType',
+				recordId: command.payload.notificationTypeId,
+				organizationId: command.payload.organizationId,
+				subject: 'notification type',
+				acknowledgement: 'acknowledgedHistoricalLabelChange',
+				acknowledged: command.payload.acknowledgedHistoricalLabelChange,
+				relabels: command.payload.changes.name !== undefined,
+			});
 			return updateNotificationType(db, command.payload.notificationTypeId, {
 				organizationId: command.payload.organizationId,
 				...command.payload.changes,
 				actorProfileId: command.payload.actorProfileId,
 			});
 		case 'publicEngagement.deactivateNotificationType':
+			// Not the whole citing set: retiring a type does not rewrite the
+			// notifications already sent under it, it stops the people still
+			// subscribed from being notified again. So the count is the live
+			// subscriptions, which is what the flag is named after.
+			await assertCitedHistoryAcknowledged(db, {
+				recordType: 'notificationType',
+				recordId: command.payload.notificationTypeId,
+				organizationId: command.payload.organizationId,
+				subject: 'notification type',
+				acknowledgement: 'acknowledgedActiveSubscriptionImpact',
+				acknowledged: command.payload.acknowledgedActiveSubscriptionImpact,
+				relabels: true,
+				only: ['notificationTypeRegistrations'],
+			});
 			return setNotificationTypeActive(db, command.payload.notificationTypeId, {
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
@@ -284,7 +312,7 @@ function buildUpdateCommands(
 				notificationTypeId,
 				...(payload.name === undefined ? {} : { name: payload.name }),
 				...(payload.description === undefined ? {} : { description: payload.description }),
-				acknowledgedHistoricalLabelChange: true,
+				acknowledgedHistoricalLabelChange: payload.acknowledgedHistoricalLabelChange,
 			}),
 		);
 		if (!commandResult.ok) {
@@ -300,7 +328,7 @@ function buildUpdateCommands(
 				: deactivateNotificationTypeCommand({
 						...context,
 						notificationTypeId,
-						acknowledgedActiveSubscriptionImpact: true,
+						acknowledgedActiveSubscriptionImpact: payload.acknowledgedActiveSubscriptionImpact,
 					}),
 		);
 		if (!commandResult.ok) {
@@ -321,6 +349,8 @@ interface NotificationTypePayload {
 	readonly name?: string;
 	readonly description?: string | null;
 	readonly isActive?: boolean;
+	readonly acknowledgedHistoricalLabelChange: boolean;
+	readonly acknowledgedActiveSubscriptionImpact: boolean;
 }
 
 function readNotificationTypePayload(
@@ -337,6 +367,8 @@ function readNotificationTypePayload(
 			...(raw.name === undefined ? {} : { name: readRequiredText(raw.name) ?? '' }),
 			...(raw.description === undefined ? {} : { description: readOptionalText(raw.description) }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
+			acknowledgedHistoricalLabelChange: acknowledged(raw.acknowledgedHistoricalLabelChange),
+			acknowledgedActiveSubscriptionImpact: acknowledged(raw.acknowledgedActiveSubscriptionImpact),
 		},
 	};
 }

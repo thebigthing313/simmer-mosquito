@@ -18,10 +18,16 @@
  *
  * The values are the payload keys the endpoint reads, so a typo here is a
  * question the user answers and the server never hears.
+ *
+ * Key and value are the same word because all three now arrive on the settled
+ * `acknowledgement_required` body, which names the flag itself rather than a
+ * refusal code of its own (#315, #317). The map stays a map: it is what says
+ * which questions *this page* is allowed to answer, so a station page cannot
+ * offer a technician the answer to a mission stop's question.
  */
 export const STATION_REFUSALS = {
-	weather_station_identity_change_unacknowledged: 'acknowledgedHistoricalStationIdentityChange',
-	weather_station_location_change_unacknowledged: 'acknowledgedHistoricalLocationChange',
+	acknowledgedHistoricalStationIdentityChange: 'acknowledgedHistoricalStationIdentityChange',
+	acknowledgedHistoricalLocationChange: 'acknowledgedHistoricalLocationChange',
 } as const satisfies Readonly<Record<string, string>>;
 
 /**
@@ -33,7 +39,7 @@ export const STATION_REFUSALS = {
  * reading "Change it", for an action that permanently deletes every summary.
  */
 export const STATION_DELETE_REFUSALS = {
-	weather_station_summary_deletion_unacknowledged: 'acknowledgedSummaryDeletion',
+	acknowledgedSummaryDeletion: 'acknowledgedSummaryDeletion',
 } as const satisfies Readonly<Record<string, string>>;
 
 /**

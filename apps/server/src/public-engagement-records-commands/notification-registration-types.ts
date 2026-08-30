@@ -1,3 +1,4 @@
+import { assertHistoryAcknowledged } from '@simmer-mosquito/db';
 import {
 	type PublicEngagementCommand,
 	subscribeNotificationRegistrationTypeCommand,
@@ -5,7 +6,8 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readText } from '../command-payload.js';
+import { acknowledged, readText } from '../command-payload.js';
+import { sentNotificationRule } from '../record-history.js';
 import {
 	type CommandContext,
 	commandEndpoint,
@@ -46,11 +48,15 @@ export function registerNotificationRegistrationTypeRoutes(
 		'/public-engagement/notification-registration-types/:notificationRegistrationTypeId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			// Optional rather than none: the unsubscribe is refused when
+			// notifications have already gone out under it, and a DELETE with no
+			// body has nowhere to put the answer.
+			body: 'optional',
+			build: ({ payload, agency: ctx, param }) =>
 				unsubscribeNotificationRegistrationTypeCommand({
 					...ctx,
 					notificationRegistrationTypeId: param('notificationRegistrationTypeId'),
+					acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
 				}),
 			run: (context, commands) => runRegistrationTypeCommands(context, options.db, commands),
 		}),
@@ -90,7 +96,31 @@ export async function writeRegistrationTypeCommand(
 				command.payload.notificationTypeId,
 				command.payload.actorProfileId,
 			);
-		case 'publicEngagement.unsubscribeNotificationRegistrationType':
+		case 'publicEngagement.unsubscribeNotificationRegistrationType': {
+			// Dropping a subscription does not unsend what went out under it. The
+			// count is this registration's notifications of this type alone, because
+			// the rest of what it was sent is unaffected by the write.
+			const subscription = await trx
+				.selectFrom('notification_registration_types')
+				.select(['notification_registration_id', 'notification_type_id'])
+				.where('id', '=', command.payload.notificationRegistrationTypeId)
+				.where('organization_id', '=', command.payload.organizationId)
+				.where('deleted_at', 'is', null)
+				.executeTakeFirst();
+			if (subscription !== undefined) {
+				await assertHistoryAcknowledged(trx, {
+					acknowledgement: 'acknowledgedFutureOnlyChange',
+					acknowledged: command.payload.acknowledgedFutureOnlyChange,
+					subject: 'subscription',
+					rules: [
+						sentNotificationRule(
+							subscription.notification_registration_id,
+							subscription.notification_type_id,
+							command.payload.organizationId,
+						),
+					],
+				});
+			}
 			return softDelete(
 				trx,
 				'notification_registration_types',
@@ -99,6 +129,7 @@ export async function writeRegistrationTypeCommand(
 				command.payload.actorProfileId,
 				registrationTypeReturnColumns,
 			);
+		}
 		default:
 			throw new Error(`Unsupported registration type command: ${command.type}`);
 	}

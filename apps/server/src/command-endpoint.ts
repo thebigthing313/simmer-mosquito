@@ -24,12 +24,16 @@
 
 import {
 	ClearanceAcknowledgementRequiredError,
+	CollisionAcknowledgementRequiredError,
 	DeleteAcknowledgementRequiredError,
+	type DeleteImpactEntry,
+	HistoryAcknowledgementRequiredError,
 	MissionNotificationRefusedError,
 	RecordDeleteBlockedError,
 	RecordMergeRefusedError,
 	ReferenceRefusedError,
 } from '@simmer-mosquito/db';
+import type { Acknowledgement } from '@simmer-mosquito/domain';
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import type { Context } from 'hono';
 import { StateAcknowledgementRequiredError } from './acknowledgements.js';
@@ -87,6 +91,33 @@ export class CommandError extends Error {
  * Anything else rethrows: an error nobody declared is a bug, and a 500 with a
  * stack is more useful than a 400 that hides it.
  */
+/** The withheld-confirmation refusal an error is, or `null`. */
+function acknowledgementRefusal(error: unknown): {
+	readonly message: string;
+	readonly acknowledgement: Acknowledgement;
+	readonly consequences?: readonly DeleteImpactEntry[];
+} | null {
+	// Five classes rather than one, because each knows a different subset of the
+	// vocabulary and a different way of counting; one response, because the
+	// client has the same question to ask whichever raised it. The list is built
+	// here rather than at module scope so a suite that partially mocks
+	// `@simmer-mosquito/db` still loads this module — and the next mechanism is
+	// one line.
+	const refusals = [
+		DeleteAcknowledgementRequiredError,
+		ClearanceAcknowledgementRequiredError,
+		StateAcknowledgementRequiredError,
+		HistoryAcknowledgementRequiredError,
+		CollisionAcknowledgementRequiredError,
+	];
+	for (const refusal of refusals) {
+		if (error instanceof refusal) {
+			return error;
+		}
+	}
+	return null;
+}
+
 export function handleCommandError(context: CommandContext, error: unknown) {
 	if (error instanceof CommandError) {
 		return context.json(error.body, error.status);
@@ -94,23 +125,13 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 	if (error instanceof RecordDeleteBlockedError) {
 		return context.json(deleteBlockedBody(error), 409);
 	}
-	// A delete the caller could have had, had they confirmed what it reaches.
+	// A write the caller could have had, had they confirmed what it reaches.
 	// 409 like the blocked delete, and for the same reason: the request is
-	// well-formed and the row is there, and it is the state of what hangs off it
-	// that decides. The body says which flag and what it covers.
-	if (error instanceof DeleteAcknowledgementRequiredError) {
-		return context.json(acknowledgementRequiredBody(error), 409);
-	}
-	// The same body from the two mechanisms the registry does not describe: a
-	// write that clears a row set without deleting a record, and one refused by
-	// the record's own state. Three classes rather than one because each knows a
-	// different subset of the vocabulary, and one response because the client has
-	// one question to ask either way.
-	if (error instanceof ClearanceAcknowledgementRequiredError) {
-		return context.json(acknowledgementRequiredBody(error), 409);
-	}
-	if (error instanceof StateAcknowledgementRequiredError) {
-		return context.json(acknowledgementRequiredBody(error), 409);
+	// well-formed and the row is there, and it is what the write touches that
+	// decides. The body says which flag and what it covers.
+	const withheld = acknowledgementRefusal(error);
+	if (withheld !== null) {
+		return context.json(acknowledgementRequiredBody(withheld), 409);
 	}
 	// A merge names rows the caller has to have seen to name, so a refusal is
 	// either that one of them is gone, which is a 404 and the same answer as a row

@@ -15,7 +15,8 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readText } from '../command-payload.js';
+import { assertCitedHistoryAcknowledged } from '../record-history.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -86,6 +87,9 @@ export function registerNotificationRegistrationRoutes(
 					...ctx,
 					notificationRegistrationId: param('notificationRegistrationId'),
 					contact: payload.contact as ContactReferenceInput,
+					acknowledgedHistoricalContactChange: acknowledged(
+						payload.acknowledgedHistoricalContactChange,
+					),
 				}),
 			run: (context, commands) => runRegistrationCommands(context, options.db, commands),
 		}),
@@ -100,6 +104,7 @@ export function registerNotificationRegistrationRoutes(
 					...ctx,
 					notificationRegistrationId: param('notificationRegistrationId'),
 					location: payload.location as NotificationRegistrationLocationInput,
+					acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
 				}),
 			run: (context, commands) => runRegistrationCommands(context, options.db, commands),
 		}),
@@ -135,6 +140,7 @@ function buildRegistrationUpdateCommands(
 				notificationRegistrationId,
 				...('hasBees' in payload ? { hasBees: payload.hasBees === true } : {}),
 				...('isNoSpray' in payload ? { isNoSpray: payload.isNoSpray === true } : {}),
+				acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
 			}),
 		);
 		if (!result.ok) return result;
@@ -148,6 +154,7 @@ function buildRegistrationUpdateCommands(
 				notificationRegistrationId,
 				bufferDistance: readNumberOrNull(payload.bufferDistance),
 				bufferUnitId: readNullableText(payload.bufferUnitId),
+				acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
 			}),
 		);
 		if (!result.ok) return result;
@@ -160,6 +167,9 @@ function buildRegistrationUpdateCommands(
 				...ctx,
 				notificationRegistrationId,
 				contact: { kind: 'existing', contactId: readText(payload.contactId) ?? '' },
+				acknowledgedHistoricalContactChange: acknowledged(
+					payload.acknowledgedHistoricalContactChange,
+				),
 			}),
 		);
 		if (!result.ok) return result;
@@ -199,6 +209,42 @@ async function runRegistrationCommands(
 		commands,
 		createdStatus,
 	);
+}
+
+/**
+ * Four registration edits ask the same question, so they share one call.
+ *
+ * A registration says who to notify, where, and about what. `mission_notifications`
+ * records what was actually sent, and stores no copy of any of it, so moving the
+ * pin, widening the buffer, correcting the contact or dropping a subscription
+ * rewrites how every notification already sent from this registration reads. The
+ * live subscriptions are not counted: they are the registration's own rows, not
+ * a record of anything that happened.
+ *
+ * `acknowledgedFutureOnlyChange` is the flag on three of the four, and it is
+ * named for the answer rather than the question — the agency is confirming that
+ * the change applies from here on and does not restate what was already sent.
+ */
+async function assertRegistrationHistory(
+	trx: PublicEngagementTransaction,
+	payload: {
+		readonly organizationId: string;
+		readonly notificationRegistrationId: string;
+	} & Partial<
+		Record<'acknowledgedFutureOnlyChange' | 'acknowledgedHistoricalContactChange', boolean>
+	>,
+	acknowledgement: 'acknowledgedFutureOnlyChange' | 'acknowledgedHistoricalContactChange',
+): Promise<void> {
+	await assertCitedHistoryAcknowledged(trx, {
+		acknowledgement,
+		recordType: 'notificationRegistration',
+		recordId: payload.notificationRegistrationId,
+		organizationId: payload.organizationId,
+		subject: 'registration',
+		acknowledged: payload[acknowledgement] === true,
+		relabels: true,
+		only: ['registrationMissionNotifications'],
+	});
 }
 
 export async function writeRegistrationCommand(
@@ -252,6 +298,7 @@ export async function writeRegistrationCommand(
 			return row;
 		}
 		case 'publicEngagement.updateNotificationRegistrationContact': {
+			await assertRegistrationHistory(trx, command.payload, 'acknowledgedHistoricalContactChange');
 			const contactId = await resolveContact(
 				trx,
 				command.payload.organizationId,
@@ -269,6 +316,7 @@ export async function writeRegistrationCommand(
 			);
 		}
 		case 'publicEngagement.updateNotificationRegistrationLocation': {
+			await assertRegistrationHistory(trx, command.payload, 'acknowledgedFutureOnlyChange');
 			const addressId = await resolveNotificationAddress(
 				trx,
 				command.payload.organizationId,
@@ -287,6 +335,7 @@ export async function writeRegistrationCommand(
 			);
 		}
 		case 'publicEngagement.updateNotificationRegistrationBuffer':
+			await assertRegistrationHistory(trx, command.payload, 'acknowledgedFutureOnlyChange');
 			return updateRegistration(
 				trx,
 				command.payload.notificationRegistrationId,
@@ -298,6 +347,7 @@ export async function writeRegistrationCommand(
 				},
 			);
 		case 'publicEngagement.updateNotificationRegistrationFlags':
+			await assertRegistrationHistory(trx, command.payload, 'acknowledgedFutureOnlyChange');
 			return updateRegistration(
 				trx,
 				command.payload.notificationRegistrationId,
