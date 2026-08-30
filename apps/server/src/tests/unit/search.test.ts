@@ -1,6 +1,6 @@
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables } from '../../auth-middleware.js';
 import { registerSearchRoutes } from '../../search.js';
@@ -113,6 +113,79 @@ describe('GET /search response envelope', () => {
 		});
 	});
 });
+
+/**
+ * The empty-result line, from issue #282.
+ *
+ * The count answers how often `GET /search` comes back empty and nothing
+ * sharper, so what these cases hold are the two things it must never do: carry
+ * the query text, and count a refusal as a miss.
+ */
+describe('GET /search empty-result logging', () => {
+	it('logs the organization, the query length and the class on a genuine zero', async () => {
+		const logged = captureLog();
+
+		await app().request('/search?q=%20%20elm%20%20ditch%20&limit=10&class=comments');
+
+		expect(logged.lines).toEqual([
+			`[search] Empty result. Organization ${organizationId}, query length 9, class comments.`,
+		]);
+	});
+
+	it('names the class as all when the caller filtered on neither', async () => {
+		const logged = captureLog();
+
+		await app().request('/search?q=elm&limit=10');
+
+		expect(logged.lines[0]).toContain('class all.');
+	});
+
+	// The whole reason the line carries a length. A query is free text and can
+	// hold a caller's name, a street address or a phone number.
+	it('never writes the query text', async () => {
+		const logged = captureLog();
+
+		await app().request('/search?q=marjorie%20okafor&limit=10');
+
+		expect(logged.lines.join('\n')).not.toContain('okafor');
+	});
+
+	it('says nothing when the query matched something', async () => {
+		const logged = captureLog();
+
+		await app(
+			row({
+				source_table: 'habitats',
+				fields: { habitat_name: 'Mill Pond' },
+				matched_field: 'habitat_name',
+			}),
+		).request('/search?q=mill%20pond&limit=10');
+
+		expect(logged.lines).toEqual([]);
+	});
+
+	// A refusal answers before Postgres is touched, so it is not a miss.
+	it('says nothing about a refused query', async () => {
+		const logged = captureLog();
+
+		const response = await app().request('/search?q=elm');
+
+		expect(response.status).toBe(400);
+		expect(logged.lines).toEqual([]);
+	});
+});
+
+/** Holds `console.log` for one test and restores it when the test ends. */
+function captureLog(): { readonly lines: readonly string[] } {
+	const lines: string[] = [];
+	const spy = vi.spyOn(console, 'log').mockImplementation((line: unknown) => {
+		lines.push(String(line));
+	});
+	onTestFinished(() => {
+		spy.mockRestore();
+	});
+	return { lines };
+}
 
 /**
  * Composition, over rows the reader would have returned.

@@ -69,6 +69,10 @@ export function registerSearchRoutes(
 			documentClass: parsed.documentClass,
 		});
 
+		if (result.total === 0) {
+			logEmptyResult(organizationId, parsed);
+		}
+
 		const response: SearchResponse = {
 			// Echoed so the client can assert a response matches the request it
 			// rendered under, which matters because the palette deliberately shows a
@@ -83,6 +87,35 @@ export function registerSearchRoutes(
 
 		return context.json(response satisfies SearchResponse);
 	});
+}
+
+/**
+ * One line per query that ran and matched nothing.
+ *
+ * What the count answers is "how often does `GET /search` come back empty", and
+ * nothing sharper. It is not "how often search failed a person". The palette
+ * shows four groups and only two of them are these results: `usePaletteContent`
+ * matches pages and actions client-side off the bundle, so somebody who types
+ * `traps`, takes the nav row they wanted and presses Enter produced an empty
+ * response here and found what they came for. The results page is the honest
+ * surface, because its empty state is this same `total === 0`.
+ *
+ * The query text is never written. It is free text somebody typed and can hold a
+ * caller's name, a street address or a phone number, so the length stands in for
+ * it: a log line is agency data in a stream nothing in this codebase scopes and
+ * no deletion request reaches. Issue #282 is the record of why there is no table
+ * here either.
+ *
+ * Only a query that reached Postgres gets a line. A refusal already answered
+ * `400 invalid_query` above and is not a miss.
+ */
+function logEmptyResult(
+	organizationId: string,
+	parsed: Extract<ParsedSearchQuery, { readonly ok: true }>,
+): void {
+	console.log(
+		`[search] Empty result. Organization ${organizationId}, query length ${parsed.query.length}, class ${parsed.documentClass ?? 'all'}.`,
+	);
 }
 
 /**
