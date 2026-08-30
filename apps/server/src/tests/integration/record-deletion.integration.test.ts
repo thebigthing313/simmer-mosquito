@@ -6,6 +6,7 @@ import { expect, it } from 'vitest';
 import { registerAdultSurveillanceCommandRoutes } from '../../adult-surveillance-commands/index.js';
 import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables } from '../../auth-middleware.js';
+import { registerNotificationRegistrationRoutes } from '../../public-engagement-records-commands/notification-registrations.js';
 import { registerRecordDeletionRoutes } from '../../record-deletion.js';
 
 /**
@@ -104,6 +105,50 @@ describeDbIntegration('record deletion at the HTTP boundary', () => {
 			expect(comments).toEqual([]);
 		});
 	});
+
+	// The registration delete had no registry entry at all, so it soft-deleted
+	// the row and left every mission notification naming it pointing at a retired
+	// registration, with the foreign key still satisfied (#322). Both halves are
+	// here because both were missing: the refusal, and the impact read the danger
+	// zone needs before the button is pressed.
+	it('refuses a registration delete a mission notification blocks, and says what blocked it', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'registration_http');
+			const actor = await createProfile(db, org);
+			const contactId = await createContact(db, org);
+			const typeId = await createNotificationType(db, org);
+			const registrationId = await createRegistration(db, org, contactId);
+			await createMissionNotification(db, org, { contactId, registrationId, typeId });
+
+			const impact = await impactApp(db, org).request(
+				`/records/notificationRegistration/${registrationId}/delete-impact`,
+			);
+			expect(impact.status).toBe(200);
+			await expect(impact.json()).resolves.toMatchObject({
+				found: true,
+				blockers: [
+					{ key: 'registrationMissionNotifications', count: 1, plural: 'sent notifications' },
+				],
+			});
+
+			const response = await registrationApp(db, org, actor).request(
+				`/public-engagement/notification-registrations/${registrationId}`,
+				{ method: 'DELETE' },
+			);
+			expect(response.status).toBe(409);
+			await expect(response.json()).resolves.toMatchObject({
+				error: 'delete_blocked',
+				blockers: [{ key: 'registrationMissionNotifications', count: 1 }],
+			});
+
+			const registration = await db
+				.selectFrom('notification_registrations')
+				.select(['deleted_at'])
+				.where('id', '=', registrationId)
+				.executeTakeFirstOrThrow();
+			expect(registration.deleted_at).toBeNull();
+		});
+	});
 });
 
 // ===========================================================================
@@ -141,6 +186,19 @@ function collectionApp(
 ): Hono<{ Variables: AuthVariables }> {
 	const app = new Hono<{ Variables: AuthVariables }>();
 	registerAdultSurveillanceCommandRoutes(app, {
+		db,
+		authContextMiddleware: authMiddleware(organizationId, profileId),
+	});
+	return app;
+}
+
+function registrationApp(
+	db: Db,
+	organizationId: string,
+	profileId: string,
+): Hono<{ Variables: AuthVariables }> {
+	const app = new Hono<{ Variables: AuthVariables }>();
+	registerNotificationRegistrationRoutes(app, {
 		db,
 		authContextMiddleware: authMiddleware(organizationId, profileId),
 	});
@@ -280,6 +338,80 @@ async function createComment(
 			entity_type: entityType,
 			entity_id: entityId,
 			comment_text: 'Note',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createContact(db: Db, organizationId: string): Promise<string> {
+	const row = await db
+		.insertInto('contacts')
+		.values({
+			organization_id: organizationId,
+			contact_name: 'Sam Rivera',
+			wants_email: true,
+			wants_sms: false,
+			wants_phone: false,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createNotificationType(db: Db, organizationId: string): Promise<string> {
+	const row = await db
+		.insertInto('notification_types')
+		.values({ organization_id: organizationId, name: 'Adulticiding' })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createRegistration(
+	db: Db,
+	organizationId: string,
+	contactId: string,
+): Promise<string> {
+	const row = await db
+		.insertInto('notification_registrations')
+		.values({
+			organization_id: organizationId,
+			contact_id: contactId,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createMissionNotification(
+	db: Db,
+	organizationId: string,
+	links: {
+		readonly contactId: string;
+		readonly registrationId: string;
+		readonly typeId: string;
+	},
+): Promise<string> {
+	const mission = await db
+		.insertInto('missions')
+		.values({
+			organization_id: organizationId,
+			control_type: 'application' as const,
+			scheduled_start_at: sql`timestamptz '2026-08-05 06:00:00+00'`,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const row = await db
+		.insertInto('mission_notifications')
+		.values({
+			organization_id: organizationId,
+			mission_id: mission.id,
+			notification_registration_id: links.registrationId,
+			contact_id: links.contactId,
+			notification_type_id: links.typeId,
+			channel: 'email' as const,
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();

@@ -1,4 +1,4 @@
-import { checkedValues } from '@simmer-mosquito/db';
+import { applyRecordDeletion, checkedValues } from '@simmer-mosquito/db';
 import {
 	type ContactReferenceInput,
 	createNotificationRegistrationCommand,
@@ -333,6 +333,19 @@ export async function writeRegistrationCommand(
 				},
 			);
 		case 'publicEngagement.deleteNotificationRegistration':
+			// Refuses while any live mission notification names the registration,
+			// and soft-deletes the type subscriptions that do not. Both are registry
+			// rules, so the danger zone's impact read and this write cannot come to
+			// disagree about what a delete does (#322).
+			await applyRecordDeletion(trx, {
+				recordType: 'notificationRegistration',
+				recordId: command.payload.notificationRegistrationId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+				// Nothing to confirm: the subscriptions are this registration's own
+				// link rows, and the one rule that reaches another record blocks.
+				acknowledged: {},
+			});
 			return softDelete(
 				trx,
 				'notification_registrations',

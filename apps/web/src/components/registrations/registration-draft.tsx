@@ -19,6 +19,7 @@ import {
 	NOTIFICATION_REGISTRATION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../hooks/use-owned-geometry';
+import { DangerZoneCard } from '../danger-zone-card';
 import { DrawToolbar } from '../map/geometry-control';
 import type { DrawGeometryType, MapDrawController } from '../map/use-map-draw';
 import type { RegistrationDraftState } from './contact-registrations';
@@ -211,20 +212,35 @@ function EditDraftLoader({
 	}
 
 	return (
-		<DraftForm
-			canSubmit={mutations.canWrite}
-			defaultValues={formValuesOf(registration, subscriptions)}
-			initialGeometry={(savedGeometry.geometry ?? null) as DraftGeometry}
-			map={map}
-			onCancel={onCancel}
-			onDelete={async () => {
-				await mutations.remove(registration.id);
-				onSaved('Registration removed.');
-			}}
-			onSave={onSave}
-			submitLabel="Save registration"
-			toolbarSlot={toolbarSlot}
-		/>
+		<div className="grid gap-5">
+			<DraftForm
+				canSubmit={mutations.canWrite}
+				defaultValues={formValuesOf(registration, subscriptions)}
+				initialGeometry={(savedGeometry.geometry ?? null) as DraftGeometry}
+				map={map}
+				onCancel={onCancel}
+				onSave={onSave}
+				submitLabel="Save registration"
+				toolbarSlot={toolbarSlot}
+			/>
+			{/*
+			 * Outside the form, not in it. Every button inside a `<form>` submits
+			 * unless it says otherwise, and the card's own buttons do not.
+			 *
+			 * The delete refuses while a mission notification names this
+			 * registration, so the card states that before the button is pressed
+			 * rather than after — which is the whole reason the registration is in
+			 * the delete registry (#322).
+			 */}
+			<DangerZoneCard
+				name="this registration"
+				noun="registration"
+				onDelete={() => mutations.remove(registration.id)}
+				onDeleted={() => onSaved('Registration removed.')}
+				recordId={registration.id}
+				recordType="notificationRegistration"
+			/>
+		</div>
 	);
 }
 
@@ -237,7 +253,6 @@ function DraftForm({
 	initialGeometry,
 	map,
 	onCancel,
-	onDelete,
 	onSave,
 	submitLabel,
 	toolbarSlot,
@@ -247,8 +262,6 @@ function DraftForm({
 	readonly initialGeometry: DraftGeometry;
 	readonly map: MapboxMap | null;
 	readonly onCancel: () => void;
-	/** Absent while adding: there is nothing saved yet to remove. */
-	readonly onDelete?: (() => Promise<void>) | undefined;
 	readonly onSave: (
 		values: RegistrationFormValues,
 		geometry: NonNullable<DraftGeometry>,
@@ -327,8 +340,6 @@ function DraftForm({
 					canSubmit={canSubmit}
 					form={form}
 					onCancel={onCancel}
-					onDelete={onDelete}
-					onFailure={setSaveError}
 					submitLabel={submitLabel}
 				/>
 			</form>
@@ -369,50 +380,25 @@ function DraftToolbar({
 /**
  * What the draft can be finished with.
  *
- * Remove sits beside the save rather than in a danger zone of its own. The old
- * detail page had one and there is no detail page now: without this a
- * registration recorded by mistake could be switched off but never removed.
+ * Saving and cancelling only. Removing a saved registration is the danger zone
+ * card below the form, which reads the server's delete policy first and says
+ * what is stopping it; this row used to carry a Remove button that asked
+ * nothing and found out afterwards.
  */
 function DraftActions({
 	canSubmit,
 	form,
 	onCancel,
-	onDelete,
-	onFailure,
 	submitLabel,
 }: {
 	readonly canSubmit: boolean;
 	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
 	readonly form: any;
 	readonly onCancel: () => void;
-	readonly onDelete?: (() => Promise<void>) | undefined;
-	readonly onFailure: (message: string) => void;
 	readonly submitLabel: string;
 }) {
-	const [isDeleting, setIsDeleting] = useState(false);
-
 	return (
 		<div className="flex flex-wrap items-center justify-end gap-2">
-			{onDelete === undefined ? null : (
-				<Button
-					className="mr-auto"
-					disabled={isDeleting}
-					onClick={() => {
-						setIsDeleting(true);
-						void onDelete().catch((thrown: unknown) => {
-							setIsDeleting(false);
-							onFailure(
-								thrown instanceof Error ? thrown.message : 'Unable to remove registration.',
-							);
-						});
-					}}
-					size="sm"
-					type="button"
-					variant="ghost"
-				>
-					{isDeleting ? 'Removing…' : 'Remove'}
-				</Button>
-			)}
 			<Button onClick={onCancel} size="sm" type="button" variant="outline">
 				Cancel
 			</Button>
