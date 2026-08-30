@@ -626,31 +626,33 @@ function ActivityRow({
 	const link = { to: ACTIVITY_DETAIL_ROUTE[entry.category], params: { id: entry.id } };
 
 	return (
-		<ExplorerRow
-			// One badge, and only where the record has a state worth a pill. The
-			// panel is half a page wide, and a second one pushed the row into a
-			// horizontal scroll.
-			badges={<ActivityStatusBadge entry={entry} />}
-			detailLabel={`View details for ${title}`}
-			detailLink={link}
-			isSelected={isSelected}
-			onSelect={() => onSelect(key)}
-			selectLabel={`Show ${title} on the map`}
-			// The verb leads, because what the person did to the record is the one
-			// thing this page adds over the record's own explorer — and it says
-			// "Assisted" in words rather than resting on the hollow pin alone. The
-			// date rail is omitted: the day heading above already carries the date,
-			// so the time of day rides at the end for the three kinds that have one.
-			subtitle={[verb, subtitle, formatActivityTime(entry.occurredAt, timeZone)]
-				.filter((part) => part !== null && part !== '')
-				.join(' · ')}
-			swatch={{
-				color: mapFamily[entry.family],
-				label: `${noun}, ${entry.involvement === 'assisting' ? 'assisted' : 'performed'}`,
-			}}
-			title={title}
-			titleLink={link}
-		/>
+		<li>
+			<ExplorerRow
+				// One badge, and only where the record has a state worth a pill. The
+				// panel is half a page wide, and a second one pushed the row into a
+				// horizontal scroll.
+				badges={<ActivityStatusBadge entry={entry} />}
+				detailLabel={`View details for ${title}`}
+				detailLink={link}
+				isSelected={isSelected}
+				onSelect={() => onSelect(key)}
+				selectLabel={`Show ${title} on the map`}
+				// The verb leads, because what the person did to the record is the one
+				// thing this page adds over the record's own explorer — and it says
+				// "Assisted" in words rather than resting on the hollow pin alone. The
+				// date rail is omitted: the day heading above already carries the date,
+				// so the time of day rides at the end for the three kinds that have one.
+				subtitle={[verb, subtitle, formatActivityTime(entry.occurredAt, timeZone)]
+					.filter((part) => part !== null && part !== '')
+					.join(' · ')}
+				swatch={{
+					color: mapFamily[entry.family],
+					label: `${noun}, ${entry.involvement === 'assisting' ? 'assisted' : 'performed'}`,
+				}}
+				title={title}
+				titleLink={link}
+			/>
+		</li>
 	);
 }
 

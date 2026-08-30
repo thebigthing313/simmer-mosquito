@@ -231,15 +231,17 @@ function TrapListRow({
 	const label = trapDisplayName(trap);
 	const detailLink = { to: '/adult-surveillance/traps/$id', params: { id: trap.id } } as const;
 	return (
-		<ExplorerRow
-			detailLabel={`Open the record for ${label}`}
-			detailLink={detailLink}
-			isSelected={isSelected}
-			onSelect={() => onSelect(trap.id)}
-			selectLabel={`Show collections for ${label}`}
-			subtitle={showMethod ? trap.methodName : undefined}
-			title={label}
-		/>
+		<li>
+			<ExplorerRow
+				detailLabel={`Open the record for ${label}`}
+				detailLink={detailLink}
+				isSelected={isSelected}
+				onSelect={() => onSelect(trap.id)}
+				selectLabel={`Show collections for ${label}`}
+				subtitle={showMethod ? trap.methodName : undefined}
+				title={label}
+			/>
+		</li>
 	);
 }
 

@@ -33,8 +33,25 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 // that actually reports one. Every observed element reports the same size, which
 // is all these assertions distinguish.
 let observedBox = { width: 1000, height: 700 };
-type ObserverCallback = (entries: readonly { readonly contentRect: typeof observedBox }[]) => void;
-const liveObservers = new Set<ObserverCallback>();
+interface ObserverEntry {
+	readonly contentRect: typeof observedBox;
+	readonly target: Element;
+}
+type ObserverCallback = (entries: readonly ObserverEntry[]) => void;
+/*
+ * Which elements each observer is watching, not just which observers are live.
+ * The rail's virtualizer observes every mounted row and reads the row's index
+ * back off `entry.target`, so an entry without one is a crash rather than a
+ * missing measurement.
+ */
+const liveObservers = new Map<ObserverCallback, Set<Element>>();
+
+/** The height of a result row, so a window of them fits in the panel. */
+const ROW_HEIGHT = 60;
+
+function observerEntry(target: Element): ObserverEntry {
+	return { contentRect: observedBox, target };
+}
 
 vi.stubGlobal(
 	'ResizeObserver',
@@ -43,23 +60,46 @@ vi.stubGlobal(
 		constructor(callback: ObserverCallback) {
 			this.callback = callback;
 		}
-		observe() {
-			liveObservers.add(this.callback);
-			this.callback([{ contentRect: observedBox }]);
+		observe(target: Element) {
+			const watched = liveObservers.get(this.callback) ?? new Set<Element>();
+			watched.add(target);
+			liveObservers.set(this.callback, watched);
+			this.callback([observerEntry(target)]);
 		}
-		unobserve() {}
+		unobserve(target: Element) {
+			liveObservers.get(this.callback)?.delete(target);
+		}
 		disconnect() {
 			liveObservers.delete(this.callback);
 		}
 	},
 );
 
+/*
+ * The rail mounts only the rows in view, and both halves of that are read off
+ * `offsetHeight`: how tall the scroll container is, and how tall each row is.
+ * jsdom does no layout, so every box is zero and a virtual list in it renders
+ * nothing at all — the rows would be missing here for a reason that has nothing
+ * to do with what these tests check. A row reports a row's height and everything
+ * else reports the observed box.
+ */
+Object.defineProperty(HTMLElement.prototype, 'offsetHeight', {
+	configurable: true,
+	get(this: HTMLElement) {
+		return this.hasAttribute('data-index') ? ROW_HEIGHT : observedBox.height;
+	},
+});
+Object.defineProperty(HTMLElement.prototype, 'offsetWidth', {
+	configurable: true,
+	get: () => observedBox.width,
+});
+
 /** Resize every observed element, as a viewport change would. */
 function setObservedBox(box: { width: number; height: number }) {
 	observedBox = box;
 	act(() => {
-		for (const callback of [...liveObservers]) {
-			callback([{ contentRect: observedBox }]);
+		for (const [callback, watched] of [...liveObservers]) {
+			callback([...watched].map(observerEntry));
 		}
 	});
 }
@@ -88,6 +128,12 @@ const ROWS: readonly Row[] = [
 	{ id: 'a', name: 'Culvert 12' },
 	{ id: 'b', name: 'Roadside ditch' },
 ];
+
+/** A full page of results, which is what `PAGE_SIZE` hands the rail. */
+const PAGE_OF_ROWS: readonly Row[] = Array.from({ length: 50 }, (_, index) => ({
+	id: `r${index + 1}`,
+	name: `Site ${index + 1}`,
+}));
 
 /**
  * The frame as a route drives it. `panel` comes from the hook rather than a
@@ -141,7 +187,9 @@ function Page({
 							rows,
 							emptyTitle: 'No habitats in view',
 							emptyDescription: 'Loosen the filters to bring habitats into range.',
-							renderRow: (row) => <li key={row.id}>{row.name}</li>,
+							// The list item belongs to the rail, which positions and measures
+							// it. A caller renders the row's contents.
+							renderRow: (row) => <span key={row.id}>{row.name}</span>,
 						}
 					: {
 							body,
@@ -315,6 +363,40 @@ describe('ExplorerMapPage', () => {
 		render(<Page isLoading />);
 
 		expect(screen.getByText('Culvert 12')).toBeTruthy();
+	});
+
+	/*
+	 * A page is 50 records and the rail shows about a dozen, so the whole page
+	 * being mounted cost a 55ms long task on every viewport settle while the map
+	 * was being dragged — and put 150 tab stops between the rail and its pager.
+	 */
+	it('mounts the rows in view rather than the whole page', () => {
+		render(<Page rows={PAGE_OF_ROWS} />);
+
+		const mounted = document.querySelectorAll('[data-index]').length;
+		expect(mounted).toBeGreaterThan(0);
+		expect(mounted).toBeLessThan(PAGE_OF_ROWS.length / 2);
+		// The window starts where the reader is, which on first paint is the top.
+		expect(screen.getByText('Site 1')).toBeTruthy();
+	});
+
+	/*
+	 * Mounting a window is not on its own a way past it: tabbing into the last
+	 * mounted row scrolls it and mounts the next, so Tab alone still walks the
+	 * page three stops at a time. This is the bypass.
+	 */
+	it('offers a way past the rows to the pager', () => {
+		render(<Page rows={PAGE_OF_ROWS} />);
+
+		fireEvent.click(screen.getByRole('button', { name: 'Skip to paging' }));
+
+		expect(document.activeElement?.contains(screen.getByText('pager'))).toBe(true);
+	});
+
+	it('leaves the bypass out when there is no pager to reach', () => {
+		render(<Page hasPager={false} rows={PAGE_OF_ROWS} />);
+
+		expect(screen.queryByRole('button', { name: 'Skip to paging' })).toBeNull();
 	});
 });
 
