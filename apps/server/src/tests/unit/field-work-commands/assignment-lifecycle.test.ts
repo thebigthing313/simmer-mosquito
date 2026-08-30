@@ -8,8 +8,10 @@ import {
 	checkItemProgress,
 	checkReopenAssignment,
 	checkStartAssignment,
+	isTargetMismatch,
 	readAssignmentItemState,
 	readAssignmentState,
+	targetNoun,
 } from '../../../field-work-commands/assignment-lifecycle.js';
 import { isProgressBeforeStart } from '../../../progress-timing.js';
 
@@ -176,7 +178,7 @@ describe('isProgressBeforeStart', () => {
 });
 
 describe('checkExecution', () => {
-	const open = { autoStart: true, acknowledgedCompletedItemAdditionalRecord: false };
+	const open = { autoStart: true };
 
 	it('allows an unstarted assignment when the caller will auto-start it', () => {
 		expect(checkExecution('not_started', 'pending', open)).toBeNull();
@@ -197,18 +199,11 @@ describe('checkExecution', () => {
 		expect(checkExecution('in_progress', 'skipped', open)).toBe('assignment_item_skipped');
 	});
 
-	it('asks before adding a second record to a completed stop', () => {
-		// The ordinary cause of this is a double submit, so it is a question
-		// rather than a refusal.
-		expect(checkExecution('in_progress', 'completed', open)).toBe(
-			'assignment_item_already_completed',
-		);
-		expect(
-			checkExecution('in_progress', 'completed', {
-				...open,
-				acknowledgedCompletedItemAdditionalRecord: true,
-			}),
-		).toBeNull();
+	it('leaves the completed stop to the acknowledgement, which counts what is there', () => {
+		// A second record against a completed stop is a question, not a rule, and
+		// the question counts the records already filed against it. Counting is a
+		// read, so `beginExecution` asks it and this stays pure.
+		expect(checkExecution('in_progress', 'completed', open)).toBeNull();
 	});
 
 	it('refuses a completion dated before the assignment started', () => {
@@ -261,33 +256,42 @@ describe('checkExecution', () => {
 });
 
 describe('checkExecutionTarget', () => {
-	const stop = { entityType: 'habitat', entityId: 'habitat-1' };
+	const stop = { entityType: 'habitat' };
 
-	it('passes when the record is for the place the stop names', () => {
-		expect(
-			checkExecutionTarget(stop, { entityType: 'habitat', entityId: 'habitat-1' }, false),
-		).toBeNull();
-	});
-
-	it('passes when the record names no target, because the stop supplies it', () => {
-		expect(checkExecutionTarget(stop, { entityType: 'habitat', entityId: null }, false)).toBeNull();
+	it('passes when the record is for the kind of place the stop names', () => {
+		expect(checkExecutionTarget(stop, { entityType: 'habitat' })).toBeNull();
 	});
 
 	it('always refuses the wrong kind of stop', () => {
 		// A trap collection filed against a habitat stop is a bug, not a choice,
 		// so no acknowledgement clears it.
-		expect(checkExecutionTarget(stop, { entityType: 'trap', entityId: null }, true)).toBe(
+		expect(checkExecutionTarget(stop, { entityType: 'trap' })).toBe(
 			'assignment_item_wrong_target_type',
 		);
 	});
+});
 
-	it('asks before recording against a different target of the same kind', () => {
-		expect(
-			checkExecutionTarget(stop, { entityType: 'habitat', entityId: 'habitat-2' }, false),
-		).toBe('assignment_item_target_mismatch');
-		expect(
-			checkExecutionTarget(stop, { entityType: 'habitat', entityId: 'habitat-2' }, true),
-		).toBeNull();
+describe('isTargetMismatch', () => {
+	const stop = { entityId: 'habitat-1' };
+
+	it('is no mismatch when the record is for the place the stop names', () => {
+		expect(isTargetMismatch(stop, { entityId: 'habitat-1' })).toBe(false);
+	});
+
+	it('is no mismatch when the record names no target, because the stop supplies it', () => {
+		expect(isTargetMismatch(stop, { entityId: null })).toBe(false);
+	});
+
+	it('is a mismatch against a different target of the same kind', () => {
+		// Occasionally legitimate, so `beginExecution` asks rather than refusing.
+		expect(isTargetMismatch(stop, { entityId: 'habitat-2' })).toBe(true);
+	});
+});
+
+describe('targetNoun', () => {
+	it('words the stop’s kind for the sentence the mismatch carries', () => {
+		expect(targetNoun('habitat')).toBe('habitat');
+		expect(targetNoun('service_request')).toBe('service request');
 	});
 });
 

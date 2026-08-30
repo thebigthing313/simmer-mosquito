@@ -344,6 +344,17 @@ async function recordInspectionForStop(
 			autoStart: payload.autoStartAssignment,
 			acknowledgedCompletedItemAdditionalRecord: payload.acknowledgedCompletedItemAdditionalRecord,
 			acknowledgedTargetMismatch: payload.acknowledgedTargetMismatch,
+			// What the double-submit refusal counts: the inspections already filed
+			// against this stop.
+			recordedHere: {
+				key: 'stopInspections',
+				table: 'inspections',
+				singular: 'inspection',
+				plural: 'inspections',
+				match: sql`assignment_item_id = ${payload.assignmentItemId}::uuid
+					and organization_id = ${payload.organizationId}::uuid
+					and deleted_at is null`,
+			},
 			completeItem: payload.completeAssignmentItem,
 			completedAt: payload.completedAt,
 		},
