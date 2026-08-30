@@ -61,11 +61,11 @@ import type { MultiRowCommandType, SingleRowCommandType } from '@simmer-mosquito
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { type AdultCollection, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
+import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { assignment_items } from '../../lib/collections/assignment_items';
 import { collections } from '../../lib/collections/collections';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { commandTransaction } from '../../lib/collections/transact';
-import type { StopAcknowledgements } from '../../lib/stop-acknowledgements';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import { lifecycleStamp, optimisticStamp } from './shared';
 

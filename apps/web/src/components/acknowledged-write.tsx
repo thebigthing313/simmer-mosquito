@@ -8,57 +8,58 @@ import {
 	DialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { type ReactNode, useCallback, useState } from 'react';
-import {
-	acknowledgeableRefusalOf,
-	STOP_ACKNOWLEDGEABLE_REFUSALS,
-} from '../lib/stop-acknowledgements';
-import { messageFromBody } from '../sync/command-error';
+import type { DeleteImpactEntry } from '../hooks/use-delete-impact';
+import { impactCountLabel } from '../hooks/use-delete-impact';
+import { acknowledgementCopyFor, STOP_ACKNOWLEDGEABLE_REFUSALS } from '../lib/acknowledgement-copy';
+import { acknowledgeableRefusalOf, consequencesOf } from '../lib/acknowledgements';
 
-/** The flags to send with a write, keyed exactly as the endpoint reads them. */
-export type Acknowledgements = Readonly<Record<string, true>>;
-
-/** What a refusal-driven question is called on screen. */
-export interface AcknowledgementLabels {
-	readonly title: string;
-	readonly confirm: string;
-	/** Shown when the server's body carried no `reason` of its own. */
-	readonly fallbackReason: string;
-}
-
-const STOP_LABELS: AcknowledgementLabels = {
-	title: 'Record this anyway?',
-	confirm: 'Record it',
-	fallbackReason: 'This record does not match the stop it was recorded from.',
-};
+/**
+ * The flags to send with a write, keyed exactly as the endpoint reads them.
+ *
+ * `false` is a real answer, not an absence: `acknowledged()` on the server reads
+ * a missing flag as confirmed, so a `false` is the only thing that makes a guard
+ * fire at all.
+ */
+export type Acknowledgements = Readonly<Record<string, boolean>>;
 
 /**
  * A write that may be refused with a question, and the question.
  *
  * An acknowledgeable refusal is a condition the server can only discover once it
- * has the row in front of it, whether the stop was already completed, whether
- * the station already has summaries a rename would relabel. Asking up front
- * would put a checkbox on every form for a case that almost never arises, so the
- * write goes out plain and the refusal is what raises the question.
+ * has the rows in front of it: how many inspections a habitat delete would
+ * unlink, how many summaries a station rename would relabel. Asking up front
+ * would put a checkbox on every form for a case that usually does not arise, so
+ * the write goes out with the flags withheld and the refusal is what raises the
+ * question.
  *
- * The wording is the server's `reason`. It already has to be right, because a
- * refusal with no way past it surfaces the same sentence.
+ * ## `ask` is the opt-in, and it is the whole issue
  *
- * ## Why the refusal map is an argument
+ * With `ask: false`, the default, the first attempt sends no flags and the
+ * server treats every one of them as already confirmed. That is what every
+ * surface did before #319 and what mobile and any script still do, which is why
+ * flipping `acknowledged()` was rejected. A surface opts in with `ask: true`,
+ * which seeds every flag in `askable` as `false` so the guards actually run, and
+ * owes a test asserting its first attempt does so. Without that test the form
+ * passes every guard silently.
  *
- * Two families of write use this, and they are refused over different things.
- * The stop executions have five refusals about assignment and mission items; the
- * weather station writes have three about a station's history. Sharing one map
- * would offer a technician a "delete the summaries" answer to a question about a
- * mission stop, which the endpoint would ignore, and the dialog would still
- * have asked. So each caller brings the refusals it can be asked and the words
- * to ask them in, and only the retry machinery is shared.
+ * ## Why the askable map is an argument
+ *
+ * A refusal names its flag, and a page must only offer answers to questions it
+ * can pose. Sharing one map across surfaces would offer a technician a "delete
+ * the summaries" answer to a question about a mission stop, which the endpoint
+ * would ignore, and the dialog would still have asked. The maps live in
+ * `lib/acknowledgement-copy.ts` beside the words.
  */
 export function useAcknowledgedWrite(
-	refusals: Readonly<Record<string, string>> = STOP_ACKNOWLEDGEABLE_REFUSALS,
-	labels: AcknowledgementLabels = STOP_LABELS,
+	options: {
+		/** The questions this surface may be asked, from `lib/acknowledgement-copy.ts`. */
+		readonly askable?: Readonly<Record<string, string>>;
+		/** Send every askable flag as `false` on the first attempt. */
+		readonly ask?: boolean;
+	} = {},
 ): {
 	/**
-	 * Run a write; `acknowledgements` is empty on the first attempt.
+	 * Run a write. `acknowledgements` holds what has been answered so far.
 	 *
 	 * **Resolving does not mean the write succeeded.** A refusal that a flag can
 	 * answer is a question, not a failure, so it is swallowed here and turned into
@@ -72,11 +73,13 @@ export function useAcknowledgedWrite(
 	/** Render inside the page. Null until a write is refused with a question. */
 	readonly dialog: ReactNode;
 } {
+	const askable = options.askable ?? STOP_ACKNOWLEDGEABLE_REFUSALS;
+	const ask = options.ask ?? false;
 	const [pending, setPending] = useState<{
 		readonly write: (acknowledgements: Acknowledgements) => Promise<void>;
 		readonly acknowledgements: Acknowledgements;
 		readonly flag: string;
-		readonly reason: string;
+		readonly consequences: readonly DeleteImpactEntry[];
 	} | null>(null);
 
 	const attempt = useCallback(
@@ -88,7 +91,7 @@ export function useAcknowledgedWrite(
 				await write(acknowledgements);
 				setPending(null);
 			} catch (error) {
-				const flag = acknowledgeableRefusalOf(error, refusals);
+				const flag = acknowledgeableRefusalOf(error, askable);
 				if (flag === null) {
 					// Not a question — hand it back to whatever the caller does with a
 					// failed save.
@@ -96,50 +99,88 @@ export function useAcknowledgedWrite(
 				}
 				setPending({
 					acknowledgements,
-					reason: messageFromBody(
-						(error as { readonly body?: unknown }).body,
-						labels.fallbackReason,
-					),
+					consequences: consequencesOf(error),
 					flag,
 					write,
 				});
 			}
 		},
-		[refusals, labels.fallbackReason],
+		[askable],
 	);
 
 	const run = useCallback(
-		(write: (acknowledgements: Acknowledgements) => Promise<void>) => attempt(write, {}),
-		[attempt],
+		(write: (acknowledgements: Acknowledgements) => Promise<void>) =>
+			attempt(write, ask ? withheld(askable) : {}),
+		[ask, askable, attempt],
 	);
 
 	const dialog =
 		pending === null ? null : (
-			<Dialog onOpenChange={(next) => (next ? undefined : setPending(null))} open>
-				<DialogContent>
-					<DialogHeader>
-						<DialogTitle>{labels.title}</DialogTitle>
-						<DialogDescription>{pending.reason}</DialogDescription>
-					</DialogHeader>
-					<DialogFooter>
-						<Button onClick={() => setPending(null)} type="button" variant="ghost">
-							Back
-						</Button>
-						<Button
-							onClick={() => {
-								void attempt(pending.write, {
-									...pending.acknowledgements,
-									[pending.flag]: true,
-								});
-							}}
-							type="button"
-						>
-							{labels.confirm}
-						</Button>
-					</DialogFooter>
-				</DialogContent>
-			</Dialog>
+			<AcknowledgementDialog
+				consequences={pending.consequences}
+				flag={pending.flag}
+				onCancel={() => setPending(null)}
+				onConfirm={() => {
+					void attempt(pending.write, { ...pending.acknowledgements, [pending.flag]: true });
+				}}
+			/>
 		);
 
 	return { dialog, run };
+}
+
+/** Every askable flag, unanswered. */
+function withheld(askable: Readonly<Record<string, string>>): Acknowledgements {
+	const flags: Record<string, boolean> = {};
+	for (const flag of Object.values(askable)) {
+		flags[flag] = false;
+	}
+	return flags;
+}
+
+/**
+ * One question, from the flag the server named and the counts it sent.
+ *
+ * The server's own `message` is deliberately not shown: it is written for a
+ * developer reading a response body. The words come from
+ * `ACKNOWLEDGEMENT_COPY`, and a flag with no entry gets a sentence built from
+ * the counts rather than a dead end.
+ */
+function AcknowledgementDialog({
+	flag,
+	consequences,
+	onCancel,
+	onConfirm,
+}: {
+	readonly flag: string;
+	readonly consequences: readonly DeleteImpactEntry[];
+	readonly onCancel: () => void;
+	readonly onConfirm: () => void;
+}) {
+	const copy = acknowledgementCopyFor(flag, consequences);
+	return (
+		<Dialog onOpenChange={(next) => (next ? undefined : onCancel())} open>
+			<DialogContent>
+				<DialogHeader>
+					<DialogTitle>{copy.title}</DialogTitle>
+					<DialogDescription>{copy.body}</DialogDescription>
+				</DialogHeader>
+				{consequences.length === 0 ? null : (
+					<ul className="m-0 grid list-none gap-0.5 p-0 text-foreground text-sm">
+						{consequences.map((entry) => (
+							<li key={entry.key}>{impactCountLabel(entry)}</li>
+						))}
+					</ul>
+				)}
+				<DialogFooter>
+					<Button onClick={onCancel} type="button" variant="ghost">
+						Back
+					</Button>
+					<Button onClick={onConfirm} type="button">
+						{copy.confirm}
+					</Button>
+				</DialogFooter>
+			</DialogContent>
+		</Dialog>
+	);
 }

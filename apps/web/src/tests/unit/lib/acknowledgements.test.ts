@@ -1,9 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import {
-	acknowledgeableRefusalOf,
-	readAcknowledgements,
-	STOP_ACKNOWLEDGEABLE_REFUSALS,
-} from '../../../lib/stop-acknowledgements';
+import { STOP_ACKNOWLEDGEABLE_REFUSALS } from '../../../lib/acknowledgement-copy';
+import { acknowledgeableRefusalOf, readAcknowledgements } from '../../../lib/acknowledgements';
 import { CommandError } from '../../../sync/command-error';
 
 /**

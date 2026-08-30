@@ -20,9 +20,9 @@
 
 import { type OutreachAction as OutreachActionRow, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
+import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { outreach_actions } from '../../lib/collections/outreach_actions';
-import type { StopAcknowledgements } from '../../lib/stop-acknowledgements';
 import type { OutreachAction } from '../queries/outreach-view';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import {

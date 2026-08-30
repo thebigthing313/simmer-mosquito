@@ -7,8 +7,9 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordUnavailable } from '../../../components/record';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
+import { STATION_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { isBelowRole } from '../../../lib/write-access';
-import { STATION_ACKNOWLEDGEMENT_LABELS, STATION_REFUSALS } from './-weather-acknowledgements';
+
 import {
 	type DrawGeometry,
 	WeatherStationFormPage,
@@ -52,7 +53,7 @@ function EditWeatherStationForm({ station }: { readonly station: WeatherStation 
 	useBreadcrumbLabel(station.id, station.name);
 	const navigate = useNavigate();
 	const mutations = useWeatherStationMutations();
-	const { run, dialog } = useAcknowledgedWrite(STATION_REFUSALS, STATION_ACKNOWLEDGEMENT_LABELS);
+	const { run, dialog } = useAcknowledgedWrite({ askable: STATION_REFUSALS, ask: true });
 
 	const onSave = useCallback(
 		async ({

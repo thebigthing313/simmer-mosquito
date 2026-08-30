@@ -27,6 +27,7 @@ import { newRecordId } from '../../../hooks/mutations/shared';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { useWeatherSummaries } from '../../../hooks/queries/use-weather-summaries';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
+import { IMPORT_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { todayInTimeZone } from '../../../lib/local-date';
 import { isBelowRole } from '../../../lib/write-access';
 import { assessParsedRows, type FileAssessment } from './-import-assessment';
@@ -42,7 +43,6 @@ import {
 	parseWeatherFile,
 } from './-import-parse';
 import { ImportPreview } from './-import-preview';
-import { IMPORT_REFUSALS } from './-weather-acknowledgements';
 
 export const Route = createFileRoute('/gis/weather/$id_/import')({
 	beforeLoad: async ({ context, params }) => {
@@ -103,11 +103,7 @@ function useWeatherUpload(stationId: string) {
 	// detail page this was opened from is already querying them, which is what
 	// keeps the on-demand subset warm.
 	const { summaries, isReady } = useWeatherSummaries(stationId);
-	const { run, dialog } = useAcknowledgedWrite(IMPORT_REFUSALS, {
-		title: 'Import anyway?',
-		confirm: 'Import',
-		fallbackReason: 'Some of these rows cannot be written as they are.',
-	});
+	const { run, dialog } = useAcknowledgedWrite({ askable: IMPORT_REFUSALS });
 
 	const [fileName, setFileName] = useState<string | null>(null);
 	const [parsed, setParsed] = useState<ParseResult | null>(null);
@@ -187,11 +183,7 @@ function ImportWeatherPage({ station }: { readonly station: WeatherStation }) {
 	// name the station itself or the crumb shows the bare id.
 	useBreadcrumbLabel(station.id, station.name);
 	const navigate = useNavigate();
-	const { run, dialog } = useAcknowledgedWrite(IMPORT_REFUSALS, {
-		title: 'Import anyway?',
-		confirm: 'Import',
-		fallbackReason: 'Some of these rows cannot be written as they are.',
-	});
+	const { run, dialog } = useAcknowledgedWrite({ askable: IMPORT_REFUSALS });
 
 	const upload = useWeatherUpload(station.id);
 

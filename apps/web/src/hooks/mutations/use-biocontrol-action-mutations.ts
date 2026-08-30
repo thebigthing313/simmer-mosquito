@@ -13,9 +13,9 @@
 
 import { type BiocontrolAction as BiocontrolActionRow, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
+import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { biocontrol_actions } from '../../lib/collections/biocontrol_actions';
 import { mutateCollection } from '../../lib/collections/mutate';
-import type { StopAcknowledgements } from '../../lib/stop-acknowledgements';
 import type { BiocontrolAction } from '../queries/control-action-view';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import {

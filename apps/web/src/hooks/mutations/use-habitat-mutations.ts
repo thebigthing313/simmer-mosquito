@@ -30,16 +30,16 @@
  * pin on the map has to move before the server answers — the trigger overwrites
  * them with its own when the row syncs back.
  *
- * ## The acknowledgements are not questions this app asks
+ * ## The delete asks; the other four still do not
  *
- * Five of these commands take one: changing a habitat's configuration or
- * location changes what its history means, retiring one drops it from routes,
- * and deleting one detaches its inspections and any control work recorded
- * against it. The routes being replaced answered all five server-side, so
- * omitting them here preserves exactly the behaviour that shipped —
- * `acknowledged()` on the server reads an absent flag as answered. If any of
- * these should become a confirmation the user sees, this is the file that grows
- * a parameter for it, not the server.
+ * Five of these commands take an acknowledgement. Deleting a habitat unlinks its
+ * inspections and any control work recorded against it, and {@link remove} sends
+ * both flags withheld so the delete registry answers with the counts — see
+ * `lib/acknowledgement-copy.ts`. The other three, changing a habitat's
+ * configuration or location and retiring it, still send nothing, and
+ * `acknowledged()` on the server reads an absent flag as answered. Turning one
+ * of those on means sending it as `false` from the form and giving the surface a
+ * test that says so, which is the whole of #319.
  */
 
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
@@ -96,7 +96,16 @@ export interface HabitatMutations {
 	readonly setInaccessible: (habitatId: string, isInaccessible: boolean) => Promise<void>;
 	/** In or out of service. Retiring drops the habitat from any route that visits it. */
 	readonly setActive: (habitatId: string, isActive: boolean) => Promise<void>;
-	readonly remove: (habitatId: string) => Promise<void>;
+	/**
+	 * Delete a habitat.
+	 *
+	 * `acknowledgements` is what the user answered. Withheld flags go on the wire
+	 * as `false`, which is the only reading that makes the registry refuse.
+	 */
+	readonly remove: (
+		habitatId: string,
+		acknowledgements?: Readonly<Record<string, boolean>>,
+	) => Promise<void>;
 	/** False while the auth snapshot is still resolving; every write throws until then. */
 	readonly canWrite: boolean;
 }
@@ -252,15 +261,21 @@ export function useHabitatMutations(): HabitatMutations {
 		[actorProfileId],
 	);
 
-	const remove = useCallback(async (habitatId: string) => {
-		await settleWrite(
-			mutateCollection(habitats, {
-				operation: 'delete',
-				intent: 'larvalSurveillance.deleteHabitat',
-				key: habitatId,
-			}),
-		);
-	}, []);
+	const remove = useCallback(
+		async (habitatId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
+			await settleWrite(
+				mutateCollection(habitats, {
+					operation: 'delete',
+					intent: 'larvalSurveillance.deleteHabitat',
+					key: habitatId,
+					// A delete carries no row and no changed fields, so an acknowledgement
+					// is the only thing it can say beyond the command's name.
+					acknowledgements,
+				}),
+			);
+		},
+		[],
+	);
 
 	return {
 		create,

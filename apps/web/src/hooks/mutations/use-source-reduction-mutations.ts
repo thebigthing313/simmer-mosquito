@@ -38,9 +38,9 @@
 
 import { type SourceReduction as SourceReductionRow, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
+import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { source_reductions } from '../../lib/collections/source_reductions';
-import type { StopAcknowledgements } from '../../lib/stop-acknowledgements';
 import type { SourceReduction } from '../queries/control-action-view';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import {
