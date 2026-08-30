@@ -149,6 +149,10 @@ function StandingAlert({ message }: { readonly message: StandingMessage }) {
 					 * them across an agency, so naming the codes is the whole of what this
 					 * can offer. A button to the contact directory would be a button to
 					 * somewhere that cannot answer which contact is at fault.
+					 *
+					 * `docs/agents/issue-tracker.md` issue #326 is the fix: the server
+					 * knows which registrations it could not price at the moment it
+					 * refuses, so the refusal can carry them and this can list them.
 					 */}
 					<span>
 						{refusal.unitCodes.length === 0
