@@ -1,6 +1,7 @@
 import type { SearchResult } from '@simmer-mosquito/domain';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { CommandItem } from '@simmer-mosquito/ui-web/components/ui/command';
+import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { searchResultIcon } from './search-destinations';
 
@@ -16,11 +17,14 @@ import { searchResultIcon } from './search-destinations';
 export function SearchResultRow({
 	dimmed,
 	onSelect,
+	pending,
 	result,
 	value,
 }: {
 	readonly dimmed: boolean;
 	readonly onSelect: () => void;
+	/** Selected, and waiting on the lookup that says where it goes. */
+	readonly pending: boolean;
 	readonly result: SearchResult;
 	readonly value: string;
 }) {
@@ -28,11 +32,18 @@ export function SearchResultRow({
 
 	return (
 		<CommandItem
+			aria-busy={pending ? true : undefined}
 			className={cn('items-start gap-3 py-2', dimmed && 'opacity-50')}
 			onSelect={onSelect}
 			value={value}
 		>
-			<Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+			{/* The spinner takes the icon's place rather than sitting beside it, or
+			    the row would reflow the moment it is selected. */}
+			{pending ? (
+				<Spinner aria-label="Opening" className="mt-0.5 size-4 shrink-0" />
+			) : (
+				<Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
+			)}
 			<span className="flex min-w-0 flex-col">
 				<span className="flex min-w-0 items-center gap-2">
 					<span className="truncate text-sm text-foreground">{result.title}</span>

@@ -25,6 +25,7 @@ import { type RefObject, useState } from 'react';
 import type { AuthMe } from '../../auth';
 import { SearchResultRow } from './search-result-row';
 import { type PaletteDestination, usePaletteContent } from './use-palette-content';
+import { useDeferredOpen } from './use-search-navigation';
 
 /**
  * The command palette: pages, actions, records and comments over one input.
@@ -57,6 +58,9 @@ export function SearchPalette({
 
 	function close() {
 		onOpenChange(false);
+		// A row selected and still waiting on its lookup is dropped here, or it
+		// would navigate on its own after the reader dismissed the palette.
+		opening.cancel();
 		// Every open starts at the action list. The request in flight is not
 		// aborted: it finishes into the cache, so reopening on the same query
 		// inside `staleTime` renders instantly.
@@ -71,12 +75,10 @@ export function SearchPalette({
 		navigate({ to: destination.to as never, params: destination.params as never });
 	}
 
-	function onSelectResult(result: SearchResult) {
-		const destination = content.destinationOf(result);
-		if (destination !== undefined) {
-			go(destination);
-		}
-	}
+	// A route comment selected before the routes collection has answered has no
+	// destination yet. The row is held and opened when the lookup lands, so the
+	// selection reads as a wait instead of a click that did nothing.
+	const opening = useDeferredOpen(content.destinationOf, go);
 
 	return (
 		<Dialog onOpenChange={(next) => (next ? onOpenChange(true) : close())} open={open}>
@@ -130,7 +132,14 @@ export function SearchPalette({
 					 * mainly zero results.
 					 */}
 					<span aria-live="polite" className="sr-only" role="status">
-						{announcement({ query, failed, firstQuery, empty, total })}
+						{announcement({
+							query,
+							failed,
+							firstQuery,
+							empty,
+							total,
+							opening: opening.waitingValue !== undefined,
+						})}
 					</span>
 					<CommandList>
 						{failed ? <UnavailableStrip offline={offline} onRetry={content.refetch} /> : null}
@@ -138,15 +147,17 @@ export function SearchPalette({
 						<ResultGroup
 							dimmed={false}
 							heading="Pages"
-							onSelect={onSelectResult}
+							onSelect={opening.select}
 							results={groups.pages}
+							waitingValue={opening.waitingValue}
 						/>
 
 						<ResultGroup
 							dimmed={false}
 							heading="Actions"
-							onSelect={onSelectResult}
+							onSelect={opening.select}
 							results={groups.actions}
+							waitingValue={opening.waitingValue}
 						/>
 
 						{firstQuery ? <PendingRows /> : null}
@@ -154,15 +165,17 @@ export function SearchPalette({
 						<ResultGroup
 							dimmed={dimmed}
 							heading="Records"
-							onSelect={onSelectResult}
+							onSelect={opening.select}
 							results={groups.records}
+							waitingValue={opening.waitingValue}
 						/>
 
 						<ResultGroup
 							dimmed={dimmed}
 							heading="Comments"
-							onSelect={onSelectResult}
+							onSelect={opening.select}
 							results={groups.comments}
+							waitingValue={opening.waitingValue}
 						/>
 
 						{/*
@@ -212,7 +225,11 @@ function announcement(state: {
 	readonly firstQuery: boolean;
 	readonly empty: boolean;
 	readonly total: number;
+	readonly opening: boolean;
 }): string {
+	if (state.opening) {
+		return 'Opening';
+	}
 	if (state.query === '') {
 		return '';
 	}
@@ -239,11 +256,14 @@ function ResultGroup({
 	heading,
 	onSelect,
 	results,
+	waitingValue,
 }: {
 	readonly dimmed: boolean;
 	readonly heading: string;
 	readonly onSelect: (result: SearchResult) => void;
 	readonly results: readonly SearchResult[];
+	/** The row that was selected and is waiting on a lookup, drawn as pending. */
+	readonly waitingValue: string | undefined;
 }) {
 	if (results.length === 0) {
 		return null;
@@ -256,6 +276,7 @@ function ResultGroup({
 					dimmed={dimmed}
 					key={searchResultValue(result)}
 					onSelect={() => onSelect(result)}
+					pending={searchResultValue(result) === waitingValue}
 					result={result}
 					value={searchResultValue(result)}
 				/>
