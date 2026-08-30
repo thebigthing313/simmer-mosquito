@@ -45,6 +45,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
+import { type Acknowledgements, useAcknowledgedWrite } from '../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
 import { CustomFieldsList } from '../components/custom-fields-card';
@@ -82,6 +83,7 @@ import { useSpeciesNames } from '../hooks/queries/use-species-names';
 import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
+import { HABITAT_DELETE_REFUSALS } from '../lib/acknowledgement-copy';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
 import type { HabitatGeometry } from './-habitat-geometry-cache';
 import { HabitatInspectionStats } from './-habitat-inspection-stats';
@@ -152,14 +154,42 @@ function HabitatDetailLoader({ habitatId }: { readonly habitatId: string }) {
 	// Record fields stream live from the synced (on-demand) habitats collection,
 	// so detail edits propagate without a manual refetch.
 	const habitat = useHabitatSuspense(habitatId);
+	// Held here rather than in the danger zone, and rendered here too. The delete
+	// is optimistic, so the habitat leaves the collection the moment the button is
+	// pressed and everything below this line unmounts before the registry's
+	// refusal comes back. This component survives it: the row going is what makes
+	// it render `RecordUnavailable` instead.
+	const { run, dialog } = useAcknowledgedWrite({
+		askable: HABITAT_DELETE_REFUSALS,
+		ask: true,
+	});
+
 	if (habitat === undefined) {
-		return <RecordUnavailable noun="habitat" reason="not-found" />;
+		return (
+			<>
+				<RecordUnavailable noun="habitat" reason="not-found" />
+				{dialog}
+			</>
+		);
 	}
 
-	return <HabitatDetailContent habitat={habitat} />;
+	return (
+		<>
+			<HabitatDetailContent askDelete={run} habitat={habitat} />
+			{dialog}
+		</>
+	);
 }
 
-function HabitatDetailContent({ habitat }: { readonly habitat: Habitat }) {
+function HabitatDetailContent({
+	habitat,
+	askDelete,
+}: {
+	readonly habitat: Habitat;
+	readonly askDelete: (
+		write: (acknowledgements: Acknowledgements) => Promise<void>,
+	) => Promise<void>;
+}) {
 	// Surface the habitat's name in the breadcrumb trail in place of its uuid.
 	useBreadcrumbLabel(habitat.id, habitat.name);
 
@@ -192,9 +222,10 @@ function HabitatDetailContent({ habitat }: { readonly habitat: Habitat }) {
 						<HabitatHistoryCard habitatId={habitat.id} />
 					</Suspense>
 					<DangerZoneCard
+						ask={askDelete}
 						name={habitat.name}
 						noun="habitat"
-						onDelete={() => mutations.remove(habitat.id)}
+						onDelete={(acknowledgements) => mutations.remove(habitat.id, acknowledgements)}
 						recordId={habitat.id}
 						recordType="habitat"
 						returnTo="/larval-surveillance/habitats"

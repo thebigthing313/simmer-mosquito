@@ -43,11 +43,11 @@ import {
 	settleWrite,
 } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
+import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { application_batches } from '../../lib/collections/application_batches';
 import { applications } from '../../lib/collections/applications';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { commandTransaction } from '../../lib/collections/transact';
-import type { StopAcknowledgements } from '../../lib/stop-acknowledgements';
 import { reconcileLinks } from '../../sync/reconcile-links';
 import type { ChemicalApplication } from '../queries/control-action-view';
 import { useAuthSnapshot } from '../use-auth-snapshot';

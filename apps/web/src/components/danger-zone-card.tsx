@@ -32,6 +32,7 @@ import {
 } from '../hooks/use-delete-impact';
 import type { MinimumRole } from '../lib/write-access';
 import { readBlockers } from '../sync/command-error';
+import type { Acknowledgements } from './acknowledged-write';
 import { WriteOnly } from './write-only';
 
 const DeleteIcon = iconRegistry.actions.delete.icon;
@@ -52,9 +53,26 @@ interface DangerZoneCardRecord {
 	 * `webCollections.x.delete(id)` returns the raw transaction, and this card
 	 * settles it. Both are awaited the same way — see {@link settleDeletion}.
 	 */
-	readonly onDelete: () =>
-		| Promise<unknown>
-		| { readonly isPersisted: { readonly promise: Promise<unknown> } };
+	readonly onDelete: (
+		acknowledgements: Acknowledgements,
+	) => Promise<unknown> | { readonly isPersisted: { readonly promise: Promise<unknown> } };
+	/**
+	 * Runs the delete so a refusal a confirmation can answer becomes a question.
+	 *
+	 * The delete registry refuses a delete that would unlink or remove rows the
+	 * caller has not agreed to lose, and only a client that sends the flag as
+	 * `false` ever hears about it. A page opts in by passing `run` from
+	 * `useAcknowledgedWrite` here, along with an `onDelete` that reads the flags.
+	 * Absent, the delete goes out with no flags and the server treats every one
+	 * as confirmed, which is what all of them did before #319.
+	 *
+	 * **Hold the hook above this card.** The delete is optimistic, so the record
+	 * leaves its collection the moment the button is pressed and this card
+	 * unmounts before the refusal arrives. State set here would be set on a
+	 * component that is gone. The habitat detail page holds it in the loader that
+	 * renders `RecordUnavailable` in the card's place.
+	 */
+	readonly ask?: (write: (acknowledgements: Acknowledgements) => Promise<void>) => Promise<void>;
 }
 
 /**
@@ -167,6 +185,7 @@ function DangerZone({
 	onDelete,
 	onDeleted,
 	returnTo,
+	ask,
 }: DangerZoneCardProps) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
@@ -188,15 +207,25 @@ function DangerZone({
 		setDeleteError(null);
 		setIsDeleting(true);
 		try {
-			await settleDeletion(onDelete());
-			if (returnTo === undefined) {
-				// The props union makes this the panel case, where `onDeleted` is
-				// required. The optional call is what the destructured union costs:
-				// narrowing on `returnTo` does not carry to its sibling.
-				onDeleted?.();
-				return;
+			const remove = async (acknowledgements: Acknowledgements) => {
+				await settleDeletion(onDelete(acknowledgements));
+				if (returnTo === undefined) {
+					// The props union makes this the panel case, where `onDeleted` is
+					// required. The optional call is what the destructured union costs:
+					// narrowing on `returnTo` does not carry to its sibling.
+					onDeleted?.();
+					return;
+				}
+				await navigate({ to: returnTo });
+			};
+			// Leaving the page is inside the write on purpose: `ask` resolves on a
+			// refusal as well as on a success, so navigating after it would abandon
+			// the page before the question could be asked.
+			if (ask === undefined) {
+				await remove({});
+			} else {
+				await ask(remove);
 			}
-			await navigate({ to: returnTo });
 		} catch (cause) {
 			const blocked = readBlockers(cause);
 			const message =
@@ -227,7 +256,7 @@ function DangerZone({
 			});
 			setIsDeleting(false);
 		}
-	}, [navigate, noun, onDelete, onDeleted, queryClient, recordId, recordType, returnTo]);
+	}, [ask, navigate, noun, onDelete, onDeleted, queryClient, recordId, recordType, returnTo]);
 
 	// Quiet by default. This sits at the foot of a record the operator came to
 	// read, not to destroy, and a full-size destructive block there competes

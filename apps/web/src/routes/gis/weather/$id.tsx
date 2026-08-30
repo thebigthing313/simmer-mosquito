@@ -29,7 +29,8 @@ import { RecordUnavailable } from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
-import { STATION_DELETE_LABELS, STATION_DELETE_REFUSALS } from './-weather-acknowledgements';
+import { STATION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
+
 import { weatherSourceTypeLabel } from './-weather-display';
 import { WeatherSummariesCard } from './-weather-summaries-card';
 import { StationStatusBadge } from './-weather-ui';
@@ -204,7 +205,7 @@ function StationDetailsCard({ station }: { readonly station: WeatherStation }) {
 function StationLifecycleCard({ station }: { readonly station: WeatherStation }) {
 	const navigate = useNavigate();
 	const mutations = useWeatherStationMutations();
-	const { run, dialog } = useAcknowledgedWrite(STATION_DELETE_REFUSALS, STATION_DELETE_LABELS);
+	const { run, dialog } = useAcknowledgedWrite({ askable: STATION_DELETE_REFUSALS, ask: true });
 	const [confirmingDelete, setConfirmingDelete] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [isBusy, setIsBusy] = useState(false);

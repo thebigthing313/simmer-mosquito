@@ -64,6 +64,14 @@ export type AcknowledgementMechanism =
 	/**
 	 * A pure command builder pushes a validation issue unless the flag is
 	 * `true`, so the refusal is a 400 `invalid_command` naming its path.
+	 *
+	 * These ten get no confirmation dialog in `apps/web`, and that is a decision
+	 * rather than an oversight (#319). The dialog is driven by `flag` and
+	 * `consequences` on a 409, and a pure builder can produce neither: it guards
+	 * a change of *meaning* — what a habitat's configuration says, what a unit
+	 * code refers to, which contact a merge keeps — and there is no row count to
+	 * put in front of the user. The forms that reach these commands keep asking
+	 * their own hard-coded question and keep sending `true`.
 	 */
 	| { readonly kind: 'domainBuilder' }
 	/**
