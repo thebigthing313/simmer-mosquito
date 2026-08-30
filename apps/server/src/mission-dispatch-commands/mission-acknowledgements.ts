@@ -558,6 +558,83 @@ export async function assertEarlyStartAcknowledged(
 }
 
 // ===========================================================================
+// Notifications
+// ===========================================================================
+
+/**
+ * The four confirmations a mission with notifications on it asks for.
+ *
+ * `publicEngagement.generateMissionNotifications` works out who has to be told
+ * before a mission runs, from the mission's stops, its schedule and its
+ * notification type, and writes a `mission_notifications` row per person and
+ * channel. Those rows are a worklist somebody works by hand, and generation
+ * never mutates one that already exists: it inserts what is missing and leaves
+ * the rest. So changing any of the three inputs after generation leaves rows
+ * that were correct when they were written and are not any more, and
+ * regenerating does not correct them.
+ *
+ * That is one fact — this mission has notifications — asked by four commands,
+ * which is why they share a reader and differ only in their sentence. The flags
+ * stay separate because what has moved under the notifications is different in
+ * each, and the client keys its wording off `flag`.
+ */
+export async function assertNotificationImpactAcknowledged(
+	trx: MissionDispatchTransaction,
+	input: {
+		readonly organizationId: string;
+		/** The mission, or the stop whose mission it is. */
+		readonly mission: { readonly missionId: string } | { readonly missionItemId: string };
+		readonly acknowledgement:
+			| 'acknowledgedNotificationTimingChange'
+			| 'acknowledgedNotificationPlanChange'
+			| 'acknowledgedNotificationRegenerationImpact'
+			| 'acknowledgedNotificationGeometryChange';
+		readonly acknowledged: boolean;
+		readonly message: string;
+	},
+): Promise<void> {
+	await guard({
+		acknowledgement: input.acknowledgement,
+		acknowledged: input.acknowledged,
+		message: input.message,
+		read: () => anyNotification(trx, input.organizationId, input.mission),
+	});
+}
+
+/** What each of the four is telling the caller has moved. */
+export const NOTIFICATION_IMPACT_MESSAGES = {
+	acknowledgedNotificationTimingChange:
+		'Notifications have gone out for this mission, and they name the schedule you are moving.',
+	acknowledgedNotificationPlanChange:
+		'Notifications have gone out for this mission, and they name the work you are changing.',
+	acknowledgedNotificationRegenerationImpact:
+		'Notifications have gone out for this mission under its current notification type.',
+	acknowledgedNotificationGeometryChange:
+		'Notifications have gone out for this mission, worked out from the ground its stops name.',
+} as const;
+
+async function anyNotification(
+	trx: MissionDispatchTransaction,
+	organizationId: string,
+	mission: { readonly missionId: string } | { readonly missionItemId: string },
+): Promise<boolean> {
+	const notifications = trx
+		.selectFrom('mission_notifications')
+		.select('mission_notifications.id')
+		.where('mission_notifications.organization_id', '=', organizationId)
+		.where('mission_notifications.deleted_at', 'is', null)
+		.limit(1);
+	const row = await ('missionId' in mission
+		? notifications.where('mission_notifications.mission_id', '=', mission.missionId)
+		: notifications
+				.innerJoin('mission_items', 'mission_items.mission_id', 'mission_notifications.mission_id')
+				.where('mission_items.id', '=', mission.missionItemId)
+				.where('mission_items.deleted_at', 'is', null)
+	).executeTakeFirst();
+	return row !== undefined;
+}
+
+// ===========================================================================
 // Shared reads for the stop guards
 // ===========================================================================
 

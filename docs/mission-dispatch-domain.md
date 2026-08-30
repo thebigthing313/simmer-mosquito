@@ -486,6 +486,15 @@ Changing mission schedule after notifications exist requires acknowledgement.
 Changing planned method after notifications exist also requires acknowledgement.
 Existing mission notification rows remain manual tracking/worklist rows.
 
+Those three, plus adding, moving or removing a stop, are one fact asked by four
+commands: this mission has notifications. `acknowledgedNotificationTimingChange`,
+`acknowledgedNotificationPlanChange`,
+`acknowledgedNotificationRegenerationImpact` and
+`acknowledgedNotificationGeometryChange` share a reader in
+`apps/server/src/mission-dispatch-commands/mission-acknowledgements.ts` and
+differ only in the sentence they refuse with. Reordering asks nothing, for the
+reason under "Ordering": matching uses geometry sets rather than item order.
+
 Notification type deactivation is blocked when scheduled or in-progress missions
 reference it. Completed/cancelled mission history may retain inactive types.
 

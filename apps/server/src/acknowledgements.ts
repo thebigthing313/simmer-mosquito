@@ -147,10 +147,10 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedMissionGeometryNotCovered: unchecked(316),
 	acknowledgedMissionItemDeletion: deleteRegistry,
 	acknowledgedNotificationDeletion: deleteRegistry,
-	acknowledgedNotificationGeometryChange: unchecked(316),
-	acknowledgedNotificationPlanChange: unchecked(316),
-	acknowledgedNotificationRegenerationImpact: unchecked(316),
-	acknowledgedNotificationTimingChange: unchecked(316),
+	acknowledgedNotificationGeometryChange: stateGuard,
+	acknowledgedNotificationPlanChange: stateGuard,
+	acknowledgedNotificationRegenerationImpact: stateGuard,
+	acknowledgedNotificationTimingChange: stateGuard,
 	acknowledgedPartialImport: importAssessment,
 	acknowledgedPartialWorkCancellation: stateGuard,
 	acknowledgedPendingTrapCollection: stateGuard,
@@ -184,7 +184,7 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
  * Lower it when a branch guards one. `pnpm check:acknowledgements` fails when
  * this and the map disagree, so the number cannot rot in either direction.
  */
-export const UNCHECKED_ACKNOWLEDGEMENTS = 22;
+export const UNCHECKED_ACKNOWLEDGEMENTS = 18;
 
 // ===========================================================================
 // The state refusal
@@ -215,6 +215,10 @@ export type StateAcknowledgement =
 	| 'acknowledgedInProgressMissionChange'
 	| 'acknowledgedItemProgressDeletion'
 	| 'acknowledgedMethodMismatch'
+	| 'acknowledgedNotificationGeometryChange'
+	| 'acknowledgedNotificationPlanChange'
+	| 'acknowledgedNotificationRegenerationImpact'
+	| 'acknowledgedNotificationTimingChange'
 	| 'acknowledgedPartialWorkCancellation'
 	| 'acknowledgedPendingTrapCollection'
 	| 'acknowledgedProgressedItemLinkChange'

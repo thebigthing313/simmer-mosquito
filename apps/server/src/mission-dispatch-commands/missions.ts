@@ -29,11 +29,13 @@ import {
 	assertCompletedMissionDeletionAcknowledged,
 	assertEarlyStartAcknowledged,
 	assertInProgressAssignmentChangeAcknowledged,
+	assertNotificationImpactAcknowledged,
 	assertPartialWorkCancellationAcknowledged,
 	assertProgressedMissionCancellationAcknowledged,
 	assertRequestedActionAcknowledged,
 	assertWorkedMissionPlanChangeAcknowledged,
 	assertWorkedMissionScheduleChangeAcknowledged,
+	NOTIFICATION_IMPACT_MESSAGES,
 } from './mission-acknowledgements.js';
 import { moveMissionItemRows } from './mission-items.js';
 import {
@@ -165,7 +167,9 @@ function buildMissionUpdateCommands(
 					? { scheduledEndAt: readDate(payload.scheduledEndAt) }
 					: {}),
 				...('rainDate' in payload ? { rainDate: readNullableText(payload.rainDate) } : {}),
-				acknowledgedNotificationTimingChange: true,
+				acknowledgedNotificationTimingChange: acknowledged(
+					payload.acknowledgedNotificationTimingChange,
+				),
 				acknowledgedWorkedMissionScheduleChange: acknowledged(
 					payload.acknowledgedWorkedMissionScheduleChange,
 				),
@@ -186,7 +190,9 @@ function buildMissionUpdateCommands(
 				...('plannedMethodId' in payload
 					? { plannedMethodId: readNullableText(payload.plannedMethodId) }
 					: {}),
-				acknowledgedNotificationPlanChange: true,
+				acknowledgedNotificationPlanChange: acknowledged(
+					payload.acknowledgedNotificationPlanChange,
+				),
 				acknowledgedWorkedMissionPlanChange: acknowledged(
 					payload.acknowledgedWorkedMissionPlanChange,
 				),
@@ -217,7 +223,9 @@ function buildMissionUpdateCommands(
 				...ctx,
 				missionId,
 				notificationTypeId: readNullableText(payload.notificationTypeId),
-				acknowledgedNotificationRegenerationImpact: true,
+				acknowledgedNotificationRegenerationImpact: acknowledged(
+					payload.acknowledgedNotificationRegenerationImpact,
+				),
 			}),
 		);
 		if (!result.ok) return result;
@@ -384,6 +392,13 @@ export async function writeMissionCommand(
 				command.payload.organizationId,
 				command.payload.acknowledgedWorkedMissionScheduleChange,
 			);
+			await assertNotificationImpactAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				mission: { missionId: command.payload.missionId },
+				acknowledgement: 'acknowledgedNotificationTimingChange',
+				acknowledged: command.payload.acknowledgedNotificationTimingChange,
+				message: NOTIFICATION_IMPACT_MESSAGES.acknowledgedNotificationTimingChange,
+			});
 			const changes = command.payload.changes;
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				...('scheduledStartAt' in changes && changes.scheduledStartAt !== undefined
@@ -405,6 +420,13 @@ export async function writeMissionCommand(
 				command.payload.organizationId,
 				command.payload.acknowledgedWorkedMissionPlanChange,
 			);
+			await assertNotificationImpactAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				mission: { missionId: command.payload.missionId },
+				acknowledgement: 'acknowledgedNotificationPlanChange',
+				acknowledged: command.payload.acknowledgedNotificationPlanChange,
+				message: NOTIFICATION_IMPACT_MESSAGES.acknowledgedNotificationPlanChange,
+			});
 			const changes = command.payload.changes;
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				...('controlType' in changes ? { control_type: changes.controlType } : {}),
@@ -427,6 +449,13 @@ export async function writeMissionCommand(
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
 		case 'missionDispatch.updateMissionNotificationType':
+			await assertNotificationImpactAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				mission: { missionId: command.payload.missionId },
+				acknowledgement: 'acknowledgedNotificationRegenerationImpact',
+				acknowledged: command.payload.acknowledgedNotificationRegenerationImpact,
+				message: NOTIFICATION_IMPACT_MESSAGES.acknowledgedNotificationRegenerationImpact,
+			});
 			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'update', table: 'missions', recordId: command.payload.missionId },

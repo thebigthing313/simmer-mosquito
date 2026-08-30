@@ -644,6 +644,152 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			expect(stop.completed_at).toBeNull();
 		});
 	});
+
+	// -----------------------------------------------------------------------
+	// Notifications
+	//
+	// One fact — this mission has notifications — asked by four commands, so
+	// each case names a different flag against the same fixture.
+	// -----------------------------------------------------------------------
+
+	it('refuses moving the schedule of a mission whose notifications have gone out', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'notified_schedule');
+			const actor = await createProfile(db, org);
+			const missionId = await createNotifiedMission(db, org);
+
+			const response = await missionApp(db, org, actor).request(
+				`/mission-dispatch/missions/${missionId}`,
+				{
+					method: 'PATCH',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						scheduledStartAt: '2026-09-01T08:00:00.000Z',
+						acknowledgedNotificationTimingChange: false,
+					}),
+				},
+			);
+
+			await expectStateRefusal(response, 'acknowledgedNotificationTimingChange', 'gone out');
+			const mission = await readMission(db, missionId);
+			expect(mission.scheduled_start_at.toISOString()).toBe('2026-08-10T08:00:00.000Z');
+		});
+	});
+
+	it('refuses changing the plan of a mission whose notifications have gone out', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'notified_plan');
+			const actor = await createProfile(db, org);
+			const missionId = await createNotifiedMission(db, org);
+			const methodId = await createSourceReductionMethod(db, org, 'Culvert clearing');
+
+			const response = await missionApp(db, org, actor).request(
+				`/mission-dispatch/missions/${missionId}`,
+				{
+					method: 'PATCH',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						plannedMethodId: methodId,
+						acknowledgedNotificationPlanChange: false,
+					}),
+				},
+			);
+
+			await expectStateRefusal(response, 'acknowledgedNotificationPlanChange', 'gone out');
+			const mission = await readMission(db, missionId);
+			expect(mission.planned_method_id).toBeNull();
+		});
+	});
+
+	it('refuses clearing the notification type of a mission that has notifications', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'notified_type');
+			const actor = await createProfile(db, org);
+			const missionId = await createNotifiedMission(db, org);
+
+			const response = await missionApp(db, org, actor).request(
+				`/mission-dispatch/missions/${missionId}`,
+				{
+					method: 'PATCH',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						notificationTypeId: null,
+						acknowledgedNotificationRegenerationImpact: false,
+					}),
+				},
+			);
+
+			await expectStateRefusal(response, 'acknowledgedNotificationRegenerationImpact', 'gone out');
+			const mission = await readMission(db, missionId);
+			expect(mission.notification_type_id).not.toBeNull();
+		});
+	});
+
+	it('refuses adding a stop to a mission whose notifications have gone out', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'notified_geometry');
+			const actor = await createProfile(db, org);
+			const missionId = await createNotifiedMission(db, org);
+
+			const response = await missionApp(db, org, actor).request('/mission-dispatch/mission-items', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					id: crypto.randomUUID(),
+					missionId,
+					geometry: { type: 'Point', coordinates: [-90.4, 35.6] },
+					acknowledgedNotificationGeometryChange: false,
+				}),
+			});
+
+			await expectStateRefusal(response, 'acknowledgedNotificationGeometryChange', 'gone out');
+			expect(await countStops(db, missionId)).toBe(1);
+		});
+	});
+
+	it('refuses removing a stop from a mission whose notifications have gone out', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'notified_stop_removed');
+			const actor = await createProfile(db, org);
+			const missionId = await createNotifiedMission(db, org);
+			const stopId = await onlyStop(db, missionId);
+
+			const response = await missionApp(db, org, actor).request(
+				`/mission-dispatch/mission-items/${stopId}`,
+				{
+					method: 'DELETE',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ acknowledgedNotificationGeometryChange: false }),
+				},
+			);
+
+			await expectStateRefusal(response, 'acknowledgedNotificationGeometryChange', 'gone out');
+			const stop = await readStop(db, stopId);
+			expect(stop.deleted_at).toBeNull();
+		});
+	});
+
+	it('says nothing about geometry on a mission nobody has been told about', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'unnotified_geometry');
+			const actor = await createProfile(db, org);
+			const missionId = await createMission(db, org, {});
+			const stopId = await createStop(db, org, missionId, 0);
+
+			const response = await missionApp(db, org, actor).request(
+				`/mission-dispatch/mission-items/${stopId}`,
+				{
+					method: 'DELETE',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ acknowledgedNotificationGeometryChange: false }),
+				},
+			);
+
+			expect(response.status).toBe(200);
+			const stop = await readStop(db, stopId);
+			expect(stop.deleted_at).not.toBeNull();
+		});
+	});
 });
 
 // ===========================================================================
@@ -829,6 +975,66 @@ async function createSourceReduction(
 	return row.id;
 }
 
+/**
+ * A mission with one stop and one notification against it.
+ *
+ * Written directly rather than through `generateMissionNotifications`: what the
+ * guards read is the presence of a row, and driving the generator would make
+ * these cases depend on registration geometry and buffer units, which is a
+ * different module's test.
+ */
+async function createNotifiedMission(db: Db, organizationId: string): Promise<string> {
+	const notificationType = await db
+		.insertInto('notification_types')
+		.values({ organization_id: organizationId, name: 'Adulticiding' })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const missionId = await createMission(db, organizationId, {});
+	await db
+		.updateTable('missions')
+		.set({ notification_type_id: notificationType.id })
+		.where('id', '=', missionId)
+		.execute();
+	await createStop(db, organizationId, missionId, 0);
+
+	const contact = await db
+		.insertInto('contacts')
+		.values({ organization_id: organizationId, contact_name: 'R. Alvarez' })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	const registration = await db
+		.insertInto('notification_registrations')
+		.values({
+			organization_id: organizationId,
+			contact_id: contact.id,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	await db
+		.insertInto('mission_notifications')
+		.values({
+			organization_id: organizationId,
+			mission_id: missionId,
+			notification_registration_id: registration.id,
+			contact_id: contact.id,
+			notification_type_id: notificationType.id,
+			channel: 'phone',
+		})
+		.execute();
+	return missionId;
+}
+
+async function onlyStop(db: Db, missionId: string): Promise<string> {
+	const row = await db
+		.selectFrom('mission_items')
+		.select('id')
+		.where('mission_id', '=', missionId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
 async function createRequestedControlAction(
 	db: Db,
 	organizationId: string,
@@ -873,6 +1079,7 @@ async function readMission(db: Db, missionId: string) {
 			'assigned_to_profile_id',
 			'cancelled_at',
 			'deleted_at',
+			'notification_type_id',
 			'planned_method_id',
 			'started_at',
 			'scheduled_start_at',
