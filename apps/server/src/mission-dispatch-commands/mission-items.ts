@@ -16,8 +16,20 @@ import {
 import type { Hono } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import { moveItems, nextItemPosition } from '../ordered-items.js';
+import {
+	assertActualActionContextChangeAcknowledged,
+	assertActualActionDetachAcknowledged,
+	assertEarlyStartAcknowledged,
+	assertInProgressMissionChangeAcknowledged,
+	assertItemProgressDeletionAcknowledged,
+	assertNotificationImpactAcknowledged,
+	assertProgressedItemLinkChangeAcknowledged,
+	assertProgressedItemReorderAcknowledged,
+	assertRequestedActionAcknowledged,
+	NOTIFICATION_IMPACT_MESSAGES,
+} from './mission-acknowledgements.js';
 import { assertMissionItemProgress, autoStartMissionIfScheduled } from './mission-lifecycle.js';
 import {
 	agencyCommandContext,
@@ -66,6 +78,16 @@ export function registerMissionItemRoutes(
 							...(payload.placement === undefined
 								? {}
 								: { placement: payload.placement as MissionItemPlacement }),
+							acknowledgedInProgressMissionChange: acknowledged(
+								payload.acknowledgedInProgressMissionChange,
+							),
+							acknowledgedMethodMismatch: acknowledged(payload.acknowledgedMethodMismatch),
+							acknowledgedDuplicateRequestedActionMissioning: acknowledged(
+								payload.acknowledgedDuplicateRequestedActionMissioning,
+							),
+							acknowledgedNotificationGeometryChange: acknowledged(
+								payload.acknowledgedNotificationGeometryChange,
+							),
 						})
 					: addMissionItemCommand({
 							...ctx,
@@ -80,6 +102,16 @@ export function registerMissionItemRoutes(
 							...(payload.placement === undefined
 								? {}
 								: { placement: payload.placement as MissionItemPlacement }),
+							acknowledgedInProgressMissionChange: acknowledged(
+								payload.acknowledgedInProgressMissionChange,
+							),
+							acknowledgedMethodMismatch: acknowledged(payload.acknowledgedMethodMismatch),
+							acknowledgedDuplicateRequestedActionMissioning: acknowledged(
+								payload.acknowledgedDuplicateRequestedActionMissioning,
+							),
+							acknowledgedNotificationGeometryChange: acknowledged(
+								payload.acknowledgedNotificationGeometryChange,
+							),
 						});
 			},
 			run: (context, commands) => runMissionItemCommands(context, options.db, commands, 201),
@@ -100,9 +132,19 @@ export function registerMissionItemRoutes(
 		'/mission-dispatch/mission-items/:missionItemId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
-				removeMissionItemCommand({ ...ctx, missionItemId: param('missionItemId') }),
+			// Optional, not none: a delete that removes a stop's progress has a
+			// question to answer, and a body is the only place the answer fits.
+			body: 'optional',
+			build: ({ agency: ctx, param, payload }) =>
+				removeMissionItemCommand({
+					...ctx,
+					missionItemId: param('missionItemId'),
+					acknowledgedItemProgressDeletion: acknowledged(payload.acknowledgedItemProgressDeletion),
+					acknowledgedActualActionDetach: acknowledged(payload.acknowledgedActualActionDetach),
+					acknowledgedNotificationGeometryChange: acknowledged(
+						payload.acknowledgedNotificationGeometryChange,
+					),
+				}),
 			run: (context, commands) => runMissionItemCommands(context, options.db, commands),
 		}),
 	);
@@ -117,6 +159,9 @@ export function registerMissionItemRoutes(
 					missionId: param('missionId'),
 					missionItemIds: readStringArray(payload.missionItemIds),
 					placement: payload.placement as MissionItemPlacement,
+					acknowledgedProgressedItemReorder: acknowledged(
+						payload.acknowledgedProgressedItemReorder,
+					),
 				}),
 			run: (context, commands) => runMissionItemCommands(context, options.db, commands),
 		}),
@@ -149,11 +194,19 @@ function buildMissionItemUpdateCommands(
 				...('requestedControlActionId' in payload
 					? { requestedControlActionId: readNullableText(payload.requestedControlActionId) }
 					: {}),
-				acknowledgedNotificationGeometryChange: true,
-				acknowledgedActualActionContextChange: true,
-				acknowledgedProgressedItemLinkChange: true,
-				acknowledgedMethodMismatch: true,
-				acknowledgedDuplicateRequestedActionMissioning: true,
+				acknowledgedNotificationGeometryChange: acknowledged(
+					payload.acknowledgedNotificationGeometryChange,
+				),
+				acknowledgedActualActionContextChange: acknowledged(
+					payload.acknowledgedActualActionContextChange,
+				),
+				acknowledgedProgressedItemLinkChange: acknowledged(
+					payload.acknowledgedProgressedItemLinkChange,
+				),
+				acknowledgedMethodMismatch: acknowledged(payload.acknowledgedMethodMismatch),
+				acknowledgedDuplicateRequestedActionMissioning: acknowledged(
+					payload.acknowledgedDuplicateRequestedActionMissioning,
+				),
 			}),
 		);
 		if (!result.ok) return result;
@@ -168,6 +221,7 @@ function buildMissionItemUpdateCommands(
 				missionItemId,
 				skippedAt: readDate(payload.skippedAt),
 				skipReason: readText(payload.skipReason) ?? '',
+				acknowledgedEarlyStart: acknowledged(payload.acknowledgedEarlyStart),
 			}),
 		);
 		if (!result.ok) return result;
@@ -178,6 +232,7 @@ function buildMissionItemUpdateCommands(
 				...ctx,
 				missionItemId,
 				completedAt: readDate(payload.completedAt),
+				acknowledgedEarlyStart: acknowledged(payload.acknowledgedEarlyStart),
 			}),
 		);
 		if (!result.ok) return result;
@@ -218,6 +273,27 @@ export async function writeMissionItemCommand(
 ): Promise<MissionItemRow | null> {
 	switch (command.type) {
 		case 'missionDispatch.addMissionItem': {
+			await assertInProgressMissionChangeAcknowledged(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				command.payload.acknowledgedInProgressMissionChange,
+			);
+			await assertRequestedActionAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				plan: { missionId: command.payload.missionId },
+				requestedControlActionId: command.payload.requestedControlActionId,
+				acknowledgedMethodMismatch: command.payload.acknowledgedMethodMismatch,
+				acknowledgedDuplicateRequestedActionMissioning:
+					command.payload.acknowledgedDuplicateRequestedActionMissioning,
+			});
+			await assertNotificationImpactAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				mission: { missionId: command.payload.missionId },
+				acknowledgement: 'acknowledgedNotificationGeometryChange',
+				acknowledged: command.payload.acknowledgedNotificationGeometryChange,
+				message: NOTIFICATION_IMPACT_MESSAGES.acknowledgedNotificationGeometryChange,
+			});
 			await insertMissionItem(trx, {
 				missionItemId: command.payload.missionItemId,
 				organizationId: command.payload.organizationId,
@@ -235,6 +311,27 @@ export async function writeMissionItemCommand(
 			return loadMissionItem(trx, command.payload.missionItemId, command.payload.organizationId);
 		}
 		case 'missionDispatch.addMissionItemFromRequestedControlAction': {
+			await assertInProgressMissionChangeAcknowledged(
+				trx,
+				command.payload.missionId,
+				command.payload.organizationId,
+				command.payload.acknowledgedInProgressMissionChange,
+			);
+			await assertRequestedActionAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				plan: { missionId: command.payload.missionId },
+				requestedControlActionId: command.payload.requestedControlActionId,
+				acknowledgedMethodMismatch: command.payload.acknowledgedMethodMismatch,
+				acknowledgedDuplicateRequestedActionMissioning:
+					command.payload.acknowledgedDuplicateRequestedActionMissioning,
+			});
+			await assertNotificationImpactAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				mission: { missionId: command.payload.missionId },
+				acknowledgement: 'acknowledgedNotificationGeometryChange',
+				acknowledged: command.payload.acknowledgedNotificationGeometryChange,
+				message: NOTIFICATION_IMPACT_MESSAGES.acknowledgedNotificationGeometryChange,
+			});
 			await insertMissionItem(trx, {
 				missionItemId: command.payload.missionItemId,
 				organizationId: command.payload.organizationId,
@@ -253,7 +350,39 @@ export async function writeMissionItemCommand(
 			return loadMissionItem(trx, command.payload.missionItemId, command.payload.organizationId);
 		}
 		case 'missionDispatch.updateMissionItemLocationAndLink': {
+			await assertProgressedItemLinkChangeAcknowledged(
+				trx,
+				command.payload.missionItemId,
+				command.payload.organizationId,
+				command.payload.acknowledgedProgressedItemLinkChange,
+			);
+			await assertActualActionContextChangeAcknowledged(
+				trx,
+				command.payload.missionItemId,
+				command.payload.acknowledgedActualActionContextChange,
+			);
+			await assertNotificationImpactAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				mission: { missionItemId: command.payload.missionItemId },
+				acknowledgement: 'acknowledgedNotificationGeometryChange',
+				acknowledged: command.payload.acknowledgedNotificationGeometryChange,
+				message: NOTIFICATION_IMPACT_MESSAGES.acknowledgedNotificationGeometryChange,
+			});
 			const changes = command.payload.changes;
+			// Only when the link itself moves. Re-asking about the request a stop
+			// already carries, because its address changed, would ask the question
+			// the caller answered when the stop was raised.
+			if ('requestedControlActionId' in changes) {
+				await assertRequestedActionAcknowledged(trx, {
+					organizationId: command.payload.organizationId,
+					plan: { missionItemId: command.payload.missionItemId },
+					requestedControlActionId: changes.requestedControlActionId ?? null,
+					exceptMissionItemId: command.payload.missionItemId,
+					acknowledgedMethodMismatch: command.payload.acknowledgedMethodMismatch,
+					acknowledgedDuplicateRequestedActionMissioning:
+						command.payload.acknowledgedDuplicateRequestedActionMissioning,
+				});
+			}
 			const geomChange =
 				changes.geometry !== undefined || changes.locationSource !== undefined
 					? {
@@ -292,6 +421,12 @@ export async function writeMissionItemCommand(
 					autoStart: command.payload.autoStartMission,
 				},
 			);
+			await assertEarlyStartAcknowledged(trx, {
+				missionId,
+				organizationId: command.payload.organizationId,
+				at: command.payload.completedAt,
+				acknowledged: command.payload.acknowledgedEarlyStart,
+			});
 			await autoStartMissionIfScheduled(trx, missionId, command.payload.organizationId, snapshot, {
 				autoStart: command.payload.autoStartMission,
 				startedAt: command.payload.completedAt,
@@ -345,6 +480,12 @@ export async function writeMissionItemCommand(
 				'skip',
 				{ progressAt: command.payload.skippedAt, autoStart: command.payload.autoStartMission },
 			);
+			await assertEarlyStartAcknowledged(trx, {
+				missionId,
+				organizationId: command.payload.organizationId,
+				at: command.payload.skippedAt,
+				acknowledged: command.payload.acknowledgedEarlyStart,
+			});
 			await autoStartMissionIfScheduled(trx, missionId, command.payload.organizationId, snapshot, {
 				autoStart: command.payload.autoStartMission,
 				startedAt: command.payload.skippedAt,
@@ -384,6 +525,24 @@ export async function writeMissionItemCommand(
 				},
 			);
 		case 'missionDispatch.removeMissionItem':
+			await assertItemProgressDeletionAcknowledged(
+				trx,
+				command.payload.missionItemId,
+				command.payload.organizationId,
+				command.payload.acknowledgedItemProgressDeletion,
+			);
+			await assertActualActionDetachAcknowledged(
+				trx,
+				command.payload.missionItemId,
+				command.payload.acknowledgedActualActionDetach,
+			);
+			await assertNotificationImpactAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				mission: { missionItemId: command.payload.missionItemId },
+				acknowledgement: 'acknowledgedNotificationGeometryChange',
+				acknowledged: command.payload.acknowledgedNotificationGeometryChange,
+				message: NOTIFICATION_IMPACT_MESSAGES.acknowledgedNotificationGeometryChange,
+			});
 			return softDelete(
 				trx,
 				'mission_items',
@@ -478,8 +637,18 @@ export async function moveMissionItemRows(
 		readonly actorProfileId: string;
 		readonly missionItemIds: readonly string[];
 		readonly placement: MissionItemPlacement;
+		readonly acknowledgedProgressedItemReorder: boolean;
 	},
 ): Promise<void> {
+	// Guarded here rather than at either caller: a move is a command on the
+	// mission and a write on the stops, so both writers route through this, and
+	// a guard at one of them would be a guard at one door.
+	await assertProgressedItemReorderAcknowledged(
+		trx,
+		payload.organizationId,
+		payload.missionItemIds,
+		payload.acknowledgedProgressedItemReorder,
+	);
 	await moveItems(
 		trx,
 		{
