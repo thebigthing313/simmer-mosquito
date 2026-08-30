@@ -20,6 +20,15 @@
 # has already dropped the local database, which is the worst point to fail at.
 # `DATABASE_URL` in `.env` carries the same `sslmode=disable` for the same
 # reason.
+#
+# The clone checks that the data arrived: every ordinary table in `public` is
+# counted on prod and on the local database, and a local table holding fewer
+# rows than prod fails the run. The prod baseline is read before the dump, so a
+# row prod takes while the dump runs shows up as a surplus, which is ignored,
+# rather than a phantom shortfall. `spatial_ref_sys` is allowed to differ and is
+# the only one; scripts/lib/table-row-counts.ps1 holds that list and the reason.
+# This is what pg_restore's exit code, non-zero on every healthy run, cannot
+# tell us. See issue #347.
 
 [CmdletBinding()]
 param(
@@ -33,6 +42,10 @@ $ErrorActionPreference = 'Stop'
 if ([string]::IsNullOrWhiteSpace($ProdUrl)) {
 	throw 'PROD_DATABASE_URL is not set. Provide the prod connection string (read-only role preferred).'
 }
+
+$rowCountLibPath = Join-Path $PSScriptRoot 'lib/table-row-counts.ps1'
+if (-not (Test-Path $rowCountLibPath)) { throw "Missing $rowCountLibPath, which the post-restore row-count check runs." }
+. $rowCountLibPath
 
 # Local maintenance + target connection strings, INSIDE the postgres container.
 $LocalSuper = 'postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable'
@@ -55,6 +68,15 @@ while ($true) {
 	if ((Get-Date) -gt $deadline) { throw 'Postgres did not become healthy in time.' }
 	Start-Sleep -Seconds 2
 }
+
+Write-Host '==> Counting prod tables (read-only) for the post-restore comparison...' -ForegroundColor Cyan
+# Read before the dump, so a write prod takes mid-dump can only inflate the
+# local copy. psql runs in the container, which is the only place this script
+# needs pg client tools.
+$prodOutput = & docker compose exec -T postgres psql "$ProdUrl" -X -A -t -F '|' -v ON_ERROR_STOP=1 -c $PublicTableRowCountSql
+if ($LASTEXITCODE -ne 0) { throw "prod row-count query failed (exit $LASTEXITCODE)" }
+$prodCounts = ConvertTo-TableRowCountMap -PsqlOutput $prodOutput
+Write-Host "    $($prodCounts.Count) tables counted." -ForegroundColor DarkGray
 
 if ($ResetElectric) {
 	Write-Host '==> Stopping Electric (releases its replication slot before we recreate the DB)...' -ForegroundColor Cyan
@@ -80,6 +102,14 @@ Write-Host '==> Restoring into local database...' -ForegroundColor Cyan
 # noise is expected. We don't abort on it (exit 0) and verify at the end.
 $restore = "pg_restore --no-owner --no-privileges --dbname='$LocalTarget' /tmp/prod.dump; rm -f /tmp/prod.dump; exit 0"
 Invoke-Compose exec -T postgres sh -c "$restore"
+
+Write-Host '==> Verifying every table arrived...' -ForegroundColor Cyan
+$localOutput = & docker compose exec -T postgres psql "$LocalTarget" -X -A -t -F '|' -v ON_ERROR_STOP=1 -c $PublicTableRowCountSql
+if ($LASTEXITCODE -ne 0) { throw "local row-count query failed (exit $LASTEXITCODE)" }
+$localCounts = ConvertTo-TableRowCountMap -PsqlOutput $localOutput
+Assert-NoTableRowCountShortfall -SourceCounts $prodCounts -TargetCounts $localCounts `
+	-SourceLabel 'prod' -TargetLabel 'the local database' `
+	-FailureAdvice 'Read the pg_restore output above for the failing table and re-run the clone.'
 
 if ($ResetElectric) {
 	Write-Host '==> Resetting Electric storage (clears stale shape log for the recreated DB)...' -ForegroundColor Cyan
