@@ -18,6 +18,7 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import { insertLifecycleComment } from '../lifecycle-comment.js';
+import { assertCitedHistoryAcknowledged } from '../record-history.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -86,6 +87,9 @@ export function registerServiceRequestRoutes(
 					...ctx,
 					serviceRequestId: param('serviceRequestId'),
 					contact: payload.contact as ContactReferenceInput,
+					acknowledgedHistoricalContactChange: acknowledged(
+						payload.acknowledgedHistoricalContactChange,
+					),
 				}),
 			run: (context, commands) => runServiceRequestCommands(context, options.db, commands),
 		}),
@@ -100,6 +104,9 @@ export function registerServiceRequestRoutes(
 					...ctx,
 					serviceRequestId: param('serviceRequestId'),
 					location: payload.location as ServiceRequestLocationInput,
+					acknowledgedHistoricalLocationChange: acknowledged(
+						payload.acknowledgedHistoricalLocationChange,
+					),
 				}),
 			run: (context, commands) => runServiceRequestCommands(context, options.db, commands),
 		}),
@@ -163,6 +170,9 @@ function buildServiceRequestUpdateCommands(
 				...ctx,
 				serviceRequestId,
 				contact: { kind: 'existing', contactId: readText(payload.contactId) ?? '' },
+				acknowledgedHistoricalContactChange: acknowledged(
+					payload.acknowledgedHistoricalContactChange,
+				),
 			}),
 		);
 		if (!result.ok) return result;
@@ -313,10 +323,45 @@ async function updateServiceRequestDetails(
 	});
 }
 
+/**
+ * The work already dispatched against a service request.
+ *
+ * No table names a service request by column: everything that reaches one does
+ * so through the polymorphic `entity_type`/`entity_id` pair, which is why this
+ * asks the registry for one rule by key rather than taking its default. The
+ * stops are the citation that matters. A technician sent to a stop was sent to
+ * that address to see that person, and the stop keeps no copy of either, so
+ * repointing the request afterwards rewrites what the visit was for. Comments
+ * and tags are annotations on the request rather than work recorded under it.
+ */
+async function assertServiceRequestHistory(
+	trx: PublicEngagementTransaction,
+	payload: { readonly organizationId: string; readonly serviceRequestId: string },
+	acknowledgement: 'acknowledgedHistoricalContactChange' | 'acknowledgedHistoricalLocationChange',
+	acknowledgedValue: boolean,
+): Promise<void> {
+	await assertCitedHistoryAcknowledged(trx, {
+		acknowledgement,
+		recordType: 'serviceRequest',
+		recordId: payload.serviceRequestId,
+		organizationId: payload.organizationId,
+		subject: 'service request',
+		acknowledged: acknowledgedValue,
+		relabels: true,
+		only: ['serviceRequestAssignmentItems'],
+	});
+}
+
 async function reassignServiceRequestContact(
 	trx: PublicEngagementTransaction,
 	payload: ServiceRequestPayload<'publicEngagement.updateServiceRequestContact'>,
 ): Promise<ServiceRequestRow | null> {
+	await assertServiceRequestHistory(
+		trx,
+		payload,
+		'acknowledgedHistoricalContactChange',
+		payload.acknowledgedHistoricalContactChange,
+	);
 	const contactId = await resolveContact(
 		trx,
 		payload.organizationId,
@@ -333,6 +378,12 @@ async function moveServiceRequest(
 	trx: PublicEngagementTransaction,
 	payload: ServiceRequestPayload<'publicEngagement.updateServiceRequestLocation'>,
 ): Promise<ServiceRequestRow | null> {
+	await assertServiceRequestHistory(
+		trx,
+		payload,
+		'acknowledgedHistoricalLocationChange',
+		payload.acknowledgedHistoricalLocationChange,
+	);
 	const addressId = await resolveServiceRequestAddress(
 		trx,
 		payload.organizationId,

@@ -1,6 +1,7 @@
 import {
 	createOrgLookup,
 	createTag,
+	type DeletableRecordType,
 	deleteCollectionLureLookup,
 	deleteCollectionMethodLookup,
 	deleteHabitatTypeLookup,
@@ -51,6 +52,7 @@ import {
 	type PayloadResult,
 } from '../command-endpoint.js';
 import { type CommandTransaction, runCommands } from '../command-write.js';
+import { assertCitedHistoryAcknowledged } from '../record-history.js';
 import {
 	type FoundationCommandDb,
 	type LookupCommand,
@@ -131,6 +133,37 @@ export function registerTagRoutes(
 	);
 }
 
+/**
+ * The three catalogs share one rename question, so they share one call.
+ *
+ * A catalog row carries no snapshot onto the records that point at it: a
+ * collection stores `collection_method_id`, never the name the method had that
+ * morning, so a rename relabels every one of them. The other fields on these
+ * rows — the notes, the custom schema, the action threshold — are not what a
+ * past record is read back under, which is why only `name` opens the question.
+ */
+async function assertLookupRename(
+	db: CommandTransaction,
+	recordType: DeletableRecordType,
+	subject: string,
+	recordId: string,
+	payload: {
+		readonly organizationId: string;
+		readonly changes: { readonly name?: string };
+		readonly acknowledgedHistoricalLabelChange: boolean;
+	},
+): Promise<void> {
+	await assertCitedHistoryAcknowledged(db, {
+		recordType,
+		recordId,
+		subject,
+		organizationId: payload.organizationId,
+		acknowledgement: 'acknowledgedHistoricalLabelChange',
+		acknowledged: payload.acknowledgedHistoricalLabelChange,
+		relabels: payload.changes.name !== undefined,
+	});
+}
+
 export async function writeFoundationLookupCommand(
 	db: CommandTransaction,
 	command: LookupCommand,
@@ -152,6 +185,13 @@ export async function writeFoundationLookupCommand(
 		}
 		case 'foundation.updateCollectionMethod': {
 			const updatePayload = (command as UpdateCollectionMethodCommand).payload;
+			await assertLookupRename(
+				db,
+				'collectionMethod',
+				'collection method',
+				updatePayload.collectionMethodId,
+				updatePayload,
+			);
 			return updateCollectionMethodLookup(db, updatePayload.collectionMethodId, {
 				organizationId: updatePayload.organizationId,
 				...updatePayload.changes,
@@ -195,6 +235,13 @@ export async function writeFoundationLookupCommand(
 		}
 		case 'foundation.updateCollectionLure': {
 			const updatePayload = (command as UpdateCollectionLureCommand).payload;
+			await assertLookupRename(
+				db,
+				'collectionLure',
+				'lure',
+				updatePayload.collectionLureId,
+				updatePayload,
+			);
 			return updateCollectionLureLookup(db, updatePayload.collectionLureId, {
 				organizationId: updatePayload.organizationId,
 				...updatePayload.changes,
@@ -239,6 +286,13 @@ export async function writeFoundationLookupCommand(
 		}
 		case 'foundation.updateHabitatType': {
 			const updatePayload = (command as UpdateHabitatTypeCommand).payload;
+			await assertLookupRename(
+				db,
+				'habitatType',
+				'habitat type',
+				updatePayload.habitatTypeId,
+				updatePayload,
+			);
 			return updateHabitatTypeLookup(db, updatePayload.habitatTypeId, {
 				organizationId: updatePayload.organizationId,
 				...updatePayload.changes,

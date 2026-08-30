@@ -103,6 +103,18 @@ describe('acknowledgeable refusals', () => {
 			}),
 		).toBe('acknowledgedHistoricalStationIdentityChange');
 	});
+
+	// The settled body (#317) names the flag rather than a refusal code, so there
+	// is nothing to translate — but the caller's map still decides whether this
+	// page may ask, which is the whole reason it is an argument.
+	it('reads the flag straight off the settled acknowledgement body', () => {
+		const map = { acknowledgedSummaryDeletion: 'acknowledgedSummaryDeletion' } as const;
+
+		expect(acknowledgeableRefusalOf(settledRefusal('acknowledgedSummaryDeletion'), map)).toBe(
+			'acknowledgedSummaryDeletion',
+		);
+		expect(acknowledgeableRefusalOf(settledRefusal('acknowledgedCascadeDelete'), map)).toBeNull();
+	});
 });
 
 describe('reading acknowledgements off a mutation', () => {
@@ -133,4 +145,14 @@ describe('reading acknowledgements off a mutation', () => {
 
 function refusal(code: string): CommandError {
 	return new CommandError('Refused.', 400, { error: code, reason: 'Because.' });
+}
+
+/** The `409 acknowledgement_required` body, which names the flag itself. */
+function settledRefusal(flag: string): CommandError {
+	return new CommandError('Refused.', 409, {
+		error: 'acknowledgement_required',
+		flag,
+		message: 'Confirm this.',
+		consequences: [],
+	});
 }

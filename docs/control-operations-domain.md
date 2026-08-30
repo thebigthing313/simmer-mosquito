@@ -270,10 +270,12 @@ remain synced and valid for historical display. Updates that leave an existing
 inactive method unchanged are allowed. Updates that select a different method
 must select an active, non-deleted method.
 
-Changing a method name requires `acknowledgedHistoricalLabelChange` if
-non-deleted historical actions, requested actions, or missions reference that
-method. Changing `customSchema` does not require acknowledgement because
-historical metadata is not reinterpreted.
+Changing a method name requires `acknowledgedHistoricalLabelChange` when
+non-deleted actions reference the method, and the refusal carries the count. The
+actions are the whole of it: a requested action and a mission carry a control
+type, not a method id, so neither reads under the method's name. Changing
+`customSchema` does not require acknowledgement because historical metadata is
+not reinterpreted.
 
 Deactivating a method is blocked or requires acknowledgement when unresolved
 requested control actions or active/scheduled missions reference it. Deletion is
@@ -374,8 +376,11 @@ New chemical applications may use only active, non-deleted insecticides.
 Historical applications keep displaying inactive insecticides.
 
 Changing historically meaningful product fields requires
-`acknowledgedHistoricalProductChange` once non-deleted applications reference
-the insecticide:
+`acknowledgedHistoricalProductChange` once non-deleted rows cite the
+insecticide, and the refusal carries the count. Applications are the case that
+matters, and the batches and formulations that name the product are counted with
+them: both are displayed under the product's name, so a rename moves them too.
+The fields are:
 
 - `tradeName`
 - `activeIngredient`

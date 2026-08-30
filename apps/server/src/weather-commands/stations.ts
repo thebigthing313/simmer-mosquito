@@ -38,15 +38,19 @@
  * comment.
  */
 
-import { assertClearanceAcknowledged, geojsonToGeom, sql } from '@simmer-mosquito/db';
+import {
+	assertClearanceAcknowledged,
+	assertHistoryAcknowledged,
+	geojsonToGeom,
+	sql,
+} from '@simmer-mosquito/db';
 import type { WeatherCommand } from '@simmer-mosquito/domain';
+import { stationSummaryRule } from '../record-history.js';
 import { refusableWrite } from '../table-commands/shared.js';
 import {
-	assertAcknowledged,
 	assertFresh,
 	loadStation,
 	type StationState,
-	stationHasSummaries,
 	type WeatherStationRow,
 	type WeatherTransaction,
 	weatherStationReturnColumns,
@@ -162,13 +166,14 @@ async function updateStationDetails(
 	// whether any change arrived, is what keeps that true.
 	const changesIdentity =
 		payload.changes.stationName !== undefined || payload.changes.stationCode !== undefined;
-	if (changesIdentity && (await stationHasSummaries(trx, station.id))) {
-		assertAcknowledged(
-			payload.acknowledgedHistoricalStationIdentityChange,
-			'weather_station_identity_change_unacknowledged',
+	await assertHistoryAcknowledged(trx, {
+		acknowledgement: 'acknowledgedHistoricalStationIdentityChange',
+		acknowledged: changesIdentity ? payload.acknowledgedHistoricalStationIdentityChange : true,
+		subject: 'station',
+		rules: [stationSummaryRule(station.id)],
+		message:
 			'This station already has summaries. Renaming it renames it in every report of those summaries.',
-		);
-	}
+	});
 	return updateStation(
 		trx,
 		station.id,
@@ -198,13 +203,14 @@ async function moveStation(
 	if (station === null) {
 		return null;
 	}
-	if (await stationHasSummaries(trx, station.id)) {
-		assertAcknowledged(
-			payload.acknowledgedHistoricalLocationChange,
-			'weather_station_location_change_unacknowledged',
+	await assertHistoryAcknowledged(trx, {
+		acknowledgement: 'acknowledgedHistoricalLocationChange',
+		acknowledged: payload.acknowledgedHistoricalLocationChange,
+		subject: 'station',
+		rules: [stationSummaryRule(station.id)],
+		message:
 			'This station already has summaries. Summaries do not record where the station stood, so moving it moves all of them.',
-		);
-	}
+	});
 	return updateStation(trx, station.id, payload.organizationId, {
 		geom: geojsonToGeom(payload.geometry),
 		updated_by_profile_id: payload.actorProfileId,

@@ -46,9 +46,26 @@ import {
 	invalidUpdate,
 	type PayloadResult,
 } from './command-endpoint.js';
-import { isRecord } from './command-payload.js';
+import { acknowledged, isRecord } from './command-payload.js';
 import { denyUnauthorizedAgencyCommands } from './command-permissions.js';
 import { runCommands } from './command-write.js';
+import { assertCitedHistoryAcknowledged } from './record-history.js';
+
+/**
+ * The insecticide fields a past application is read back under.
+ *
+ * The list is `docs/control-operations-domain.md`'s, verbatim. The rest of the
+ * update command's change set — the label and safety-sheet links, the
+ * shorthand, the notes — describes the product rather than names it, so editing
+ * one of those alone asks the agency nothing.
+ */
+const PRODUCT_IDENTITY_FIELDS = [
+	'tradeName',
+	'activeIngredient',
+	'type',
+	'registrationNumber',
+	'defaultUnitId',
+] as const;
 
 type ControlProductDb = Kysely<SimmerDatabase>;
 type ControlProductTransaction = Transaction<SimmerDatabase>;
@@ -230,7 +247,7 @@ function buildInsecticideUpdateCommands(
 				...(payload.msdsUrl === undefined ? {} : { msdsUrl: payload.msdsUrl }),
 				...(payload.shorthand === undefined ? {} : { shorthand: payload.shorthand }),
 				...(payload.metadata === undefined ? {} : { metadata: payload.metadata }),
-				acknowledgedHistoricalProductChange: true,
+				acknowledgedHistoricalProductChange: payload.acknowledgedHistoricalProductChange,
 			}),
 		);
 		if (!commandResult.ok) {
@@ -272,7 +289,7 @@ function buildInsecticideBatchUpdateCommands(
 				...context,
 				insecticideBatchId: batchId,
 				batchName: payload.batchName ?? '',
-				acknowledgedHistoricalBatchLabelChange: true,
+				acknowledgedHistoricalBatchLabelChange: payload.acknowledgedHistoricalBatchLabelChange,
 			}),
 		);
 		if (!commandResult.ok) {
@@ -318,6 +335,23 @@ export async function writeInsecticideCommand(
 				actorProfileId: command.payload.actorProfileId,
 			});
 		case 'controlOperations.updateInsecticide':
+			// An application stores `insecticide_id` and the quantity, never a copy
+			// of the product's identity, so correcting the trade name, the active
+			// ingredient, the EPA number, the type or the default unit rewrites how
+			// every past application reads. The batches and the formulations that
+			// name the product are counted with them: both are displayed under the
+			// product's name too.
+			await assertCitedHistoryAcknowledged(db, {
+				recordType: 'insecticide',
+				recordId: command.payload.insecticideId,
+				organizationId: command.payload.organizationId,
+				subject: 'insecticide',
+				acknowledgement: 'acknowledgedHistoricalProductChange',
+				acknowledged: command.payload.acknowledgedHistoricalProductChange,
+				relabels: PRODUCT_IDENTITY_FIELDS.some(
+					(field) => command.payload.changes[field] !== undefined,
+				),
+			});
 			return updateInsecticide(db, command.payload.insecticideId, {
 				organizationId: command.payload.organizationId,
 				...command.payload.changes,
@@ -358,6 +392,17 @@ export async function writeInsecticideBatchCommand(
 				actorProfileId: command.payload.actorProfileId,
 			});
 		case 'controlOperations.updateInsecticideBatch':
+			// The batch name is the whole of what an application's batch link is read
+			// back under, and it is the only field this command changes.
+			await assertCitedHistoryAcknowledged(db, {
+				recordType: 'insecticideBatch',
+				recordId: command.payload.insecticideBatchId,
+				organizationId: command.payload.organizationId,
+				subject: 'batch',
+				acknowledgement: 'acknowledgedHistoricalBatchLabelChange',
+				acknowledged: command.payload.acknowledgedHistoricalBatchLabelChange,
+				relabels: command.payload.changes.batchName !== undefined,
+			});
 			return updateInsecticideBatch(db, command.payload.insecticideBatchId, {
 				organizationId: command.payload.organizationId,
 				...command.payload.changes,
@@ -657,6 +702,7 @@ interface InsecticidePayload {
 	readonly shorthand?: string | null;
 	readonly metadata?: unknown | null;
 	readonly isActive?: boolean;
+	readonly acknowledgedHistoricalProductChange: boolean;
 }
 
 interface InsecticideBatchPayload {
@@ -664,6 +710,7 @@ interface InsecticideBatchPayload {
 	readonly insecticideId: string;
 	readonly batchName?: string;
 	readonly isActive?: boolean;
+	readonly acknowledgedHistoricalBatchLabelChange: boolean;
 }
 
 function readInsecticidePayload(raw: Record<string, unknown>): PayloadResult<InsecticidePayload> {
@@ -695,6 +742,7 @@ function readInsecticidePayload(raw: Record<string, unknown>): PayloadResult<Ins
 			...(raw.shorthand === undefined ? {} : { shorthand: readOptionalText(raw.shorthand) }),
 			...(raw.metadata === undefined ? {} : { metadata: readOptionalJson(raw.metadata) }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
+			acknowledgedHistoricalProductChange: acknowledged(raw.acknowledgedHistoricalProductChange),
 		},
 	};
 }
@@ -713,6 +761,9 @@ function readInsecticideBatchPayload(
 			insecticideId: readRequiredText(raw.insecticideId) ?? '',
 			...(raw.batchName === undefined ? {} : { batchName: readRequiredText(raw.batchName) ?? '' }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
+			acknowledgedHistoricalBatchLabelChange: acknowledged(
+				raw.acknowledgedHistoricalBatchLabelChange,
+			),
 		},
 	};
 }

@@ -14,8 +14,8 @@
  * The gate fails when the real count differs from it, in either direction — up
  * means a branch added an unread flag, down means a branch guarded one and owes
  * the number. It is the same idea as the duplication threshold and the
- * complexity baseline, and the falling number is the progress bar for #315,
- * #316 and everything after them.
+ * complexity baseline, and the falling number is the progress bar for #316,
+ * #341 and everything after them.
  *
  * ## Why "checked by the domain builder" is a real answer
  *
@@ -25,6 +25,17 @@
  * cannot say how many rows are at stake, because a pure builder cannot count
  * rows — but it is a real refusal, and pretending otherwise would make the
  * ratchet count work that is already done.
+ *
+ * ## Where a mechanism comes from
+ *
+ * A new one is added when no existing mechanism can answer a flag's question
+ * honestly, not when a handler wants its own function. `historyCheck` is the
+ * seventh because none of the six fitted: `clearanceCheck` counts rows a write
+ * removes, and a rename removes nothing — reusing it would tell an agency its
+ * history was being deleted when it was being relabelled. `collisionCheck` is
+ * the eighth for the same reason in the other direction: the rows it counts do
+ * not read under the value being written, they compete with it, and its flag
+ * takes only an explicit `true`.
  *
  * ## The trap this map does not fix
  *
@@ -71,10 +82,19 @@ export type AcknowledgementMechanism =
 	 */
 	| { readonly kind: 'importAssessment' }
 	/**
-	 * Read, but through a bespoke 409 that predates the settled body. The flag
-	 * bites; the client cannot key its wording off `flag` because there is none.
+	 * `assertHistoryAcknowledged` counts the rows that already read under the
+	 * value being changed and refuses with `409 acknowledgement_required`. The
+	 * rows are not going anywhere; they will read differently, which is why this
+	 * is not the clearance check.
 	 */
-	| { readonly kind: 'legacyRefusal'; readonly issue: number }
+	| { readonly kind: 'historyCheck' }
+	/**
+	 * `assertNoColliding` counts the rows that already carry the value being
+	 * written and refuses with `409 acknowledgement_required`. One flag uses it,
+	 * and it is not a history check: the rows it counts compete with the value
+	 * rather than read under it.
+	 */
+	| { readonly kind: 'collisionCheck' }
 	/** Nothing reads it. `issue` is where that gets settled. */
 	| { readonly kind: 'unchecked'; readonly issue: number };
 
@@ -83,7 +103,8 @@ const domainBuilder = { kind: 'domainBuilder' } as const;
 const clearanceCheck = { kind: 'clearanceCheck' } as const;
 const stateGuard = { kind: 'stateGuard' } as const;
 const importAssessment = { kind: 'importAssessment' } as const;
-const legacyRefusal = (issue: number) => ({ kind: 'legacyRefusal', issue }) as const;
+const historyCheck = { kind: 'historyCheck' } as const;
+const collisionCheck = { kind: 'collisionCheck' } as const;
 const unchecked = (issue: number) => ({ kind: 'unchecked', issue }) as const;
 
 /**
@@ -94,7 +115,7 @@ const unchecked = (issue: number) => ({ kind: 'unchecked', issue }) as const;
  */
 export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, AcknowledgementMechanism> = {
 	acknowledgedActionDetach: deleteRegistry,
-	acknowledgedActiveSubscriptionImpact: unchecked(315),
+	acknowledgedActiveSubscriptionImpact: historyCheck,
 	acknowledgedActualActionContextChange: unchecked(316),
 	acknowledgedActualActionDetach: deleteRegistry,
 	acknowledgedAssignmentItemDeletion: deleteRegistry,
@@ -115,23 +136,23 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedComponentDeletion: deleteRegistry,
 	acknowledgedContactMerge: domainBuilder,
 	acknowledgedCrossDomainDetach: deleteRegistry,
-	acknowledgedDeactivateEmptyFormulation: unchecked(315),
-	acknowledgedDependentDeactivation: unchecked(315),
+	acknowledgedDeactivateEmptyFormulation: unchecked(341),
+	acknowledgedDependentDeactivation: unchecked(341),
 	acknowledgedDuplicateRequestedActionMissioning: unchecked(316),
-	acknowledgedDuplicateTrapCode: unchecked(315),
+	acknowledgedDuplicateTrapCode: collisionCheck,
 	acknowledgedEarlyStart: unchecked(316),
-	acknowledgedFutureOnlyChange: unchecked(315),
+	acknowledgedFutureOnlyChange: historyCheck,
 	acknowledgedHabitatConfigurationSemanticsChange: domainBuilder,
 	acknowledgedHabitatDelete: domainBuilder,
 	acknowledgedHabitatLocationSemanticsChange: domainBuilder,
-	acknowledgedHistoricalBatchLabelChange: unchecked(315),
-	acknowledgedHistoricalContactChange: unchecked(315),
-	acknowledgedHistoricalEquipmentLabelChange: unchecked(315),
-	acknowledgedHistoricalLabelChange: unchecked(315),
-	acknowledgedHistoricalLocationChange: legacyRefusal(315),
-	acknowledgedHistoricalProductChange: unchecked(315),
-	acknowledgedHistoricalStationIdentityChange: legacyRefusal(315),
-	acknowledgedHistoricalVehicleLabelChange: unchecked(315),
+	acknowledgedHistoricalBatchLabelChange: historyCheck,
+	acknowledgedHistoricalContactChange: historyCheck,
+	acknowledgedHistoricalEquipmentLabelChange: historyCheck,
+	acknowledgedHistoricalLabelChange: historyCheck,
+	acknowledgedHistoricalLocationChange: historyCheck,
+	acknowledgedHistoricalProductChange: historyCheck,
+	acknowledgedHistoricalStationIdentityChange: historyCheck,
+	acknowledgedHistoricalVehicleLabelChange: historyCheck,
 	acknowledgedInProgressAssignmentChange: unchecked(316),
 	acknowledgedInProgressMissionChange: unchecked(316),
 	acknowledgedInspectionDetach: deleteRegistry,
@@ -163,8 +184,8 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedSummaryDeletion: clearanceCheck,
 	acknowledgedSupportRecordDeletion: deleteRegistry,
 	acknowledgedTargetMismatch: unchecked(336),
-	acknowledgedTaxonomyLabelChange: unchecked(315),
-	acknowledgedTaxonomyMeaningChange: unchecked(315),
+	acknowledgedTaxonomyLabelChange: historyCheck,
+	acknowledgedTaxonomyMeaningChange: historyCheck,
 	acknowledgedTrapLocationSemanticsChange: domainBuilder,
 	acknowledgedTrapMethodSemanticsChange: domainBuilder,
 	acknowledgedUnitCodeChange: domainBuilder,
@@ -179,7 +200,7 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
  * Lower it when a branch guards one. `pnpm check:acknowledgements` fails when
  * this and the map disagree, so the number cannot rot in either direction.
  */
-export const UNCHECKED_ACKNOWLEDGEMENTS = 36;
+export const UNCHECKED_ACKNOWLEDGEMENTS = 25;
 
 // ===========================================================================
 // The state refusal
@@ -206,7 +227,7 @@ export type StateAcknowledgement =
  * empty list rather than a missing field: the client keys its wording off
  * `flag`, which it already has to do — two counted refusals under one code need
  * two different sentences — so one body shape serves all three and a form never
- * branches on whether the field is there. #315 and #316 follow this.
+ * branches on whether the field is there. #315 followed this, and #316 will.
  */
 export class StateAcknowledgementRequiredError extends Error {
 	readonly acknowledgement: StateAcknowledgement;

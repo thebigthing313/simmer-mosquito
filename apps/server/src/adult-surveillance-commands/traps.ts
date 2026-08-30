@@ -18,6 +18,7 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { acknowledged, readNullableText, readText } from '../command-payload.js';
+import { assertCitedHistoryAcknowledged, assertTrapCodeAcknowledged } from '../record-history.js';
 import {
 	type AdultSurveillanceDb,
 	type AdultSurveillanceTransaction,
@@ -115,7 +116,7 @@ function buildTrapUpdateCommands(
 				...(hasName ? { trapName: readNullableText(payload.trapName) } : {}),
 				...(hasCode ? { trapCode: readNullableText(payload.trapCode) } : {}),
 				...(hasDescription ? { description: readNullableText(payload.description) } : {}),
-				acknowledgedHistoricalLabelChange: true,
+				acknowledgedHistoricalLabelChange: acknowledged(payload.acknowledgedHistoricalLabelChange),
 			}),
 		);
 		if (!result.ok) {
@@ -156,7 +157,11 @@ function buildTrapUpdateCommands(
 	if (typeof payload.isActive === 'boolean') {
 		const result = createCommand(() =>
 			payload.isActive
-				? reactivateTrapCommand({ ...ctx, trapId, acknowledgedDuplicateTrapCode: true })
+				? reactivateTrapCommand({
+						...ctx,
+						trapId,
+						acknowledgedDuplicateTrapCode: payload.acknowledgedDuplicateTrapCode === true,
+					})
 				: retireTrapCommand({ ...ctx, trapId }),
 		);
 		if (!result.ok) {
@@ -193,6 +198,12 @@ export async function writeTrapCommand(
 ): Promise<TrapRow | null> {
 	switch (command.type) {
 		case 'adultSurveillance.createTrap': {
+			await assertTrapCodeAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				trapCode: command.payload.trapCode,
+				excludeTrapId: command.payload.trapId,
+				acknowledged: command.payload.acknowledgedDuplicateTrapCode,
+			});
 			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
@@ -225,6 +236,19 @@ export async function writeTrapCommand(
 			return row;
 		}
 		case 'adultSurveillance.updateTrapDetails':
+			// A collection stores `trap_id` and nothing about what the trap was
+			// called, so renaming or recoding one relabels every collection ever
+			// taken from it. The description is not what a collection is read back
+			// under, so editing it alone asks nothing.
+			await assertCitedHistoryAcknowledged(trx, {
+				recordType: 'trap',
+				recordId: command.payload.trapId,
+				organizationId: command.payload.organizationId,
+				subject: 'trap',
+				acknowledgement: 'acknowledgedHistoricalLabelChange',
+				acknowledged: command.payload.acknowledgedHistoricalLabelChange,
+				relabels: 'trapName' in command.payload.changes || 'trapCode' in command.payload.changes,
+			});
 			return updateTrap(trx, command.payload.trapId, command.payload.organizationId, {
 				...('trapName' in command.payload.changes
 					? { trap_name: command.payload.changes.trapName ?? null }
@@ -269,11 +293,27 @@ export async function writeTrapCommand(
 				is_active: false,
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
-		case 'adultSurveillance.reactivateTrap':
+		case 'adultSurveillance.reactivateTrap': {
+			// A code freed by retiring a trap may have been taken since, so bringing
+			// the trap back is the second door onto the same collision.
+			const reactivating = await trx
+				.selectFrom('traps')
+				.select(['trap_code'])
+				.where('id', '=', command.payload.trapId)
+				.where('organization_id', '=', command.payload.organizationId)
+				.where('deleted_at', 'is', null)
+				.executeTakeFirst();
+			await assertTrapCodeAcknowledged(trx, {
+				organizationId: command.payload.organizationId,
+				trapCode: reactivating?.trap_code ?? null,
+				excludeTrapId: command.payload.trapId,
+				acknowledged: command.payload.acknowledgedDuplicateTrapCode,
+			});
 			return updateTrap(trx, command.payload.trapId, command.payload.organizationId, {
 				is_active: true,
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
+		}
 		case 'adultSurveillance.deleteTrap': {
 			await applyRecordDeletion(trx, {
 				recordType: 'trap',

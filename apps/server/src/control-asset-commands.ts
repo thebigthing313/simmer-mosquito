@@ -34,8 +34,9 @@ import {
 	invalidUpdate,
 	type PayloadResult,
 } from './command-endpoint.js';
-import { isRecord } from './command-payload.js';
+import { acknowledged, isRecord } from './command-payload.js';
 import { type CommandDb, type CommandTransaction, runCommands } from './command-write.js';
+import { assertCitedHistoryAcknowledged } from './record-history.js';
 
 type ControlAssetDb = CommandDb;
 type ControlAssetTransaction = CommandTransaction;
@@ -150,6 +151,18 @@ export async function writeControlAssetCommand(
 				actorProfileId: command.payload.actorProfileId,
 			});
 		case 'controlOperations.updateVehicle':
+			// A chemical application names the vehicle it was made from, and stores
+			// no copy of what that vehicle was called, so a rename rewrites every
+			// one of them. The metadata is notes, and asks nothing.
+			await assertCitedHistoryAcknowledged(db, {
+				recordType: 'vehicle',
+				recordId: command.payload.vehicleId,
+				organizationId: command.payload.organizationId,
+				subject: 'vehicle',
+				acknowledgement: 'acknowledgedHistoricalVehicleLabelChange',
+				acknowledged: command.payload.acknowledgedHistoricalVehicleLabelChange,
+				relabels: command.payload.changes.vehicleName !== undefined,
+			});
 			return updateVehicle(db, command.payload.vehicleId, {
 				organizationId: command.payload.organizationId,
 				...command.payload.changes,
@@ -183,6 +196,19 @@ export async function writeControlAssetCommand(
 				actorProfileId: command.payload.actorProfileId,
 			});
 		case 'controlOperations.updateEquipment':
+			// The equipment's name and its serial number are both what a past
+			// application is read back under. The metadata is notes.
+			await assertCitedHistoryAcknowledged(db, {
+				recordType: 'equipment',
+				recordId: command.payload.equipmentId,
+				organizationId: command.payload.organizationId,
+				subject: 'equipment record',
+				acknowledgement: 'acknowledgedHistoricalEquipmentLabelChange',
+				acknowledged: command.payload.acknowledgedHistoricalEquipmentLabelChange,
+				relabels:
+					command.payload.changes.equipmentName !== undefined ||
+					command.payload.changes.serialNumber !== undefined,
+			});
 			return updateEquipment(db, command.payload.equipmentId, {
 				organizationId: command.payload.organizationId,
 				...command.payload.changes,
@@ -464,7 +490,7 @@ function buildUpdateCommands(
 						vehicleId: assetId,
 						vehicleName: payload.vehicleName,
 						metadata: payload.metadata,
-						acknowledgedHistoricalVehicleLabelChange: true,
+						acknowledgedHistoricalVehicleLabelChange: payload.acknowledgedHistoricalLabelChange,
 					})
 				: updateEquipmentCommand({
 						...context,
@@ -472,7 +498,7 @@ function buildUpdateCommands(
 						equipmentName: payload.equipmentName,
 						...(payload.serialNumber === undefined ? {} : { serialNumber: payload.serialNumber }),
 						metadata: payload.metadata,
-						acknowledgedHistoricalEquipmentLabelChange: true,
+						acknowledgedHistoricalEquipmentLabelChange: payload.acknowledgedHistoricalLabelChange,
 					}),
 		);
 		if (!commandResult.ok) {
@@ -522,6 +548,18 @@ interface ControlAssetPayload {
 	readonly serialNumber?: string | null;
 	readonly metadata?: unknown | null;
 	readonly isActive?: boolean;
+	readonly acknowledgedHistoricalLabelChange: boolean;
+}
+
+/**
+ * One flag for both kinds, because the endpoint is one route with a kind in the
+ * path and the caller sends whichever name matches the record it is editing.
+ * The domain splits it back into the vehicle and equipment flags on the way in.
+ */
+function readLabelAcknowledgement(raw: Record<string, unknown>): boolean {
+	return acknowledged(
+		raw.acknowledgedHistoricalVehicleLabelChange ?? raw.acknowledgedHistoricalEquipmentLabelChange,
+	);
 }
 
 function readAssetPayload(raw: Record<string, unknown>): PayloadResult<ControlAssetPayload> {
@@ -540,6 +578,7 @@ function readAssetPayload(raw: Record<string, unknown>): PayloadResult<ControlAs
 				: { serialNumber: readOptionalText(raw.serialNumber) }),
 			...(raw.metadata === undefined ? {} : { metadata: readOptionalJson(raw.metadata) }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
+			acknowledgedHistoricalLabelChange: readLabelAcknowledgement(raw),
 		},
 	};
 }

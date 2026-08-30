@@ -44,6 +44,13 @@ export type StopAcknowledgements = Partial<
  * `refusals` is the map to judge against, because the two families of
  * acknowledgeable write are refused over different things, see
  * `useAcknowledgedWrite`.
+ *
+ * Two body shapes reach here. The older refusals name themselves in `error` and
+ * the map turns that name into a flag. The settled shape (#317) puts
+ * `acknowledgement_required` in `error` and the flag itself in `flag`, so there
+ * is nothing to translate — but it is still checked against the caller's map,
+ * because a page that can only answer three questions must not offer a dialog
+ * for a fourth.
  */
 export function acknowledgeableRefusalOf<TRefusals extends Readonly<Record<string, string>>>(
 	error: unknown,
@@ -54,6 +61,11 @@ export function acknowledgeableRefusalOf<TRefusals extends Readonly<Record<strin
 		return null;
 	}
 	const code = (body as { readonly error?: unknown }).error;
+	if (code === 'acknowledgement_required') {
+		const flag = (body as { readonly flag?: unknown }).flag;
+		const answerable = Object.values(refusals).includes(flag as TRefusals[keyof TRefusals]);
+		return answerable ? (flag as TRefusals[keyof TRefusals]) : null;
+	}
 	// Generic over the map so a caller keeps the literal union of its own flags
 	// rather than a bare `string`. A misspelled flag then fails to compile where it
 	// is declared, instead of becoming a question the user answers and the server

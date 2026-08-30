@@ -29,7 +29,7 @@
  * `common_name`, `display_name`.
  */
 
-import { type SelectedRow, sql } from '@simmer-mosquito/db';
+import { assertHistoryAcknowledged, type SelectedRow, sql } from '@simmer-mosquito/db';
 import {
 	createGenusCommand,
 	createSpeciesCommand,
@@ -41,6 +41,7 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb, CommandTransaction } from '../command-write.js';
+import { genusSpeciesRule, speciesRecordRules } from '../record-history.js';
 import type { OperatorTableCommands } from './dispatch.js';
 import { acknowledged, refusableWrite } from './shared.js';
 
@@ -78,6 +79,18 @@ async function writeGenusCommand(
 		}
 		case 'foundation.updateGenus': {
 			const changes = command.payload.changes;
+			// Every agency's species sit under this genus, and each of them is read
+			// back as "<genus> <epithet>", so the abbreviation and the name are both
+			// what a renamed genus rewrites. The count is global and says so: the
+			// caller is an operator, who already reads every agency, and a
+			// per-agency breakdown would be a report somebody would then want sorted.
+			await assertHistoryAcknowledged(trx, {
+				acknowledgement: 'acknowledgedTaxonomyLabelChange',
+				acknowledged: command.payload.acknowledgedTaxonomyLabelChange,
+				subject: 'genus',
+				rules: [genusSpeciesRule(command.payload.genusId)],
+				message: 'Renaming this genus renames it for every agency that reads the taxonomy.',
+			});
 			const row = await trx
 				.updateTable('genera')
 				.set({
@@ -135,6 +148,18 @@ async function writeSpeciesCommand(
 		}
 		case 'foundation.updateSpecies': {
 			const changes = command.payload.changes;
+			// Every field this command changes is part of what an identification
+			// claims: the genus it sits under, the epithet, the common name and the
+			// display name. So the whole change set opens the question, and the
+			// count is every agency's counts and species lists at once.
+			await assertHistoryAcknowledged(trx, {
+				acknowledgement: 'acknowledgedTaxonomyMeaningChange',
+				acknowledged: command.payload.acknowledgedTaxonomyMeaningChange,
+				subject: 'species',
+				rules: speciesRecordRules(command.payload.speciesId),
+				message:
+					'Renaming this species rewrites what every identification recorded under it claims, for every agency.',
+			});
 			const row = await trx
 				.updateTable('species')
 				.set({
@@ -195,6 +220,7 @@ export function genusTableCommands(
 				updateGenusCommand({
 					operatorUserId,
 					genusId: id,
+					acknowledgedTaxonomyLabelChange: acknowledged(payload.acknowledgedTaxonomyLabelChange),
 					...('abbreviation' in payload
 						? { abbreviation: readText(payload.abbreviation) ?? '' }
 						: {}),

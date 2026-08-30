@@ -26,6 +26,7 @@
 
 import {
 	ClearanceAcknowledgementRequiredError,
+	HistoryAcknowledgementRequiredError,
 	type Kysely,
 	type SimmerDatabase,
 	sql,
@@ -200,7 +201,9 @@ describeDbIntegration('weather commands against Postgres', () => {
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-01');
 
-			const refusal = await refused(
+			// #315 moved this onto the settled body: the flag is on the error, and
+			// the count of what a rename would relabel is in `consequences`.
+			const refusal = await refusedHistory(
 				writeStation(
 					db,
 					updateWeatherStationDetailsCommand({
@@ -214,9 +217,16 @@ describeDbIntegration('weather commands against Postgres', () => {
 			);
 
 			expect(refusal).toMatchObject({
-				status: 409,
-				body: { error: 'weather_station_identity_change_unacknowledged' },
+				acknowledgement: 'acknowledgedHistoricalStationIdentityChange',
+				consequences: [{ key: 'stationSummaries', count: 1, singular: 'summary' }],
 			});
+
+			const stored = await db
+				.selectFrom('weather_sources')
+				.select('source_name')
+				.where('id', '=', stationId)
+				.executeTakeFirstOrThrow();
+			expect(stored.source_name).toBe('North Gauge');
 		});
 	});
 
@@ -248,7 +258,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-01');
 
-			const refusal = await refused(
+			const refusal = await refusedHistory(
 				writeStation(
 					db,
 					updateWeatherStationLocationCommand({
@@ -264,9 +274,16 @@ describeDbIntegration('weather commands against Postgres', () => {
 			// Summaries do not snapshot where the station stood, so moving one moves
 			// every reading ever taken there.
 			expect(refusal).toMatchObject({
-				status: 409,
-				body: { error: 'weather_station_location_change_unacknowledged' },
+				acknowledgement: 'acknowledgedHistoricalLocationChange',
+				consequences: [{ key: 'stationSummaries', count: 1, singular: 'summary' }],
 			});
+
+			const stored = await db
+				.selectFrom('weather_sources')
+				.select(['lat', 'lng'])
+				.where('id', '=', stationId)
+				.executeTakeFirstOrThrow();
+			expect(stored.lat).toBeCloseTo(35.5, 5);
 		});
 	});
 
@@ -1088,6 +1105,21 @@ async function refusedClearance(
 		return null;
 	} catch (error) {
 		if (error instanceof ClearanceAcknowledgementRequiredError) {
+			return error;
+		}
+		throw error;
+	}
+}
+
+/** The history refusal a writer raised, for a matcher to read the count off. */
+async function refusedHistory(
+	pending: Promise<unknown>,
+): Promise<HistoryAcknowledgementRequiredError | null> {
+	try {
+		await pending;
+		return null;
+	} catch (error) {
+		if (error instanceof HistoryAcknowledgementRequiredError) {
 			return error;
 		}
 		throw error;

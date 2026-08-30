@@ -34,7 +34,7 @@ describe('acknowledgement mechanisms', () => {
 
 	it('names an issue for every flag it cannot yet answer for', () => {
 		for (const [flag, mechanism] of Object.entries(ACKNOWLEDGEMENT_MECHANISMS)) {
-			if (mechanism.kind === 'unchecked' || mechanism.kind === 'legacyRefusal') {
+			if (mechanism.kind === 'unchecked') {
 				// An `unchecked` entry with no issue behind it is a note, not a plan,
 				// and the ratchet would let it sit there forever.
 				expect(mechanism.issue, flag).toBeGreaterThan(0);

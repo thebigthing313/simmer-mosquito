@@ -237,10 +237,10 @@ reach the registry without someone deciding whether the agency is asked about
 it, which is the hole #165 describes: fifty-nine flags were declared, carried
 into the write, and read by nothing.
 
-### The other two mechanisms, and the map
+### The other mechanisms, and the map
 
-The registry is one of five ways an acknowledgement gets read, and it is the
-only one that describes a record delete. Two more raise the same 409:
+The registry is one of seven ways an acknowledgement gets read, and it is the
+only one that describes a record delete. Four more raise the same 409:
 
 - **A clearance.** A write that removes rows without deleting a record: marking
   a collection zero-result drops its species counts, correcting an
@@ -259,11 +259,36 @@ only one that describes a record delete. Two more raise the same 409:
   than a missing field, and `message` carries the whole answer. The client keys
   its wording off `flag`, which it has to do anyway: two counted refusals under
   one code need two different sentences.
+- **A citation.** Rows that already read under the value being changed: the
+  four hundred collections behind a renamed collection method, the summaries
+  behind a moved weather station, every agency's counts behind a renamed
+  species. Nothing in the schema snapshots a label onto the rows that use it, so
+  a rename is retroactive. `assertHistoryAcknowledged` in
+  `packages/db/src/domains/record-history.ts` counts and refuses; the citing
+  tables come from `citingRules`, which reads them out of the delete registry,
+  so there is no second table map. **Any citing row asks, and there is no time
+  bound.** A bound would be a second policy with a number in it that nobody can
+  defend, and it would have to be explained on every screen that hits it.
+  Nothing citing the row asks nothing, which is the case that keeps a same-day
+  correction quiet.
+- **A collision.** Rows that already carry the value being written. One flag,
+  `acknowledgedDuplicateTrapCode`: trap codes are indexed but not unique, so two
+  traps may legitimately share one and the collision is a question rather than a
+  rule. `assertNoColliding` counts the traps already carrying the code. Kept out
+  of the citation check on purpose — those rows do not read under the value,
+  they compete with it — and it is the one flag that refuses unless it is
+  explicitly `true`, because a collision cannot arrive pre-answered.
 
-The other two mechanisms are the pure command builder, which pushes a validation
+The last two mechanisms are the pure command builder, which pushes a validation
 issue unless the flag is `true` and so answers `400 invalid_command` naming the
 flag's path, and the weather import's own assessment, which counts the rows that
 would update or fail before it commits anything.
+
+A guard reads its flag at **every** door. The per-domain endpoints that predate
+`/commands/{table}` used to hard-code several of these to `true`, which is the
+two-doors-different-locks state #182 found: the refusal existed and one route
+could never reach it. Every door now passes the caller's answer through
+`acknowledged`.
 
 Which mechanism reads which flag is `ACKNOWLEDGEMENT_MECHANISMS` in
 `apps/server/src/acknowledgements.ts`, a total map over the vocabulary in
@@ -271,8 +296,8 @@ Which mechanism reads which flag is `ACKNOWLEDGEMENT_MECHANISMS` in
 naming the issue that will settle it. `pnpm check:acknowledgements` asserts the
 map, the vocabulary and the flags on command payloads name the same set, and
 ratchets `UNCHECKED_ACKNOWLEDGEMENTS` so a flag cannot be added without somebody
-deciding. The historical-label group (#315), the mission-dispatch group (#316)
-and the two assignment-execution flags (#336) are what remains.
+deciding. The mission-dispatch group (#316), the two assignment-execution flags
+(#336) and the two dependent-deactivation flags (#341) are what remains.
 
 ### Catalogs are block-only
 
