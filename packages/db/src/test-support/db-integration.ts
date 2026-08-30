@@ -36,9 +36,34 @@ export function describeDbIntegration(name: string, suite: () => void): void {
 export interface TestDbContext {
 	readonly db: Kysely<SimmerDatabase>;
 	readonly schemaName: string;
+	/**
+	 * Apply the migrations `pauseBefore` held back, if any.
+	 *
+	 * Calling it a second time is a no-op, so a test that runs it in the middle
+	 * and a harness that would otherwise leave the schema half-built cannot
+	 * disagree. Without `pauseBefore` there is nothing held back and this does
+	 * nothing.
+	 */
+	readonly applyHeldBackMigrations: () => Promise<void>;
 }
 
-export async function withTestDb<T>(run: (context: TestDbContext) => Promise<T>): Promise<T> {
+export interface TestDbOptions {
+	/**
+	 * Stop applying the set before this migration file, so the test can seed rows
+	 * that predate it and then run it.
+	 *
+	 * This is what makes a backfill testable. A migration that rewrites existing
+	 * documents is correct for every row written after it whether or not the
+	 * backfill works, so a test that seeds after the migration proves nothing
+	 * about the rows already in production.
+	 */
+	readonly pauseBefore?: string;
+}
+
+export async function withTestDb<T>(
+	run: (context: TestDbContext) => Promise<T>,
+	options: TestDbOptions = {},
+): Promise<T> {
 	if (testDatabaseUrl === null) {
 		throw new Error('SIMMER_TEST_DATABASE_URL or TEST_DATABASE_URL is required.');
 	}
@@ -46,6 +71,7 @@ export async function withTestDb<T>(run: (context: TestDbContext) => Promise<T>)
 	const schemaName = `simmer_test_${process.pid}_${Date.now()}_${Math.random()
 		.toString(16)
 		.slice(2)}`;
+	const { first, heldBack } = splitMigrations(await readUpMigrations(), options.pauseBefore);
 	const setupPool = new Pool({ connectionString: testDatabaseUrl });
 	let schemaCreated = false;
 	let setupComplete = false;
@@ -54,7 +80,7 @@ export async function withTestDb<T>(run: (context: TestDbContext) => Promise<T>)
 		await sweepAbandonedSchemasOnce(setupPool);
 		await setupPool.query(`create schema ${schemaName}`);
 		schemaCreated = true;
-		await applyMigrations(setupPool, schemaName);
+		await applyMigrations(setupPool, schemaName, first);
 		setupComplete = true;
 	} finally {
 		if (schemaCreated && !setupComplete) {
@@ -72,8 +98,24 @@ export async function withTestDb<T>(run: (context: TestDbContext) => Promise<T>)
 		}),
 	});
 
+	let pending = heldBack;
+	const applyHeldBackMigrations = async () => {
+		if (pending.length === 0) {
+			return;
+		}
+		// A pool of its own: the Kysely pool sends every statement through the
+		// extended protocol, which refuses a multi-statement query.
+		const pool = new Pool({ connectionString: testDatabaseUrl });
+		try {
+			await applyMigrations(pool, schemaName, pending);
+			pending = [];
+		} finally {
+			await pool.end();
+		}
+	};
+
 	try {
-		return await run({ db, schemaName });
+		return await run({ db, schemaName, applyHeldBackMigrations });
 	} finally {
 		await db.destroy();
 		const teardownPool = new Pool({ connectionString: testDatabaseUrl });
@@ -156,7 +198,29 @@ async function dropAbandonedSchemas(pool: InstanceType<typeof Pool>): Promise<vo
 }
 
 /**
- * Apply the whole migration set to the throwaway schema in one round-trip.
+ * Split the ordered set at `pauseBefore`.
+ *
+ * The name has to match a file, or a renamed migration would silently turn a
+ * staged test into an ordinary one that still passes.
+ */
+function splitMigrations(
+	migrations: readonly UpMigration[],
+	pauseBefore: string | undefined,
+): { readonly first: readonly UpMigration[]; readonly heldBack: readonly UpMigration[] } {
+	if (pauseBefore === undefined) {
+		return { first: migrations, heldBack: [] };
+	}
+
+	const index = migrations.findIndex((migration) => migration.name === pauseBefore);
+	if (index === -1) {
+		throw new Error(`No migration named ${pauseBefore}. Has the file been renamed?`);
+	}
+
+	return { first: migrations.slice(0, index), heldBack: migrations.slice(index) };
+}
+
+/**
+ * Apply a run of migrations to the throwaway schema in one round-trip.
  *
  * Twenty-six separate queries per test was the single largest cost in these
  * suites: forty-seven harness entries times twenty-six migrations is thirteen
@@ -167,9 +231,11 @@ async function dropAbandonedSchemas(pool: InstanceType<typeof Pool>): Promise<vo
  * local and cheap beside the query, and caching would hide a migration added
  * mid-run behind a stale copy.
  */
-async function applyMigrations(pool: InstanceType<typeof Pool>, schemaName: string): Promise<void> {
-	const migrations = await readUpMigrations();
-
+async function applyMigrations(
+	pool: InstanceType<typeof Pool>,
+	schemaName: string,
+	migrations: readonly UpMigration[],
+): Promise<void> {
 	try {
 		await pool.query(buildMigrationSql(migrations, schemaName));
 	} catch (error) {

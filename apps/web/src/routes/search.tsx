@@ -17,6 +17,7 @@ import {
 	searchResultDestination,
 	searchResultIcon,
 } from '../components/search/search-destinations';
+import { RetiredMarker } from '../components/search/search-result-row';
 import {
 	SearchRequestError,
 	useDebouncedQuery,
@@ -516,6 +517,7 @@ function ResultRow({
 			>
 				<Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
 				<span className="truncate text-foreground text-sm">{result.title}</span>
+				<RetiredMarker result={result} />
 				{result.subtitle === undefined ? null : (
 					<span className="truncate text-muted-foreground text-xs">{result.subtitle}</span>
 				)}

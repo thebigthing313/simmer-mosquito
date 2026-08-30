@@ -285,6 +285,10 @@ function toSearchResult(row: SearchDocumentRow): SearchResult {
 		...(table === 'routes' && row.display.route_type !== undefined
 			? { routeType: row.display.route_type }
 			: {}),
+		// Only the three tables with a lifecycle put `is_active` in `display`, so
+		// this is absent for the other nine rather than false. Read off the
+		// document and not off a join: the trigger keeps it in step with the row.
+		...(row.display.is_active === 'false' ? { retired: true } : {}),
 	};
 }
 
