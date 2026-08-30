@@ -1009,12 +1009,20 @@ Options, matching `MissionExecutionOptions`:
 
 The two acknowledgements are answers to a refusal, not options a form offers up
 front: the conditions are only knowable once the server has the row, so the
-write goes out plain, is refused with its code and reason, and the client
-re-sends the same write with the matching flag if the technician confirms. The
-flags travel as TanStack DB mutation metadata rather than as row columns, because
-they are not properties of the record, and
-`apps/web/src/lib/stop-acknowledgements.ts` is the single map from refusal code
-to flag. The refusals with no flag
+write goes out plain, is refused, and the client re-sends the same write with
+the matching flag if the technician confirms. Both refusals are the settled
+`409 acknowledgement_required` body, which names the flag itself
+(`apps/server/src/acknowledgements.ts`). The completed-stop one counts the
+records already filed against the stop and carries them in `consequences`; the
+mismatch one counts nothing, so `consequences` is empty and `message` is the
+whole answer. A withheld flag is an explicit `false`: an absent one reads as
+confirmed, which is the workspace-wide `acknowledged()` rule and why the guards
+are held by integration tests rather than by a form (#319).
+
+The flags travel as TanStack DB mutation metadata rather than as row columns,
+because they are not properties of the record, and
+`apps/web/src/lib/stop-acknowledgements.ts` is what says which questions a
+surface may be asked. The refusals with no flag
 (`assignment_item_wrong_target_type`, `assignment_item_skipped`) are absent from
 it on purpose.
 

@@ -56,8 +56,9 @@ export type AcknowledgementMechanism =
 	 */
 	| { readonly kind: 'domainBuilder' }
 	/**
-	 * `assertClearanceAcknowledged` counts the rows a non-delete write is about
-	 * to remove and refuses with `409 acknowledgement_required`.
+	 * `assertClearanceAcknowledged` counts the rows a non-delete write turns on
+	 * — the ones it removes, or the ones already there — and refuses with
+	 * `409 acknowledgement_required`.
 	 */
 	| { readonly kind: 'clearanceCheck' }
 	/**
@@ -105,7 +106,7 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedClosedRequestChange: stateGuard,
 	acknowledgedClosedRequestDeletion: stateGuard,
 	acknowledgedCompletedItemAdditionalAction: unchecked(316),
-	acknowledgedCompletedItemAdditionalRecord: unchecked(336),
+	acknowledgedCompletedItemAdditionalRecord: clearanceCheck,
 	acknowledgedCompletedMissionDeletion: unchecked(316),
 	// The registry blocks rather than cascades: a formulation with live
 	// ingredient rows cannot be deleted at all, so the caller gets
@@ -162,7 +163,7 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedSpeciesCountsClearance: clearanceCheck,
 	acknowledgedSummaryDeletion: clearanceCheck,
 	acknowledgedSupportRecordDeletion: deleteRegistry,
-	acknowledgedTargetMismatch: unchecked(336),
+	acknowledgedTargetMismatch: stateGuard,
 	acknowledgedTaxonomyLabelChange: unchecked(315),
 	acknowledgedTaxonomyMeaningChange: unchecked(315),
 	acknowledgedTrapLocationSemanticsChange: domainBuilder,
@@ -179,7 +180,7 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
  * Lower it when a branch guards one. `pnpm check:acknowledgements` fails when
  * this and the map disagree, so the number cannot rot in either direction.
  */
-export const UNCHECKED_ACKNOWLEDGEMENTS = 36;
+export const UNCHECKED_ACKNOWLEDGEMENTS = 34;
 
 // ===========================================================================
 // The state refusal
@@ -188,14 +189,16 @@ export const UNCHECKED_ACKNOWLEDGEMENTS = 36;
 /**
  * The acknowledgements that turn on the record's own state.
  *
- * Not what hangs off it. "This request is closed" and "this trap already has a
- * collection nobody has come back for" are facts about one row, so there is
- * nothing to count and the sentence is the whole answer.
+ * Not what hangs off it. "This request is closed", "this trap already has a
+ * collection nobody has come back for" and "this stop names a different trap"
+ * are facts about one row, so there is nothing to count and the sentence is the
+ * whole answer.
  */
 export type StateAcknowledgement =
 	| 'acknowledgedClosedRequestChange'
 	| 'acknowledgedClosedRequestDeletion'
-	| 'acknowledgedPendingTrapCollection';
+	| 'acknowledgedPendingTrapCollection'
+	| 'acknowledgedTargetMismatch';
 
 /**
  * Thrown when a write against a record in a particular state withheld the
