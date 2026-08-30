@@ -57,7 +57,7 @@ import type { MembershipCommand } from '@simmer-mosquito/domain';
 import type { AuthContext } from './auth-context.js';
 import { CommandError } from './command-endpoint.js';
 import type { CommandDb, CommandTransaction } from './command-write.js';
-import { refuseInvitationSend } from './invitation-refusal.js';
+import { refuseInvitationRevoke, refuseInvitationSend } from './invitation-refusal.js';
 import { forgetInvitation, stampInvitation } from './invitation-stamp.js';
 import { canGrantRole, forbidden } from './roles.js';
 
@@ -523,6 +523,9 @@ async function sendAndStamp(
  * what is here instead is a row that agrees with WorkOS and a log line that names
  * the three ids needed to put it right.
  *
+ * A revoke that fails does not open that window. Nothing was mailed and nothing
+ * was written, so the person keeps the link they had and a retry costs nothing.
+ *
  * All of it stays in `after`, on the far side of the transaction, even though the
  * revoke is a revoke. The Postgres half is what refuses a Membership that is not
  * holding an invitation, and revoking ahead of that refusal would kill a live
@@ -545,7 +548,11 @@ async function replaceInvitation(
 
 	const revoked = previous.workosInvitationId;
 	if (revoked !== null) {
-		await auth.revokeInvitation(revoked);
+		await revokeInvitation(auth, {
+			invitationId: revoked,
+			membershipId: payload.membershipId,
+			organizationId: payload.organizationId,
+		});
 		await forgetInvitation(db, {
 			membershipId: payload.membershipId,
 			organizationId: payload.organizationId,
@@ -566,6 +573,40 @@ async function replaceInvitation(
 		organizationId: payload.organizationId,
 		workosInvitationId: invitationId,
 	});
+}
+
+/**
+ * The WorkOS revoke, named the same way the send is.
+ *
+ * It threw raw before #224, and a raw throw matches no branch in the command
+ * error handler, so Hono answered its default 500 with no body and the People
+ * page fell back to the sentence it shows for any failed write. The name is
+ * {@link refuseInvitationRevoke}'s and WorkOS's own message goes to the log.
+ *
+ * Failing here is the safe direction and stays that way: this is the first
+ * WorkOS call in the path, `forgetInvitation` runs only once it resolves, so the
+ * Membership still names the invitation the person is holding and a retry has
+ * something to revoke.
+ */
+async function revokeInvitation(
+	auth: MembershipAuth,
+	input: {
+		readonly invitationId: string;
+		readonly membershipId: string;
+		readonly organizationId: string;
+	},
+): Promise<void> {
+	try {
+		await auth.revokeInvitation(input.invitationId);
+	} catch (error) {
+		throw new CommandError(
+			502,
+			refuseInvitationRevoke(error, {
+				membershipId: input.membershipId,
+				organizationId: input.organizationId,
+			}),
+		);
+	}
 }
 
 /**

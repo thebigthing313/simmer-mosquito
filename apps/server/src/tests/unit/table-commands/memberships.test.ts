@@ -316,6 +316,66 @@ describe('a re-invitation', () => {
 		expect(auth.revokeInvitation).not.toHaveBeenCalled();
 		expect(clearOrganizationInvitationStamp).not.toHaveBeenCalled();
 	});
+
+	// #224. The revoke used to throw raw, which matched no branch in the command
+	// error handler and reached the browser as an empty 500. Both service codes
+	// are covered because they are two different next moves.
+	it.each([
+		{ status: 503, code: 'invitation_service_unavailable' },
+		{ status: 403, code: 'invitation_service_unauthorized' },
+	])('answers 502 with $code when the revoke fails with $status', async ({ status, code }) => {
+		const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const auth = fakeAuth({ pending: 'inv_1', issues: 'inv_2' });
+		auth.revokeInvitation.mockRejectedValue(
+			Object.assign(new Error('Email already invited to organization.'), { status }),
+		);
+
+		const thrown = await secondSystem(holdingInvitation(), auth)
+			.after(build('identity.reinvite', { role: 'manager' }), authContext())
+			.catch((error: unknown) => error);
+
+		expect(thrown).toBeInstanceOf(CommandError);
+		expect((thrown as CommandError).status).toBe(502);
+		expect((thrown as CommandError).body).toMatchObject({ error: code });
+		// What WorkOS said is the log's, not the browser's.
+		expect(JSON.stringify((thrown as CommandError).body)).not.toContain('already invited');
+		expect(String(logged.mock.calls[0]?.[0])).toContain('Revoke refused');
+
+		logged.mockRestore();
+	});
+
+	// The property that makes a retry free: nothing was sent and the row still
+	// names the invitation the person is holding, so there is something to revoke
+	// on the next attempt.
+	it('leaves the row naming the old invitation when the revoke fails', async () => {
+		const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		const auth = fakeAuth({ pending: 'inv_1', issues: 'inv_2' });
+		auth.revokeInvitation.mockRejectedValue(new Error('WorkOS is down'));
+
+		await secondSystem(holdingInvitation(), auth)
+			.after(build('identity.reinvite', { role: 'manager' }), authContext())
+			.catch(() => undefined);
+
+		expect(clearOrganizationInvitationStamp).not.toHaveBeenCalled();
+		expect(auth.sendOrganizationInvitation).not.toHaveBeenCalled();
+		expect(stampOrganizationInvitation).not.toHaveBeenCalled();
+
+		logged.mockRestore();
+	});
+
+	// A revoke WorkOS reads as already settled is not a failure: the invitation is
+	// accepted, expired or gone, which is the state the caller wanted.
+	it('goes on to the send when there was nothing left to revoke', async () => {
+		const auth = fakeAuth({ pending: 'inv_9', issues: 'inv_2' });
+
+		await secondSystem(holdingInvitation(), auth).after(
+			build('identity.reinvite', { role: 'manager' }),
+			authContext(),
+		);
+
+		expect(auth.revokeInvitation).toHaveBeenCalledWith('inv_1');
+		expect(auth.sendOrganizationInvitation).toHaveBeenCalledOnce();
+	});
 });
 
 describe('ending a membership', () => {
