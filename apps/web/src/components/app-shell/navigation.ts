@@ -8,6 +8,7 @@ import type {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import type { AuthMe } from '../../auth';
 import { hasAtLeastRole, type MinimumRole } from '../../lib/write-access';
+import type { SeedableTable } from '../search/search-seeds';
 
 /**
  * The role floor a navigation item carries in this app.
@@ -46,6 +47,18 @@ interface WebShellNavItem extends ShellNavItem {
 	 */
 	readonly action?: {
 		readonly keywords: readonly string[];
+
+		/**
+		 * The form opens on a record of this table, chosen in a second step.
+		 *
+		 * Only where the route already reads a record id off its search params.
+		 * `inspections-create` validates `habitatId` and `collections-create`
+		 * validates `trapId`; both have been receiving one from a link since before
+		 * the palette existed, which is why these two carry a seed and the other
+		 * seventeen actions do not. Naming a table here without the matching search
+		 * param would navigate to a form that drops it.
+		 */
+		readonly seedFrom?: SeedableTable;
 	};
 }
 
@@ -178,7 +191,10 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/larval-surveillance/inspections/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'collector',
-						action: { keywords: ['new', 'add', 'log', 'dip', 'larval', 'survey'] },
+						action: {
+							keywords: ['new', 'add', 'log', 'dip', 'larval', 'survey'],
+							seedFrom: 'habitats',
+						},
 					},
 					{
 						id: 'inspections-stats',
@@ -288,7 +304,10 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/adult-surveillance/collections/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'collector',
-						action: { keywords: ['new', 'add', 'log', 'catch', 'adult', 'trap'] },
+						action: {
+							keywords: ['new', 'add', 'log', 'catch', 'adult', 'trap'],
+							seedFrom: 'traps',
+						},
 					},
 					{
 						id: 'collections-stats',
@@ -904,6 +923,12 @@ export interface WebShellCandidate {
 	readonly keywords: readonly string[];
 	/** The domain this sits under, which is what a route row shows as its subtitle. */
 	readonly domainLabel: string;
+	/**
+	 * The record this action's form opens on, and the whole declaration that
+	 * picking it asks a second question. Absent on every route candidate and on
+	 * seventeen of the nineteen actions.
+	 */
+	readonly seedFrom?: SeedableTable | undefined;
 }
 
 /**
@@ -943,6 +968,7 @@ export function shellSearchCandidates(auth: AuthMe | null): {
 					to: item.to,
 					keywords: item.action?.keywords ?? [],
 					domainLabel: domain.label,
+					seedFrom: item.action?.seedFrom,
 				};
 
 				if (item.action === undefined) {
