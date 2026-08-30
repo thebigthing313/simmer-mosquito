@@ -413,6 +413,53 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 		});
 	});
 
+	it('refuses removing a stop that records already cite', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'stop_removed_worked');
+			const actor = await createProfile(db, org);
+			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
+			const stopId = await createStop(db, org, missionId, 0);
+			await createSourceReduction(db, org, stopId);
+
+			const response = await missionApp(db, org, actor).request(
+				`/mission-dispatch/mission-items/${stopId}`,
+				{
+					method: 'DELETE',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ acknowledgedActualActionDetach: false }),
+				},
+			);
+
+			await expectStateRefusal(response, 'acknowledgedActualActionDetach', 'recorded');
+			const stop = await readStop(db, stopId);
+			expect(stop.deleted_at).toBeNull();
+		});
+	});
+
+	it('refuses moving the address of a stop that records already cite', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'stop_context_worked');
+			const actor = await createProfile(db, org);
+			const missionId = await createMission(db, org, {});
+			const stopId = await createStop(db, org, missionId, 0);
+			await createSourceReduction(db, org, stopId);
+			const addressId = await createAddress(db, org);
+
+			const response = await missionApp(db, org, actor).request(
+				`/mission-dispatch/mission-items/${stopId}`,
+				{
+					method: 'PATCH',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ addressId, acknowledgedActualActionContextChange: false }),
+				},
+			);
+
+			await expectStateRefusal(response, 'acknowledgedActualActionContextChange', 'recorded');
+			const stop = await readStop(db, stopId);
+			expect(stop.address_id).toBeNull();
+		});
+	});
+
 	it('removes a stop nobody has reached', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'stop_removed_pending');
@@ -432,6 +479,169 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			expect(response.status).toBe(200);
 			const stop = await readStop(db, stopId);
 			expect(stop.deleted_at).not.toBeNull();
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// The requested action a stop is raised from
+	// -----------------------------------------------------------------------
+
+	it('refuses a stop whose request recommends a method the mission is not planned for', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'method_mismatch');
+			const actor = await createProfile(db, org);
+			const planned = await createSourceReductionMethod(db, org, 'Ditch clearing');
+			const recommended = await createSourceReductionMethod(db, org, 'Culvert clearing');
+			const missionId = await createMission(db, org, { plannedMethodId: planned });
+			const requestId = await createRequestedControlAction(db, org, recommended);
+
+			const response = await missionApp(db, org, actor).request('/mission-dispatch/mission-items', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					id: crypto.randomUUID(),
+					missionId,
+					requestedControlActionId: requestId,
+					acknowledgedMethodMismatch: false,
+				}),
+			});
+
+			await expectStateRefusal(response, 'acknowledgedMethodMismatch', 'different method');
+			expect(await countStops(db, missionId)).toBe(0);
+		});
+	});
+
+	it('says nothing about a method the mission and the request agree on', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'method_agreed');
+			const actor = await createProfile(db, org);
+			const methodId = await createSourceReductionMethod(db, org, 'Ditch clearing');
+			const missionId = await createMission(db, org, { plannedMethodId: methodId });
+			const requestId = await createRequestedControlAction(db, org, methodId);
+
+			const response = await missionApp(db, org, actor).request('/mission-dispatch/mission-items', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					id: crypto.randomUUID(),
+					missionId,
+					requestedControlActionId: requestId,
+					acknowledgedMethodMismatch: false,
+					acknowledgedDuplicateRequestedActionMissioning: false,
+				}),
+			});
+
+			expect(response.status).toBe(201);
+			expect(await countStops(db, missionId)).toBe(1);
+		});
+	});
+
+	it('refuses scheduling a request that is already a stop somewhere', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'duplicate_missioning');
+			const actor = await createProfile(db, org);
+			const firstMission = await createMission(db, org, {});
+			const secondMission = await createMission(db, org, {});
+			const requestId = await createRequestedControlAction(db, org, null);
+			await createStop(db, org, firstMission, 0, { requestedControlActionId: requestId });
+
+			const response = await missionApp(db, org, actor).request('/mission-dispatch/mission-items', {
+				method: 'POST',
+				headers: { 'content-type': 'application/json' },
+				body: JSON.stringify({
+					id: crypto.randomUUID(),
+					missionId: secondMission,
+					requestedControlActionId: requestId,
+					acknowledgedDuplicateRequestedActionMissioning: false,
+				}),
+			});
+
+			await expectStateRefusal(
+				response,
+				'acknowledgedDuplicateRequestedActionMissioning',
+				'already a stop',
+			);
+			expect(await countStops(db, secondMission)).toBe(0);
+		});
+	});
+
+	// -----------------------------------------------------------------------
+	// Early start
+	// -----------------------------------------------------------------------
+
+	it('refuses starting a mission more than twelve hours early, and starts nothing', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'early_start');
+			const actor = await createProfile(db, org);
+			const missionId = await createMission(db, org, {});
+			await createStop(db, org, missionId, 0);
+
+			const response = await missionApp(db, org, actor).request(
+				`/mission-dispatch/missions/${missionId}`,
+				{
+					method: 'PATCH',
+					headers: { 'content-type': 'application/json' },
+					// Scheduled for 2026-08-10 08:00Z, started a day and a half before.
+					body: JSON.stringify({
+						startedAt: '2026-08-08T20:00:00.000Z',
+						acknowledgedEarlyStart: false,
+					}),
+				},
+			);
+
+			await expectStateRefusal(response, 'acknowledgedEarlyStart', 'twelve hours');
+			const mission = await readMission(db, missionId);
+			expect(mission.started_at).toBeNull();
+		});
+	});
+
+	it('starts a mission inside the twelve-hour window', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'start_in_window');
+			const actor = await createProfile(db, org);
+			const missionId = await createMission(db, org, {});
+			await createStop(db, org, missionId, 0);
+
+			const response = await missionApp(db, org, actor).request(
+				`/mission-dispatch/missions/${missionId}`,
+				{
+					method: 'PATCH',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						startedAt: '2026-08-10T02:00:00.000Z',
+						acknowledgedEarlyStart: false,
+					}),
+				},
+			);
+
+			expect(response.status).toBe(200);
+			const mission = await readMission(db, missionId);
+			expect(mission.started_at).not.toBeNull();
+		});
+	});
+
+	it('refuses completing a stop more than twelve hours before the mission was due', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'early_stop_completion');
+			const actor = await createProfile(db, org);
+			const missionId = await createMission(db, org, { startedAt: '2026-08-08 19:00:00+00' });
+			const stopId = await createStop(db, org, missionId, 0);
+
+			const response = await missionApp(db, org, actor).request(
+				`/mission-dispatch/mission-items/${stopId}`,
+				{
+					method: 'PATCH',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						completedAt: '2026-08-08T20:00:00.000Z',
+						acknowledgedEarlyStart: false,
+					}),
+				},
+			);
+
+			await expectStateRefusal(response, 'acknowledgedEarlyStart', 'twelve hours');
+			const stop = await readStop(db, stopId);
+			expect(stop.completed_at).toBeNull();
 		});
 	});
 });
@@ -513,6 +723,7 @@ async function createMission(
 		readonly startedAt?: string;
 		readonly completedAt?: string;
 		readonly assignedToProfileId?: string;
+		readonly plannedMethodId?: string;
 	},
 ): Promise<string> {
 	const row = await db
@@ -531,6 +742,7 @@ async function createMission(
 			...(state.assignedToProfileId === undefined
 				? {}
 				: { assigned_to_profile_id: state.assignedToProfileId }),
+			...(state.plannedMethodId === undefined ? {} : { planned_method_id: state.plannedMethodId }),
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();
@@ -542,7 +754,11 @@ async function createStop(
 	organizationId: string,
 	missionId: string,
 	position: number,
-	progress: { readonly completedAt?: string; readonly skippedAt?: string } = {},
+	progress: {
+		readonly completedAt?: string;
+		readonly skippedAt?: string;
+		readonly requestedControlActionId?: string;
+	} = {},
 ): Promise<string> {
 	const row = await db
 		.insertInto('mission_items')
@@ -557,6 +773,9 @@ async function createStop(
 			...(progress.skippedAt === undefined
 				? {}
 				: { skipped_at: sql`${progress.skippedAt}::timestamptz`, skip_reason: 'Locked gate' }),
+			...(progress.requestedControlActionId === undefined
+				? {}
+				: { requested_control_action_id: progress.requestedControlActionId }),
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();
@@ -610,6 +829,25 @@ async function createSourceReduction(
 	return row.id;
 }
 
+async function createRequestedControlAction(
+	db: Db,
+	organizationId: string,
+	recommendedMethodId: string | null,
+): Promise<string> {
+	const row = await db
+		.insertInto('requested_control_actions')
+		.values({
+			organization_id: organizationId,
+			control_type: 'source_reduction',
+			recommended_method_id: recommendedMethodId,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+			summary: 'Standing water behind the levee.',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
 async function createAddress(db: Db, organizationId: string): Promise<string> {
 	const row = await db
 		.insertInto('addresses')
@@ -636,6 +874,7 @@ async function readMission(db: Db, missionId: string) {
 			'cancelled_at',
 			'deleted_at',
 			'planned_method_id',
+			'started_at',
 			'scheduled_start_at',
 		])
 		.where('id', '=', missionId)
@@ -645,7 +884,7 @@ async function readMission(db: Db, missionId: string) {
 async function readStop(db: Db, missionItemId: string) {
 	return db
 		.selectFrom('mission_items')
-		.select(['address_id', 'deleted_at', 'position'])
+		.select(['address_id', 'completed_at', 'deleted_at', 'position'])
 		.where('id', '=', missionItemId)
 		.executeTakeFirstOrThrow();
 }

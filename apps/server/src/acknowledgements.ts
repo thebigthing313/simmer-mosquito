@@ -95,7 +95,12 @@ const unchecked = (issue: number) => ({ kind: 'unchecked', issue }) as const;
 export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, AcknowledgementMechanism> = {
 	acknowledgedActionDetach: deleteRegistry,
 	acknowledgedActiveSubscriptionImpact: unchecked(315),
-	acknowledgedActualActionContextChange: unchecked(316),
+	acknowledgedActualActionContextChange: stateGuard,
+	// The one flag two mechanisms read, because two commands ask it. Deleting a
+	// mission detaches the actual actions under its stops, which is the registry
+	// counting rows; removing a single stop detaches nothing, so the guard in
+	// `mission-acknowledgements.ts` asks the state instead. The registry is the
+	// stronger of the two and names it.
 	acknowledgedActualActionDetach: deleteRegistry,
 	acknowledgedAssignmentItemDeletion: deleteRegistry,
 	acknowledgedAssociatedRecordsDeletion: deleteRegistry,
@@ -117,9 +122,9 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedCrossDomainDetach: deleteRegistry,
 	acknowledgedDeactivateEmptyFormulation: unchecked(315),
 	acknowledgedDependentDeactivation: unchecked(315),
-	acknowledgedDuplicateRequestedActionMissioning: unchecked(316),
+	acknowledgedDuplicateRequestedActionMissioning: stateGuard,
 	acknowledgedDuplicateTrapCode: unchecked(315),
-	acknowledgedEarlyStart: unchecked(316),
+	acknowledgedEarlyStart: stateGuard,
 	acknowledgedFutureOnlyChange: unchecked(315),
 	acknowledgedHabitatConfigurationSemanticsChange: domainBuilder,
 	acknowledgedHabitatDelete: domainBuilder,
@@ -137,7 +142,7 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedInspectionDetach: deleteRegistry,
 	acknowledgedItemProgressDeletion: stateGuard,
 	acknowledgedMergeConsolidatesHistory: domainBuilder,
-	acknowledgedMethodMismatch: unchecked(316),
+	acknowledgedMethodMismatch: stateGuard,
 	acknowledgedMissionDetach: deleteRegistry,
 	acknowledgedMissionGeometryNotCovered: unchecked(316),
 	acknowledgedMissionItemDeletion: deleteRegistry,
@@ -179,7 +184,7 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
  * Lower it when a branch guards one. `pnpm check:acknowledgements` fails when
  * this and the map disagree, so the number cannot rot in either direction.
  */
-export const UNCHECKED_ACKNOWLEDGEMENTS = 26;
+export const UNCHECKED_ACKNOWLEDGEMENTS = 22;
 
 // ===========================================================================
 // The state refusal
@@ -199,12 +204,17 @@ export const UNCHECKED_ACKNOWLEDGEMENTS = 26;
  * exactly the problem being pointed at.
  */
 export type StateAcknowledgement =
+	| 'acknowledgedActualActionContextChange'
+	| 'acknowledgedActualActionDetach'
 	| 'acknowledgedClosedRequestChange'
 	| 'acknowledgedClosedRequestDeletion'
 	| 'acknowledgedCompletedMissionDeletion'
+	| 'acknowledgedDuplicateRequestedActionMissioning'
+	| 'acknowledgedEarlyStart'
 	| 'acknowledgedInProgressAssignmentChange'
 	| 'acknowledgedInProgressMissionChange'
 	| 'acknowledgedItemProgressDeletion'
+	| 'acknowledgedMethodMismatch'
 	| 'acknowledgedPartialWorkCancellation'
 	| 'acknowledgedPendingTrapCollection'
 	| 'acknowledgedProgressedItemLinkChange'

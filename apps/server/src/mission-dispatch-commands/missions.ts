@@ -27,9 +27,11 @@ import { acknowledged, readNullableText, readText } from '../command-payload.js'
 import { insertLifecycleComment } from '../lifecycle-comment.js';
 import {
 	assertCompletedMissionDeletionAcknowledged,
+	assertEarlyStartAcknowledged,
 	assertInProgressAssignmentChangeAcknowledged,
 	assertPartialWorkCancellationAcknowledged,
 	assertProgressedMissionCancellationAcknowledged,
+	assertRequestedActionAcknowledged,
 	assertWorkedMissionPlanChangeAcknowledged,
 	assertWorkedMissionScheduleChangeAcknowledged,
 } from './mission-acknowledgements.js';
@@ -87,6 +89,10 @@ export function registerMissionRoutes(
 					scheduledEndAt: readDate(payload.scheduledEndAt),
 					rainDate: readNullableText(payload.rainDate),
 					notificationTypeId: readNullableText(payload.notificationTypeId),
+					acknowledgedDuplicateRequestedActionMissioning: acknowledged(
+						payload.acknowledgedDuplicateRequestedActionMissioning,
+					),
+					acknowledgedMethodMismatch: acknowledged(payload.acknowledgedMethodMismatch),
 				}),
 			run: (context, commands) => runMissionCommands(context, options.db, commands, 201),
 		}),
@@ -245,7 +251,12 @@ function buildMissionUpdateCommands(
 		commands.push(result.command);
 	} else if (lifecycle === 'start') {
 		const result = createCommand(() =>
-			startMissionCommand({ ...ctx, missionId, startedAt: readDate(payload.startedAt) }),
+			startMissionCommand({
+				...ctx,
+				missionId,
+				startedAt: readDate(payload.startedAt),
+				acknowledgedEarlyStart: acknowledged(payload.acknowledgedEarlyStart),
+			}),
 		);
 		if (!result.ok) return result;
 		commands.push(result.command);
@@ -300,6 +311,18 @@ export async function writeMissionCommand(
 ): Promise<MissionRow | null> {
 	switch (command.type) {
 		case 'missionDispatch.createMission': {
+			// The mission is not in the database yet, so the plan the stops are
+			// judged against is the one the command carries rather than a stored one.
+			for (const item of command.payload.items) {
+				await assertRequestedActionAcknowledged(trx, {
+					organizationId: command.payload.organizationId,
+					plan: { plannedMethodId: command.payload.plannedMethodId },
+					requestedControlActionId: item.requestedControlActionId ?? null,
+					acknowledgedMethodMismatch: command.payload.acknowledgedMethodMismatch,
+					acknowledgedDuplicateRequestedActionMissioning:
+						command.payload.acknowledgedDuplicateRequestedActionMissioning,
+				});
+			}
 			await assertWriteReferences(trx, {
 				organizationId: command.payload.organizationId,
 				write: { kind: 'create' },
@@ -420,6 +443,12 @@ export async function writeMissionCommand(
 				command.payload.organizationId,
 				checkStartMission,
 			);
+			await assertEarlyStartAcknowledged(trx, {
+				missionId: command.payload.missionId,
+				organizationId: command.payload.organizationId,
+				at: command.payload.startedAt,
+				acknowledged: command.payload.acknowledgedEarlyStart,
+			});
 			return updateMission(trx, command.payload.missionId, command.payload.organizationId, {
 				started_at: command.payload.startedAt === null ? sql`now()` : command.payload.startedAt,
 				updated_by_profile_id: command.payload.actorProfileId,

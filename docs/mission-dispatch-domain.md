@@ -361,10 +361,18 @@ The clock-skew allowance is the one in `isProgressBeforeStart`
 state the same rule about the same pair of clocks, and one of them drifting from
 the other would be a bug in whichever moved.
 
-Not yet enforced: the early-start rule that `acknowledgedEarlyStart` exists for.
-The flag rides on `startMission`, `completeMissionItem`, and `skipMissionItem`,
-but this document never says what counts as early, so there is nothing to
-implement against.
+`acknowledgedEarlyStart` rides on `startMission`, `completeMissionItem`, and
+`skipMissionItem`, and what counts as early is the window under "Scheduling and
+timezones": more than 12 hours before `scheduled_start_at`. The moment judged is
+the timestamp the command carries, or the server's clock when it carries none,
+so a write that was not early cannot become early by being slow. Enforced in
+`apps/server/src/mission-dispatch-commands/mission-acknowledgements.ts`.
+
+Only the acknowledgement half of that sentence is enforced. "Assigned collectors
+may start up to 12 hours before, managers may start earlier with
+acknowledgement" also refuses a collector outright, and that half is a
+permission rule rather than a confirmation; nothing implements it, and a flag is
+not where it would live.
 
 `skipMissionItem` requires a non-empty trimmed `skipReason` and uses plain text
 only. No skip reason enum or lookup table is part of v1.

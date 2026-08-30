@@ -377,3 +377,281 @@ export async function assertItemProgressDeletionAcknowledged(
 		read: () => anyProgressedStop(trx, organizationId, { missionItemIds: [missionItemId] }),
 	});
 }
+
+/**
+ * Moving the ground or the link under a stop that records already cite.
+ *
+ * A Chemical Application or a Source Reduction filed from a stop keeps its own
+ * geometry and its own requested-action link, so nothing about it changes when
+ * the stop does. That is the point: the record now says it was made at a stop
+ * that names somewhere else, and the provenance reads as a contradiction.
+ */
+export async function assertActualActionContextChangeAcknowledged(
+	trx: MissionDispatchTransaction,
+	missionItemId: string,
+	acknowledged: boolean,
+): Promise<void> {
+	await guard({
+		acknowledgement: 'acknowledgedActualActionContextChange',
+		acknowledged,
+		message: 'Control work has already been recorded against this stop.',
+		read: () => anyActualActionOnStop(trx, missionItemId),
+	});
+}
+
+/**
+ * Removing a stop that records cite.
+ *
+ * The same fact as {@link assertActualActionContextChangeAcknowledged}, asked
+ * about a removal. The records survive it — `mission_item_id` is left alone by
+ * a soft delete, and the mission delete is where the registry detaches them —
+ * so what the caller is confirming is that the work stays filed against a stop
+ * that is no longer on the mission.
+ */
+export async function assertActualActionDetachAcknowledged(
+	trx: MissionDispatchTransaction,
+	missionItemId: string,
+	acknowledged: boolean,
+): Promise<void> {
+	await guard({
+		acknowledgement: 'acknowledgedActualActionDetach',
+		acknowledged,
+		message: 'Control work has already been recorded against this stop.',
+		read: () => anyActualActionOnStop(trx, missionItemId),
+	});
+}
+
+// ===========================================================================
+// The requested action a stop is raised from
+// ===========================================================================
+
+/**
+ * Scheduling a request the mission's plan disagrees with.
+ *
+ * A Requested Control Action may recommend a method, and a mission is planned
+ * with one. Both are advice rather than rules — the record filed at the end
+ * stores its own method — so a stop that carries a request recommending
+ * something the mission is not planned to do is worth saying out loud and is
+ * not wrong. A mission with no planned method has nothing to disagree with, and
+ * neither does a request that recommends nothing.
+ */
+async function assertMethodMismatchAcknowledged(
+	trx: MissionDispatchTransaction,
+	input: {
+		readonly organizationId: string;
+		readonly plannedMethodId: string | null;
+		readonly requestedControlActionId: string;
+		readonly acknowledged: boolean;
+	},
+): Promise<void> {
+	if (input.plannedMethodId === null) {
+		return;
+	}
+	await guard({
+		acknowledgement: 'acknowledgedMethodMismatch',
+		acknowledged: input.acknowledged,
+		message: 'This request recommends a different method than the mission is planned for.',
+		read: async () => {
+			const request = await trx
+				.selectFrom('requested_control_actions')
+				.select('recommended_method_id')
+				.where('id', '=', input.requestedControlActionId)
+				.where('organization_id', '=', input.organizationId)
+				.where('deleted_at', 'is', null)
+				.executeTakeFirst();
+			return (
+				request?.recommended_method_id != null &&
+				request.recommended_method_id !== input.plannedMethodId
+			);
+		},
+	});
+}
+
+/**
+ * Scheduling a request that is already on a stop somewhere.
+ *
+ * Legitimate often enough to be routine: an area split across two crews, a
+ * retry after rain, a multi-day response. What it also is, when nobody meant
+ * it, is the same job dispatched twice, so the caller says which.
+ */
+async function assertDuplicateRequestedActionMissioningAcknowledged(
+	trx: MissionDispatchTransaction,
+	input: {
+		readonly organizationId: string;
+		readonly requestedControlActionId: string;
+		/** The stop being edited, which does not count as its own duplicate. */
+		readonly exceptMissionItemId?: string;
+		readonly acknowledged: boolean;
+	},
+): Promise<void> {
+	await guard({
+		acknowledgement: 'acknowledgedDuplicateRequestedActionMissioning',
+		acknowledged: input.acknowledged,
+		message: 'This request is already a stop on a mission.',
+		read: async () => {
+			const stops = trx
+				.selectFrom('mission_items')
+				.select('id')
+				.where('organization_id', '=', input.organizationId)
+				.where('requested_control_action_id', '=', input.requestedControlActionId)
+				.where('deleted_at', 'is', null)
+				.limit(1);
+			const row = await (input.exceptMissionItemId === undefined
+				? stops
+				: stops.where('id', '!=', input.exceptMissionItemId)
+			).executeTakeFirst();
+			return row !== undefined;
+		},
+	});
+}
+
+// ===========================================================================
+// Early start
+// ===========================================================================
+
+/**
+ * How far ahead of its scheduled start a mission may be worked without asking.
+ *
+ * Twelve hours, from `docs/mission-dispatch-domain.md`: "Assigned collectors
+ * may start or progress a mission up to 12 hours before its scheduled start.
+ * Managers may start earlier with acknowledgement." Only the acknowledgement
+ * half is here. The role half of that sentence, which refuses a collector
+ * outright, is a permission rule and this is not the place it would live.
+ */
+const EARLY_START_ALLOWANCE_MS = 12 * 60 * 60 * 1000;
+
+/**
+ * Starting or progressing a mission well before it was due.
+ *
+ * `at` is the moment the command is about: the timestamp a device recorded, or
+ * the server's own clock when the command names none, in which case a write
+ * that is not early cannot become early by being slow.
+ */
+export async function assertEarlyStartAcknowledged(
+	trx: MissionDispatchTransaction,
+	input: {
+		readonly missionId: string;
+		readonly organizationId: string;
+		readonly at: Date | null;
+		readonly acknowledged: boolean;
+	},
+): Promise<void> {
+	await guard({
+		acknowledgement: 'acknowledgedEarlyStart',
+		acknowledged: input.acknowledged,
+		message: 'This mission is not due to start for more than twelve hours.',
+		read: async () => {
+			const mission = await trx
+				.selectFrom('missions')
+				.select('scheduled_start_at')
+				.where('id', '=', input.missionId)
+				.where('organization_id', '=', input.organizationId)
+				.where('deleted_at', 'is', null)
+				.executeTakeFirst();
+			if (mission === undefined) {
+				return false;
+			}
+			const at = input.at ?? new Date();
+			return at.getTime() < mission.scheduled_start_at.getTime() - EARLY_START_ALLOWANCE_MS;
+		},
+	});
+}
+
+// ===========================================================================
+// Shared reads for the stop guards
+// ===========================================================================
+
+/** Whether any actual control work is filed against one stop. */
+async function anyActualActionOnStop(
+	trx: MissionDispatchTransaction,
+	missionItemId: string,
+): Promise<boolean> {
+	const found = await sql<{ present: number }>`
+		select 1 as present
+		from (
+			select mission_item_id, deleted_at from applications
+			union all
+			select mission_item_id, deleted_at from source_reductions
+			union all
+			select mission_item_id, deleted_at from outreach_actions
+			union all
+			select mission_item_id, deleted_at from biocontrol_actions
+		) as action
+		where action.mission_item_id = ${missionItemId} and action.deleted_at is null
+		limit 1
+	`.execute(trx);
+	return found.rows.length > 0;
+}
+
+/**
+ * The two questions a stop that carries a requested action has to answer.
+ *
+ * One entry point, because the four commands that link a request all ask both
+ * and a caller that stated one flag and not the other should still be asked
+ * about the other. A stop with no request answers neither, and returns before
+ * any read.
+ *
+ * `plan` is where the mission's planned method comes from. A create states it,
+ * because the mission is not in the database yet; an add names the mission; an
+ * edit names the stop, and the mission is looked up through it.
+ */
+export async function assertRequestedActionAcknowledged(
+	trx: MissionDispatchTransaction,
+	input: {
+		readonly organizationId: string;
+		readonly requestedControlActionId: string | null;
+		readonly plan:
+			| { readonly plannedMethodId: string | null }
+			| { readonly missionId: string }
+			| { readonly missionItemId: string };
+		/** The stop being edited, which does not count as its own duplicate. */
+		readonly exceptMissionItemId?: string;
+		readonly acknowledgedMethodMismatch: boolean;
+		readonly acknowledgedDuplicateRequestedActionMissioning: boolean;
+	},
+): Promise<void> {
+	const requestedControlActionId = input.requestedControlActionId;
+	if (requestedControlActionId === null) {
+		return;
+	}
+	await assertMethodMismatchAcknowledged(trx, {
+		organizationId: input.organizationId,
+		plannedMethodId: await resolvePlannedMethodId(trx, input.organizationId, input.plan),
+		requestedControlActionId,
+		acknowledged: input.acknowledgedMethodMismatch,
+	});
+	await assertDuplicateRequestedActionMissioningAcknowledged(trx, {
+		organizationId: input.organizationId,
+		requestedControlActionId,
+		...(input.exceptMissionItemId === undefined
+			? {}
+			: { exceptMissionItemId: input.exceptMissionItemId }),
+		acknowledged: input.acknowledgedDuplicateRequestedActionMissioning,
+	});
+}
+
+async function resolvePlannedMethodId(
+	trx: MissionDispatchTransaction,
+	organizationId: string,
+	plan:
+		| { readonly plannedMethodId: string | null }
+		| { readonly missionId: string }
+		| { readonly missionItemId: string },
+): Promise<string | null> {
+	if ('plannedMethodId' in plan) {
+		return plan.plannedMethodId;
+	}
+	const missions = trx
+		.selectFrom('missions')
+		.select('missions.planned_method_id')
+		.where('missions.organization_id', '=', organizationId)
+		.where('missions.deleted_at', 'is', null);
+	const row = await ('missionId' in plan
+		? missions.where('missions.id', '=', plan.missionId)
+		: missions
+				.innerJoin('mission_items', 'mission_items.mission_id', 'missions.id')
+				.where('mission_items.id', '=', plan.missionItemId)
+				.where('mission_items.deleted_at', 'is', null)
+	).executeTakeFirst();
+	return row?.planned_method_id ?? null;
+}
