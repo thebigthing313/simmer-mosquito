@@ -39,24 +39,6 @@ vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	Link: ({ children, ...rest }: { children?: ReactNode }) => <a {...rest}>{children}</a>,
 }));
 
-// The explorer panel measures the map stage and its own box, and jsdom has no
-// observer to report one with. Every observed element reports the same size,
-// which is all these assertions need: none of them turns on the layout.
-vi.stubGlobal(
-	'ResizeObserver',
-	class {
-		private readonly callback: (entries: readonly { contentRect: DOMRectReadOnly }[]) => void;
-		constructor(callback: (entries: readonly { contentRect: DOMRectReadOnly }[]) => void) {
-			this.callback = callback;
-		}
-		observe() {
-			this.callback([{ contentRect: { width: 1000, height: 700 } as DOMRectReadOnly }]);
-		}
-		unobserve() {}
-		disconnect() {}
-	},
-);
-
 vi.mock('../../../../components/app-shell', () => ({ useBreadcrumbLabel: () => undefined }));
 vi.mock('../../../../components/map', () => ({ MapCanvas: () => <div data-testid="map" /> }));
 vi.mock('../../../../hooks/queries/use-contact-record', () => ({
@@ -160,10 +142,6 @@ describe('ContactRegistrations', () => {
 
 		expect(screen.getByText('No registrations yet')).toBeTruthy();
 
-		// Behind the filter card, which starts shut. Most contacts hold only active
-		// registrations, so the toggle is a question the page does not need to ask
-		// on arrival.
-		fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
 		fireEvent.click(screen.getByRole('button', { name: 'Include inactive' }));
 
 		expect(screen.getByText('Area')).toBeTruthy();

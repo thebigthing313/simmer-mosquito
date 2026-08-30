@@ -1,5 +1,8 @@
 import { proximityLabel, proximitySearchUnit } from '@simmer-mosquito/domain';
 import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
+import { ListEmpty, ListLoading } from '@simmer-mosquito/ui-web/components/page/list-states';
+import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
+import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
@@ -8,12 +11,13 @@ import {
 	ItemActions,
 	ItemContent,
 	ItemDescription,
+	ItemGroup,
 	ItemMedia,
 	ItemTitle,
 } from '@simmer-mosquito/ui-web/components/ui/item';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import { useCallback, useId, useMemo, useState } from 'react';
@@ -27,7 +31,7 @@ import {
 	useNearbyHabitats,
 } from '../../hooks/use-merge-candidates';
 import { useBreadcrumbLabel } from '../app-shell';
-import { ExplorerMapPage, useExplorerPanel } from '../explorer';
+import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import { MapCanvas } from '../map';
 import { WriteOnly } from '../write-only';
 import { MergeConfirmDialog } from './merge-confirm-dialog';
@@ -35,8 +39,6 @@ import { RECORD_CLEANUP_CONFIGS, recordCountLabel } from './record-cleanup-confi
 
 const MergeIcon = iconRegistry.actions.merge.icon;
 const config = RECORD_CLEANUP_CONFIGS.habitat;
-const RESULT_NOUN = { one: 'habitat', many: 'habitats' } as const;
-
 /** How many neighbours the endpoint answers with. Past this the list is trimmed. */
 const NEARBY_LIMIT = 100;
 
@@ -70,13 +72,9 @@ const NEARBY_LIMIT = 100;
  * agency that maps culverts every hundred feet needs a tighter one than that.
  */
 export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
-	// Open on arrival. The radius is not a way of narrowing this page, it is the
-	// search itself: shut, the only control that makes the page do anything is a
-	// click away and the list reads as the whole answer.
-	const panel = useExplorerPanel({ filtersOpen: true });
 	const [isConfirming, setIsConfirming] = useState(false);
 	const { selected, toggle, clear } = useHabitatSelection();
-	const { bounds, candidates, defaultRadius, mapData, nearby, radius, setRadius, target, unit } =
+	const { bounds, candidates, mapData, nearby, radius, setRadius, target, unit } =
 		useMergeSearch(habitatId);
 
 	const merge = useRecordMerge('habitat');
@@ -103,34 +101,11 @@ export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
 
 	return (
 		<>
-			<ExplorerMapPage
-				activeFilterCount={radius === defaultRadius ? 0 : 1}
-				filters={
-					<div className="grid gap-4">
-						<KeptHabitat target={target} />
-						<RadiusControl onChange={setRadius} radius={radius} unit={unit} />
-					</div>
-				}
-				footer={
-					<MergeFooter
-						count={sources.length}
-						isTrimmed={candidates.length >= NEARBY_LIMIT}
-						onMerge={() => setIsConfirming(true)}
-						target={target}
-					/>
-				}
-				heading={{
-					title: target === undefined ? 'Merge duplicates' : `Merge into ${labelOf(target)}`,
-					icon: MergeIcon,
-					total: candidates.length,
-					isLoading: nearby.isPending,
-					noun: RESULT_NOUN,
-				}}
+			<MapSplitPage
 				map={
 					<MapCanvas
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData={bounds}
-						inset={panel.inset}
 						nearbyLayer={{
 							data: mapData,
 							selectedIds: [...selected],
@@ -142,28 +117,50 @@ export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
 								}
 							},
 						}}
-						searchWidth={panel.width}
 					/>
 				}
-				onResetFilters={() => setRadius(defaultRadius)}
-				panel={panel}
-				results={{
-					rows: candidates,
-					emptyTitle: 'No other habitats nearby',
-					emptyDescription: `Nothing else is recorded within ${proximityLabel(radius, unit)} of this habitat. Widen the search if the duplicate was filed from a different spot.`,
-					isError: nearby.isError,
-					onRetry: () => void nearby.refetch(),
-					renderRow: (candidate) => (
-						<CandidateRow
-							candidate={candidate}
-							isSelected={selected.has(candidate.id)}
-							key={candidate.id}
-							onToggle={() => toggle(candidate.id)}
+			>
+				<div className="flex h-full min-h-0 flex-col">
+					<div className={stickyHeader({ surface: 'page' })}>
+						<Link
+							className="inline-flex w-fit items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
+							params={{ id: habitatId }}
+							to="/larval-surveillance/habitats/$id"
+						>
+							<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
+							Back to habitat
+						</Link>
+						<h1 className="flex items-center gap-2 font-semibold text-foreground text-lg leading-tight">
+							<MergeIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
+							<span className="min-w-0 truncate">
+								{target === undefined ? 'Merge duplicates' : `Merge into ${labelOf(target)}`}
+							</span>
+						</h1>
+						<RadiusControl onChange={setRadius} radius={radius} unit={unit} />
+						<KeptHabitat target={target} />
+					</div>
+
+					<div className="min-h-0 flex-1 overflow-y-auto p-3">
+						<CandidateList
+							candidates={candidates}
+							isError={nearby.isError}
+							isPending={nearby.isPending}
+							onRetry={() => void nearby.refetch()}
+							onToggle={toggle}
+							radius={radius}
+							selected={selected}
 							unit={unit}
 						/>
-					),
-				}}
-			/>
+					</div>
+
+					<MergeFooter
+						count={sources.length}
+						isTrimmed={candidates.length >= NEARBY_LIMIT}
+						onMerge={() => setIsConfirming(true)}
+						target={target}
+					/>
+				</div>
+			</MapSplitPage>
 
 			{!isConfirming || target === undefined ? null : (
 				<MergeConfirmDialog
@@ -181,6 +178,69 @@ export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
 				/>
 			)}
 		</>
+	);
+}
+
+/** The neighbours, or why there are none to show. */
+function CandidateList({
+	candidates,
+	isError,
+	isPending,
+	onRetry,
+	onToggle,
+	radius,
+	selected,
+	unit,
+}: {
+	readonly candidates: readonly NearbyHabitat[];
+	readonly isError: boolean;
+	readonly isPending: boolean;
+	readonly onRetry: () => void;
+	readonly onToggle: (habitatId: string) => void;
+	readonly radius: number;
+	readonly selected: ReadonlySet<string>;
+	readonly unit: ReturnType<typeof proximitySearchUnit>;
+}) {
+	if (isPending) {
+		return <ListLoading rows={4} />;
+	}
+
+	if (isError) {
+		return (
+			<Alert variant="destructive">
+				<AlertTitle>Could not look for nearby habitats</AlertTitle>
+				<AlertDescription className="grid gap-3">
+					<span>Try again, or narrow the search.</span>
+					<Button className="justify-self-start" onClick={onRetry} size="sm" variant="outline">
+						Try again
+					</Button>
+				</AlertDescription>
+			</Alert>
+		);
+	}
+
+	if (candidates.length === 0) {
+		return (
+			<ListEmpty
+				description={`Nothing else is recorded within ${proximityLabel(radius, unit)} of this habitat. Widen the search if the duplicate was filed from a different spot.`}
+				icon={config.icon}
+				title="No other habitats nearby"
+			/>
+		);
+	}
+
+	return (
+		<ItemGroup>
+			{candidates.map((candidate) => (
+				<CandidateRow
+					candidate={candidate}
+					isSelected={selected.has(candidate.id)}
+					key={candidate.id}
+					onToggle={() => onToggle(candidate.id)}
+					unit={unit}
+				/>
+			))}
+		</ItemGroup>
 	);
 }
 
@@ -395,9 +455,12 @@ function RadiusControl({
 }
 
 /**
- * The button that opens the confirmation, under the results list.
+ * The button that opens the confirmation, pinned under the list.
  *
- * Absent until something is ticked, so it is never a button that does nothing.
+ * Absent until something is ticked, so it is never a button that does nothing,
+ * and outside the scrolling region so a reader who ticked something at the
+ * bottom of fifty does not scroll back up to act on it.
+ *
  * The trimming note sits here because it is a fact about the list above it: past
  * the limit the nearest hundred are what came back, and a reader who cannot see
  * that would read a full list as the whole answer.
@@ -418,7 +481,7 @@ function MergeFooter({
 	}
 
 	return (
-		<div className="grid gap-2">
+		<div className="shrink-0 grid gap-2 border-border/40 border-t p-3">
 			{isTrimmed ? (
 				<p className="text-muted-foreground text-xs">
 					The {NEARBY_LIMIT} nearest are shown. Narrow the search to see the rest.
