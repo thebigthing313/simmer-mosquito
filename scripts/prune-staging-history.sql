@@ -15,28 +15,41 @@
 -- performs. Habitats, traps, addresses, regions, contacts, routes, taxonomy,
 -- methods, products, units, profiles, memberships. Deleting those would change
 -- what the app *is*, not how much history it holds, and a habitat is still the
--- habitat it was in 2011.
+-- habitat it was in 2011. An address whose only service request was pruned is
+-- what the next request at that location reuses.
 --
--- The cascade does not reach them either, and that is the same walk section 0
--- makes. The closure of the 13 dated roots is 18 tables: the roots, plus
+-- For `addresses`, `regions` and `contacts` that is this file's own rule, not a
+-- property of the schema. Section 1 counts the three inside the transaction and
+-- section 5 counts them again before the commit, and any shortfall aborts the
+-- whole prune. Say a table is short and the run ends having deleted nothing.
+--
+-- They did survive without it, which is why the check costs nothing today. The
+-- cascade does not reach them, and that is the same walk section 0 makes: the
+-- closure of the 13 dated roots is 18 tables, the roots plus
 -- application_batches, collection_species, assignment_items, mission_items and
--- mission_notifications. No reference table is in it. Every foreign key between
--- a reference table and a pruned one points the other way and is ON DELETE
--- RESTRICT: 12 into `addresses` (`service_requests.address_id`,
+-- mission_notifications, with no reference table in it. Every foreign key
+-- between a reference table and a pruned one points the other way and is ON
+-- DELETE RESTRICT: 12 into `addresses` (`service_requests.address_id`,
 -- `inspections.address_id`, and ten more) and 3 into `contacts`. Deleting a
 -- service request deletes the row holding the pointer, so the address and the
 -- contact stay. `regions` is referenced by no foreign key at all, because
--- region membership is computed on read (ADR 0015). Re-check any of this by
--- running section 0's recursive `doomed` query and reading the closure instead
--- of the missing indexes.
+-- region membership is computed on read (ADR 0015). #307 walked `pg_constraint`
+-- for all of that, and re-check it by running section 0's recursive `doomed`
+-- query and reading the closure instead of the missing indexes. What none of it
+-- gives you is a guarantee: one migration turning a RESTRICT into a CASCADE
+-- moves a reference table into the closure, and nothing would say so.
 --
--- Do not size these three off staging even so. Issue #273 measured a restored
--- staging against prod and found contacts 6% short (8,471 to 7,933), regions
--- 47% (345 to 182) and addresses 53% (9,792 to 4,597). Those rows did not go
--- through this file: nothing below deletes from them and the closure above does
--- not reach them, so the gap is still unexplained. Until it is, a staging row
--- count for addresses, regions or contacts is not a prod figure, and reading
--- one as prod is what produced the wrong measurement in #265.
+-- Do not size an index, a query plan or a backfill off staging even so, and not
+-- because rows went missing. Staging is frozen at the date it was cloned while
+-- prod keeps growing. Counted 191 ms apart on 2026-08-30, prod held 9,849
+-- addresses, 345 regions and 9,475 contacts against staging's 4,599, 183 and
+-- 7,935. Restrict prod to rows created before the 2026-08-09 clone and it holds
+-- 4,596, 181 and 7,933, which is staging minus the two or three rows written on
+-- staging since. Regions settles it: prod created 137 on 2026-07-24, 44 on
+-- 2026-08-03 and 164 on 2026-08-11, and staging holds the first two batches and
+-- none of the third. #273 read that gap as loss and #265 sized off staging as
+-- though it were prod, and both were counting a different day. Record the clone
+-- date beside any number you measure here.
 --
 -- Rows that cannot be dated are KEPT. Every predicate below is `<` against a
 -- column that may be null, and `null < date` is null, so an undatable row falls
@@ -140,7 +153,25 @@ begin;
 \echo '--> pruning operational history older than' :'cutoff'
 
 -- ---------------------------------------------------------------------------
--- 1. The two RESTRICT edges, which have to go first
+-- 1. The reference tables this prune promises to leave alone
+-- ---------------------------------------------------------------------------
+-- Baseline for the shortfall check in section 5, taken after the transaction
+-- opens so the two counts see the same snapshot and nothing but this file's own
+-- deletes can come between them. `on commit drop` because the check is the only
+-- reader and it runs before the commit.
+--
+-- Shortfall is the word scripts/lib/table-row-counts.ps1 uses for the same
+-- comparison across a clone, and it means the same thing here: only a loss
+-- fails. Nothing between the two counts inserts, so a surplus cannot arise, and
+-- a table that had grown would say nothing about whether rows were taken.
+
+create temp table prune_reference_row_counts on commit drop as
+select 'addresses' as table_name, count(*) as rows_before from addresses
+union all select 'regions', count(*) from regions
+union all select 'contacts', count(*) from contacts;
+
+-- ---------------------------------------------------------------------------
+-- 2. The two RESTRICT edges, which have to go first
 -- ---------------------------------------------------------------------------
 -- `inspections -> samples` and `samples -> sample_species` are ON DELETE
 -- RESTRICT, unlike every other child in this schema. Deleting an old inspection
@@ -161,7 +192,7 @@ where s.inspection_id = i.id
   and i.inspection_date < :'cutoff';
 
 -- ---------------------------------------------------------------------------
--- 2. The dated roots
+-- 3. The dated roots
 -- ---------------------------------------------------------------------------
 -- Everything else that references these is ON DELETE CASCADE (application
 -- batches, collection species, assignment and mission items, mission
@@ -189,7 +220,7 @@ delete from missions where scheduled_start_at::date < :'cutoff';
 delete from weather_summaries where end_date < :'cutoff';
 
 -- ---------------------------------------------------------------------------
--- 3. Polymorphic children, which no foreign key protects
+-- 4. Polymorphic children, which no foreign key protects
 -- ---------------------------------------------------------------------------
 -- `comments`, `additional_personnel`, `tag_items`, `assignment_items`, and
 -- `route_items` address their parent as (entity_type, entity_id) with no FK, so
@@ -245,10 +276,50 @@ begin
 	end loop;
 end $polymorphic$;
 
+-- ---------------------------------------------------------------------------
+-- 5. The preservation rule, checked before anything is committed
+-- ---------------------------------------------------------------------------
+-- Re-count section 1's three tables and raise on a shortfall. Raising here
+-- rolls the transaction back, so a prune that took reference data ends having
+-- deleted nothing, and psql under ON_ERROR_STOP=1 exits non-zero rather than
+-- reporting a clone that worked.
+--
+-- The count is `count(*)`, which includes soft-deleted rows. A row this file
+-- must not delete is a row, and whether the app hides it is a separate
+-- question; counting live rows only would let a delete pass as a soft delete.
+
+do $preserved$
+declare
+	baseline record;
+	rows_after bigint;
+	shortfalls text[] := '{}';
+begin
+	for baseline in select table_name, rows_before from prune_reference_row_counts order by table_name
+	loop
+		execute format('select count(*) from %I', baseline.table_name) into rows_after;
+		if rows_after < baseline.rows_before then
+			shortfalls := shortfalls || format(
+				'%s: %s of %s rows, short by %s',
+				baseline.table_name, rows_after, baseline.rows_before,
+				baseline.rows_before - rows_after
+			);
+		else
+			raise notice 'reference data preserved: % holds % rows', baseline.table_name, rows_after;
+		end if;
+	end loop;
+
+	if cardinality(shortfalls) > 0 then
+		raise exception
+			'the prune deleted reference data it must preserve (%). Nothing was committed.',
+			array_to_string(shortfalls, '; ')
+			using hint = 'A foreign key into addresses, regions or contacts has become ON DELETE CASCADE. Read the header of this file and re-check the cascade closure with section 0''s doomed query.';
+	end if;
+end $preserved$;
+
 commit;
 
 -- Staging goes back to mirroring the prod schema. Dropping by prefix rather
--- than by name means this removes whatever the block above decided to build,
+-- than by name means this removes whatever section 0 decided to build,
 -- including indexes left behind by an earlier run that died partway.
 do $cleanup$
 declare

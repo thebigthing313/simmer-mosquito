@@ -161,7 +161,7 @@ psql $env:STAGING_DATABASE_URL -v ON_ERROR_STOP=1 -v cutoff=2023-08-07 `
   -f scripts/prune-staging-history.sql
 ```
 
-Three things that file handles and a hand-written `DELETE` would not:
+Four things that file handles and a hand-written `DELETE` would not:
 
 - `inspections -> samples` and `samples -> sample_species` are `ON DELETE
   RESTRICT`, unlike every other child in the schema, so samples must be removed
@@ -174,6 +174,12 @@ Three things that file handles and a hand-written `DELETE` would not:
   the alternative is orphans nobody sees.
 - Referential integrity needs indexes the schema does not have, so the file
   builds them for the duration and drops them afterwards.
+- `addresses`, `regions` and `contacts` are counted inside the transaction
+  before the deletes and again before the commit, and any shortfall **aborts**
+  the prune with nothing committed. Those three survive today because the
+  foreign keys into them are `ON DELETE RESTRICT` and because nothing references
+  `regions` at all, which is a schema shape a migration could change without
+  saying so. The check is what makes keeping them the prune's own rule.
 
 That last one is worth understanding before touching this, because it is not
 what it looks like. Nearly every foreign-key column here *is* indexed, but
