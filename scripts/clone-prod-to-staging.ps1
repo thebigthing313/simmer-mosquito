@@ -26,6 +26,24 @@
 #   ./scripts/clone-prod-to-staging.ps1 -YearsOfHistory 5   # keep more
 #   ./scripts/clone-prod-to-staging.ps1 -AllHistory         # keep everything
 #
+# The clone checks that the data arrived. Every ordinary table in `public` is
+# counted on prod and on staging, and staging holding fewer rows than prod fails
+# the run. Three things about that check are worth knowing before you change it:
+#
+#   - It runs after the restore and BEFORE the prune. The prune deletes dated
+#     records on purpose, so after it every dated table is legitimately short and
+#     a comparison says nothing.
+#   - The prod baseline is read before the dump, not after the restore. Prod
+#     keeps taking writes, and a row written during the dump reaches staging
+#     without reaching the baseline. Counting first makes that drift a surplus,
+#     which is ignored, instead of a phantom shortfall, which would cry wolf.
+#   - `spatial_ref_sys` is allowed to differ, and it is the only one.
+#     scripts/lib/table-row-counts.ps1 holds that list with the reason beside it.
+#
+# This is what pg_restore's discarded exit code would have told us. The exit code
+# cannot: PostGIS makes it non-zero on every healthy run. See issue #347, and
+# #310 for the four days a missing count cost.
+#
 # Staging keeps the last 3 years of DATED records by default (inspections,
 # applications, collections, service requests, …) and all reference data
 # (habitats, traps, addresses, contacts, routes, taxonomy). The dump is still
@@ -98,6 +116,10 @@ if (-not $AllHistory -and $YearsOfHistory -lt 1) {
 	throw "-YearsOfHistory must be at least 1 (got $YearsOfHistory). Pass -AllHistory to keep everything."
 }
 
+$rowCountLibPath = Join-Path $PSScriptRoot 'lib/table-row-counts.ps1'
+if (-not (Test-Path $rowCountLibPath)) { throw "Missing $rowCountLibPath, which the post-restore row-count check runs." }
+. $rowCountLibPath
+
 $pruneSqlPath = Join-Path $PSScriptRoot 'prune-staging-history.sql'
 if (-not $AllHistory -and -not (Test-Path $pruneSqlPath)) {
 	throw "Missing $pruneSqlPath, which the history prune runs. Pass -AllHistory to skip pruning."
@@ -143,6 +165,15 @@ if (-not $Yes) {
 $dumpFile = Join-Path ([System.IO.Path]::GetTempPath()) "prod-$stagingDbName.dump"
 
 try {
+	Write-Host '==> Counting prod tables (read-only) for the post-restore comparison ...' -ForegroundColor Cyan
+	# One sequential scan per table, on top of the one pg_dump is about to do
+	# anyway. Read before the dump so concurrent prod writes can only inflate
+	# staging, never fake a shortfall.
+	$prodOutput = & $psql $ProdUrl -X -A -t -F '|' -v ON_ERROR_STOP=1 -c $PublicTableRowCountSql
+	if ($LASTEXITCODE -ne 0) { throw "prod row-count query failed (exit $LASTEXITCODE)" }
+	$prodCounts = ConvertTo-TableRowCountMap -PsqlOutput $prodOutput
+	Write-Host "    $($prodCounts.Count) tables counted." -ForegroundColor DarkGray
+
 	Write-Host "==> Dumping prod (read-only) to $dumpFile ..." -ForegroundColor Cyan
 	& $pgDump --no-owner --no-privileges --format=custom $ProdUrl -f $dumpFile
 	if ($LASTEXITCODE -ne 0) { throw "pg_dump failed (exit $LASTEXITCODE)" }
@@ -158,10 +189,16 @@ try {
 	& $pgRestore --no-owner --no-privileges --dbname=$StagingUrl $dumpFile
 	Write-Host "    pg_restore exit code: $LASTEXITCODE (non-zero is usually benign extension noise)" -ForegroundColor DarkGray
 
-	Write-Host '==> Verifying row counts ...' -ForegroundColor Cyan
-	& $psql $StagingUrl -v ON_ERROR_STOP=1 `
-		-c "select 'organizations' as t, count(*) from organizations union all select 'memberships', count(*) from memberships;"
-	if ($LASTEXITCODE -ne 0) { throw "verification query failed (exit $LASTEXITCODE)" }
+	Write-Host '==> Verifying every table arrived (before the prune trims the dated ones) ...' -ForegroundColor Cyan
+	$stagingOutput = & $psql $StagingUrl -X -A -t -F '|' -v ON_ERROR_STOP=1 -c $PublicTableRowCountSql
+	if ($LASTEXITCODE -ne 0) { throw "staging row-count query failed (exit $LASTEXITCODE)" }
+	$stagingCounts = ConvertTo-TableRowCountMap -PsqlOutput $stagingOutput
+	# Failing here leaves staging loaded but neither pruned nor relinked, so the
+	# advice has to say so: signing in against unrelinked prod WorkOS ids
+	# provisions a duplicate organization, which is #82.
+	Assert-NoTableRowCountShortfall -SourceCounts $prodCounts -TargetCounts $stagingCounts `
+		-SourceLabel 'prod' -TargetLabel 'staging' `
+		-FailureAdvice 'Staging is loaded but NOT pruned and NOT relinked; do not sign in against it. Read the pg_restore output above for the failing table and re-run the clone.'
 
 	if (-not $AllHistory) {
 		# Reference data an agency accumulates — habitats, traps, addresses,
