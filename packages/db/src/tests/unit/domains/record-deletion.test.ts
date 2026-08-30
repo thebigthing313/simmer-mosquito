@@ -30,6 +30,7 @@ const EXPECTED_TYPES = [
 	'mission',
 	'outreachAction',
 	'region',
+	'regionFolder',
 	'requestedControlAction',
 	'route',
 	'sample',

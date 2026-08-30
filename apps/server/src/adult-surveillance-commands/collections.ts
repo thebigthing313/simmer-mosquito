@@ -1,5 +1,6 @@
 import {
 	applyRecordDeletion,
+	assertClearanceAcknowledged,
 	assertWriteReferences,
 	checkedValues,
 	type DeleteAcknowledgements,
@@ -30,10 +31,16 @@ import {
 	updateCollectionFieldDetailsCommand,
 } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
+import { requireStateAcknowledgement } from '../acknowledgements.js';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { CommandError } from '../command-endpoint.js';
-import { readExecutionOptions, readNullableText, readText } from '../command-payload.js';
+import {
+	acknowledged,
+	readExecutionOptions,
+	readNullableText,
+	readText,
+} from '../command-payload.js';
 import {
 	beginExecution,
 	completeExecutedStop,
@@ -215,7 +222,9 @@ function buildCollectionCreateCommand(
 					setByProfileId,
 					collectedByProfileId: readNullableText(payload.collectedByProfileId),
 					hasProblem: payload.hasProblem === true,
-					acknowledgedPendingTrapCollection: true,
+					acknowledgedPendingTrapCollection: acknowledged(
+						payload.acknowledgedPendingTrapCollection,
+					),
 					metadata,
 				}),
 			);
@@ -334,7 +343,9 @@ function buildCollectionUpdateCommands(
 				? markCollectionZeroResultCommand({
 						...ctx,
 						collectionId,
-						acknowledgedSpeciesCountsClearance: true,
+						acknowledgedSpeciesCountsClearance: acknowledged(
+							payload.acknowledgedSpeciesCountsClearance,
+						),
 					})
 				: clearCollectionZeroResultCommand({ ...ctx, collectionId }),
 		);
@@ -418,6 +429,12 @@ export async function writeCollectionCommand(
 		case 'fieldWork.collectTrapCollectionForAssignmentItem':
 			return collectTrapCollectionForStop(trx, command.payload);
 		case 'adultSurveillance.recordCollectedTrapCollection': {
+			await assertNoPendingTrapCollection(
+				trx,
+				command.payload.organizationId,
+				command.payload.trapId,
+				command.payload.acknowledgedPendingTrapCollection,
+			);
 			const snapshot = await loadTrapSnapshot(
 				trx,
 				command.payload.organizationId,
@@ -553,6 +570,23 @@ export async function writeCollectionCommand(
 				{ acknowledgedSpeciesCountDeletion: command.payload.acknowledgedSpeciesCountDeletion },
 			);
 		case 'adultSurveillance.markCollectionZeroResult': {
+			// Zero result means nothing was caught, so the counts already recorded
+			// against the collection are being said to be wrong. They go, and the
+			// agency is told how many. A collection with none is marked without a
+			// question.
+			await assertClearanceAcknowledged(trx, {
+				acknowledgement: 'acknowledgedSpeciesCountsClearance',
+				acknowledged: command.payload.acknowledgedSpeciesCountsClearance,
+				rule: {
+					key: 'collectionSpeciesCounts',
+					table: 'collection_species',
+					singular: 'species count',
+					plural: 'species counts',
+					match: sql`collection_id = ${command.payload.collectionId}
+						and organization_id = ${command.payload.organizationId}
+						and deleted_at is null`,
+				},
+			});
 			await trx
 				.updateTable('collection_species')
 				.set({
@@ -609,6 +643,43 @@ function executionOptions(payload: ExecutionPayload) {
 		completeItem: payload.completeAssignmentItem,
 		completedAt: payload.completedAt,
 	};
+}
+
+/**
+ * Refuse a collected record for a trap that still has a collection nobody came
+ * back for.
+ *
+ * A pending collection is one that was set and never collected. Recording a
+ * collected one alongside it usually means the field crew is recording the
+ * visit that closed the pending row, on a new record, and the pending row will
+ * sit open forever. It is a fact about the trap rather than about anything
+ * hanging off this collection, so nothing is counted and the sentence is the
+ * whole answer.
+ */
+async function assertNoPendingTrapCollection(
+	trx: AdultSurveillanceTransaction,
+	organizationId: string,
+	trapId: string,
+	acknowledgedPendingTrapCollection: boolean,
+): Promise<void> {
+	if (acknowledgedPendingTrapCollection === true) {
+		return;
+	}
+	const pending = await trx
+		.selectFrom('collections')
+		.select('id')
+		.where('organization_id', '=', organizationId)
+		.where('trap_id', '=', trapId)
+		.where('collected_at', 'is', null)
+		.where('deleted_at', 'is', null)
+		.limit(1)
+		.executeTakeFirst();
+	requireStateAcknowledgement({
+		state: pending !== undefined,
+		acknowledgement: 'acknowledgedPendingTrapCollection',
+		acknowledged: acknowledgedPendingTrapCollection,
+		message: 'This trap already has a collection that was set and never collected.',
+	});
 }
 
 async function finishExecution(

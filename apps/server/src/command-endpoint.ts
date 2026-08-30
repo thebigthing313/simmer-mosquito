@@ -23,6 +23,7 @@
  */
 
 import {
+	ClearanceAcknowledgementRequiredError,
 	DeleteAcknowledgementRequiredError,
 	MissionNotificationRefusedError,
 	RecordDeleteBlockedError,
@@ -31,6 +32,7 @@ import {
 } from '@simmer-mosquito/db';
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import type { Context } from 'hono';
+import { StateAcknowledgementRequiredError } from './acknowledgements.js';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
@@ -97,6 +99,17 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 	// well-formed and the row is there, and it is the state of what hangs off it
 	// that decides. The body says which flag and what it covers.
 	if (error instanceof DeleteAcknowledgementRequiredError) {
+		return context.json(acknowledgementRequiredBody(error), 409);
+	}
+	// The same body from the two mechanisms the registry does not describe: a
+	// write that clears a row set without deleting a record, and one refused by
+	// the record's own state. Three classes rather than one because each knows a
+	// different subset of the vocabulary, and one response because the client has
+	// one question to ask either way.
+	if (error instanceof ClearanceAcknowledgementRequiredError) {
+		return context.json(acknowledgementRequiredBody(error), 409);
+	}
+	if (error instanceof StateAcknowledgementRequiredError) {
 		return context.json(acknowledgementRequiredBody(error), 409);
 	}
 	// A merge names rows the caller has to have seen to name, so a refusal is

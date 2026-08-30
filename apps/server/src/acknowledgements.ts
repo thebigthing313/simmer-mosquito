@@ -1,0 +1,239 @@
+/**
+ * What checks each acknowledgement, as a total map over the vocabulary.
+ *
+ * `ACKNOWLEDGEMENTS` in `packages/domain` is the list of every confirmation a
+ * command payload carries. This says, for each one, which mechanism reads it —
+ * or names the issue that will make something read it. The map is total by its
+ * type, so a flag added to the vocabulary is a compile error here until someone
+ * decides, and `pnpm check:acknowledgements` closes the other direction: a map
+ * entry naming no payload key fails too.
+ *
+ * ## The ratchet
+ *
+ * `UNCHECKED_ACKNOWLEDGEMENTS` is the count of `unchecked` entries, checked in.
+ * The gate fails when the real count differs from it, in either direction — up
+ * means a branch added an unread flag, down means a branch guarded one and owes
+ * the number. It is the same idea as the duplication threshold and the
+ * complexity baseline, and the falling number is the progress bar for #315,
+ * #316 and everything after them.
+ *
+ * ## Why "checked by the domain builder" is a real answer
+ *
+ * Ten flags are enforced by a pure builder that pushes a validation issue unless
+ * the flag is `true`, and the caller gets a 400 `invalid_command` naming the
+ * flag's path rather than a 409. That is a weaker answer than the 409 — it
+ * cannot say how many rows are at stake, because a pure builder cannot count
+ * rows — but it is a real refusal, and pretending otherwise would make the
+ * ratchet count work that is already done.
+ *
+ * ## The trap this map does not fix
+ *
+ * `acknowledged()` in `command-payload.ts` reads an absent flag as confirmed, so
+ * every guard below fires only for a client that sends `false` on purpose. No
+ * surface does today. That is deliberate — the alternative refuses writes that
+ * work now — and #319 is the client half.
+ */
+
+import type { DeleteImpactEntry } from '@simmer-mosquito/db';
+import type { Acknowledgement } from '@simmer-mosquito/domain';
+
+/**
+ * How an acknowledgement is read.
+ *
+ * `unchecked` carries the issue that will settle it, so the map answers "what
+ * happens if I withhold this" with either a mechanism or a link.
+ */
+export type AcknowledgementMechanism =
+	/**
+	 * The delete registry in `packages/db/src/domains/record-deletion.ts`.
+	 * `applyRecordDeletion` counts the rows a rule covers and refuses with
+	 * `409 acknowledgement_required` when the flag is not `true`.
+	 */
+	| { readonly kind: 'deleteRegistry' }
+	/**
+	 * A pure command builder pushes a validation issue unless the flag is
+	 * `true`, so the refusal is a 400 `invalid_command` naming its path.
+	 */
+	| { readonly kind: 'domainBuilder' }
+	/**
+	 * `assertClearanceAcknowledged` counts the rows a non-delete write is about
+	 * to remove and refuses with `409 acknowledgement_required`.
+	 */
+	| { readonly kind: 'clearanceCheck' }
+	/**
+	 * `requireStateAcknowledgement` reads the record's own stored state and
+	 * refuses with `409 acknowledgement_required` and empty `consequences`.
+	 */
+	| { readonly kind: 'stateGuard' }
+	/**
+	 * The import's own assessment answers it: the writer counts the rows that
+	 * would update or fail before it commits anything, and refuses on that.
+	 */
+	| { readonly kind: 'importAssessment' }
+	/**
+	 * Read, but through a bespoke 409 that predates the settled body. The flag
+	 * bites; the client cannot key its wording off `flag` because there is none.
+	 */
+	| { readonly kind: 'legacyRefusal'; readonly issue: number }
+	/** Nothing reads it. `issue` is where that gets settled. */
+	| { readonly kind: 'unchecked'; readonly issue: number };
+
+const deleteRegistry = { kind: 'deleteRegistry' } as const;
+const domainBuilder = { kind: 'domainBuilder' } as const;
+const clearanceCheck = { kind: 'clearanceCheck' } as const;
+const stateGuard = { kind: 'stateGuard' } as const;
+const importAssessment = { kind: 'importAssessment' } as const;
+const legacyRefusal = (issue: number) => ({ kind: 'legacyRefusal', issue }) as const;
+const unchecked = (issue: number) => ({ kind: 'unchecked', issue }) as const;
+
+/**
+ * Every acknowledgement and what reads it.
+ *
+ * Ordered as the vocabulary is, alphabetically, so a diff against
+ * `ACKNOWLEDGEMENTS` reads straight down.
+ */
+export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, AcknowledgementMechanism> = {
+	acknowledgedActionDetach: deleteRegistry,
+	acknowledgedActiveSubscriptionImpact: unchecked(315),
+	acknowledgedActualActionContextChange: unchecked(316),
+	acknowledgedActualActionDetach: deleteRegistry,
+	acknowledgedAssignmentItemDeletion: deleteRegistry,
+	acknowledgedAssociatedRecordsDeletion: deleteRegistry,
+	acknowledgedBatchClearance: clearanceCheck,
+	acknowledgedBatchDeletion: deleteRegistry,
+	acknowledgedCascadeDelete: deleteRegistry,
+	acknowledgedClosedRequestChange: stateGuard,
+	acknowledgedClosedRequestDeletion: stateGuard,
+	acknowledgedCompletedItemAdditionalAction: unchecked(316),
+	acknowledgedCompletedItemAdditionalRecord: unchecked(336),
+	acknowledgedCompletedMissionDeletion: unchecked(316),
+	// The registry blocks rather than cascades: a formulation with live
+	// ingredient rows cannot be deleted at all, so the caller gets
+	// `delete_blocked` naming them before this flag can be reached. That is the
+	// catalog rule #123 settled — Delete means the record should never have
+	// existed — and it is a stronger answer than a confirmation.
+	acknowledgedComponentDeletion: deleteRegistry,
+	acknowledgedContactMerge: domainBuilder,
+	acknowledgedCrossDomainDetach: deleteRegistry,
+	acknowledgedDeactivateEmptyFormulation: unchecked(315),
+	acknowledgedDependentDeactivation: unchecked(315),
+	acknowledgedDuplicateRequestedActionMissioning: unchecked(316),
+	acknowledgedDuplicateTrapCode: unchecked(315),
+	acknowledgedEarlyStart: unchecked(316),
+	acknowledgedFutureOnlyChange: unchecked(315),
+	acknowledgedHabitatConfigurationSemanticsChange: domainBuilder,
+	acknowledgedHabitatDelete: domainBuilder,
+	acknowledgedHabitatLocationSemanticsChange: domainBuilder,
+	acknowledgedHistoricalBatchLabelChange: unchecked(315),
+	acknowledgedHistoricalContactChange: unchecked(315),
+	acknowledgedHistoricalEquipmentLabelChange: unchecked(315),
+	acknowledgedHistoricalLabelChange: unchecked(315),
+	acknowledgedHistoricalLocationChange: legacyRefusal(315),
+	acknowledgedHistoricalProductChange: unchecked(315),
+	acknowledgedHistoricalStationIdentityChange: legacyRefusal(315),
+	acknowledgedHistoricalVehicleLabelChange: unchecked(315),
+	acknowledgedInProgressAssignmentChange: unchecked(316),
+	acknowledgedInProgressMissionChange: unchecked(316),
+	acknowledgedInspectionDetach: deleteRegistry,
+	acknowledgedItemProgressDeletion: unchecked(316),
+	acknowledgedMergeConsolidatesHistory: domainBuilder,
+	acknowledgedMethodMismatch: unchecked(316),
+	acknowledgedMissionDetach: deleteRegistry,
+	acknowledgedMissionGeometryNotCovered: unchecked(316),
+	acknowledgedMissionItemDeletion: deleteRegistry,
+	acknowledgedNotificationDeletion: deleteRegistry,
+	acknowledgedNotificationGeometryChange: unchecked(316),
+	acknowledgedNotificationPlanChange: unchecked(316),
+	acknowledgedNotificationRegenerationImpact: unchecked(316),
+	acknowledgedNotificationTimingChange: unchecked(316),
+	acknowledgedPartialImport: importAssessment,
+	acknowledgedPartialWorkCancellation: unchecked(316),
+	acknowledgedPendingTrapCollection: stateGuard,
+	acknowledgedProgressedItemLinkChange: unchecked(316),
+	acknowledgedProgressedItemReorder: unchecked(316),
+	acknowledgedProgressedMissionCancellation: unchecked(316),
+	acknowledgedRegionBoundaryChange: domainBuilder,
+	acknowledgedRegionDelete: domainBuilder,
+	acknowledgedRegionDetach: deleteRegistry,
+	acknowledgedRequestedActionMismatch: unchecked(316),
+	acknowledgedRouteItemDeletion: deleteRegistry,
+	acknowledgedRouteRemoval: clearanceCheck,
+	acknowledgedSpeciesCountDeletion: deleteRegistry,
+	acknowledgedSpeciesCountsClearance: clearanceCheck,
+	acknowledgedSummaryDeletion: clearanceCheck,
+	acknowledgedSupportRecordDeletion: deleteRegistry,
+	acknowledgedTargetMismatch: unchecked(336),
+	acknowledgedTaxonomyLabelChange: unchecked(315),
+	acknowledgedTaxonomyMeaningChange: unchecked(315),
+	acknowledgedTrapLocationSemanticsChange: domainBuilder,
+	acknowledgedTrapMethodSemanticsChange: domainBuilder,
+	acknowledgedUnitCodeChange: domainBuilder,
+	acknowledgedUpdates: importAssessment,
+	acknowledgedWorkedMissionPlanChange: unchecked(316),
+	acknowledgedWorkedMissionScheduleChange: unchecked(316),
+};
+
+/**
+ * How many acknowledgements nothing reads.
+ *
+ * Lower it when a branch guards one. `pnpm check:acknowledgements` fails when
+ * this and the map disagree, so the number cannot rot in either direction.
+ */
+export const UNCHECKED_ACKNOWLEDGEMENTS = 36;
+
+// ===========================================================================
+// The state refusal
+// ===========================================================================
+
+/**
+ * The acknowledgements that turn on the record's own state.
+ *
+ * Not what hangs off it. "This request is closed" and "this trap already has a
+ * collection nobody has come back for" are facts about one row, so there is
+ * nothing to count and the sentence is the whole answer.
+ */
+export type StateAcknowledgement =
+	| 'acknowledgedClosedRequestChange'
+	| 'acknowledgedClosedRequestDeletion'
+	| 'acknowledgedPendingTrapCollection';
+
+/**
+ * Thrown when a write against a record in a particular state withheld the
+ * confirmation that state needs.
+ *
+ * Same `409 acknowledgement_required` as a delete or a clearance. It carries no
+ * consequences at all, and `acknowledgementRequiredBody` turns that into an
+ * empty list rather than a missing field: the client keys its wording off
+ * `flag`, which it already has to do — two counted refusals under one code need
+ * two different sentences — so one body shape serves all three and a form never
+ * branches on whether the field is there. #315 and #316 follow this.
+ */
+export class StateAcknowledgementRequiredError extends Error {
+	readonly acknowledgement: StateAcknowledgement;
+
+	constructor(acknowledgement: StateAcknowledgement, message: string) {
+		super(message);
+		this.name = 'StateAcknowledgementRequiredError';
+		this.acknowledgement = acknowledgement;
+	}
+}
+
+/**
+ * Refuse the write when the state holds and the confirmation was withheld.
+ *
+ * `message` is handed to the user, so it says what the state is rather than
+ * naming the flag.
+ *
+ * @throws StateAcknowledgementRequiredError
+ */
+export function requireStateAcknowledgement(input: {
+	readonly state: boolean;
+	readonly acknowledgement: StateAcknowledgement;
+	/** What the command carried. Anything but `true` is withheld. */
+	readonly acknowledged: boolean;
+	readonly message: string;
+}): void {
+	if (input.state && input.acknowledged !== true) {
+		throw new StateAcknowledgementRequiredError(input.acknowledgement, input.message);
+	}
+}

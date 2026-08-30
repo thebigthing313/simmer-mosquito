@@ -1,6 +1,7 @@
 import {
 	applyRecordDeletion,
 	applyRecordMerge,
+	assertClearanceAcknowledged,
 	assertWriteReferences,
 	checkedValues,
 	softDelete,
@@ -23,7 +24,7 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { CommandError } from '../command-endpoint.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -103,9 +104,9 @@ export function registerHabitatRoutes(
 				deleteHabitatCommand({
 					...ctx,
 					habitatId: param('habitatId'),
-					acknowledgedHabitatDelete: payload.acknowledgedHabitatDelete !== false,
-					acknowledgedInspectionDetach: payload.acknowledgedInspectionDetach !== false,
-					acknowledgedCrossDomainDetach: payload.acknowledgedCrossDomainDetach !== false,
+					acknowledgedHabitatDelete: acknowledged(payload.acknowledgedHabitatDelete),
+					acknowledgedInspectionDetach: acknowledged(payload.acknowledgedInspectionDetach),
+					acknowledgedCrossDomainDetach: acknowledged(payload.acknowledgedCrossDomainDetach),
 				}),
 			run: (context, commands) => runHabitatCommands(context, options.db, commands),
 		}),
@@ -147,7 +148,9 @@ function buildHabitatUpdateCommands(
 				...ctx,
 				habitatId,
 				locationSource: payload.locationSource as never,
-				acknowledgedHabitatLocationSemanticsChange: true,
+				acknowledgedHabitatLocationSemanticsChange: acknowledged(
+					payload.acknowledgedHabitatLocationSemanticsChange,
+				),
 			}),
 		);
 		if (!result.ok) {
@@ -165,7 +168,9 @@ function buildHabitatUpdateCommands(
 				habitatId,
 				...(hasAddress ? { addressId: readNullableText(payload.addressId) } : {}),
 				...(hasType ? { habitatTypeId: readNullableText(payload.habitatTypeId) } : {}),
-				acknowledgedHabitatConfigurationSemanticsChange: true,
+				acknowledgedHabitatConfigurationSemanticsChange: acknowledged(
+					payload.acknowledgedHabitatConfigurationSemanticsChange,
+				),
 			}),
 		);
 		if (!result.ok) {
@@ -190,7 +195,11 @@ function buildHabitatUpdateCommands(
 		const result = createCommand(() =>
 			payload.isActive
 				? reactivateHabitatCommand({ ...ctx, habitatId })
-				: retireHabitatCommand({ ...ctx, habitatId, acknowledgedRouteRemoval: true }),
+				: retireHabitatCommand({
+						...ctx,
+						habitatId,
+						acknowledgedRouteRemoval: acknowledged(payload.acknowledgedRouteRemoval),
+					}),
 		);
 		if (!result.ok) {
 			return result;
@@ -348,11 +357,39 @@ export async function writeHabitatCommand(
 				is_inaccessible: false,
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
-		case 'larvalSurveillance.retireHabitat':
+		case 'larvalSurveillance.retireHabitat': {
+			// Retiring takes the habitat off its routes, which is a row set going
+			// away without a record being deleted, so it is a clearance rather than
+			// anything the delete registry describes. Counted first: a habitat on no
+			// route retires without a question.
+			const routeItems = sql`entity_type = 'habitat'
+				and entity_id = ${command.payload.habitatId}
+				and organization_id = ${command.payload.organizationId}
+				and deleted_at is null`;
+			await assertClearanceAcknowledged(trx, {
+				acknowledgement: 'acknowledgedRouteRemoval',
+				acknowledged: command.payload.acknowledgedRouteRemoval,
+				rule: {
+					key: 'habitatRouteItems',
+					table: 'route_items',
+					singular: 'route stop',
+					plural: 'route stops',
+					match: routeItems,
+				},
+			});
+			await sql`
+				update route_items
+				set deleted_at = now(),
+					deleted_by_profile_id = ${command.payload.actorProfileId},
+					updated_by_profile_id = ${command.payload.actorProfileId},
+					updated_at = now()
+				where ${routeItems}
+			`.execute(trx);
 			return updateHabitat(trx, command.payload.habitatId, command.payload.organizationId, {
 				is_active: false,
 				updated_by_profile_id: command.payload.actorProfileId,
 			});
+		}
 		case 'larvalSurveillance.reactivateHabitat':
 			return updateHabitat(trx, command.payload.habitatId, command.payload.organizationId, {
 				is_active: true,

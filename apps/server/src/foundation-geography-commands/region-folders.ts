@@ -1,3 +1,4 @@
+import { applyRecordDeletion } from '@simmer-mosquito/db';
 import {
 	createRegionFolderCommand,
 	deleteRegionFolderCommand,
@@ -6,7 +7,7 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import {
 	type CommandContext,
 	commandEndpoint,
@@ -64,12 +65,12 @@ export function registerRegionFolderRoutes(
 		'/foundation/region-folders/:regionFolderId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			body: 'optional',
+			build: ({ payload, agency: ctx, param }) =>
 				deleteRegionFolderCommand({
 					...ctx,
 					regionFolderId: param('regionFolderId'),
-					acknowledgedRegionDetach: true,
+					acknowledgedRegionDetach: acknowledged(payload.acknowledgedRegionDetach),
 				}),
 			run: (context, commands) => runRegionFolderCommands(context, options.db, commands),
 		}),
@@ -132,6 +133,18 @@ export async function writeRegionFolderCommand(
 				regionFolderReturnColumns,
 			);
 		case 'foundation.deleteRegionFolder':
+			// Unfiles the folder's regions before the folder goes. Without it the
+			// regions kept a `region_folder_id` pointing at a deleted row, and the
+			// delete never asked about them.
+			await applyRecordDeletion(trx, {
+				recordType: 'regionFolder',
+				recordId: command.payload.regionFolderId,
+				organizationId: command.payload.organizationId,
+				actorProfileId: command.payload.actorProfileId,
+				acknowledged: {
+					acknowledgedRegionDetach: command.payload.acknowledgedRegionDetach,
+				},
+			});
 			return softDelete(
 				trx,
 				'region_folders',

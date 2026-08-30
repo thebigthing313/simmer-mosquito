@@ -24,7 +24,12 @@
  *   batch before the first row is written.
  */
 
-import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
+import {
+	ClearanceAcknowledgementRequiredError,
+	type Kysely,
+	type SimmerDatabase,
+	sql,
+} from '@simmer-mosquito/db';
 import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
 import {
 	type CommitWeatherSummaryImportCommand,
@@ -334,7 +339,10 @@ describeDbIntegration('weather commands against Postgres', () => {
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-01');
 
-			const refusal = await refused(
+			// The clearance refusal, not this module's own 409: #317 moved the
+			// summaries onto the settled `acknowledgement_required` body, so the
+			// count reaches the client and the flag names itself.
+			const refusal = await refusedClearance(
 				writeStation(
 					db,
 					deleteWeatherStationCommand({
@@ -347,8 +355,8 @@ describeDbIntegration('weather commands against Postgres', () => {
 			);
 
 			expect(refusal).toMatchObject({
-				status: 409,
-				body: { error: 'weather_station_summary_deletion_unacknowledged' },
+				acknowledgement: 'acknowledgedSummaryDeletion',
+				consequences: [{ key: 'stationSummaries', count: 1, singular: 'summary' }],
 			});
 			// Refused before anything ran, so the summary is still there.
 			const left = await db
@@ -1069,6 +1077,21 @@ async function runImport(
 		.execute((trx) =>
 			commitWeatherSummaryImport(trx as CommandTransaction, command, currentLocalDate),
 		);
+}
+
+/** The clearance refusal a writer raised, as something a matcher can read. */
+async function refusedClearance(
+	pending: Promise<unknown>,
+): Promise<ClearanceAcknowledgementRequiredError | null> {
+	try {
+		await pending;
+		return null;
+	} catch (error) {
+		if (error instanceof ClearanceAcknowledgementRequiredError) {
+			return error;
+		}
+		throw error;
+	}
 }
 
 /** The refusal a writer raised, as something a matcher can read. */

@@ -19,6 +19,7 @@ import type { DbExecutor, SimmerDatabase } from '../index.js';
 export type DeletableRecordType =
 	| 'address'
 	| 'region'
+	| 'regionFolder'
 	| 'trap'
 	| 'collection'
 	| 'habitat'
@@ -107,6 +108,7 @@ export type DeleteAcknowledgement =
 	| 'acknowledgedMissionDetach'
 	| 'acknowledgedMissionItemDeletion'
 	| 'acknowledgedNotificationDeletion'
+	| 'acknowledgedRegionDetach'
 	| 'acknowledgedRouteItemDeletion'
 	| 'acknowledgedSpeciesCountDeletion'
 	| 'acknowledgedSupportRecordDeletion';
@@ -227,6 +229,119 @@ function countPhrase(consequences: readonly DeleteImpactEntry[]): string {
 		return parts[0] ?? 'other records';
 	}
 	return `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
+}
+
+// ---------------------------------------------------------------------------
+// Clearance
+// ---------------------------------------------------------------------------
+
+/**
+ * The confirmations that ride on a write clearing a row set rather than
+ * deleting a record.
+ *
+ * Four writes remove rows without any record being deleted: marking a
+ * collection zero-result drops its species counts, changing an application's
+ * insecticide drops the batch links that no longer match it, retiring a habitat
+ * takes it off its routes, and deleting a weather station destroys its
+ * summaries. The question the agency is asked is the delete registry's question
+ * — "this many rows go, did you mean that" — but the write is not a delete, so
+ * no rule in the registry describes it.
+ *
+ * They deliberately do not become a fourth `ReferenceEffect`. The registry's
+ * entries are read twice, once by `readDeleteImpact` to say what a delete would
+ * cost and once by `applyRecordDeletion` to perform it, and a rule no delete
+ * ever performs would make that read answer with consequences that never
+ * happen. What the two share is the counting and the entry shape, which is what
+ * this section exports, so a clearance refusal and a delete refusal reach the
+ * client as the same body.
+ *
+ * The station case is why `match` is the caller's whole `where` clause rather
+ * than a scope this module assembles: `weather_summaries` has no `deleted_at`
+ * and a nullable `organization_id`, so the filters every registry rule applies
+ * would find nothing there.
+ */
+export type ClearanceAcknowledgement =
+	| 'acknowledgedBatchClearance'
+	| 'acknowledgedRouteRemoval'
+	| 'acknowledgedSpeciesCountsClearance'
+	| 'acknowledgedSummaryDeletion';
+
+/** The rows a clearance is about to remove, and the words for them. */
+export interface ClearanceRule {
+	/** Stable id for this consequence, so the UI can key and test it. */
+	readonly key: string;
+	readonly table: string;
+	/** Domain noun for the rows, for copy that reads like the rest of the app. */
+	readonly singular: string;
+	readonly plural: string;
+	/** The whole `where` clause matching the rows the write removes. */
+	readonly match: RawBuilder<unknown>;
+}
+
+/**
+ * Thrown by `assertClearanceAcknowledged` when the rows are there and the
+ * confirmation was withheld.
+ *
+ * Carries the same `consequences` entries a delete refusal does, so the client
+ * renders one list either way. Nothing has been written when this is thrown.
+ */
+export class ClearanceAcknowledgementRequiredError extends Error {
+	readonly acknowledgement: ClearanceAcknowledgement;
+	readonly consequences: readonly DeleteImpactEntry[];
+
+	constructor(
+		acknowledgement: ClearanceAcknowledgement,
+		consequences: readonly DeleteImpactEntry[],
+	) {
+		super(`This change removes ${countPhrase(consequences)}.`);
+		this.name = 'ClearanceAcknowledgementRequiredError';
+		this.acknowledgement = acknowledgement;
+		this.consequences = consequences;
+	}
+}
+
+/**
+ * Refuse a clearing write whose confirmation was withheld.
+ *
+ * Call it before the write, inside the same transaction. Nothing to clear means
+ * nothing to ask about, so an empty match passes whatever the flag says: a
+ * collection with no species counts is marked zero-result without a question.
+ *
+ * @throws ClearanceAcknowledgementRequiredError when rows matched and
+ * `acknowledged` was not true.
+ */
+export async function assertClearanceAcknowledged(
+	db: DbExecutor,
+	input: {
+		readonly acknowledgement: ClearanceAcknowledgement;
+		readonly rule: ClearanceRule;
+		/** What the command carried. Anything but `true` is withheld. */
+		readonly acknowledged: boolean;
+	},
+): Promise<void> {
+	if (input.acknowledged === true) {
+		return;
+	}
+
+	const result = await sql<{ readonly count: string }>`
+		select count(*)::text as count
+		from ${sql.table(input.rule.table)}
+		where ${input.rule.match}
+	`.execute(db);
+
+	const count = Number.parseInt(result.rows[0]?.count ?? '0', 10);
+	if (count === 0) {
+		return;
+	}
+
+	throw new ClearanceAcknowledgementRequiredError(input.acknowledgement, [
+		{
+			key: input.rule.key,
+			count,
+			singular: input.rule.singular,
+			plural: input.rule.plural,
+		},
+	]);
 }
 
 // ---------------------------------------------------------------------------
@@ -492,6 +607,29 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 		rules: [
 			cascadesSupport('regionComments', 'comments', 'region', 'comment', 'comments', null),
 			cascadesSupport('regionTags', 'tag_items', 'region', 'tag', 'tags', null),
+		],
+	},
+
+	/**
+	 * A folder is filing, so deleting one unfiles its regions rather than taking
+	 * them with it. The regions are the agency's map; the folder is where they
+	 * were kept.
+	 *
+	 * Before this entry the delete soft-deleted the folder row alone, and every
+	 * region in it kept a `region_folder_id` pointing at a row that was gone.
+	 */
+	regionFolder: {
+		table: 'region_folders',
+		singular: 'region folder',
+		rules: [
+			detaches(
+				'folderRegions',
+				'regions',
+				'region_folder_id',
+				'region',
+				'regions',
+				'acknowledgedRegionDetach',
+			),
 		],
 	},
 

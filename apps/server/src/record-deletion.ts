@@ -1,6 +1,4 @@
 import {
-	type DeleteAcknowledgement,
-	type DeleteAcknowledgementRequiredError,
 	type DeleteImpactEntry,
 	isDeletableRecordType,
 	type Kysely,
@@ -8,6 +6,7 @@ import {
 	readDeleteImpact,
 	type SimmerDatabase,
 } from '@simmer-mosquito/db';
+import type { Acknowledgement } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 
@@ -34,7 +33,7 @@ export function deleteBlockedBody(error: RecordDeleteBlockedError): DeleteBlocke
 }
 
 /**
- * The refusal a delete gets when it withheld a confirmation.
+ * The refusal a write gets when it withheld a confirmation.
  *
  * Its own error rather than a `delete_blocked`, because the two ask the client
  * for different things. A blocked delete cannot proceed at all until the agency
@@ -45,22 +44,43 @@ export function deleteBlockedBody(error: RecordDeleteBlockedError): DeleteBlocke
  * `consequences` carries the same entries as `/records/:type/:id/delete-impact`,
  * so the sentence is the client's to write and the counts are the server's.
  * One flag per refusal: the next withheld one arrives on the next attempt.
+ *
+ * ## What an empty `consequences` means
+ *
+ * That the condition counts no rows. "This request is closed" is a fact about
+ * one row, not a list of rows about to go, so `message` carries the whole
+ * answer and the list is empty rather than absent. The client keys its wording
+ * off `flag`, which it already has to do — two counted refusals under one code
+ * need two different sentences — so one shape serves both and a form does not
+ * have to branch on whether a field is there.
+ *
+ * `flag` is the whole acknowledgement vocabulary, not the fourteen names the
+ * delete registry knows, because three mechanisms now raise this body.
  */
 export interface AcknowledgementRequiredBody {
 	readonly error: 'acknowledgement_required';
 	readonly message: string;
-	readonly flag: DeleteAcknowledgement;
+	readonly flag: Acknowledgement;
 	readonly consequences: readonly DeleteImpactEntry[];
 }
 
-export function acknowledgementRequiredBody(
-	error: DeleteAcknowledgementRequiredError,
-): AcknowledgementRequiredBody {
+/**
+ * Structural rather than typed to one error class, because three raise it: the
+ * delete registry's, the clearance check's, and the state guard's. Each names an
+ * acknowledgement from the vocabulary, so the parameter asks for that and no
+ * cast is needed at any of the three call sites.
+ */
+export function acknowledgementRequiredBody(error: {
+	readonly message: string;
+	readonly acknowledgement: Acknowledgement;
+	/** Absent on a state refusal, which counts nothing. */
+	readonly consequences?: readonly DeleteImpactEntry[];
+}): AcknowledgementRequiredBody {
 	return {
 		error: 'acknowledgement_required',
 		message: error.message,
 		flag: error.acknowledgement,
-		consequences: error.consequences,
+		consequences: error.consequences ?? [],
 	};
 }
 

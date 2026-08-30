@@ -377,6 +377,19 @@ export function reactivateHabitatCommand(input: HabitatIdCommandInput): Reactiva
 
 export function deleteHabitatCommand(input: DeleteHabitatCommandInput): DeleteHabitatCommand {
 	const issues = validateIdCommand(input, 'habitatId');
+	// Delete means the habitat should never have existed, and Retire means it
+	// should not be inspected from now on. The two buttons sit next to each other
+	// and only one of them is reversible, so the command carries the caller's
+	// answer to which they meant. The other two flags on this payload are about
+	// what hangs off the habitat and the delete registry counts those; this one
+	// is about the verb, so nothing can count it and the builder is where it
+	// belongs.
+	if (input.acknowledgedHabitatDelete !== true) {
+		issues.push({
+			path: 'acknowledgedHabitatDelete',
+			message: 'Deleting a habitat is permanent, and requires acknowledgement. Retire it instead.',
+		});
+	}
 	throwIfIssues('Delete habitat command is invalid.', issues);
 	return {
 		type: 'larvalSurveillance.deleteHabitat',

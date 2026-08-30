@@ -17,7 +17,7 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import {
 	type AdultSurveillanceDb,
 	type AdultSurveillanceTransaction,
@@ -139,8 +139,12 @@ function buildTrapUpdateCommands(
 				...(hasMethod ? { collectionMethodId: readText(payload.collectionMethodId) ?? '' } : {}),
 				...(hasAddress ? { addressId: readNullableText(payload.addressId) } : {}),
 				...(hasLure ? { collectionLureId: readNullableText(payload.collectionLureId) } : {}),
-				acknowledgedTrapLocationSemanticsChange: true,
-				acknowledgedTrapMethodSemanticsChange: true,
+				acknowledgedTrapLocationSemanticsChange: acknowledged(
+					payload.acknowledgedTrapLocationSemanticsChange,
+				),
+				acknowledgedTrapMethodSemanticsChange: acknowledged(
+					payload.acknowledgedTrapMethodSemanticsChange,
+				),
 			}),
 		);
 		if (!result.ok) {

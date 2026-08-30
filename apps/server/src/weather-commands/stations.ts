@@ -38,7 +38,7 @@
  * comment.
  */
 
-import { geojsonToGeom, sql } from '@simmer-mosquito/db';
+import { assertClearanceAcknowledged, geojsonToGeom, sql } from '@simmer-mosquito/db';
 import type { WeatherCommand } from '@simmer-mosquito/domain';
 import { refusableWrite } from '../table-commands/shared.js';
 import {
@@ -234,13 +234,27 @@ async function deleteStation(
 	if (station === null) {
 		return null;
 	}
-	if (await stationHasSummaries(trx, station.id)) {
-		assertAcknowledged(
-			payload.acknowledgedSummaryDeletion,
-			'weather_station_summary_deletion_unacknowledged',
-			'Deleting this station permanently deletes every summary recorded against it.',
-		);
-	}
+	// The clearance shape rather than this module's own 409: the summaries are a
+	// counted row set about to disappear, which is what
+	// `acknowledgement_required` says on every other surface, and the count is
+	// what the client needs to write the sentence. The station's other two
+	// acknowledgements still answer with the older body; #315 unifies them.
+	//
+	// `weather_summaries` is why the match is spelled out in full. It has no
+	// `deleted_at` and a nullable `organization_id`, so the filters the delete
+	// registry applies to every rule would find none of these rows, and it is
+	// also why a station cannot be a `DeletableRecordType`.
+	await assertClearanceAcknowledged(trx, {
+		acknowledgement: 'acknowledgedSummaryDeletion',
+		acknowledged: payload.acknowledgedSummaryDeletion,
+		rule: {
+			key: 'stationSummaries',
+			table: 'weather_summaries',
+			singular: 'summary',
+			plural: 'summaries',
+			match: sql`weather_source_id = ${station.id}`,
+		},
+	});
 	// Ahead of the soft delete, not after it. Summaries have no `deleted_at` of
 	// their own, so a station left behind with its rows would keep them alive and
 	// unreachable, and reachable again if the row were ever undeleted.

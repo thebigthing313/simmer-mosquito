@@ -13,6 +13,7 @@ import {
 	updateServiceRequestLocationCommand,
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
+import { requireStateAcknowledgement } from '../acknowledgements.js';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { acknowledged, readNullableText, readText } from '../command-payload.js';
@@ -149,7 +150,7 @@ function buildServiceRequestUpdateCommands(
 					? { receivedByProfileId: readNullableText(payload.receivedByProfileId) }
 					: {}),
 				...('details' in payload ? { details: readText(payload.details) ?? '' } : {}),
-				acknowledgedClosedRequestChange: true,
+				acknowledgedClosedRequestChange: acknowledged(payload.acknowledgedClosedRequestChange),
 			}),
 		);
 		if (!result.ok) return result;
@@ -292,6 +293,13 @@ async function updateServiceRequestDetails(
 	payload: ServiceRequestPayload<'publicEngagement.updateServiceRequestDetails'>,
 ): Promise<ServiceRequestRow | null> {
 	const { changes } = payload;
+	await assertClosedRequestAcknowledged(trx, {
+		serviceRequestId: payload.serviceRequestId,
+		organizationId: payload.organizationId,
+		acknowledgement: 'acknowledgedClosedRequestChange',
+		acknowledged: payload.acknowledgedClosedRequestChange,
+		message: 'This request is closed, and editing it changes what the resolution described.',
+	});
 	return updateServiceRequest(trx, payload.serviceRequestId, payload.organizationId, {
 		...('requestDate' in changes && changes.requestDate !== undefined
 			? { request_date: localDateColumn(changes.requestDate) }
@@ -397,6 +405,13 @@ async function deleteServiceRequest(
 	trx: PublicEngagementTransaction,
 	payload: ServiceRequestPayload<'publicEngagement.deleteServiceRequest'>,
 ): Promise<ServiceRequestRow | null> {
+	await assertClosedRequestAcknowledged(trx, {
+		serviceRequestId: payload.serviceRequestId,
+		organizationId: payload.organizationId,
+		acknowledgement: 'acknowledgedClosedRequestDeletion',
+		acknowledged: payload.acknowledgedClosedRequestDeletion,
+		message: 'This request is closed, so deleting it removes a resolved complaint from the record.',
+	});
 	await applyRecordDeletion(trx, {
 		recordType: 'serviceRequest',
 		recordId: payload.serviceRequestId,
@@ -414,6 +429,45 @@ async function deleteServiceRequest(
 		payload.actorProfileId,
 		serviceRequestReturnColumns,
 	);
+}
+
+/**
+ * Refuse a write against a closed request whose confirmation was withheld.
+ *
+ * Closed is the request's own state, not a count of what hangs off it, so the
+ * refusal carries no consequences and the message is the whole answer. Both
+ * flags this serves ask the same question about the same column and differ only
+ * in what the caller was about to do, which is why they are two flags and one
+ * reader.
+ */
+async function assertClosedRequestAcknowledged(
+	trx: PublicEngagementTransaction,
+	input: {
+		readonly serviceRequestId: string;
+		readonly organizationId: string;
+		readonly acknowledgement:
+			| 'acknowledgedClosedRequestChange'
+			| 'acknowledgedClosedRequestDeletion';
+		readonly acknowledged: boolean;
+		readonly message: string;
+	},
+): Promise<void> {
+	if (input.acknowledged === true) {
+		return;
+	}
+	const row = await trx
+		.selectFrom('service_requests')
+		.select('closed_at')
+		.where('id', '=', input.serviceRequestId)
+		.where('organization_id', '=', input.organizationId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirst();
+	requireStateAcknowledgement({
+		state: row?.closed_at != null,
+		acknowledgement: input.acknowledgement,
+		acknowledged: input.acknowledged,
+		message: input.message,
+	});
 }
 
 async function updateServiceRequest(
