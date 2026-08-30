@@ -73,6 +73,66 @@ const insecticideCommands: CatalogCommandNames = {
 	remove: 'controlOperations.deleteInsecticide',
 };
 
+/**
+ * The columns that say what the product *is*.
+ *
+ * A past application, batch or formulation stores none of this and reads it back
+ * off the product, so moving any one of them relabels history and the server
+ * asks about it. Split from the rest for that reason rather than for length:
+ * whether a save answers `acknowledgedHistoricalProductChange` is exactly
+ * "did anything in here move", and the two lists used to be written out
+ * separately and could drift apart.
+ */
+function insecticideIdentityChanges(
+	fields: InsecticideFields,
+	current: InsecticideFields,
+): Partial<Insecticide> {
+	const changes: Partial<Insecticide> = {};
+	if (fields.tradeName !== current.tradeName) {
+		changes.trade_name = fields.tradeName;
+	}
+	if (fields.activeIngredient !== current.activeIngredient) {
+		changes.active_ingredient = fields.activeIngredient;
+	}
+	if (fields.type !== current.type) {
+		changes.type = fields.type;
+	}
+	if (fields.registrationNumber !== current.registrationNumber) {
+		changes.registration_number = fields.registrationNumber;
+	}
+	if (fields.defaultUnitId !== current.defaultUnitId) {
+		changes.default_unit_id = fields.defaultUnitId;
+	}
+	return changes;
+}
+
+/**
+ * The columns that point at the product without being it.
+ *
+ * Where its label and safety sheet live, the agency's own abbreviation for it,
+ * and its notes. A save that moved only these answers no question, and the
+ * server draws the same line.
+ */
+function insecticideReferenceChanges(
+	fields: InsecticideFields,
+	current: InsecticideFields,
+): Partial<Insecticide> {
+	const changes: Partial<Insecticide> = {};
+	if (fields.labelUrl !== current.labelUrl) {
+		changes.label_url = fields.labelUrl;
+	}
+	if (fields.msdsUrl !== current.msdsUrl) {
+		changes.msds_url = fields.msdsUrl;
+	}
+	if (fields.shorthand !== current.shorthand) {
+		changes.shorthand = fields.shorthand;
+	}
+	if (fields.metadata !== current.metadata) {
+		changes.metadata = fields.metadata;
+	}
+	return changes;
+}
+
 export function useInsecticideMutations(): InsecticideMutations {
 	const { organizationId, actorProfileId } = useProductWriterIdentity();
 
@@ -115,48 +175,11 @@ export function useInsecticideMutations(): InsecticideMutations {
 			current: InsecticideFields,
 			acknowledgements: Readonly<Record<string, boolean>> = {},
 		) => {
-			const changes: Partial<Insecticide> = {};
-			if (fields.tradeName !== current.tradeName) {
-				changes.trade_name = fields.tradeName;
-			}
-			if (fields.activeIngredient !== current.activeIngredient) {
-				changes.active_ingredient = fields.activeIngredient;
-			}
-			if (fields.type !== current.type) {
-				changes.type = fields.type;
-			}
-			if (fields.registrationNumber !== current.registrationNumber) {
-				changes.registration_number = fields.registrationNumber;
-			}
-			if (fields.defaultUnitId !== current.defaultUnitId) {
-				changes.default_unit_id = fields.defaultUnitId;
-			}
-			if (fields.labelUrl !== current.labelUrl) {
-				changes.label_url = fields.labelUrl;
-			}
-			if (fields.msdsUrl !== current.msdsUrl) {
-				changes.msds_url = fields.msdsUrl;
-			}
-			if (fields.shorthand !== current.shorthand) {
-				changes.shorthand = fields.shorthand;
-			}
-			if (fields.metadata !== current.metadata) {
-				changes.metadata = fields.metadata;
-			}
-			// What the product *is* is what a past application, batch or formulation
-			// reads back under; it stores none of it itself. The label links, the
-			// shorthand and the metadata are references to the product rather than
-			// the product, so a save that moved only those answers no question. The
-			// server draws the same line.
-			const identityMoved =
-				changes.trade_name !== undefined ||
-				changes.active_ingredient !== undefined ||
-				changes.type !== undefined ||
-				changes.registration_number !== undefined ||
-				changes.default_unit_id !== undefined;
+			const identity = insecticideIdentityChanges(fields, current);
+			const identityMoved = Object.keys(identity).length > 0;
 
 			await saveCatalogRow(insecticides, insecticideCommands, id, {
-				changes,
+				changes: { ...identity, ...insecticideReferenceChanges(fields, current) },
 				isActive: fields.isActive,
 				wasActive: current.isActive,
 				...(identityMoved

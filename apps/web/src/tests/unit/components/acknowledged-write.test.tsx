@@ -599,6 +599,33 @@ describe('the renames and edits that rewrite what past records read', () => {
 		expect(lastWrite().acknowledgements).toEqual({ acknowledgedHistoricalProductChange: false });
 	});
 
+	it('insecticide: and nothing when only the label links moved', async () => {
+		const { result } = renderHook(() => useInsecticideMutations());
+		const current = {
+			tradeName: 'Aqua-Reslin',
+			activeIngredient: 'Permethrin',
+			type: 'adulticide' as const,
+			registrationNumber: '432-796',
+			defaultUnitId: UNIT,
+			labelUrl: null,
+			msdsUrl: null,
+			shorthand: null,
+			metadata: null,
+			isActive: true,
+		};
+
+		await firstAttempt(INSECTICIDE_SAVE_REFUSALS, (acknowledgements) =>
+			result.current.save(
+				RECORD,
+				{ ...current, labelUrl: 'https://example.test/label.pdf' },
+				current,
+				acknowledgements,
+			),
+		);
+
+		expect(lastWrite().acknowledgements).toEqual({});
+	});
+
 	it('insecticide batch: only when the batch label moved', async () => {
 		const { result } = renderHook(() => useInsecticideBatchMutations());
 		const current = { insecticideId: RECORD, batchName: 'Lot 4', isActive: true };
