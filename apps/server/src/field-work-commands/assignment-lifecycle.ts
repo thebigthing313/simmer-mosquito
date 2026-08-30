@@ -14,7 +14,8 @@
  * half.
  */
 
-import { sql } from '@simmer-mosquito/db';
+import { assertClearanceAcknowledged, type ClearanceRule, sql } from '@simmer-mosquito/db';
+import { requireStateAcknowledgement } from '../acknowledgements.js';
 import { CommandError } from '../command-endpoint.js';
 import { isProgressBeforeStart, type ProgressTiming } from '../progress-timing.js';
 import type { FieldWorkTransaction } from './shared.js';
@@ -49,9 +50,7 @@ export type LifecycleRejection =
 	| 'assignment_item_not_completed'
 	| 'assignment_item_not_skipped'
 	| 'assignment_item_progress_before_start'
-	| 'assignment_item_wrong_target_type'
-	| 'assignment_item_target_mismatch'
-	| 'assignment_item_already_completed';
+	| 'assignment_item_wrong_target_type';
 
 /**
  * What to tell the person who tried.
@@ -76,8 +75,6 @@ const REJECTION_REASONS: Record<LifecycleRejection, string> = {
 	assignment_item_progress_before_start:
 		'This stop is dated before the assignment started. Check the assignment start time.',
 	assignment_item_wrong_target_type: 'This stop is not the kind of work you are recording.',
-	assignment_item_target_mismatch: 'This record is not for the place this stop names.',
-	assignment_item_already_completed: 'This stop is already completed.',
 };
 
 export function readAssignmentState(row: {
@@ -185,7 +182,9 @@ export function checkItemProgress(
  * exactly as a progress command would be.
  *
  * A second record against an already-completed stop is allowed but must be
- * asked for, because the ordinary cause is a double submit.
+ * asked for, because the ordinary cause is a double submit. That question is
+ * not here: it counts the records already filed against the stop, which is a
+ * read, so `beginExecution` asks it once the pure rules have passed.
  *
  * The completion this writes is a progress timestamp like any other, so it is
  * judged against the assignment's start the same way `checkItemProgress` judges
@@ -199,7 +198,6 @@ export function checkExecution(
 	item: AssignmentItemState,
 	options: {
 		readonly autoStart: boolean;
-		readonly acknowledgedCompletedItemAdditionalRecord: boolean;
 	},
 	timing?: ProgressTiming,
 ): LifecycleRejection | null {
@@ -212,9 +210,6 @@ export function checkExecution(
 	if (item === 'skipped') {
 		return 'assignment_item_skipped';
 	}
-	if (item === 'completed' && !options.acknowledgedCompletedItemAdditionalRecord) {
-		return 'assignment_item_already_completed';
-	}
 	// Last, for the same reason as in `checkItemProgress`: a stop refused for its
 	// state should be told about its state.
 	if (timing !== undefined && isProgressBeforeStart(timing.progressAt, timing.startedAt)) {
@@ -224,28 +219,37 @@ export function checkExecution(
 }
 
 /**
- * The stop has to be the kind of stop the record is for, and — unless the
- * caller says otherwise — about the same place. A trap collection filed against
- * a habitat stop is always a bug; the same trap's collection filed against a
- * *different* trap's stop is occasionally legitimate, so that one is an
- * acknowledgement rather than a refusal.
+ * The stop has to be the kind of stop the record is for. A trap collection
+ * filed against a habitat stop is always a bug, so it is a refusal with no way
+ * past it.
+ *
+ * The same trap's collection filed against a *different* trap's stop is
+ * occasionally legitimate, so that one is a question rather than a refusal and
+ * `isTargetMismatch` is where it is asked.
  */
 export function checkExecutionTarget(
-	item: { readonly entityType: string; readonly entityId: string },
-	expected: { readonly entityType: string; readonly entityId: string | null },
-	acknowledgedTargetMismatch: boolean,
+	item: { readonly entityType: string },
+	expected: { readonly entityType: string },
 ): LifecycleRejection | null {
-	if (item.entityType !== expected.entityType) {
-		return 'assignment_item_wrong_target_type';
-	}
-	if (
-		expected.entityId !== null &&
-		expected.entityId !== item.entityId &&
-		!acknowledgedTargetMismatch
-	) {
-		return 'assignment_item_target_mismatch';
-	}
-	return null;
+	return item.entityType === expected.entityType ? null : 'assignment_item_wrong_target_type';
+}
+
+/**
+ * Whether the record names a different target of the right kind.
+ *
+ * A caller that sent no target of its own is recording against whatever the
+ * stop names, so there is nothing to disagree with.
+ */
+export function isTargetMismatch(
+	item: { readonly entityId: string },
+	expected: { readonly entityId: string | null },
+): boolean {
+	return expected.entityId !== null && expected.entityId !== item.entityId;
+}
+
+/** "trap", "habitat" — the stop's own kind, for the sentence a mismatch carries. */
+export function targetNoun(entityType: string): string {
+	return entityType.replaceAll('_', ' ');
 }
 
 // ===========================================================================
@@ -330,6 +334,12 @@ export interface ExecutionStop {
  * Everything here runs inside the caller's transaction, and the assignment row
  * is locked before it is read, so two devices recording against the same
  * assignment cannot both decide it was unstarted and both stamp a start time.
+ *
+ * The two acknowledgements are answered here rather than by a pure predicate,
+ * because this is where the state they turn on has been loaded. Both refuse
+ * with `409 acknowledgement_required` naming the flag, before anything is
+ * written: the completed-stop one counts the records already filed against the
+ * stop, the mismatch one counts nothing and says what the mismatch is.
  */
 export async function beginExecution(
 	trx: FieldWorkTransaction,
@@ -341,6 +351,12 @@ export async function beginExecution(
 		readonly autoStart: boolean;
 		readonly acknowledgedCompletedItemAdditionalRecord: boolean;
 		readonly acknowledgedTargetMismatch: boolean;
+		/**
+		 * The records already filed against this stop, for the refusal to count.
+		 * The caller brings it because the provenance column is the record table's
+		 * own: `inspections.assignment_item_id`, and two of them on `collections`.
+		 */
+		readonly recordedHere: ClearanceRule;
 		/** The completion this execution will write, if it is writing one. */
 		readonly completeItem: boolean;
 		readonly completedAt: Date | null;
@@ -370,27 +386,34 @@ export async function beginExecution(
 	}
 
 	const state = readAssignmentState(assignment);
+	const itemState = readAssignmentItemState(item);
 	reject(
 		checkExecution(
 			state,
-			readAssignmentItemState(item),
-			{
-				autoStart: options.autoStart,
-				acknowledgedCompletedItemAdditionalRecord:
-					options.acknowledgedCompletedItemAdditionalRecord,
-			},
+			itemState,
+			{ autoStart: options.autoStart },
 			options.completeItem
 				? { progressAt: options.completedAt, startedAt: assignment.started_at }
 				: undefined,
 		),
 	);
-	reject(
-		checkExecutionTarget(
-			{ entityType: item.entity_type, entityId: item.entity_id },
-			expected,
-			options.acknowledgedTargetMismatch,
-		),
-	);
+	// Only a completed stop raises the double-submit question, so a pending one
+	// never pays for the count.
+	if (itemState === 'completed') {
+		await assertClearanceAcknowledged(trx, {
+			acknowledgement: 'acknowledgedCompletedItemAdditionalRecord',
+			rule: options.recordedHere,
+			acknowledged: options.acknowledgedCompletedItemAdditionalRecord,
+			message: (counted) => `This stop is already completed, with ${counted} recorded against it.`,
+		});
+	}
+	reject(checkExecutionTarget({ entityType: item.entity_type }, expected));
+	requireStateAcknowledgement({
+		state: isTargetMismatch({ entityId: item.entity_id }, expected),
+		acknowledgement: 'acknowledgedTargetMismatch',
+		acknowledged: options.acknowledgedTargetMismatch,
+		message: `This stop names a different ${targetNoun(item.entity_type)} than the one this record is for.`,
+	});
 
 	const startedNow = state === 'not_started';
 	if (startedNow) {

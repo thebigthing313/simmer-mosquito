@@ -16,6 +16,12 @@
  * A wrong *type* of record, or a mission whose control type does not match, is
  * absent on purpose: those are always bugs and the server never takes a flag for
  * them (`docs/field-work-support-domain.md`, `docs/mission-dispatch-domain.md`).
+ *
+ * The two assignment refusals now arrive as `acknowledgement_required` naming
+ * their own flag (#336), so their codes are no longer what identifies them.
+ * They stay because the map is also the list of questions this surface may be
+ * asked, which is what `acknowledgeableRefusalOf` checks a named flag against.
+ * The mission three are #316's, and the codes go once they follow.
  */
 export const STOP_ACKNOWLEDGEABLE_REFUSALS = {
 	assignment_item_already_completed: 'acknowledgedCompletedItemAdditionalRecord',
@@ -54,14 +60,24 @@ export function acknowledgeableRefusalOf<TRefusals extends Readonly<Record<strin
 		return null;
 	}
 	const code = (body as { readonly error?: unknown }).error;
+	if (typeof code !== 'string') {
+		return null;
+	}
+	// The settled refusal names its own flag, so there is no per-code entry to
+	// look up. It is still checked against this caller's map, because the map is
+	// what says which questions this surface can ask.
+	if (code === 'acknowledgement_required') {
+		const flag = (body as { readonly flag?: unknown }).flag;
+		const askable: readonly string[] = Object.values(refusals);
+		return typeof flag === 'string' && askable.includes(flag)
+			? (flag as TRefusals[keyof TRefusals])
+			: null;
+	}
 	// Generic over the map so a caller keeps the literal union of its own flags
 	// rather than a bare `string`. A misspelled flag then fails to compile where it
 	// is declared, instead of becoming a question the user answers and the server
 	// never hears.
-	if (typeof code !== 'string' || !Object.hasOwn(refusals, code)) {
-		return null;
-	}
-	return refusals[code as keyof TRefusals];
+	return Object.hasOwn(refusals, code) ? refusals[code as keyof TRefusals] : null;
 }
 
 /**

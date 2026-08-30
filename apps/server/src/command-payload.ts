@@ -84,20 +84,25 @@ export function acknowledged(value: unknown): boolean {
  * `completeAssignmentItem` means "yes, close the stop". Only an explicit
  * `false` turns it off, so a client that has never heard of these flags gets
  * the behaviour the field wants.
+ *
+ * The two acknowledgements go through {@link acknowledged} like every other
+ * one, so a withheld flag is an explicit `false` and nothing else. They used to
+ * be read as `=== true` here and refused with a lifecycle code of their own,
+ * which was a second reading of the same question and the door #317 left open.
  */
 export function readExecutionOptions(payload: Record<string, unknown>): {
 	readonly completeAssignmentItem?: boolean;
 	readonly autoStartAssignment?: boolean;
-	readonly acknowledgedCompletedItemAdditionalRecord?: boolean;
-	readonly acknowledgedTargetMismatch?: boolean;
+	readonly acknowledgedCompletedItemAdditionalRecord: boolean;
+	readonly acknowledgedTargetMismatch: boolean;
 } {
 	return {
 		...(payload.completeAssignmentItem === false ? { completeAssignmentItem: false } : {}),
 		...(payload.autoStartAssignment === false ? { autoStartAssignment: false } : {}),
-		...(payload.acknowledgedCompletedItemAdditionalRecord === true
-			? { acknowledgedCompletedItemAdditionalRecord: true }
-			: {}),
-		...(payload.acknowledgedTargetMismatch === true ? { acknowledgedTargetMismatch: true } : {}),
+		acknowledgedCompletedItemAdditionalRecord: acknowledged(
+			payload.acknowledgedCompletedItemAdditionalRecord,
+		),
+		acknowledgedTargetMismatch: acknowledged(payload.acknowledgedTargetMismatch),
 	};
 }
 

@@ -82,6 +82,39 @@ describe('acknowledgeable refusals', () => {
 		}
 	});
 
+	/**
+	 * The settled refusal body, which names its own flag instead of taking a code
+	 * per question.
+	 *
+	 * The two assignment-execution questions arrive this way since #336, and the
+	 * clearance and state refusals on other surfaces always did. The flag is still
+	 * checked against the caller's map: a surface that cannot ask a question must
+	 * not offer a button for it just because the server named one.
+	 */
+	it('reads the flag a 409 acknowledgement_required names', () => {
+		expect(
+			acknowledgeableRefusalOf(
+				acknowledgementRequired('acknowledgedCompletedItemAdditionalRecord'),
+				STOP_ACKNOWLEDGEABLE_REFUSALS,
+			),
+		).toBe('acknowledgedCompletedItemAdditionalRecord');
+		expect(
+			acknowledgeableRefusalOf(
+				acknowledgementRequired('acknowledgedTargetMismatch'),
+				STOP_ACKNOWLEDGEABLE_REFUSALS,
+			),
+		).toBe('acknowledgedTargetMismatch');
+	});
+
+	it('does not offer a named flag this surface cannot be asked', () => {
+		expect(
+			acknowledgeableRefusalOf(
+				acknowledgementRequired('acknowledgedSummaryDeletion'),
+				STOP_ACKNOWLEDGEABLE_REFUSALS,
+			),
+		).toBeNull();
+	});
+
 	it('ignores failures that are not refusals at all', () => {
 		const map = STOP_ACKNOWLEDGEABLE_REFUSALS;
 
@@ -133,4 +166,13 @@ describe('reading acknowledgements off a mutation', () => {
 
 function refusal(code: string): CommandError {
 	return new CommandError('Refused.', 400, { error: code, reason: 'Because.' });
+}
+
+function acknowledgementRequired(flag: string): CommandError {
+	return new CommandError('Refused.', 409, {
+		error: 'acknowledgement_required',
+		message: 'This stop is already completed.',
+		flag,
+		consequences: [],
+	});
 }

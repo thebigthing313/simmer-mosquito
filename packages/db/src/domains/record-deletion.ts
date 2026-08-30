@@ -260,9 +260,15 @@ function countPhrase(consequences: readonly DeleteImpactEntry[]): string {
  * than a scope this module assembles: `weather_summaries` has no `deleted_at`
  * and a nullable `organization_id`, so the filters every registry rule applies
  * would find nothing there.
+ *
+ * A fifth write counts rows it is not removing. Recording a second record
+ * against an assignment stop that is already complete asks the same question
+ * over the same count — "this many are already there, did you mean that" — so
+ * it takes the same check and supplies its own sentence through `message`.
  */
 export type ClearanceAcknowledgement =
 	| 'acknowledgedBatchClearance'
+	| 'acknowledgedCompletedItemAdditionalRecord'
 	| 'acknowledgedRouteRemoval'
 	| 'acknowledgedSpeciesCountsClearance'
 	| 'acknowledgedSummaryDeletion';
@@ -285,6 +291,10 @@ export interface ClearanceRule {
  *
  * Carries the same `consequences` entries a delete refusal does, so the client
  * renders one list either way. Nothing has been written when this is thrown.
+ *
+ * `message` is the sentence the person sees. It defaults to the removal one
+ * because four of the five callers are removing what they counted; the fifth
+ * counts what is already there and says so instead.
  */
 export class ClearanceAcknowledgementRequiredError extends Error {
 	readonly acknowledgement: ClearanceAcknowledgement;
@@ -293,8 +303,9 @@ export class ClearanceAcknowledgementRequiredError extends Error {
 	constructor(
 		acknowledgement: ClearanceAcknowledgement,
 		consequences: readonly DeleteImpactEntry[],
+		message?: string,
 	) {
-		super(`This change removes ${countPhrase(consequences)}.`);
+		super(message ?? `This change removes ${countPhrase(consequences)}.`);
 		this.name = 'ClearanceAcknowledgementRequiredError';
 		this.acknowledgement = acknowledgement;
 		this.consequences = consequences;
@@ -306,7 +317,8 @@ export class ClearanceAcknowledgementRequiredError extends Error {
  *
  * Call it before the write, inside the same transaction. Nothing to clear means
  * nothing to ask about, so an empty match passes whatever the flag says: a
- * collection with no species counts is marked zero-result without a question.
+ * collection with no species counts is marked zero-result without a question,
+ * and a stop that closed without a record is recorded against without one.
  *
  * @throws ClearanceAcknowledgementRequiredError when rows matched and
  * `acknowledged` was not true.
@@ -318,6 +330,11 @@ export async function assertClearanceAcknowledged(
 		readonly rule: ClearanceRule;
 		/** What the command carried. Anything but `true` is withheld. */
 		readonly acknowledged: boolean;
+		/**
+		 * The sentence the refusal carries, given the counted rows worded as
+		 * "2 inspections". Omit it for the removal sentence.
+		 */
+		readonly message?: (counted: string) => string;
 	},
 ): Promise<void> {
 	if (input.acknowledged === true) {
@@ -335,14 +352,19 @@ export async function assertClearanceAcknowledged(
 		return;
 	}
 
-	throw new ClearanceAcknowledgementRequiredError(input.acknowledgement, [
+	const consequences = [
 		{
 			key: input.rule.key,
 			count,
 			singular: input.rule.singular,
 			plural: input.rule.plural,
 		},
-	]);
+	];
+	throw new ClearanceAcknowledgementRequiredError(
+		input.acknowledgement,
+		consequences,
+		input.message?.(countPhrase(consequences)),
+	);
 }
 
 // ---------------------------------------------------------------------------

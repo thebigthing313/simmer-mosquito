@@ -56,8 +56,9 @@ export type AcknowledgementMechanism =
 	 */
 	| { readonly kind: 'domainBuilder' }
 	/**
-	 * `assertClearanceAcknowledged` counts the rows a non-delete write is about
-	 * to remove and refuses with `409 acknowledgement_required`.
+	 * `assertClearanceAcknowledged` counts the rows a non-delete write turns on
+	 * — the ones it removes, or the ones already there — and refuses with
+	 * `409 acknowledgement_required`.
 	 */
 	| { readonly kind: 'clearanceCheck' }
 	/**
@@ -110,7 +111,7 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedClosedRequestChange: stateGuard,
 	acknowledgedClosedRequestDeletion: stateGuard,
 	acknowledgedCompletedItemAdditionalAction: unchecked(316),
-	acknowledgedCompletedItemAdditionalRecord: unchecked(336),
+	acknowledgedCompletedItemAdditionalRecord: clearanceCheck,
 	acknowledgedCompletedMissionDeletion: stateGuard,
 	// The registry blocks rather than cascades: a formulation with live
 	// ingredient rows cannot be deleted at all, so the caller gets
@@ -167,7 +168,7 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedSpeciesCountsClearance: clearanceCheck,
 	acknowledgedSummaryDeletion: clearanceCheck,
 	acknowledgedSupportRecordDeletion: deleteRegistry,
-	acknowledgedTargetMismatch: unchecked(336),
+	acknowledgedTargetMismatch: stateGuard,
 	acknowledgedTaxonomyLabelChange: unchecked(315),
 	acknowledgedTaxonomyMeaningChange: unchecked(315),
 	acknowledgedTrapLocationSemanticsChange: domainBuilder,
@@ -184,7 +185,7 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
  * Lower it when a branch guards one. `pnpm check:acknowledgements` fails when
  * this and the map disagree, so the number cannot rot in either direction.
  */
-export const UNCHECKED_ACKNOWLEDGEMENTS = 18;
+export const UNCHECKED_ACKNOWLEDGEMENTS = 16;
 
 // ===========================================================================
 // The state refusal
@@ -193,15 +194,18 @@ export const UNCHECKED_ACKNOWLEDGEMENTS = 18;
 /**
  * The acknowledgements that turn on state rather than on a count.
  *
- * "This request is closed" and "this trap already has a collection nobody has
- * come back for" are facts about one row. The mission ones are facts about a
- * mission or a stop, and two of them read past the row to answer: whether any
- * work has been recorded against a mission's stops, whether notifications have
- * gone out for it. They are still state, because the number is not the
- * question. A mission that has been worked once and a mission that has been
- * worked forty times pose the caller the same decision, and listing what would
- * happen to those records is wrong anyway: nothing happens to them, which is
- * exactly the problem being pointed at.
+ * Not what hangs off it. "This request is closed", "this trap already has a
+ * collection nobody has come back for" and "this stop names a different trap"
+ * are facts about one row, so there is nothing to count and the sentence is the
+ * whole answer.
+ *
+ * The mission ones are facts about a mission or a stop, and two of them read
+ * past the row to answer: whether any work has been recorded against a
+ * mission's stops, whether notifications have gone out for it. They are still
+ * state, because the number is not the question. A mission worked once and a
+ * mission worked forty times pose the caller the same decision, and listing
+ * what would happen to those records is wrong anyway: nothing happens to them,
+ * which is exactly the problem being pointed at.
  */
 export type StateAcknowledgement =
 	| 'acknowledgedActualActionContextChange'
@@ -224,6 +228,7 @@ export type StateAcknowledgement =
 	| 'acknowledgedProgressedItemLinkChange'
 	| 'acknowledgedProgressedItemReorder'
 	| 'acknowledgedProgressedMissionCancellation'
+	| 'acknowledgedTargetMismatch'
 	| 'acknowledgedWorkedMissionPlanChange'
 	| 'acknowledgedWorkedMissionScheduleChange';
 

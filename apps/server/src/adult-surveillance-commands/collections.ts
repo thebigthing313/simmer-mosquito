@@ -2,6 +2,7 @@ import {
 	applyRecordDeletion,
 	assertClearanceAcknowledged,
 	assertWriteReferences,
+	type ClearanceRule,
 	checkedValues,
 	type DeleteAcknowledgements,
 	sql,
@@ -640,8 +641,33 @@ function executionOptions(payload: ExecutionPayload) {
 		autoStart: payload.autoStartAssignment,
 		acknowledgedCompletedItemAdditionalRecord: payload.acknowledgedCompletedItemAdditionalRecord,
 		acknowledgedTargetMismatch: payload.acknowledgedTargetMismatch,
+		recordedHere: collectionsRecordedAtStop(payload.assignmentItemId, payload.organizationId),
 		completeItem: payload.completeAssignmentItem,
 		completedAt: payload.completedAt,
+	};
+}
+
+/**
+ * The collections already filed against a stop, for the double-submit refusal
+ * to count.
+ *
+ * Both provenance columns, because one visit can set a trap and another can
+ * empty it, and a stop that did either is a stop this record would be the
+ * second of.
+ */
+function collectionsRecordedAtStop(
+	assignmentItemId: string,
+	organizationId: string,
+): ClearanceRule {
+	return {
+		key: 'stopCollections',
+		table: 'collections',
+		singular: 'collection',
+		plural: 'collections',
+		match: sql`(set_assignment_item_id = ${assignmentItemId}::uuid
+			or collected_assignment_item_id = ${assignmentItemId}::uuid)
+			and organization_id = ${organizationId}::uuid
+			and deleted_at is null`,
 	};
 }
 
