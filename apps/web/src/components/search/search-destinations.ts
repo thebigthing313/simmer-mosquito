@@ -1,4 +1,10 @@
-import type { CommentTargetType, CorpusTable, SearchResult } from '@simmer-mosquito/domain';
+import type {
+	CommentTargetType,
+	CorpusTable,
+	SearchCommentResult,
+	SearchRecordResult,
+	SearchResult,
+} from '@simmer-mosquito/domain';
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import type { LinkProps } from '@tanstack/react-router';
 
@@ -74,44 +80,94 @@ export interface SearchDestination {
 }
 
 /**
+ * What the synced `routes` collection can say about a route id.
+ *
+ * Three states, not two. A collection that has not answered yet and a collection
+ * that has answered and does not hold the id are different facts, and the bug
+ * this shape fixes was them sharing one `undefined`: a comment on a trap route
+ * opened before the shape landed went to the habitat tree, which filtered it
+ * out and rendered as "this route does not exist".
+ */
+export type RouteTypeIndex =
+	| { readonly status: 'loading' }
+	| { readonly status: 'ready'; readonly routeTypeOf: (routeId: string) => string | undefined };
+
+/**
+ * Where a row goes, or why it does not go anywhere yet.
+ *
+ * `pending` is a wait and the caller has to draw it as one; `unresolved` is a
+ * row with no destination at all, which is a route this agency cannot see or a
+ * kind that carries its own `to`.
+ */
+export type DestinationResolution<TDestination> =
+	| { readonly status: 'ready'; readonly destination: TDestination }
+	| { readonly status: 'pending' }
+	| { readonly status: 'unresolved' };
+
+const PENDING: DestinationResolution<never> = { status: 'pending' };
+const UNRESOLVED: DestinationResolution<never> = { status: 'unresolved' };
+
+function ready(to: DetailRoute, id: string): DestinationResolution<SearchDestination> {
+	return { status: 'ready', destination: { to, params: { id } } };
+}
+
+/**
  * The record or comment a result resolves to.
  *
- * `resolveRouteType` answers what kind of route an id names, from the synced
- * `routes` collection. It is only consulted for a comment written on a route: a
- * route result carries its own type on the wire. An unknown id falls back to the
- * habitat tree, which is the pre-existing shape of that collection's `routeType`
- * default and is wrong only for a comment on a trap route the collection has not
- * loaded — an eagerly synced table, so in practice never.
+ * A route and an action carry the navigation item's own `to`, which the caller
+ * already holds, so neither goes through this map.
  */
 export function searchResultDestination(
 	result: SearchResult,
-	resolveRouteType: (routeId: string) => string | undefined,
-): SearchDestination | undefined {
-	if (result.kind === 'record') {
-		if (result.table === 'routes') {
-			return {
-				to: result.routeType === 'trap' ? TRAP_ROUTE_TREE : HABITAT_ROUTE_TREE,
-				params: { id: result.id },
-			};
-		}
+	routeTypes: RouteTypeIndex,
+): DestinationResolution<SearchDestination> {
+	switch (result.kind) {
+		case 'record':
+			return recordDestination(result);
+		case 'comment':
+			return commentDestination(result, routeTypes);
+		default:
+			return UNRESOLVED;
+	}
+}
 
-		return { to: RECORD_ROUTES[result.table], params: { id: result.id } };
+/** A record row, which always carries everything its destination needs. */
+function recordDestination(result: SearchRecordResult): DestinationResolution<SearchDestination> {
+	if (result.table === 'routes') {
+		return ready(routeTree(result.routeType), result.id);
 	}
 
-	if (result.kind === 'comment') {
-		if (result.targetType === 'route') {
-			return {
-				to: resolveRouteType(result.targetId) === 'trap' ? TRAP_ROUTE_TREE : HABITAT_ROUTE_TREE,
-				params: { id: result.targetId },
-			};
-		}
+	return ready(RECORD_ROUTES[result.table], result.id);
+}
 
-		return { to: COMMENT_TARGET_ROUTES[result.targetType], params: { id: result.targetId } };
+/**
+ * A comment row, and the one lookup on this whole surface.
+ *
+ * Sixteen of the seventeen target types resolve to a fixed route. `route` is the
+ * exception: the comment document borrows nothing from its target, so the type
+ * comes from the synced collection. Until that collection is ready the answer is
+ * `pending` rather than a tree, because guessing either one is a confident wrong
+ * answer; once it is ready, an id it does not hold names a route this agency
+ * cannot see.
+ */
+function commentDestination(
+	result: SearchCommentResult,
+	routeTypes: RouteTypeIndex,
+): DestinationResolution<SearchDestination> {
+	if (result.targetType !== 'route') {
+		return ready(COMMENT_TARGET_ROUTES[result.targetType], result.targetId);
 	}
 
-	// A route and an action both carry the navigation item's own `to`, which the
-	// caller already holds; neither goes through this map.
-	return undefined;
+	if (routeTypes.status === 'loading') {
+		return PENDING;
+	}
+
+	const routeType = routeTypes.routeTypeOf(result.targetId);
+	return routeType === undefined ? UNRESOLVED : ready(routeTree(routeType), result.targetId);
+}
+
+function routeTree(routeType: string | undefined): DetailRoute {
+	return routeType === 'trap' ? TRAP_ROUTE_TREE : HABITAT_ROUTE_TREE;
 }
 
 /**

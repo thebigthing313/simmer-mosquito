@@ -1,10 +1,12 @@
 import { type SearchResult, searchResultValue } from '@simmer-mosquito/domain';
-import { useLiveQuery } from '@tanstack/react-db';
 import { useEffect, useState } from 'react';
 import type { AuthMe } from '../../auth';
-import { routes as routesCollection } from '../../lib/collections/routes';
 import { shellSearchCandidates, type WebShellCandidate } from '../app-shell/navigation';
-import { type SearchDestination, searchResultDestination } from './search-destinations';
+import {
+	type DestinationResolution,
+	type RouteTypeIndex,
+	searchResultDestination,
+} from './search-destinations';
 import {
 	bucketServerResults,
 	capPaletteGroups,
@@ -12,6 +14,7 @@ import {
 	type PaletteGroups,
 } from './search-matching';
 import { useDebouncedQuery, useGlobalSearch } from './use-global-search';
+import { useRouteTypeIndex } from './use-search-navigation';
 
 /**
  * The server budget the palette asks for.
@@ -38,8 +41,8 @@ export interface PaletteContent {
 	readonly empty: boolean;
 	readonly total: number;
 	readonly refetch: () => void;
-	/** Where a row goes, or undefined where nothing resolves it. */
-	readonly destinationOf: (result: SearchResult) => PaletteDestination | undefined;
+	/** Where a row goes, whether that is known yet, and whether it goes anywhere. */
+	readonly destinationOf: (result: SearchResult) => DestinationResolution<PaletteDestination>;
 }
 
 export interface PaletteDestination {
@@ -66,7 +69,7 @@ export function usePaletteContent(auth: AuthMe | null, query: string): PaletteCo
 	const [value, setValue] = useState('');
 
 	const { routes: routeCandidates, actions: actionCandidates } = shellSearchCandidates(auth);
-	const routeLookup = useLiveQuery((builder) => builder.from({ row: routesCollection }), []);
+	const routeTypes = useRouteTypeIndex();
 	const search = useGlobalSearch({ query: debouncedQuery, limit: PALETTE_SERVER_LIMIT });
 
 	// The debounce window counts as in flight. Nothing has been requested during
@@ -130,9 +133,7 @@ export function usePaletteContent(auth: AuthMe | null, query: string): PaletteCo
 		total: search.data?.total ?? 0,
 		refetch: () => void search.refetch(),
 		destinationOf: (result) =>
-			resolveDestination(result, [...routeCandidates, ...actionCandidates], (routeId) =>
-				findRouteType(routeLookup.data, routeId),
-			),
+			resolveDestination(result, [...routeCandidates, ...actionCandidates], routeTypes),
 	};
 }
 
@@ -146,24 +147,25 @@ export function usePaletteContent(auth: AuthMe | null, query: string): PaletteCo
 function resolveDestination(
 	result: SearchResult,
 	candidates: readonly WebShellCandidate[],
-	routeTypeOf: (routeId: string) => string | undefined,
-): PaletteDestination | undefined {
+	routeTypes: RouteTypeIndex,
+): DestinationResolution<PaletteDestination> {
 	if (result.kind === 'route' || result.kind === 'action') {
 		const candidate = candidates.find((entry) => entry.id === result.id);
-		return candidate === undefined ? undefined : { to: candidate.to as string };
+		return candidate === undefined
+			? { status: 'unresolved' }
+			: { status: 'ready', destination: { to: candidate.to as string } };
 	}
 
-	const destination: SearchDestination | undefined = searchResultDestination(result, routeTypeOf);
-	return destination === undefined
-		? undefined
-		: { to: destination.to as string, params: destination.params };
-}
-
-function findRouteType(
-	rows: readonly { readonly id: string; readonly route_type: string }[] | undefined,
-	routeId: string,
-): string | undefined {
-	return (rows ?? []).find((row) => row.id === routeId)?.route_type;
+	const resolution = searchResultDestination(result, routeTypes);
+	return resolution.status === 'ready'
+		? {
+				status: 'ready',
+				destination: {
+					to: resolution.destination.to as string,
+					params: resolution.destination.params,
+				},
+			}
+		: resolution;
 }
 
 function toRouteResult(candidate: WebShellCandidate): SearchResult {

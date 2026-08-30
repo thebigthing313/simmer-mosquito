@@ -10,20 +10,16 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import { useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
-import {
-	searchResultDestination,
-	searchResultIcon,
-} from '../components/search/search-destinations';
+import { searchResultIcon } from '../components/search/search-destinations';
 import { RetiredMarker } from '../components/search/search-result-row';
 import {
 	SearchRequestError,
 	useDebouncedQuery,
 	useGlobalSearch,
 } from '../components/search/use-global-search';
-import { routes as routesCollection } from '../lib/collections/routes';
+import { useSearchResultOpen } from '../components/search/use-search-navigation';
 import {
 	type FilterCodecs,
 	type SearchCodec,
@@ -80,18 +76,14 @@ function SearchResultsRoute() {
 	const [draft, setDraft] = useEditableQuery(urlQuery, navigate);
 
 	const list = useSearchResultList(urlQuery, documentClass);
-	const routeLookup = useLiveQuery((query) => query.from({ row: routesCollection }), []);
 	const { counts, first, hasMore, next, rows, sentinel, total } = list;
 
-	function open(result: SearchResult) {
-		const destination = searchResultDestination(
-			result,
-			(routeId) => (routeLookup.data ?? []).find((row) => row.id === routeId)?.route_type,
-		);
-		if (destination !== undefined) {
-			navigate({ to: destination.to as never, params: destination.params as never });
-		}
-	}
+	// A route comment opened before the routes collection has answered has no
+	// destination yet, and guessing a tree is the bug this replaced. The row is
+	// held and opened when the lookup lands.
+	const opening = useSearchResultOpen((destination) =>
+		navigate({ to: destination.to as never, params: destination.params as never }),
+	);
 
 	const refused = first.error instanceof SearchRequestError && first.error.refused;
 	// A slice that failed part-way down the list is still a failure worth naming.
@@ -128,10 +120,11 @@ function SearchResultsRoute() {
 					hasMore={hasMore}
 					loading={loading}
 					loadingMore={next.isFetching}
-					onOpen={open}
+					onOpen={opening.select}
 					onRetry={() => void (first.isError ? first.refetch() : next.refetch())}
 					rows={rows}
 					sentinel={sentinel}
+					waitingValue={opening.waitingValue}
 				>
 					{refused || emptyResult ? (
 						<EmptyState
@@ -445,6 +438,7 @@ function ResultList({
 	onRetry,
 	rows,
 	sentinel,
+	waitingValue,
 }: {
 	readonly children: ReactNode;
 	readonly failed: boolean;
@@ -455,6 +449,8 @@ function ResultList({
 	readonly onRetry: () => void;
 	readonly rows: readonly SearchResult[];
 	readonly sentinel: RefObject<HTMLDivElement | null>;
+	/** The row that was opened and is waiting on a lookup, drawn as pending. */
+	readonly waitingValue: string | undefined;
 }) {
 	return (
 		<div className="flex min-w-0 flex-1 flex-col">
@@ -486,7 +482,12 @@ function ResultList({
 
 			<ul className="flex flex-col">
 				{rows.map((result) => (
-					<ResultRow key={searchResultValue(result)} onOpen={onOpen} result={result} />
+					<ResultRow
+						key={searchResultValue(result)}
+						onOpen={onOpen}
+						pending={searchResultValue(result) === waitingValue}
+						result={result}
+					/>
 				))}
 			</ul>
 
@@ -501,9 +502,12 @@ function ResultList({
 
 function ResultRow({
 	onOpen,
+	pending,
 	result,
 }: {
 	readonly onOpen: (result: SearchResult) => void;
+	/** Opened, and waiting on the lookup that says where it goes. */
+	readonly pending: boolean;
 	readonly result: SearchResult;
 }) {
 	const Icon = searchResultIcon(result);
@@ -511,11 +515,18 @@ function ResultRow({
 	return (
 		<li>
 			<button
+				aria-busy={pending ? true : undefined}
 				className="flex w-full items-center gap-3 border-b px-2 py-3 text-left hover:bg-accent"
 				onClick={() => onOpen(result)}
 				type="button"
 			>
-				<Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+				{/* The spinner takes the icon's place rather than sitting beside it, or
+				    the row would reflow the moment it is opened. */}
+				{pending ? (
+					<Spinner aria-label="Opening" className="size-4 shrink-0 text-muted-foreground" />
+				) : (
+					<Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
+				)}
 				<span className="truncate text-foreground text-sm">{result.title}</span>
 				<RetiredMarker result={result} />
 				{result.subtitle === undefined ? null : (
