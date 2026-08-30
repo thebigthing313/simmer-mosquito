@@ -472,9 +472,13 @@ remain valid:
   formulation is deactivated
 - activation fails when any component insecticide is inactive or deleted
 
-Deactivating a formulation is always allowed. Deleting a formulation soft-deletes
-its component rows. Deleting with active component rows requires
-`acknowledgedComponentDeletion`.
+Deactivating a formulation is always allowed. Deleting a formulation with live
+component rows is refused outright, with `delete_blocked` naming them, which is
+the catalog rule the delete registry applies everywhere: Delete means the record
+should never have existed, and a component is proof that it did. So
+`acknowledgedComponentDeletion` rides on a consequence a stronger refusal
+reaches first, and the flag is answered rather than asked. Delete the components
+first, or Deactivate.
 
 Formulation edits are prospective template edits and do not require historical
 acknowledgement because no historical application stores formulation usage.

@@ -129,6 +129,12 @@ change future reporting. It stores the command geometry directly on the region.
 `deleteRegion` requires acknowledgement, soft-deletes the region, and
 soft-deletes direct region comments/tags. There is no v1 region merge command.
 
+`deleteRegionFolder` unfiles the regions in the folder rather than deleting
+them: a folder is filing, and the regions are the agency's map. It requires
+`acknowledgedRegionDetach` when the folder still holds any, and refuses with
+`409 acknowledgement_required` naming how many. An unfiled region is
+present with `regionFolderId = null`.
+
 ## Region membership
 
 Which regions contain a record is computed on read and never stored, so there is

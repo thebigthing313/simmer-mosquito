@@ -122,7 +122,8 @@ Retiring a habitat:
 - soft-deletes active route items targeting the habitat;
 - leaves assignment items unchanged because assignments are snapshots;
 - leaves inspections and cross-domain operational records unchanged;
-- requires acknowledgement when route items will be removed.
+- requires `acknowledgedRouteRemoval` when route items will be removed, and
+  refuses with `409 acknowledgement_required` naming how many.
 
 Reactivating a habitat:
 

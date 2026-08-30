@@ -237,10 +237,42 @@ reach the registry without someone deciding whether the agency is asked about
 it, which is the hole #165 describes: fifty-nine flags were declared, carried
 into the write, and read by nothing.
 
-Only the deletion and detach flags are guarded so far. The historical-label and
-semantics flags need an existence check against citing records, and the
-mission-dispatch group needs the mission's own state; both are still unbuilt,
-and a flag in those groups is still recorded and unread.
+### The other two mechanisms, and the map
+
+The registry is one of five ways an acknowledgement gets read, and it is the
+only one that describes a record delete. Two more raise the same 409:
+
+- **A clearance.** A write that removes rows without deleting a record: marking
+  a collection zero-result drops its species counts, correcting an
+  application's insecticide drops the batch links that no longer match,
+  retiring a habitat takes it off its routes, deleting a weather station
+  destroys its summaries. `assertClearanceAcknowledged` in
+  `packages/db/src/domains/record-deletion.ts` counts the rows and refuses.
+  These are deliberately not a fourth `ReferenceEffect`: the registry's rules
+  are read twice, once to say what a delete would cost and once to perform it,
+  and a rule no delete performs would make the impact read answer with
+  consequences that never happen.
+- **A state.** The record's own condition rather than what hangs off it: the
+  request is closed, the trap already has a pending collection.
+  `requireStateAcknowledgement` in `apps/server/src/acknowledgements.ts`
+  refuses. There is nothing to count, so `consequences` is an empty list rather
+  than a missing field, and `message` carries the whole answer. The client keys
+  its wording off `flag`, which it has to do anyway: two counted refusals under
+  one code need two different sentences.
+
+The other two mechanisms are the pure command builder, which pushes a validation
+issue unless the flag is `true` and so answers `400 invalid_command` naming the
+flag's path, and the weather import's own assessment, which counts the rows that
+would update or fail before it commits anything.
+
+Which mechanism reads which flag is `ACKNOWLEDGEMENT_MECHANISMS` in
+`apps/server/src/acknowledgements.ts`, a total map over the vocabulary in
+`packages/domain/src/acknowledgements.ts`. An entry may also be `unchecked`,
+naming the issue that will settle it. `pnpm check:acknowledgements` asserts the
+map, the vocabulary and the flags on command payloads name the same set, and
+ratchets `UNCHECKED_ACKNOWLEDGEMENTS` so a flag cannot be added without somebody
+deciding. The historical-label group (#315), the mission-dispatch group (#316)
+and the two assignment-execution flags (#336) are what remains.
 
 ### Catalogs are block-only
 
