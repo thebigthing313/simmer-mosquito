@@ -1,5 +1,9 @@
 /**
- * A failed invitation send, named by this server rather than by WorkOS.
+ * A failed WorkOS invitation call, named by this server rather than by WorkOS.
+ *
+ * Two calls end up here: the send, and the revoke a re-invitation makes first
+ * (#224). Both read the same statuses and both answer 502, so the log line names
+ * which one it was.
  *
  * Both invite paths used to answer `reason: error.message`, which put a string
  * WorkOS writes into a browser (#220). Nothing in this repo decides what is in
@@ -45,17 +49,65 @@ export interface InvitationRefusal {
  */
 export function refuseInvitationSend(
 	error: unknown,
-	attempt: { readonly membershipId: string; readonly organizationId: string },
+	attempt: InvitationAttempt,
 ): InvitationRefusal {
-	const refusal = nameRefusal(error);
+	return report('Send', nameRefusal(error), error, attempt);
+}
 
+/**
+ * Name a failed revoke, which a re-invitation makes before it mails anything.
+ *
+ * Same two service names as a send, and never the third. `invitation_refused`
+ * reads "check whether they already have access or an invitation", and a revoke
+ * is only attempted on a Membership that is holding one, so that sentence sends
+ * an operator to look at a thing they already know. What is left after
+ * `isSettledInvitationRefusal` in `packages/auth` has absorbed 400 and 404 is
+ * drift, and drift is the service being unusable rather than the address being
+ * unwelcome, so the residual 4xx collapses into `invitation_service_unavailable`.
+ *
+ * The two sentences are the send's, unchanged. A failed revoke is a re-invitation
+ * that mailed nothing, so "The invitation could not be sent" is what happened.
+ */
+export function refuseInvitationRevoke(
+	error: unknown,
+	attempt: InvitationAttempt,
+): InvitationRefusal {
+	const named = nameRefusal(error);
+	const refusal =
+		named.error === 'invitation_refused'
+			? { error: 'invitation_service_unavailable' as const, reason: SERVICE_UNAVAILABLE_REASON }
+			: named;
+
+	return report('Revoke', refusal, error, attempt);
+}
+
+/** The row and the agency, which is what an operator searches a log by. */
+interface InvitationAttempt {
+	readonly membershipId: string;
+	readonly organizationId: string;
+}
+
+/**
+ * The log line, named by which WorkOS call died.
+ *
+ * Both calls answer 502 with a body from the same union, so the response cannot
+ * say which one it was and this is the only place that does (#224).
+ */
+function report(
+	call: 'Send' | 'Revoke',
+	refusal: InvitationRefusal,
+	error: unknown,
+	attempt: InvitationAttempt,
+): InvitationRefusal {
 	console.error(
-		`[invitations] Send refused as ${refusal.error}. Membership ${attempt.membershipId}, organization ${attempt.organizationId}.`,
+		`[invitations] ${call} refused as ${refusal.error}. Membership ${attempt.membershipId}, organization ${attempt.organizationId}.`,
 		error,
 	);
 
 	return refusal;
 }
+
+const SERVICE_UNAVAILABLE_REASON = 'The invitation could not be sent. Try again shortly.';
 
 /** The sentence each name shows a person, kept beside the name it belongs to. */
 const REFUSAL_REASONS: Record<InvitationRefusalCode, string> = {
@@ -66,7 +118,7 @@ const REFUSAL_REASONS: Record<InvitationRefusalCode, string> = {
 		'That address cannot be invited. Check whether they already have access or an invitation.',
 	invitation_service_unauthorized:
 		'The invitation could not be sent, and trying again will not help.',
-	invitation_service_unavailable: 'The invitation could not be sent. Try again shortly.',
+	invitation_service_unavailable: SERVICE_UNAVAILABLE_REASON,
 };
 
 function nameRefusal(error: unknown): InvitationRefusal {
