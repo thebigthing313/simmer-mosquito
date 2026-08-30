@@ -1,0 +1,196 @@
+name: Schema drift
+
+# Answers one question: is staging's schema still the one
+# `packages/db/migrations` produces?
+#
+# The migration workflow covers the normal path. What nothing covered is a
+# migration applied by hand, a `dbmate` run that half-failed, or a fix made
+# straight on staging. Since the integration job moved onto its own container,
+# CI never opens staging at all.
+#
+# #146 proposed answering this by running the integration suites against
+# staging. #236 refused that mechanism: the harness sends the whole migration
+# set as one multi-statement query, Postgres runs it as one implicit transaction
+# over 326 relations, and the logical decoder's reorder buffer blows past the
+# 1 GB allocation ceiling. That is the #166 outage. The question survived; only
+# the mechanism died.
+#
+# So this job reads staging and writes nothing to it. It creates no schema
+# there, runs no migration there, and opens no writing transaction — the script
+# sets each session read only before its first query. Everything that is built
+# is built in the service container beside the job.
+
+on:
+  schedule:
+    # 16:00 UTC, which is mid-morning where the maintainer is. A scheduled job
+    # that goes red at 3am is read whenever somebody next opens the Actions tab,
+    # and that is later than drift deserves. The run lands in working hours and,
+    # when it is red, it files an issue, so the answer arrives where the
+    # maintainer already looks rather than in a tab nobody has open.
+    - cron: '0 16 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  schema-drift:
+    name: Compare staging against the migration set
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    # The same environment the migration workflow uses, for the same
+    # `DATABASE_URL` secret. No new secret.
+    environment: staging
+    # `issues: write` is what lets a red run file its finding in the tracker.
+    # A job-level block replaces the workflow grant rather than adding to it, so
+    # the checkout's `contents: read` is repeated.
+    permissions:
+      contents: read
+      issues: write
+    # Two runs comparing the same two things at once would file the same issue
+    # twice. Superseded runs are not cancelled, because a cancelled run leaves
+    # the previous run's issue standing with no fresh answer behind it.
+    concurrency:
+      group: schema-drift
+      cancel-in-progress: false
+
+    services:
+      # The expected side. Matches Railway staging exactly (PostgreSQL 17.5,
+      # PostGIS 3.5.2), so a version difference cannot be mistaken for drift.
+      #
+      # Stock configuration, `max_locks_per_transaction` included. The migration
+      # set is applied by dbmate, one file per transaction, so no single
+      # transaction touches enough relations to need the lock table raised
+      # (#312 is that problem, and it belongs to the parallel path).
+      reference:
+        image: postgis/postgis:17-3.5
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: simmer_reference
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d simmer_reference"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      REFERENCE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/simmer_reference?sslmode=disable
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6
+        with:
+          version: 10.33.2
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22.16.0
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      # Applied into the container's own `public` schema, serially, exactly as
+      # the migration workflow applies them to staging. `--no-dump-schema`
+      # because nothing here is going to commit a schema file.
+      - name: Build the expected schema
+        run: |
+          pnpm exec dbmate \
+            --url "$REFERENCE_DATABASE_URL" \
+            --migrations-dir packages/db/migrations \
+            --schema-file packages/db/schema.sql \
+            --no-dump-schema \
+            --wait \
+            up
+
+      # The schemas staging holds, before the comparison. Paired with the read
+      # after it, this is the evidence that the job left nothing behind.
+      - name: List staging schemas before
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          test -n "$DATABASE_URL"
+          psql "$DATABASE_URL" -Atc \
+            "select nspname from pg_namespace order by nspname" | tee schemas-before.txt
+
+      - name: Compare
+        id: compare
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -o pipefail
+          node scripts/check-schema-drift.mjs \
+            --observed "$DATABASE_URL" \
+            --expected "$REFERENCE_DATABASE_URL" \
+            --migrations-dir packages/db/migrations 2>&1 | tee drift-report.txt
+
+      - name: List staging schemas after
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          psql "$DATABASE_URL" -Atc \
+            "select nspname from pg_namespace order by nspname" | tee schemas-after.txt
+          diff schemas-before.txt schemas-after.txt
+
+      # A red run files the divergence in the tracker, and reuses the open issue
+      # rather than filing a duplicate every morning. A green run closes it. So
+      # the tracker holds at most one open drift issue, and its state is the
+      # current answer rather than a log of every night it was asked.
+      - name: File or close the drift issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OUTCOME: ${{ steps.compare.outcome }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+
+          gh label create 'schema drift' \
+            --description 'Staging schema no longer matches packages/db/migrations' \
+            --color 'B60205' 2>/dev/null || true
+
+          existing=$(gh issue list \
+            --label 'schema drift' --state open --limit 1 --json number --jq '.[0].number // ""')
+
+          if [ "$OUTCOME" = "success" ]; then
+            if [ -n "$existing" ]; then
+              gh issue comment "$existing" --body \
+                "Staging matches the migration set again as of [this run]($RUN_URL). Closing."
+              gh issue close "$existing"
+            fi
+            exit 0
+          fi
+
+          {
+            echo "Staging's schema is not the one \`packages/db/migrations\` produces."
+            echo
+            echo "Found by [this run]($RUN_URL). Fixing it is a separate branch; this issue is the divergence."
+            echo
+            echo '```'
+            cat drift-report.txt
+            echo '```'
+          } > issue-body.md
+
+          if [ -n "$existing" ]; then
+            gh issue comment "$existing" --body-file issue-body.md
+          else
+            gh issue create \
+              --title 'Staging schema has drifted from the migration set' \
+              --label 'schema drift' \
+              --body-file issue-body.md
+          fi
+
+      # The job's own verdict, last, so the issue is filed either way. `compare`
+      # swallows its exit code above; this is where it is paid.
+      - name: Fail on drift
+        if: steps.compare.outcome != 'success'
+        run: |
+          echo "::error::Staging has drifted from the migration set. See the report above."
+          exit 1
