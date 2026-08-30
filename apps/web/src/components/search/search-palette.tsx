@@ -20,12 +20,22 @@ import {
 	DialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useNavigate } from '@tanstack/react-router';
 import { type RefObject, useState } from 'react';
 import type { AuthMe } from '../../auth';
 import { SearchResultRow } from './search-result-row';
-import { type PaletteDestination, usePaletteContent } from './use-palette-content';
+import { seedNoun } from './search-seeds';
+import {
+	type PaletteContent,
+	type PaletteDestination,
+	type PaletteSeed,
+	SEED_SKIP_VALUE,
+	usePaletteContent,
+} from './use-palette-content';
 import { useDeferredOpen } from './use-search-navigation';
+
+const BackIcon = iconRegistry.arrows.arrowLeft.icon;
 
 /**
  * The command palette: pages, actions, records and comments over one input.
@@ -49,12 +59,19 @@ export function SearchPalette({
 }) {
 	const navigate = useNavigate();
 	const [query, setQuery] = useState('');
-	const content = usePaletteContent(auth, query);
-	const { debouncedQuery, dimmed, empty, failed, firstQuery, groups, offline, total } = content;
+	// Picking "Create Inspection" asks which Habitat before it navigates. Held
+	// here rather than in the content hook because it outlives the row that
+	// started it: the query clears the moment the step opens.
+	const [seed, setSeed] = useState<PaletteSeed | null>(null);
+	const content = usePaletteContent(auth, query, seed);
+	const { debouncedQuery, empty, failed, firstQuery, groups, total } = content;
 
 	// Absent on failure, in flight and on no matches. On failure that leaves no
 	// route to the results page, which is right: the page would fail the same way.
-	const showViewAll = query !== '' && !failed && !firstQuery && !empty && total > 0;
+	// Absent during a pick step too, where the results page would answer a
+	// different question from the one on screen.
+	const showViewAll =
+		query !== '' && !failed && !firstQuery && !empty && total > 0 && seed === null;
 
 	function close() {
 		onOpenChange(false);
@@ -65,6 +82,7 @@ export function SearchPalette({
 		// aborted: it finishes into the cache, so reopening on the same query
 		// inside `staleTime` renders instantly.
 		setQuery('');
+		setSeed(null);
 	}
 
 	function go(destination: PaletteDestination) {
@@ -72,7 +90,36 @@ export function SearchPalette({
 		// The shell models destinations as plain strings; the router's typed `to` is
 		// satisfied by an assertion at this one adapter seam, exactly as
 		// `AppShellRoot.onNavigate` does.
-		navigate({ to: destination.to as never, params: destination.params as never });
+		navigate({
+			to: destination.to as never,
+			params: destination.params as never,
+			search: destination.search as never,
+		});
+	}
+
+	/**
+	 * A row's selection, which is either a navigation or the pick step.
+	 *
+	 * Nothing here writes. Seeding a form is navigation, and the write is left on
+	 * the form where a failure has somewhere to appear.
+	 */
+	function selectRow(result: SearchResult) {
+		const rowSeed = content.seedFor(result);
+		if (rowSeed !== undefined) {
+			setSeed(rowSeed);
+			// The action's own query has nothing to do with which record is wanted.
+			setQuery('');
+			return;
+		}
+
+		opening.select(result);
+	}
+
+	/** Back to the list the step replaced, with the action still pickable. */
+	function leaveSeed() {
+		opening.cancel();
+		setSeed(null);
+		setQuery('');
 	}
 
 	// A route comment selected before the routes collection has answered has no
@@ -84,6 +131,15 @@ export function SearchPalette({
 		<Dialog onOpenChange={(next) => (next ? onOpenChange(true) : close())} open={open}>
 			<DialogContent
 				className="overflow-hidden p-0"
+				onEscapeKeyDown={(event) => {
+					// Escape backs out of the pick step before it closes the palette.
+					// Otherwise the only way out of a step opened by mistake is to
+					// dismiss and retype the query.
+					if (seed !== null) {
+						event.preventDefault();
+						leaveSeed();
+					}
+				}}
 				onCloseAutoFocus={(event) => {
 					/*
 					 * Radix restores focus through `DialogTrigger`'s own ref and
@@ -117,10 +173,15 @@ export function SearchPalette({
 					shouldFilter={false}
 					value={content.value}
 				>
+					{seed === null ? null : <SeedStrip onBack={leaveSeed} seed={seed} />}
 					<CommandInput
 						maxLength={SEARCH_QUERY_MAX_LENGTH}
 						onValueChange={setQuery}
-						placeholder="Search records, pages and actions…"
+						placeholder={
+							seed === null
+								? 'Search records, pages and actions…'
+								: `Search ${seedNoun(seed.table)}s…`
+						}
 						value={query}
 					/>
 					{/*
@@ -137,85 +198,146 @@ export function SearchPalette({
 							failed,
 							firstQuery,
 							empty,
-							total,
+							total: seed === null ? total : groups.records.length,
 							opening: opening.waitingValue !== undefined,
+							picking: seed === null ? undefined : seedNoun(seed.table),
 						})}
 					</span>
-					<CommandList>
-						{failed ? <UnavailableStrip offline={offline} onRetry={content.refetch} /> : null}
-
-						<ResultGroup
-							dimmed={false}
-							heading="Pages"
-							onSelect={opening.select}
-							results={groups.pages}
-							waitingValue={opening.waitingValue}
-						/>
-
-						<ResultGroup
-							dimmed={false}
-							heading="Actions"
-							onSelect={opening.select}
-							results={groups.actions}
-							waitingValue={opening.waitingValue}
-						/>
-
-						{firstQuery ? <PendingRows /> : null}
-
-						<ResultGroup
-							dimmed={dimmed}
-							heading="Records"
-							onSelect={opening.select}
-							results={groups.records}
-							waitingValue={opening.waitingValue}
-						/>
-
-						<ResultGroup
-							dimmed={dimmed}
-							heading="Comments"
-							onSelect={opening.select}
-							results={groups.comments}
-							waitingValue={opening.waitingValue}
-						/>
-
-						{/*
-						 * All or nothing, and behind an explicit `!isFetching` guard rather
-						 * than `CommandEmpty`, which only reads whether the filtered count
-						 * is zero and would say "no matches" while the request is still in
-						 * flight. No group announces its own emptiness: an empty `Records`
-						 * heading is noise on every navigational query.
-						 */}
-						{empty ? (
-							<p className="px-3 py-6 text-center text-sm text-muted-foreground">
-								No matches for “{query}”.
-							</p>
-						) : null}
-
-						{showViewAll ? (
-							<>
-								<CommandSeparator />
-								{/*
-								 * Selectable like any other row rather than a footer button,
-								 * and it never carries a count: the ten rows above are not the
-								 * results page's first ten, so "View all 47 results" would
-								 * imply a continuity that is not there.
-								 */}
-								<CommandItem
-									className={dimmed ? 'opacity-50' : undefined}
-									onSelect={() => {
-										close();
-										navigate({ to: '/search', search: { q: debouncedQuery } });
-									}}
-									value="view-all-results"
-								>
-									View all results
-								</CommandItem>
-							</>
-						) : null}
-					</CommandList>
+					<PaletteRows
+						content={content}
+						onSelect={selectRow}
+						onSkipSeed={() => (seed === null ? undefined : go({ to: seed.to }))}
+						onViewAll={() => {
+							close();
+							navigate({ to: '/search', search: { q: debouncedQuery } });
+						}}
+						query={query}
+						seed={seed}
+						showViewAll={showViewAll}
+						waitingValue={opening.waitingValue}
+					/>
 				</Command>
 			</DialogContent>
 		</Dialog>
+	);
+}
+
+/**
+ * Everything under the input, which is four groups and three tail rows.
+ *
+ * Split out of the palette for the reason its content hook was: the component
+ * was one function deriving the list, the pick step and the layout at once, and
+ * `pnpm fallow:health` reads that. Nothing here decides where a row goes.
+ */
+function PaletteRows({
+	content,
+	onSelect,
+	onSkipSeed,
+	onViewAll,
+	query,
+	seed,
+	showViewAll,
+	waitingValue,
+}: {
+	readonly content: PaletteContent;
+	readonly onSelect: (result: SearchResult) => void;
+	/** Opens the seeded form on no record, which is what the action alone did. */
+	readonly onSkipSeed: () => void;
+	readonly onViewAll: () => void;
+	readonly query: string;
+	readonly seed: PaletteSeed | null;
+	readonly showViewAll: boolean;
+	/** The row waiting on a lookup, drawn as pending. */
+	readonly waitingValue: string | undefined;
+}) {
+	const { dimmed, empty, failed, firstQuery, groups, offline } = content;
+
+	return (
+		<CommandList>
+			{failed ? <UnavailableStrip offline={offline} onRetry={content.refetch} /> : null}
+
+			<ResultGroup
+				dimmed={false}
+				heading="Pages"
+				onSelect={onSelect}
+				results={groups.pages}
+				waitingValue={waitingValue}
+			/>
+
+			<ResultGroup
+				dimmed={false}
+				heading="Actions"
+				onSelect={onSelect}
+				results={groups.actions}
+				waitingValue={waitingValue}
+			/>
+
+			{firstQuery ? <PendingRows /> : null}
+
+			<ResultGroup
+				dimmed={dimmed}
+				heading={seed === null ? 'Records' : `${seedNoun(seed.table)}s`}
+				onSelect={onSelect}
+				results={groups.records}
+				waitingValue={waitingValue}
+			/>
+
+			<ResultGroup
+				dimmed={dimmed}
+				heading="Comments"
+				onSelect={onSelect}
+				results={groups.comments}
+				waitingValue={waitingValue}
+			/>
+
+			{seed === null ? null : (
+				<>
+					{groups.records.length === 0 ? null : <CommandSeparator />}
+					{/*
+					 * The form the action always opened, still one keystroke away.
+					 * Without it a step entered by mistake, or a query the index
+					 * cannot answer, is a dead end: the action row is gone from the
+					 * list and Escape is the only way back to it.
+					 */}
+					<CommandItem
+						onSelect={onSkipSeed}
+						value={SEED_SKIP_VALUE}
+					>{`Open without a ${seedNoun(seed.table)}`}</CommandItem>
+				</>
+			)}
+
+			{/*
+			 * All or nothing, and behind an explicit `!isFetching` guard rather
+			 * than `CommandEmpty`, which only reads whether the filtered count
+			 * is zero and would say "no matches" while the request is still in
+			 * flight. No group announces its own emptiness: an empty `Records`
+			 * heading is noise on every navigational query.
+			 */}
+			{empty ? (
+				<p className="px-3 py-6 text-center text-sm text-muted-foreground">
+					No matches for “{query}”.
+				</p>
+			) : null}
+
+			{showViewAll ? (
+				<>
+					<CommandSeparator />
+					{/*
+					 * Selectable like any other row rather than a footer button,
+					 * and it never carries a count: the ten rows above are not the
+					 * results page's first ten, so "View all 47 results" would
+					 * imply a continuity that is not there.
+					 */}
+					<CommandItem
+						className={dimmed ? 'opacity-50' : undefined}
+						onSelect={onViewAll}
+						value="view-all-results"
+					>
+						View all results
+					</CommandItem>
+				</>
+			) : null}
+		</CommandList>
 	);
 }
 
@@ -226,12 +348,16 @@ function announcement(state: {
 	readonly empty: boolean;
 	readonly total: number;
 	readonly opening: boolean;
+	/** The record the pick step is asking for, absent when no step is running. */
+	readonly picking: string | undefined;
 }): string {
 	if (state.opening) {
 		return 'Opening';
 	}
 	if (state.query === '') {
-		return '';
+		// Entering the step changes the whole list without moving focus, so the
+		// step announces itself; the ordinary empty palette has nothing to say.
+		return state.picking === undefined ? '' : `Choose a ${state.picking}`;
 	}
 	if (state.failed) {
 		return 'Records and comments are unavailable';
@@ -243,6 +369,26 @@ function announcement(state: {
 		return 'No matches';
 	}
 	return `${state.total} results`;
+}
+
+/**
+ * The step's own header: what was picked, and the way back.
+ *
+ * Above the input rather than beside the rows, because the input's placeholder
+ * has changed under the reader and this is what explains it.
+ */
+function SeedStrip({ onBack, seed }: { readonly onBack: () => void; readonly seed: PaletteSeed }) {
+	return (
+		<div className="flex items-center gap-2 border-b px-2 py-1.5">
+			<Button className="h-7 gap-1 px-2" onClick={onBack} size="sm" variant="ghost">
+				<BackIcon aria-hidden="true" className="size-3.5" />
+				Back
+			</Button>
+			<span className="truncate text-muted-foreground text-xs">
+				{seed.label} · choose a {seedNoun(seed.table)}
+			</span>
+		</div>
+	);
 }
 
 /**
