@@ -34,19 +34,81 @@ describe('generationRefusalOf', () => {
 			reason: 'buffer_unit_not_convertible',
 			message: 'A buffer unit could not be converted.',
 			unitCodes: ['gallon', 'acre'],
+			registrations: [],
+			registrationsNotShown: 0,
 		});
 	});
 
-	it('gives an empty code list for the refusals that carry none', () => {
+	it('carries the registrations behind the codes, which is where the fix is made', () => {
+		// The codes say which unit is wrong. Nothing lists registrations across an
+		// agency, so without these the operator has a unit name and no row.
+		const error = new CommandError('Refused.', 409, {
+			error: 'mission_notifications_refused',
+			reason: 'buffer_unit_not_convertible',
+			message: 'A buffer unit could not be converted.',
+			unitCodes: ['gallon'],
+			registrations: [
+				{
+					registrationId: '11111111-1111-4111-8111-111111111111',
+					contactId: '22222222-2222-4222-8222-222222222222',
+					contactName: 'Rosa Delgado',
+					unitCode: 'gallon',
+				},
+			],
+			registrationsNotShown: 4,
+		});
+
+		expect(generationRefusalOf(error)?.registrations).toEqual([
+			{
+				registrationId: '11111111-1111-4111-8111-111111111111',
+				contactId: '22222222-2222-4222-8222-222222222222',
+				contactName: 'Rosa Delgado',
+				unitCode: 'gallon',
+			},
+		]);
+		expect(generationRefusalOf(error)?.registrationsNotShown).toBe(4);
+	});
+
+	it('keeps an unnamed contact and drops a row with no contact to link to', () => {
+		const error = new CommandError('Refused.', 409, {
+			error: 'mission_notifications_refused',
+			reason: 'buffer_unit_not_convertible',
+			message: 'A buffer unit could not be converted.',
+			unitCodes: ['gallon'],
+			registrations: [
+				{
+					registrationId: 'a',
+					contactId: 'b',
+					contactName: null,
+					unitCode: 'gallon',
+				},
+				{ registrationId: 'c', contactName: 'Nobody', unitCode: 'gallon' },
+			],
+			registrationsNotShown: -1,
+		});
+
+		const refusal = generationRefusalOf(error);
+		// A Contact can be unnamed and the link still goes somewhere. A row with no
+		// contact id links nowhere, so it is dropped rather than listed dead.
+		expect(refusal?.registrations).toEqual([
+			{ registrationId: 'a', contactId: 'b', contactName: null, unitCode: 'gallon' },
+		]);
+		// And a negative would render as "-1 more registrations are not shown".
+		expect(refusal?.registrationsNotShown).toBe(0);
+	});
+
+	it('gives an empty code and registration list for the refusals that carry none', () => {
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
 			reason: 'mission_has_no_items',
 			message: 'This mission has no stops.',
 		});
 
-		// Not undefined: the card renders the list without first asking which
+		// Not undefined: the card renders both lists without first asking which
 		// refusal it has.
 		expect(generationRefusalOf(error)?.unitCodes).toEqual([]);
+		expect(generationRefusalOf(error)?.registrations).toEqual([]);
+		expect(generationRefusalOf(error)?.registrationsNotShown).toBe(0);
 	});
 
 	it('drops non-strings out of the code list rather than rendering them', () => {

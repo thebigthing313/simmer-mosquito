@@ -37,6 +37,31 @@ import type { SimmerDatabase } from '../index.js';
  * and they arrive as a joinable set rather than as arithmetic baked into the SQL.
  */
 
+/**
+ * One registration whose buffer unit could not be priced in metres.
+ *
+ * Carried on the refusal so the operator has somewhere to go. The unit codes
+ * alone say what is wrong and not where it is: nothing lists registrations
+ * across an agency, because they are managed from the contact that holds them,
+ * so the contact id is what turns the refusal into a link.
+ */
+export interface UnpriceableRegistration {
+	readonly registrationId: string;
+	readonly contactId: string;
+	readonly contactName: string | null;
+	readonly unitCode: string;
+}
+
+/**
+ * How many unpriceable registrations a refusal carries.
+ *
+ * The alert sits above a mission's notification list, and ten rows is the most
+ * that still reads as a message rather than a page. An agency that has fifty of
+ * them is not going to fix them from this card either way, so the rest are
+ * counted instead of listed.
+ */
+export const UNPRICEABLE_REGISTRATION_CAP = 10;
+
 /** How many metres one of a unit is, for the units a registration might use. */
 export interface UnitMetres {
 	readonly unitId: string;
@@ -108,19 +133,56 @@ export class MissionNotificationRefusedError extends Error {
 	 * and 'gallon' says which one where a uuid does not.
 	 */
 	readonly unitCodes: readonly string[];
+	/**
+	 * The registrations behind those codes, capped at
+	 * {@link UNPRICEABLE_REGISTRATION_CAP}, and empty for every other reason.
+	 *
+	 * The codes name the units and these name the rows holding them. Both are
+	 * needed: a code is what somebody recognises, and the contact is the only
+	 * place the buffer can be changed.
+	 */
+	readonly registrations: readonly UnpriceableRegistration[];
+	/** How many more there are than {@link registrations} lists. */
+	readonly registrationsNotShown: number;
 
 	constructor(
 		reason: MissionNotificationRefusalReason,
 		missionId: string,
 		message: string,
 		unitCodes: readonly string[] = [],
+		registrations: readonly UnpriceableRegistration[] = [],
+		registrationsNotShown = 0,
 	) {
 		super(message);
 		this.name = 'MissionNotificationRefusedError';
 		this.reason = reason;
 		this.missionId = missionId;
 		this.unitCodes = unitCodes;
+		this.registrations = registrations;
+		this.registrationsNotShown = registrationsNotShown;
 	}
+}
+
+/**
+ * The rows a refusal will carry, and how many it leaves out.
+ *
+ * Split out from the read because the arithmetic is what a wrong cap gets wrong:
+ * `total` counts every unpriceable registration and the read is already limited,
+ * so subtracting the limit rather than what was actually read reports a row not
+ * shown on an agency that has exactly ten.
+ */
+export function capUnpriceableRegistrations(
+	rows: readonly UnpriceableRegistration[],
+	total: number,
+): {
+	readonly registrations: readonly UnpriceableRegistration[];
+	readonly registrationsNotShown: number;
+} {
+	const registrations = rows.slice(0, UNPRICEABLE_REGISTRATION_CAP);
+	return {
+		registrations,
+		registrationsNotShown: Math.max(0, total - registrations.length),
+	};
 }
 
 /**
@@ -268,6 +330,8 @@ async function requireConvertibleBufferUnits(
 	}
 
 	const codes = rows.map((row) => row.code).sort();
+	const unpriceable = await readUnpriceableRegistrations(trx, input);
+	const capped = capUnpriceableRegistrations(unpriceable.rows, unpriceable.total);
 	throw new MissionNotificationRefusedError(
 		'buffer_unit_not_convertible',
 		input.missionId,
@@ -275,7 +339,64 @@ async function requireConvertibleBufferUnits(
 			? `A notification registration measures its buffer in ${codes[0]}, which cannot be converted to a distance.`
 			: `Some notification registrations measure their buffer in units that cannot be converted to a distance: ${codes.join(', ')}.`,
 		codes,
+		capped.registrations,
+		capped.registrationsNotShown,
 	);
+}
+
+/**
+ * The registrations the codes came from, with the contact holding each one.
+ *
+ * A second read rather than a wider first one, because the codes are a distinct
+ * set over every offending registration and this is a capped page of the rows
+ * themselves. Only the refusal path pays for it.
+ *
+ * The contact is joined without the soft-delete filter the generation itself
+ * applies. A deleted contact's registration still blocks generation, so leaving
+ * it out of the list would name a code with no row to explain it.
+ *
+ * `count(*) over ()` runs before the limit, so the total is exact however few
+ * rows come back.
+ */
+async function readUnpriceableRegistrations(
+	trx: Transaction<SimmerDatabase>,
+	input: GenerateMissionNotificationsInput,
+): Promise<{ readonly rows: readonly UnpriceableRegistration[]; readonly total: number }> {
+	const priced = input.unitMetres.map((unit) => unit.unitId);
+	let query = trx
+		.selectFrom('notification_registrations as r')
+		.innerJoin('units as u', 'u.id', 'r.buffer_unit_id')
+		.innerJoin('contacts as c', 'c.id', 'r.contact_id')
+		.select([
+			'r.id as registrationId',
+			'r.contact_id as contactId',
+			'c.contact_name as contactName',
+			'u.code as unitCode',
+			sql<string>`count(*) over ()`.as('total'),
+		])
+		.where('r.organization_id', '=', input.organizationId)
+		.where('r.deleted_at', 'is', null)
+		.where('r.buffer_distance', 'is not', null)
+		.orderBy('u.code', 'asc')
+		.orderBy('c.contact_name', 'asc')
+		.orderBy('r.id', 'asc')
+		.limit(UNPRICEABLE_REGISTRATION_CAP);
+	if (priced.length > 0) {
+		query = query.where('u.id', 'not in', priced);
+	}
+
+	const rows = await query.execute();
+	return {
+		rows: rows.map((row) => ({
+			registrationId: row.registrationId,
+			contactId: row.contactId,
+			contactName: row.contactName,
+			unitCode: row.unitCode,
+		})),
+		// `count(*)` is a bigint, and node-postgres hands those back as strings so
+		// they cannot be silently truncated.
+		total: Number(rows[0]?.total ?? 0),
+	};
 }
 
 /**

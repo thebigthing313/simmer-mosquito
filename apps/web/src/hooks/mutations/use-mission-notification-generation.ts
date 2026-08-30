@@ -56,19 +56,30 @@ export type GenerationRefusalReason =
 	| 'mission_has_no_notification_type'
 	| 'buffer_unit_not_convertible';
 
+/** One registration the server could not price, as the refusal names it. */
+export interface RefusedRegistration {
+	readonly registrationId: string;
+	readonly contactId: string;
+	readonly contactName: string | null;
+	readonly unitCode: string;
+}
+
 /**
- * A refusal, with the one field that makes one of them actionable.
+ * A refusal, with the three fields that make one of them actionable.
  *
- * `unitCodes` is empty on every reason but `buffer_unit_not_convertible`, where
- * it names the buffer units the server could not price in metres. That refusal
- * is agency-wide: one registration holding an unconvertible unit blocks
- * generation for every mission until somebody fixes that unit, so a message that
- * did not name the codes would leave the user with a refusal they cannot act on.
+ * All three are empty on every reason but `buffer_unit_not_convertible`. That
+ * refusal is agency-wide: one registration holding a unit the server cannot
+ * price in metres blocks generation for every mission until somebody changes it.
+ * `unitCodes` names the units, `registrations` names the rows holding them and
+ * the contact each one is managed from, and `registrationsNotShown` counts the
+ * ones past the server's cap.
  */
 export interface GenerationRefusal {
 	readonly reason: GenerationRefusalReason;
 	readonly message: string;
 	readonly unitCodes: readonly string[];
+	readonly registrations: readonly RefusedRegistration[];
+	readonly registrationsNotShown: number;
 }
 
 export function generationRefusalOf(error: unknown): GenerationRefusal | null {
@@ -81,6 +92,8 @@ export function generationRefusalOf(error: unknown): GenerationRefusal | null {
 		readonly reason?: unknown;
 		readonly message?: unknown;
 		readonly unitCodes?: unknown;
+		readonly registrations?: unknown;
+		readonly registrationsNotShown?: unknown;
 	};
 	if (record.error !== 'mission_notifications_refused' || typeof record.reason !== 'string') {
 		return null;
@@ -91,7 +104,34 @@ export function generationRefusalOf(error: unknown): GenerationRefusal | null {
 		unitCodes: Array.isArray(record.unitCodes)
 			? record.unitCodes.filter((code): code is string => typeof code === 'string')
 			: [],
+		registrations: Array.isArray(record.registrations)
+			? record.registrations.filter(isRefusedRegistration)
+			: [],
+		registrationsNotShown:
+			typeof record.registrationsNotShown === 'number' && record.registrationsNotShown > 0
+				? record.registrationsNotShown
+				: 0,
 	};
+}
+
+/**
+ * A row is kept only when it can be rendered as a link.
+ *
+ * The contact id is what the row is for, so a row missing one is dropped rather
+ * than listed as a dead entry. The name is allowed to be null, because a Contact
+ * can be unnamed and the link still goes somewhere.
+ */
+function isRefusedRegistration(value: unknown): value is RefusedRegistration {
+	if (typeof value !== 'object' || value === null) {
+		return false;
+	}
+	const row = value as Record<string, unknown>;
+	return (
+		typeof row.registrationId === 'string' &&
+		typeof row.contactId === 'string' &&
+		typeof row.unitCode === 'string' &&
+		(row.contactName === null || typeof row.contactName === 'string')
+	);
 }
 
 /** What a generation actually amounted to, said as one of four things. */

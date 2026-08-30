@@ -115,11 +115,16 @@ export function MissionNotificationsCard({ missionId }: { readonly missionId: st
 }
 
 /** The two answers that persist until somebody deals with them. */
-type StandingMessage =
+export type StandingMessage =
 	| { readonly kind: 'type_retired' }
 	| { readonly kind: 'refused'; readonly refusal: GenerationRefusal };
 
-function StandingAlert({ message }: { readonly message: StandingMessage }) {
+/**
+ * Exported for its test: the card around it reads three collections and a
+ * router, and the thing worth pinning is which of the six refusals renders a
+ * list and what it links to.
+ */
+export function StandingAlert({ message }: { readonly message: StandingMessage }) {
 	if (message.kind === 'type_retired') {
 		return (
 			<Alert>
@@ -139,26 +144,41 @@ function StandingAlert({ message }: { readonly message: StandingMessage }) {
 				<AlertTitle>A buffer unit cannot be measured in metres</AlertTitle>
 				<AlertDescription className="grid gap-3">
 					{/*
-					 * The codes, and nowhere to send them. This refusal is agency-wide: one
-					 * registration holding a unit the conversion table cannot price blocks
-					 * generation for every mission, so a message that only said "a unit is
-					 * wrong" would leave the operator with nothing to act on.
-					 *
-					 * There used to be a button to the registrations explorer. Registrations
-					 * are managed from the contact that holds them now, and no page lists
-					 * them across an agency, so naming the codes is the whole of what this
-					 * can offer. A button to the contact directory would be a button to
-					 * somewhere that cannot answer which contact is at fault.
-					 *
-					 * `docs/agents/issue-tracker.md` issue #326 is the fix: the server
-					 * knows which registrations it could not price at the moment it
-					 * refuses, so the refusal can carry them and this can list them.
+					 * This refusal is agency-wide: one registration holding a unit the
+					 * conversion table cannot price blocks generation for every mission.
+					 * The codes say what is wrong, and the list says where, because
+					 * nothing lists registrations across an agency and a code on its own
+					 * leaves the operator hunting for the row.
 					 */}
 					<span>
 						{refusal.unitCodes.length === 0
 							? refusal.message
 							: `Registrations are using ${refusal.unitCodes.join(', ')} as a buffer unit, which cannot be converted to metres. Generation is blocked for every mission until those buffers use a distance unit.`}
 					</span>
+					{refusal.registrations.length === 0 ? null : (
+						<ul className="grid gap-1">
+							{refusal.registrations.map((registration) => (
+								<li key={registration.registrationId}>
+									{/* The registration is changed from the contact that holds it. */}
+									<Link
+										className="underline underline-offset-4"
+										params={{ id: registration.contactId }}
+										to="/public-engagement/contacts/$id/registrations"
+									>
+										{registration.contactName ?? 'Unnamed contact'}
+									</Link>{' '}
+									· {registration.unitCode}
+								</li>
+							))}
+						</ul>
+					)}
+					{refusal.registrationsNotShown === 0 ? null : (
+						<span>
+							{refusal.registrationsNotShown === 1
+								? '1 more registration is not shown.'
+								: `${refusal.registrationsNotShown} more registrations are not shown.`}
+						</span>
+					)}
 				</AlertDescription>
 			</Alert>
 		);

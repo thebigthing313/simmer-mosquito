@@ -127,8 +127,10 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 		);
 	}
 	// Same split for generation: a mission the caller cannot see is a 404, and
-	// every other reason is a state somebody can act on. `unitCodes` is empty
-	// except on `buffer_unit_not_convertible`, where it names the units to fix.
+	// every other reason is a state somebody can act on. The last three fields
+	// are empty except on `buffer_unit_not_convertible`, where they name the
+	// units to fix and the registrations holding them. Empty rather than absent,
+	// so the client reads one shape for all six reasons.
 	if (error instanceof MissionNotificationRefusedError) {
 		return context.json(
 			{
@@ -136,6 +138,8 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 				reason: error.reason,
 				message: error.message,
 				unitCodes: error.unitCodes,
+				registrations: error.registrations,
+				registrationsNotShown: error.registrationsNotShown,
 			},
 			error.reason === 'mission_not_found' ? 404 : 409,
 		);
