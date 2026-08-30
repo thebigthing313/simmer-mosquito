@@ -234,6 +234,7 @@ function EmptyState({
  */
 function useSearchResultList(query: string, documentClass: SearchDocumentClass | undefined) {
 	const [slices, setSlices] = useState(1);
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `query` and `documentClass` are this hook's parameters, not outer scope; dropping them keeps the previous query's slice count
 	useEffect(() => setSlices(1), [query, documentClass]);
 
 	const nextOffset = (slices - 1) * PAGE_SIZE;
@@ -307,6 +308,7 @@ function useAccumulatedPages(
 	nextOffset: number,
 ): { readonly rows: readonly SearchResult[]; readonly reachedEnd: boolean } {
 	const [pages, setPages] = useState<Record<number, readonly SearchResult[]>>({});
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `query` and `documentClass` are this hook's parameters, not outer scope; dropping them leaves the previous query's rows in the list
 	useEffect(() => setPages({}), [query, documentClass]);
 
 	const firstResults =
@@ -340,6 +342,10 @@ function useAccumulatedPages(
 function useGrowOnVisible(armed: boolean, grow: () => void): RefObject<HTMLDivElement | null> {
 	const sentinel = useRef<HTMLDivElement>(null);
 
+	// The call site passes an arrow that only calls a state setter, so the closure
+	// the observer holds cannot go stale in a way that is read. A reason that
+	// wraps onto a second line stops suppressing, so it stays on the ignore.
+	// biome-ignore lint/correctness/useExhaustiveDependencies: `grow` is a fresh closure every render and re-observing on it would loop
 	useEffect(() => {
 		const node = sentinel.current;
 		if (node === null || !armed) {
@@ -353,7 +359,6 @@ function useGrowOnVisible(armed: boolean, grow: () => void): RefObject<HTMLDivEl
 		});
 		observer.observe(node);
 		return () => observer.disconnect();
-		// `grow` is a fresh closure every render and re-observing on it would loop.
 	}, [armed]);
 
 	return sentinel;
