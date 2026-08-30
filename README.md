@@ -77,6 +77,15 @@ $env:TEST_DATABASE_URL='postgres://postgres:postgres@localhost:55432/simmer_mosq
 pnpm --filter @simmer-mosquito/db test
 ```
 
+`docker-compose up -d postgres` is the path that works out of the box. Several
+files build their schemas at once, so the lock table holds every object of all
+of them, and the stock `max_locks_per_transaction=64` fails twelve files at once
+with `out of shared memory` (SQLSTATE 53200); the compose service raises it to
+1024. It also creates `postgis`, `pgcrypto`, `pg_trgm` and `btree_gin` in
+`public` on an empty volume, so the migrations' `create extension if not exists`
+is the no-op it is against staging rather than a race between schemas. A
+hand-started container needs both.
+
 CI runs the same suites against its own `postgis/postgis:17-3.5` service
 container, matching the version staging runs. It does not use staging, so
 nothing CI does touches a database anyone else is using.
