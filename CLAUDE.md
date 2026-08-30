@@ -130,17 +130,20 @@ pnpm db:status
 Fast tests are pure (no DB). Postgres-backed integration tests (`*.integration.test.ts`) are **opt-in** and require an explicit test DB. They live in `packages/db/src/tests/integration` and `apps/server/src/tests/integration`, the latter for the ownership and lifecycle reads that decide whether a write happens, which take a plain `Transaction` and no server context. `apps/server` imports the harness from `@simmer-mosquito/db/test-support`, so `packages/db` must be built first.
 
 ```sh
-# PowerShell. Point at the Railway staging Postgres in .env:
-$env:TEST_DATABASE_URL=(Get-Content .env | Select-String '^DATABASE_URL=').ToString().Substring(13)
+# PowerShell. Start the local Postgres, then point the suites at it:
+docker compose up -d postgres
+$env:TEST_DATABASE_URL='postgres://postgres:postgres@localhost:55432/simmer_mosquito'
 pnpm --filter @simmer-mosquito/db test
 pnpm --filter @simmer-mosquito/server test
 ```
 
-Each test builds a throwaway `simmer_test_*` schema, applies every migration into it as a single query, and drops it afterwards, so `public` is never touched. Against a remote database that is ~9s per test, so `describeDbIntegration` sets its own 45s timeout; do not run these suites under vitest's default. Without `TEST_DATABASE_URL` they **skip silently**, so a green `pnpm test` does not mean they ran.
+Never point `TEST_DATABASE_URL` at the Railway staging `DATABASE_URL`. The migration set applies as one transaction creating 326 relations, which overruns the logical decoder's 1 GB reorder buffer and kills the walsender for good. That is how staging's Electric sync died (#166, #236). `withTestDb` reads `pg_replication_slots` and refuses to run when it finds a row, with no flag or variable past it.
 
-A local container has to be started for that: several files build their schemas at once, so the lock table holds every object of all of them and the stock `max_locks_per_transaction=64` fails twelve files at once with `out of shared memory` (SQLSTATE 53200). `docker-compose.yml` starts Postgres with `max_locks_per_transaction=1024` and creates `postgis`, `pgcrypto`, `pg_trgm` and `btree_gin` in `public` first, so the migrations' `create extension if not exists` is the no-op it is against staging; a hand-started container needs both.
+The compose service is also the only local Postgres these suites run on out of the box. Several files build their schemas at once, so the lock table holds every object of all of them and the stock `max_locks_per_transaction=64` fails twelve files at once with `out of shared memory` (SQLSTATE 53200). `docker-compose.yml` raises it to 1024 and creates `postgis`, `pgcrypto`, `pg_trgm` and `btree_gin` in `public` first, so the migrations' `create extension if not exists` is the no-op it expects; a hand-started container needs both.
 
-CI does not use staging for this. The `Database integration tests` job runs a `postgis/postgis:17-3.5` service container, the version staging runs, and points `TEST_DATABASE_URL` at loopback, so nothing CI does reaches the database your dev server is talking to.
+Each test builds a throwaway `simmer_test_*` schema, applies every migration into it as a single query, and drops it afterwards, so `public` is never touched. That is about a second per test against the container, and `describeDbIntegration` sets its own 45s timeout; do not run these suites under vitest's default. Without `TEST_DATABASE_URL` they **skip silently**, so a green `pnpm test` does not mean they ran.
+
+CI runs them the same way. The `Database integration tests` job starts a `postgis/postgis:17-3.5` service container, the version staging runs, and points `TEST_DATABASE_URL` at loopback, so nothing CI does reaches the database your dev server is talking to.
 
 **Local dev backends:** `apps/server` and the frontends run locally; Postgres and Electric come from the Railway `staging` environment (`.env` and `apps/server/.env` point `DATABASE_URL`, `ELECTRIC_URL`, and `ELECTRIC_SECRET` at staging). That is mode A and the default; `docker-compose.yml` still runs a fully local Postgres and Electric as mode B. See `docs/deployment.md`, "Local development". Deploys are gated on `pnpm test` passing (`verify` job), so keep tests green or nothing deploys. Pushing `main` is a production release.
 

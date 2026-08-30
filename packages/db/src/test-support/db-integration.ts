@@ -77,6 +77,7 @@ export async function withTestDb<T>(
 	let setupComplete = false;
 
 	try {
+		await refuseDatabaseWithReplicationSlot(setupPool);
 		await sweepAbandonedSchemasOnce(setupPool);
 		await setupPool.query(`create schema ${schemaName}`);
 		schemaCreated = true;
@@ -125,6 +126,45 @@ export async function withTestDb<T>(
 			await teardownPool.end();
 		}
 	}
+}
+
+/**
+ * A pool the replication-slot check can read `pg_replication_slots` through.
+ *
+ * Narrower than `pg.Pool` so a test can hand it a fake and drive the refusal
+ * without a database.
+ */
+export interface SlotReadable {
+	query(sql: string): Promise<{ readonly rows: readonly { readonly slot_name: string }[] }>;
+}
+
+/**
+ * Refuse to run against a database anything replicates from.
+ *
+ * The migration set goes out as one query, so Postgres runs it as one implicit
+ * transaction creating 326 relations. A logical decoder has to reassemble that
+ * transaction in its reorder buffer, which overruns Postgres's hard 1 GB limit
+ * and kills the walsender. It then dies the same way on every reconnect, for
+ * good. That is how staging's Electric sync died in #236, and the instruction
+ * that pointed these suites at staging was in `CLAUDE.md` at the time.
+ *
+ * There is deliberately no override. An escape hatch gets copied into somebody's
+ * script and becomes the documented workflow again, which is how this happened
+ * the first time.
+ */
+export async function refuseDatabaseWithReplicationSlot(pool: SlotReadable): Promise<void> {
+	const { rows } = await pool.query('select slot_name from pg_replication_slots');
+	if (rows.length === 0) {
+		return;
+	}
+
+	const slots = rows.map((row) => row.slot_name).join(', ');
+	throw new Error(
+		`Refusing to run integration tests against a database with a replication slot (${slots}). ` +
+			'The migration set applies as one transaction of 326 relations, which overruns the ' +
+			"logical decoder's 1 GB reorder buffer and kills the walsender for good. Start the " +
+			'local Postgres from docker-compose.yml and point TEST_DATABASE_URL at that instead.',
+	);
 }
 
 /**

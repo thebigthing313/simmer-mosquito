@@ -61,8 +61,11 @@ integration tests are opt-in and require an explicit test database URL; without
 one they skip silently, so a green `pnpm test` does not mean they ran.
 
 Each test applies the whole migration set into a throwaway `simmer_test_*`
-schema and drops it afterwards. Point `TEST_DATABASE_URL` at any PostGIS-capable
-Postgres: the Railway staging URL from `.env`, or a local container.
+schema and drops it afterwards. Point `TEST_DATABASE_URL` at the local container
+from `docker-compose.yml`, never at Railway staging. The set applies as one
+transaction creating 326 relations, which overruns the logical decoder's 1 GB
+reorder buffer and kills the walsender for good, so `withTestDb` reads
+`pg_replication_slots` and refuses to run when it finds a row (#236).
 
 ```sh
 docker-compose up -d postgres
@@ -83,7 +86,7 @@ of them, and the stock `max_locks_per_transaction=64` fails twelve files at once
 with `out of shared memory` (SQLSTATE 53200); the compose service raises it to
 1024. It also creates `postgis`, `pgcrypto`, `pg_trgm` and `btree_gin` in
 `public` on an empty volume, so the migrations' `create extension if not exists`
-is the no-op it is against staging rather than a race between schemas. A
+is the no-op it expects rather than a race between schemas. A
 hand-started container needs both.
 
 CI runs the same suites against its own `postgis/postgis:17-3.5` service
