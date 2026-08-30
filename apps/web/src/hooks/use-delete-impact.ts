@@ -26,6 +26,7 @@ export type DeletableRecordType =
 	| 'serviceRequest'
 	| 'route'
 	| 'assignment'
+	| 'notificationRegistration'
 	// Neither has a detail page yet, so nothing passes these today. They are here
 	// because this union claims to mirror the database's, and a mirror missing two
 	// members is the drift the comment above warns about rather than a shorter

@@ -28,6 +28,7 @@ const EXPECTED_TYPES = [
 	'habitat',
 	'inspection',
 	'mission',
+	'notificationRegistration',
 	'outreachAction',
 	'region',
 	'requestedControlAction',

@@ -36,7 +36,7 @@ import { WriteOnly } from './write-only';
 
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
-export interface DangerZoneCardProps {
+interface DangerZoneCardRecord {
 	/** The server-side record kind, which decides the delete policy. */
 	readonly recordType: DeletableRecordType;
 	readonly recordId: string;
@@ -55,9 +55,25 @@ export interface DangerZoneCardProps {
 	readonly onDelete: () =>
 		| Promise<unknown>
 		| { readonly isPersisted: { readonly promise: Promise<unknown> } };
-	/** Where to land once the record is gone — the list it came from. */
-	readonly returnTo: NonNullable<LinkProps['to']>;
 }
+
+/**
+ * Where the reader goes once the record is gone.
+ *
+ * A record with a page of its own leaves a page that no longer has anything to
+ * show, so the card navigates: `returnTo` is the list it came from. A record
+ * edited inside a panel has no page to leave, and a notification registration
+ * is the case — it is created, edited and deleted in the panel beside the map
+ * on its contact's registrations page. `onDeleted` closes that panel instead.
+ *
+ * One or the other, never both and never neither: a card with no destination
+ * leaves the reader looking at a record that has just stopped existing.
+ */
+export type DangerZoneDestination =
+	| { readonly returnTo: NonNullable<LinkProps['to']>; readonly onDeleted?: never }
+	| { readonly returnTo?: never; readonly onDeleted: () => void };
+
+export type DangerZoneCardProps = DangerZoneCardRecord & DangerZoneDestination;
 
 /**
  * Await a deletion, whichever half of the migration it came from.
@@ -120,6 +136,7 @@ const DELETE_FLOOR: Record<DeletableRecordType, MinimumRole> = {
 	outreachAction: 'manager',
 	biocontrolAction: 'manager',
 	requestedControlAction: 'manager',
+	notificationRegistration: 'manager',
 
 	// The catalogs, from the same file. They have no detail page and reach their
 	// delete through `CatalogDeleteDialog` inside an edit drawer, so nothing
@@ -142,7 +159,15 @@ const DELETE_FLOOR: Record<DeletableRecordType, MinimumRole> = {
 	tag: 'manager',
 };
 
-function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: DangerZoneCardProps) {
+function DangerZone({
+	recordType,
+	recordId,
+	noun,
+	name,
+	onDelete,
+	onDeleted,
+	returnTo,
+}: DangerZoneCardProps) {
 	const navigate = useNavigate();
 	const queryClient = useQueryClient();
 	const impactQuery = useDeleteImpact(recordType, recordId);
@@ -164,6 +189,13 @@ function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: Da
 		setIsDeleting(true);
 		try {
 			await settleDeletion(onDelete());
+			if (returnTo === undefined) {
+				// The props union makes this the panel case, where `onDeleted` is
+				// required. The optional call is what the destructured union costs:
+				// narrowing on `returnTo` does not carry to its sibling.
+				onDeleted?.();
+				return;
+			}
 			await navigate({ to: returnTo });
 		} catch (cause) {
 			const blocked = readBlockers(cause);
@@ -195,7 +227,7 @@ function DangerZone({ recordType, recordId, noun, name, onDelete, returnTo }: Da
 			});
 			setIsDeleting(false);
 		}
-	}, [navigate, noun, onDelete, queryClient, recordId, recordType, returnTo]);
+	}, [navigate, noun, onDelete, onDeleted, queryClient, recordId, recordType, returnTo]);
 
 	// Quiet by default. This sits at the foot of a record the operator came to
 	// read, not to destroy, and a full-size destructive block there competes

@@ -537,6 +537,112 @@ describeDbIntegration('record deletion policy', () => {
 			).resolves.toBeUndefined();
 		});
 	});
+
+	it('refuses a notification registration a live mission notification names', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'registration_block');
+			const contactId = await createContact(db, org);
+			const typeId = await createNotificationType(db, org);
+			const registrationId = await createRegistration(db, org, contactId);
+			await subscribeRegistration(db, org, registrationId, typeId);
+			const notificationId = await createMissionNotification(db, org, {
+				contactId,
+				notificationTypeId: typeId,
+				registrationId,
+			});
+
+			const impact = await readDeleteImpact(db, {
+				recordType: 'notificationRegistration',
+				recordId: registrationId,
+				organizationId: org,
+			});
+			expect(entry(impact.blockers, 'registrationMissionNotifications')).toBe(1);
+			expect(entry(impact.cascades, 'registrationSubscriptions')).toBe(1);
+
+			await expect(
+				db.transaction().execute(async (trx) =>
+					applyRecordDeletion(trx, {
+						recordType: 'notificationRegistration',
+						recordId: registrationId,
+						organizationId: org,
+						actorProfileId: null,
+						acknowledged: CONFIRMED,
+					}),
+				),
+			).rejects.toBeInstanceOf(RecordDeleteBlockedError);
+
+			// Refused before the first cascade, so the subscription is still there
+			// to be warned about on the next attempt.
+			const subscription = await db
+				.selectFrom('notification_registration_types')
+				.select(['deleted_at'])
+				.where('notification_registration_id', '=', registrationId)
+				.executeTakeFirstOrThrow();
+			expect(subscription.deleted_at).toBeNull();
+
+			// A retired notification is a record of a promise nobody is keeping any
+			// more, so it stops standing in the way.
+			await db
+				.updateTable('mission_notifications')
+				.set({ deleted_at: sql`now()` })
+				.where('id', '=', notificationId)
+				.execute();
+
+			await expect(
+				assertRecordDeletable(db, {
+					recordType: 'notificationRegistration',
+					recordId: registrationId,
+					organizationId: org,
+				}),
+			).resolves.toBeUndefined();
+		});
+	});
+
+	it('takes a registration’s subscriptions when nothing has been told about it', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'registration_clean');
+			const contactId = await createContact(db, org);
+			const typeId = await createNotificationType(db, org);
+			const registrationId = await createRegistration(db, org, contactId);
+			await subscribeRegistration(db, org, registrationId, typeId);
+
+			const impact = await readDeleteImpact(db, {
+				recordType: 'notificationRegistration',
+				recordId: registrationId,
+				organizationId: org,
+			});
+			expect(impact.found).toBe(true);
+			expect(impact.blockers).toEqual([]);
+			expect(entry(impact.cascades, 'registrationSubscriptions')).toBe(1);
+
+			await db.transaction().execute(async (trx) => {
+				await applyRecordDeletion(trx, {
+					recordType: 'notificationRegistration',
+					recordId: registrationId,
+					organizationId: org,
+					actorProfileId: null,
+					// Nothing is asked for: the subscriptions are the registration's
+					// own link rows.
+					acknowledged: {},
+				});
+			});
+
+			const subscription = await db
+				.selectFrom('notification_registration_types')
+				.select(['deleted_at'])
+				.where('notification_registration_id', '=', registrationId)
+				.executeTakeFirstOrThrow();
+			expect(subscription.deleted_at).not.toBeNull();
+
+			// The notification type itself is a catalog row and stays.
+			const type = await db
+				.selectFrom('notification_types')
+				.select(['deleted_at'])
+				.where('id', '=', typeId)
+				.executeTakeFirstOrThrow();
+			expect(type.deleted_at).toBeNull();
+		});
+	});
 });
 
 // ---------------------------------------------------------------------------
@@ -753,6 +859,91 @@ async function createComment(
 }
 
 // --- Mission dispatch and control-request fixtures -------------------------
+
+async function createContact(db: Db, organizationId: string): Promise<string> {
+	const row = await db
+		.insertInto('contacts')
+		.values({
+			organization_id: organizationId,
+			contact_name: 'Sam Rivera',
+			wants_email: true,
+			wants_sms: false,
+			wants_phone: false,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+/** Each type brings its own name: the name is unique per agency. */
+let nextNotificationType = 1;
+
+async function createNotificationType(db: Db, organizationId: string): Promise<string> {
+	const row = await db
+		.insertInto('notification_types')
+		.values({ organization_id: organizationId, name: `Adulticiding ${nextNotificationType++}` })
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createRegistration(
+	db: Db,
+	organizationId: string,
+	contactId: string,
+): Promise<string> {
+	const row = await db
+		.insertInto('notification_registrations')
+		.values({
+			organization_id: organizationId,
+			contact_id: contactId,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function subscribeRegistration(
+	db: Db,
+	organizationId: string,
+	registrationId: string,
+	notificationTypeId: string,
+): Promise<void> {
+	await db
+		.insertInto('notification_registration_types')
+		.values({
+			organization_id: organizationId,
+			notification_registration_id: registrationId,
+			notification_type_id: notificationTypeId,
+		})
+		.execute();
+}
+
+async function createMissionNotification(
+	db: Db,
+	organizationId: string,
+	links: {
+		readonly contactId: string;
+		readonly notificationTypeId: string;
+		readonly registrationId: string;
+	},
+): Promise<string> {
+	const missionId = await createMission(db, organizationId);
+	const row = await db
+		.insertInto('mission_notifications')
+		.values({
+			organization_id: organizationId,
+			mission_id: missionId,
+			notification_registration_id: links.registrationId,
+			contact_id: links.contactId,
+			notification_type_id: links.notificationTypeId,
+			channel: 'email' as const,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
 
 async function createUnit(db: Db): Promise<string> {
 	const row = await db

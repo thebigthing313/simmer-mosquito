@@ -34,6 +34,7 @@ export type DeletableRecordType =
 	| 'assignment'
 	| 'requestedControlAction'
 	| 'mission'
+	| 'notificationRegistration'
 	// Catalogs. Every catalog rule is a `block`, and that is the decision rather
 	// than an omission. The reasoning is in the registry, above `collectionMethod`.
 	| 'collectionMethod'
@@ -885,6 +886,43 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 			),
 			cascadesSupport('contactComments', 'comments', 'contact', 'comment', 'comments', null),
 			cascadesSupport('contactTags', 'tag_items', 'contact', 'tag', 'tags', null),
+		],
+	},
+
+	/**
+	 * A registration is a promise to warn somebody before a mission runs near
+	 * them, and a mission notification is a record of having kept it.
+	 *
+	 * The block is the same policy the merge registry reads the other way round:
+	 * `mission_notifications` is not re-pointed on a contact merge because those
+	 * rows snapshot who was told, and a row that snapshots something cannot have
+	 * the thing it names deleted out from under it. Without the rule the delete
+	 * went through and left every notification naming a retired registration,
+	 * with the foreign key still satisfied and nothing to read (#322).
+	 *
+	 * The subscriptions go with it, unasked: `notification_registration_types` is
+	 * the link between this registration and the types it wanted, so it records
+	 * nothing on its own.
+	 */
+	notificationRegistration: {
+		table: 'notification_registrations',
+		singular: 'notification registration',
+		rules: [
+			blocks(
+				'registrationMissionNotifications',
+				'mission_notifications',
+				'notification_registration_id',
+				'sent notification',
+				'sent notifications',
+			),
+			cascades(
+				'registrationSubscriptions',
+				'notification_registration_types',
+				'notification_registration_id',
+				'notification type subscription',
+				'notification type subscriptions',
+				null,
+			),
 		],
 	},
 
