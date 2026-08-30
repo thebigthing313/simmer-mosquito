@@ -13,6 +13,9 @@ importers:
       '@tanstack/db':
         specifier: ^0.7.2
         version: 0.7.2(typescript@7.0.2)
+      pg:
+        specifier: ^8.16.0
+        version: 8.20.0
     devDependencies:
       '@biomejs/biome':
         specifier: 2.4.14

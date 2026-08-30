@@ -575,6 +575,36 @@ The separate DB migration workflow (`db-migrate.yml`) remains available for
 targeted migration retries. `workflow_dispatch` on the deploy workflow allows a
 manual deploy to a chosen environment from its matching branch.
 
+`schema-drift.yml` asks the question `db-migrate.yml` cannot: is staging's
+schema still the one `packages/db/migrations` produces? It runs at 16:00 UTC
+daily and on `workflow_dispatch`, and it covers what the migration workflow does
+not — a migration applied by hand, a `dbmate` run that half-failed, a fix made
+straight on staging. It reads staging and writes nothing there: the expected
+schema is built by `dbmate` in a service container beside the job, and the
+comparison script opens both sessions read only before its first query. That
+constraint is #236's: the integration harness sends the whole migration set as
+one transaction, and running it against staging is the #166 outage.
+
+Two comparisons, both in `scripts/check-schema-drift.mjs`, which takes two
+connection URLs and runs anywhere:
+
+```sh
+node scripts/check-schema-drift.mjs \
+  --observed "$DATABASE_URL" \
+  --expected postgres://postgres:postgres@localhost:5432/simmer_reference
+```
+
+`schema_migrations` against the migration filenames catches a half-applied set.
+The catalog against the container's catalog catches a column, index, constraint
+or trigger on one side only. The second reads `information_schema` and
+`pg_catalog`, never the migration text, because parsing `create table` blocks
+misses every `alter table ... add column` (#123).
+
+A red run files a GitHub issue labelled `schema drift` naming the divergent
+objects, comments on that issue rather than filing a second one on the next red
+run, and closes it when a later run is green. So the tracker holds at most one
+open drift issue and its state is the current answer.
+
 GitHub staging environment values:
 
 ```sh
