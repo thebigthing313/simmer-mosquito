@@ -1,34 +1,22 @@
+import { CommandError } from '@simmer-mosquito/sync';
+
 import type { DeleteImpactEntry } from '../hooks/use-delete-impact';
 
 /**
  * A refused command, with the server's answer still attached.
  *
- * Every command endpoint answers a failure with a structured body — `{ error,
- * reason }` for a refusal, `{ error: 'delete_blocked', message, blockers }` for
- * a delete something still references, `{ error: 'invalid_command', issues }`
- * for a validation failure. Until this existed, each of the sixteen mutation
- * modules reduced that body to its message and threw a bare `Error`, so the
- * only thing that survived the write layer was a sentence.
+ * The class itself is the sync package's, because that is the one every write
+ * through `mutateCollection` or `commandTransaction` throws. `apps/web` used to
+ * declare a second class of the same shape here, so `isDeleteBlocked` tested
+ * `instanceof` against a class no real refusal was ever an instance of, and the
+ * danger zone listed none of the blockers the 409 had just handed it (#323).
+ * It is re-exported so every import of it from this module keeps resolving.
  *
- * That was most visible on a blocked delete. `blockers` exists so a client that
- * raced the impact check can name what stopped it "without a second round-trip"
- * (`apps/server/src/record-deletion.ts`), and nothing read it — the card had to
- * ask the server again to find out what it had just been told.
- *
- * `message` stays the human sentence, so every existing `catch` that shows
- * `error.message` keeps working unchanged. `body` is the part that was being
- * thrown away.
+ * `blockers` exists so a client that raced the impact check can name what
+ * stopped it "without a second round-trip" (`apps/server/src/record-deletion.ts`).
+ * `readBlockers` below is what reads it.
  */
-export class CommandError extends Error {
-	constructor(
-		message: string,
-		readonly status: number,
-		readonly body: unknown,
-	) {
-		super(message);
-		this.name = 'CommandError';
-	}
-}
+export { CommandError };
 
 /**
  * The `CommandError` for a response that failed, whatever shape it came in.
