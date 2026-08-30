@@ -8,7 +8,7 @@
  * too few drops that part of the form behind a 200.
  *
  * The location is the one worth being careful about. The drawn shape does not
- * travel as a column — `geom` never syncs — so nothing about the row can betray
+ * travel as a column, because `geom` never syncs, so nothing about the row betrays
  * a redraw that was not sent, or a re-send of the shape the registration already
  * had. The only signal is whether the caller passed one, which is why
  * `geometry: null` has to mean "not touched" rather than "cleared", and why an

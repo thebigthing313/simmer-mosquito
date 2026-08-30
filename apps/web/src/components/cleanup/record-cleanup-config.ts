@@ -144,6 +144,21 @@ function asWritten(group: DuplicateGroup, written: string | null | undefined): s
 	return spelled === '' ? (group.value ?? '') : spelled;
 }
 
+/**
+ * A record's name, or what to call it when it has none.
+ *
+ * Six surfaces were writing this comparison out, which is six chances for one of
+ * them to render an empty string where a name goes. Habitats are the reason it
+ * exists: `habitat_name` is nullable and the reader coalesces it to `''`, so a
+ * blank label is a real value rather than a missing one.
+ */
+export function recordLabel(
+	record: { readonly label: string },
+	config: RecordCleanupConfig,
+): string {
+	return record.label.trim() === '' ? config.unnamed : record.label;
+}
+
 /** `3 addresses`, `1 address`. */
 export function recordCountLabel(count: number, config: RecordCleanupConfig): string {
 	return `${count} ${count === 1 ? config.noun.one : config.noun.many}`;

@@ -26,6 +26,7 @@ import {
 	RECORD_CLEANUP_CONFIGS,
 	type RecordCleanupConfig,
 	recordCountLabel,
+	recordLabel,
 } from './record-cleanup-config';
 
 const MergeIcon = iconRegistry.actions.merge.icon;
@@ -94,9 +95,10 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 				fieldUpdates,
 			});
 			toast.success(
-				`Merged ${recordCountLabel(pending.sources.length, config)} into ${
-					pending.target.label.trim() === '' ? config.unnamed : pending.target.label
-				}.`,
+				`Merged ${recordCountLabel(pending.sources.length, config)} into ${recordLabel(
+					pending.target,
+					config,
+				)}.`,
 			);
 			await queryClient.invalidateQueries({
 				queryKey: duplicateCandidatesQueryKey(recordType),

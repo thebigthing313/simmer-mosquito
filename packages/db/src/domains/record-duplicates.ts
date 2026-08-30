@@ -86,7 +86,8 @@ export interface DuplicateGroup {
 	readonly key: string;
 	readonly reason: DuplicateReason;
 	/**
-	 * The value the rows share, normalized as it was compared. Null for
+	 * The value the rows share, normalized as it was compared.
+	 *
 	 * Never null today: every reason is a shared value. It stays nullable because
 	 * `DuplicateGroup` is what the wire carries, and a reason with no value is one
 	 * config entry away.

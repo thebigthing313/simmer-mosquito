@@ -113,12 +113,6 @@ export function validateRegistration(value: RegistrationFormValues, geometry: Dr
 	)({ value });
 }
 
-export interface RegistrationSaveInput {
-	readonly values: RegistrationFormValues;
-	/** Null when the user did not redraw it, which an edit reads as "unchanged". */
-	readonly geometry: DrawGeometry | null;
-}
-
 /** What the panel form needs beyond the form instance itself. */
 export interface RegistrationFormFieldsProps {
 	// biome-ignore lint/suspicious/noExplicitAny: useAppForm instance has no exported type
@@ -210,8 +204,8 @@ export function RegistrationFormFields({
 /**
  * Everything the map half of this form holds, as one controller.
  *
- * The pieces move each other — picking an address places the point, changing the
- * geometry type restarts the draw, drawing anything clears the location error —
+ * The pieces move each other. Picking an address places the point, changing the
+ * geometry type restarts the draw, drawing anything clears the location error,
  * so holding them as seven separate `useState` calls in the page makes the page
  * responsible for wiring that has nothing to do with the fields beside it. Same
  * reason `routes/operations/-location-section.tsx` puts geometry in a controller
@@ -341,7 +335,7 @@ function RegistrationLocation({
 }) {
 	return (
 		<LocationSection
-			description="The geometry is the place itself — a point for a house, a line for a verge, an area for a field. An address is optional reference."
+			description="The geometry is the place itself: a point for a house, a line for a verge, an area for a field. An address is optional reference."
 			error={locationError}
 		>
 			<form.AppField name="addressId">

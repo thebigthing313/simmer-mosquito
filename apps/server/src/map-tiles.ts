@@ -464,7 +464,7 @@ export function registerMapTileRoutes(
 	// Geometry only, and the reason is the same as the requested control action
 	// above: everything else about a registration streams on its Electric shape,
 	// which carries the centroid rather than the drawn line or area (ADR 0009).
-	// The edit form is the only caller — a form that opened on the centroid of a
+	// The edit form is the only caller, and a form that opened on the centroid of a
 	// no-spray field would save that field back as a point.
 	registerByIdRoute(app, options, {
 		path: '/map/notification-registrations/:id',

@@ -9,7 +9,7 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useId, useState } from 'react';
 import type { DuplicateRecord } from '../../hooks/use-merge-candidates';
 import type { MergeFieldRow, MergeSuggestion } from './merge-field-plan';
-import type { RecordCleanupConfig } from './record-cleanup-config';
+import { type RecordCleanupConfig, recordLabel } from './record-cleanup-config';
 
 const ChevronIcon = iconRegistry.arrows.chevronRight.icon;
 
@@ -260,12 +260,7 @@ function recordLabels(
 	sources: readonly DuplicateRecord[],
 	config: RecordCleanupConfig,
 ): ReadonlyMap<string, string> {
-	return new Map(
-		[target, ...sources].map((record) => [
-			record.id,
-			record.label.trim() === '' ? config.unnamed : record.label,
-		]),
-	);
+	return new Map([target, ...sources].map((record) => [record.id, recordLabel(record, config)]));
 }
 
 /** `contact` to `Contact`, for a heading that leads with the record type. */

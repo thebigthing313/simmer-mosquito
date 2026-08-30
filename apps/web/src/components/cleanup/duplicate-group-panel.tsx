@@ -21,6 +21,7 @@ import {
 	duplicateGroupHeading,
 	type RecordCleanupConfig,
 	recordCountLabel,
+	recordLabel,
 } from './record-cleanup-config';
 
 const MergeIcon = iconRegistry.actions.merge.icon;
@@ -75,7 +76,7 @@ export function DuplicateGroupPanel(props: DuplicateGroupPanelProps) {
 				<WriteOnly minimum="manager">
 					<Button onClick={props.onMerge} size="sm">
 						<MergeIcon aria-hidden="true" />
-						Merge {sources.length} into {labelOf(survivor, props.config)}
+						Merge {sources.length} into {recordLabel(survivor, props.config)}
 					</Button>
 				</WriteOnly>
 			}
@@ -127,7 +128,7 @@ function CandidateRow({
 			<ItemContent className="min-w-0">
 				<ItemTitle>
 					<Label className="cursor-pointer font-medium" htmlFor={radioId}>
-						{labelOf(record, config)}
+						{recordLabel(record, config)}
 					</Label>
 					{isSurvivor ? (
 						<Badge className="ml-2" variant="secondary">
@@ -152,10 +153,6 @@ function CandidateRow({
 			</ItemActions>
 		</Item>
 	);
-}
-
-function labelOf(record: DuplicateRecord, config: RecordCleanupConfig): string {
-	return record.label.trim() === '' ? config.unnamed : record.label;
 }
 
 /**

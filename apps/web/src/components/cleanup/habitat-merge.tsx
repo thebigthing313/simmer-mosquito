@@ -1,4 +1,9 @@
-import { proximityLabel, proximitySearchUnit } from '@simmer-mosquito/domain';
+import {
+	convertUnitAmount,
+	type ProximitySearchUnit,
+	proximityLabel,
+	proximitySearchUnit,
+} from '@simmer-mosquito/domain';
 import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
 import { ListEmpty, ListLoading } from '@simmer-mosquito/ui-web/components/page/list-states';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -34,8 +39,10 @@ import { useBreadcrumbLabel } from '../app-shell';
 import { MapSplitPage } from '../app-shell/outlet/map-split-page';
 import { MapCanvas } from '../map';
 import { WriteOnly } from '../write-only';
+import { mergeMapData } from './habitat-merge-map';
 import { MergeConfirmDialog } from './merge-confirm-dialog';
-import { RECORD_CLEANUP_CONFIGS, recordCountLabel } from './record-cleanup-config';
+import { CandidateRow } from './nearby-habitat-row';
+import { RECORD_CLEANUP_CONFIGS, recordCountLabel, recordLabel } from './record-cleanup-config';
 
 const MergeIcon = iconRegistry.actions.merge.icon;
 const config = RECORD_CLEANUP_CONFIGS.habitat;
@@ -92,7 +99,9 @@ export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
 				acknowledged,
 				fieldUpdates,
 			});
-			toast.success(`Merged ${recordCountLabel(sources.length, config)} into ${labelOf(target)}.`);
+			toast.success(
+				`Merged ${recordCountLabel(sources.length, config)} into ${recordLabel(target, config)}.`,
+			);
 			clear();
 			await queryClient.invalidateQueries({ queryKey: nearbyHabitatsKey(habitatId) });
 		},
@@ -133,7 +142,9 @@ export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
 						<h1 className="flex items-center gap-2 font-semibold text-foreground text-lg leading-tight">
 							<MergeIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
 							<span className="min-w-0 truncate">
-								{target === undefined ? 'Merge duplicates' : `Merge into ${labelOf(target)}`}
+								{target === undefined
+									? 'Merge duplicates'
+									: `Merge into ${recordLabel(target, config)}`}
 							</span>
 						</h1>
 						<RadiusControl onChange={setRadius} radius={radius} unit={unit} />
@@ -199,7 +210,7 @@ function CandidateList({
 	readonly onToggle: (habitatId: string) => void;
 	readonly radius: number;
 	readonly selected: ReadonlySet<string>;
-	readonly unit: ReturnType<typeof proximitySearchUnit>;
+	readonly unit: ProximitySearchUnit;
 }) {
 	if (isPending) {
 		return <ListLoading rows={4} />;
@@ -254,10 +265,12 @@ function CandidateList({
  */
 function useMergeSearch(habitatId: string) {
 	const unit = proximitySearchUnit(useOrganizationSettings().unitDefaults.distance);
-	const defaultRadius = unit.steps[0] ?? 100;
-	const [radius, setRadius] = useState(defaultRadius);
+	const [radius, setRadius] = useState(unit.steps[0] ?? 100);
 
-	const radiusMetres = radius * (unit.unitCode === 'foot' ? 0.3048 : 1);
+	// Through the domain's conversion table rather than a factor written here.
+	// `record-merge-reads.ts` and `coverage-features.ts` already convert that way,
+	// and a second copy of 0.3048 is a second place for the two to disagree.
+	const radiusMetres = convertUnitAmount(radius, unit.unitCode, 'meter') ?? radius;
 	const nearby = useNearbyHabitats(habitatId, radiusMetres);
 	const target = nearby.data?.target;
 	const candidates = nearby.data?.candidates ?? [];
@@ -285,7 +298,6 @@ function useMergeSearch(habitatId: string) {
 	return {
 		bounds,
 		candidates,
-		defaultRadius,
 		mapData,
 		nearby,
 		radius,
@@ -321,52 +333,6 @@ function useHabitatSelection() {
 }
 
 /**
- * The map overlay: the radius, the habitat being kept, and what stands near it.
- *
- * The same three roles the service-request context view draws, painted by the
- * same layer. A habitat carries `family: 'surveillance'` because that is what it
- * is, and the ring is what turns the radius from a number on a button into a
- * distance a reader can see against the street it covers.
- */
-function mergeMapData(
-	target: DuplicateRecord | undefined,
-	candidates: readonly NearbyHabitat[],
-	radiusMetres: number,
-): GeoJSON.FeatureCollection | null {
-	if (target === undefined || target.lat === null || target.lng === null) {
-		return null;
-	}
-
-	const center = { lat: target.lat, lng: target.lng };
-	const features: GeoJSON.Feature[] = [
-		{
-			type: 'Feature',
-			properties: { role: 'ring' },
-			geometry: circlePolygon(center, radiusMetres) as unknown as GeoJSON.Polygon,
-		},
-	];
-
-	for (const candidate of candidates) {
-		if (candidate.lat === null || candidate.lng === null) {
-			continue;
-		}
-		features.push({
-			type: 'Feature',
-			properties: { role: 'nearby', id: candidate.id, family: 'surveillance' },
-			geometry: { type: 'Point', coordinates: [candidate.lng, candidate.lat] },
-		});
-	}
-
-	features.push({
-		type: 'Feature',
-		properties: { role: 'center' },
-		geometry: { type: 'Point', coordinates: [center.lng, center.lat] },
-	});
-
-	return { type: 'FeatureCollection', features };
-}
-
-/**
  * What the surviving habitat says, to compare the candidates against.
  *
  * Every candidate row carries its description, and until this was here there was
@@ -392,7 +358,7 @@ function KeptHabitat({ target }: { readonly target: DuplicateRecord | undefined 
 	return (
 		<div className="grid gap-1">
 			<span className="font-medium text-sm">Keeping</span>
-			<p className="font-medium text-foreground text-sm">{labelOf(target)}</p>
+			<p className="font-medium text-foreground text-sm">{recordLabel(target, config)}</p>
 			{/*
 			 * Capped and scrollable. A habitat description is often a paragraph of
 			 * turn-by-turn directions, and at full height it pushes the radius off the
@@ -420,7 +386,7 @@ function RadiusControl({
 }: {
 	readonly onChange: (radius: number) => void;
 	readonly radius: number;
-	readonly unit: ReturnType<typeof proximitySearchUnit>;
+	readonly unit: ProximitySearchUnit;
 }) {
 	const groupId = useId();
 
@@ -491,73 +457,10 @@ function MergeFooter({
 				<WriteOnly minimum="manager">
 					<Button className="w-full" onClick={onMerge} size="sm">
 						<MergeIcon aria-hidden="true" />
-						Merge {count} into {labelOf(target)}
+						Merge {count} into {recordLabel(target, config)}
 					</Button>
 				</WriteOnly>
 			)}
 		</div>
 	);
-}
-
-function CandidateRow({
-	candidate,
-	isSelected,
-	onToggle,
-	unit,
-}: {
-	readonly candidate: NearbyHabitat;
-	readonly isSelected: boolean;
-	readonly onToggle: () => void;
-	readonly unit: ReturnType<typeof proximitySearchUnit>;
-}) {
-	const checkboxId = useId();
-
-	return (
-		<Item size="sm" variant={isSelected ? 'muted' : 'default'}>
-			<ItemMedia>
-				<Checkbox checked={isSelected} id={checkboxId} onCheckedChange={onToggle} />
-			</ItemMedia>
-			<ItemContent className="min-w-0">
-				<ItemTitle>
-					<Label className="cursor-pointer font-medium" htmlFor={checkboxId}>
-						{labelOf(candidate)}
-					</Label>
-					{candidate.isActive ? null : (
-						<Badge className="ml-2" variant="outline">
-							Retired
-						</Badge>
-					)}
-				</ItemTitle>
-				<ItemDescription className="truncate">
-					{distanceLabel(candidate.distanceMetres, unit)} away
-					{candidate.detail === null ? null : <> · {candidate.detail}</>}
-				</ItemDescription>
-			</ItemContent>
-			<ItemActions>
-				<Button asChild size="sm" variant="ghost">
-					<Link params={{ id: candidate.id }} to="/larval-surveillance/habitats/$id">
-						Open
-					</Link>
-				</Button>
-			</ItemActions>
-		</Item>
-	);
-}
-
-/**
- * How far away a candidate is, in the agency's units.
- *
- * Rounded to whole units below ten and to the nearest ten above, because the
- * reader is judging "is that this basin or the next one" and a distance to the
- * metre implies the two points are that accurate. They are not: both are
- * somebody standing near a thing with a phone.
- */
-function distanceLabel(metres: number, unit: ReturnType<typeof proximitySearchUnit>): string {
-	const amount = unit.unitCode === 'foot' ? metres / 0.3048 : metres;
-	const rounded = amount < 10 ? Math.round(amount) : Math.round(amount / 10) * 10;
-	return proximityLabel(rounded, unit);
-}
-
-function labelOf(record: DuplicateRecord): string {
-	return record.label.trim() === '' ? config.unnamed : record.label;
 }

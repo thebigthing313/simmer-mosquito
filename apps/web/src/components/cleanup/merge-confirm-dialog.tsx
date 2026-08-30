@@ -21,7 +21,7 @@ import {
 	mergeFieldUpdates,
 } from './merge-field-plan';
 import { MergeRecordBuilder } from './merge-record-builder';
-import type { RecordCleanupConfig } from './record-cleanup-config';
+import { type RecordCleanupConfig, recordLabel } from './record-cleanup-config';
 
 export interface MergeConfirmDialogProps {
 	readonly open: boolean;
@@ -89,7 +89,7 @@ export function MergeConfirmDialog(props: MergeConfirmDialogProps) {
 		}
 	}, [props.open]);
 
-	const targetLabel = props.target.label.trim() === '' ? props.config.unnamed : props.target.label;
+	const targetLabel = recordLabel(props.target, props.config);
 
 	async function confirm(): Promise<void> {
 		setIsMerging(true);
@@ -279,7 +279,7 @@ function RetiredList({
 			<ul className="mt-1 grid gap-0.5">
 				{sources.map((record) => (
 					<li className="truncate text-foreground" key={record.id}>
-						{record.label.trim() === '' ? config.unnamed : record.label}
+						{recordLabel(record, config)}
 						{record.detail === null ? null : (
 							<span className="text-muted-foreground"> · {record.detail}</span>
 						)}

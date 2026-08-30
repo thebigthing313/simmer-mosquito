@@ -115,8 +115,8 @@ export interface RegistrationUpdatePlan {
  * naming one too few drops that group behind a 200. Neither is visible from the
  * call site.
  *
- * The geometry is the awkward one. It does not sync as a column — only the
- * trigger-maintained centroid does — so nothing about the row can tell whether
+ * The geometry is the awkward one. It does not sync as a column, only the
+ * trigger-maintained centroid does, so nothing about the row can tell whether
  * the shape moved. The caller passes `geometry: null` for "not redrawn", the same
  * convention `regionUpdatePlan` uses, and a redrawn shape is a location edit even
  * when the address did not move.
@@ -168,8 +168,8 @@ function contactPart(fields: RegistrationFields, current: RegistrationFields): P
 /**
  * The location group, which is the awkward one.
  *
- * The drawn shape does not sync as a column — only the trigger-maintained
- * centroid does — so nothing about the row can tell whether it moved. A caller
+ * The drawn shape does not sync as a column, only the trigger-maintained
+ * centroid does, so nothing about the row can tell whether it moved. A caller
  * passing `null` means "not redrawn", the same convention `regionUpdatePlan`
  * uses, and a redrawn shape is a location edit even when the address did not
  * move. The centroid columns only shift when a shape actually arrived; inventing
@@ -287,8 +287,8 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 				throw new Error('Your profile is still loading.');
 			}
 
-			// The column's own vocabulary rather than GeoJSON's — `st_point`, not
-			// `Point` — so the optimistic row reads the way the trigger will write it.
+			// The column's own vocabulary rather than GeoJSON's: `st_point`, not
+			// `Point`, so the optimistic row reads the way the trigger will write it.
 			const centroid = ownedCentroidFromGeoJson(input.location.geometry);
 			if (centroid === null) {
 				throw new Error('Unable to determine where this registration is.');
