@@ -198,6 +198,49 @@ describe('GET /search composition', () => {
 			results: [{ table: 'routes', routeType: 'trap', subtitle: 'Trap route' }],
 		});
 	});
+
+	it('marks a retired record and leaves the rest of the result alone', async () => {
+		const response = await app(
+			row({
+				source_table: 'habitats',
+				fields: { habitat_name: 'Mill Pond', description: 'Behind the old mill' },
+				display: { is_active: 'false' },
+				matched_field: 'habitat_name',
+			}),
+		).request('/search?q=mill%20pond&limit=10');
+
+		await expect(response.json()).resolves.toMatchObject({
+			results: [
+				{
+					table: 'habitats',
+					title: 'Mill Pond',
+					subtitle: 'Behind the old mill',
+					retired: true,
+				},
+			],
+		});
+	});
+
+	// Absent, not false: nine of the twelve tables have no lifecycle at all, and
+	// the marker is rendered on truth so both cases read the same way.
+	it('leaves an active record and a table with no lifecycle unmarked', async () => {
+		const response = await app(
+			row({
+				source_table: 'habitats',
+				fields: { habitat_name: 'Mill Pond' },
+				display: { is_active: 'true' },
+				matched_field: 'habitat_name',
+			}),
+			row({
+				source_table: 'missions',
+				fields: { mission_name: 'Mill Pond sweep' },
+				matched_field: 'mission_name',
+			}),
+		).request('/search?q=mill%20pond&limit=10');
+
+		const body = (await response.json()) as { readonly results: readonly object[] };
+		expect(body.results.every((result) => !('retired' in result))).toBe(true);
+	});
 });
 
 const organizationId = 'f0dbf1c7-d278-441e-82b4-9292d390ce72';

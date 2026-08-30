@@ -107,6 +107,16 @@ export interface SearchRecordResult extends SearchResultCore {
 	readonly matchClass: SearchMatchClass;
 	/** Present only where `table` is `routes`; it picks the trap tree or the habitat tree. */
 	readonly routeType?: string | undefined;
+	/**
+	 * True where the record is retired.
+	 *
+	 * Only `habitats`, `traps` and `weather_sources` carry a lifecycle, so the
+	 * field is absent everywhere else rather than false: absent means the table
+	 * has no such state, and a reader that renders a marker on truth alone is
+	 * right for both. Retirement is not deletion — a soft-deleted record has no
+	 * document at all — and it does not affect ranking.
+	 */
+	readonly retired?: boolean | undefined;
 }
 
 /**

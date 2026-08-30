@@ -294,6 +294,144 @@ describeDbIntegration('search documents reader', () => {
 		});
 	});
 
+	// The three corpus tables with a lifecycle, and the ten without. `display` is
+	// not indexed, so nothing here can move a rank.
+	it('carries the lifecycle state of the three tables that have one, and no other', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await seedOrganization(db, 'workos_org_search_lifecycle');
+
+			await seedHabitat(db, org, 'Cedar Slough', 'Roadside ditch');
+			await seedTrap(db, org, 'Cedar Slough trap', null);
+			await seedWeatherSource(db, org, 'Cedar Slough station', 'CDR-1');
+			await seedRegion(db, org, 'Cedar Slough district');
+
+			const result = await searchDocuments(db, {
+				organizationId: org,
+				query: 'Cedar Slough',
+				limit: 20,
+				offset: 0,
+			});
+
+			expect(displayOf(result.rows, 'habitats')).toEqual({ is_active: 'true' });
+			expect(displayOf(result.rows, 'traps')).toEqual({ is_active: 'true' });
+			expect(displayOf(result.rows, 'weather_sources')).toEqual({ is_active: 'true' });
+			expect(displayOf(result.rows, 'regions')).toEqual({});
+		});
+	});
+
+	it('keeps a retired record in the corpus and in the class it already matched', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await seedOrganization(db, 'workos_org_search_retired');
+			const habitat = await seedHabitat(db, org, 'Mill Pond', 'Behind the old mill');
+
+			const before = await searchDocuments(db, {
+				organizationId: org,
+				query: 'Mill Pond',
+				limit: 20,
+				offset: 0,
+			});
+
+			await db
+				.updateTable('habitats')
+				.set({ is_active: false })
+				.where('id', '=', habitat)
+				.execute();
+
+			const after = await searchDocuments(db, {
+				organizationId: org,
+				query: 'Mill Pond',
+				limit: 20,
+				offset: 0,
+			});
+
+			expect(after.rows).toHaveLength(1);
+			expect(after.total).toBe(before.total);
+			expect(after.rows[0]?.matchClass).toBe(before.rows[0]?.matchClass);
+			expect(after.rows[0]?.matchedField).toBe(before.rows[0]?.matchedField);
+			expect(after.rows[0]?.fields).toEqual(before.rows[0]?.fields);
+			expect(after.rows[0]?.display).toEqual({ is_active: 'false' });
+		});
+	});
+
+	/*
+	 * The failure this migration can ship green: correct for every row written
+	 * after it, stale for every row written before.
+	 *
+	 * So the rows are seeded against the schema as it stood *before* the
+	 * migration, which is what `pauseBefore` buys. Seeding afterwards would
+	 * exercise the projection and never the backfill, and would pass whether or
+	 * not the backfill exists.
+	 */
+	it('rewrites the documents of rows that predate the migration, and tracks them after', async () => {
+		await withTestDb(
+			async ({ db, applyHeldBackMigrations }) => {
+				const org = await seedOrganization(db, 'workos_org_search_backfill');
+				const habitat = await seedHabitat(db, org, 'Otter Creek', 'Culvert at the bend');
+				const trap = await seedTrap(db, org, 'Otter Creek trap', null);
+				const station = await seedWeatherSource(db, org, 'Otter Creek station', 'OTR-1');
+
+				const stale = await searchDocuments(db, {
+					organizationId: org,
+					query: 'Otter Creek',
+					limit: 20,
+					offset: 0,
+				});
+				expect(displayOf(stale.rows, 'habitats')).toEqual({});
+
+				await applyHeldBackMigrations();
+
+				const backfilled = await searchDocuments(db, {
+					organizationId: org,
+					query: 'Otter Creek',
+					limit: 20,
+					offset: 0,
+				});
+				expect(displayOf(backfilled.rows, 'habitats')).toEqual({ is_active: 'true' });
+				expect(displayOf(backfilled.rows, 'traps')).toEqual({ is_active: 'true' });
+				expect(displayOf(backfilled.rows, 'weather_sources')).toEqual({ is_active: 'true' });
+
+				// The trigger gate now names `is_active`, so retiring one of these
+				// pre-existing rows rewrites its document rather than leaving it.
+				await db
+					.updateTable('habitats')
+					.set({ is_active: false })
+					.where('id', '=', habitat)
+					.execute();
+				await db.updateTable('traps').set({ is_active: false }).where('id', '=', trap).execute();
+				await db
+					.updateTable('weather_sources')
+					.set({ is_active: false })
+					.where('id', '=', station)
+					.execute();
+
+				const retired = await searchDocuments(db, {
+					organizationId: org,
+					query: 'Otter Creek',
+					limit: 20,
+					offset: 0,
+				});
+				expect(displayOf(retired.rows, 'habitats')).toEqual({ is_active: 'false' });
+				expect(displayOf(retired.rows, 'traps')).toEqual({ is_active: 'false' });
+				expect(displayOf(retired.rows, 'weather_sources')).toEqual({ is_active: 'false' });
+
+				await db
+					.updateTable('habitats')
+					.set({ is_active: true })
+					.where('id', '=', habitat)
+					.execute();
+
+				const reactivated = await searchDocuments(db, {
+					organizationId: org,
+					query: 'Otter Creek',
+					limit: 20,
+					offset: 0,
+				});
+				expect(displayOf(reactivated.rows, 'habitats')).toEqual({ is_active: 'true' });
+			},
+			{ pauseBefore: '202608300001_search_document_lifecycle.sql' },
+		);
+	});
+
 	// `to_tsquery` raises syntax errors rather than swallowing them, which is why
 	// every token goes through `quote_literal`. Without that these 500.
 	it('takes operator characters and apostrophes as literal text', async () => {
@@ -330,6 +468,14 @@ function classOf(
 	value: string,
 ): string | undefined {
 	return rows.find((row) => row.fields[field] === value)?.matchClass;
+}
+
+/** The display payload of the one row from `table`, which is where lifecycle rides. */
+function displayOf(
+	rows: readonly { readonly sourceTable: string; readonly display: Record<string, string> }[],
+	table: string,
+): Record<string, string> | undefined {
+	return rows.find((row) => row.sourceTable === table)?.display;
 }
 
 async function seedOrganization(db: Kysely<SimmerDatabase>, workosId: string): Promise<string> {
@@ -381,6 +527,26 @@ async function seedTrap(
 			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
 			trap_name: name,
 			description: description ?? '',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function seedWeatherSource(
+	db: Kysely<SimmerDatabase>,
+	organizationId: string,
+	name: string,
+	code: string,
+): Promise<string> {
+	const row = await db
+		.insertInto('weather_sources')
+		.values({
+			organization_id: organizationId,
+			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
+			source_type: 'organization',
+			source_name: name,
+			source_code: code,
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();

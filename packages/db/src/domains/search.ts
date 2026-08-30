@@ -85,7 +85,11 @@ export interface SearchDocumentRow {
 	readonly matchedField: string;
 	/** Every indexed field of the document, column key to text. */
 	readonly fields: Record<string, string>;
-	/** The non-indexed columns composition needs: `route_type`, or a comment's target. */
+	/**
+	 * The non-indexed columns composition needs: `route_type`, a comment's
+	 * target, and `is_active` on the three tables that have one, as `'true'` or
+	 * `'false'`. Nothing here reaches the vector, so nothing here ranks.
+	 */
 	readonly display: Record<string, string>;
 }
 

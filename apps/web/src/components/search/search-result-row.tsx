@@ -1,4 +1,5 @@
 import type { SearchResult } from '@simmer-mosquito/domain';
+import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { CommandItem } from '@simmer-mosquito/ui-web/components/ui/command';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { searchResultIcon } from './search-destinations';
@@ -33,11 +34,34 @@ export function SearchResultRow({
 		>
 			<Icon aria-hidden="true" className="mt-0.5 size-4 shrink-0" />
 			<span className="flex min-w-0 flex-col">
-				<span className="truncate text-sm text-foreground">{result.title}</span>
+				<span className="flex min-w-0 items-center gap-2">
+					<span className="truncate text-sm text-foreground">{result.title}</span>
+					<RetiredMarker result={result} />
+				</span>
 				{result.subtitle === undefined ? null : (
 					<span className="truncate text-xs text-muted-foreground">{result.subtitle}</span>
 				)}
 			</span>
 		</CommandItem>
+	);
+}
+
+/**
+ * The marker on a retired record, shown by both result surfaces.
+ *
+ * Only the three corpus tables with a lifecycle can carry the flag, so this
+ * renders nothing for every other result rather than reading a false. A retired
+ * record is still indexed and still returned in rank order; this is the only
+ * thing that changes about it.
+ */
+export function RetiredMarker({ result }: { readonly result: SearchResult }) {
+	if (result.kind !== 'record' || result.retired !== true) {
+		return null;
+	}
+
+	return (
+		<Badge className="shrink-0" tone="neutral" variant="outline">
+			Retired
+		</Badge>
 	);
 }
