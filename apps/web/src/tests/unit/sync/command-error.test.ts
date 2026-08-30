@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { writeCommand } from '@simmer-mosquito/sync';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	CommandError,
 	commandErrorFrom,
@@ -63,6 +64,10 @@ describe('messageFromBody', () => {
 });
 
 describe('readBlockers', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
 	const blockers = [
 		{ key: 'inspections', count: 3, singular: 'inspection', plural: 'inspections' },
 	];
@@ -85,6 +90,38 @@ describe('readBlockers', () => {
 		);
 		expect(readBlockers(new Error('network'))).toEqual([]);
 		expect(readBlockers(undefined)).toEqual([]);
+	});
+
+	// The test above builds the error itself, so it only ever proves `readBlockers`
+	// agrees with `commandErrorFrom`. That is how #323 survived: the class a write
+	// throws came from `@simmer-mosquito/sync` and the one tested against was a
+	// second copy declared here, so `instanceof` was false for every real refusal
+	// and the danger zone listed nothing. This test throws the error the write
+	// layer throws, over a real refused response.
+	it('reads the blockers off the error a collection write throws', async () => {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(JSON.stringify({ error: 'delete_blocked', message: 'Blocked.', blockers }), {
+						status: 409,
+					}),
+			),
+		);
+
+		const thrown = await writeCommand(
+			'http://localhost:3002/commands/habitats',
+			'DELETE',
+			{ intents: [] },
+			'Unable to delete the habitat.',
+		).then(
+			() => null,
+			(error: unknown) => error,
+		);
+
+		expect(thrown).toBeInstanceOf(CommandError);
+		expect(isDeleteBlocked(thrown)).toBe(true);
+		expect(readBlockers(thrown)).toEqual(blockers);
 	});
 
 	it('does not trust an error named delete_blocked without blockers', () => {

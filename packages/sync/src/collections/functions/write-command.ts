@@ -25,17 +25,32 @@ export interface CommandRefusal {
 	readonly blockers?: readonly unknown[];
 }
 
-/** A refused command, carrying enough for a caller to render or re-ask. */
+/**
+ * A refused command, carrying enough for a caller to render or re-ask.
+ *
+ * This is the only `CommandError` in the workspace: `apps/web` re-exports it
+ * rather than declaring its own, because a second class with the same shape
+ * made every `instanceof` test against it false for a real refusal (#323).
+ *
+ * The constructor takes the body as `unknown` because not every caller reads a
+ * command endpoint. A proxy answers with HTML, a gateway with nothing, and a
+ * raw `Response` handed here can carry either. Anything that is not an object
+ * becomes `{}`, so `body` is always something a caller can read a field off.
+ */
 export class CommandError extends Error {
 	readonly status: number;
 	readonly body: CommandRefusal;
 
-	constructor(message: string, status: number, body: CommandRefusal) {
+	constructor(message: string, status: number, body: unknown) {
 		super(message);
 		this.name = 'CommandError';
 		this.status = status;
-		this.body = body;
+		this.body = isRefusalBody(body) ? body : {};
 	}
+}
+
+function isRefusalBody(body: unknown): body is CommandRefusal {
+	return typeof body === 'object' && body !== null;
 }
 
 /**
