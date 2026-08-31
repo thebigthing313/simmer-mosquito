@@ -251,6 +251,9 @@ describe('semantic token contrast', () => {
 			const pairs: readonly (readonly [string, string])[] = [
 				['--success', '--success-bg'],
 				['--warning', '--warning-bg'],
+				// The environment banner fills with `--attention` rather than the pale
+				// `--warning-bg`, because a strip nobody notices is a strip that failed.
+				['--warning', '--attention'],
 				['--info', '--info-bg'],
 				['--catalog', '--catalog-bg'],
 				['--danger', '--danger-bg'],

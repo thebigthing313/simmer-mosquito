@@ -1,5 +1,6 @@
 import {
 	BreadcrumbLabelProvider,
+	EnvironmentBanner,
 	OutletContentFallback,
 	OutletShell,
 	SearchTriggerProvider,
@@ -114,7 +115,9 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				}}
 			>
 				<BreadcrumbLabelProvider>
-					<OutletShell>
+					<OutletShell
+						banner={<EnvironmentBanner environment={import.meta.env.VITE_SIMMER_ENVIRONMENT} />}
+					>
 						{/* Backstop only. Route pages suspend into the per-match boundary the
 						    router builds from `defaultPendingComponent` (see main.tsx); this
 						    one catches anything that suspends outside a match. Deliberately

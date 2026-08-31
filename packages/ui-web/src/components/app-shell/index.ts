@@ -19,6 +19,7 @@ export {
 	useBreadcrumbLabel,
 	useBreadcrumbLabels,
 } from './breadcrumb-labels';
+export { EnvironmentBanner } from './environment-banner';
 export {
 	SearchTriggerProvider,
 	type SearchTriggerValue,

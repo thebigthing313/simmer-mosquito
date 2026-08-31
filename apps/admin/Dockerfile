@@ -20,8 +20,11 @@ RUN pnpm install --frozen-lockfile
 # docs/deployment.md → "Admin service (Serverless)".
 ARG VITE_SERVER_URL
 ARG VITE_SIMMER_OPERATOR_ORG_ID
+# See apps/web/Dockerfile for why the app compares this against a literal.
+ARG VITE_SIMMER_ENVIRONMENT
 ENV VITE_SERVER_URL=$VITE_SERVER_URL \
-	VITE_SIMMER_OPERATOR_ORG_ID=$VITE_SIMMER_OPERATOR_ORG_ID
+	VITE_SIMMER_OPERATOR_ORG_ID=$VITE_SIMMER_OPERATOR_ORG_ID \
+	VITE_SIMMER_ENVIRONMENT=$VITE_SIMMER_ENVIRONMENT
 
 RUN pnpm --filter @simmer-mosquito/admin build
 
