@@ -1,5 +1,23 @@
 # @simmer-mosquito/admin
 
+## 0.4.1 — 2026-08-31
+
+### Patch Changes
+
+- Changed: The search field is gone from the header. It shared the header with the agency workspace and never searched anything here — it took what you typed and dropped it. The operator console has its own record set, so it gets its own search when there is one to give.
+
+- Fixed: A refused read now says so straight away. The console used to ask three more times over about six seconds before showing what the server had already answered, so the explanation arrived last.
+
+- Fixed: Entering an agency no longer risks ending your session. Clicking it at the moment your sign-in was being renewed could sign you out, or report that you lack a membership you have.
+
+- Fixed: Having the app open in several tabs no longer risks ending your session. Each tab renewed your sign-in on its own schedule, and two renewals landing together could sign you out of all of them.
+
+- Fixed: When the SIMMER server has no operator organization configured, the console now says so and names the setting to change. It used to report the same thing it reports for an account that is not SIMMER's, and offer to sign you out, so the advice was to sign back in as SIMMER on a server that could not recognise one.
+
+- Fixed: Your session no longer ends a minute after you sign in. Signing in again is not needed while you keep working, and being signed out mid-task should now be rare enough to notice.
+
+- Fixed: The workspace loads again. Every synced table was arriving empty because the browser could not read the headers that tell it where a sync stream is, so the app reported that it could not find your agency.
+
 ## 0.4.0 — 2026-08-21
 
 ### Minor Changes
