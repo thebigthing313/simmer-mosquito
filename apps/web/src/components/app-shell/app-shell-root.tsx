@@ -17,6 +17,7 @@ import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone'
 import { organizations } from '../../lib/collections/organizations';
 import { getToday } from '../../lib/get-today';
 import { SearchPalette } from '../search/search-palette';
+import { EnvironmentBannerPrototype } from './environment-banner-prototype';
 import {
 	shellDomainsForRole,
 	webAccountLinks,
@@ -114,6 +115,8 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				}}
 			>
 				<BreadcrumbLabelProvider>
+					{/* PROTOTYPE #380, throwaway. Inert without `?envBanner=A|B|C`. */}
+					<EnvironmentBannerPrototype>
 					<OutletShell>
 						{/* Backstop only. Route pages suspend into the per-match boundary the
 						    router builds from `defaultPendingComponent` (see main.tsx); this
@@ -123,6 +126,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 							<Outlet />
 						</Suspense>
 					</OutletShell>
+					</EnvironmentBannerPrototype>
 				</BreadcrumbLabelProvider>
 			</ShellProvider>
 			<SearchPalette
