@@ -197,6 +197,10 @@ jobs:
   # promotion, because `pnpm release:version` floors every app the pending
   # changesets did not name. This gate is only ever asking whether the change
   # belongs on the changelog page.
+  #
+  # The promotion PR itself is exempt, in the step below. It is the one shape
+  # where the question has already been answered: every changeset it carries was
+  # filed on the branch that needed it and consumed by the release commit.
   changeset:
     name: Changeset filed (or declined)
     if: github.event_name == 'pull_request'
@@ -220,9 +224,21 @@ jobs:
       - name: Require a changeset for user-visible changes
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           GH_TOKEN: ${{ github.token }}
         run: |
+          # A promotion carries every changeset that was filed since the last
+          # release and every one of them already consumed, so they cancel out
+          # in this diff while the source they described does not. The gate then
+          # sees a release's worth of source with no changeset and fails, every
+          # time, on the one PR shape where that is always correct. It used to
+          # take the label and a re-run to say so.
+          if [ "$BASE_REF" = "main" ]; then
+            echo "Promotion to main: the changesets are consumed into the changelogs already."
+            exit 0
+          fi
+
           changed=$(git diff --name-only "$BASE"...HEAD)
 
           if printf '%s\n' "$changed" | grep -qE '^\.changeset/.+\.md$'; then
