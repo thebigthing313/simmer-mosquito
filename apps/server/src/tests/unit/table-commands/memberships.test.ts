@@ -22,6 +22,7 @@ import { CommandError } from '../../../command-endpoint.js';
 import type { MembershipAuth } from '../../../membership-commands.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import { membershipTableCommands } from '../../../table-commands/memberships.js';
+import { withoutWorkOsIdentityWrites } from '../../../workos-identity-interlock.js';
 
 const { stampOrganizationInvitation, clearOrganizationInvitationStamp } = vi.hoisted(() => ({
 	stampOrganizationInvitation: vi.fn(),
@@ -445,6 +446,50 @@ describe('ending a membership', () => {
 
 		expect((thrown as CommandError).status).toBe(404);
 		expect((thrown as CommandError).body).toMatchObject({ error: 'membership_not_found' });
+	});
+});
+
+describe('the staging identity interlock', () => {
+	// All four refuse in `before`, ahead of the transaction, and that is the
+	// point. `identity.invite` and `identity.reinvite` call WorkOS from `after`,
+	// so a refusal raised at the WorkOS boundary alone would arrive with the
+	// Membership row already committed and Electric syncing it onto the People
+	// page under the error message.
+	it.each([
+		['identity.invite', invitePayload()],
+		['identity.reinvite', { role: 'manager' }],
+		['identity.changeRole', { role: 'manager' }],
+		['identity.endMembership', {}],
+	] as const)('refuses %s before anything is written', async (intent, payload) => {
+		const workos = fakeAuth();
+
+		// `undefined` for the database: reaching a read would throw something
+		// other than the refusal, which is what proves nothing ran first.
+		const thrown = await secondSystem(undefined, withoutWorkOsIdentityWrites(workos))
+			.before(build(intent, payload), authContext())
+			.catch((error: unknown) => error);
+
+		expect((thrown as CommandError).status).toBe(403);
+		expect((thrown as CommandError).body).toMatchObject({
+			error: 'workos_identity_writes_disabled',
+		});
+		expect(workos.sendOrganizationInvitation).not.toHaveBeenCalled();
+		expect(workos.deactivateOrganizationMembership).not.toHaveBeenCalled();
+	});
+
+	// The hook carries `assertCanGrantRole` for three of the four commands, which
+	// is why #376 declined to skip it wholesale: skipping it would let an admin
+	// promote somebody to owner and reopen the escalation #121 closed.
+	it('still refuses a promotion above the actor when the interlock is off', async () => {
+		const thrown = await secondSystem(undefined, fakeAuth())
+			.before(build('identity.changeRole', { role: 'owner' }), {
+				...authContext(),
+				role: 'manager',
+			} as AuthContext)
+			.catch((error: unknown) => error);
+
+		expect((thrown as CommandError).status).toBe(403);
+		expect((thrown as CommandError).body).toMatchObject({ error: 'forbidden' });
 	});
 });
 

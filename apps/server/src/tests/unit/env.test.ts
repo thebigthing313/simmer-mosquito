@@ -87,4 +87,21 @@ describe('readServerEnv', () => {
 				.simmerOperatorOrganizationId,
 		).toBe('org_simmer');
 	});
+
+	it('disables WorkOS identity writes only on the exact string true', () => {
+		// Absent means settle. A variable that went missing in production and was
+		// read loosely would turn identity off there instead of on staging, which
+		// is the direction that has to fail safe.
+		expect(readServerEnv(baseEnv).workosIdentityWritesDisabled).toBe(false);
+		for (const value of ['', ' ', 'false', 'TRUE', '1', 'yes']) {
+			expect(
+				readServerEnv({ ...baseEnv, WORKOS_IDENTITY_WRITES_DISABLED: value })
+					.workosIdentityWritesDisabled,
+			).toBe(false);
+		}
+		expect(
+			readServerEnv({ ...baseEnv, WORKOS_IDENTITY_WRITES_DISABLED: 'true' })
+				.workosIdentityWritesDisabled,
+		).toBe(true);
+	});
 });

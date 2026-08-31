@@ -353,6 +353,22 @@ service>` so the server authenticates to the now-secured Electric. Production
 omits it (its Electric is insecure/private). The server keeps using the internal
 `ELECTRIC_URL` in both, because the public Electric domain is only for local dev.
 
+On **staging** also set `WORKOS_IDENTITY_WRITES_DISABLED=true`. Staging
+authenticates against WorkOS production, so without it an invitation sent from
+unreleased code mails a real address, a removal revokes somebody's real access,
+and a password reset mails a working link for a production account. With it set,
+every WorkOS identity write answers 403 `workos_identity_writes_disabled` and
+only SIMMER's own rows are written. Signing in, switching agency and signing out
+are unaffected; inviting, re-inviting, changing a role, removing access,
+resetting a password, signing up and creating an agency from the operator
+console all refuse. Nobody new can be onboarded on staging, which is the
+intended shape and not a gap.
+
+Read as the exact string `true`, and **absent means settle**, so the variable
+going missing in production cannot silently turn identity off. Production must
+not set it. `apps/server/src/workos-identity-interlock.ts` is the allowlist and
+ADR-adjacent reasoning; the decision is issue #376.
+
 Set these on the Railway web service (all `VITE_*` are baked in at build time, so
 a change requires a rebuild/redeploy of the service):
 

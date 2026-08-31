@@ -11,6 +11,10 @@ import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-
 import { isRecord } from './command-payload.js';
 import { type InvitationRefusal, refuseInvitationSend } from './invitation-refusal.js';
 import { stampInvitation } from './invitation-stamp.js';
+import {
+	workOsIdentityWritesDisabled,
+	workOsIdentityWritesDisabledBody,
+} from './workos-identity-interlock.js';
 
 type AdminInvitationDb = Parameters<typeof getOperatorOrganization>[0];
 
@@ -50,6 +54,17 @@ export function registerAdminInvitationRoutes(
 		'/admin/organizations/:organizationId/invitations',
 		options.operatorAuthContextMiddleware,
 		async (context) => {
+			// Ahead of `stageMembership` below, for the reason
+			// `membershipSecondSystem.before` has the same guard: this route writes
+			// the Membership row first and calls WorkOS second, and
+			// `inviteUnlessAlreadyReached` turns anything the send throws into a 502
+			// refusal. So the interlock reaching only the WorkOS boundary would leave
+			// the operator console holding a staged Membership with no invitation and
+			// a status code that says the fault was upstream.
+			if (workOsIdentityWritesDisabled(options.auth)) {
+				return context.json(workOsIdentityWritesDisabledBody(), 403);
+			}
+
 			const operatorContext = context.get('operatorContext');
 
 			const payloadResult = await readInvitePayload(context.req);

@@ -23,14 +23,31 @@ import { createDevSessionProvider } from './dev-impersonation.js';
 import { readServerEnv } from './env.js';
 import { COMPRESSED_READ_PREFIXES, compressReads } from './response-compression.js';
 import { registerAllRoutes } from './routes.js';
+import {
+	withoutWorkOsIdentityWrites,
+	workOsIdentityWriteErrorHandler,
+} from './workos-identity-interlock.js';
 
 const env = readServerEnv();
-const auth = createWorkOsAuth({
+const workOsAuth = createWorkOsAuth({
 	apiKey: env.workosApiKey,
 	clientId: env.workosClientId,
 	cookiePassword: env.workosCookiePassword,
 	redirectUri: env.workosRedirectUri,
 });
+
+// Staging authenticates against WorkOS production, so it must not write to it.
+// The wrapper is the one thing that decides: everything downstream, including
+// `membershipSecondSystem`'s guard clause, asks the object rather than reading
+// the variable again. See `workos-identity-interlock.ts`.
+const auth = env.workosIdentityWritesDisabled
+	? withoutWorkOsIdentityWrites(workOsAuth)
+	: workOsAuth;
+if (env.workosIdentityWritesDisabled) {
+	console.warn(
+		'[workos-interlock] WORKOS_IDENTITY_WRITES_DISABLED=true — every WorkOS identity write refuses with 403 workos_identity_writes_disabled. Invitations, role changes, removals, password resets, sign-ups and agency creation will not settle.',
+	);
+}
 const db = createDb({
 	databaseUrl: env.databaseUrl,
 });
@@ -41,6 +58,10 @@ const authMailer = createAuthMailer({
 });
 
 const app = new Hono<{ Variables: AuthVariables }>();
+
+// The one place a refused WorkOS identity write becomes a 403 rather than a
+// 500. It has to be `onError` and not a middleware; the handler says why.
+app.onError(workOsIdentityWriteErrorHandler());
 const localIdentityResolver = {
 	resolveActiveLocalAuthIdentity: (input: {
 		readonly workosUserId: string;
