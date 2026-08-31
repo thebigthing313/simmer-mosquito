@@ -9,6 +9,21 @@
 # Usage (PowerShell, from repo root):
 #   $env:PROD_DATABASE_URL = 'postgres://USER:PASS@HOST:PORT/DB?sslmode=disable'
 #   ./scripts/clone-prod-db.ps1
+#   ./scripts/clone-prod-db.ps1 -YearsOfHistory 5   # keep more
+#   ./scripts/clone-prod-db.ps1 -AllHistory         # keep everything
+#
+# This is the only clone local dev uses. The Railway staging database is a
+# sandbox agency staff are signed into, so nothing local points at it.
+#
+# Two things happen on the restored copy that the dump cannot carry:
+#
+#   - The history prune. Prod runs back to 2011; the local database keeps the
+#     last 3 years of DATED records (inspections, applications, collections,
+#     service requests) and all reference data. See scripts/prune-history.sql.
+#   - The WorkOS relink. The dump carries PRODUCTION WorkOS ids and local dev
+#     authenticates against WorkOS STAGING, so the identity columns are
+#     rewritten and then checked. See $WorkosOrgRelinks below for why the check
+#     is the part that matters.
 #
 # PROD_DATABASE_URL must be Railway's PUBLIC/TCP-proxy connection string
 # (e.g. ...proxy.rlwy.net:PORT), not the internal *.railway.internal host,
@@ -34,18 +49,63 @@
 param(
 	[string]$ProdUrl = $env:PROD_DATABASE_URL,
 	[string]$LocalDb = 'simmer_mosquito',
-	[switch]$ResetElectric = $true
+	[switch]$ResetElectric = $true,
+	# Leave the cloned PROD WorkOS ids in place instead of relinking them. Real
+	# WorkOS staging login will not find the agency; reach for DEV_IMPERSONATE_*.
+	[switch]$SkipRelink,
+	# How much operational history the local database keeps. Prod runs back to
+	# 2011 - half a million inspections - and three years makes local dev just as
+	# realistic against a database that syncs and re-snapshots far faster.
+	[int]$YearsOfHistory = 3,
+	# Keep every dated record. Reach for it when you are chasing something that
+	# only reproduces against the full history.
+	[switch]$AllHistory
 )
 
 $ErrorActionPreference = 'Stop'
 
+# ---------------------------------------------------------------------------
+# WorkOS identity relink map
+# ---------------------------------------------------------------------------
+# The dump carries PRODUCTION WorkOS ids. Local dev authenticates against the
+# WorkOS STAGING environment, and `resolveActiveLocalAuthIdentity` looks
+# organizations up by `workos_organization_id`, so an unrelinked row is
+# invisible to a staging session. `apps/admin` tolerates that (the operator
+# grant is the session's WorkOS organization, not the local identity), but
+# `apps/web` does not: `__root.tsx` throws when `localIdentity.organizationId`
+# is null.
+#
+# Worse than invisible. Signing in against an org id that resolves to nothing
+# provisions a *fresh* organization row, so the database ends up with two rows
+# for the same agency. That is #82, and it happened on the Railway staging
+# database when only Middlesex was in this map.
+#
+# So this is a table, not a pair of parameters, and every org that exists in
+# both environments belongs in it. Add a row here rather than passing ids on the
+# command line: an id passed by hand is one clone away from being forgotten.
+$WorkosOrgRelinks = @(
+	@{ Name = 'Middlesex'; Prod = 'org_01KRY8C6XHQ030P2NNDMY1PRSS'; Staging = 'org_01KRXZWNNE28Q00672CA1CKT70' }
+	@{ Name = 'SIMMER'; Prod = 'org_01KRQEQBJJHF729PY0ED6P7875'; Staging = 'org_01KZC6NB6PPMV9GKYVHS4VJAQF' }
+)
+$WorkosUserRelinks = @(
+	@{ Name = 'Middlesex owner'; Prod = 'user_01KRY8CW0K380JPC7FRW81WPB4'; Staging = 'user_01KQYXX9N212YZH59DXMH3Y6VV' }
+)
+
 if ([string]::IsNullOrWhiteSpace($ProdUrl)) {
 	throw 'PROD_DATABASE_URL is not set. Provide the prod connection string (read-only role preferred).'
+}
+if (-not $AllHistory -and $YearsOfHistory -lt 1) {
+	throw "-YearsOfHistory must be at least 1 (got $YearsOfHistory). Pass -AllHistory to keep everything."
 }
 
 $rowCountLibPath = Join-Path $PSScriptRoot 'lib/table-row-counts.ps1'
 if (-not (Test-Path $rowCountLibPath)) { throw "Missing $rowCountLibPath, which the post-restore row-count check runs." }
 . $rowCountLibPath
+
+$pruneSqlPath = Join-Path $PSScriptRoot 'prune-history.sql'
+if (-not $AllHistory -and -not (Test-Path $pruneSqlPath)) {
+	throw "Missing $pruneSqlPath, which the history prune runs. Pass -AllHistory to skip pruning."
+}
 
 # Local maintenance + target connection strings, INSIDE the postgres container.
 $LocalSuper = 'postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable'
@@ -111,6 +171,72 @@ Assert-NoTableRowCountShortfall -SourceCounts $prodCounts -TargetCounts $localCo
 	-SourceLabel 'prod' -TargetLabel 'the local database' `
 	-FailureAdvice 'Read the pg_restore output above for the failing table and re-run the clone.'
 
+if (-not $AllHistory) {
+	# Reference data - habitats, traps, addresses, contacts, routes, taxonomy,
+	# products - is never pruned; only the dated records an agency performs. See
+	# the header of prune-history.sql.
+	$cutoff = (Get-Date).AddYears(-$YearsOfHistory).ToString('yyyy-MM-dd')
+	Write-Host "==> Pruning dated records older than $cutoff (keeping $YearsOfHistory year(s))..." -ForegroundColor Cyan
+	# The file has to be inside the container: psql runs there, and that is the
+	# only place this script needs pg client tools.
+	Invoke-Compose cp $pruneSqlPath 'postgres:/tmp/prune-history.sql'
+	$pruneStart = Get-Date
+	Invoke-Compose exec -T postgres psql "$LocalTarget" -X -v ON_ERROR_STOP=1 -v "cutoff=$cutoff" -f /tmp/prune-history.sql
+	Invoke-Compose exec -T postgres sh -c 'rm -f /tmp/prune-history.sql'
+	Write-Host "    Pruned in $([int]((Get-Date) - $pruneStart).TotalSeconds)s." -ForegroundColor DarkGray
+}
+else {
+	Write-Host '==> -AllHistory set; the local database keeps every dated record prod has.' -ForegroundColor DarkGray
+}
+
+if (-not $SkipRelink) {
+	Write-Host '==> Relinking cloned prod identities -> WorkOS STAGING (so you can log in normally)...' -ForegroundColor Cyan
+	# Bulk data hangs off the internal org UUID, which the dump preserves, so only
+	# these identity columns need rewriting.
+	$relinkArgs = @("$LocalTarget", '-X', '-v', 'ON_ERROR_STOP=1')
+	foreach ($map in $WorkosOrgRelinks) {
+		Write-Host "    org  $($map.Name): $($map.Prod) -> $($map.Staging)" -ForegroundColor DarkGray
+		$relinkArgs += @('-c', "update organizations set workos_organization_id = '$($map.Staging)', updated_at = now() where workos_organization_id = '$($map.Prod)';")
+	}
+	foreach ($map in $WorkosUserRelinks) {
+		Write-Host "    user $($map.Name): $($map.Prod) -> $($map.Staging)" -ForegroundColor DarkGray
+		$relinkArgs += @('-c', "update users set workos_user_id = '$($map.Staging)', updated_at = now() where workos_user_id = '$($map.Prod)';")
+		$relinkArgs += @('-c', "update memberships set is_default = true, updated_at = now() where user_id = (select id from users where workos_user_id = '$($map.Staging)');")
+	}
+	Invoke-Compose exec -T postgres psql @relinkArgs
+
+	# The guard that makes the relink self-checking. A prod id still present after
+	# the rewrite means either an org is missing from $WorkosOrgRelinks or its id
+	# changed, and both fail the same silent way: the next login provisions a
+	# duplicate organization instead of finding this one. Failing here is the
+	# point - a relink whose only verification is someone noticing a broken
+	# workspace is the state #82 described.
+	Write-Host '==> Verifying no organization still carries a prod WorkOS id...' -ForegroundColor Cyan
+	$prodOrgList = ($WorkosOrgRelinks | ForEach-Object { "'$($_.Prod)'" }) -join ','
+	$stagingOrgList = ($WorkosOrgRelinks | ForEach-Object { "'$($_.Staging)'" }) -join ','
+	# `organizations_workos_organization_id_key` is unique, so a relink that would
+	# collide with an existing row aborts the UPDATE above rather than reaching
+	# here. Both failures are loud, which is the only property that matters.
+	$stragglers = (& docker compose exec -T postgres psql "$LocalTarget" -X -A -t -v ON_ERROR_STOP=1 `
+		-c "select count(*) from organizations where workos_organization_id in ($prodOrgList);").Trim()
+	if ($LASTEXITCODE -ne 0) { throw "relink verification query failed (exit $LASTEXITCODE)" }
+	if ($stragglers -ne '0') {
+		throw "$stragglers organization row(s) still carry a PROD WorkOS id after relinking. Add them to `$WorkosOrgRelinks in this script."
+	}
+
+	# Not fatal, but worth saying: an org outside the map is one a staging login
+	# cannot find, and the symptom is a duplicate row rather than an error.
+	Invoke-Compose exec -T postgres psql "$LocalTarget" -X -v ON_ERROR_STOP=1 `
+		-c "select name, workos_organization_id as unmapped_workos_org_id from organizations where workos_organization_id not in ($stagingOrgList);"
+
+	if ($env:DEV_IMPERSONATE_WORKOS_USER_ID -or $env:DEV_IMPERSONATE_WORKOS_ORG_ID) {
+		Write-Host '    WARNING: DEV_IMPERSONATE_* is set in your shell env; it overrides real login. Comment it out in .env to use WorkOS staging auth.' -ForegroundColor Yellow
+	}
+}
+else {
+	Write-Host '==> -SkipRelink set; leaving cloned PROD WorkOS ids in place (real staging login will spawn a fresh empty org; use DEV_IMPERSONATE_* or relink manually).' -ForegroundColor DarkGray
+}
+
 if ($ResetElectric) {
 	Write-Host '==> Resetting Electric storage (clears stale shape log for the recreated DB)...' -ForegroundColor Cyan
 	# Clear the named electric-data volume contents without removing postgres-data.
@@ -121,10 +247,11 @@ if ($ResetElectric) {
 
 Write-Host ''
 Write-Host 'Done. Local DB now mirrors prod.' -ForegroundColor Green
-Write-Host 'Next: pick an identity to impersonate from the clone:' -ForegroundColor Green
 Write-Host @'
 
-  docker compose exec -T postgres psql postgres://postgres:postgres@localhost:5432/simmer_mosquito -c "select p.display_name, m.role, u.workos_user_id, o.workos_organization_id from memberships m join users u on u.id=m.user_id join organizations o on o.id=m.organization_id join profiles p on p.id=m.profile_id where m.status='active' limit 20;"
-
-Then set DEV_IMPERSONATE_WORKOS_USER_ID / DEV_IMPERSONATE_WORKOS_ORG_ID in your .env and restart dev:server.
+NEXT:
+  1. pnpm db:migrate, so the clone carries any migration prod has not had yet.
+  2. Start the stack (pnpm dev) and sign in at https://localhost:5175 with your
+     WorkOS STAGING credentials. The identity was relinked above, so the agency
+     resolves; DEV_IMPERSONATE_* must stay commented out in .env.
 '@ -ForegroundColor DarkGray
