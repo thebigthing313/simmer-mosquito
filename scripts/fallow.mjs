@@ -27,8 +27,16 @@
 // gets reprinted under the report, where the result line is read, and it fails
 // the run. There is no quieter staleness for this to be strict about, because
 // fallow says nothing until a quarter of the saved entries match nothing.
+//
+// That makes the gate one match against fallow's own wording, pinned to the
+// version in package.json. Re-read this warning's text when `fallow` is
+// upgraded: reworded, the match stops firing and the gate is off with nothing
+// to show for it. Only a run that reads a baseline is watched, so the fix,
+// `pnpm fallow:baseline`, cannot fail on the condition it removes.
 import { spawn } from 'node:child_process';
 
+const args = process.argv.slice(2);
+const readsBaseline = args.includes('--baseline');
 const STALENESS_PATTERN = /health baseline is partially stale: \d+ of \d+ entries/;
 
 const env = { ...process.env };
@@ -45,7 +53,7 @@ if (process.stdout.isTTY) {
 	env.CLICOLOR_FORCE ??= '1';
 }
 
-const child = spawn('fallow', process.argv.slice(2), {
+const child = spawn('fallow', args, {
 	stdio: ['inherit', 'pipe', 'pipe'],
 	shell: true,
 	env,
@@ -54,21 +62,21 @@ const child = spawn('fallow', process.argv.slice(2), {
 /** The staleness warning fallow printed, if it printed one. @type {string | null} */
 let warning = null;
 
-const readLine = (line) => {
-	if (STALENESS_PATTERN.test(line)) warning = line.trim();
+const noteIfStale = (line) => {
+	if (readsBaseline && STALENESS_PATTERN.test(line)) warning = line.trim();
 };
 
 // Bytes reach the terminal untouched; only whole lines are scanned, so a
 // warning split across two chunks is still read.
-const scan = (source, sink) => {
+const scan = (source, terminal) => {
 	let carry = '';
 	source.on('data', (chunk) => {
-		sink.write(chunk);
+		terminal.write(chunk);
 		const lines = (carry + chunk).split('\n');
 		carry = lines.pop() ?? '';
-		for (const line of lines) readLine(line);
+		for (const line of lines) noteIfStale(line);
 	});
-	source.on('end', () => readLine(carry));
+	source.on('end', () => noteIfStale(carry));
 };
 
 scan(child.stdout, process.stdout);

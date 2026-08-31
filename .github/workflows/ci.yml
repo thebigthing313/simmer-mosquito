@@ -108,14 +108,13 @@ jobs:
       # `pnpm fallow:baseline` after real complexity comes out — and read a diff
       # to it in review, since a baseline can also be re-saved to bury a
       # regression.
-      #
-      # A saved entry matching no current finding is allowance nothing is using.
-      # fallow warns about that and exits 0; the wrapper fails this step on the
-      # warning instead. That is the point to re-save. See CLAUDE.md, "Rot
-      # gates".
       - name: Duplication
         run: pnpm fallow dupes
 
+      # A saved entry matching no current finding is allowance nothing is using.
+      # fallow warns about that and exits 0; scripts/fallow.mjs fails this step
+      # on the warning instead, and a step that fails on it is a step asking to
+      # be re-saved. See CLAUDE.md, "Rot gates".
       - name: Complexity
         run: pnpm fallow:health
 
