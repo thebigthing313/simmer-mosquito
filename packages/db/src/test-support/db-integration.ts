@@ -153,8 +153,9 @@ export interface SlotReadable {
  * the first time.
  *
  * So the message has to carry the way out instead. `docker-compose.yml` runs
- * Electric against its own `postgres` service, so anyone who has started mode B
- * has `electric_slot_default` in the container these suites are told to use, and
+ * Electric against its own `postgres` service, so anyone who has started the
+ * local Electric has `electric_slot_default` in the container these suites are
+ * told to use, and
  * a refusal that only said "use the local container" would be a closed loop.
  * Dropping the slot is safe on that container and nowhere else, so the message
  * says which database it is talking about before it says what to run.
@@ -173,8 +174,8 @@ export async function refuseDatabaseWithReplicationSlot(pool: SlotReadable): Pro
 				`(${slots.join(', ')}). The migration set applies as one transaction of 326 ` +
 				"relations, which overruns the logical decoder's 1 GB reorder buffer and kills " +
 				'the walsender for good.',
-			"If this is your own container from docker-compose.yml, the slot is Electric's from " +
-				`mode B. Drop it on that container and run again: ${drops} A local Electric ` +
+			'If this is your own container from docker-compose.yml, the slot is the local ' +
+				`Electric's. Drop it on that container and run again: ${drops} A local Electric ` +
 				'recreates its slot on next boot, so it costs one re-snapshot and nothing else.',
 			'If this is a remote database, staging included, leave the slot alone and point ' +
 				'TEST_DATABASE_URL at the local container instead.',

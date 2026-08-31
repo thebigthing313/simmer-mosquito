@@ -48,7 +48,7 @@
 # applications, collections, service requests, …) and all reference data
 # (habitats, traps, addresses, contacts, routes, taxonomy). The dump is still
 # whole — prod is only ever read — and the trim happens on the target afterwards;
-# see scripts/prune-staging-history.sql.
+# see scripts/prune-history.sql.
 
 [CmdletBinding()]
 param(
@@ -120,7 +120,7 @@ $rowCountLibPath = Join-Path $PSScriptRoot 'lib/table-row-counts.ps1'
 if (-not (Test-Path $rowCountLibPath)) { throw "Missing $rowCountLibPath, which the post-restore row-count check runs." }
 . $rowCountLibPath
 
-$pruneSqlPath = Join-Path $PSScriptRoot 'prune-staging-history.sql'
+$pruneSqlPath = Join-Path $PSScriptRoot 'prune-history.sql'
 if (-not $AllHistory -and -not (Test-Path $pruneSqlPath)) {
 	throw "Missing $pruneSqlPath, which the history prune runs. Pass -AllHistory to skip pruning."
 }
@@ -203,7 +203,7 @@ try {
 	if (-not $AllHistory) {
 		# Reference data an agency accumulates — habitats, traps, addresses,
 		# contacts, routes, taxonomy, products — is never pruned; only the dated
-		# records it performs. See the header of prune-staging-history.sql.
+		# records it performs. See the header of prune-history.sql.
 		$cutoff = (Get-Date).AddYears(-$YearsOfHistory).ToString('yyyy-MM-dd')
 		Write-Host "==> Pruning dated records older than $cutoff (keeping $YearsOfHistory year(s)) ..." -ForegroundColor Cyan
 		Write-Host '    Around half a million rows; roughly 30 seconds.' -ForegroundColor DarkGray

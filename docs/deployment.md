@@ -38,19 +38,28 @@ Electric's networking differs per environment:
 - **production**: Electric is **private** (`electric.railway.internal:3000`) and
   runs `ELECTRIC_INSECURE=true`. Only the co-located prod server reaches it.
 - **staging**: Electric has a **public domain** and is secured with
-  `ELECTRIC_SECRET` (not `ELECTRIC_INSECURE`). This lets a **locally-run** server
-  reach it for Railway-backed local development, without leaving it
-  world-readable. See "Electric service" for the exact settings.
+  `ELECTRIC_SECRET` (not `ELECTRIC_INSECURE`). The public domain existed so a
+  locally-run server could reach it; local dev no longer points at staging, so
+  nothing outside the staging server needs it and it could follow production
+  private. Left as is here rather than changed in passing. See "Electric
+  service" for the exact settings.
 
 ## Local development
 
-In both modes, `apps/server` + the frontends run locally (with HMR) and the
-browser talks only to the local server; only *where Postgres + Electric live*
-differs. `apps/server` reads env from `apps/server/.env`; Vite reads from the
-repo-root `.env` (its `envDir` is the workspace root). Keep the shared keys in
-sync across both files.
+Everything runs on your machine: `apps/server` + the frontends with HMR, and
+Postgres + Electric from `docker-compose.yml`. `apps/server` reads env from
+`apps/server/.env`; Vite reads from the repo-root `.env` (its `envDir` is the
+workspace root). Keep the shared keys in sync across both files.
 
-Run the apps (either mode) with `pnpm dev`, which starts them all in an
+**Nothing local points at Railway.** Staging is a sandbox agency staff are
+signed into to try upcoming features against a clone of their own data, so a
+local `pnpm dev:server` writing to it corrupts their test. There is no
+documented escape hatch back to it, because an escape hatch aimed at a
+user-facing environment is one `pnpm dev:server` away from being used by
+accident. Local data comes from a prod clone instead; see "Cloning production
+data".
+
+Run the apps with `pnpm dev`, which starts them all in an
 [mprocs](https://github.com/pvolok/mprocs) TUI (`mprocs.yaml`): `server`, `web`,
 `admin`, and `caddy`, each in its own pane. Tab switches panes, `r` restarts the
 focused process, `s` stops/starts it, `q` quits everything. Individual scripts
@@ -74,39 +83,9 @@ against the request origin for CORS. Hitting `http://localhost:5174` directly
 puts the console on an origin the server does not allow, and every `/admin/*`
 call fails CORS.
 
-### Mode A: Railway-backed (recommended)
+### Backing services
 
-Run the apps locally but point them at the **staging** environment's Postgres +
-Electric on Railway. This is the default going forward. It frees local resources
-and avoids flaky local Electric. Because a laptop-hosted server cannot reach
-`*.railway.internal`, use staging Postgres's **public TCP proxy** URL and
-Electric's **public domain** (secured with `ELECTRIC_SECRET`; see "Electric
-service").
-
-In **both** `.env` and `apps/server/.env`, set only these three:
-
-```sh
-DATABASE_URL=postgres://postgres:<pw>@<host>.proxy.rlwy.net:<port>/simmer?sslmode=disable
-ELECTRIC_URL=https://<electric-staging-domain>/v1/shape
-ELECTRIC_SECRET=<the secret set on the staging Electric + server services>
-```
-
-Get `DATABASE_URL` from staging postgis's `DATABASE_PUBLIC_URL` (append
-`?sslmode=disable`); the staging DB name is `simmer`. Get `<electric-staging-domain>`
-from the Electric service's public domain. Leave everything else local
-(`APP_ORIGIN`, `VITE_*`, `WORKOS_REDIRECT_URI`, `DEV_IMPERSONATE_*`). No local
-Docker is needed; stop it if running (`docker compose down`).
-
-Seed staging with realistic data by cloning production into it. See "Cloning
-production data into staging". The dev auth bypass is commented out in `.env` by
-default, and local dev signs in through the real WorkOS staging tenant. If you
-turn the bypass back on, the `DEV_IMPERSONATE_*` ids must correspond to a
-membership present in the cloned data; they are prod-derived, so a prod clone
-satisfies them.
-
-### Mode B: fully local Docker
-
-Self-contained; requires no Railway resources. Start local Postgres + Electric:
+Postgres and Electric come from `docker-compose.yml` and nothing else:
 
 ```sh
 docker compose up -d postgres electric
@@ -114,14 +93,64 @@ pnpm db:migrate
 pnpm --filter @simmer-mosquito/db seed:sync-baseline
 ```
 
-Use the `.env.example` values (Postgres on `localhost:55432`, Electric on
-`localhost:3001`, `ELECTRIC_SECRET` unset, because local Electric runs
-`ELECTRIC_INSECURE=true`).
+Use the `.env.example` values: Postgres on `localhost:55432`, Electric on
+`localhost:3001`, and `ELECTRIC_SECRET` **unset**, because the local Electric
+runs `ELECTRIC_INSECURE=true`. A `DATABASE_URL` or `ELECTRIC_URL` pointing at
+`*.proxy.rlwy.net` or a Railway domain is a mistake, not a mode.
 
-## Cloning production data into staging
+Two settings in `docker-compose.yml` are load-bearing and a hand-started
+container has neither. `max_locks_per_transaction=1024`, because the integration
+harness builds a throwaway schema per test and applies the whole migration set
+into each, several files at a time, and the stock 64 fails a dozen files at once
+with `out of shared memory`. And `scripts/postgres-test-extensions.sql`, mounted
+into `docker-entrypoint-initdb.d`, which creates `postgis`, `pgcrypto`,
+`pg_trgm` and `btree_gin` in `public` on an empty data volume so the migrations'
+`create extension if not exists` is the no-op they expect.
+
+Electric holds a replication slot named `electric_slot_default` on that same
+container, and the Postgres integration suites refuse to run while any slot
+exists (#166, #236). Drop it when you want to run them:
+
+```sh
+docker compose exec -T postgres psql postgres://postgres:postgres@localhost:5432/simmer_mosquito   -c "select pg_drop_replication_slot('electric_slot_default');"
+```
+
+Electric recreates it on its next boot, so it costs one re-snapshot.
+
+## Cloning production data
+
+Two scripts, one dump shape, different targets. **`scripts/clone-prod-db.ps1` is
+the one local dev uses**; the staging clone is what refreshes the sandbox.
+Both only ever READ from prod (`pg_dump`).
+
+### Into local Docker
+
+```powershell
+$env:PROD_DATABASE_URL = '<prod public proxy URL>'   # *.proxy.rlwy.net, read-only role preferred
+./scripts/clone-prod-db.ps1
+./scripts/clone-prod-db.ps1 -YearsOfHistory 5        # keep more
+./scripts/clone-prod-db.ps1 -AllHistory              # keep everything
+```
+
+The restore target is the compose container's own Postgres, hard-coded, so this
+one cannot be pointed at a remote host. It needs no local pg client tools: every
+`pg_dump`, `pg_restore` and `psql` runs inside the container. Electric is stopped
+before the database is recreated and its storage volume is cleared afterwards,
+so it re-snapshots from a clean slate.
+
+After the restore it runs the same two passes the staging clone does: the
+**history prune** (below) and the **WorkOS relink** (below that). The relink is
+the local script's, and it is not optional in practice: the dump carries
+production WorkOS ids, local dev signs in against WorkOS **staging**, and an
+unrelinked row is invisible to that session.
+
+Run `pnpm db:migrate` afterwards. The dump carries prod's schema, which is
+behind whatever you are building.
+
+### Into Railway staging
 
 `scripts/clone-prod-to-staging.ps1` reloads the staging database from a prod dump
-so Railway-backed local dev shows realistic data. It uses locally-installed
+so the sandbox shows realistic data. It uses locally-installed
 PostgreSQL client tools (auto-detects `C:\Program Files\PostgreSQL\*\bin`; a client
 >= the server major version, so 18 is fine, and no Docker required) and resets the
 target with `DROP SCHEMA public CASCADE` rather than `DROP DATABASE`, so the
@@ -136,14 +165,14 @@ $env:STAGING_DATABASE_URL = '<staging public proxy URL>?sslmode=disable'
 ./scripts/clone-prod-to-staging.ps1 -AllHistory            # keep everything
 ```
 
-### How much history staging keeps
+### How much history a clone keeps
 
 Prod carries operational records back to 2011: roughly half a million
-inspections and two hundred thousand applications. Staging exists to make local
+inspections and two hundred thousand applications. A clone exists to make local
 dev realistic, which three years of history does as well as fifteen, against a
 database that syncs, re-snapshots, and restores in a fraction of the time.
 
-So the clone keeps the **last 3 years of dated records** by default and **all
+So a clone keeps the **last 3 years of dated records** by default and **all
 reference data**. Dated means the things an agency performs: inspections,
 applications, collections, biocontrol and source-reduction actions, outreach,
 service requests, requests for control, assignments, missions, weather
@@ -152,13 +181,13 @@ regions, contacts, routes, taxonomy, methods, products, units, profiles,
 memberships. A habitat is still the habitat it was in 2011, and deleting those
 would change what the app *is* rather than how much history it holds.
 
-The dump itself is always whole, since prod is only ever read, and the trim runs on
-staging afterwards via `scripts/prune-staging-history.sql`, which is also
-runnable on its own:
+The dump itself is always whole, since prod is only ever read, and the trim runs
+on the target afterwards via `scripts/prune-history.sql`, which is also runnable
+on its own:
 
 ```powershell
-psql $env:STAGING_DATABASE_URL -v ON_ERROR_STOP=1 -v cutoff=2023-08-07 `
-  -f scripts/prune-staging-history.sql
+psql $env:DATABASE_URL -v ON_ERROR_STOP=1 -v cutoff=2023-08-07 `
+  -f scripts/prune-history.sql
 ```
 
 Four things that file handles and a hand-written `DELETE` would not:
@@ -222,25 +251,24 @@ Notes:
 ### The WorkOS relink is part of the clone, not a follow-up
 
 The dump carries **production** WorkOS ids, and local dev authenticates against
-the WorkOS **staging** environment. `resolveActiveLocalAuthIdentity` looks
+the WorkOS **staging** environment. Both clone scripts carry the same map and
+the same check. `resolveActiveLocalAuthIdentity` looks
 organizations up by `workos_organization_id`, so an unrelinked row is invisible
 to a staging session, and worse than invisible: signing in against an org id
 that resolves to nothing provisions a *fresh* organization, leaving staging with
 two rows for the same agency.
 
-The script therefore rewrites the ids itself, from `$WorkosOrgRelinks` /
+Each script therefore rewrites the ids itself, from `$WorkosOrgRelinks` /
 `$WorkosUserRelinks` near the top of the file, and then **verifies** that no
 organization still carries a mapped prod id. That check is the point: a relink
 whose only verification is someone noticing a broken workspace is one clone away
 from being lost, which is exactly what #82 was.
 
-**When a new agency exists in both environments, add it to `$WorkosOrgRelinks`.**
-The script prints any organization whose id is outside the map after relinking,
-that list should be empty, and anything in it will duplicate on next sign-in.
-Pass `-SkipRelink` only when you intend to work through `DEV_IMPERSONATE_*`.
-
-`scripts/clone-prod-db.ps1` is the sibling that clones prod into **local Docker**
-Postgres (Mode B) instead.
+**When a new agency exists in both environments, add it to `$WorkosOrgRelinks`
+in both scripts.** Each prints any organization whose id is outside the map after
+relinking, that list should be empty, and anything in it will duplicate on next
+sign-in. Pass `-SkipRelink` only when you intend to work through
+`DEV_IMPERSONATE_*`.
 
 ## GitHub environments
 
@@ -463,9 +491,9 @@ same applies to `APP_ORIGIN`.
 
 ### Electric service
 
-The two environments are configured differently, because staging's Electric must
-be reachable from a laptop for Railway-backed local dev while production's stays
-private.
+The two environments are configured differently: staging's Electric is reachable
+over a public domain and secured with `ELECTRIC_SECRET`, production's is private.
+The reachability was for local dev, which no longer points at staging.
 
 **Production**: private, insecure, no public domain:
 
