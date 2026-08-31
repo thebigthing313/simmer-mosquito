@@ -39,9 +39,15 @@ RUN pnpm install --frozen-lockfile
 ARG VITE_SERVER_URL
 ARG VITE_SHAPE_SERVER_URL
 ARG VITE_MAPBOX_ACCESS_TOKEN
+# `VITE_SIMMER_ENVIRONMENT` names the deployment, and the app compares it to
+# the literal `staging`. Production needs nothing set, which is the point: an
+# ARG that is declared and not passed arrives as `''`, and that is not
+# `staging` either.
+ARG VITE_SIMMER_ENVIRONMENT
 ENV VITE_SERVER_URL=$VITE_SERVER_URL \
 	VITE_SHAPE_SERVER_URL=$VITE_SHAPE_SERVER_URL \
-	VITE_MAPBOX_ACCESS_TOKEN=$VITE_MAPBOX_ACCESS_TOKEN
+	VITE_MAPBOX_ACCESS_TOKEN=$VITE_MAPBOX_ACCESS_TOKEN \
+	VITE_SIMMER_ENVIRONMENT=$VITE_SIMMER_ENVIRONMENT
 
 RUN pnpm --filter @simmer-mosquito/web build
 

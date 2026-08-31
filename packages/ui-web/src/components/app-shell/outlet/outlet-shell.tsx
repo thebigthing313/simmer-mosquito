@@ -10,10 +10,22 @@ import { SecondarySidebar } from '../secondary-sidebar/secondary-sidebar';
  * into. Must be mounted inside a `ShellProvider`, which supplies organization,
  * user, navigation, and active-path state.
  */
-export function OutletShell({ children }: { readonly children: React.ReactNode }) {
+export function OutletShell({
+	banner,
+	children,
+}: {
+	/**
+	 * Rendered above both rails, inside the viewport-height column, so it takes
+	 * its space from the shell instead of overlaying it. `apps/web` and
+	 * `apps/admin` pass the environment banner here; production passes nothing
+	 * and the row below keeps the whole viewport.
+	 */
+	readonly banner?: React.ReactNode;
+	readonly children: React.ReactNode;
+}) {
 	return (
 		<TooltipProvider delayDuration={300}>
-			<div className="flex h-svh w-full overflow-hidden bg-background text-foreground">
+			<div className="flex h-svh w-full flex-col overflow-hidden bg-background text-foreground">
 				{/*
 				 * Both rails render before `main` in the DOM, so without this a
 				 * keyboard operator tabs the whole domain rail plus the active
@@ -30,30 +42,33 @@ export function OutletShell({ children }: { readonly children: React.ReactNode }
 				>
 					Skip to content
 				</a>
-				<PrimarySidebar />
-				<SecondarySidebar />
-				<div className="flex min-w-0 flex-1 flex-col">
-					<AppHeader />
-					{/*
-					 * `relative` is load-bearing, not decorative. An `overflow` ancestor
-					 * only clips an absolutely-positioned descendant when it is also in
-					 * that descendant's containing-block chain — and with every wrapper
-					 * from here down statically positioned, the chain ran all the way out
-					 * to the initial containing block. The hidden native `<select>` a
-					 * Select renders for form submission is `position: absolute` with
-					 * `top: auto`, so it resolved to its static position in *document*
-					 * coordinates, escaped every scroll container on the way up, and
-					 * stretched the page: a form long enough put a scrollbar on the
-					 * browser window itself. Positioning `main` closes the chain here, so
-					 * an outlet's overflow can never reach the document again.
-					 */}
-					<main
-						className="relative min-h-0 flex-1 overflow-y-auto bg-(--app-stage)"
-						id="main-content"
-						tabIndex={-1}
-					>
-						{children}
-					</main>
+				{banner}
+				<div className="flex min-h-0 w-full flex-1 overflow-hidden">
+					<PrimarySidebar />
+					<SecondarySidebar />
+					<div className="flex min-w-0 flex-1 flex-col">
+						<AppHeader />
+						{/*
+						 * `relative` is load-bearing, not decorative. An `overflow` ancestor
+						 * only clips an absolutely-positioned descendant when it is also in
+						 * that descendant's containing-block chain — and with every wrapper
+						 * from here down statically positioned, the chain ran all the way out
+						 * to the initial containing block. The hidden native `<select>` a
+						 * Select renders for form submission is `position: absolute` with
+						 * `top: auto`, so it resolved to its static position in *document*
+						 * coordinates, escaped every scroll container on the way up, and
+						 * stretched the page: a form long enough put a scrollbar on the
+						 * browser window itself. Positioning `main` closes the chain here, so
+						 * an outlet's overflow can never reach the document again.
+						 */}
+						<main
+							className="relative min-h-0 flex-1 overflow-y-auto bg-(--app-stage)"
+							id="main-content"
+							tabIndex={-1}
+						>
+							{children}
+						</main>
+					</div>
 				</div>
 			</div>
 		</TooltipProvider>

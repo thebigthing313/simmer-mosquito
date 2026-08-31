@@ -1,5 +1,6 @@
 import {
 	BreadcrumbLabelProvider,
+	EnvironmentBanner,
 	OutletContentFallback,
 	OutletShell,
 	type ShellOrganization,
@@ -62,7 +63,9 @@ export function AdminShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				}}
 			>
 				<BreadcrumbLabelProvider>
-					<OutletShell>
+					<OutletShell
+						banner={<EnvironmentBanner environment={import.meta.env.VITE_SIMMER_ENVIRONMENT} />}
+					>
 						{/* Backstop only — route pages suspend into the per-match boundary
 						    the router builds from `defaultPendingComponent` (see main.tsx).
 						    Deliberately unkeyed: keying it would remount every page on

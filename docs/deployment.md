@@ -360,7 +360,16 @@ a change requires a rebuild/redeploy of the service):
 RAILWAY_DOCKERFILE_PATH=apps/web/Dockerfile
 VITE_SERVER_URL=https://<server-domain>
 VITE_MAPBOX_ACCESS_TOKEN=pk.<mapbox-public-token>
+VITE_SIMMER_ENVIRONMENT=staging   # staging only; omit in production
 ```
+
+`VITE_SIMMER_ENVIRONMENT` draws the environment banner, the strip above both
+rails naming the deployment and saying the data is replaced on the next
+refresh. Only the exact string `staging` draws it. Production is meant to have
+no value at all: a Docker `ARG` a build never passes arrives as an empty
+string rather than absent, so `''` and unset both have to read as production,
+and comparing against a literal is what makes them. Setting it to `production`
+is allowed and does nothing.
 
 `VITE_MAPBOX_ACCESS_TOKEN` is required for map views to render. Each `VITE_*`
 name here has a matching `ARG` in `apps/web/Dockerfile`, and only declared names
@@ -385,7 +394,11 @@ The operator console is a static SPA served by Caddy out of the image
 RAILWAY_DOCKERFILE_PATH=apps/admin/Dockerfile
 VITE_SERVER_URL=https://<server-domain>
 VITE_SIMMER_OPERATOR_ORG_ID=<the WorkOS org that is SIMMER, in this environment>
+VITE_SIMMER_ENVIRONMENT=staging   # staging only; omit in production
 ```
+
+The console wears the same banner as the agency workspace, off the same
+variable. See "Web service" above.
 
 Current organization ids: `org_01KRQEQBJJHF729PY0ED6P7875` (production),
 `org_01KZC6NB6PPMV9GKYVHS4VJAQF` (staging).
