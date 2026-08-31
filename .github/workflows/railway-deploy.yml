@@ -256,8 +256,13 @@ jobs:
           test -n "$RAILWAY_ENVIRONMENT"
           service_name="${!SERVICE_VAR}"
           test -n "$service_name"
+          # `railway up` uploads the working tree, so no sha travels with it
+          # and the deployment carries no commit of its own. The repo watchers
+          # that used to stamp one are gone (#373), so the message is the only
+          # provenance a Railway deployment has.
           railway up \
             --project "$RAILWAY_PROJECT_ID" \
             --environment "$RAILWAY_ENVIRONMENT" \
             --service "$service_name" \
+            --message "$GITHUB_SHA" \
             --ci
