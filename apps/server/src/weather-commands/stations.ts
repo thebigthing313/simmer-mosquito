@@ -253,13 +253,15 @@ async function deleteStation(
 	await assertClearanceAcknowledged(trx, {
 		acknowledgement: 'acknowledgedSummaryDeletion',
 		acknowledged: payload.acknowledgedSummaryDeletion,
-		rule: {
-			key: 'stationSummaries',
-			table: 'weather_summaries',
-			singular: 'summary',
-			plural: 'summaries',
-			match: sql`weather_source_id = ${station.id}`,
-		},
+		rules: [
+			{
+				key: 'stationSummaries',
+				table: 'weather_summaries',
+				singular: 'summary',
+				plural: 'summaries',
+				match: sql`weather_source_id = ${station.id}`,
+			},
+		],
 	});
 	// Ahead of the soft delete, not after it. Summaries have no `deleted_at` of
 	// their own, so a station left behind with its rows would keep them alive and

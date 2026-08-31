@@ -578,15 +578,17 @@ export async function writeCollectionCommand(
 			await assertClearanceAcknowledged(trx, {
 				acknowledgement: 'acknowledgedSpeciesCountsClearance',
 				acknowledged: command.payload.acknowledgedSpeciesCountsClearance,
-				rule: {
-					key: 'collectionSpeciesCounts',
-					table: 'collection_species',
-					singular: 'species count',
-					plural: 'species counts',
-					match: sql`collection_id = ${command.payload.collectionId}
+				rules: [
+					{
+						key: 'collectionSpeciesCounts',
+						table: 'collection_species',
+						singular: 'species count',
+						plural: 'species counts',
+						match: sql`collection_id = ${command.payload.collectionId}
 						and organization_id = ${command.payload.organizationId}
 						and deleted_at is null`,
-				},
+					},
+				],
 			});
 			await trx
 				.updateTable('collection_species')

@@ -527,13 +527,15 @@ async function clearIncompatibleBatches(
 	await assertClearanceAcknowledged(trx, {
 		acknowledgement: 'acknowledgedBatchClearance',
 		acknowledged: input.acknowledged,
-		rule: {
-			key: 'applicationBatches',
-			table: 'application_batches',
-			singular: 'batch record',
-			plural: 'batch records',
-			match: incompatible,
-		},
+		rules: [
+			{
+				key: 'applicationBatches',
+				table: 'application_batches',
+				singular: 'batch record',
+				plural: 'batch records',
+				match: incompatible,
+			},
+		],
 	});
 
 	await sql`

@@ -38,10 +38,13 @@
  * behind it going through unasked because the interval was set wrong.
  */
 
-import { sql } from 'kysely';
-
 import type { DbExecutor } from '../index.js';
-import { type CitingRule, countPhrase, type DeleteImpactEntry } from './record-deletion.js';
+import {
+	type CitingRule,
+	countPhrase,
+	countRuleMatches,
+	type DeleteImpactEntry,
+} from './record-deletion.js';
 
 /**
  * The acknowledgements that turn on rows already citing the record.
@@ -109,46 +112,6 @@ export class CollisionAcknowledgementRequiredError extends Error {
 }
 
 /**
- * Every rule's row count in one round-trip, dropping the empty ones.
- *
- * A `union all` of scalar counts rather than a query per rule, for the same
- * reason the delete impact reads that way: a contact has three citing tables
- * and the agency is asked on every rename.
- */
-async function countCitations(
-	db: DbExecutor,
-	rules: readonly CitingRule[],
-): Promise<readonly DeleteImpactEntry[]> {
-	if (rules.length === 0) {
-		return [];
-	}
-
-	const parts = rules.map(
-		(rule) => sql`
-			select ${rule.key}::text as key, count(*)::text as count
-			from ${sql.table(rule.table)}
-			where ${rule.match}
-		`,
-	);
-
-	const result = await sql<{ readonly key: string; readonly count: string }>`${sql.join(
-		parts,
-		sql` union all `,
-	)}`.execute(db);
-
-	const counts = new Map(result.rows.map((row) => [row.key, Number.parseInt(row.count, 10)]));
-
-	return rules
-		.map((rule) => ({
-			key: rule.key,
-			count: counts.get(rule.key) ?? 0,
-			singular: rule.singular,
-			plural: rule.plural,
-		}))
-		.filter((entry) => entry.count > 0);
-}
-
-/**
  * Refuse a write that rewrites how existing rows read, when its confirmation
  * was withheld.
  *
@@ -182,7 +145,7 @@ export async function assertHistoryAcknowledged(
 		return;
 	}
 
-	const consequences = await countCitations(db, input.rules);
+	const consequences = await countRuleMatches(db, input.rules);
 	if (consequences.length === 0) {
 		return;
 	}
@@ -223,7 +186,7 @@ export async function assertNoColliding(
 		return;
 	}
 
-	const consequences = await countCitations(db, [input.rule]);
+	const consequences = await countRuleMatches(db, [input.rule]);
 	if (consequences.length === 0) {
 		return;
 	}

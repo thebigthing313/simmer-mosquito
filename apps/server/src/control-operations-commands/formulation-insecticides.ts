@@ -6,8 +6,9 @@ import {
 	updateFormulationInsecticideCommand,
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
+import { requireStateAcknowledgement } from '../acknowledgements.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNumber, readText } from '../command-payload.js';
+import { acknowledged, readNumber, readText } from '../command-payload.js';
 import {
 	type CommandContext,
 	type ControlOperationsDb,
@@ -59,7 +60,9 @@ export function registerFormulationInsecticideRoutes(
 						: {}),
 					...('amount' in payload ? { amount: readNumber(payload.amount) ?? Number.NaN } : {}),
 					...('unitId' in payload ? { unitId: readText(payload.unitId) ?? '' } : {}),
-					acknowledgedDeactivateEmptyFormulation: true,
+					acknowledgedDeactivateEmptyFormulation: acknowledged(
+						payload.acknowledgedDeactivateEmptyFormulation,
+					),
 				}),
 			run: (context, commands) => runFormulationInsecticideCommands(context, options.db, commands),
 		}),
@@ -69,12 +72,17 @@ export function registerFormulationInsecticideRoutes(
 		'/control-operations/formulation-insecticides/:formulationInsecticideId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			// An optional body, so the one thing a caller may need to say about a
+			// removal has somewhere to go. Nothing is required of it: a request
+			// with no body reads as it always did (#341).
+			body: 'optional',
+			build: ({ payload, agency: ctx, param }) =>
 				removeFormulationInsecticideCommand({
 					...ctx,
 					formulationInsecticideId: param('formulationInsecticideId'),
-					acknowledgedDeactivateEmptyFormulation: true,
+					acknowledgedDeactivateEmptyFormulation: acknowledged(
+						payload.acknowledgedDeactivateEmptyFormulation,
+					),
 				}),
 			run: (context, commands) => runFormulationInsecticideCommands(context, options.db, commands),
 		}),
@@ -98,6 +106,110 @@ async function runFormulationInsecticideCommands(
 		commands,
 		createdStatus,
 	);
+}
+
+/**
+ * Refuse taking the last thing out of a live recipe, unless the agency said to,
+ * and report the formulation that is about to be emptied (#341).
+ *
+ * A formulation with no ingredients cannot be mixed and nothing can be applied
+ * under it, while the row sits there looking like a product the agency still
+ * has. That is a fact about one formulation rather than a count of what is
+ * affected, so the sentence is the whole answer and `consequences` is empty.
+ *
+ * Only an active formulation asks. `docs/control-operations-domain.md` allows a
+ * draft with zero components on purpose, so emptying an inactive one is the
+ * state it is already allowed to be in and there is nothing to confirm.
+ *
+ * What counts as left over is that doc's "active, non-deleted insecticide
+ * component": a row whose product is still in use. A formulation holding one
+ * live component and one naming a retired insecticide is one removal away from
+ * a recipe nothing can be mixed from, and counting rows alone would let that
+ * through without a word.
+ *
+ * Returns the formulation to deactivate, or `null`. The doc is explicit that
+ * confirming this deactivates the formulation rather than leaving an active
+ * recipe with nothing in it, and the flag is named for that half.
+ *
+ * Only the removal reaches this. `updateFormulationInsecticide` declares the
+ * same flag and cannot satisfy it: changing a component's product, amount or
+ * unit leaves the row in place, so the recipe has exactly what it had before.
+ * The flag stays on that command rather than being dropped, because dropping
+ * one is a change to the vocabulary and this issue is about reading them.
+ */
+async function formulationLeftEmptyBy(
+	trx: ControlOperationsTransaction,
+	payload: {
+		readonly formulationInsecticideId: string;
+		readonly organizationId: string;
+		readonly acknowledgedDeactivateEmptyFormulation: boolean;
+	},
+): Promise<string | null> {
+	const parent = await trx
+		.selectFrom('formulation_insecticides as removed')
+		.innerJoin('formulations as parent', 'parent.id', 'removed.formulation_id')
+		.select(['parent.id as formulation_id', 'parent.is_active as is_active'])
+		.where('removed.id', '=', payload.formulationInsecticideId)
+		.where('removed.organization_id', '=', payload.organizationId)
+		.where('removed.deleted_at', 'is', null)
+		.where('parent.deleted_at', 'is', null)
+		.executeTakeFirst();
+
+	if (parent === undefined || parent.is_active !== true) {
+		return null;
+	}
+
+	// "Active component" is the doc's phrase and it means the component's product
+	// is still in use, not the row. A recipe whose only other ingredient names a
+	// retired insecticide cannot be mixed either, so the join is what makes the
+	// question the one the doc asks.
+	const remaining = await trx
+		.selectFrom('formulation_insecticides as sibling')
+		.innerJoin('insecticides as product', 'product.id', 'sibling.insecticide_id')
+		.select(({ fn }) => fn.countAll<string>().as('count'))
+		.where('sibling.formulation_id', '=', parent.formulation_id)
+		.where('sibling.organization_id', '=', payload.organizationId)
+		.where('sibling.id', '!=', payload.formulationInsecticideId)
+		.where('sibling.deleted_at', 'is', null)
+		.where('product.is_active', '=', true)
+		.where('product.deleted_at', 'is', null)
+		.executeTakeFirst();
+
+	if (Number.parseInt(remaining?.count ?? '0', 10) > 0) {
+		return null;
+	}
+
+	requireStateAcknowledgement({
+		state: true,
+		acknowledgement: 'acknowledgedDeactivateEmptyFormulation',
+		acknowledged: payload.acknowledgedDeactivateEmptyFormulation === true,
+		message: 'This is the last ingredient in the formulation, which leaves the recipe empty.',
+	});
+
+	return parent.formulation_id;
+}
+
+/**
+ * Take an emptied formulation out of use, in the same transaction as the
+ * removal that emptied it. An active recipe with nothing in it is the state the
+ * confirmation was about.
+ */
+async function deactivateEmptiedFormulation(
+	trx: ControlOperationsTransaction,
+	formulationId: string,
+	organizationId: string,
+	actorProfileId: string,
+): Promise<void> {
+	await trx
+		.updateTable('formulations')
+		.set({
+			is_active: false,
+			updated_by_profile_id: actorProfileId,
+			updated_at: sql`now()`,
+		})
+		.where('id', '=', formulationId)
+		.where('organization_id', '=', organizationId)
+		.execute();
 }
 
 export async function writeFormulationInsecticideCommand(
@@ -182,8 +294,9 @@ export async function writeFormulationInsecticideCommand(
 				.executeTakeFirst();
 			return row ?? null;
 		}
-		case 'controlOperations.removeFormulationInsecticide':
-			return softDelete(
+		case 'controlOperations.removeFormulationInsecticide': {
+			const emptied = await formulationLeftEmptyBy(trx, command.payload);
+			const row = await softDelete(
 				trx,
 				'formulation_insecticides',
 				command.payload.formulationInsecticideId,
@@ -191,6 +304,16 @@ export async function writeFormulationInsecticideCommand(
 				command.payload.actorProfileId,
 				formulationInsecticideReturnColumns,
 			);
+			if (emptied !== null) {
+				await deactivateEmptiedFormulation(
+					trx,
+					emptied,
+					command.payload.organizationId,
+					command.payload.actorProfileId,
+				);
+			}
+			return row;
+		}
 		default:
 			throw new Error(`Unsupported formulation insecticide command: ${command.type}`);
 	}
