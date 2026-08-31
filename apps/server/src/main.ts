@@ -179,11 +179,15 @@ server.on('error', (error: NodeJS.ErrnoException) => {
 	throw error;
 });
 
-function shutdown(signal: NodeJS.Signals): void {
+/**
+ * `reason` completes "Received ___", so it is a signal name from the two
+ * handlers below and a phrase from the two that have no signal to report.
+ */
+function shutdown(reason: string): void {
 	if (isShuttingDown) {
 		return;
 	}
-	console.log(`Received ${signal}; closing server.`);
+	console.log(`Received ${reason}; closing server.`);
 
 	const timeout = setTimeout(() => {
 		console.error('Server shutdown timed out.');
@@ -212,8 +216,20 @@ process.once('SIGTERM', shutdown);
 // gone.
 process.on('message', (message: unknown) => {
 	if (isRunnerShutdownMessage(message)) {
-		shutdown('SIGTERM');
+		shutdown('a shutdown request from the dev runner');
 	}
+});
+
+// Windows does not kill a forked child when its parent is force-terminated, so
+// a `taskkill /F` on the dev runner — or anything else that ends it without
+// running its SIGINT handler — used to leave this process alive and holding the
+// port until the next start cleared it (#331). Losing the IPC channel is the one
+// event that fires however the runner ended, because the OS closes the pipe with
+// the parent. `disconnect` cannot fire without a parent, so this is inert in
+// production rather than gated off: nothing forks the server there, and
+// `process.send` is already undefined in every case except `pnpm dev:server`.
+process.on('disconnect', () => {
+	shutdown('a closed runner connection');
 });
 
 async function closeServer(): Promise<void> {

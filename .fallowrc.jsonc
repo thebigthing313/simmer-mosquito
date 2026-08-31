@@ -18,6 +18,11 @@
 		// Standalone scripts invoked by package.json, not imported by anything.
 		// `dev`, `check:role-ladder`, `seed:role-ladder`, `seed:sync-baseline`.
 		"apps/server/src/dev/run-dev-server.ts",
+
+		// Spawned by `dev-server-orphan.integration.test.ts`, not imported by it:
+		// the test needs a parent process it can force-kill, which is a process
+		// rather than a function call.
+		"apps/server/src/tests/support/fork-server-fixture.ts",
 		"apps/server/src/check-role-ladder.ts",
 		"packages/db/src/seed-*.ts",
 		"packages/auth/src/probe-reset-password.ts",
