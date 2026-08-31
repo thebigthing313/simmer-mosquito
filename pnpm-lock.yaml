@@ -26,6 +26,9 @@ importers:
       '@nx/js':
         specifier: 22.7.1
         version: 22.7.1(@babel/traverse@7.29.8)(nx@22.7.1)
+      '@simmer-mosquito/design-tokens':
+        specifier: workspace:*
+        version: link:packages/design-tokens
       '@types/node':
         specifier: 25.6.0
         version: 25.6.0

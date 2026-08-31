@@ -5,10 +5,12 @@
 	"type": "module",
 	"exports": {
 		".": {
+			"fallow": "./src/index.ts",
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
 		},
 		"./test-corpus": {
+			"fallow": "./src/test-corpus.ts",
 			"types": "./dist/test-corpus.d.ts",
 			"import": "./dist/test-corpus.js"
 		},

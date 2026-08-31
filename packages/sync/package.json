@@ -5,10 +5,12 @@
 	"type": "module",
 	"exports": {
 		".": {
+			"fallow": "./src/index.ts",
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
 		},
 		"./session-fetch": {
+			"fallow": "./src/collections/functions/session-fetch.ts",
 			"types": "./dist/collections/functions/session-fetch.d.ts",
 			"import": "./dist/collections/functions/session-fetch.js"
 		},

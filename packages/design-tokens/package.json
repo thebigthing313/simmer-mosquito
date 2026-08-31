@@ -5,8 +5,14 @@
 	"type": "module",
 	"exports": {
 		".": {
+			"fallow": "./src/index.ts",
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
+		},
+		"./map-palette": {
+			"fallow": "./src/map-palette.ts",
+			"types": "./dist/map-palette.d.ts",
+			"import": "./dist/map-palette.js"
 		},
 		"./tokens.css": "./src/tokens.css",
 		"./package.json": "./package.json"
