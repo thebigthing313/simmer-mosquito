@@ -29,6 +29,15 @@ export interface ServerEnv {
 	readonly workosApiKey: string;
 	readonly workosClientId: string;
 	readonly workosCookiePassword: string;
+	/**
+	 * Whether this server refuses every WorkOS identity write.
+	 *
+	 * Set on staging, which authenticates against WorkOS production, so an
+	 * invitation or a revoke issued from unreleased code cannot reach a real
+	 * person. Absent means settle: a variable missing in production cannot
+	 * silently turn identity off. See `workos-identity-interlock.ts`.
+	 */
+	readonly workosIdentityWritesDisabled: boolean;
 	readonly workosRedirectUri: string;
 }
 
@@ -67,6 +76,8 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
 		workosApiKey: readRequiredString(source, 'WORKOS_API_KEY'),
 		workosClientId: readRequiredString(source, 'WORKOS_CLIENT_ID'),
 		workosCookiePassword: readRequiredString(source, 'WORKOS_COOKIE_PASSWORD'),
+		workosIdentityWritesDisabled:
+			readOptionalString(source, 'WORKOS_IDENTITY_WRITES_DISABLED')?.trim() === 'true',
 		workosRedirectUri: readRequiredUrl(source, 'WORKOS_REDIRECT_URI'),
 	};
 }
