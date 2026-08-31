@@ -8,9 +8,9 @@
 	},
 
 	// Every runtime root the module graph cannot infer. The four apps are bundled
-	// from `src/main`; the packages are resolved through their package.json
-	// `exports`, which point at `dist/` — so `src/index.ts` is named here to seed
-	// the graph from source rather than from a build that may not exist yet.
+	// from `src/main`; `packages/*/src/index.ts` is named here so a package is a
+	// root whether or not it has been built. That seeds the graph. What resolves
+	// the edges *between* packages is the `fallow` export condition below.
 	"entry": [
 		"apps/*/src/main.{ts,tsx}",
 		"packages/*/src/index.ts",
@@ -92,6 +92,38 @@
 	// Lower it when real duplication comes out (`pnpm fallow:baseline` re-reads
 	// both this and the complexity baseline). Raising it needs a reason in the
 	// commit message.
+	// What makes this gate build-independent, and #334.
+	//
+	// A cross-package import resolves through the target's package.json
+	// `exports`, and every one of those points at `dist/`. So in a checkout that
+	// has never been built there is nothing behind them, and fallow reported
+	// unresolved imports for every export subpath it could not see through.
+	// Fully built it reported something else again, and CI — which runs this
+	// gate six steps before `pnpm build` — reported a third thing. The gate is
+	// meant to answer "did this branch make it worse" and cannot, if the answer
+	// tracks what happens to be on disk.
+	//
+	// So every subpath whose `import` points at `dist/` carries a `fallow`
+	// condition naming the source it is built from, and this reads it. Nothing
+	// else does: Node, tsc, Vite and Metro all ignore a condition nobody asked
+	// for, so what the apps run is unchanged.
+	//
+	// It has to be the **first** key of the export object. fallow honours `types`
+	// as a built-in and takes the first key it matches, so a condition listed
+	// after it resolves to a `.d.ts` under `dist/` that an unbuilt checkout does
+	// not have — inert, while looking like it works.
+	//
+	// The name is deliberately the tool's rather than something like `source` or
+	// `development`. fallow honours `development` with no config at all, and so
+	// does Vite in dev — using it would have switched all three SPAs to
+	// importing package source with nothing saying so.
+	//
+	// `pnpm check:build-graph` asserts every dist-pointing subpath has one, so a
+	// new package cannot quietly reintroduce this.
+	"resolve": {
+		"conditions": ["fallow"]
+	},
+
 	"duplicates": {
 		"threshold": 9.1
 	},

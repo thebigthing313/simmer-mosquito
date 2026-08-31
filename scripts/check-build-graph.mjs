@@ -279,6 +279,73 @@ function rootSolutionFailures(projects, projectsByPath) {
 	];
 }
 
+/**
+ * A fourth declaration, read by one tool: the `fallow` export condition.
+ *
+ * A cross-package import resolves through the target's `exports`, and every
+ * subpath that ships built output points at `dist/`. So `fallow dead-code` gave
+ * a different answer depending on what happened to be built in the checkout
+ * running it — unresolved imports in one that had never been built, something
+ * else fully built, a clean pass in CI, which runs the gate six steps before
+ * `pnpm build`. A gate that answers "did this branch make it worse" cannot read
+ * the disk state instead of the tree. That is #334.
+ *
+ * The fix is a `fallow` condition on each of those subpaths, naming the source
+ * the `dist/` file is built from, and `.fallowrc.jsonc` asking for it. Nothing
+ * else reads it, so what the apps run is unchanged.
+ *
+ * This is what stops the next package quietly reintroducing it. A subpath that
+ * already points at `src/` needs nothing and is left alone; the condition is
+ * owed only where `dist/` would otherwise be the only answer.
+ */
+function sourceConditionFailures(projects) {
+	return projects.flatMap((project) =>
+		Object.entries(project.manifest.exports ?? {})
+			.filter(([, target]) => shipsBuiltOutput(target))
+			.map(([subpath, target]) => subpathConditionFailure(project, subpath, target))
+			.filter((failure) => failure !== null),
+	);
+}
+
+/**
+ * Whether a subpath resolves to build output, which is the only case that owes
+ * a condition. A string target is an asset (`./styles.css`) rather than a
+ * conditional export, and a subpath already pointing at `src/` resolves without
+ * a build already.
+ */
+function shipsBuiltOutput(target) {
+	if (typeof target !== 'object' || target === null) return false;
+
+	return typeof target.import === 'string' && target.import.startsWith('./dist');
+}
+
+/**
+ * What is wrong with one built subpath's condition, or `null` where nothing is.
+ *
+ * The condition has to be the object's **first** key. fallow honours `types` as
+ * a built-in and takes the first key it matches, so a condition listed after it
+ * resolves to a `.d.ts` under `dist/` that an unbuilt checkout does not have,
+ * and does nothing at all while looking like it does. That cost a round of this
+ * work, which is why it is asserted rather than described.
+ */
+function subpathConditionFailure(project, subpath, target) {
+	if (Object.keys(target)[0] !== 'fallow') {
+		return {
+			name: project.name,
+			detail: `exports "${subpath}" from ${target.import} without "fallow" as its first condition.`,
+			fix: `Put "fallow": "<the source it is built from>" first in "${subpath}" in ${project.path}/package.json. Listed after "types" it never matches.`,
+		};
+	}
+
+	if (existsSync(join(workspaceRoot, project.path, target.fallow))) return null;
+
+	return {
+		name: project.name,
+		detail: `exports "${subpath}" with "fallow": "${target.fallow}", which does not exist.`,
+		fix: `Point it at the source ${target.import} is built from, in ${project.path}/package.json.`,
+	};
+}
+
 /** `../db`, `../../packages/design-tokens` — the path as a tsconfig would write it. */
 function referencePathBetween(from, to) {
 	const fromParts = from.path.split('/');
@@ -339,6 +406,11 @@ const sections = [
 		heading: 'The root solution and the workspace disagree',
 		because: '`tsc -b` at the root builds what the solution names and nothing else.',
 	},
+	{
+		failures: sourceConditionFailures(projects),
+		heading: 'A built export subpath has no source for fallow to read',
+		because: 'Without one the dead-code gate answers from what is on disk (#334).',
+	},
 ];
 
 let failed = false;
@@ -361,3 +433,4 @@ if (failed) process.exit(1);
 
 console.log(`Build graphs agree across ${projects.length} projects.`);
 console.log(`The root solution names all ${projects.length}.`);
+console.log('Every built export subpath names its source for fallow.');

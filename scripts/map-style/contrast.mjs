@@ -26,7 +26,7 @@ import {
 	mapLifecycle,
 	mapProgress,
 	mapStatus,
-} from '../../packages/design-tokens/dist/map-palette.js';
+} from '@simmer-mosquito/design-tokens/map-palette';
 import { VARIANTS } from './palette.mjs';
 
 const THRESHOLD = 3;
