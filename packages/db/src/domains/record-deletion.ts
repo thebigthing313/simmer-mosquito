@@ -265,10 +265,18 @@ export function countPhrase(consequences: readonly DeleteImpactEntry[]): string 
  * against an assignment stop that is already complete asks the same question
  * over the same count — "this many are already there, did you mean that" — so
  * it takes the same check and supplies its own sentence through `message`.
+ *
+ * A sixth counts rows it is taking out of use. Retiring an insecticide leaves
+ * its batches and the formulations naming it exactly where they are and makes
+ * every one of them unusable, which is the same question over the same count
+ * again, with a third sentence. It is also the one that made `rules` a list:
+ * batches and formulations are two kinds, and an agency told about one and then
+ * the other has been surprised twice by one write.
  */
 export type ClearanceAcknowledgement =
 	| 'acknowledgedBatchClearance'
 	| 'acknowledgedCompletedItemAdditionalRecord'
+	| 'acknowledgedDependentDeactivation'
 	| 'acknowledgedRouteRemoval'
 	| 'acknowledgedSpeciesCountsClearance'
 	| 'acknowledgedSummaryDeletion';
@@ -313,6 +321,50 @@ export class ClearanceAcknowledgementRequiredError extends Error {
 }
 
 /**
+ * Every rule's row count in one round-trip, dropping the empty ones.
+ *
+ * A `union all` of scalar counts rather than a query per rule, for the same
+ * reason the delete impact reads that way: a contact has three citing tables
+ * and the agency is asked on every rename.
+ *
+ * `ClearanceRule` and `CitingRule` are the same shape for the same reason they
+ * are counted the same way — a key, a table, a `where`, and the words for the
+ * rows — so both checks read this rather than each keeping a copy.
+ */
+export async function countRuleMatches(
+	db: DbExecutor,
+	rules: readonly CitingRule[],
+): Promise<readonly DeleteImpactEntry[]> {
+	if (rules.length === 0) {
+		return [];
+	}
+
+	const parts = rules.map(
+		(rule) => sql`
+			select ${rule.key}::text as key, count(*)::text as count
+			from ${sql.table(rule.table)}
+			where ${rule.match}
+		`,
+	);
+
+	const result = await sql<{ readonly key: string; readonly count: string }>`${sql.join(
+		parts,
+		sql` union all `,
+	)}`.execute(db);
+
+	const counts = new Map(result.rows.map((row) => [row.key, Number.parseInt(row.count, 10)]));
+
+	return rules
+		.map((rule) => ({
+			key: rule.key,
+			count: counts.get(rule.key) ?? 0,
+			singular: rule.singular,
+			plural: rule.plural,
+		}))
+		.filter((entry) => entry.count > 0);
+}
+
+/**
  * Refuse a clearing write whose confirmation was withheld.
  *
  * Call it before the write, inside the same transaction. Nothing to clear means
@@ -327,7 +379,13 @@ export async function assertClearanceAcknowledged(
 	db: DbExecutor,
 	input: {
 		readonly acknowledgement: ClearanceAcknowledgement;
-		readonly rule: ClearanceRule;
+		/**
+		 * The kinds of row the write turns on. Usually one. Retiring an
+		 * insecticide takes its batches and the formulations naming it, which are
+		 * two kinds and two entries, and the agency is owed both in one refusal
+		 * rather than one per attempt.
+		 */
+		readonly rules: readonly ClearanceRule[];
 		/** What the command carried. Anything but `true` is withheld. */
 		readonly acknowledged: boolean;
 		/**
@@ -341,25 +399,11 @@ export async function assertClearanceAcknowledged(
 		return;
 	}
 
-	const result = await sql<{ readonly count: string }>`
-		select count(*)::text as count
-		from ${sql.table(input.rule.table)}
-		where ${input.rule.match}
-	`.execute(db);
-
-	const count = Number.parseInt(result.rows[0]?.count ?? '0', 10);
-	if (count === 0) {
+	const consequences = await countRuleMatches(db, input.rules);
+	if (consequences.length === 0) {
 		return;
 	}
 
-	const consequences = [
-		{
-			key: input.rule.key,
-			count,
-			singular: input.rule.singular,
-			plural: input.rule.plural,
-		},
-	];
 	throw new ClearanceAcknowledgementRequiredError(
 		input.acknowledgement,
 		consequences,

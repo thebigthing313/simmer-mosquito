@@ -402,7 +402,7 @@ export async function beginExecution(
 	if (itemState === 'completed') {
 		await assertClearanceAcknowledged(trx, {
 			acknowledgement: 'acknowledgedCompletedItemAdditionalRecord',
-			rule: options.recordedHere,
+			rules: [options.recordedHere],
 			acknowledged: options.acknowledgedCompletedItemAdditionalRecord,
 			message: (counted) => `This stop is already completed, with ${counted} recorded against it.`,
 		});

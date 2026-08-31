@@ -1,4 +1,5 @@
 import {
+	assertClearanceAcknowledged,
 	assertRecordDeletable,
 	assertWriteReferences,
 	type Kysely,
@@ -263,7 +264,9 @@ function buildInsecticideUpdateCommands(
 				: deactivateInsecticideCommand({
 						...context,
 						insecticideId,
-						acknowledgedDependentDeactivation: true,
+						acknowledgedDependentDeactivation: acknowledged(
+							payload.acknowledgedDependentDeactivation,
+						),
 					}),
 		);
 		if (!commandResult.ok) {
@@ -313,6 +316,60 @@ function buildInsecticideBatchUpdateCommands(
 	return commands.length === 0 ? invalidUpdate('insecticide batch') : { ok: true, commands };
 }
 
+/**
+ * Refuse retiring a product that other records are still using, unless the
+ * agency said to (#341).
+ *
+ * Nothing is deleted here, which is why the sentence is not the removal one.
+ * The batches of a retired product cannot be applied and the formulations
+ * naming it cannot be mixed, so the write takes them out of use without
+ * touching a row of either, and the count is the only way the agency sees that
+ * before it happens.
+ *
+ * Both kinds arrive in one refusal rather than one per attempt: confirming
+ * "3 batches" and then discovering the formulations is the same surprise this
+ * is meant to prevent. The keys and the words are the delete registry's, so a
+ * dialog reads the same whether the product is being retired or deleted.
+ *
+ * Only live batches count. A batch already out of use is not something this
+ * write changes, and asking about it would be asking about nothing.
+ */
+async function assertDependentsAcknowledged(
+	db: ControlProductTransaction,
+	payload: {
+		readonly insecticideId: string;
+		readonly organizationId: string;
+		readonly acknowledgedDependentDeactivation: boolean;
+	},
+): Promise<void> {
+	await assertClearanceAcknowledged(db, {
+		acknowledgement: 'acknowledgedDependentDeactivation',
+		acknowledged: payload.acknowledgedDependentDeactivation === true,
+		message: (counted) => `Retiring this product takes ${counted} out of use with it.`,
+		rules: [
+			{
+				key: 'insecticideBatches',
+				table: 'insecticide_batches',
+				singular: 'batch',
+				plural: 'batches',
+				match: sql`insecticide_id = ${payload.insecticideId}
+					and organization_id = ${payload.organizationId}
+					and is_active = true
+					and deleted_at is null`,
+			},
+			{
+				key: 'insecticideFormulations',
+				table: 'formulation_insecticides',
+				singular: 'formulation',
+				plural: 'formulations',
+				match: sql`insecticide_id = ${payload.insecticideId}
+					and organization_id = ${payload.organizationId}
+					and deleted_at is null`,
+			},
+		],
+	});
+}
+
 export async function writeInsecticideCommand(
 	db: ControlProductTransaction,
 	command: InsecticideCommand,
@@ -358,6 +415,7 @@ export async function writeInsecticideCommand(
 				actorProfileId: command.payload.actorProfileId,
 			});
 		case 'controlOperations.deactivateInsecticide':
+			await assertDependentsAcknowledged(db, command.payload);
 			return setInsecticideActive(db, command.payload.insecticideId, {
 				organizationId: command.payload.organizationId,
 				actorProfileId: command.payload.actorProfileId,
@@ -702,6 +760,7 @@ interface InsecticidePayload {
 	readonly shorthand?: string | null;
 	readonly metadata?: unknown | null;
 	readonly isActive?: boolean;
+	readonly acknowledgedDependentDeactivation: boolean;
 	readonly acknowledgedHistoricalProductChange: boolean;
 }
 
@@ -742,6 +801,7 @@ function readInsecticidePayload(raw: Record<string, unknown>): PayloadResult<Ins
 			...(raw.shorthand === undefined ? {} : { shorthand: readOptionalText(raw.shorthand) }),
 			...(raw.metadata === undefined ? {} : { metadata: readOptionalJson(raw.metadata) }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
+			acknowledgedDependentDeactivation: acknowledged(raw.acknowledgedDependentDeactivation),
 			acknowledgedHistoricalProductChange: acknowledged(raw.acknowledgedHistoricalProductChange),
 		},
 	};

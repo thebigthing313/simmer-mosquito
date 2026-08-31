@@ -369,13 +369,15 @@ export async function writeHabitatCommand(
 			await assertClearanceAcknowledged(trx, {
 				acknowledgement: 'acknowledgedRouteRemoval',
 				acknowledged: command.payload.acknowledgedRouteRemoval,
-				rule: {
-					key: 'habitatRouteItems',
-					table: 'route_items',
-					singular: 'route stop',
-					plural: 'route stops',
-					match: routeItems,
-				},
+				rules: [
+					{
+						key: 'habitatRouteItems',
+						table: 'route_items',
+						singular: 'route stop',
+						plural: 'route stops',
+						match: routeItems,
+					},
+				],
 			});
 			await sql`
 				update route_items

@@ -14,8 +14,8 @@
  * The gate fails when the real count differs from it, in either direction — up
  * means a branch added an unread flag, down means a branch guarded one and owes
  * the number. It is the same idea as the duplication threshold and the
- * complexity baseline, and the falling number is the progress bar for #316,
- * #341 and everything after them.
+ * complexity baseline, and the falling number is the progress bar for #316 and
+ * everything after it.
  *
  * ## Why "checked by the domain builder" is a real answer
  *
@@ -76,8 +76,8 @@ export type AcknowledgementMechanism =
 	| { readonly kind: 'domainBuilder' }
 	/**
 	 * `assertClearanceAcknowledged` counts the rows a non-delete write turns on
-	 * — the ones it removes, or the ones already there — and refuses with
-	 * `409 acknowledgement_required`.
+	 * — the ones it removes, the ones already there, or the ones it takes out of
+	 * use — and refuses with `409 acknowledgement_required`.
 	 */
 	| { readonly kind: 'clearanceCheck' }
 	/**
@@ -150,8 +150,8 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
 	acknowledgedComponentDeletion: deleteRegistry,
 	acknowledgedContactMerge: domainBuilder,
 	acknowledgedCrossDomainDetach: deleteRegistry,
-	acknowledgedDeactivateEmptyFormulation: unchecked(341),
-	acknowledgedDependentDeactivation: unchecked(341),
+	acknowledgedDeactivateEmptyFormulation: stateGuard,
+	acknowledgedDependentDeactivation: clearanceCheck,
 	acknowledgedDuplicateRequestedActionMissioning: stateGuard,
 	acknowledgedDuplicateTrapCode: collisionCheck,
 	acknowledgedEarlyStart: stateGuard,
@@ -214,7 +214,7 @@ export const ACKNOWLEDGEMENT_MECHANISMS: Record<Acknowledgement, Acknowledgement
  * Lower it when a branch guards one. `pnpm check:acknowledgements` fails when
  * this and the map disagree, so the number cannot rot in either direction.
  */
-export const UNCHECKED_ACKNOWLEDGEMENTS = 5;
+export const UNCHECKED_ACKNOWLEDGEMENTS = 3;
 
 // ===========================================================================
 // The state refusal
@@ -242,6 +242,7 @@ export type StateAcknowledgement =
 	| 'acknowledgedClosedRequestChange'
 	| 'acknowledgedClosedRequestDeletion'
 	| 'acknowledgedCompletedMissionDeletion'
+	| 'acknowledgedDeactivateEmptyFormulation'
 	| 'acknowledgedDuplicateRequestedActionMissioning'
 	| 'acknowledgedEarlyStart'
 	| 'acknowledgedInProgressAssignmentChange'

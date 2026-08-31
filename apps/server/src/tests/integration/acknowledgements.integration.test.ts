@@ -6,6 +6,8 @@ import { expect, it } from 'vitest';
 import { registerAdultSurveillanceCommandRoutes } from '../../adult-surveillance-commands/index.js';
 import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables } from '../../auth-middleware.js';
+import { registerControlOperationsCommandRoutes } from '../../control-operations-commands/index.js';
+import { registerControlProductCommandRoutes } from '../../control-product-commands.js';
 import { registerFoundationGeographyCommandRoutes } from '../../foundation-geography-commands/index.js';
 import { registerLarvalSurveillanceCommandRoutes } from '../../larval-surveillance-commands/index.js';
 import { registerPublicEngagementRecordRoutes } from '../../public-engagement-records-commands/index.js';
@@ -510,6 +512,236 @@ describeDbIntegration('acknowledgement refusals', () => {
 			expect(region.deleted_at).toBeNull();
 		});
 	});
+
+	// -----------------------------------------------------------------------
+	// Deactivation: what a retirement takes with it, and what it leaves behind
+	// -----------------------------------------------------------------------
+
+	it('refuses retiring a product other records still use, counting both kinds, and writes nothing', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'dependent_deactivation_withheld');
+			const actor = await createProfile(db, org);
+			const unitId = await createUnit(db);
+			const insecticideId = await createInsecticide(db, org, unitId);
+			await createInsecticideBatch(db, org, insecticideId);
+			const formulationId = await createFormulation(db, org, unitId);
+			await createFormulationInsecticide(db, org, formulationId, insecticideId, unitId);
+
+			const response = await controlProductApp(db, org, actor).request(
+				`/control-products/insecticides/${insecticideId}`,
+				{
+					method: 'PATCH',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({
+						id: insecticideId,
+						isActive: false,
+						acknowledgedDependentDeactivation: false,
+					}),
+				},
+			);
+
+			expect(response.status).toBe(409);
+			// Both kinds in one refusal. Confirming "1 batch" and then meeting the
+			// formulation is the surprise the count is there to prevent.
+			await expect(response.json()).resolves.toMatchObject({
+				error: 'acknowledgement_required',
+				flag: 'acknowledgedDependentDeactivation',
+				consequences: [
+					{ key: 'insecticideBatches', count: 1, singular: 'batch' },
+					{ key: 'insecticideFormulations', count: 1, singular: 'formulation' },
+				],
+			});
+
+			const insecticide = await db
+				.selectFrom('insecticides')
+				.select(['is_active'])
+				.where('id', '=', insecticideId)
+				.executeTakeFirstOrThrow();
+			expect(insecticide.is_active).toBe(true);
+		});
+	});
+
+	it('refuses removing the last ingredient of a formulation, with an empty consequences list', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'empty_formulation_withheld');
+			const actor = await createProfile(db, org);
+			const unitId = await createUnit(db);
+			const insecticideId = await createInsecticide(db, org, unitId);
+			const formulationId = await createFormulation(db, org, unitId);
+			const componentId = await createFormulationInsecticide(
+				db,
+				org,
+				formulationId,
+				insecticideId,
+				unitId,
+			);
+
+			const response = await formulationApp(db, org, actor).request(
+				`/control-operations/formulation-insecticides/${componentId}`,
+				{
+					method: 'DELETE',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ acknowledgedDeactivateEmptyFormulation: false }),
+				},
+			);
+
+			expect(response.status).toBe(409);
+			await expect(response.json()).resolves.toMatchObject({
+				error: 'acknowledgement_required',
+				flag: 'acknowledgedDeactivateEmptyFormulation',
+				consequences: [],
+			});
+
+			const component = await db
+				.selectFrom('formulation_insecticides')
+				.select(['deleted_at'])
+				.where('id', '=', componentId)
+				.executeTakeFirstOrThrow();
+			expect(component.deleted_at).toBeNull();
+		});
+	});
+
+	it('deactivates the formulation once the agency confirms the recipe goes empty', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'empty_formulation_confirmed');
+			const actor = await createProfile(db, org);
+			const unitId = await createUnit(db);
+			const insecticideId = await createInsecticide(db, org, unitId);
+			const formulationId = await createFormulation(db, org, unitId);
+			const componentId = await createFormulationInsecticide(
+				db,
+				org,
+				formulationId,
+				insecticideId,
+				unitId,
+			);
+
+			const response = await formulationApp(db, org, actor).request(
+				`/control-operations/formulation-insecticides/${componentId}`,
+				{
+					method: 'DELETE',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ acknowledgedDeactivateEmptyFormulation: true }),
+				},
+			);
+
+			expect(response.status).toBe(200);
+			// The flag is named for this half. An active recipe with nothing in it is
+			// the state the confirmation was about, so the write does not leave one.
+			const formulation = await db
+				.selectFrom('formulations')
+				.select(['is_active'])
+				.where('id', '=', formulationId)
+				.executeTakeFirstOrThrow();
+			expect(formulation.is_active).toBe(false);
+		});
+	});
+
+	it('takes the last ingredient out of a draft formulation without asking', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'empty_formulation_draft');
+			const actor = await createProfile(db, org);
+			const unitId = await createUnit(db);
+			const insecticideId = await createInsecticide(db, org, unitId);
+			const formulationId = await createFormulation(db, org, unitId);
+			await db
+				.updateTable('formulations')
+				.set({ is_active: false })
+				.where('id', '=', formulationId)
+				.execute();
+			const componentId = await createFormulationInsecticide(
+				db,
+				org,
+				formulationId,
+				insecticideId,
+				unitId,
+			);
+
+			const response = await formulationApp(db, org, actor).request(
+				`/control-operations/formulation-insecticides/${componentId}`,
+				{ method: 'DELETE' },
+			);
+
+			// A draft with zero components is a state the domain allows on purpose,
+			// so emptying one is not a question.
+			expect(response.status).toBe(200);
+		});
+	});
+
+	it('asks when the only other ingredient names a retired product', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'empty_formulation_retired_sibling');
+			const actor = await createProfile(db, org);
+			const unitId = await createUnit(db);
+			const formulationId = await createFormulation(db, org, unitId);
+			const liveId = await createFormulationInsecticide(
+				db,
+				org,
+				formulationId,
+				await createInsecticide(db, org, unitId, 'In use'),
+				unitId,
+			);
+			const retiredId = await createInsecticide(db, org, unitId, 'Retired');
+			await db
+				.updateTable('insecticides')
+				.set({ is_active: false })
+				.where('id', '=', retiredId)
+				.execute();
+			await createFormulationInsecticide(db, org, formulationId, retiredId, unitId);
+
+			const response = await formulationApp(db, org, actor).request(
+				`/control-operations/formulation-insecticides/${liveId}`,
+				{
+					method: 'DELETE',
+					headers: { 'content-type': 'application/json' },
+					body: JSON.stringify({ acknowledgedDeactivateEmptyFormulation: false }),
+				},
+			);
+
+			// Two rows are left behind, and neither can be mixed. Counting rows
+			// rather than usable ingredients would let this through silently.
+			expect(response.status).toBe(409);
+			await expect(response.json()).resolves.toMatchObject({
+				flag: 'acknowledgedDeactivateEmptyFormulation',
+			});
+		});
+	});
+
+	it('removes an ingredient the formulation is not down to, without asking', async () => {
+		await withTestDb(async ({ db }) => {
+			const org = await createOrganization(db, 'empty_formulation_not_last');
+			const actor = await createProfile(db, org);
+			const unitId = await createUnit(db);
+			const formulationId = await createFormulation(db, org, unitId);
+			const firstId = await createFormulationInsecticide(
+				db,
+				org,
+				formulationId,
+				await createInsecticide(db, org, unitId, 'Product one'),
+				unitId,
+			);
+			await createFormulationInsecticide(
+				db,
+				org,
+				formulationId,
+				await createInsecticide(db, org, unitId, 'Product two'),
+				unitId,
+			);
+
+			const response = await formulationApp(db, org, actor).request(
+				`/control-operations/formulation-insecticides/${firstId}`,
+				{ method: 'DELETE' },
+			);
+
+			expect(response.status).toBe(200);
+			const component = await db
+				.selectFrom('formulation_insecticides')
+				.select(['deleted_at'])
+				.where('id', '=', firstId)
+				.executeTakeFirstOrThrow();
+			expect(component.deleted_at).not.toBeNull();
+		});
+	});
 });
 
 // ===========================================================================
@@ -833,6 +1065,112 @@ async function createRegion(
 			geom: sql`st_setsrid(st_geomfromtext('POLYGON((-90.6 35.4, -90.4 35.4, -90.4 35.6, -90.6 35.6, -90.6 35.4))'), 4326)`,
 			name: 'Zone 1',
 			metadata: null,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+function controlProductApp(db: Db, organizationId: string, profileId: string) {
+	const app = new Hono<{ Variables: AuthVariables }>();
+	registerControlProductCommandRoutes(app, {
+		db,
+		authContextMiddleware: authMiddleware(organizationId, profileId),
+	});
+	return app;
+}
+
+function formulationApp(db: Db, organizationId: string, profileId: string) {
+	const app = new Hono<{ Variables: AuthVariables }>();
+	registerControlOperationsCommandRoutes(app, {
+		db,
+		authContextMiddleware: authMiddleware(organizationId, profileId),
+	});
+	return app;
+}
+
+async function createUnit(db: Db): Promise<string> {
+	const row = await db
+		.insertInto('units')
+		.values({
+			code: `gal_${Math.random().toString(36).slice(2, 10)}`,
+			unit_name: 'gallon',
+			abbreviation: 'gal',
+			unit_type: 'volume',
+			unit_system: 'imperial',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createInsecticide(
+	db: Db,
+	organizationId: string,
+	unitId: string,
+	tradeName = 'Larvicide A',
+): Promise<string> {
+	const row = await db
+		.insertInto('insecticides')
+		.values({
+			organization_id: organizationId,
+			trade_name: tradeName,
+			active_ingredient: 'Bti',
+			type: 'larvicide',
+			registration_number: '12345-67',
+			default_unit_id: unitId,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createInsecticideBatch(
+	db: Db,
+	organizationId: string,
+	insecticideId: string,
+): Promise<string> {
+	const row = await db
+		.insertInto('insecticide_batches')
+		.values({
+			organization_id: organizationId,
+			insecticide_id: insecticideId,
+			batch_name: 'Lot 2026-04',
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createFormulation(db: Db, organizationId: string, unitId: string): Promise<string> {
+	const row = await db
+		.insertInto('formulations')
+		.values({
+			organization_id: organizationId,
+			formulation_name: 'Tank mix',
+			batch_size: 100,
+			batch_unit_id: unitId,
+		})
+		.returning(['id'])
+		.executeTakeFirstOrThrow();
+	return row.id;
+}
+
+async function createFormulationInsecticide(
+	db: Db,
+	organizationId: string,
+	formulationId: string,
+	insecticideId: string,
+	unitId: string,
+): Promise<string> {
+	const row = await db
+		.insertInto('formulation_insecticides')
+		.values({
+			organization_id: organizationId,
+			formulation_id: formulationId,
+			insecticide_id: insecticideId,
+			amount: 5,
+			unit_id: unitId,
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();
