@@ -120,8 +120,15 @@ Electric recreates it on its next boot, so it costs one re-snapshot.
 ## Cloning production data
 
 Two scripts, one dump shape, different targets. **`scripts/clone-prod-db.ps1` is
-the one local dev uses**; the staging clone is what refreshes the sandbox.
-Both only ever READ from prod (`pg_dump`).
+the one local dev uses**; `scripts/refresh-staging.ps1` is what refreshes the
+sandbox. Both only ever READ from prod (`pg_dump`).
+
+They differ in two ways beyond the target, and both differences follow from
+which WorkOS environment signs you in. Local dev authenticates against WorkOS
+**staging**, so the local clone relinks the production identity ids the dump
+carries and keeps three years of history. Staging authenticates against WorkOS
+**production** (#377), so the staging refresh relinks nothing and keeps every
+row prod has.
 
 ### Into local Docker
 
@@ -147,33 +154,69 @@ unrelinked row is invisible to that session.
 Run `pnpm db:migrate` afterwards. The dump carries prod's schema, which is
 behind whatever you are building.
 
-### Into Railway staging
+### Refreshing the staging sandbox
 
-`scripts/clone-prod-to-staging.ps1` reloads the staging database from a prod dump
-so the sandbox shows realistic data. It uses locally-installed
-PostgreSQL client tools (auto-detects `C:\Program Files\PostgreSQL\*\bin`; a client
->= the server major version, so 18 is fine, and no Docker required) and resets the
-target with `DROP SCHEMA public CASCADE` rather than `DROP DATABASE`, so the
-Electric replication slot is left intact and **Electric does not need to be
-stopped**. Electric re-snapshots each shape on demand after the reload.
+`scripts/refresh-staging.ps1` is the whole job, run on demand rather than on a
+schedule. Three steps, and the first one is a gate:
+
+1. **The schema gate.** Prod and staging must already hold the same schema and
+   the same applied migrations. Read-only on both sides, via
+   `check-schema-drift.mjs --pairwise`; a refusal touches nothing.
+2. **The clone.** `scripts/clone-prod-to-staging.ps1`, prod's whole history.
+3. **The migrations.** `dbmate up` against staging, so anything the reload
+   rolled back comes back.
 
 ```powershell
+git checkout staging
 $env:PROD_DATABASE_URL    = '<prod public proxy URL>'      # *.proxy.rlwy.net, read-only role preferred
 $env:STAGING_DATABASE_URL = '<staging public proxy URL>?sslmode=disable'
-./scripts/clone-prod-to-staging.ps1
-./scripts/clone-prod-to-staging.ps1 -YearsOfHistory 5      # keep more
-./scripts/clone-prod-to-staging.ps1 -AllHistory            # keep everything
+./scripts/refresh-staging.ps1
 ```
 
-### How much history a clone keeps
+**The gate is the reason this is one script and not three commands.** Staging
+holds migrations prod has not seen, by design, because that is what a soak is. A
+dump carries prod's `schema_migrations` along with prod's schema, so a clone
+taken mid-soak erases every unshipped migration and leaves the deployed staging
+branch running against a schema behind it. That failure is silent — the app
+starts answering wrong rather than erroring — so the refusal has to come before
+the wipe. A refresh is therefore only safe **just after a promotion**, when
+`main` has shipped everything `staging` holds. It refuses the rest of the time,
+naming what diverged.
+
+Two other refusals. The run has to start from a checkout of `origin/staging`,
+because step 3 applies the migration set of whatever branch you are standing on
+and doing that from `develop` would push staging's database ahead of the code
+deployed on it. And the two URLs must differ and must be public proxy hosts.
+
+**Leave staging's Electric running throughout.** The clone resets the target
+with `DROP SCHEMA public CASCADE` rather than `DROP DATABASE`, so the replication
+slot survives and no exclusive access is needed. Running is not merely tolerable
+but required: staging caps `max_slot_wal_keep_size` at 2048MB where prod is
+`-1`, the restore writes about a gigabyte of WAL against that ceiling, and a
+stopped Electric stops advancing its slot until Postgres invalidates it (#371,
+and #166 for what an invalidated slot costs). Redeploy Electric **after** the
+refresh for a clean re-snapshot; its stored shape state predates the reload.
+
+Nothing relinks WorkOS ids here. Staging authenticates against WorkOS
+production, so the ids the dump carries are the ones staging wants. Signing in
+afterwards as a production identity and landing in the right agency is the check
+that the reload reached `users` and `organizations`.
+
+The daily `schema-drift.yml` run stays. It answers a different question — has
+staging drifted from the migration set — and a refresh that runs a few times a
+year is no substitute for asking every morning.
+
+### How much history a local clone keeps
 
 Prod carries operational records back to 2011: roughly half a million
-inspections and two hundred thousand applications. A clone exists to make local
+inspections and two hundred thousand applications. A local clone exists to make
 dev realistic, which three years of history does as well as fifteen, against a
 database that syncs, re-snapshots, and restores in a fraction of the time.
 
-So a clone keeps the **last 3 years of dated records** by default and **all
-reference data**. Dated means the things an agency performs: inspections,
+So the **local** clone keeps the **last 3 years of dated records** by default and
+**all reference data**. The staging sandbox keeps everything: the trim is not a
+saving there, because the dump and the restore run at full volume either way and
+the prune is 1.17M deletes and eleven full-table rewrites on top (#371). Dated means the things an agency performs: inspections,
 applications, collections, biocontrol and source-reduction actions, outreach,
 service requests, requests for control, assignments, missions, weather
 summaries. Reference data is what it accumulates: habitats, traps, addresses,
@@ -237,38 +280,43 @@ Whether production wants these indexes permanently is a separate question about
 hard-delete write patterns; see issue #126. The app soft-deletes, so it may
 never pay this cost; a clone script does not get to decide that.
 
-Notes:
+Notes on the staging refresh:
 - Both URLs must be the **public** `*.proxy.rlwy.net:PORT` form, never
   `*.railway.internal`.
-- The dump runs first; a bad source URL aborts before anything is wiped.
+- The gate runs first and reads both databases; a refusal touches nothing. The
+  dump runs before the wipe, so a bad source URL also aborts with staging
+  intact.
 - `tiger`/`tiger_data`/`topology` "already exists" and `publication ... already
-  exists` restore errors are benign (schemas/publication survive the schema
-  reset; the app uses `public` geometry). Verify PostGIS + row counts after
-  (the script prints org/membership counts).
-- A one-off Electric redeploy afterwards is optional but gives it a fully clean
-  re-snapshot.
+  exists` restore errors are benign: those schemas and the publication survive
+  the schema reset, and the app uses `public` geometry. The row-count check
+  after the restore is what proves the data arrived, not the exit code, which
+  PostGIS makes non-zero on every healthy run (#347).
+- Redeploy Electric afterwards for a clean re-snapshot.
 
-### The WorkOS relink is part of the clone, not a follow-up
+### The WorkOS relink is local dev's, not staging's
 
-The dump carries **production** WorkOS ids, and local dev authenticates against
-the WorkOS **staging** environment. Both clone scripts carry the same map and
-the same check. `resolveActiveLocalAuthIdentity` looks
-organizations up by `workos_organization_id`, so an unrelinked row is invisible
-to a staging session, and worse than invisible: signing in against an org id
-that resolves to nothing provisions a *fresh* organization, leaving staging with
-two rows for the same agency.
+The dump carries **production** WorkOS ids. Staging authenticates against WorkOS
+production (#377), so those are the ids it wants and `refresh-staging.ps1`
+rewrites nothing. Local dev authenticates against WorkOS **staging**, so
+`clone-prod-db.ps1` still relinks, and it is the only script that does.
 
-Each script therefore rewrites the ids itself, from `$WorkosOrgRelinks` /
+Why it is part of that clone rather than a follow-up:
+`resolveActiveLocalAuthIdentity` looks organizations up by
+`workos_organization_id`, so an unrelinked row is invisible to a staging
+session, and worse than invisible. Signing in against an org id that resolves to
+nothing provisions a *fresh* organization, leaving the database with two rows
+for the same agency.
+
+So the script rewrites the ids itself, from `$WorkosOrgRelinks` /
 `$WorkosUserRelinks` near the top of the file, and then **verifies** that no
 organization still carries a mapped prod id. That check is the point: a relink
 whose only verification is someone noticing a broken workspace is one clone away
 from being lost, which is exactly what #82 was.
 
-**When a new agency exists in both environments, add it to `$WorkosOrgRelinks`
-in both scripts.** Each prints any organization whose id is outside the map after
-relinking, that list should be empty, and anything in it will duplicate on next
-sign-in. Pass `-SkipRelink` only when you intend to work through
-`DEV_IMPERSONATE_*`.
+**When a new agency exists in both environments, add it to `$WorkosOrgRelinks`.**
+The script prints any organization whose id is outside the map after relinking,
+that list should be empty, and anything in it will duplicate on next sign-in.
+Pass `-SkipRelink` only when you intend to work through `DEV_IMPERSONATE_*`.
 
 ## GitHub environments
 

@@ -25,16 +25,15 @@ On Windows or from Codex automation, prefer `pnpm.cmd ...` as described in
 
 ## Local development
 
-`apps/server` and the frontends always run locally. Postgres + Electric come from
-one of two backends. See `docs/deployment.md`, "Local development", for the full
-setup:
+`apps/server` and the frontends always run locally, and so do Postgres and
+Electric: `docker compose up -d postgres electric`, then `pnpm db:migrate` and
+the sync-baseline seed, on the `.env.example` values. **Nothing local points at
+Railway.** Staging is a sandbox agency staff sign into. See `docs/deployment.md`,
+"Local development", for the full setup.
 
-- **Railway-backed (recommended default):** point `DATABASE_URL` / `ELECTRIC_URL`
-  / `ELECTRIC_SECRET` in `.env` + `apps/server/.env` at the Railway `staging`
-  environment. No local Docker; frees resources and avoids flaky local Electric.
-  Seed realistic data with `scripts/clone-prod-to-staging.ps1`.
-- **Fully local Docker:** `docker compose up -d postgres electric`, then
-  `pnpm db:migrate` and the sync-baseline seed (`.env.example` values).
+Seed realistic data with `scripts/clone-prod-db.ps1`, which clones prod into the
+compose Postgres, keeps three years of dated records, and relinks the cloned
+production WorkOS ids to the staging ids local dev signs in against.
 
 Either way: `pnpm dev:server`, `pnpm dev:web`, `pnpm dev:caddy` (HTTPS/HTTP2 front
 at `https://localhost:5175`).
