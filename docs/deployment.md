@@ -523,8 +523,11 @@ VITE_SIMMER_ENVIRONMENT=staging   # staging only; omit in production
 The console wears the same banner as the agency workspace, and keeps syncing in
 a hidden tab on the same terms, off the same variable. See "Web service" above.
 
-Current organization ids: `org_01KRQEQBJJHF729PY0ED6P7875` (production),
-`org_01KZC6NB6PPMV9GKYVHS4VJAQF` (staging).
+Both Railway environments set it to the same id,
+`org_01KRQEQBJJHF729PY0ED6P7875`, because staging authenticates against WorkOS
+production and so reads production's organizations (ADR 0017). The staging
+WorkOS environment has its own SIMMER organization,
+`org_01KZC6NB6PPMV9GKYVHS4VJAQF`, and that is the one a local build wants.
 
 `VITE_SIMMER_OPERATOR_ORG_ID` is how the console answers WorkOS's organization
 challenge without asking. WorkOS refuses to mint a session for an account in more
