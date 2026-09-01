@@ -33,16 +33,10 @@ service (Serverless)". Note its Railway service name differs per environment
 
 In every environment, browsers never call Electric directly. They call the Hono
 server's authenticated `/sync/shapes/*` routes and the server proxies to Electric.
-Electric's networking differs per environment:
-
-- **production**: Electric is **private** (`electric.railway.internal:3000`) and
-  runs `ELECTRIC_INSECURE=true`. Only the co-located prod server reaches it.
-- **staging**: Electric has a **public domain** and is secured with
-  `ELECTRIC_SECRET` (not `ELECTRIC_INSECURE`). The public domain existed so a
-  locally-run server could reach it; local dev no longer points at staging, so
-  nothing outside the staging server needs it and it could follow production
-  private. Left as is here rather than changed in passing. See "Electric
-  service" for the exact settings.
+Electric is **private** in both environments: it listens on
+`electric.railway.internal:3000`, runs `ELECTRIC_INSECURE=true`, and has no
+public domain, so the co-located server is its only client. See "Electric
+service" for the exact settings.
 
 ## Local development
 
@@ -424,11 +418,6 @@ WORKOS_COOKIE_PASSWORD=<32-plus-character-secret>
 WORKOS_REDIRECT_URI=https://<server-domain>/auth/callback
 ```
 
-On **staging** also set `ELECTRIC_SECRET=<same secret as the staging Electric
-service>` so the server authenticates to the now-secured Electric. Production
-omits it (its Electric is insecure/private). The server keeps using the internal
-`ELECTRIC_URL` in both, because the public Electric domain is only for local dev.
-
 On **staging** also set `WORKOS_IDENTITY_WRITES_DISABLED=true`. Staging
 authenticates against WorkOS production, so without it an invitation sent from
 unreleased code mails a real address, a removal revokes somebody's real access,
@@ -577,46 +566,32 @@ same applies to `APP_ORIGIN`.
 
 ### Electric service
 
-The two environments are configured differently: staging's Electric is reachable
-over a public domain and secured with `ELECTRIC_SECRET`, production's is private.
-The reachability was for local dev, which no longer points at staging.
-
-**Production**: private, insecure, no public domain:
+Both environments carry the same two variables:
 
 ```sh
 DATABASE_URL=${{postgis.DATABASE_URL}}
 ELECTRIC_INSECURE=true
 ```
 
-The prod server reaches it over Railway private DNS
-(`ELECTRIC_URL=http://electric.railway.internal:3000/v1/shape`). Do not give prod
-Electric a public domain.
+The server reaches it over Railway private DNS
+(`ELECTRIC_URL=http://electric.railway.internal:3000/v1/shape`). **Give neither
+environment's Electric a public domain.** Electric has no authorization of its
+own, so a reachable shape endpoint streams any table to whoever can call it, and
+the server's shape proxy is the whole authorization layer. To read a deployed
+Electric directly, go in from the inside: `railway ssh -s electric -e staging`.
 
-**Staging**: public domain and secret, so a local dev server can reach it safely:
+Staging ran differently until 2026-09-01: a public domain secured with
+`ELECTRIC_SECRET`, and `PORT=3000` so Railway's HTTP edge would route to it
+(Electric reads `ELECTRIC_PORT`, not `PORT`, so `PORT` only steered the edge).
+That existed for one caller, a locally-run dev server pointed at staging. #379
+deleted that mode and staging now holds a full-history clone of production, so
+the endpoint had no caller left and more to lose.
 
-```sh
-DATABASE_URL=${{postgis.DATABASE_URL}}
-ELECTRIC_SECRET=<strong-random-secret>
-PORT=3000
-```
-
-- Generate a public domain on the service (Railway "Generate Domain", target port
-  3000). `ELECTRIC_URL` on the local dev server is then
-  `https://<that-domain>/v1/shape`.
-- Do **not** set `ELECTRIC_INSECURE` here; the secret is what protects it.
-- `PORT=3000` is required for the public domain to route. Railway's HTTP edge
-  targets the service's `PORT`; Electric listens on 3000 (it reads `ELECTRIC_PORT`,
-  not `PORT`, so `PORT` only steers Railway's edge, it does not change Electric).
-  Without it a generated domain returns `502` with `x-railway-fallback: true`.
-  Private `electric.railway.internal:3000` routing does not need `PORT`.
-
-Set the same `ELECTRIC_SECRET` on that environment's **server** service too (both
-the deployed staging server, which still uses the internal `ELECTRIC_URL`, and
-your local `.env`). The server folds the secret into `ELECTRIC_URL` as a `secret`
-query param on every upstream shape request (`readElectricUrl` in
-`apps/server/src/env.ts`), and treats `secret` as a server-owned shape param so a
-client can't inject or override it. With no `ELECTRIC_SECRET` set the forwarding
-is inert (production, local Docker), so the change is backward-compatible.
+The secret-forwarding code stays and is inert. When `ELECTRIC_SECRET` is set the
+server folds it into `ELECTRIC_URL` as a `secret` query param on every upstream
+shape request (`readElectricUrl` in `apps/server/src/env.ts`), and treats
+`secret` as a server-owned shape param so a client cannot inject or override it.
+Nothing sets the variable now, in any environment.
 
 Verify enforcement: `GET https://<electric-domain>/v1/shape?table=units&offset=-1`
 returns `401` without `&secret=…` and `200` with the correct secret.
@@ -788,7 +763,9 @@ As of 2026-07-09, the Railway-backed local-dev workflow was established:
 
 - staging Electric exposed on a public domain, secured with `ELECTRIC_SECRET`
   (`ELECTRIC_INSECURE` removed, `PORT=3000` added); enforcement verified
-  (401 without secret, 200 with);
+  (401 without secret, 200 with). **Undone on 2026-09-01**, when the local-dev
+  mode it served was deleted: the domain, the secret and `PORT` are gone and
+  staging Electric is private and insecure like production's;
 - the local server proxies shapes to staging Electric with the secret and reads
   from staging Postgres over the public proxy, verified returning real data;
 - staging redeployed with the secret-forwarding server and `ELECTRIC_SECRET` set;

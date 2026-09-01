@@ -195,9 +195,8 @@ names neither half.
 
 ## Local Electric testing notes
 
-These notes cover the fully-local Docker mode. The recommended default is now
-Railway-backed local dev (server + frontends local, Postgres + Electric on the
-Railway `staging` environment). See `docs/deployment.md`, "Local development".
+These notes cover the fully-local Docker mode, which is the only local mode.
+See `docs/deployment.md`, "Local development".
 
 - Docker Compose exposes Postgres on `localhost:55432`, not `localhost:5432`,
   so local `.env` files for this repo should use
@@ -233,18 +232,16 @@ Railway `staging` environment). See `docs/deployment.md`, "Local development".
   server's authenticated `/sync/shapes/*` routes, and the server proxies to
   Electric. The server forces the table/columns/where/params and strips any
   caller-supplied ones.
-- Electric networking differs per environment (see `docs/deployment.md`):
-  - **production**: private (`electric.railway.internal:3000`), `ELECTRIC_INSECURE=true`.
-  - **staging**: public domain, secured with `ELECTRIC_SECRET` (so a locally-run
-    server can reach it for Railway-backed local dev). `PORT=3000` is required on
-    the service for the public domain to route.
-- The server reads `ELECTRIC_SECRET` and folds it into `ELECTRIC_URL` as a
+- Electric is private in every environment (see `docs/deployment.md`):
+  `electric.railway.internal:3000` with `ELECTRIC_INSECURE=true` on Railway, and
+  `localhost:3001` with the same setting under `docker-compose.yml`. No
+  environment gives it a public domain.
+- The server still reads `ELECTRIC_SECRET` and folds it into `ELECTRIC_URL` as a
   `secret` query param on every upstream request (`readElectricUrl` in
-  `apps/server/src/env.ts`); `secret` is a server-owned shape param. With no
-  secret set the forwarding is inert (production, local Docker).
-- Railway `ELECTRIC_URL` for a **deployed** server uses the full internal shape
-  endpoint `http://electric.railway.internal:3000/v1/shape`; a **local** server
-  in Railway-backed mode uses the public `https://<electric-domain>/v1/shape`.
+  `apps/server/src/env.ts`); `secret` is a server-owned shape param. Nothing sets
+  the variable now, so the forwarding is inert everywhere.
+- Railway `ELECTRIC_URL` is the full internal shape endpoint
+  `http://electric.railway.internal:3000/v1/shape` in both environments.
 - Electric requires Postgres logical replication. For the current PostGIS
   Railway service, enable `wal_level = logical`, `max_replication_slots = 10`,
   and `max_wal_senders = 10`, then restart Postgres and Electric.
