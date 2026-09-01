@@ -33,6 +33,15 @@
  *
  * Exits 0 when the two agree, 1 when they do not, and prints the objects that
  * differ by name. A count is not an answer.
+ *
+ * `--pairwise` asks a different question: do these two live databases match
+ * each other? It reads no migration directory, and comparison 1 becomes the two
+ * applied sets against each other. That is the gate the staging refresh runs
+ * on. A clone carries prod's `schema_migrations` along with prod's schema, so
+ * reloading staging while migrations are soaking on it erases them, and the
+ * refusal is a version applied on one side and not the other. The repository
+ * has no standing in that question: the checkout can be on any branch, and a
+ * migration neither database has applied is not drift between them.
  */
 
 import { readdirSync } from 'node:fs';
@@ -59,17 +68,29 @@ const EXPECTED = 'expected';
  */
 const MIGRATION_FILE = /^(\d+)_.+\.sql$/;
 
-/** Every flag the script takes, and the field it fills. All three take a value. */
+/** The flags that take a value, and the field each one fills. */
 const FLAGS = {
 	'--observed': 'observed',
 	'--expected': 'expected',
 	'--migrations-dir': 'migrationsDir',
 };
 
-function parseArgs(argv) {
-	const args = { migrationsDir: DEFAULT_MIGRATIONS_DIR };
+/** The flags that take none. */
+const SWITCHES = {
+	'--pairwise': 'pairwise',
+};
 
-	for (let i = 0; i < argv.length; i += 2) {
+function parseArgs(argv) {
+	const args = { migrationsDir: DEFAULT_MIGRATIONS_DIR, pairwise: false };
+
+	for (let i = 0; i < argv.length; i += 1) {
+		const switched = SWITCHES[argv[i]];
+
+		if (switched) {
+			args[switched] = true;
+			continue;
+		}
+
 		const field = FLAGS[argv[i]];
 
 		if (!field || argv[i + 1] === undefined) {
@@ -77,6 +98,7 @@ function parseArgs(argv) {
 		}
 
 		args[field] = argv[i + 1];
+		i += 1;
 	}
 
 	requireBothUrls(args);
@@ -97,7 +119,7 @@ function usage(message) {
 	console.error('  node scripts/check-schema-drift.mjs \\');
 	console.error('    --observed <connection url> \\');
 	console.error('    --expected <connection url> \\');
-	console.error('    [--migrations-dir packages/db/migrations]');
+	console.error('    [--migrations-dir packages/db/migrations] [--pairwise]');
 	process.exit(2);
 }
 
@@ -321,6 +343,25 @@ function compareAppliedSet(applied, files, migrationsDir) {
 }
 
 /**
+ * Comparison 1, pairwise: the two applied sets against each other.
+ *
+ * A version on one side and not on the other is the whole answer. Nothing here
+ * can be "recorded and no file names it", because no file is read.
+ */
+function compareAppliedSets(observedApplied, expectedApplied) {
+	return [
+		...[...observedApplied]
+			.sort()
+			.filter((version) => !expectedApplied.has(version))
+			.map((version) => `migration ${version} is applied on ${OBSERVED} and not on ${EXPECTED}`),
+		...[...expectedApplied]
+			.sort()
+			.filter((version) => !observedApplied.has(version))
+			.map((version) => `migration ${version} is applied on ${EXPECTED} and not on ${OBSERVED}`),
+	];
+}
+
+/**
  * Comparison 2: the realised schema, catalog against catalog.
  */
 function compareSchemas(observedObjects, expectedObjects) {
@@ -351,18 +392,18 @@ function requireCompleteExpected(expectedApplied, files) {
 	process.exit(2);
 }
 
-function report(findings, files, expectedObjects) {
+function report(findings, verdicts, expectedObjects) {
 	if (findings.length === 0) {
 		const counted = OBJECT_KINDS.map(
 			(kind) => `${expectedObjects.get(kind.name).size} ${kind.plural}`,
 		).join(', ');
 
-		console.log(`The ${OBSERVED} database matches the schema ${files.length} migrations produce.`);
+		console.log(verdicts.matches);
 		console.log(`Compared: ${counted}.`);
 		return;
 	}
 
-	console.log(`The ${OBSERVED} database has drifted from the migration set.`);
+	console.log(verdicts.differs);
 	console.log();
 	for (const finding of findings) {
 		console.log(finding);
@@ -370,11 +411,29 @@ function report(findings, files, expectedObjects) {
 	process.exitCode = 1;
 }
 
+/**
+ * The two sentences the report opens with, which is the only part of the output
+ * the mode changes.
+ */
+function verdicts(args, files) {
+	if (args.pairwise) {
+		return {
+			matches: `The ${OBSERVED} and ${EXPECTED} databases hold the same schema and the same applied migrations.`,
+			differs: `The ${OBSERVED} and ${EXPECTED} databases do not match.`,
+		};
+	}
+
+	return {
+		matches: `The ${OBSERVED} database matches the schema ${files.length} migrations produce.`,
+		differs: `The ${OBSERVED} database has drifted from the migration set.`,
+	};
+}
+
 async function main() {
 	const args = parseArgs(process.argv.slice(2));
-	const files = readMigrationVersions(args.migrationsDir);
+	const files = args.pairwise ? [] : readMigrationVersions(args.migrationsDir);
 
-	if (files.length === 0) {
+	if (!args.pairwise && files.length === 0) {
 		// A directory that parses to nothing would make every comparison pass
 		// over an empty set, which is the one failure mode a check like this has.
 		console.error(`No migration files found in ${args.migrationsDir}.`);
@@ -386,15 +445,20 @@ async function main() {
 
 	try {
 		const applied = new Set(await readAppliedVersions(observed));
-		const findings = compareAppliedSet(applied, files, args.migrationsDir);
+		const expectedApplied = new Set(await readAppliedVersions(expected));
+		const findings = args.pairwise
+			? compareAppliedSets(applied, expectedApplied)
+			: compareAppliedSet(applied, files, args.migrationsDir);
 
-		requireCompleteExpected(new Set(await readAppliedVersions(expected)), files);
+		if (!args.pairwise) {
+			requireCompleteExpected(expectedApplied, files);
+		}
 
 		const observedObjects = await readObjects(observed);
 		const expectedObjects = await readObjects(expected);
 
 		findings.push(...compareSchemas(observedObjects, expectedObjects));
-		report(findings, files, expectedObjects);
+		report(findings, verdicts(args, files), expectedObjects);
 	} finally {
 		await observed.end();
 		await expected.end();
