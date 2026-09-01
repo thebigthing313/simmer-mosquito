@@ -26,6 +26,13 @@
 # WAL; a stopped Electric stops advancing its slot, the WAL piles up behind it,
 # and Postgres invalidates the slot. See the clone script's header, and #371.
 #
+# `sslmode=disable` on the staging URL is required, not decoration. Railway hands
+# out `DATABASE_PUBLIC_URL` without it, and step 3's dbmate speaks Go's `pq`,
+# which defaults to SSL and gets `pq: SSL is not enabled on the server` from the
+# TCP proxy. `pg_dump`, `pg_restore` and `psql` default to `prefer` and negotiate
+# down on their own, so steps 1 and 2 pass and hide it. That is why the check is
+# at the top: unchecked, the refusal lands after the wipe. See #405.
+#
 # Usage (PowerShell, from repo root, on the `staging` branch):
 #   $env:PROD_DATABASE_URL    = 'postgres://USER:PASS@HOST:PORT/DB?sslmode=disable'   # prod public proxy
 #   $env:STAGING_DATABASE_URL = 'postgres://USER:PASS@HOST:PORT/DB?sslmode=disable'   # staging public proxy
@@ -57,6 +64,11 @@ if ([string]::IsNullOrWhiteSpace($StagingUrl)) {
 }
 if ($ProdUrl -eq $StagingUrl) {
 	throw 'PROD_DATABASE_URL and STAGING_DATABASE_URL are identical. Refusing to wipe prod.'
+}
+# Refuse here rather than normalize. Appending `sslmode=disable` for the caller
+# would also silently drop TLS the day this URL points somewhere that has it.
+if ($StagingUrl -notmatch '[?&]sslmode=') {
+	throw 'STAGING_DATABASE_URL carries no sslmode, and step 3 runs dbmate against it after the wipe. Append ?sslmode=disable (Railway''s TCP proxy has no SSL) and re-run.'
 }
 
 Write-Host '==> Checking the checkout is what staging is running ...' -ForegroundColor Cyan
@@ -95,16 +107,23 @@ if (-not [string]::IsNullOrWhiteSpace($PgBin)) { $cloneArgs.PgBin = $PgBin }
 Write-Host '==> Applying migrations to staging (a no-op when the gate found nothing soaking) ...' -ForegroundColor Cyan
 Push-Location $repoRoot
 try {
+	# --env, not --url. `pnpm.cmd exec` runs through cmd.exe, which splits an
+	# argument at `&`, and the staging password has one: dbmate then receives the
+	# URL truncated mid-password, with `sslmode` gone, and answers `pq: SSL is not
+	# enabled on the server`. Reading it from the environment keeps cmd.exe out of
+	# it. No --wait either: steps 1 and 2 have just made hundreds of round trips
+	# to this database, so the probe can only add a failure mode.
+	$env:REFRESH_STAGING_DATABASE_URL = $StagingUrl
 	& $pnpm exec dbmate `
-		--url $StagingUrl `
+		--env REFRESH_STAGING_DATABASE_URL `
 		--migrations-dir packages/db/migrations `
 		--schema-file packages/db/schema.sql `
 		--no-dump-schema `
-		--wait `
 		up
 	if ($LASTEXITCODE -ne 0) { throw "dbmate up against staging failed (exit $LASTEXITCODE)" }
 }
 finally {
+	Remove-Item Env:REFRESH_STAGING_DATABASE_URL -ErrorAction SilentlyContinue
 	Pop-Location
 }
 

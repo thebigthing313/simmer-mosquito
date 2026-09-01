@@ -45,6 +45,11 @@
 #   $env:STAGING_DATABASE_URL = 'postgres://USER:PASS@HOST:PORT/DB?sslmode=disable'   # staging public proxy
 #   ./scripts/clone-prod-to-staging.ps1
 #
+# This script carries no `sslmode` check of its own, and does not want one:
+# pg_dump, pg_restore and psql default to `prefer` and negotiate down against
+# Railway's TCP proxy, so a URL without it works here. dbmate does not, which is
+# why scripts/refresh-staging.ps1 refuses at the top instead (#405).
+#
 # The clone checks that the data arrived. Every ordinary table in `public` is
 # counted on prod and on staging, and staging holding fewer rows than prod fails
 # the run. Two things about that check are worth knowing before you change it:
