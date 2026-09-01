@@ -825,7 +825,9 @@ As of 2026-09-01, the three-branch flow and the staging sandbox are in place
 (map #369):
 
 - `develop`, `staging` and `main` all carry rulesets, `develop` is the default
-  branch, and all six CI checks plus the two gates are required on each;
+  branch, and all five CI checks plus the two gates are required on each;
+  `main` dropped linear history on 2026-09-01, because `staging` carries a merge
+  commit per PR and the rule fired on every promotion (see `docs/releases.md`);
 - all eight Railway repo watchers deleted, `repoTriggers` reads 0, and a
   dispatched `railway-deploy.yml` run deployed all three staging services with
   none of them;
