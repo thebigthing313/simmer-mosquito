@@ -11,33 +11,73 @@ with. "Which build are you on, and what changed in it."
 ## The branch flow
 
 ```
-feature branch  ──▶  staging  ──▶  main (production)
+feature branch  ──▶  develop  ──▶  staging  ──▶  main (production)
+                                  ▲ the release is cut here
 ```
 
-- **All work happens on a branch.** Nothing lands directly on `staging` or
-  `main`.
+- **All work happens on a branch.** None of the three protected branches takes a
+  direct push, with the one exception described below.
+- **`develop` is where work accumulates.** It is the default branch and the base
+  every feature branch PRs into. It deploys nothing: `railway-deploy.yml` names
+  only `staging` and `main`, so a merge into `develop` runs CI and stops there.
 - **A branch that changes what a user can do carries a changeset.** Refactors,
   test additions, dependency bumps, tooling, and docs do not. The test is
   whether the change would mean anything to somebody using SIMMER, not whether
-  it was hard, and not whether it touched a lot of files.
-- **`staging` is where changes accumulate.** Pending changesets pile up in
-  `.changeset/` unconsumed; the version number does not move.
-- **Promotion to `main` is the release.** That is when `pnpm release:version`
-  runs, the pending changesets are consumed into the two `CHANGELOG.md` files,
-  and both app versions bump, **whether or not anything was pending**.
+  it was hard, and not whether it touched a lot of files. The `Changeset filed
+  (or declined)` check asks only PRs based on `develop`, because that is the one
+  shape where a changeset has not been written yet.
+- **`develop` to `staging` is the release cut.** That PR carries the run of
+  `pnpm release:version`: the pending changesets consumed into the two
+  `CHANGELOG.md` files, and both app versions bumped, **whether or not anything
+  was pending**. Merging it deploys the Railway `staging` environment, and what
+  is soaking there is a numbered release candidate.
+- **`staging` to `main` is a forced fast-forward.** No merge commit, no second
+  build, no reordering. What ships to production is the commit that soaked.
 
-The version in an agency's sidebar therefore always names something they
-actually have. A number that existed before anyone could use it would be a
-worse lie than no number at all.
+`main` is the one branch whose ruleset does **not** require a PR, and that is a
+decision rather than an oversight. GitHub's merge button cannot fast-forward, so
+requiring a PR means requiring a merge commit, and a merge commit is a tree no
+environment has run. The promotion is a push:
+
+```bash
+git fetch origin
+git push origin origin/staging:main
+```
+
+`main` keeps linear history, blocks force pushes, and carries an admin bypass
+that is load-bearing rather than a convenience. All six CI checks are required
+there, and on a push the two gate jobs report no check run at all rather than a
+passing one, so without the bypass the promotion is rejected on a check that can
+never appear on that event.
+
+## A version names the candidate, not the shipped build
+
+This inverts what this document used to say, so the old reasoning is worth
+stating before the new one. Under the two-branch flow the cut happened on the
+promotion to `main`, and the argument was that a number nobody could yet be on
+would be a worse lie than no number at all: the version in the sidebar always
+named a build an agency actually had.
+
+The soak is what changed it. A release candidate now sits on `staging` for days
+in front of agency staff trying it against a clone of their own data, and a bug
+they report has to be reportable. "The one on staging" stops being an answer the
+moment there have been two candidates. So the number is minted at the cut and
+names the candidate from that moment, and `main` fast-forwards a number that
+already exists.
+
+The cost is real and small. Between the cut and the promotion there is a version
+production is not on, and a candidate that gets fixed before it ships takes its
+changelog entry with it. What that buys is one question with one answer in every
+environment.
 
 ## A changeset is not a version bump
 
 These are two different questions and only the first one is a judgement call:
 
-|                | What it is for                 | When it happens                 |
-| -------------- | ------------------------------ | ------------------------------- |
-| **Changeset**  | An entry on the changelog page | Only when a user can tell       |
-| **Version**    | Naming the build somebody is on | Every promotion, automatically |
+|                | What it is for                  | When it happens           |
+| -------------- | ------------------------------- | ------------------------- |
+| **Changeset**  | An entry on the changelog page  | Only when a user can tell |
+| **Version**    | Naming the build somebody is on | Every cut, automatically  |
 
 A refactor that reaches production is a new build. Nobody needs to read about it,
 but they may well have to *report* it, and "which version are you on" is where
@@ -52,7 +92,7 @@ than an author made to invent something to say.
 
 Nothing about this changes what you do on a branch. Write a changeset when the
 change is one a user could notice; don't when it isn't. The version takes care
-of itself at promotion.
+of itself at the cut.
 
 ## Writing a changeset
 
@@ -62,6 +102,8 @@ pnpm changeset
 
 Pick the app(s) the change is visible in, pick the bump, and write the entry.
 The file lands in `.changeset/` and is committed with the work it describes.
+`baseBranch` in `.changeset/config.json` is `develop`, so `pnpm changeset:status`
+compares against the branch you actually branched from.
 
 **Bump:** `minor` for anything new or meaningfully different, `patch` for a fix.
 `major` is a deliberate decision about the product, not something to reach for
@@ -99,30 +141,94 @@ pnpm changeset:status
 
 ## Cutting a release
 
-On the branch that promotes `staging` to `main`:
+The cut belongs to the `develop` to `staging` PR, and it cannot be committed
+there. That PR's head is `develop`, which takes no direct pushes, so the cut
+reaches `develop` the way every other change does:
+
+1. Branch off `develop`. Run `pnpm release:version` and commit what it writes:
+   the deleted changesets, the two changelogs, and the two `package.json` bumps.
+2. PR that branch into `develop` and merge it. The changeset gate stays quiet on
+   its own, with no label needed, because a cut touches no `*/src/*`.
+3. Open the `develop` to `staging` PR. It now carries the cut, and
+   `Release cut (or declined)` reads it.
 
 ```bash
+git fetch origin
+git switch -c release/0.7.0 origin/develop
 pnpm release:version
+git commit -am "chore: cut web 0.7.0 and admin 0.6.0"
 ```
 
-That writes a `patch` changeset for any app nothing pending would bump, runs
-`changeset version` (consuming `.changeset/*.md` into the changelogs and bumping
-the two `package.json` versions), then stamps the new headings with today's
-date. Commit the result, meaning the deleted changesets, the two changelogs, and
-the two package.json bumps, then merge to `main`. The deploy inlines the new version
-at build.
+`scripts/release-version.mjs` writes a `patch` changeset for any app nothing
+pending would bump, runs `changeset version`, then stamps the new headings with
+today's date. The deploy inlines the new version at build.
 
-It is safe to run twice. The floor bump is skipped for an app whose version has
-already moved past the one on `main`, so a second run, after another changeset
-merged into the promotion branch, consumes that one without inventing a
-second patch. A run with no commits since `main` bumps nothing at all.
+It is safe to run twice **on the same cut**. The floor bump is skipped for an
+app whose version has already moved past every numbered branch, so a second run,
+after another changeset merged into the release branch, consumes that one
+without inventing a second patch.
 
-Forgetting it is caught rather than shipped. The production deploy refuses a
-push to `main` that leaves either app on the version it was already on, the same
-way it refuses one with changesets still pending. A promotion that skipped this
-step is one where two different builds answer to one number. A manual
-`workflow_dispatch` deploy is exempt, because re-deploying a release already cut
-is a legitimate second deploy of one version.
+Two branches carry a number, not one, and the script reads both. `staging` holds
+the candidate and `main` holds what production is on. Reading only `main` would
+let a second cut into `staging`, before the first candidate promotes, hand an
+app with no changeset the number that candidate already answers to.
+
+## The two gates
+
+Both live in `ci.yml` and both are required checks on all three branches.
+
+- **`Changeset filed (or declined)`** fails a PR based on `develop` that moves
+  app-visible source with no changeset. Override with the `no changeset` label,
+  then re-run the job. It exits 0 on any other base.
+- **`Release cut (or declined)`** fails a PR based on `staging` that leaves
+  changesets unconsumed, or leaves either app on the version it was already on.
+  Override with the `release cut declined` label. It exits 0 on any other base.
+
+They used to sit on the production deploy in `railway-deploy.yml`. They moved
+because the risk moved: by the time `main` fast-forwards, the numbers are days
+old and a gate on that push is trivially true.
+
+**On a push, both report `skipping`.** They carry
+`if: github.event_name == 'pull_request'`, so only the PR run has anything to
+say, and the PR run is the one the rulesets read. A `skipping` sitting next to
+six passes on a merge commit looks red and is not a required check going
+missing.
+
+Neither job skips itself on a base it has nothing to say about. It runs, prints
+why it has nothing to say, and exits 0. A required check that reports no run at
+all blocks the merge forever, which is worse than a wasted runner minute.
+
+## The hotfix path
+
+A production bug that cannot wait for the candidate on `staging` gets its own
+version off `main`. This is the ugly corner of the flow and worth naming as one:
+it is the only path where two release lines exist at once, and every awkward
+part below follows from that.
+
+1. Branch from `main`.
+2. Fix it. File a changeset if a user can tell.
+3. Run `pnpm release:version` on the branch and commit the cut with the fix.
+4. PR into `main`. The changeset gate exits 0 there, because the changeset is
+   consumed already.
+5. Merge it, and `railway-deploy.yml` ships it.
+6. **Merge `main` back into `staging`, then `staging` into `develop`, as the
+   last step of the fix.** Not optional and not later: until that happens the
+   fix is on no other branch, and the next promotion reverts it.
+
+Two things to expect on the way back.
+
+**The changelogs conflict, and both sides are right.** The hotfix wrote `0.5.1`
+against `main`'s history while the candidate wrote `0.6.0` against `staging`'s.
+Keep both entries, in version order, and resolve nothing away.
+
+**Do not re-run `pnpm release:version` on a hotfix branch.** The first run is
+correct: the branch sits at `main`'s version, below the candidate soaking on
+`staging`, so it takes its floor bump. A second run sees the same thing, because
+the branch is still below that candidate, and bumps again. The guard that makes
+a re-run safe on an ordinary cut compares against the highest numbered branch,
+and on a hotfix that is never this one (#375).
+
+Nothing has run this path yet. Read step 6 as the part to get right.
 
 ## Only the apps are versioned
 

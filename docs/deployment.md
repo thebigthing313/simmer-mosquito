@@ -2,11 +2,25 @@
 
 SIMMER has three operating environments:
 
-- **local development**: `apps/server` and the frontends run on your machine.
-  Postgres + Electric come from **either** the Railway `staging` environment
-  (recommended default) **or** local Docker Compose. See "Local development".
-- **staging** on Railway, deployed from the `staging` branch.
+- **local development**: everything on your machine. `apps/server` and the
+  frontends run locally, and Postgres and Electric come from
+  `docker-compose.yml`. Nothing local points at Railway. See "Local
+  development".
+- **staging** on Railway, deployed from the `staging` branch. It is a sandbox
+  agency staff sign into, holding a full-history clone of production and
+  authenticating against WorkOS **production**, so a release candidate soaks
+  there against real identities and real-shaped data. See "Pipeline" and
+  "Refreshing the staging sandbox".
 - **production** on Railway, deployed from the `main` branch.
+
+`develop` is the fourth branch and has no environment. Work accumulates there
+and deploys nowhere; see `docs/releases.md` for the flow.
+
+**Neither branch deploys on its own.** The Railway repo watchers were deleted on
+every service and environment (#373), so `.github/workflows/railway-deploy.yml`
+is the only path into either environment. Both services still show the
+repository as their source in the Railway dashboard, which is a different thing
+from a watcher and does not deploy anything.
 
 The deployed Railway shape is one project with separate `staging` and
 `production` environments. Each environment should have these services:
@@ -33,16 +47,10 @@ service (Serverless)". Note its Railway service name differs per environment
 
 In every environment, browsers never call Electric directly. They call the Hono
 server's authenticated `/sync/shapes/*` routes and the server proxies to Electric.
-Electric's networking differs per environment:
-
-- **production**: Electric is **private** (`electric.railway.internal:3000`) and
-  runs `ELECTRIC_INSECURE=true`. Only the co-located prod server reaches it.
-- **staging**: Electric has a **public domain** and is secured with
-  `ELECTRIC_SECRET` (not `ELECTRIC_INSECURE`). The public domain existed so a
-  locally-run server could reach it; local dev no longer points at staging, so
-  nothing outside the staging server needs it and it could follow production
-  private. Left as is here rather than changed in passing. See "Electric
-  service" for the exact settings.
+Electric is **private** in both environments: it listens on
+`electric.railway.internal:3000`, runs `ELECTRIC_INSECURE=true`, and has no
+public domain, so the co-located server is its only client. See "Electric
+service" for the exact settings.
 
 ## Local development
 
@@ -120,8 +128,15 @@ Electric recreates it on its next boot, so it costs one re-snapshot.
 ## Cloning production data
 
 Two scripts, one dump shape, different targets. **`scripts/clone-prod-db.ps1` is
-the one local dev uses**; the staging clone is what refreshes the sandbox.
-Both only ever READ from prod (`pg_dump`).
+the one local dev uses**; `scripts/refresh-staging.ps1` is what refreshes the
+sandbox. Both only ever READ from prod (`pg_dump`).
+
+They differ in two ways beyond the target, and both differences follow from
+which WorkOS environment signs you in. Local dev authenticates against WorkOS
+**staging**, so the local clone relinks the production identity ids the dump
+carries and keeps three years of history. Staging authenticates against WorkOS
+**production** (#377), so the staging refresh relinks nothing and keeps every
+row prod has.
 
 ### Into local Docker
 
@@ -147,33 +162,69 @@ unrelinked row is invisible to that session.
 Run `pnpm db:migrate` afterwards. The dump carries prod's schema, which is
 behind whatever you are building.
 
-### Into Railway staging
+### Refreshing the staging sandbox
 
-`scripts/clone-prod-to-staging.ps1` reloads the staging database from a prod dump
-so the sandbox shows realistic data. It uses locally-installed
-PostgreSQL client tools (auto-detects `C:\Program Files\PostgreSQL\*\bin`; a client
->= the server major version, so 18 is fine, and no Docker required) and resets the
-target with `DROP SCHEMA public CASCADE` rather than `DROP DATABASE`, so the
-Electric replication slot is left intact and **Electric does not need to be
-stopped**. Electric re-snapshots each shape on demand after the reload.
+`scripts/refresh-staging.ps1` is the whole job, run on demand rather than on a
+schedule. Three steps, and the first one is a gate:
+
+1. **The schema gate.** Prod and staging must already hold the same schema and
+   the same applied migrations. Read-only on both sides, via
+   `check-schema-drift.mjs --pairwise`; a refusal touches nothing.
+2. **The clone.** `scripts/clone-prod-to-staging.ps1`, prod's whole history.
+3. **The migrations.** `dbmate up` against staging, so anything the reload
+   rolled back comes back.
 
 ```powershell
+git checkout staging
 $env:PROD_DATABASE_URL    = '<prod public proxy URL>'      # *.proxy.rlwy.net, read-only role preferred
 $env:STAGING_DATABASE_URL = '<staging public proxy URL>?sslmode=disable'
-./scripts/clone-prod-to-staging.ps1
-./scripts/clone-prod-to-staging.ps1 -YearsOfHistory 5      # keep more
-./scripts/clone-prod-to-staging.ps1 -AllHistory            # keep everything
+./scripts/refresh-staging.ps1
 ```
 
-### How much history a clone keeps
+**The gate is the reason this is one script and not three commands.** Staging
+holds migrations prod has not seen, by design, because that is what a soak is. A
+dump carries prod's `schema_migrations` along with prod's schema, so a clone
+taken mid-soak erases every unshipped migration and leaves the deployed staging
+branch running against a schema behind it. That failure is silent — the app
+starts answering wrong rather than erroring — so the refusal has to come before
+the wipe. A refresh is therefore only safe **just after a promotion**, when
+`main` has shipped everything `staging` holds. It refuses the rest of the time,
+naming what diverged.
+
+Two other refusals. The run has to start from a checkout of `origin/staging`,
+because step 3 applies the migration set of whatever branch you are standing on
+and doing that from `develop` would push staging's database ahead of the code
+deployed on it. And the two URLs must differ and must be public proxy hosts.
+
+**Leave staging's Electric running throughout.** The clone resets the target
+with `DROP SCHEMA public CASCADE` rather than `DROP DATABASE`, so the replication
+slot survives and no exclusive access is needed. Running is not merely tolerable
+but required: staging caps `max_slot_wal_keep_size` at 2048MB where prod is
+`-1`, the restore writes about a gigabyte of WAL against that ceiling, and a
+stopped Electric stops advancing its slot until Postgres invalidates it (#371,
+and #166 for what an invalidated slot costs). Redeploy Electric **after** the
+refresh for a clean re-snapshot; its stored shape state predates the reload.
+
+Nothing relinks WorkOS ids here. Staging authenticates against WorkOS
+production, so the ids the dump carries are the ones staging wants. Signing in
+afterwards as a production identity and landing in the right agency is the check
+that the reload reached `users` and `organizations`.
+
+The daily `schema-drift.yml` run stays. It answers a different question — has
+staging drifted from the migration set — and a refresh that runs a few times a
+year is no substitute for asking every morning.
+
+### How much history a local clone keeps
 
 Prod carries operational records back to 2011: roughly half a million
-inspections and two hundred thousand applications. A clone exists to make local
+inspections and two hundred thousand applications. A local clone exists to make
 dev realistic, which three years of history does as well as fifteen, against a
 database that syncs, re-snapshots, and restores in a fraction of the time.
 
-So a clone keeps the **last 3 years of dated records** by default and **all
-reference data**. Dated means the things an agency performs: inspections,
+So the **local** clone keeps the **last 3 years of dated records** by default and
+**all reference data**. The staging sandbox keeps everything: the trim is not a
+saving there, because the dump and the restore run at full volume either way and
+the prune is 1.17M deletes and eleven full-table rewrites on top (#371). Dated means the things an agency performs: inspections,
 applications, collections, biocontrol and source-reduction actions, outreach,
 service requests, requests for control, assignments, missions, weather
 summaries. Reference data is what it accumulates: habitats, traps, addresses,
@@ -237,38 +288,43 @@ Whether production wants these indexes permanently is a separate question about
 hard-delete write patterns; see issue #126. The app soft-deletes, so it may
 never pay this cost; a clone script does not get to decide that.
 
-Notes:
+Notes on the staging refresh:
 - Both URLs must be the **public** `*.proxy.rlwy.net:PORT` form, never
   `*.railway.internal`.
-- The dump runs first; a bad source URL aborts before anything is wiped.
+- The gate runs first and reads both databases; a refusal touches nothing. The
+  dump runs before the wipe, so a bad source URL also aborts with staging
+  intact.
 - `tiger`/`tiger_data`/`topology` "already exists" and `publication ... already
-  exists` restore errors are benign (schemas/publication survive the schema
-  reset; the app uses `public` geometry). Verify PostGIS + row counts after
-  (the script prints org/membership counts).
-- A one-off Electric redeploy afterwards is optional but gives it a fully clean
-  re-snapshot.
+  exists` restore errors are benign: those schemas and the publication survive
+  the schema reset, and the app uses `public` geometry. The row-count check
+  after the restore is what proves the data arrived, not the exit code, which
+  PostGIS makes non-zero on every healthy run (#347).
+- Redeploy Electric afterwards for a clean re-snapshot.
 
-### The WorkOS relink is part of the clone, not a follow-up
+### The WorkOS relink is local dev's, not staging's
 
-The dump carries **production** WorkOS ids, and local dev authenticates against
-the WorkOS **staging** environment. Both clone scripts carry the same map and
-the same check. `resolveActiveLocalAuthIdentity` looks
-organizations up by `workos_organization_id`, so an unrelinked row is invisible
-to a staging session, and worse than invisible: signing in against an org id
-that resolves to nothing provisions a *fresh* organization, leaving staging with
-two rows for the same agency.
+The dump carries **production** WorkOS ids. Staging authenticates against WorkOS
+production (#377), so those are the ids it wants and `refresh-staging.ps1`
+rewrites nothing. Local dev authenticates against WorkOS **staging**, so
+`clone-prod-db.ps1` still relinks, and it is the only script that does.
 
-Each script therefore rewrites the ids itself, from `$WorkosOrgRelinks` /
+Why it is part of that clone rather than a follow-up:
+`resolveActiveLocalAuthIdentity` looks organizations up by
+`workos_organization_id`, so an unrelinked row is invisible to a staging
+session, and worse than invisible. Signing in against an org id that resolves to
+nothing provisions a *fresh* organization, leaving the database with two rows
+for the same agency.
+
+So the script rewrites the ids itself, from `$WorkosOrgRelinks` /
 `$WorkosUserRelinks` near the top of the file, and then **verifies** that no
 organization still carries a mapped prod id. That check is the point: a relink
 whose only verification is someone noticing a broken workspace is one clone away
 from being lost, which is exactly what #82 was.
 
-**When a new agency exists in both environments, add it to `$WorkosOrgRelinks`
-in both scripts.** Each prints any organization whose id is outside the map after
-relinking, that list should be empty, and anything in it will duplicate on next
-sign-in. Pass `-SkipRelink` only when you intend to work through
-`DEV_IMPERSONATE_*`.
+**When a new agency exists in both environments, add it to `$WorkosOrgRelinks`.**
+The script prints any organization whose id is outside the map after relinking,
+that list should be empty, and anything in it will duplicate on next sign-in.
+Pass `-SkipRelink` only when you intend to work through `DEV_IMPERSONATE_*`.
 
 ## GitHub environments
 
@@ -294,13 +350,19 @@ Each environment needs these variables:
 
 Configure each deployable service from the repository root.
 
-**Server**: Railpack, with install, build, and start commands:
+**Server**: Railpack, with a build command and a start command and **no install
+command**:
 
 ```sh
-pnpm install --frozen-lockfile
-pnpm --filter @simmer-mosquito/server build
-pnpm --filter @simmer-mosquito/server start
+pnpm --filter @simmer-mosquito/server build   # Build Command
+pnpm --filter @simmer-mosquito/server start   # Start Command
 ```
+
+Railpack detects pnpm from `packageManager` and installs on its own, so the
+install field is empty on both environments' server services and setting it
+would only run the install twice. This document used to name
+`pnpm install --frozen-lockfile` as a third command, which never matched the
+live config (#370).
 
 That filtered build is not the one CI's `verify` job runs. `pnpm build` is
 `nx run-many`, which orders projects from package.json dependencies;
@@ -376,10 +438,18 @@ WORKOS_COOKIE_PASSWORD=<32-plus-character-secret>
 WORKOS_REDIRECT_URI=https://<server-domain>/auth/callback
 ```
 
-On **staging** also set `ELECTRIC_SECRET=<same secret as the staging Electric
-service>` so the server authenticates to the now-secured Electric. Production
-omits it (its Electric is insecure/private). The server keeps using the internal
-`ELECTRIC_URL` in both, because the public Electric domain is only for local dev.
+**Both environments point at the same WorkOS directory, the production one.**
+`WORKOS_API_KEY`, `WORKOS_CLIENT_ID` and `SIMMER_OPERATOR_ORG_ID` hold the same
+values on staging as on production, which is what lets an agency user sign in to
+the sandbox with the credentials they already have and land in their own Agency
+(#377). Only the callback URL differs, and both are registered in WorkOS.
+
+`WORKOS_COOKIE_PASSWORD` is the one WorkOS value that **must differ between the
+two**. It is what seals the session cookie, so a shared value means a session
+minted on staging unseals on production, and the environments stop being
+separated at all. They shared one byte for byte until #377 found it. Rotate one
+of them if you ever find them equal again; a signed-in user is signed out and
+nothing else breaks.
 
 On **staging** also set `WORKOS_IDENTITY_WRITES_DISABLED=true`. Staging
 authenticates against WorkOS production, so without it an invitation sent from
@@ -415,6 +485,15 @@ string rather than absent, so `''` and unset both have to read as production,
 and comparing against a literal is what makes them. Setting it to `production`
 is allowed and does nothing.
 
+It does one more thing, which is not visible on screen: a staging build keeps
+its Electric shape streams running while the tab reports hidden. Electric
+pauses a stream on a hidden tab, and a stream born hidden issues no requests at
+all, so an agent driving staging in a background tab would sit on a loading
+skeleton forever (#228, #381). Local development already had that override;
+`import.meta.env.DEV` is false in any `vite build`, so staging opts in through
+this variable instead. Production keeps pausing, which is what a backgrounded
+customer tab should do.
+
 `VITE_MAPBOX_ACCESS_TOKEN` is required for map views to render. Each `VITE_*`
 name here has a matching `ARG` in `apps/web/Dockerfile`, and only declared names
 reach the build. See "Static site images".
@@ -441,8 +520,8 @@ VITE_SIMMER_OPERATOR_ORG_ID=<the WorkOS org that is SIMMER, in this environment>
 VITE_SIMMER_ENVIRONMENT=staging   # staging only; omit in production
 ```
 
-The console wears the same banner as the agency workspace, off the same
-variable. See "Web service" above.
+The console wears the same banner as the agency workspace, and keeps syncing in
+a hidden tab on the same terms, off the same variable. See "Web service" above.
 
 Current organization ids: `org_01KRQEQBJJHF729PY0ED6P7875` (production),
 `org_01KZC6NB6PPMV9GKYVHS4VJAQF` (staging).
@@ -520,46 +599,32 @@ same applies to `APP_ORIGIN`.
 
 ### Electric service
 
-The two environments are configured differently: staging's Electric is reachable
-over a public domain and secured with `ELECTRIC_SECRET`, production's is private.
-The reachability was for local dev, which no longer points at staging.
-
-**Production**: private, insecure, no public domain:
+Both environments carry the same two variables:
 
 ```sh
 DATABASE_URL=${{postgis.DATABASE_URL}}
 ELECTRIC_INSECURE=true
 ```
 
-The prod server reaches it over Railway private DNS
-(`ELECTRIC_URL=http://electric.railway.internal:3000/v1/shape`). Do not give prod
-Electric a public domain.
+The server reaches it over Railway private DNS
+(`ELECTRIC_URL=http://electric.railway.internal:3000/v1/shape`). **Give neither
+environment's Electric a public domain.** Electric has no authorization of its
+own, so a reachable shape endpoint streams any table to whoever can call it, and
+the server's shape proxy is the whole authorization layer. To read a deployed
+Electric directly, go in from the inside: `railway ssh -s electric -e staging`.
 
-**Staging**: public domain and secret, so a local dev server can reach it safely:
+Staging ran differently until 2026-09-01: a public domain secured with
+`ELECTRIC_SECRET`, and `PORT=3000` so Railway's HTTP edge would route to it
+(Electric reads `ELECTRIC_PORT`, not `PORT`, so `PORT` only steered the edge).
+That existed for one caller, a locally-run dev server pointed at staging. #379
+deleted that mode and staging now holds a full-history clone of production, so
+the endpoint had no caller left and more to lose.
 
-```sh
-DATABASE_URL=${{postgis.DATABASE_URL}}
-ELECTRIC_SECRET=<strong-random-secret>
-PORT=3000
-```
-
-- Generate a public domain on the service (Railway "Generate Domain", target port
-  3000). `ELECTRIC_URL` on the local dev server is then
-  `https://<that-domain>/v1/shape`.
-- Do **not** set `ELECTRIC_INSECURE` here; the secret is what protects it.
-- `PORT=3000` is required for the public domain to route. Railway's HTTP edge
-  targets the service's `PORT`; Electric listens on 3000 (it reads `ELECTRIC_PORT`,
-  not `PORT`, so `PORT` only steers Railway's edge, it does not change Electric).
-  Without it a generated domain returns `502` with `x-railway-fallback: true`.
-  Private `electric.railway.internal:3000` routing does not need `PORT`.
-
-Set the same `ELECTRIC_SECRET` on that environment's **server** service too (both
-the deployed staging server, which still uses the internal `ELECTRIC_URL`, and
-your local `.env`). The server folds the secret into `ELECTRIC_URL` as a `secret`
-query param on every upstream shape request (`readElectricUrl` in
-`apps/server/src/env.ts`), and treats `secret` as a server-owned shape param so a
-client can't inject or override it. With no `ELECTRIC_SECRET` set the forwarding
-is inert (production, local Docker), so the change is backward-compatible.
+The secret-forwarding code stays and is inert. When `ELECTRIC_SECRET` is set the
+server folds it into `ELECTRIC_URL` as a `secret` query param on every upstream
+shape request (`readElectricUrl` in `apps/server/src/env.ts`), and treats
+`secret` as a server-owned shape param so a client cannot inject or override it.
+Nothing sets the variable now, in any environment.
 
 Verify enforcement: `GET https://<electric-domain>/v1/shape?table=units&offset=-1`
 returns `401` without `&secret=…` and `200` with the correct secret.
@@ -601,10 +666,19 @@ match the admin origin so authenticated browser requests and redirects line up.
 
 ## Pipeline
 
-`.github/workflows/railway-deploy.yml` maps branches to environments:
+`.github/workflows/railway-deploy.yml` is the **only** way code reaches either
+Railway environment. It maps branches to environments:
 
 - push to `staging` deploys the Railway `staging` environment;
-- push to `main` deploys the Railway `production` environment.
+- push to `main` deploys the Railway `production` environment;
+- `develop` appears nowhere in it, so a merge into `develop` deploys nothing.
+
+Nothing watches a branch on Railway's side. A `DeploymentTrigger` row per
+service and environment used to, and all eight were deleted in #373, which is
+why `railway up --message "$GITHUB_SHA"` is in the deploy step: `railway up`
+uploads the working tree with no commit attached, so the message is the only
+provenance a Railway deployment now carries. A deployment in the dashboard with
+no sha in its message predates that change.
 
 Each run is three sequential jobs: **verify → migrate → deploy** (server + web +
 admin). `admin` joined the deploy matrix when the console was reworked onto the
@@ -613,16 +687,22 @@ ships, so deploying one without the other would put two versions of the same
 shell in production.
 `migrate` and `deploy` `need:` `verify`, so:
 
-- **`verify` runs `pnpm typecheck` and `pnpm test`.** If either fails, nothing
-  deploys.** Keep `main` green; a stale/broken test blocks *all* deploys, not just
-  the offending branch. (Run `pnpm typecheck && pnpm test` locally before pushing.)
+- **`verify` runs `pnpm typecheck`, `pnpm test` and `pnpm build`.** If any of
+  them fails, nothing deploys. Keep the branch green; a stale or broken test
+  blocks *all* deploys, not just the offending branch. (Run
+  `pnpm typecheck && pnpm test` locally before pushing.)
 - **Pushing `main` is a production release.** It deploys whatever is on `main`,
-  not only your latest commit, but any commits accumulated on `main` since the last
-  green deploy ship together. Fast-forward `staging`→`main` and let staging deploy
-  first when you want a staging soak before prod.
+  not only your latest commit. Under the three-branch flow that push is a forced
+  fast-forward of `staging`, so what ships is byte-identical to what soaked; see
+  `docs/releases.md`. Promoting any other way builds a tree no environment ran.
+- **No release gate lives here any more.** The two checks that used to sit on
+  this push, one for unconsumed changesets and one for a version that did not
+  move, are `ci.yml` jobs on the `develop` to `staging` PR now (#375). By the
+  time `main` moves, the numbers are days old.
 - Env-var changes on a Railway service are separate from code deploys, so set them
   via the Railway dashboard/CLI (`railway variables --set …`) or MCP; they don't
-  come from the repo.
+  come from the repo. A `VITE_*` change is the exception that still needs a
+  deploy, because those are inlined at build.
 
 **The rot gates do not gate deploys, on purpose.** `fallow dead-code`, `fallow
 dupes`, and `fallow:health` run in `ci.yml`, and `verify` here runs typecheck,
@@ -698,15 +778,15 @@ unhelpful error.
 For a fresh Railway environment:
 
 1. Enable WAL/logical replication on the PostGIS service and restart it.
-2. Push to `staging` or run the migration workflow manually from the `staging`
-   branch with target `staging`.
+2. Merge the `develop` to `staging` PR, or run the migration workflow manually
+   from the `staging` branch with target `staging`.
 3. Wait for the Railway deploy workflow to complete.
 4. Open the staging web URL and sign in through WorkOS.
 5. Insert and commit a row into `public.units`.
 6. The signed-in demo page should render the unit without a manual browser
    refresh.
-7. Merge or fast-forward `staging` to `main` and repeat the same sequence for
-   production.
+7. Fast-forward `staging` to `main` (`git push origin origin/staging:main`) and
+   repeat the same sequence for production.
 
 The seed workflow is idempotent for the same organization id and preserves an
 existing WorkOS organization link when seeding a real signed-in organization.
@@ -731,10 +811,33 @@ As of 2026-07-09, the Railway-backed local-dev workflow was established:
 
 - staging Electric exposed on a public domain, secured with `ELECTRIC_SECRET`
   (`ELECTRIC_INSECURE` removed, `PORT=3000` added); enforcement verified
-  (401 without secret, 200 with);
+  (401 without secret, 200 with). **Undone on 2026-09-01**, when the local-dev
+  mode it served was deleted: the domain, the secret and `PORT` are gone and
+  staging Electric is private and insecure like production's;
 - the local server proxies shapes to staging Electric with the secret and reads
   from staging Postgres over the public proxy, verified returning real data;
 - staging redeployed with the secret-forwarding server and `ELECTRIC_SECRET` set;
   production redeployed (Electric unchanged: private, insecure, forwarding inert);
 - staging DB seeded from a production clone via `clone-prod-to-staging.ps1`
   (PostGIS + geometry intact, migrations current).
+
+As of 2026-09-01, the three-branch flow and the staging sandbox are in place
+(map #369):
+
+- `develop`, `staging` and `main` all carry rulesets, `develop` is the default
+  branch, and all six CI checks plus the two gates are required on each;
+- all eight Railway repo watchers deleted, `repoTriggers` reads 0, and a
+  dispatched `railway-deploy.yml` run deployed all three staging services with
+  none of them;
+- the first release cut on a `develop` to `staging` PR (#392) and the first
+  fast-forward promotion (#393), which put web 0.6.0 and admin 0.5.0 on
+  `staging`;
+- staging pointed at WorkOS production, with a production identity signing in,
+  resolving to the existing Agency and creating no row;
+- `WORKOS_IDENTITY_WRITES_DISABLED=true` on the staging server, and the two
+  cookie passwords separated;
+- staging Electric returned to private, insecure and domainless, with all 59
+  shapes valid across the restart and no re-snapshot.
+
+Two things this map built and nothing has watched run: the staging refresh end
+to end (#395) and hidden-tab sync against the deployed staging (#397).

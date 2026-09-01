@@ -1,4 +1,5 @@
 import { AlertTriangleIcon } from '../../icons/registry';
+import { isStagingEnvironment } from '../../lib/environment';
 import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 
 /**
@@ -22,21 +23,8 @@ import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
 const REFUSAL =
 	'Staging does not allow changes to sign-in accounts, Memberships, roles, Agencies, or invitations.';
 
-/**
- * Whether a build-time environment name draws the banner.
- *
- * The comparison is against a literal, and that is what makes production the
- * safe default: production needs no variable set at all, and a Docker `ARG` the
- * image declares but the build never passes arrives as `''` rather than
- * `undefined` (#85), which is not `staging` either. A truthiness check would
- * have inverted both of those.
- */
-export function showsEnvironmentBanner(environment: string | undefined): boolean {
-	return environment?.trim().toLowerCase() === 'staging';
-}
-
 export function EnvironmentBanner({ environment }: { readonly environment: string | undefined }) {
-	if (!showsEnvironmentBanner(environment)) {
+	if (!isStagingEnvironment(environment)) {
 		return null;
 	}
 

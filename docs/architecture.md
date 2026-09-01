@@ -301,6 +301,13 @@ stores manual subscription metadata, sends WorkOS invitations, and stages
 invited profile/membership records so the lazy login path can activate them
 later without changing the invited role.
 
+**None of the WorkOS half of that runs on staging.** Staging authenticates
+against the WorkOS production directory, so it refuses every WorkOS identity
+write with a 403 and writes only SIMMER's own rows. Signing in and switching
+Agency work; inviting, changing a role, removing access, resetting a password,
+signing up and creating an Agency do not. See ADR 0017 before changing anything
+that calls WorkOS.
+
 ## Tenancy
 
 `organization_id` is stored on tenant-owned parent/root records. Child records
@@ -354,10 +361,9 @@ aggregate boundaries, not as a giant generic translation framework.
 
 ## Local development
 
-Postgres and Electric come from the Railway `staging` environment. There is no
-local Docker Postgres. `.env` and `apps/server/.env` point `DATABASE_URL`,
-`ELECTRIC_URL`, and `ELECTRIC_SECRET` at staging. See `docs/deployment.md` for
-the full setup.
+Everything runs on your machine. Postgres and Electric come from
+`docker-compose.yml`, and nothing local points at Railway. See
+`docs/deployment.md`, "Local development", for the full setup.
 
 Apps run as local pnpm/Nx processes:
 

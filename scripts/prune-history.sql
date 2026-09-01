@@ -1,7 +1,9 @@
 -- Trim a freshly cloned database to a recent window of operational history. Run
--- against a CLONE only, after scripts/clone-prod-db.ps1 (local Docker) or
--- scripts/clone-prod-to-staging.ps1 has restored the dump. Never run this
--- against production.
+-- against a LOCAL clone only, after scripts/clone-prod-db.ps1 has restored the
+-- dump into the compose container. Never run this against production, and never
+-- against staging: the staging sandbox keeps prod's whole history, because the
+-- trim costs more than it saves once the dump has already run at full volume
+-- (#371).
 --
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v cutoff=2023-08-07 \
 --     -f scripts/prune-history.sql
