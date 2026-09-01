@@ -1,12 +1,12 @@
 import {
 	BreadcrumbLabelProvider,
-	EnvironmentBanner,
 	OutletContentFallback,
 	OutletShell,
 	type ShellOrganization,
 	ShellProvider,
 	type ShellUser,
 } from '@simmer-mosquito/ui-web/components/app-shell';
+import { EnvironmentBanner } from '@simmer-mosquito/ui-web/components/environment-banner';
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { Suspense } from 'react';
