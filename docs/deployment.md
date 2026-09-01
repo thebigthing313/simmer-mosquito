@@ -191,10 +191,18 @@ the wipe. A refresh is therefore only safe **just after a promotion**, when
 `main` has shipped everything `staging` holds. It refuses the rest of the time,
 naming what diverged.
 
-Two other refusals. The run has to start from a checkout of `origin/staging`,
+Three other refusals. The run has to start from a checkout of `origin/staging`,
 because step 3 applies the migration set of whatever branch you are standing on
 and doing that from `develop` would push staging's database ahead of the code
-deployed on it. And the two URLs must differ and must be public proxy hosts.
+deployed on it. The two URLs must differ and must be public proxy hosts. And
+`STAGING_DATABASE_URL` must carry `sslmode`, which Railway's
+`DATABASE_PUBLIC_URL` does not: step 3's dbmate speaks Go's `pq`, which defaults
+to SSL and gets `pq: SSL is not enabled on the server` from the TCP proxy, while
+`pg_dump`, `pg_restore` and `psql` default to `prefer` and negotiate down, so
+steps 1 and 2 pass and hide it. Unchecked, that failure lands **after** the wipe
+(#405). The script refuses rather than appending the parameter for you, because
+appending it would silently drop TLS the day the URL points somewhere that has
+it.
 
 **Leave staging's Electric running throughout.** The clone resets the target
 with `DROP SCHEMA public CASCADE` rather than `DROP DATABASE`, so the replication
