@@ -1,5 +1,7 @@
 # @simmer-mosquito/web
 
+## 0.6.1 — 2026-09-01
+
 ## 0.6.0 — 2026-08-31
 
 ### Minor Changes
