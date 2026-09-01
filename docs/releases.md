@@ -44,11 +44,41 @@ git fetch origin
 git push origin origin/staging:main
 ```
 
-`main` keeps linear history, blocks force pushes, and carries an admin bypass
-that is load-bearing rather than a convenience. All six CI checks are required
-there, and on a push the two gate jobs report no check run at all rather than a
-passing one, so without the bypass the promotion is rejected on a check that can
-never appear on that event.
+`main` blocks deletion and force pushes, and requires the same seven checks as
+the other two branches. It carries an admin bypass, but that bypass is a way out
+rather than part of the promotion: a fast-forward onto an unchanged `main` trips
+no rule and prints no bypass notice.
+
+The first promotion did print one, and neither half of it was a fault:
+
+```
+remote: Bypassed rule violations for refs/heads/main:
+remote: - Cannot force-push to this branch
+remote: - This branch must not contain merge commits.
+```
+
+**The force push was a one-off.** `main`'s tip was the merge commit of the last
+release under the two-branch flow, where the promotion was GitHub's merge
+button. `staging` did not contain that commit, so that one promotion was not a
+fast-forward. Both of its parents were already on `staging` and no ordinary
+commit was dropped. Every promotion since is a clean fast-forward, so a
+force-push notice now means the two branches have diverged, and is worth
+stopping for rather than bypassing.
+
+**The merge-commit violation was permanent, and it is why `main` no longer
+requires linear history.** `develop` and `staging` both require a PR, GitHub's
+merge button writes a merge commit, and `main` fast-forwards to whatever
+`staging` holds. So the rule fired on every promotion by construction, and a
+rule bypassed every time enforces nothing while burying the notice that would
+mean something. Nothing else read it: `develop` and `staging` never required it,
+and no workflow or script asks about it.
+
+The two release gates are not a third reason, though this document used to say
+they were. `Changeset filed (or declined)` and `Release cut (or declined)` are
+`pull_request`-only jobs, so on a push they report `skipped` rather than no run
+at all, and GitHub counts a skipped required check as satisfied. The promotion
+commit already carries all seven checks from its push to `staging`, so the
+status-check rule passes on the promotion without a bypass.
 
 ## A version names the candidate, not the shipped build
 
