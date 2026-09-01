@@ -8,6 +8,34 @@ project through the MCP and `railway environment config --json`. Nothing was
 changed, nothing was deployed, and `railway up` was not run. Where a claim rests
 on inference rather than a documented statement, it says so.
 
+## Corrections after the work ran
+
+[#373](https://github.com/thebigthing313/simmer-mosquito/issues/373) deleted the
+watchers and found three claims below wrong. The rest of the document held, and
+the short answer held: the deploy workflow ran with no watcher anywhere.
+
+**The unit is a `DeploymentTrigger`, not a service source.** A watcher is a row
+in `Service.repoTriggers`, created and destroyed with `deploymentTriggerCreate`
+and `deploymentTriggerDelete`, and it carries an `environmentId`. So the count
+is eight triggers across service and environment, not four service ids, and
+staging really could be disconnected before production. Two of the eight were
+orphans left over from duplicating `admin` into `admin-prod`. The service
+`source` is a separate field, it still names the repository on every service,
+and it deploys nothing on its own.
+
+**`railway service source` does not exist.** Neither `connect` nor
+`disconnect`. Railway CLI 4.56.0's `railway service` has `list`, `delete`,
+`link`, `status`, `logs`, `redeploy`, `restart` and `scale`, and nothing else.
+The `connect` form quoted below is real text in `railway up`'s `after_help`,
+which is how it got here; the subcommand it names is not in the binary. Both the
+deletion and any rollback go through the GraphQL API.
+
+**Nothing in `build`, `deploy` or `variables` resets when a trigger goes.** The
+config came back byte-identical apart from `checkSuites` leaving `source`, which
+is the trigger's own field. And `railway up` uploads the working tree with no
+commit attached, so a deployment made this way carries no sha of its own;
+`railway-deploy.yml` passes `--message "$GITHUB_SHA"` for that reason (#383).
+
 ## The short answer
 
 Yes. A service with no source accepts `railway up`, and that is the documented
