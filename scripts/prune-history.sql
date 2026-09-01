@@ -1,12 +1,13 @@
--- Trim a freshly cloned staging database to a recent window of operational
--- history. Run against STAGING only, after scripts/clone-prod-to-staging.ps1 has
--- restored the dump. Never run this against production.
+-- Trim a freshly cloned database to a recent window of operational history. Run
+-- against a CLONE only, after scripts/clone-prod-db.ps1 (local Docker) or
+-- scripts/clone-prod-to-staging.ps1 has restored the dump. Never run this
+-- against production.
 --
---   psql "$STAGING_DATABASE_URL" -v ON_ERROR_STOP=1 -v cutoff=2023-08-07 \
---     -f scripts/prune-staging-history.sql
+--   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -v cutoff=2023-08-07 \
+--     -f scripts/prune-history.sql
 --
 -- Why: prod carries operational records back to 2011 — roughly half a million
--- inspections and two hundred thousand applications. Staging exists to make
+-- inspections and two hundred thousand applications. A clone exists to make
 -- local dev realistic, and three years of history does that as well as fifteen
 -- while leaving a database that syncs, re-snapshots, and restores in a fraction
 -- of the time.

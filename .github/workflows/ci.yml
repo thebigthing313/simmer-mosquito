@@ -4,6 +4,7 @@ on:
   pull_request:
   push:
     branches:
+      - develop
       - staging
       - main
 
@@ -198,9 +199,9 @@ jobs:
   # changesets did not name. This gate is only ever asking whether the change
   # belongs on the changelog page.
   #
-  # The promotion PR itself is exempt, in the step below. It is the one shape
-  # where the question has already been answered: every changeset it carries was
-  # filed on the branch that needed it and consumed by the release commit.
+  # Only PRs based on `develop` are asked, in the step below. That is where
+  # feature branches land, and it is the only shape where a changeset has not
+  # been written yet.
   changeset:
     name: Changeset filed (or declined)
     if: github.event_name == 'pull_request'
@@ -234,8 +235,15 @@ jobs:
           # sees a release's worth of source with no changeset and fails, every
           # time, on the one PR shape where that is always correct. It used to
           # take the label and a re-run to say so.
-          if [ "$BASE_REF" = "main" ]; then
-            echo "Promotion to main: the changesets are consumed into the changelogs already."
+          #
+          # The release is now cut on the `develop` to `staging` PR (#375), so
+          # that is the shape this names, along with a hotfix PR into `main`,
+          # which cut and consumed its own changeset on the branch. The job still
+          # runs and still reports on every PR rather than skipping itself: all
+          # three branch rulesets require this check, and a check that reports no
+          # run at all blocks the merge forever.
+          if [ "$BASE_REF" != "develop" ]; then
+            echo "Base is $BASE_REF, not develop: any changesets here are consumed into the changelogs already."
             exit 0
           fi
 
@@ -283,6 +291,108 @@ jobs:
           echo
           echo "Source files that triggered this:"
           printf '%s\n' "$visible" | sed 's/^/  /'
+          exit 1
+
+  # The two gates that used to sit on the production deploy. The release is cut
+  # on the `develop` to `staging` PR now, so they sit where the risk does: by
+  # the time `main` moves the numbers are days old and a gate on that push is
+  # trivially true.
+  #
+  # Like the changeset job above, this runs on every PR and exits 0 on the shapes
+  # it has nothing to say about, rather than skipping itself, so the required
+  # check always reports.
+  release-cut:
+    name: Release cut (or declined)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # The label read below needs this. The workflow's top-level grant is
+    # `contents: read` alone, and a job-level block replaces it rather than
+    # adding to it, so the checkout's grant is repeated here.
+    permissions:
+      contents: read
+      pull-requests: read
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+        with:
+          # The version check reads package.json at the base commit, which the
+          # default shallow clone does not have.
+          fetch-depth: 0
+
+      - name: Require the release to be cut
+        env:
+          BASE: ${{ github.event.pull_request.base.sha }}
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$BASE_REF" != "staging" ]; then
+            echo "Base is $BASE_REF, not staging: no release is cut here."
+            exit 0
+          fi
+
+          failures=$(mktemp)
+
+          # Versions move at the cut and nowhere else (docs/releases.md), so a
+          # candidate with changesets still pending is one that carries
+          # user-visible changes under the previous version number: the sidebar
+          # names a build the agency is not on, and the changelog omits what they
+          # just got.
+          pending=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md')
+
+          if [ -n "$pending" ]; then
+            echo "  Unconsumed changesets:" >> "$failures"
+            printf '%s\n' "$pending" | sed 's/^/    /' >> "$failures"
+          fi
+
+          # The check above cannot see the release that was never cut. A
+          # promotion carrying only refactors has nothing pending to catch, and
+          # under the old reading of the rule that looked finished, which is how
+          # two different builds end up both answering to one version number.
+          # Every promotion bumps both apps, so a version that did not move is a
+          # `pnpm release:version` that was not run.
+          for app in web admin; do
+            was=$(git show "$BASE:apps/$app/package.json" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
+            now=$(node -p "require('./apps/$app/package.json').version")
+
+            if [ "$was" = "$now" ]; then
+              echo "  apps/$app is still on $now" >> "$failures"
+            else
+              echo "apps/$app: $was -> $now"
+            fi
+          done
+
+          if [ ! -s "$failures" ]; then
+            echo "The release is cut."
+            exit 0
+          fi
+
+          # Read live rather than from `github.event.pull_request.labels`, which
+          # is a snapshot taken when the event fired, so a label added after the
+          # PR opened is not in it and `gh run rerun` replays the same stale
+          # payload. Adding the label and re-running this job is enough.
+          #
+          # No leading slash: Git Bash on Windows rewrites a leading-slash
+          # endpoint as a path, which is how anyone testing this by hand meets it.
+          if gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.labels[].name' \
+            | grep -qxF 'release cut declined'; then
+            echo "Labelled 'release cut declined': the gate was overridden deliberately."
+            exit 0
+          fi
+
+          echo "::error::This promotion does not cut a release."
+          echo
+          echo "Run 'pnpm release:version' on this branch and commit what it writes:"
+          echo "the deleted changesets, the two changelogs, and the two version bumps."
+          echo "See docs/releases.md."
+          echo
+          echo "If the gate is wrong, a merge-back that carries no release of its"
+          echo "own, add the 'release cut declined' label to this PR and re-run this"
+          echo "job."
+          echo
+          cat "$failures"
           exit 1
 
   # Split from `verify` on purpose: these suites are the only checks that need a

@@ -23,8 +23,8 @@
  * promotion branch consumes newly-merged changesets without inventing another
  * patch; the stamp never rewrites released history.
  *
- * Run this on the promotion branch, when main is about to ship. See
- * docs/releases.md.
+ * Run this on the branch that promotes `develop` into `staging`, which is where
+ * the release is cut. See docs/releases.md.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -41,12 +41,23 @@ const APPS = [
 ];
 
 /**
- * Where the last release's version numbers are read from, to tell "this branch
- * has not been versioned yet" from "it has, and this is a re-run". `main` is
- * production; the remote copy is preferred because a local `main` can sit
- * behind the branch it is about to receive.
+ * Where already-numbered version numbers are read from, to tell "this branch has
+ * not been versioned yet" from "it has, and this is a re-run".
+ *
+ * Two branches carry a number, not one. The cut happens on the `develop` to
+ * `staging` PR, so `staging` holds a release candidate that has been numbered
+ * and has not shipped, while `main` holds what production is actually on. Read
+ * only `main` and a second cut into `staging` before the first one promotes
+ * would see its own candidate's number as untouched and hand an app with no
+ * changeset the version the previous candidate already answers to.
+ *
+ * Each entry is the same ref twice, remote first: a local `main` or `staging`
+ * can sit behind the branch it is about to receive.
  */
-const RELEASED_REFS = ['origin/main', 'main'];
+const NUMBERED_REFS = [
+	['origin/main', 'main'],
+	['origin/staging', 'staging'],
+];
 
 const CHANGESET_DIR = join(workspaceRoot, '.changeset');
 const FLOOR_CHANGESET = join(CHANGESET_DIR, 'maintenance-release.md');
@@ -85,18 +96,51 @@ function versionAt(directory, ref) {
 	return JSON.parse(contents).version;
 }
 
-/** The first of `RELEASED_REFS` this clone actually has, or `null` if it has neither. */
-function releasedRef() {
-	for (const ref of RELEASED_REFS) {
-		try {
-			git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
-			return ref;
-		} catch {
-			// Not in this clone — try the next one.
+/** Every `NUMBERED_REFS` branch this clone actually has, resolved to one ref each. */
+function numberedRefs() {
+	const resolved = [];
+
+	for (const candidates of NUMBERED_REFS) {
+		for (const ref of candidates) {
+			try {
+				git(['rev-parse', '--verify', '--quiet', `${ref}^{commit}`]);
+				resolved.push(ref);
+				break;
+			} catch {
+				// Not in this clone — try the next spelling of the same branch.
+			}
 		}
 	}
 
-	return null;
+	return resolved;
+}
+
+/** `-1`, `0` or `1`, comparing two `x.y.z` strings field by field. */
+function compareVersions(left, right) {
+	const a = left.split('.').map(Number);
+	const b = right.split('.').map(Number);
+
+	for (let index = 0; index < 3; index += 1) {
+		if (a[index] !== b[index]) {
+			return a[index] < b[index] ? -1 : 1;
+		}
+	}
+
+	return 0;
+}
+
+/** The highest version `refs` carries for one app, or `null` if it carries none. */
+function highestVersionAt(directory, refs) {
+	let highest = null;
+
+	for (const ref of refs) {
+		const version = versionAt(directory, ref);
+		if (highest === null || compareVersions(version, highest) > 0) {
+			highest = version;
+		}
+	}
+
+	return highest;
 }
 
 /** The packages one changeset names, whatever bump each asks for. */
@@ -167,14 +211,21 @@ function stampDates(relativePath, date) {
  * version still matches what production is on.
  */
 function appsNeedingFloor() {
-	const ref = releasedRef();
-	if (ref === null) {
-		console.warn('No `main` in this clone; bumping every app that has no changeset.');
-	} else if (git(['rev-list', '--count', `${ref}..HEAD`]) === '0') {
-		// Nothing has shipped since the last release, so there is no new build to
-		// name. Guards against a stray run on an already-released branch.
-		console.log(`Nothing new since ${ref}; no versions to bump.`);
-		return [];
+	const refs = numberedRefs();
+	if (refs.length === 0) {
+		console.warn('No `main` or `staging` in this clone; bumping every app that has no changeset.');
+	}
+
+	for (const ref of refs) {
+		// Nothing new against a branch that already carries a number, so there is
+		// no new build to name. Checked per ref rather than against the highest
+		// one: a hotfix branched from `main` while a candidate soaks on `staging`
+		// is behind `staging` by design, and it is `main` that says whether it
+		// holds anything yet.
+		if (git(['rev-list', '--count', `${ref}..HEAD`]) === '0') {
+			console.log(`Nothing new since ${ref}; no versions to bump.`);
+			return [];
+		}
 	}
 
 	const pending = packagesWithPendingBumps();
@@ -184,8 +235,10 @@ function appsNeedingFloor() {
 			return false;
 		}
 
-		if (ref !== null && versionAt(app.directory, null) !== versionAt(app.directory, ref)) {
-			console.log(`${app.name} is already bumped past ${ref}; leaving it alone.`);
+		const numbered = highestVersionAt(app.directory, refs);
+
+		if (numbered !== null && compareVersions(versionAt(app.directory, null), numbered) > 0) {
+			console.log(`${app.name} is already bumped past ${numbered}; leaving it alone.`);
 			return false;
 		}
 

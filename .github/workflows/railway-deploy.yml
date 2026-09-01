@@ -36,21 +36,18 @@ jobs:
             echo "environment=staging" >> "$GITHUB_OUTPUT"
           fi
 
+  # No release gate here. The versions are cut on the `develop` to `staging`
+  # PR, so by the time `main` moves the numbers are days old and a gate on this
+  # push would only ever be trivially true. `ci.yml`'s `release-cut` job is
+  # where the two checks live now.
   verify:
     name: Verify workspace
-    # Only for the target name, which the release guard below branches on.
-    needs:
-      - resolve-target
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v7
-        with:
-          # The version guard below reads package.json at the commit main was on
-          # before this push, which a shallow clone does not have.
-          fetch-depth: 0
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v6
@@ -65,71 +62,6 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
-
-      # Versions move at promotion and nowhere else (docs/releases.md), so a
-      # production release with changesets still pending is one that ships user-
-      # visible changes under the previous version number — the sidebar names a
-      # build the agency is not on, and the changelog omits what they just got.
-      # Staging is exempt by design: that is where changesets accumulate.
-      - name: Require the release to be cut
-        if: needs.resolve-target.outputs.environment == 'production'
-        run: |
-          pending=$(find .changeset -maxdepth 1 -name '*.md' ! -name 'README.md')
-
-          if [ -n "$pending" ]; then
-            echo "::error::Production deploy with unconsumed changesets."
-            echo
-            echo "Run 'pnpm release:version' on the promotion branch and commit"
-            echo "the result before merging to main."
-            echo
-            printf '%s\n' "$pending" | sed 's/^/  /'
-            exit 1
-          fi
-
-          echo "No pending changesets; the release is cut."
-
-      # The check above cannot see the release that was never cut. A promotion
-      # carrying only refactors has nothing pending to catch, and under the old
-      # reading of the rule that looked finished — which is how two different
-      # production builds end up both answering to one version number. Every
-      # promotion bumps both apps, so a version that did not move is a
-      # `pnpm release:version` that was not run.
-      #
-      # Only for a push, and only when the previous commit is known: a manual
-      # re-deploy of a release already shipped is a legitimate second deploy of
-      # one version, and is also the way past this gate if it is ever wrong.
-      - name: Require the versions to have moved
-        if: needs.resolve-target.outputs.environment == 'production' && github.event_name == 'push'
-        env:
-          BEFORE: ${{ github.event.before }}
-        run: |
-          if ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
-            echo "No previous main commit to compare against; skipping."
-            exit 0
-          fi
-
-          stale=''
-          for app in web admin; do
-            was=$(git show "$BEFORE:apps/$app/package.json" | node -p "JSON.parse(require('fs').readFileSync(0,'utf8')).version")
-            now=$(node -p "require('./apps/$app/package.json').version")
-
-            if [ "$was" = "$now" ]; then
-              stale="$stale  apps/$app is still on $now"$'\n'
-            else
-              echo "apps/$app: $was -> $now"
-            fi
-          done
-
-          if [ -n "$stale" ]; then
-            echo "::error::Production deploy that does not bump a version."
-            echo
-            echo "Every promotion is a release, changelog entries or not."
-            echo "Run 'pnpm release:version' on the promotion branch and commit"
-            echo "the result before merging to main. See docs/releases.md."
-            echo
-            printf '%s' "$stale"
-            exit 1
-          fi
 
       - name: Typecheck
         run: pnpm typecheck
@@ -256,8 +188,13 @@ jobs:
           test -n "$RAILWAY_ENVIRONMENT"
           service_name="${!SERVICE_VAR}"
           test -n "$service_name"
+          # `railway up` uploads the working tree, so no sha travels with it
+          # and the deployment carries no commit of its own. The repo watchers
+          # that used to stamp one are gone (#373), so the message is the only
+          # provenance a Railway deployment has.
           railway up \
             --project "$RAILWAY_PROJECT_ID" \
             --environment "$RAILWAY_ENVIRONMENT" \
             --service "$service_name" \
+            --message "$GITHUB_SHA" \
             --ci

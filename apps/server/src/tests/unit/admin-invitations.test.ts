@@ -7,6 +7,7 @@ import {
 	registerAdminInvitationRoutes,
 } from '../../admin-invitations.js';
 import type { AuthVariables, OperatorAuthContext } from '../../auth-middleware.js';
+import { withoutWorkOsIdentityWrites } from '../../workos-identity-interlock.js';
 
 const dbMock = vi.hoisted(() => {
 	class StageOrganizationInvitationError extends Error {
@@ -357,6 +358,33 @@ describe('registerAdminInvitationRoutes', () => {
 		expect(line).toContain('org-1');
 
 		logged.mockRestore();
+	});
+});
+
+// The console writes the Membership first and calls WorkOS second, and
+// `inviteUnlessAlreadyReached` turns a throw from the send into a 502. So the
+// interlock has to refuse ahead of the row, not underneath it, or staging keeps
+// a staged Membership nobody was ever invited to.
+describe('the staging identity interlock', () => {
+	it('refuses an operator invitation before the Membership is staged', async () => {
+		// The `beforeEach` that resets these belongs to the describe above, and a
+		// count carried in from it would make this pass without the guard.
+		vi.clearAllMocks();
+		const auth = createFakeInvitationAuth();
+		const app = createInvitationApp(withoutWorkOsIdentityWrites(auth));
+
+		const response = await app.request('/admin/organizations/org-1/invitations', {
+			method: 'POST',
+			body: JSON.stringify({ email: 'casey@example.test', role: 'manager' }),
+			headers: { 'content-type': 'application/json' },
+		});
+
+		expect(response.status).toBe(403);
+		await expect(response.json()).resolves.toMatchObject({
+			error: 'workos_identity_writes_disabled',
+		});
+		expect(dbMock.stageOrganizationInvitation).not.toHaveBeenCalled();
+		expect(auth.sendOrganizationInvitation).not.toHaveBeenCalled();
 	});
 });
 

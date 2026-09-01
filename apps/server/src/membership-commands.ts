@@ -60,6 +60,10 @@ import type { CommandDb, CommandTransaction } from './command-write.js';
 import { refuseInvitationRevoke, refuseInvitationSend } from './invitation-refusal.js';
 import { forgetInvitation, stampInvitation } from './invitation-stamp.js';
 import { canGrantRole, forbidden } from './roles.js';
+import {
+	workOsIdentityWritesDisabled,
+	workOsIdentityWritesDisabledBody,
+} from './workos-identity-interlock.js';
 
 /**
  * What the second system needs of the auth provider.
@@ -417,6 +421,18 @@ function profileRefusal(issue: StageOrganizationInvitationErrorCode): string {
 export function membershipSecondSystem(db: CommandDb, auth: MembershipAuth) {
 	return {
 		before: async (command: MembershipCommand, authContext: AuthContext): Promise<void> => {
+			// The interlock refuses here rather than only at the WorkOS boundary,
+			// because `identity.invite` and `identity.reinvite` call WorkOS from
+			// `after`, deliberately, so no mail beats its own Membership row. A
+			// refusal raised down there would arrive with the transaction already
+			// committed: the row exists, the response is an error, and Electric syncs
+			// the row onto the People page contradicting what the user just read. The
+			// proxy still throws underneath as the backstop for a fifth write added
+			// later. See `workos-identity-interlock.ts` and #376.
+			if (workOsIdentityWritesDisabled(auth)) {
+				throw new CommandError(403, workOsIdentityWritesDisabledBody());
+			}
+
 			switch (command.type) {
 				case 'identity.invite':
 					assertCanGrantRole(authContext.role, command.payload.role, 'invite');
