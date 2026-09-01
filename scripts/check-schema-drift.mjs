@@ -80,25 +80,32 @@ const SWITCHES = {
 	'--pairwise': 'pairwise',
 };
 
+/**
+ * Records the switches and hands back what is left, so the flag loop below
+ * stays a strict alternation of flag and value.
+ */
+function takeSwitches(argv, args) {
+	for (const arg of argv) {
+		if (SWITCHES[arg]) {
+			args[SWITCHES[arg]] = true;
+		}
+	}
+
+	return argv.filter((arg) => SWITCHES[arg] === undefined);
+}
+
 function parseArgs(argv) {
 	const args = { migrationsDir: DEFAULT_MIGRATIONS_DIR, pairwise: false };
+	const pairs = takeSwitches(argv, args);
 
-	for (let i = 0; i < argv.length; i += 1) {
-		const switched = SWITCHES[argv[i]];
+	for (let i = 0; i < pairs.length; i += 2) {
+		const field = FLAGS[pairs[i]];
 
-		if (switched) {
-			args[switched] = true;
-			continue;
+		if (!field || pairs[i + 1] === undefined) {
+			usage(`Expected a flag and a value, got: ${pairs.slice(i).join(' ')}`);
 		}
 
-		const field = FLAGS[argv[i]];
-
-		if (!field || argv[i + 1] === undefined) {
-			usage(`Expected a flag and a value, got: ${argv.slice(i).join(' ')}`);
-		}
-
-		args[field] = argv[i + 1];
-		i += 1;
+		args[field] = pairs[i + 1];
 	}
 
 	requireBothUrls(args);
@@ -429,30 +436,52 @@ function verdicts(args, files) {
 	};
 }
 
-async function main() {
-	const args = parseArgs(process.argv.slice(2));
-	const files = args.pairwise ? [] : readMigrationVersions(args.migrationsDir);
+/**
+ * The migration set the run compares against, which in pairwise mode is nothing
+ * at all.
+ */
+function readMigrationSet(args) {
+	if (args.pairwise) {
+		return [];
+	}
 
-	if (!args.pairwise && files.length === 0) {
+	const files = readMigrationVersions(args.migrationsDir);
+
+	if (files.length === 0) {
 		// A directory that parses to nothing would make every comparison pass
 		// over an empty set, which is the one failure mode a check like this has.
 		console.error(`No migration files found in ${args.migrationsDir}.`);
 		process.exit(2);
 	}
 
+	return files;
+}
+
+/**
+ * Comparison 1 in whichever form the mode calls for, along with the guard only
+ * the repository-backed form needs.
+ */
+async function compareMigrations(args, observed, expected, files) {
+	const applied = new Set(await readAppliedVersions(observed));
+	const expectedApplied = new Set(await readAppliedVersions(expected));
+
+	if (args.pairwise) {
+		return compareAppliedSets(applied, expectedApplied);
+	}
+
+	requireCompleteExpected(expectedApplied, files);
+	return compareAppliedSet(applied, files, args.migrationsDir);
+}
+
+async function main() {
+	const args = parseArgs(process.argv.slice(2));
+	const files = readMigrationSet(args);
+
 	const observed = await connectReadOnly(args.observed);
 	const expected = await connectReadOnly(args.expected);
 
 	try {
-		const applied = new Set(await readAppliedVersions(observed));
-		const expectedApplied = new Set(await readAppliedVersions(expected));
-		const findings = args.pairwise
-			? compareAppliedSets(applied, expectedApplied)
-			: compareAppliedSet(applied, files, args.migrationsDir);
-
-		if (!args.pairwise) {
-			requireCompleteExpected(expectedApplied, files);
-		}
+		const findings = await compareMigrations(args, observed, expected, files);
 
 		const observedObjects = await readObjects(observed);
 		const expectedObjects = await readObjects(expected);
