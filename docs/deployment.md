@@ -2,11 +2,25 @@
 
 SIMMER has three operating environments:
 
-- **local development**: `apps/server` and the frontends run on your machine.
-  Postgres + Electric come from **either** the Railway `staging` environment
-  (recommended default) **or** local Docker Compose. See "Local development".
-- **staging** on Railway, deployed from the `staging` branch.
+- **local development**: everything on your machine. `apps/server` and the
+  frontends run locally, and Postgres and Electric come from
+  `docker-compose.yml`. Nothing local points at Railway. See "Local
+  development".
+- **staging** on Railway, deployed from the `staging` branch. It is a sandbox
+  agency staff sign into, holding a full-history clone of production and
+  authenticating against WorkOS **production**, so a release candidate soaks
+  there against real identities and real-shaped data. See "Pipeline" and
+  "Refreshing the staging sandbox".
 - **production** on Railway, deployed from the `main` branch.
+
+`develop` is the fourth branch and has no environment. Work accumulates there
+and deploys nowhere; see `docs/releases.md` for the flow.
+
+**Neither branch deploys on its own.** The Railway repo watchers were deleted on
+every service and environment (#373), so `.github/workflows/railway-deploy.yml`
+is the only path into either environment. Both services still show the
+repository as their source in the Railway dashboard, which is a different thing
+from a watcher and does not deploy anything.
 
 The deployed Railway shape is one project with separate `staging` and
 `production` environments. Each environment should have these services:
@@ -336,13 +350,19 @@ Each environment needs these variables:
 
 Configure each deployable service from the repository root.
 
-**Server**: Railpack, with install, build, and start commands:
+**Server**: Railpack, with a build command and a start command and **no install
+command**:
 
 ```sh
-pnpm install --frozen-lockfile
-pnpm --filter @simmer-mosquito/server build
-pnpm --filter @simmer-mosquito/server start
+pnpm --filter @simmer-mosquito/server build   # Build Command
+pnpm --filter @simmer-mosquito/server start   # Start Command
 ```
+
+Railpack detects pnpm from `packageManager` and installs on its own, so the
+install field is empty on both environments' server services and setting it
+would only run the install twice. This document used to name
+`pnpm install --frozen-lockfile` as a third command, which never matched the
+live config (#370).
 
 That filtered build is not the one CI's `verify` job runs. `pnpm build` is
 `nx run-many`, which orders projects from package.json dependencies;
@@ -417,6 +437,19 @@ WORKOS_CLIENT_ID=<workos-client-id>
 WORKOS_COOKIE_PASSWORD=<32-plus-character-secret>
 WORKOS_REDIRECT_URI=https://<server-domain>/auth/callback
 ```
+
+**Both environments point at the same WorkOS directory, the production one.**
+`WORKOS_API_KEY`, `WORKOS_CLIENT_ID` and `SIMMER_OPERATOR_ORG_ID` hold the same
+values on staging as on production, which is what lets an agency user sign in to
+the sandbox with the credentials they already have and land in their own Agency
+(#377). Only the callback URL differs, and both are registered in WorkOS.
+
+`WORKOS_COOKIE_PASSWORD` is the one WorkOS value that **must differ between the
+two**. It is what seals the session cookie, so a shared value means a session
+minted on staging unseals on production, and the environments stop being
+separated at all. They shared one byte for byte until #377 found it. Rotate one
+of them if you ever find them equal again; a signed-in user is signed out and
+nothing else breaks.
 
 On **staging** also set `WORKOS_IDENTITY_WRITES_DISABLED=true`. Staging
 authenticates against WorkOS production, so without it an invitation sent from
@@ -633,10 +666,19 @@ match the admin origin so authenticated browser requests and redirects line up.
 
 ## Pipeline
 
-`.github/workflows/railway-deploy.yml` maps branches to environments:
+`.github/workflows/railway-deploy.yml` is the **only** way code reaches either
+Railway environment. It maps branches to environments:
 
 - push to `staging` deploys the Railway `staging` environment;
-- push to `main` deploys the Railway `production` environment.
+- push to `main` deploys the Railway `production` environment;
+- `develop` appears nowhere in it, so a merge into `develop` deploys nothing.
+
+Nothing watches a branch on Railway's side. A `DeploymentTrigger` row per
+service and environment used to, and all eight were deleted in #373, which is
+why `railway up --message "$GITHUB_SHA"` is in the deploy step: `railway up`
+uploads the working tree with no commit attached, so the message is the only
+provenance a Railway deployment now carries. A deployment in the dashboard with
+no sha in its message predates that change.
 
 Each run is three sequential jobs: **verify → migrate → deploy** (server + web +
 admin). `admin` joined the deploy matrix when the console was reworked onto the
@@ -645,16 +687,22 @@ ships, so deploying one without the other would put two versions of the same
 shell in production.
 `migrate` and `deploy` `need:` `verify`, so:
 
-- **`verify` runs `pnpm typecheck` and `pnpm test`.** If either fails, nothing
-  deploys.** Keep `main` green; a stale/broken test blocks *all* deploys, not just
-  the offending branch. (Run `pnpm typecheck && pnpm test` locally before pushing.)
+- **`verify` runs `pnpm typecheck`, `pnpm test` and `pnpm build`.** If any of
+  them fails, nothing deploys. Keep the branch green; a stale or broken test
+  blocks *all* deploys, not just the offending branch. (Run
+  `pnpm typecheck && pnpm test` locally before pushing.)
 - **Pushing `main` is a production release.** It deploys whatever is on `main`,
-  not only your latest commit, but any commits accumulated on `main` since the last
-  green deploy ship together. Fast-forward `staging`→`main` and let staging deploy
-  first when you want a staging soak before prod.
+  not only your latest commit. Under the three-branch flow that push is a forced
+  fast-forward of `staging`, so what ships is byte-identical to what soaked; see
+  `docs/releases.md`. Promoting any other way builds a tree no environment ran.
+- **No release gate lives here any more.** The two checks that used to sit on
+  this push, one for unconsumed changesets and one for a version that did not
+  move, are `ci.yml` jobs on the `develop` to `staging` PR now (#375). By the
+  time `main` moves, the numbers are days old.
 - Env-var changes on a Railway service are separate from code deploys, so set them
   via the Railway dashboard/CLI (`railway variables --set …`) or MCP; they don't
-  come from the repo.
+  come from the repo. A `VITE_*` change is the exception that still needs a
+  deploy, because those are inlined at build.
 
 **The rot gates do not gate deploys, on purpose.** `fallow dead-code`, `fallow
 dupes`, and `fallow:health` run in `ci.yml`, and `verify` here runs typecheck,
@@ -730,15 +778,15 @@ unhelpful error.
 For a fresh Railway environment:
 
 1. Enable WAL/logical replication on the PostGIS service and restart it.
-2. Push to `staging` or run the migration workflow manually from the `staging`
-   branch with target `staging`.
+2. Merge the `develop` to `staging` PR, or run the migration workflow manually
+   from the `staging` branch with target `staging`.
 3. Wait for the Railway deploy workflow to complete.
 4. Open the staging web URL and sign in through WorkOS.
 5. Insert and commit a row into `public.units`.
 6. The signed-in demo page should render the unit without a manual browser
    refresh.
-7. Merge or fast-forward `staging` to `main` and repeat the same sequence for
-   production.
+7. Fast-forward `staging` to `main` (`git push origin origin/staging:main`) and
+   repeat the same sequence for production.
 
 The seed workflow is idempotent for the same organization id and preserves an
 existing WorkOS organization link when seeding a real signed-in organization.
@@ -772,3 +820,24 @@ As of 2026-07-09, the Railway-backed local-dev workflow was established:
   production redeployed (Electric unchanged: private, insecure, forwarding inert);
 - staging DB seeded from a production clone via `clone-prod-to-staging.ps1`
   (PostGIS + geometry intact, migrations current).
+
+As of 2026-09-01, the three-branch flow and the staging sandbox are in place
+(map #369):
+
+- `develop`, `staging` and `main` all carry rulesets, `develop` is the default
+  branch, and all six CI checks plus the two gates are required on each;
+- all eight Railway repo watchers deleted, `repoTriggers` reads 0, and a
+  dispatched `railway-deploy.yml` run deployed all three staging services with
+  none of them;
+- the first release cut on a `develop` to `staging` PR (#392) and the first
+  fast-forward promotion (#393), which put web 0.6.0 and admin 0.5.0 on
+  `staging`;
+- staging pointed at WorkOS production, with a production identity signing in,
+  resolving to the existing Agency and creating no row;
+- `WORKOS_IDENTITY_WRITES_DISABLED=true` on the staging server, and the two
+  cookie passwords separated;
+- staging Electric returned to private, insecure and domainless, with all 59
+  shapes valid across the restart and no re-snapshot.
+
+Two things this map built and nothing has watched run: the staging refresh end
+to end (#395) and hidden-tab sync against the deployed staging (#397).
