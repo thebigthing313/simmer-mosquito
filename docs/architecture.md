@@ -354,10 +354,9 @@ aggregate boundaries, not as a giant generic translation framework.
 
 ## Local development
 
-Postgres and Electric come from the Railway `staging` environment. There is no
-local Docker Postgres. `.env` and `apps/server/.env` point `DATABASE_URL`,
-`ELECTRIC_URL`, and `ELECTRIC_SECRET` at staging. See `docs/deployment.md` for
-the full setup.
+Everything runs on your machine. Postgres and Electric come from
+`docker-compose.yml`, and nothing local points at Railway. See
+`docs/deployment.md`, "Local development", for the full setup.
 
 Apps run as local pnpm/Nx processes:
 
