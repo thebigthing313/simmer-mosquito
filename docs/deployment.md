@@ -415,6 +415,15 @@ string rather than absent, so `''` and unset both have to read as production,
 and comparing against a literal is what makes them. Setting it to `production`
 is allowed and does nothing.
 
+It does one more thing, which is not visible on screen: a staging build keeps
+its Electric shape streams running while the tab reports hidden. Electric
+pauses a stream on a hidden tab, and a stream born hidden issues no requests at
+all, so an agent driving staging in a background tab would sit on a loading
+skeleton forever (#228, #381). Local development already had that override;
+`import.meta.env.DEV` is false in any `vite build`, so staging opts in through
+this variable instead. Production keeps pausing, which is what a backgrounded
+customer tab should do.
+
 `VITE_MAPBOX_ACCESS_TOKEN` is required for map views to render. Each `VITE_*`
 name here has a matching `ARG` in `apps/web/Dockerfile`, and only declared names
 reach the build. See "Static site images".
@@ -441,8 +450,8 @@ VITE_SIMMER_OPERATOR_ORG_ID=<the WorkOS org that is SIMMER, in this environment>
 VITE_SIMMER_ENVIRONMENT=staging   # staging only; omit in production
 ```
 
-The console wears the same banner as the agency workspace, off the same
-variable. See "Web service" above.
+The console wears the same banner as the agency workspace, and keeps syncing in
+a hidden tab on the same terms, off the same variable. See "Web service" above.
 
 Current organization ids: `org_01KRQEQBJJHF729PY0ED6P7875` (production),
 `org_01KZC6NB6PPMV9GKYVHS4VJAQF` (staging).
