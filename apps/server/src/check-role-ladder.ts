@@ -62,6 +62,18 @@ const SETTINGS_TIMEZONE = '/organization-settings/timezone';
  * `deny` and lands on a harmless 400 for an `allow`.
  */
 const PROFILES_PATH = '/commands/profiles';
+/**
+ * Roles moved here with ADR 0013's third slice. There is no
+ * `/organization/memberships/:id/role` any more, and a check still pointed at it
+ * answers 404 to every rung — which the owner case read as the floor passing.
+ *
+ * The id segment is what makes it a `PATCH` route at all, so a fresh UUID is
+ * load-bearing rather than decorative: without one the dispatcher never matches
+ * and the 404 comes back instead of the refusal.
+ */
+function membershipPath(): string {
+	return `/commands/memberships/${uuid()}`;
+}
 function organizationPath(): string {
 	return `/commands/organizations/${uuid()}`;
 }
@@ -88,7 +100,7 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 		deny('create a tag', 'POST', '/foundation/tags', tag(), 'Viewers have read-only'),
 		deny('create a route', 'POST', '/field-work/routes', route(), 'Viewers have read-only'),
 		deny('start their own assignment', 'PATCH', assignment(FIXTURES.ownAssignment), started()),
-		deny('change a setting', 'PATCH', SETTINGS_TIMEZONE, timezone(), 'owners and admins'),
+		deny('change a setting', 'PATCH', SETTINGS_TIMEZONE, timezone(), 'Viewers have read-only'),
 	],
 
 	collector: [
@@ -159,11 +171,17 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 			'performed',
 		),
 
-		// Settings have no commands and are checked in middleware before the body
-		// is read. People are commands since ADR 0013's first slice, so the refusal
-		// comes from `COMMAND_PERMISSIONS` and names the command rather than the
+		// Settings and people are both commands now — settings since they moved onto
+		// `mutateCollection`, people since ADR 0013's first slice — so both refusals
+		// come from `COMMAND_PERMISSIONS` and name the command rather than the
 		// surface. Both floors are admin, so a collector is refused by either (#130).
-		deny('change a setting', 'PATCH', SETTINGS_TIMEZONE, timezone(), 'owners and admins'),
+		deny(
+			'change a setting',
+			'PATCH',
+			SETTINGS_TIMEZONE,
+			timezone(),
+			'organizationSettings.updateTimezone',
+		),
 		deny('add a profile', 'POST', PROFILES_PATH, profile(), 'identity.createProfile'),
 	],
 
@@ -186,7 +204,13 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 		deny('create a collection method', 'POST', '/foundation/collection-methods', lookup()),
 		deny('create a habitat type', 'POST', '/foundation/habitat-types', lookup()),
 		deny('delete an insecticide', 'DELETE', `/control-products/insecticides/${uuid()}`),
-		deny('change a setting', 'PATCH', SETTINGS_TIMEZONE, timezone(), 'owners and admins'),
+		deny(
+			'change a setting',
+			'PATCH',
+			SETTINGS_TIMEZONE,
+			timezone(),
+			'organizationSettings.updateTimezone',
+		),
 		deny(
 			'edit the agency’s details',
 			'PATCH',
@@ -225,18 +249,18 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 		deny(
 			'change somebody’s role',
 			'PATCH',
-			`/organization/memberships/${uuid()}/role`,
-			{ role: 'owner' },
-			'owners can change a role',
+			membershipPath(),
+			{ intents: ['identity.changeRole'] },
+			'identity.changeRole',
 		),
 	],
 
 	owner: [
 		allow('create a collection method', 'POST', '/foundation/collection-methods', lookup()),
-		// A membership id that does not exist: a 404 proves the floor passed
-		// without promoting anybody.
-		allow('change somebody’s role', 'PATCH', `/organization/memberships/${uuid()}/role`, {
-			role: 'manager',
+		// The intent with nothing to act on: the floor is read before the payload,
+		// so a 400 proves it passed without promoting anybody.
+		allow('change somebody’s role', 'PATCH', membershipPath(), {
+			intents: ['identity.changeRole'],
 		}),
 	],
 };

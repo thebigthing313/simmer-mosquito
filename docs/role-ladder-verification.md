@@ -40,6 +40,27 @@ profiles: Owner, Admin, Manager, **two** Collectors, and Viewer. Two collectors,
 because every ownership rule has a "somebody else's" case, and using the
 Manager's profile for that would conflate *not yours* with *not your role*.
 
+### The organization has to exist in WorkOS
+
+Sign-in resolves the agency from **WorkOS**, not from the seed: `main.ts` reads
+the organization off the session and hands it to `upsertWorkOsIdentity`. So an
+organization the seed invented is one nobody can sign into, however correct its
+memberships are. The accounts sign in to whichever agency WorkOS does have them
+in, arrive with no invited membership waiting, and are provisioned as
+**viewers** — the ladder then reads as though every role is refused everything.
+
+`SIMMER_ROLE_LADDER_WORKOS_ORGANIZATION_ID` is what closes that. Set it to the
+WorkOS organization the five accounts belong to and the seeded roles are the
+ones you sign in as. Omit it and the seed says so before it exits.
+
+Do not solve this by pointing the ladder at the agency your local clone came
+from. Two things go wrong. The seed **skips any role that already has a
+profile**, so in an agency with real owners and managers those two rungs get no
+membership at all and no login. And one early sign-in leaves an active `viewer`
+membership that `memberships_organization_user_unique` will not let a later seed
+replace, so the ladder has to be repaired by hand. Its own organization, with
+its own WorkOS organization behind it, is independent of the clone.
+
 ## Accounts
 
 The seed cannot create the logins. Identity lives in WorkOS, so each account has
@@ -109,7 +130,31 @@ Anyone with no id still gets a profile and an invited membership, which is
 enough to be an assignee, to author a comment, and to be the subject of an
 API-driven check.
 
-Keep all of this to **staging**. These are real accounts and real rows in
+### The whole local run, after a clone
+
+`scripts/clone-prod-db.ps1` drops everything, so the ladder is seeded again each
+time. The WorkOS side survives a clone and is set up once: an organization named
+"Role Ladder Test District" in WorkOS **staging** with the five accounts as its
+members, and each account in that organization *only* — a second organization
+makes which agency a sign-in lands in a question rather than an answer.
+
+```sh
+# 1. Seed. One line per rung, plus the WorkOS organization behind them.
+DATABASE_URL=postgres://postgres:postgres@localhost:55432/simmer_mosquito SIMMER_ROLE_LADDER_WORKOS_ORGANIZATION_ID=org_… SIMMER_ROLE_LADDER_OWNER=user_… SIMMER_ROLE_LADDER_OWNER_EMAIL=you+simmer-owner@gmail.com SIMMER_ROLE_LADDER_ADMIN=user_… SIMMER_ROLE_LADDER_ADMIN_EMAIL=you+simmer-admin@gmail.com SIMMER_ROLE_LADDER_MANAGER=user_… SIMMER_ROLE_LADDER_MANAGER_EMAIL=you+simmer-manager@gmail.com SIMMER_ROLE_LADDER_COLLECTOR=user_… SIMMER_ROLE_LADDER_COLLECTOR_EMAIL=you+simmer-collector@gmail.com SIMMER_ROLE_LADDER_VIEWER=user_… SIMMER_ROLE_LADDER_VIEWER_EMAIL=you+simmer-viewer@gmail.com   pnpm --filter @simmer-mosquito/db seed:role-ladder
+
+# 2. Start the API against the local backends, then assert the 42 cases.
+pnpm dev:server
+SIMMER_CHECK_PASSWORD='…' pnpm --filter @simmer-mosquito/server check:role-ladder
+```
+
+Seed before every check run, not only after a clone: four of the allowed cases
+write, and the dated fixtures are backdated from *now*.
+
+Keep all of this to **local dev**, which is where the ladder now runs. The
+accounts are WorkOS *staging* logins, and the staging deployment authenticates
+against WorkOS **production** (ADR 0017), so they do not exist there and every
+staging refresh deletes anything seeded into it. Local dev is the one
+environment on WorkOS staging. They are still real accounts and real rows in
 whichever environment the keys point at.
 
 The two roles that matter most are **Collector** and **Manager**. Owner and
@@ -119,7 +164,7 @@ from Owner only where a command names the `admin` floor.
 ## What has been run
 
 **The API half is a script.** `apps/server/src/check-role-ladder.ts` signs in as
-each rung and asserts 31 cases against the endpoints, including the reason text
+each rung and asserts 42 cases against the endpoints, including the reason text
 on every refusal. Run it instead of clicking through the list below:
 
 ```sh
@@ -127,6 +172,16 @@ SIMMER_CHECK_PASSWORD='…' pnpm --filter @simmer-mosquito/server check:role-lad
 ```
 
 Re-seed first: four of the allowed cases write, and later runs drift without it.
+
+**All 42 passed on 2026-09-01**, on local dev against a fresh production clone,
+which is the first run since the ladder moved off staging (#407). Two of the
+cases had stopped meaning anything and were fixed there: the settings refusal
+names `organizationSettings.updateTimezone` since settings became commands, and
+the role change moved to `PATCH /commands/memberships/:id`, so the script had
+been asking `/organization/memberships/:id/role` — a route that no longer
+exists. Every rung got a 404 from it, and because the owner case reads a 404 as
+"the floor passed", the one endpoint where an escalation would matter was
+passing on a missing route.
 
 **The browser half was walked on 2026-08-05** as Collector and Manager, which is
 the part no script can do: whether a refused control is *offered*. Everything
