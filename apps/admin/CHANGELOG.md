@@ -1,5 +1,7 @@
 # @simmer-mosquito/admin
 
+## 0.5.1 — 2026-09-01
+
 ## 0.5.0 — 2026-08-31
 
 ### Minor Changes
