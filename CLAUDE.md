@@ -34,7 +34,7 @@ Per-app dev servers: `pnpm dev:server`, `pnpm dev:web`, `pnpm dev:admin`, `pnpm 
 
 `apps/web` and `apps/admin` are versioned independently (both from 0.1.0) and each publishes its history at `/changelog`, linked from the version under the sidebar logo.
 
-The flow is `feature branch` -> `develop` -> `staging` -> `main`. **All work happens on a branch**, PR'd into `develop`, which is the default branch and deploys nothing. `develop` to `staging` is a reviewed PR and is **where the release is cut**; merging it starts the soak. `staging` to `main` is a forced fast-forward push (`git push origin origin/staging:main`), so what ships is the commit that soaked. A branch that changes what a user can do carries a changeset; refactors, tests, tooling, and docs do not.
+The flow is `feature branch` -> `develop` -> `staging` -> `main`. **All work happens on a branch**, PR'd into `develop`, which is the default branch and deploys nothing. `develop` to `staging` is a reviewed PR and is **where the release is cut**; merging it starts the soak. `staging` to `main` is a fast-forward push (`git push origin origin/staging:main`), not a forced one, so what ships is the commit that soaked and git refuses the push outright when `main` holds a hotfix `staging` never got. A branch that changes what a user can do carries a changeset; refactors, tests, tooling, and docs do not.
 
 A changeset is a changelog entry, **not** a version bump. Every cut bumps both apps whether or not anything was pending. A refactor that ships is a build somebody is running, and the number is how they report it. `pnpm release:version` writes the `patch` itself for an app no changeset named, and the release draws as a maintenance one. So never file a changeset just to move a version. A version names the **release candidate** from the cut onward; `main` fast-forwards a number that already exists.
 
@@ -44,7 +44,7 @@ pnpm changeset:status   # what is pending on this branch
 pnpm release:version    # the cut: consume changesets, bump versions, stamp dates
 ```
 
-The cut cannot be committed on `develop`, which takes no direct pushes, so run `pnpm release:version` on a branch off `develop`, PR that into `develop`, then open the `develop` to `staging` PR carrying it. Two `ci.yml` jobs gate this and are required on all three branches: `Changeset filed (or declined)` on PRs based on `develop`, `Release cut (or declined)` on PRs based on `staging`, overridden by the `no changeset` and `release cut declined` labels. Both report `skipping` on a push, which is normal.
+The cut cannot be committed on `develop`, which takes no direct pushes, so run `pnpm release:version` on a branch off `develop`, PR that into `develop`, then open the `develop` to `staging` PR carrying it. Two `ci.yml` jobs gate this and are required on all three branches: `Changeset filed (or declined)` on PRs based on `develop`, `Release cut (or declined)` on PRs based on `staging`, overridden by the `no changeset` and `release cut declined` labels. `Release cut (or declined)` also refuses a promotion while `main` holds commits `develop` does not, which is a hotfix that never finished step 6 of the hotfix path. Both report `skipping` on a push, which is normal.
 
 Only the two apps are versioned; every other package is in `ignore`, so a `packages/ui-web` or `apps/server` change is filed against the app whose surface it changes. Read `docs/releases.md` before changing any of this.
 
