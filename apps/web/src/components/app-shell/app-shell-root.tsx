@@ -1,6 +1,5 @@
 import {
 	BreadcrumbLabelProvider,
-	EnvironmentBanner,
 	OutletContentFallback,
 	OutletShell,
 	SearchTriggerProvider,
@@ -8,6 +7,7 @@ import {
 	ShellProvider,
 	type ShellUser,
 } from '@simmer-mosquito/ui-web/components/app-shell';
+import { EnvironmentBanner } from '@simmer-mosquito/ui-web/components/environment-banner';
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';

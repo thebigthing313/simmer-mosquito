@@ -1,4 +1,5 @@
 import { CredentialsFields, VerificationCodeFields } from '@simmer-mosquito/ui-web/components/auth';
+import { SignedOutEnvironmentBanner } from '@simmer-mosquito/ui-web/components/environment-banner';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { useNavigate } from '@tanstack/react-router';
 import { type FormEvent, type ReactNode, useState } from 'react';
@@ -56,23 +57,29 @@ function AuthShell({
 	readonly description: string;
 	readonly children: ReactNode;
 }) {
+	// The strip goes above the centring grid, not inside it: a child of
+	// `place-items-center` is centred rather than pinned to the top, and the
+	// grid is `min-h-svh`, so a strip in a row of its own overflows the window.
 	return (
-		<div className="grid min-h-svh place-items-center bg-simmer-green-900 px-6 py-12">
-			<div className="w-full max-w-[400px]">
-				<div className="mb-8 grid justify-items-center gap-3">
-					<img alt="SIMMER" className="h-12 w-auto" src="/logo.svg" />
-					<p className="m-0 text-simmer-green-100/70 text-xs font-extrabold uppercase tracking-[0.14em]">
-						Operations Console
-					</p>
-				</div>
-				<div className="grid gap-6 rounded-xl border border-border bg-card p-7 shadow-lg">
-					<header className="grid gap-2">
-						<h1 className="m-0 text-balance font-bold text-[1.4rem] text-foreground leading-tight tracking-[-0.01em]">
-							{title}
-						</h1>
-						<p className="m-0 text-muted-foreground text-sm leading-normal">{description}</p>
-					</header>
-					{children}
+		<div className="grid min-h-svh grid-rows-[auto_1fr] bg-simmer-green-900">
+			<SignedOutEnvironmentBanner environment={import.meta.env.VITE_SIMMER_ENVIRONMENT} />
+			<div className="grid place-items-center px-6 py-12">
+				<div className="w-full max-w-[400px]">
+					<div className="mb-8 grid justify-items-center gap-3">
+						<img alt="SIMMER" className="h-12 w-auto" src="/logo.svg" />
+						<p className="m-0 text-simmer-green-100/70 text-xs font-extrabold uppercase tracking-[0.14em]">
+							Operations Console
+						</p>
+					</div>
+					<div className="grid gap-6 rounded-xl border border-border bg-card p-7 shadow-lg">
+						<header className="grid gap-2">
+							<h1 className="m-0 text-balance font-bold text-[1.4rem] text-foreground leading-tight tracking-[-0.01em]">
+								{title}
+							</h1>
+							<p className="m-0 text-muted-foreground text-sm leading-normal">{description}</p>
+						</header>
+						{children}
+					</div>
 				</div>
 			</div>
 		</div>

@@ -1,3 +1,4 @@
+import { SignedOutEnvironmentBanner } from '@simmer-mosquito/ui-web/components/environment-banner';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -28,10 +29,18 @@ export function LandingPage({
 
 	// Locked to the viewport at desktop widths, like the shell it introduces:
 	// each column owns its own overflow, so the window itself never scrolls.
+	//
+	// The banner sits in a wrapper outside the split rather than inside it, for
+	// the reason `OutletShell` grew a slot in #380: the split is `lg:h-svh`, so a
+	// strip added as a sibling row pushes the page off the bottom of the window.
+	// The brand stage loses the strip's height instead.
 	return (
-		<div className="grid min-h-svh grid-rows-[auto_1fr] lg:h-svh lg:grid-cols-[1.05fr_0.95fr] lg:grid-rows-1">
-			<LandingStage />
-			<LandingEntry authReason={authReason} redirectPath={redirectPath} />
+		<div className="grid min-h-svh grid-rows-[auto_1fr] lg:h-svh">
+			<SignedOutEnvironmentBanner environment={import.meta.env.VITE_SIMMER_ENVIRONMENT} />
+			<div className="grid grid-rows-[auto_1fr] lg:min-h-0 lg:grid-cols-[1.05fr_0.95fr] lg:grid-rows-1">
+				<LandingStage />
+				<LandingEntry authReason={authReason} redirectPath={redirectPath} />
+			</div>
 		</div>
 	);
 }
