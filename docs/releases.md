@@ -31,8 +31,11 @@ feature branch  ──▶  develop  ──▶  staging  ──▶  main (product
   `CHANGELOG.md` files, and both app versions bumped, **whether or not anything
   was pending**. Merging it deploys the Railway `staging` environment, and what
   is soaking there is a numbered release candidate.
-- **`staging` to `main` is a forced fast-forward.** No merge commit, no second
-  build, no reordering. What ships to production is the commit that soaked.
+- **`staging` to `main` is a fast-forward push.** No merge commit, no second
+  build, no reordering. What ships to production is the commit that soaked. It
+  is not forced, and that is load-bearing rather than a detail of phrasing: a
+  plain push only lands when `main` is behind `staging`, so git itself refuses
+  to overwrite a hotfix that has not merged back.
 
 `main` is the one branch whose ruleset does **not** require a PR, and that is a
 decision rather than an oversight. GitHub's merge button cannot fast-forward, so
@@ -243,9 +246,15 @@ part below follows from that.
 5. Merge it, and `railway-deploy.yml` ships it.
 6. **Merge `main` back into `staging`, then `staging` into `develop`, as the
    last step of the fix.** Not optional and not later: until that happens the
-   fix is on no other branch, and the next promotion reverts it.
+   fix is on no other branch. Both branches require a pull request, so this is
+   two of them, and each trips a gate that is correct to decline:
 
-Two things to expect on the way back.
+   ```bash
+   gh pr create --base staging --head main  --label 'release cut declined'
+   gh pr create --base develop --head staging --label 'no changeset'
+   ```
+
+Three things to expect on the way back.
 
 **The changelogs conflict, and both sides are right.** The hotfix wrote `0.5.1`
 against `main`'s history while the candidate wrote `0.6.0` against `staging`'s.
@@ -257,6 +266,26 @@ correct: the branch sits at `main`'s version, below the candidate soaking on
 the branch is still below that candidate, and bumps again. The guard that makes
 a re-run safe on an ordinary cut compares against the highest numbered branch,
 and on a hotfix that is never this one (#375).
+
+**Skipping step 6 is caught, in two different ways and neither of them early.**
+The first merge is caught hard. The promotion is a plain push, so a `main`
+holding a fix `staging` lacks is not behind and git rejects it: the production
+fix cannot be quietly overwritten, and the one way past that is to type
+`--force`, which is why this document no longer calls the promotion forced. What
+that rejection cannot do is say why, and it arrives days later, after a
+candidate has already soaked and taken a version number.
+
+The second merge was caught by nothing. `develop` goes on building against code
+the fix never reached, the next cut carries that gap into `staging`, and the fix
+dies the day somebody resolves a conflict in its file the other way.
+
+So `Release cut (or declined)` reads both, on the `develop` to `staging` PR,
+ahead of the cut rather than after it (#412). The test is
+`git cherry origin/develop origin/main`: commits reachable from `main` and not
+from `develop`, merges dropped, the rest compared by patch id. Dropping the
+merges is what keeps it quiet, because `main` is always a promotion merge commit
+`develop` does not carry and a plain reachability test would fire on every cut.
+A hotfix is the only thing that can produce a `+` line.
 
 Nothing has run this path yet. Read step 6 as the part to get right.
 

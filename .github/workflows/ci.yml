@@ -321,6 +321,80 @@ jobs:
           # default shallow clone does not have.
           fetch-depth: 0
 
+      - name: Require a hotfix to have merged back
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.ref }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if [ "$BASE_REF" != "staging" ]; then
+            echo "Base is $BASE_REF, not staging: nothing is being promoted here."
+            exit 0
+          fi
+
+          # Step 6 of the hotfix path merges `main` back into `staging`, then
+          # `staging` into `develop`, and until now nothing enforced either.
+          #
+          # Skipping the first merge is already caught, and hard: the promotion
+          # is a plain `git push origin origin/staging:main`, so a `main` that
+          # holds a fix `staging` lacks is not behind and git rejects the push.
+          # The production fix cannot be silently overwritten. What it cannot do
+          # is say why, and it says it days late, after a candidate has soaked.
+          #
+          # Skipping the second merge is caught by nothing at all. `develop`
+          # keeps building on code the fix never reached, and the fix dies the
+          # day somebody resolves a conflict in its file the other way.
+          #
+          # This reads both, before the cut rather than after, so a divergence
+          # costs a merge rather than a wasted release number (#412).
+          git fetch --quiet --no-tags origin \
+            +refs/heads/main:refs/remotes/origin/main \
+            +refs/heads/develop:refs/remotes/origin/develop
+
+          # `git cherry` limits to commits reachable from `main` and not from
+          # `develop`, drops merge commits, and compares the rest by patch id.
+          # Dropping the merges is what makes this quiet in ordinary operation:
+          # `main` is always a promotion merge commit `develop` does not carry,
+          # so a plain reachability test would fire on every cut. The patch id
+          # covers a hotfix that reached `develop` by cherry-pick instead of by
+          # the two merges.
+          unmerged=$(git cherry origin/develop origin/main | grep '^+' | cut -d' ' -f2 || true)
+
+          if [ -z "$unmerged" ]; then
+            echo "Everything on main is on develop."
+            exit 0
+          fi
+
+          # Read live rather than from `github.event.pull_request.labels`, which
+          # is a snapshot taken when the event fired, so a label added after the
+          # PR opened is not in it and `gh run rerun` replays the same stale
+          # payload. Adding the label and re-running this job is enough.
+          #
+          # No leading slash: Git Bash on Windows rewrites a leading-slash
+          # endpoint as a path, which is how anyone testing this by hand meets it.
+          if gh api "repos/${GITHUB_REPOSITORY}/pulls/${PR_NUMBER}" --jq '.labels[].name' \
+            | grep -qxF 'release cut declined'; then
+            echo "Labelled 'release cut declined': the gate was overridden deliberately."
+            exit 0
+          fi
+
+          echo "::error::main holds commits develop does not: a hotfix never merged back."
+          echo
+          echo "Finish step 6 of the hotfix path before promoting. Both branches"
+          echo "require a pull request, so it is two of them, in this order:"
+          echo
+          echo "  gh pr create --base staging --head main  --label 'release cut declined'"
+          echo "  gh pr create --base develop --head staging --label 'no changeset'"
+          echo
+          echo "Both changelogs will conflict and both sides are right: keep every"
+          echo "entry, in version order. See docs/releases.md, 'The hotfix path'."
+          echo
+          echo "Commits on main and not on develop:"
+          echo "$unmerged" | while read -r sha; do
+            git log -1 --format='  %h %s' "$sha"
+          done
+          exit 1
+
       - name: Require the release to be cut
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
