@@ -852,5 +852,14 @@ As of 2026-09-01, the three-branch flow and the staging sandbox are in place
 - staging Electric returned to private, insecure and domainless, with all 59
   shapes valid across the restart and no re-snapshot.
 
-Two things this map built and nothing has watched run: the staging refresh end
-to end (#395) and hidden-tab sync against the deployed staging (#397).
+Both things this map built and had not watched run have since run:
+
+- the staging refresh end to end (#395): 2m 41s, of which about 100 seconds was
+  the clone, staging 384 MB to 811 MB against production's 698 MB, and
+  inspections 106,338 to 517,730. The Electric slot read `reserved` throughout,
+  and `electric_publication_default` went from 0 tables to the 4 the browsed
+  surfaces read, which is Electric rebuilding shapes rather than serving stale
+  state. Step 3 threw on the `DATABASE_PUBLIC_URL` Railway hands out, which is
+  fixed in #406;
+- hidden-tab sync against deployed staging (#397): on both web and admin, a
+  stream born hidden issues its snapshot and holds a live poll open.
