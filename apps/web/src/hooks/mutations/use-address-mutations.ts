@@ -23,7 +23,9 @@
  * by the trigger.
  *
  * The centroid columns are still written optimistically, because the pin on
- * screen has to move before the server answers.
+ * screen has to move before the server answers. They come from the helper that
+ * mirrors the `set_owned_centroid()` trigger, so the optimistic `geom_type` is
+ * the column's own `st_point` rather than GeoJSON's `Point`.
  *
  * ## `country` is fixed at create
  *
@@ -31,7 +33,7 @@
  * is in is a different address.
  */
 
-import type { GeoJsonPoint } from '@simmer-mosquito/mapping';
+import { type GeoJsonPoint, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { type Address, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
 import { addresses } from '../../lib/collections/addresses';
@@ -49,6 +51,71 @@ export interface AddressFields {
 	readonly postalCode: string | null;
 	/** Whatever the geocoder said, kept whole so a later correction has provenance. */
 	readonly geocoderResponse: unknown;
+}
+
+type AddressUpdateIntent = 'foundation.updateAddressDetails' | 'foundation.updateAddressLocation';
+
+/** What an edit means, the columns it moves, and the point it carries. */
+export interface AddressUpdatePlan {
+	readonly intents: readonly AddressUpdateIntent[];
+	readonly changes: Partial<Address>;
+	/** Present only when the pin was moved. */
+	readonly arguments?: Readonly<Record<string, unknown>>;
+}
+
+/**
+ * Which of the two commands an edit is, from what actually changed.
+ *
+ * Pure and exported for its tests. `null` when nothing moved, because an
+ * untouched save is not a write and the domain refuses a command with nothing to
+ * change.
+ */
+export function addressUpdatePlan(input: {
+	readonly fields: AddressFields;
+	readonly current: AddressFields;
+	readonly geometry: GeoJsonPoint | null;
+}): AddressUpdatePlan | null {
+	const { fields, current, geometry } = input;
+	const intents: AddressUpdateIntent[] = [];
+	const changes: Partial<Address> = {};
+
+	if (
+		fields.displayName !== current.displayName ||
+		fields.addressLine1 !== current.addressLine1 ||
+		fields.addressLine2 !== current.addressLine2 ||
+		fields.locality !== current.locality ||
+		fields.region !== current.region ||
+		fields.postalCode !== current.postalCode ||
+		fields.geocoderResponse !== current.geocoderResponse
+	) {
+		intents.push('foundation.updateAddressDetails');
+		changes.display_name = fields.displayName;
+		changes.address_line_1 = fields.addressLine1;
+		changes.address_line_2 = fields.addressLine2;
+		changes.locality = fields.locality;
+		changes.region = fields.region;
+		changes.postal_code = fields.postalCode;
+		changes.geocoder_response = fields.geocoderResponse ?? null;
+	}
+
+	if (geometry !== null) {
+		intents.push('foundation.updateAddressLocation');
+		const centroid = ownedCentroidFromGeoJson(geometry);
+		if (centroid !== null) {
+			changes.lat = centroid.lat;
+			changes.lng = centroid.lng;
+			changes.geom_type = centroid.geomType;
+		}
+	}
+
+	if (intents.length === 0) {
+		return null;
+	}
+
+	// The argument is absent unless the location command is one of the names: an
+	// argument a command has no reader for is a key the server ignores, and
+	// sending one anyway makes the body claim an edit it is not making.
+	return { intents, changes, ...(geometry === null ? {} : { arguments: { geometry } }) };
 }
 
 export interface AddressMutations {
@@ -88,6 +155,11 @@ export function useAddressMutations(): AddressMutations {
 				throw new Error('Your profile is still loading.');
 			}
 
+			const centroid = ownedCentroidFromGeoJson(geometry);
+			if (centroid === null) {
+				throw new Error('Unable to determine where the address sits.');
+			}
+
 			const now = optimisticStamp();
 			const addressId = newRecordId();
 			await settleWrite(
@@ -97,9 +169,9 @@ export function useAddressMutations(): AddressMutations {
 					row: {
 						id: addressId,
 						organization_id: organizationId,
-						lat: geometry.coordinates[1],
-						lng: geometry.coordinates[0],
-						geom_type: geometry.type,
+						lat: centroid.lat,
+						lng: centroid.lng,
+						geom_type: centroid.geomType,
 						display_name: fields.displayName,
 						country,
 						address_line_1: fields.addressLine1,
@@ -128,54 +200,22 @@ export function useAddressMutations(): AddressMutations {
 			current: AddressFields,
 			geometry: GeoJsonPoint | null,
 		) => {
-			const intents: ('foundation.updateAddressDetails' | 'foundation.updateAddressLocation')[] =
-				[];
-			const changes: Partial<Address> = {};
-
-			if (
-				fields.displayName !== current.displayName ||
-				fields.addressLine1 !== current.addressLine1 ||
-				fields.addressLine2 !== current.addressLine2 ||
-				fields.locality !== current.locality ||
-				fields.region !== current.region ||
-				fields.postalCode !== current.postalCode ||
-				fields.geocoderResponse !== current.geocoderResponse
-			) {
-				intents.push('foundation.updateAddressDetails');
-				changes.display_name = fields.displayName;
-				changes.address_line_1 = fields.addressLine1;
-				changes.address_line_2 = fields.addressLine2;
-				changes.locality = fields.locality;
-				changes.region = fields.region;
-				changes.postal_code = fields.postalCode;
-				changes.geocoder_response = fields.geocoderResponse ?? null;
-			}
-
-			if (geometry !== null) {
-				intents.push('foundation.updateAddressLocation');
-				changes.lat = geometry.coordinates[1];
-				changes.lng = geometry.coordinates[0];
-				changes.geom_type = geometry.type;
-			}
-
-			if (intents.length === 0) {
+			const plan = addressUpdatePlan({ fields, current, geometry });
+			if (plan === null) {
 				return;
 			}
 
 			await settleWrite(
 				mutateCollection(addresses, {
 					operation: 'update',
-					intent: intents,
+					intent: plan.intents,
 					key: addressId,
 					changes: {
-						...changes,
+						...plan.changes,
 						updated_by_profile_id: actorProfileId,
 						updated_at: optimisticStamp(),
 					},
-					// Absent unless the location command is one of the names: an argument
-					// a command has no reader for is a key the server ignores, and sending
-					// one anyway makes the body claim an edit it is not making.
-					...(geometry === null ? {} : { arguments: { geometry } }),
+					...(plan.arguments === undefined ? {} : { arguments: plan.arguments }),
 				}),
 			);
 		},
