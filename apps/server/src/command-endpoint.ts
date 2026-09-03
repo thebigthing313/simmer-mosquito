@@ -77,20 +77,6 @@ export class CommandError extends Error {
 	}
 }
 
-/**
- * Turn the refusals a command endpoint can raise into responses.
- *
- * Four of them. `CommandError` carries its own status; the other three are
- * domain refusals raised from inside `packages/db`, each with a registry or a
- * lifecycle behind it that the handler has no way to restate.
- *
- * They are all here rather than caught per route on purpose. A refusal handled
- * in the module that raises it escapes as a 500 the moment another module reaches
- * that code, which is the argument `CommandError` above makes at length.
- *
- * Anything else rethrows: an error nobody declared is a bug, and a 500 with a
- * stack is more useful than a 400 that hides it.
- */
 /** The withheld-confirmation refusal an error is, or `null`. */
 function acknowledgementRefusal(error: unknown): {
 	readonly message: string;
@@ -118,9 +104,32 @@ function acknowledgementRefusal(error: unknown): {
 	return null;
 }
 
+/**
+ * Turn the refusals a command endpoint can raise into responses.
+ *
+ * `CommandError` carries its own status. `DomainValidationError` is the
+ * domain's own refusal and answers the same 400 wherever it was raised. The
+ * rest come from inside `packages/db`, each with a registry or a lifecycle
+ * behind it that the handler has no way to restate.
+ *
+ * They are all here rather than caught per route on purpose. A refusal handled
+ * in the module that raises it escapes as a 500 the moment another module reaches
+ * that code, which is the argument `CommandError` above makes at length.
+ *
+ * Anything else rethrows: an error nobody declared is a bug, and a 500 with a
+ * stack is more useful than a 400 that hides it.
+ */
 export function handleCommandError(context: CommandContext, error: unknown) {
 	if (error instanceof CommandError) {
 		return context.json(error.body, error.status);
+	}
+	// A rule the domain refused, raised past the build phase. `commandEndpoint`
+	// catches one around the builder, but a rule that needs a stored row can only
+	// run inside the transaction, and a client is owed the same `invalid_command`
+	// body with the same issue list either way. None of the refusal classes
+	// extends another, so where this arm sits shadows nothing.
+	if (error instanceof DomainValidationError) {
+		return context.json(invalidCommandBody(error), 400);
 	}
 	if (error instanceof RecordDeleteBlockedError) {
 		return context.json(deleteBlockedBody(error), 409);
