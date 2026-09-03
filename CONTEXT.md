@@ -15,7 +15,9 @@ domain doc instead of expanding this file.
 | **Re-invitation** | A new offer to an address that already holds a live Invitation. May carry a different role, and ends the earlier offer. | resend, re-send invite |
 | **SIMMER Operator** | Platform-side administrator for SIMMER-controlled setup and support workflows. | superuser, agency admin |
 | **Address** | Agency-owned address book entry that can help choose locations without becoming canonical for operational records. | canonical location, property |
-| **Region** | Agency-defined polygon used for GIS grouping, reporting, and spatial lookup. | district, zone |
+| **Region** | Agency-defined area used for GIS grouping, reporting, and spatial lookup. One boundary, in one piece or several. | district, zone |
+| **Part** | One of the pieces of a record's geometry. Two or more parts store a Multi shape, one part stores the base shape, and part order carries no meaning. User-facing copy says "piece". | feature, shape, sub-geometry |
+| **Covers no ground** | Said of a geometry that encloses zero area or spans zero length. Refused on write, naming the part. Distinct from **invalid**, a ring crossing itself, which SIMMER does not police. | empty, degenerate, invalid |
 | **Global Taxonomy** | SIMMER-controlled mosquito genus/species vocabulary shared across agencies. | agency species list |
 | **Organization Species** | Agency-selected subset of global species available for new data entry. | enabled species, species setting |
 | **Organization Lookup** | Agency-owned catalog value used to configure surveillance or control workflows. | dropdown option, enum |
