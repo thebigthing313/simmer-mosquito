@@ -5,7 +5,8 @@ Date: 2026-08-24
 ## Status
 
 Accepted. Amends the plain-intersection rule the Region multiselect shipped
-under, documented in `packages/db/src/domains/map-region-filter.ts`.
+under, documented in `packages/db/src/domains/map-region-filter.ts`. Amended for
+multipart geometry by ADR 0018, see the amendment below.
 
 ## Context
 
@@ -105,3 +106,68 @@ until a count in a report is wrong.
   rather than shared with the code PostGIS runs.
 - The empty answer is a real answer. A trap in no spray zone is an operational
   fact, not a gap.
+
+## Amendment, 2026-09-03: multipart geometry
+
+Amended by ADR 0018, which lets a record hold MultiPoint, MultiLineString or
+MultiPolygon geometry on the same row and id as its single-part form.
+
+The rule does not change. It widens, because the interior rule was already
+written in the one vocabulary that covers both shapes. The OGC model defines the
+interior of a MultiPolygon as its point set with the rings of its element
+Polygons removed, which is the union of its parts' interiors, one connected
+component per part. `'T********'` reads the interior-interior cell, so the
+question the predicate asks a multipart record is "does any part's interior meet
+the region's interior".
+
+That gives the answers the domain wants without a new rule. A treated area split
+into two lobes by a road, one lobe inside a district, is in that district. A
+parcel set whose every lot abuts a district edge and overlaps it nowhere is next
+to the district, not in it, exactly as a single Polygon in the same position
+already was.
+
+Three things follow.
+
+**The branch reads areal rather than polygon.** The record takes the interior arm
+when its `geom_type` is `st_polygon` or `st_multipolygon`, and plain intersection
+otherwise. The stored `geom_type` column is still what decides, so it still
+cannot drift from the geometry it describes.
+
+**A MultiPolygon region behaves the same way.** The interior-interior cell is
+symmetric, so once `regions.geom` accepts a MultiPolygon, a record is in a
+multipart region when it meets any part's interior. No predicate change. The `&&`
+prefilter gets looser, because a multipart bounding box covers the gaps between
+the parts, and that costs candidates rather than correctness.
+
+**MultiPoint and MultiLineString stay on plain intersection**, for the reason the
+single-part forms do: boundary contact is the only contact those shapes can offer
+a region, and excluding it would put a trap standing on a district line in no
+district. A MultiLineString has a second reason. Its boundary is the mod-2 union
+of its parts' endpoints, not the plain union, so an interior-only rule would
+answer differently for one LineString than for the MultiLineString built from its
+halves. Plain intersection reads no boundary cell in isolation and sidesteps
+that.
+
+The paragraph above that said multipart and collection geometry cannot occur is
+superseded. Two of its three claims still hold and are worth keeping: the
+`geom_type` column is maintained from the geometry it describes, and
+GeometryCollection remains out of scope, so the areal set stays closed at two
+names.
+
+One thing this amendment assumes and does not provide: that stored MultiPolygons
+are valid. PostGIS allows parts that touch at a finite number of points and
+forbids parts that share an edge or overlap, and it warns that its functions
+assume valid input. `ST_Relate` has no repair step, so an invalid row can abort a
+tile read or answer wrongly. ADR 0018 leaves validity unpoliced, because 15 of
+345 production Regions already fail `ST_IsValid` and a gate would refuse them on
+their next save. Issue #437 carries it, and those 15 rows have a membership
+answer nobody has checked.
+
+### Consequences of the amendment
+
+- Saved district filters can change answer again, this time only for rows that
+  are multipart, of which there are none on the day it lands. ADR 0018 does no
+  backfill, so the change is forward-looking by construction.
+- The corpus grows from 22 cases to 32 to cover the multipart arms before mobile
+  implements them. The gate rises ahead of the implementation, which is
+  deliberate.
