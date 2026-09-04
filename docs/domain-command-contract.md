@@ -174,7 +174,8 @@ keys are that table's columns, the acknowledgement vocabulary, and the keys the
 table declares. Everything else is a compile error at the property access.
 
 - The columns come from `SimmerDatabase` in `packages/db/src/tables.ts`, which
-  is generated from `packages/db/schema.sql` (ADR 0004).
+  is generated from `packages/db/schema.sql` (ADR 0004), less the ones the
+  server owns.
 - The acknowledgements come from `ACKNOWLEDGEMENTS` in `packages/domain`, so
   every table carries them and a misspelled flag does not compile.
 - Everything else is `TArgument`, a union each table names at its factory's
@@ -218,11 +219,53 @@ This replaced `pnpm check:command-columns`, a script that read the same
 `snake_case` keys out of the handler source and compared them against the
 generated row schemas (#426). It carried a hardcoded table count and an allowlist
 of keys naming another record, and it could see neither the `camelCase` half nor
-a reader that took a loose record. One thing it did that the type does not: it
-read the client's row schemas, which omit the server-owned columns, so it also
-refused a handler reading `payload.deleted_at` or `payload.geom` off a body.
-Nothing does, and a delete or a geometry write is a named command rather than a
-column arriving.
+a reader that took a loose record. It did one thing the type did not, which was
+to read the client's row schemas and so refuse a handler reading
+`payload.deleted_at` or `payload.geom` off a body. `ServerOwnedColumns` is that
+half, back as a type and derived from the schema rather than from what a client
+happens to be sent (#478).
+
+### The columns a body may not name
+
+A table's columns are not all of them. `ServerOwnedColumns` in
+`packages/db/src/tables.ts` names, per table, what the server computes inside the
+write's own transaction, and `ColumnOf` subtracts it. Reading one off a body is a
+`tsc` error naming the column, so the value a handler uses is the one the server
+resolved and never the one the caller sent.
+
+- `organization_id` is tenancy, set from `AuthContext`. This is the sharp one: a
+  handler reading it off a body would let a caller name another organization's
+  id.
+- `created_at`, `updated_at` and `deleted_at` are the row's clock. A delete is a
+  named command, not a timestamp arriving.
+- `created_by_profile_id` is who made the row, resolved from the session.
+- `geom` is geometry, snapshotted from a domain location source. A body carries
+  `locationSource` or `geometry` instead.
+- Whatever the database fills: the `geojson` stored generated column, and the
+  `lat`, `lng` and `geom_type` the `set_owned_centroid()` trigger owns.
+
+Two columns near that line stay. `id` is client-generated, which is what makes a
+create replay-safe, and `updated_by_profile_id` arrives from the client on some
+tables.
+
+It reaches the typed surface and stops there. The older per-domain routes hold a
+`Record<string, unknown>`, so a key read off one of those is checked by nothing,
+which is the same limit this section's parent states for the `camelCase` half.
+Moving a route onto `/commands/{table}` is what brings it under the rule.
+
+The set is generated, not hand-kept. `SERVER_OWNED` in
+`scripts/generate-table-types.mjs` is the rule and the reasons; the generator
+reads it against `schema.sql` and emits the per-table answer, so `pnpm
+check:table-types` covers it and a new table with an `organization_id` is
+subtracted the day its migration lands. A column added to the rule that a live
+handler reads is a build failure at that handler, which is the argument for
+leaving it out rather than a licence to carve an exception into the type.
+
+`ServerOwnedColumns` is not `scripts/withheld-columns.mjs`. That file names
+columns kept out of the Electric shape and the search index, a question about who
+receives a value; this is a question about who writes one. `invited_email` is
+withheld from every client and is still a column `/commands/memberships` reads
+off a body.
 
 ## Delete policy
 

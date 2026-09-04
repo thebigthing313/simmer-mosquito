@@ -22,9 +22,9 @@
  * case. `--check` refuses a checked-in `tables.ts` that differs from the dump,
  * which is the "you edited it by hand" case.
  *
- * Everything below is derived from the dump except two declarations, which are
- * things SQL does not say: `NOT_A_KYSELY_TABLE` and `TRIGGER_MAINTAINED`. Each
- * is commented where it sits.
+ * Everything below is derived from the dump except three declarations, which are
+ * things SQL does not say: `NOT_A_KYSELY_TABLE`, `TRIGGER_MAINTAINED` and
+ * `SERVER_OWNED`. Each is commented where it sits.
  *
  * The enum types are not declared here at all. `packages/domain` holds all
  * seventeen in `COLUMN_VOCABULARIES` and this file imports them, which is what
@@ -78,6 +78,49 @@ const TRIGGER_MAINTAINED = new Set(['lat', 'lng', 'geom_type']);
 
 /** The trigger function whose presence turns {@link TRIGGER_MAINTAINED} on. */
 const CENTROID_FUNCTION = 'public.set_owned_centroid()';
+
+/**
+ * Columns the server owns, on every table that has one.
+ *
+ * A request body may not name any of these. `CommandPayload` in
+ * `apps/server/src/command-payload.ts` subtracts the emitted set from its key
+ * source, so a handler that reads one off a body fails `tsc` naming the column
+ * rather than reading a value the caller chose.
+ *
+ * The rule is who computes the value, not what the catalog says, because the
+ * catalog says none of this. Each of these is written inside the authorized
+ * transaction from something a request cannot speak for:
+ *
+ * - `organization_id` is tenancy. The server sets it from `AuthContext`, and a
+ *   body that named it would name another organization's id.
+ * - `created_at`, `updated_at` and `deleted_at` are the row's own clock. A
+ *   delete is a named command, not a timestamp arriving.
+ * - `created_by_profile_id` is who made the row, resolved from the session.
+ * - `geom` is geometry, snapshotted from a domain location source. Geometry
+ *   never syncs, so a body carries `locationSource` or `geometry` instead.
+ *
+ * Two near neighbours are deliberately not here. `id` is client-generated, so a
+ * create names its own and the write is replay-safe. `updated_by_profile_id`
+ * arrives from the client on some tables, so subtracting it would break a live
+ * handler.
+ *
+ * The columns the database fills are server-owned too, and those come out of the
+ * dump rather than out of this list: see {@link isDatabaseFilled}.
+ *
+ * This is not `scripts/withheld-columns.mjs`. That file names columns kept out
+ * of the Electric shape and the search index, which is a question about the
+ * audience for a value. This is a question about who writes it, and the two
+ * answer differently: `invited_email` is withheld from every client and is still
+ * a column `/commands/memberships` takes off a body.
+ */
+const SERVER_OWNED = new Set([
+	'created_at',
+	'created_by_profile_id',
+	'deleted_at',
+	'geom',
+	'organization_id',
+	'updated_at',
+]);
 
 /** The register `packages/domain` keeps every enum type in. */
 const REGISTER_FILE = join(ROOT, 'packages/domain/src/column-vocabularies.ts');
@@ -319,24 +362,45 @@ function baseTypeOf(table, { column, sqlType }, register) {
 }
 
 /**
- * A column no write may set: a stored generated column, or one the centroid
- * trigger owns.
+ * Whether the database fills the column: a stored generated column, or one the
+ * centroid trigger owns.
+ *
+ * `TRIGGER_MAINTAINED` is answered against the table as well as the name,
+ * because the trigger only fires where a migration put it.
+ */
+function isDatabaseFilled(table, column, centroidTables) {
+	return (
+		column.generatedFrom !== null ||
+		(TRIGGER_MAINTAINED.has(column.column) && centroidTables.has(table))
+	);
+}
+
+/**
+ * The type of a column no write may set, or null when the write may set it.
  *
  * `st_asgeojson(geom)` runs over a `not null` geom, so the value is always
  * there even though the catalog reports the column nullable.
  */
 function databaseFilledType(table, column, base, centroidTables) {
-	if (column.generatedFrom?.includes('st_asgeojson')) {
-		return 'GeneratedColumn<GeoJsonGeometry>';
+	if (!isDatabaseFilled(table, column, centroidTables)) {
+		return null;
 	}
 
-	if (column.generatedFrom !== null) {
-		return `GeneratedColumn<${base.ts}>`;
-	}
+	return column.generatedFrom?.includes('st_asgeojson')
+		? 'GeneratedColumn<GeoJsonGeometry>'
+		: `GeneratedColumn<${base.ts}>`;
+}
 
-	return TRIGGER_MAINTAINED.has(column.column) && centroidTables.has(table)
-		? `GeneratedColumn<${base.ts}>`
-		: null;
+/**
+ * Whether a request body may not name the column.
+ *
+ * Two prongs. {@link SERVER_OWNED} is the list of names the server computes,
+ * which SQL does not say; the database-filled columns are read straight out of
+ * the dump, so a new generated column or a table that gains the centroid trigger
+ * is covered the day the migration lands.
+ */
+function isServerOwned(table, column, centroidTables) {
+	return SERVER_OWNED.has(column.column) || isDatabaseFilled(table, column, centroidTables);
 }
 
 /** A `timestamp with time zone`, which reads three ways. */
@@ -469,6 +533,19 @@ const HEADER = `/**
  * \`pnpm generate:schemas\`.
  */`;
 
+/** The docstring on the emitted `ServerOwnedColumns`. */
+const SERVER_OWNED_HEADER = `/**
+ * The columns of each table a request body may not name.
+ *
+ * \`CommandPayload\` in \`apps/server/src/command-payload.ts\` subtracts this from
+ * its key source, so a handler that reads one off a body fails to compile and
+ * the error names the column.
+ *
+ * Which columns, and the reason for each: \`SERVER_OWNED\` in
+ * \`scripts/generate-table-types.mjs\`, the rule this answer is emitted from.
+ * \`docs/domain-command-contract.md\` states the same rule for a reader.
+ */`;
+
 function emit(tables, register, centroidTables) {
 	const interfaces = [...tables]
 		.sort(([a], [b]) => a.localeCompare(b))
@@ -509,6 +586,16 @@ function emit(tables, register, centroidTables) {
 		.sort()
 		.map((table) => `\t${table}: ${toPascal(table)}Table;`);
 
+	const serverOwnedEntries = [...tables]
+		.sort(([a], [b]) => a.localeCompare(b))
+		.map(([table, columns]) => {
+			const owned = columns
+				.filter((column) => isServerOwned(table, column, centroidTables))
+				.map((column) => `'${column.column}'`);
+
+			return `\t${table}: ${owned.length === 0 ? 'never' : owned.join(' | ')};`;
+		});
+
 	return [
 		HEADER,
 		'',
@@ -533,6 +620,9 @@ function emit(tables, register, centroidTables) {
 		'',
 		'/** The database Kysely is parameterised by. Every table, keyed by its SQL name. */',
 		`export interface SimmerDatabase {\n${databaseEntries.join('\n')}\n}`,
+		'',
+		SERVER_OWNED_HEADER,
+		`export interface ServerOwnedColumns {\n${serverOwnedEntries.join('\n')}\n}`,
 		'',
 	].join('\n');
 }

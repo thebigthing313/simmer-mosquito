@@ -29,9 +29,10 @@ hand-maintained for four months while the file's own header, this ADR and
 The generator that replaced it is a script in this repository rather than
 `kysely-codegen`, for two reasons. It takes the dump rather than a connection,
 so the gate runs in `verify` with the other static checks and needs no database
-and no credentials. And three of the decisions in the file are not in the
+and no credentials. And four of the decisions in the file are not in the
 catalog: which tables Kysely has no interface for, which columns the
-`set_owned_centroid()` trigger owns, and that `SimmerRole` is declared in
+`set_owned_centroid()` trigger owns, which columns the server computes rather
+than takes off a request body, and that `SimmerRole` is declared in
 `packages/domain` and re-exported. Each is a named declaration in
 `scripts/generate-table-types.mjs`.
 
@@ -50,3 +51,8 @@ past a check in #123.
   compares the dump's applied versions against the migration files.
 - A new table gets an interface and a `SimmerDatabase` entry without anyone
   writing one. A table that should not have either is named in the generator.
+- The generator also emits `ServerOwnedColumns`, which `CommandPayload` in
+  `apps/server` subtracts from a body's keys, so a handler reading
+  `organization_id` off a request fails `tsc`. A new table with one is covered
+  the day its migration lands. `docs/domain-command-contract.md` states the
+  rule.

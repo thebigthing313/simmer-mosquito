@@ -8,6 +8,10 @@
  * would pass just as well against `Record<string, unknown>`, which is what this
  * replaced (#426).
  *
+ * It answers two questions, and the second is the columns the server owns.
+ * `ColumnOf` subtracts them, so `payload.organization_id` is a build error
+ * rather than a caller naming another organization's id (#478).
+ *
  * The second half is `acknowledged`, which used to answer `!== false` while six
  * call sites spelled `=== true` by hand. One reader now, and the posture is a
  * property of the flag.
@@ -46,6 +50,32 @@ describe('a command payload names its table columns', () => {
 		expect(habitat.sourceHabitatIds).toBeUndefined();
 		// @ts-expect-error `acknowledgedHabitatDelet` is not in the vocabulary
 		expect(habitat.acknowledgedHabitatDelet).toBeUndefined();
+	});
+
+	/*
+	 * Same mutation check for the columns the server owns: dropping the
+	 * `Exclude` in `ColumnOf` turns these four green and the build red.
+	 */
+	it('refuses a column the server owns', () => {
+		// @ts-expect-error tenancy comes from `AuthContext`, never from a body
+		expect(habitat.organization_id).toBeUndefined();
+		// @ts-expect-error a delete is a named command, not a timestamp arriving
+		expect(habitat.deleted_at).toBeUndefined();
+		// @ts-expect-error geometry is snapshotted from `locationSource`
+		expect(habitat.geom).toBeUndefined();
+		// @ts-expect-error the centroid trigger writes it
+		expect(habitat.lat).toBeUndefined();
+	});
+
+	/*
+	 * The two near neighbours that stay. `id` is client-generated, which is what
+	 * makes a create replay-safe, and `updated_by_profile_id` arrives from the
+	 * client on some tables. Both would compile away silently if the rule in
+	 * `scripts/generate-table-types.mjs` grew to cover them.
+	 */
+	it('keeps the columns a body does name', () => {
+		expect(habitat.id).toBeUndefined();
+		expect(habitat.updated_by_profile_id).toBeUndefined();
 	});
 
 	it('gives a shared factory the union of the tables it serves', () => {

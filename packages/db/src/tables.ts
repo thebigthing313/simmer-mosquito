@@ -1173,3 +1173,373 @@ export interface SimmerDatabase {
 	weather_sources: WeatherSourcesTable;
 	weather_summaries: WeatherSummariesTable;
 }
+
+/**
+ * The columns of each table a request body may not name.
+ *
+ * `CommandPayload` in `apps/server/src/command-payload.ts` subtracts this from
+ * its key source, so a handler that reads one off a body fails to compile and
+ * the error names the column.
+ *
+ * Which columns, and the reason for each: `SERVER_OWNED` in
+ * `scripts/generate-table-types.mjs`, the rule this answer is emitted from.
+ * `docs/domain-command-contract.md` states the same rule for a reader.
+ */
+export interface ServerOwnedColumns {
+	additional_personnel:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	addresses:
+		| 'organization_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'created_by_profile_id'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	application_batches:
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id';
+	application_methods:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	applications:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	assignment_items:
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id';
+	assignments:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	biocontrol_actions:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	biocontrol_methods:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	collection_lures:
+		| 'organization_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'created_by_profile_id';
+	collection_methods:
+		| 'organization_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'created_by_profile_id';
+	collection_species:
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id';
+	collections:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	comments:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	contacts:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	equipment:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	formulation_insecticides:
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id';
+	formulations:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	genera: 'created_at' | 'updated_at';
+	habitat_types:
+		| 'organization_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'created_by_profile_id';
+	habitats:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	insecticide_batches:
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id';
+	insecticides:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	inspections:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	memberships: 'organization_id' | 'created_at' | 'updated_at';
+	mission_items:
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	mission_notifications:
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id';
+	missions:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	notification_registration_types:
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id';
+	notification_registrations:
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	notification_types:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	organization_species:
+		| 'organization_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'created_by_profile_id'
+		| 'deleted_at';
+	organizations: 'created_at' | 'updated_at' | 'deleted_at';
+	outreach_actions:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	outreach_methods:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	profiles: 'organization_id' | 'created_at' | 'updated_at' | 'deleted_at';
+	region_folders:
+		| 'organization_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'created_by_profile_id';
+	regions:
+		| 'organization_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'created_by_profile_id'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geom_type'
+		| 'geojson';
+	requested_control_actions:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	route_items:
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id';
+	routes: 'organization_id' | 'created_by_profile_id' | 'created_at' | 'updated_at' | 'deleted_at';
+	sample_species:
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id';
+	samples: 'created_by_profile_id' | 'created_at' | 'updated_at' | 'deleted_at' | 'organization_id';
+	service_requests:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	source_reduction_methods:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	source_reductions:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	species: 'created_at' | 'updated_at';
+	tag_items:
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id';
+	tags: 'organization_id' | 'created_by_profile_id' | 'created_at' | 'updated_at' | 'deleted_at';
+	traps:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	units: 'created_at';
+	users: 'created_at' | 'updated_at';
+	vehicles:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	weather_source_subscriptions:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
+	weather_sources:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'geom'
+		| 'lat'
+		| 'lng'
+		| 'geojson'
+		| 'geom_type';
+	weather_summaries: 'created_at' | 'updated_at' | 'created_by_profile_id' | 'organization_id';
+}
