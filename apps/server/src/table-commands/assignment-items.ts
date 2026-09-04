@@ -50,9 +50,14 @@ import type { AssignmentItemRow } from '../field-work-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 
+/**
+ * Where in the run a stop goes. Not a column: the order is a list, not a field.
+ */
+type AssignmentItemArgument = 'placement';
+
 export function assignmentItemTableCommands(
 	db: CommandDb,
-): TableCommands<FieldWorkCommand, AssignmentItemRow> {
+): TableCommands<'assignment_items', FieldWorkCommand, AssignmentItemRow, AssignmentItemArgument> {
 	return {
 		table: 'assignment_items',
 		run: {
@@ -67,7 +72,7 @@ export function assignmentItemTableCommands(
 					...agency,
 					assignmentItemId: id,
 					assignmentId: readText(payload.assignment_id) ?? '',
-					target: readEntityTarget(payload) as AssignmentItemTarget,
+					target: readEntityTarget(payload.entity_type, payload.entity_id) as AssignmentItemTarget,
 					...(payload.placement === undefined
 						? {}
 						: { placement: payload.placement as AssignmentItemPlacement }),

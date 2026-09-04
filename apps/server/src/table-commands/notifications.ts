@@ -60,7 +60,7 @@ import {
 	updateNotificationRegistrationLocationCommand,
 	updateNotificationTypeCommand,
 } from '@simmer-mosquito/domain';
-import { readNullableText, readNumber, readText } from '../command-payload.js';
+import { type CommandPayload, readNullableText, readNumber, readText } from '../command-payload.js';
 import { type CommandDb, readDate } from '../command-write.js';
 import {
 	type NotificationTypeCommand,
@@ -78,13 +78,22 @@ import type {
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
+/**
+ * The keys a registration write reads that are not its columns: who to reach,
+ * where they are, and which notification types they are signed up for.
+ */
+type RegistrationArgument = 'contact' | 'location' | 'subscriptions';
+
+/** The body of a write to this module's table. */
+type MissionNotificationPayload = CommandPayload<'mission_notifications'>;
+
 function flag(value: unknown): boolean {
 	return value === true;
 }
 
 export function notificationTypeTableCommands(
 	db: CommandDb,
-): TableCommands<NotificationTypeCommand, NotificationTypeRow> {
+): TableCommands<'notification_types', NotificationTypeCommand, NotificationTypeRow> {
 	return {
 		table: 'notification_types',
 		run: {
@@ -106,12 +115,13 @@ export function notificationTypeTableCommands(
 				updateNotificationTypeCommand({
 					...agency,
 					notificationTypeId: id,
-					...('name' in payload ? { name: readText(payload.name) ?? '' } : {}),
-					...('description' in payload
+					...(payload.name !== undefined ? { name: readText(payload.name) ?? '' } : {}),
+					...(payload.description !== undefined
 						? { description: readNullableText(payload.description) }
 						: {}),
 					acknowledgedHistoricalLabelChange: acknowledged(
-						payload.acknowledgedHistoricalLabelChange,
+						payload,
+						'acknowledgedHistoricalLabelChange',
 					),
 				}),
 
@@ -122,7 +132,8 @@ export function notificationTypeTableCommands(
 					...agency,
 					notificationTypeId: id,
 					acknowledgedActiveSubscriptionImpact: acknowledged(
-						payload.acknowledgedActiveSubscriptionImpact,
+						payload,
+						'acknowledgedActiveSubscriptionImpact',
 					),
 				}),
 
@@ -137,7 +148,12 @@ export function notificationTypeTableCommands(
 
 export function notificationRegistrationTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, RegistrationRow> {
+): TableCommands<
+	'notification_registrations',
+	PublicEngagementCommand,
+	RegistrationRow,
+	RegistrationArgument
+> {
 	return {
 		table: 'notification_registrations',
 		run: {
@@ -170,7 +186,8 @@ export function notificationRegistrationTableCommands(
 					notificationRegistrationId: id,
 					contact: payload.contact as ContactReferenceInput,
 					acknowledgedHistoricalContactChange: acknowledged(
-						payload.acknowledgedHistoricalContactChange,
+						payload,
+						'acknowledgedHistoricalContactChange',
 					),
 				}),
 
@@ -182,7 +199,7 @@ export function notificationRegistrationTableCommands(
 					...agency,
 					notificationRegistrationId: id,
 					location: payload.location as NotificationRegistrationLocationInput,
-					acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
+					acknowledgedFutureOnlyChange: acknowledged(payload, 'acknowledgedFutureOnlyChange'),
 				}),
 
 			// Both halves are required rather than presence-read: a distance without a
@@ -193,16 +210,16 @@ export function notificationRegistrationTableCommands(
 					notificationRegistrationId: id,
 					bufferDistance: readNumber(payload.buffer_distance) ?? null,
 					bufferUnitId: readNullableText(payload.buffer_unit_id),
-					acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
+					acknowledgedFutureOnlyChange: acknowledged(payload, 'acknowledgedFutureOnlyChange'),
 				}),
 
 			'publicEngagement.updateNotificationRegistrationFlags': ({ payload, agency, id }) =>
 				updateNotificationRegistrationFlagsCommand({
 					...agency,
 					notificationRegistrationId: id,
-					...('has_bees' in payload ? { hasBees: flag(payload.has_bees) } : {}),
-					...('is_no_spray' in payload ? { isNoSpray: flag(payload.is_no_spray) } : {}),
-					acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
+					...(payload.has_bees !== undefined ? { hasBees: flag(payload.has_bees) } : {}),
+					...(payload.is_no_spray !== undefined ? { isNoSpray: flag(payload.is_no_spray) } : {}),
+					acknowledgedFutureOnlyChange: acknowledged(payload, 'acknowledgedFutureOnlyChange'),
 				}),
 
 			'publicEngagement.deactivateNotificationRegistration': ({ agency, id }) =>
@@ -219,7 +236,7 @@ export function notificationRegistrationTableCommands(
 
 export function notificationRegistrationTypeTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, RegistrationTypeRow> {
+): TableCommands<'notification_registration_types', PublicEngagementCommand, RegistrationTypeRow> {
 	return {
 		table: 'notification_registration_types',
 		run: {
@@ -243,7 +260,7 @@ export function notificationRegistrationTypeTableCommands(
 				unsubscribeNotificationRegistrationTypeCommand({
 					...agency,
 					notificationRegistrationTypeId: id,
-					acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
+					acknowledgedFutureOnlyChange: acknowledged(payload, 'acknowledgedFutureOnlyChange'),
 				}),
 		},
 	};
@@ -251,9 +268,9 @@ export function notificationRegistrationTypeTableCommands(
 
 export function missionNotificationTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, MissionNotificationRow> {
+): TableCommands<'mission_notifications', PublicEngagementCommand, MissionNotificationRow> {
 	// All four say when the status moved, and nothing else.
-	const statusChange = (payload: Record<string, unknown>) => {
+	const statusChange = (payload: MissionNotificationPayload) => {
 		const statusChangedAt = readDate(payload.status_changed_at);
 		return statusChangedAt === null ? {} : { statusChangedAt };
 	};

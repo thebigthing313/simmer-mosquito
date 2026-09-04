@@ -36,7 +36,7 @@ import type { TableCommands } from './dispatch.js';
 
 export function collectionSpeciesTableCommands(
 	db: CommandDb,
-): TableCommands<AdultSurveillanceCommand, CollectionSpeciesRow> {
+): TableCommands<'collection_species', AdultSurveillanceCommand, CollectionSpeciesRow> {
 	return {
 		table: 'collection_species',
 		run: {
@@ -69,14 +69,18 @@ export function collectionSpeciesTableCommands(
 				updateCollectionSpeciesCountCommand({
 					...agency,
 					collectionSpeciesId: id,
-					...('count' in payload ? { count: readNumber(payload.count) ?? Number.NaN } : {}),
-					...('species_id' in payload ? { speciesId: readText(payload.species_id) ?? '' } : {}),
-					...('sex' in payload ? { sex: readSpeciesSex(payload.sex) } : {}),
-					...('status' in payload ? { status: readSpeciesStatus(payload.status) } : {}),
-					...('identified_by_profile_id' in payload
+					...(payload.count !== undefined
+						? { count: readNumber(payload.count) ?? Number.NaN }
+						: {}),
+					...(payload.species_id !== undefined
+						? { speciesId: readText(payload.species_id) ?? '' }
+						: {}),
+					...(payload.sex !== undefined ? { sex: readSpeciesSex(payload.sex) } : {}),
+					...(payload.status !== undefined ? { status: readSpeciesStatus(payload.status) } : {}),
+					...(payload.identified_by_profile_id !== undefined
 						? { identifiedByProfileId: readNullableText(payload.identified_by_profile_id) }
 						: {}),
-					...('identified_date' in payload
+					...(payload.identified_date !== undefined
 						? { identifiedDate: readText(payload.identified_date) ?? '' }
 						: {}),
 				}),

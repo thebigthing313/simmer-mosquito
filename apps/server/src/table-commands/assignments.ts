@@ -58,13 +58,23 @@ import {
 	startAssignmentCommand,
 	updateAssignmentDetailsCommand,
 } from '@simmer-mosquito/domain';
-import { isRecord, readNullableText, readText } from '../command-payload.js';
+import { type CommandPayload, isRecord, readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate, readStringArray } from '../command-write.js';
 import { writeAssignmentCommand } from '../field-work-commands/assignments.js';
 import type { AssignmentRow } from '../field-work-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
+
+/**
+ * The keys an assignment write reads that are not its columns. Three name
+ * another table's rows, so they stay `snake_case`; `placement` is where a move
+ * plan puts the stops it names.
+ */
+type AssignmentArgument = 'route_id' | 'assignment_items' | 'assignment_item_ids' | 'placement';
+
+/** The body of a write to this module's table. */
+type AssignmentPayload = CommandPayload<'assignments', AssignmentArgument>;
 
 /**
  * The Assignment Items a from-route create carries, out of the child rows the
@@ -76,7 +86,7 @@ import { acknowledged } from './shared.js';
  * the vocabulary of the rows they become.
  */
 function assignmentItemSources(
-	payload: Record<string, unknown>,
+	payload: AssignmentPayload,
 ): readonly { readonly routeItemId: string; readonly assignmentItemId: string }[] {
 	const entries = payload.assignment_items;
 	if (!Array.isArray(entries)) {
@@ -91,7 +101,7 @@ function assignmentItemSources(
 
 export function assignmentTableCommands(
 	db: CommandDb,
-): TableCommands<FieldWorkCommand, AssignmentRow> {
+): TableCommands<'assignments', FieldWorkCommand, AssignmentRow, AssignmentArgument> {
 	return {
 		table: 'assignments',
 		run: { db, write: writeAssignmentCommand, notFound: 'assignment_not_found', key: 'assignment' },
@@ -130,16 +140,16 @@ export function assignmentTableCommands(
 				updateAssignmentDetailsCommand({
 					...agency,
 					assignmentId: id,
-					...('assignment_date' in payload
+					...(payload.assignment_date !== undefined
 						? { assignmentDate: readText(payload.assignment_date) ?? '' }
 						: {}),
-					...('assignment_name' in payload
+					...(payload.assignment_name !== undefined
 						? { assignmentName: readNullableText(payload.assignment_name) }
 						: {}),
-					...('assigned_to_profile_id' in payload
+					...(payload.assigned_to_profile_id !== undefined
 						? { assignedToProfileId: readNullableText(payload.assigned_to_profile_id) }
 						: {}),
-					...('due_at' in payload ? { dueAt: readDate(payload.due_at) } : {}),
+					...(payload.due_at !== undefined ? { dueAt: readDate(payload.due_at) } : {}),
 				}),
 
 			// The four lifecycle commands read one column each, and only for *when*:
@@ -178,7 +188,8 @@ export function assignmentTableCommands(
 					...agency,
 					assignmentId: id,
 					acknowledgedAssignmentItemDeletion: acknowledged(
-						payload.acknowledgedAssignmentItemDeletion,
+						payload,
+						'acknowledgedAssignmentItemDeletion',
 					),
 				}),
 

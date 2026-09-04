@@ -11,6 +11,7 @@
 import type { DomainValidationError } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
 import { CommandError } from '../../../command-endpoint.js';
+import type { CommandTable } from '../../../command-payload.js';
 import type { CommandTransaction, WritableCommand } from '../../../command-write.js';
 import type {
 	OperatorIntentRequest,
@@ -24,17 +25,17 @@ const ORG = '33333333-3333-4333-8333-333333333333';
 
 const units = unitTableCommands(undefined as never);
 
-function request(payload: Record<string, unknown>): OperatorIntentRequest {
+function request(payload: Record<string, unknown>): OperatorIntentRequest<CommandTable, string> {
 	return { payload, operatorUserId: OPERATOR_USER, operatorContext: {} as never, id: ROW };
 }
 
 function build<TCommand extends WritableCommand>(
-	spec: OperatorTableCommands<TCommand, unknown>,
+	spec: OperatorTableCommands<CommandTable, TCommand, unknown, string>,
 	intent: string,
-	intentRequest: OperatorIntentRequest,
+	intentRequest: OperatorIntentRequest<CommandTable, string>,
 ): TCommand {
 	const builder = spec.intents[intent as never] as
-		| ((r: OperatorIntentRequest) => TCommand)
+		| ((r: OperatorIntentRequest<CommandTable, string>) => TCommand)
 		| undefined;
 	if (builder === undefined) {
 		throw new Error(`${spec.table} does not accept ${intent}.`);

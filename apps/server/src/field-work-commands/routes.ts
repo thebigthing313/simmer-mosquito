@@ -72,7 +72,7 @@ export function registerRouteRoutes(
 				deleteRouteCommand({
 					...ctx,
 					routeId: param('routeId'),
-					acknowledgedRouteItemDeletion: acknowledged(payload.acknowledgedRouteItemDeletion),
+					acknowledgedRouteItemDeletion: acknowledged(payload, 'acknowledgedRouteItemDeletion'),
 				}),
 			run: (context, commands) => runRouteCommands(context, options.db, commands),
 		}),

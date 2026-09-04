@@ -32,7 +32,7 @@ import type { TableCommands } from './dispatch.js';
 
 export function organizationSpeciesTableCommands(
 	db: CommandDb,
-): TableCommands<FoundationCommand, OrganizationSpeciesRow> {
+): TableCommands<'organization_species', FoundationCommand, OrganizationSpeciesRow> {
 	return {
 		table: 'organization_species',
 		run: {

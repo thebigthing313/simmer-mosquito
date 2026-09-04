@@ -38,9 +38,14 @@ import type { RouteItemRow } from '../field-work-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 
+/**
+ * Where in the route a stop goes. Not a column: the order is a list, not a field.
+ */
+type RouteItemArgument = 'placement';
+
 export function routeItemTableCommands(
 	db: CommandDb,
-): TableCommands<FieldWorkCommand, RouteItemRow> {
+): TableCommands<'route_items', FieldWorkCommand, RouteItemRow, RouteItemArgument> {
 	return {
 		table: 'route_items',
 		run: { db, write: writeRouteItemCommand, notFound: 'route_item_not_found', key: 'routeItem' },
@@ -50,7 +55,7 @@ export function routeItemTableCommands(
 					...agency,
 					routeItemId: id,
 					routeId: readText(payload.route_id) ?? '',
-					target: readEntityTarget(payload) as RouteItemTarget,
+					target: readEntityTarget(payload.entity_type, payload.entity_id) as RouteItemTarget,
 					// Absent means append, which is what the domain defaults to. Sending
 					// `placement: undefined` would say the same thing; leaving the key out
 					// keeps the builder's own default the only place that decision is made.

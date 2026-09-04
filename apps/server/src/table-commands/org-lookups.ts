@@ -64,8 +64,19 @@ import type { AgencyCommandType } from '../command-permissions.js';
 import { type CommandDb, readNumberOrNull } from '../command-write.js';
 import type { LookupCommand } from '../foundation-commands/shared.js';
 import { writeFoundationLookupCommand } from '../foundation-commands/tags.js';
-import type { IntentBuilder, IntentMap, TableCommands } from './dispatch.js';
+import type { IntentBuilder, IntentMap, IntentRequest, TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
+
+/**
+ * The three tables this factory serves.
+ *
+ * Named as a union rather than left as `string`, so the shared reader's payload
+ * is the three catalogs' columns. `ColumnOf` is distributive, so the union is
+ * every column any of the three has: `custom_schema` is on two and
+ * `action_threshold` on one, and the reader has to be able to name both.
+ * `columns` below is what says which catalog actually has which.
+ */
+type OrgLookupTable = 'collection_methods' | 'collection_lures' | 'habitat_types';
 
 /** What every builder in a catalog needs, with the id under a neutral name. */
 interface LookupTarget {
@@ -115,8 +126,10 @@ interface LookupColumns {
 	readonly actionThreshold: boolean;
 }
 
+type LookupRequest = IntentRequest<OrgLookupTable>;
+
 interface OrgLookupCatalog {
-	readonly table: string;
+	readonly table: OrgLookupTable;
 	/** The 404 body's `error`, e.g. `collection_method_not_found`. */
 	readonly notFound: string;
 	/** The response key the row comes back under, e.g. `collectionMethod`. */
@@ -129,13 +142,13 @@ interface OrgLookupCatalog {
 function orgLookupTableCommands(
 	db: CommandDb,
 	catalog: OrgLookupCatalog,
-): TableCommands<LookupCommand, OrgLookupRow> {
-	const target = ({ payload: _payload, agency, id }: Parameters<IntentBuilder<never>>[0]) => ({
+): TableCommands<OrgLookupTable, LookupCommand, OrgLookupRow> {
+	const target = ({ payload: _payload, agency, id }: LookupRequest) => ({
 		...agency,
 		id,
 	});
 
-	const intents: Record<string, IntentBuilder<LookupCommand>> = {
+	const intents: Record<string, IntentBuilder<OrgLookupTable, LookupCommand>> = {
 		[catalog.names.create]: (request) =>
 			catalog.build.create({
 				...target(request),
@@ -155,18 +168,21 @@ function orgLookupTableCommands(
 		[catalog.names.update]: (request) =>
 			catalog.build.update({
 				...target(request),
-				...('name' in request.payload ? { name: readText(request.payload.name) ?? '' } : {}),
-				...('description' in request.payload
+				...(request.payload.name !== undefined
+					? { name: readText(request.payload.name) ?? '' }
+					: {}),
+				...(request.payload.description !== undefined
 					? { description: readNullableText(request.payload.description) }
 					: {}),
-				...(catalog.columns.customSchema && 'custom_schema' in request.payload
+				...(catalog.columns.customSchema && request.payload.custom_schema !== undefined
 					? { customSchema: request.payload.custom_schema ?? null }
 					: {}),
-				...(catalog.columns.actionThreshold && 'action_threshold' in request.payload
+				...(catalog.columns.actionThreshold && request.payload.action_threshold !== undefined
 					? { actionThreshold: readNumberOrNull(request.payload.action_threshold) }
 					: {}),
 				acknowledgedHistoricalLabelChange: acknowledged(
-					request.payload.acknowledgedHistoricalLabelChange,
+					request.payload,
+					'acknowledgedHistoricalLabelChange',
 				),
 			}),
 
@@ -186,7 +202,7 @@ function orgLookupTableCommands(
 		// The keys are `AgencyCommandType` values held in `names`, so a typo is
 		// still a build error at the three call sites below; what the cast restores
 		// is only what computed keys erase.
-		intents: intents as IntentMap<LookupCommand>,
+		intents: intents as IntentMap<OrgLookupTable, LookupCommand>,
 	};
 }
 

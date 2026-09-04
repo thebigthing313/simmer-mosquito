@@ -58,7 +58,7 @@ import {
 	unskipMissionItemCommand,
 	updateMissionItemLocationAndLinkCommand,
 } from '@simmer-mosquito/domain';
-import { readNullableText, readText } from '../command-payload.js';
+import { type CommandPayload, readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate } from '../command-write.js';
 import { writeMissionItemCommand } from '../mission-dispatch-commands/mission-items.js';
@@ -67,35 +67,50 @@ import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
 /**
+ * The keys a stop write reads that are not its columns: the two spellings of the
+ * ground it covers, where in the mission it goes, and whether closing it starts
+ * the mission.
+ */
+type MissionItemArgument = 'locationSource' | 'geometry' | 'placement' | 'autoStartMission';
+
+/** The body of a write to this module's table. */
+type MissionItemPayload = CommandPayload<'mission_items', MissionItemArgument>;
+
+/**
  * Where a stop goes in the order, if the caller said.
  *
  * Absent means append, which is what the domain defaults to. Sending
  * `placement: undefined` would say the same thing; leaving the key out keeps the
  * builder's own default the only place that decision is made.
  */
-function placementOf(payload: Record<string, unknown>): { placement?: MissionItemPlacement } {
+function placementOf(payload: MissionItemPayload): { placement?: MissionItemPlacement } {
 	return payload.placement === undefined
 		? {}
 		: { placement: payload.placement as MissionItemPlacement };
 }
 
 /** The four flags both adds carry, which are the same four questions. */
-function addAcknowledgements(payload: Record<string, unknown>) {
+function addAcknowledgements(payload: MissionItemPayload) {
 	return {
 		acknowledgedDuplicateRequestedActionMissioning: acknowledged(
-			payload.acknowledgedDuplicateRequestedActionMissioning,
+			payload,
+			'acknowledgedDuplicateRequestedActionMissioning',
 		),
-		acknowledgedMethodMismatch: acknowledged(payload.acknowledgedMethodMismatch),
-		acknowledgedInProgressMissionChange: acknowledged(payload.acknowledgedInProgressMissionChange),
+		acknowledgedMethodMismatch: acknowledged(payload, 'acknowledgedMethodMismatch'),
+		acknowledgedInProgressMissionChange: acknowledged(
+			payload,
+			'acknowledgedInProgressMissionChange',
+		),
 		acknowledgedNotificationGeometryChange: acknowledged(
-			payload.acknowledgedNotificationGeometryChange,
+			payload,
+			'acknowledgedNotificationGeometryChange',
 		),
 	};
 }
 
 export function missionItemTableCommands(
 	db: CommandDb,
-): TableCommands<MissionDispatchCommand, MissionItemRow> {
+): TableCommands<'mission_items', MissionDispatchCommand, MissionItemRow, MissionItemArgument> {
 	return {
 		table: 'mission_items',
 		run: {
@@ -142,28 +157,34 @@ export function missionItemTableCommands(
 				updateMissionItemLocationAndLinkCommand({
 					...agency,
 					missionItemId: id,
-					...('geometry' in payload ? { geometry: payload.geometry } : {}),
-					...('locationSource' in payload
+					...(payload.geometry !== undefined ? { geometry: payload.geometry } : {}),
+					...(payload.locationSource !== undefined
 						? { locationSource: payload.locationSource as MissionItemLocationSourceInput }
 						: {}),
-					...('address_id' in payload ? { addressId: readNullableText(payload.address_id) } : {}),
-					...('requested_control_action_id' in payload
+					...(payload.address_id !== undefined
+						? { addressId: readNullableText(payload.address_id) }
+						: {}),
+					...(payload.requested_control_action_id !== undefined
 						? {
 								requestedControlActionId: readNullableText(payload.requested_control_action_id),
 							}
 						: {}),
 					acknowledgedNotificationGeometryChange: acknowledged(
-						payload.acknowledgedNotificationGeometryChange,
+						payload,
+						'acknowledgedNotificationGeometryChange',
 					),
 					acknowledgedActualActionContextChange: acknowledged(
-						payload.acknowledgedActualActionContextChange,
+						payload,
+						'acknowledgedActualActionContextChange',
 					),
 					acknowledgedProgressedItemLinkChange: acknowledged(
-						payload.acknowledgedProgressedItemLinkChange,
+						payload,
+						'acknowledgedProgressedItemLinkChange',
 					),
-					acknowledgedMethodMismatch: acknowledged(payload.acknowledgedMethodMismatch),
+					acknowledgedMethodMismatch: acknowledged(payload, 'acknowledgedMethodMismatch'),
 					acknowledgedDuplicateRequestedActionMissioning: acknowledged(
-						payload.acknowledgedDuplicateRequestedActionMissioning,
+						payload,
+						'acknowledgedDuplicateRequestedActionMissioning',
 					),
 				}),
 
@@ -171,10 +192,14 @@ export function missionItemTableCommands(
 				removeMissionItemCommand({
 					...agency,
 					missionItemId: id,
-					acknowledgedItemProgressDeletion: acknowledged(payload.acknowledgedItemProgressDeletion),
-					acknowledgedActualActionDetach: acknowledged(payload.acknowledgedActualActionDetach),
+					acknowledgedItemProgressDeletion: acknowledged(
+						payload,
+						'acknowledgedItemProgressDeletion',
+					),
+					acknowledgedActualActionDetach: acknowledged(payload, 'acknowledgedActualActionDetach'),
 					acknowledgedNotificationGeometryChange: acknowledged(
-						payload.acknowledgedNotificationGeometryChange,
+						payload,
+						'acknowledgedNotificationGeometryChange',
 					),
 				}),
 
@@ -187,7 +212,7 @@ export function missionItemTableCommands(
 					missionItemId: id,
 					completedAt: readDate(payload.completed_at),
 					autoStartMission: payload.autoStartMission === true,
-					acknowledgedEarlyStart: acknowledged(payload.acknowledgedEarlyStart),
+					acknowledgedEarlyStart: acknowledged(payload, 'acknowledgedEarlyStart'),
 				}),
 
 			// A skip records why. A stop that was passed over with no account of it is
@@ -199,7 +224,7 @@ export function missionItemTableCommands(
 					skippedAt: readDate(payload.skipped_at),
 					skipReason: readText(payload.skip_reason) ?? '',
 					autoStartMission: payload.autoStartMission === true,
-					acknowledgedEarlyStart: acknowledged(payload.acknowledgedEarlyStart),
+					acknowledgedEarlyStart: acknowledged(payload, 'acknowledgedEarlyStart'),
 				}),
 
 			// Both read nothing: undoing either close is clearing the columns that

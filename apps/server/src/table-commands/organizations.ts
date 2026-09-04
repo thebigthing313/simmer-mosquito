@@ -22,7 +22,7 @@
 
 import type { IdentityCommand, OrganizationDetailChanges } from '@simmer-mosquito/domain';
 import { DomainValidationError, updateOrganizationDetailsCommand } from '@simmer-mosquito/domain';
-import { readNullableText } from '../command-payload.js';
+import { type CommandPayload, readNullableText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import {
 	type IdentityRow,
@@ -31,9 +31,18 @@ import {
 } from '../identity-commands.js';
 import type { TableCommands } from './dispatch.js';
 
+/**
+ * The row version a write is editing against, which is the agency's own record
+ * being edited from two consoles at once.
+ */
+type OrganizationArgument = 'expectedUpdatedAt';
+
+/** The body of a write to this module's table. */
+type OrganizationPayload = CommandPayload<'organizations', OrganizationArgument>;
+
 export function organizationTableCommands(
 	db: CommandDb,
-): TableCommands<IdentityCommand, IdentityRow> {
+): TableCommands<'organizations', IdentityCommand, IdentityRow, OrganizationArgument> {
 	return {
 		table: 'organizations',
 		run: {
@@ -69,12 +78,13 @@ export function organizationTableCommands(
  * what `weather.ts` does with its metric columns and for the same reason: nine
  * copies of one `in` test is nine chances to write the wrong one. `in` rather
  * than a truthiness check because clearing a field sends it as `null`, and an
- * absent field must leave the column alone.
+ * absent field must leave the column alone. Absent is `undefined`, because a
+ * body is JSON and JSON has no other spelling for it.
  */
-function detailChanges(payload: Record<string, unknown>): OrganizationDetailChanges {
+function detailChanges(payload: OrganizationPayload): OrganizationDetailChanges {
 	const changes: Record<string, string | null> = {};
 	for (const [column, field] of ORGANIZATION_DETAIL_COLUMNS) {
-		if (column in payload) {
+		if (payload[column] !== undefined) {
 			changes[field] = readNullableText(payload[column]);
 		}
 	}

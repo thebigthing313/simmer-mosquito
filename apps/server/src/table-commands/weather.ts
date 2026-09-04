@@ -42,7 +42,12 @@ import {
 	updateWeatherSummaryCommand,
 	type WeatherCommand,
 } from '@simmer-mosquito/domain';
-import { readNullableText, readText } from '../command-payload.js';
+import {
+	type ColumnOf,
+	type CommandPayload,
+	readNullableText,
+	readText,
+} from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate } from '../command-write.js';
 import type { WeatherStationRow, WeatherSummaryRow } from '../weather-commands/shared.js';
@@ -51,9 +56,22 @@ import { writeWeatherSummaryCommand } from '../weather-commands/summaries.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
+/**
+ * The point to store, and the row version a write is editing against.
+ */
+type StationArgument = 'geometry' | 'expectedUpdatedAt';
+
+/**
+ * The row version a write is editing against.
+ */
+type SummaryArgument = 'expectedUpdatedAt';
+
+/** The body of a `weather_summaries` write, so the pairs below index into it. */
+type SummaryPayload = CommandPayload<'weather_summaries', SummaryArgument>;
+
 export function weatherStationTableCommands(
 	db: CommandDb,
-): TableCommands<WeatherCommand, WeatherStationRow> {
+): TableCommands<'weather_sources', WeatherCommand, WeatherStationRow, StationArgument> {
 	return {
 		table: 'weather_sources',
 		run: {
@@ -78,13 +96,16 @@ export function weatherStationTableCommands(
 					...agency,
 					weatherStationId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
-					...('source_name' in payload ? { stationName: readText(payload.source_name) ?? '' } : {}),
-					...('source_code' in payload
+					...(payload.source_name !== undefined
+						? { stationName: readText(payload.source_name) ?? '' }
+						: {}),
+					...(payload.source_code !== undefined
 						? { stationCode: readNullableText(payload.source_code) }
 						: {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 					acknowledgedHistoricalStationIdentityChange: acknowledged(
-						payload.acknowledgedHistoricalStationIdentityChange,
+						payload,
+						'acknowledgedHistoricalStationIdentityChange',
 					),
 				}),
 
@@ -95,7 +116,8 @@ export function weatherStationTableCommands(
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 					geometry: payload.geometry,
 					acknowledgedHistoricalLocationChange: acknowledged(
-						payload.acknowledgedHistoricalLocationChange,
+						payload,
+						'acknowledgedHistoricalLocationChange',
 					),
 				}),
 
@@ -121,7 +143,7 @@ export function weatherStationTableCommands(
 					...agency,
 					weatherStationId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
-					acknowledgedSummaryDeletion: acknowledged(payload.acknowledgedSummaryDeletion),
+					acknowledgedSummaryDeletion: acknowledged(payload, 'acknowledgedSummaryDeletion'),
 				}),
 		},
 	};
@@ -129,7 +151,7 @@ export function weatherStationTableCommands(
 
 export function weatherSummaryTableCommands(
 	db: CommandDb,
-): TableCommands<WeatherCommand, WeatherSummaryRow> {
+): TableCommands<'weather_summaries', WeatherCommand, WeatherSummaryRow, SummaryArgument> {
 	return {
 		table: 'weather_summaries',
 		run: {
@@ -157,8 +179,9 @@ export function weatherSummaryTableCommands(
 
 			'weather.updateWeatherSummary': ({ payload, agency, authContext, id }) => {
 				const startDate =
-					'start_date' in payload ? (readText(payload.start_date) ?? '') : undefined;
-				const endDate = 'end_date' in payload ? (readText(payload.end_date) ?? '') : undefined;
+					payload.start_date !== undefined ? (readText(payload.start_date) ?? '') : undefined;
+				const endDate =
+					payload.end_date !== undefined ? (readText(payload.end_date) ?? '') : undefined;
 				// Only the ends this request moves. The stored half of a partly-moved
 				// bucket is already in the past by definition, and the writer is what
 				// re-checks the pair for ordering and overlap.
@@ -190,7 +213,7 @@ export function weatherSummaryTableCommands(
  * domain requires at least one metric and counts an absent field the same as a
  * null one. A create that names none is refused by the builder.
  */
-function readMetrics(payload: Record<string, unknown>): Record<string, number | null> {
+function readMetrics(payload: SummaryPayload): Record<string, number | null> {
 	return {
 		temperatureMinF: readNumber(payload.temperature_min_f),
 		temperatureMaxF: readNumber(payload.temperature_max_f),
@@ -209,17 +232,25 @@ function readMetrics(payload: Record<string, unknown>): Record<string, number | 
  * that carries `null`: absent leaves the stored reading alone, null clears it.
  * So this cannot go through {@link readMetrics}, which fills in every field.
  */
-function readMetricPatch(payload: Record<string, unknown>): Record<string, number | null> {
+function readMetricPatch(payload: SummaryPayload): Record<string, number | null> {
 	const patch: Record<string, number | null> = {};
 	for (const [column, field] of METRIC_COLUMNS) {
-		if (column in payload) {
+		if (payload[column] !== undefined) {
 			patch[field] = readNumber(payload[column]);
 		}
 	}
 	return patch;
 }
 
-const METRIC_COLUMNS: readonly (readonly [string, string])[] = [
+/**
+ * The seven metric columns, beside the domain field each becomes.
+ *
+ * The left-hand names are typed as columns, so a migration that renames one
+ * fails here rather than at the dynamic read below. That read used to be
+ * invisible to everything: `payload[column]` says nothing a checker can follow,
+ * and these seven are exactly what a rename would strip.
+ */
+const METRIC_COLUMNS: readonly (readonly [ColumnOf<'weather_summaries'>, string])[] = [
 	['temperature_min_f', 'temperatureMinF'],
 	['temperature_max_f', 'temperatureMaxF'],
 	['precipitation_inches', 'precipitationInches'],

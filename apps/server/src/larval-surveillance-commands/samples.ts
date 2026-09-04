@@ -13,7 +13,7 @@ import {
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readNullableText, readText } from '../command-payload.js';
+import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -82,8 +82,10 @@ export function registerSampleRoutes(
 				deleteInspectionSampleCommand({
 					...ctx,
 					sampleId: param('sampleId'),
-					acknowledgedAssociatedRecordsDeletion:
-						payload.acknowledgedAssociatedRecordsDeletion !== false,
+					acknowledgedAssociatedRecordsDeletion: acknowledged(
+						payload,
+						'acknowledgedAssociatedRecordsDeletion',
+					),
 				}),
 			run: (context, commands) => runSampleCommands(context, options.db, commands),
 		}),

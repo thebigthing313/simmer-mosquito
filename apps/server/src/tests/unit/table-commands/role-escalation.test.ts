@@ -25,6 +25,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
 import { CommandError } from '../../../command-endpoint.js';
+import type { CommandTable } from '../../../command-payload.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import { membershipTableCommands } from '../../../table-commands/memberships.js';
 
@@ -34,10 +35,12 @@ const MEMBERSHIP = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
 
 const spec = membershipTableCommands(undefined as never, unusableAuth()) as TableCommands<
+	'memberships',
 	// biome-ignore lint/suspicious/noExplicitAny: the union is the module's; only
 	// `payload.role` is read off a built command here.
 	any,
-	unknown
+	unknown,
+	string
 >;
 
 /** Every command on the table whose built payload carries a role. */
@@ -91,7 +94,9 @@ describe('role escalation', () => {
 });
 
 function build(intent: string, role: string): { readonly payload: unknown } {
-	const builder = spec.intents[intent as never] as (request: IntentRequest) => {
+	const builder = spec.intents[intent as never] as (
+		request: IntentRequest<CommandTable, string>,
+	) => {
 		readonly payload: unknown;
 	};
 	return builder({

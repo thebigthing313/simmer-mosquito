@@ -748,7 +748,7 @@ function readUpdatePayload(
 				? {}
 				: { customSchema: readOptionalJson(raw.customSchema) }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
-			acknowledgedHistoricalLabelChange: acknowledged(raw.acknowledgedHistoricalLabelChange),
+			acknowledgedHistoricalLabelChange: acknowledged(raw, 'acknowledgedHistoricalLabelChange'),
 		},
 	};
 }

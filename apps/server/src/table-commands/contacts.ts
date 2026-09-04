@@ -60,14 +60,32 @@ import type {
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, readIdList } from './shared.js';
 
+/**
+ * The contacts a merge folds into the one being written.
+ */
+type ContactArgument = 'sourceContactIds';
+
 /** A boolean column, where absent is false rather than unknown. */
 function flag(value: unknown): boolean {
 	return value === true;
 }
 
+/**
+ * The keys a request write reads that are not its columns: the contact and
+ * location it is filed against, and the comments a close or a reopen writes.
+ */
+type ServiceRequestArgument =
+	| 'contact'
+	| 'location'
+	| 'resolutionCommentId'
+	| 'resolutionSummary'
+	| 'reopenCommentId'
+	| 'reopenReason'
+	| 'reopenedAt';
+
 export function contactTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, ContactRow> {
+): TableCommands<'contacts', PublicEngagementCommand, ContactRow, ContactArgument> {
 	return {
 		table: 'contacts',
 		run: { db, write: writeContactCommand, notFound: 'contact_not_found', key: 'contact' },
@@ -95,28 +113,30 @@ export function contactTableCommands(
 				updateContactDetailsCommand({
 					...agency,
 					contactId: id,
-					...('contact_name' in payload
+					...(payload.contact_name !== undefined
 						? { contactName: readNullableText(payload.contact_name) }
 						: {}),
-					...('company' in payload ? { company: readNullableText(payload.company) } : {}),
-					...('department' in payload ? { department: readNullableText(payload.department) } : {}),
-					...('title' in payload ? { title: readNullableText(payload.title) } : {}),
+					...(payload.company !== undefined ? { company: readNullableText(payload.company) } : {}),
+					...(payload.department !== undefined
+						? { department: readNullableText(payload.department) }
+						: {}),
+					...(payload.title !== undefined ? { title: readNullableText(payload.title) } : {}),
 				}),
 
 			'publicEngagement.updateContactCommunication': ({ payload, agency, id }) =>
 				updateContactCommunicationCommand({
 					...agency,
 					contactId: id,
-					...('preferred_phone' in payload
+					...(payload.preferred_phone !== undefined
 						? { preferredPhone: readNullableText(payload.preferred_phone) }
 						: {}),
-					...('alternate_phone' in payload
+					...(payload.alternate_phone !== undefined
 						? { alternatePhone: readNullableText(payload.alternate_phone) }
 						: {}),
-					...('email' in payload ? { email: readNullableText(payload.email) } : {}),
-					...('wants_email' in payload ? { wantsEmail: flag(payload.wants_email) } : {}),
-					...('wants_sms' in payload ? { wantsSms: flag(payload.wants_sms) } : {}),
-					...('wants_phone' in payload ? { wantsPhone: flag(payload.wants_phone) } : {}),
+					...(payload.email !== undefined ? { email: readNullableText(payload.email) } : {}),
+					...(payload.wants_email !== undefined ? { wantsEmail: flag(payload.wants_email) } : {}),
+					...(payload.wants_sms !== undefined ? { wantsSms: flag(payload.wants_sms) } : {}),
+					...(payload.wants_phone !== undefined ? { wantsPhone: flag(payload.wants_phone) } : {}),
 				}),
 
 			// The row this write names is the *target* — the contact that survives —
@@ -127,7 +147,7 @@ export function contactTableCommands(
 					...agency,
 					targetContactId: id,
 					sourceContactIds: readIdList(payload.sourceContactIds),
-					acknowledgedContactMerge: acknowledged(payload.acknowledgedContactMerge),
+					acknowledgedContactMerge: acknowledged(payload, 'acknowledgedContactMerge'),
 				}),
 
 			'publicEngagement.deleteContact': ({ agency, id }) =>
@@ -138,7 +158,12 @@ export function contactTableCommands(
 
 export function serviceRequestTableCommands(
 	db: CommandDb,
-): TableCommands<PublicEngagementCommand, ServiceRequestRow> {
+): TableCommands<
+	'service_requests',
+	PublicEngagementCommand,
+	ServiceRequestRow,
+	ServiceRequestArgument
+> {
 	return {
 		table: 'service_requests',
 		run: {
@@ -166,17 +191,17 @@ export function serviceRequestTableCommands(
 				updateServiceRequestDetailsCommand({
 					...agency,
 					serviceRequestId: id,
-					...('request_date' in payload
+					...(payload.request_date !== undefined
 						? { requestDate: readText(payload.request_date) ?? '' }
 						: {}),
-					...('intake_type' in payload
+					...(payload.intake_type !== undefined
 						? { intakeType: (readText(payload.intake_type) ?? '') as never }
 						: {}),
-					...('received_by_profile_id' in payload
+					...(payload.received_by_profile_id !== undefined
 						? { receivedByProfileId: readNullableText(payload.received_by_profile_id) }
 						: {}),
-					...('details' in payload ? { details: readText(payload.details) ?? '' } : {}),
-					acknowledgedClosedRequestChange: acknowledged(payload.acknowledgedClosedRequestChange),
+					...(payload.details !== undefined ? { details: readText(payload.details) ?? '' } : {}),
+					acknowledgedClosedRequestChange: acknowledged(payload, 'acknowledgedClosedRequestChange'),
 				}),
 
 			'publicEngagement.updateServiceRequestContact': ({ payload, agency, id }) =>
@@ -185,7 +210,8 @@ export function serviceRequestTableCommands(
 					serviceRequestId: id,
 					contact: payload.contact as ContactReferenceInput,
 					acknowledgedHistoricalContactChange: acknowledged(
-						payload.acknowledgedHistoricalContactChange,
+						payload,
+						'acknowledgedHistoricalContactChange',
 					),
 				}),
 
@@ -195,7 +221,8 @@ export function serviceRequestTableCommands(
 					serviceRequestId: id,
 					location: payload.location as ServiceRequestLocationInput,
 					acknowledgedHistoricalLocationChange: acknowledged(
-						payload.acknowledgedHistoricalLocationChange,
+						payload,
+						'acknowledgedHistoricalLocationChange',
 					),
 				}),
 
@@ -224,10 +251,12 @@ export function serviceRequestTableCommands(
 					...agency,
 					serviceRequestId: id,
 					acknowledgedClosedRequestDeletion: acknowledged(
-						payload.acknowledgedClosedRequestDeletion,
+						payload,
+						'acknowledgedClosedRequestDeletion',
 					),
 					acknowledgedAssignmentItemDeletion: acknowledged(
-						payload.acknowledgedAssignmentItemDeletion,
+						payload,
+						'acknowledgedAssignmentItemDeletion',
 					),
 				}),
 		},

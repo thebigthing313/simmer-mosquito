@@ -101,9 +101,10 @@ export function registerApplicationRoutes(
 					...ctx,
 					applicationId: param('applicationId'),
 					acknowledgedSupportRecordDeletion: acknowledged(
-						payload.acknowledgedSupportRecordDeletion,
+						payload,
+						'acknowledgedSupportRecordDeletion',
 					),
-					acknowledgedBatchDeletion: acknowledged(payload.acknowledgedBatchDeletion),
+					acknowledgedBatchDeletion: acknowledged(payload, 'acknowledgedBatchDeletion'),
 				}),
 			run: (context, commands) => runApplicationCommands(context, options.db, commands),
 		}),
@@ -216,7 +217,7 @@ function buildApplicationUpdateCommands(
 				...('vehicleId' in payload ? { vehicleId: readNullableText(payload.vehicleId) } : {}),
 				...('equipmentId' in payload ? { equipmentId: readNullableText(payload.equipmentId) } : {}),
 				...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
-				acknowledgedBatchClearance: acknowledged(payload.acknowledgedBatchClearance),
+				acknowledgedBatchClearance: acknowledged(payload, 'acknowledgedBatchClearance'),
 			}),
 		);
 		if (!result.ok) {

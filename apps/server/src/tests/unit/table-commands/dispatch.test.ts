@@ -9,6 +9,7 @@ vi.mock('@simmer-mosquito/db', () => ({ readCurrentTransactionId: async () => 1 
 
 import type { AuthContext } from '../../../auth-context.js';
 import type { AuthVariables } from '../../../auth-middleware.js';
+import type { CommandTable } from '../../../command-payload.js';
 import type { WritableCommand } from '../../../command-write.js';
 import {
 	type IntentRequest,
@@ -34,7 +35,7 @@ function authContext(role: string): AuthContext {
 }
 
 interface Recorded {
-	readonly built: IntentRequest[];
+	readonly built: IntentRequest<CommandTable, string>[];
 	readonly ran: readonly FakeCommand[][];
 }
 
@@ -49,10 +50,10 @@ function testApp(role: string): {
 	readonly app: Hono<{ Variables: AuthVariables }>;
 	readonly recorded: Recorded;
 } {
-	const built: IntentRequest[] = [];
+	const built: IntentRequest<CommandTable, string>[] = [];
 	const ran: FakeCommand[][] = [];
 
-	const spec: TableCommands<FakeCommand, { readonly id: string }> = {
+	const spec: TableCommands<'habitats', FakeCommand, { readonly id: string }> = {
 		table: 'habitats',
 		run: {
 			db: {

@@ -45,10 +45,16 @@ import {
 } from '../membership-commands.js';
 import type { TableCommands } from './dispatch.js';
 
+/**
+ * The name on the `profiles` row an invitation creates or attaches to. A column,
+ * just not this table's.
+ */
+type MembershipArgument = 'display_name';
+
 export function membershipTableCommands(
 	db: CommandDb,
 	auth: MembershipAuth,
-): TableCommands<MembershipCommand, MembershipRow> {
+): TableCommands<'memberships', MembershipCommand, MembershipRow, MembershipArgument> {
 	return {
 		table: 'memberships',
 		run: {

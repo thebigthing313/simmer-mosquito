@@ -55,6 +55,7 @@ import {
 	updateChemicalApplicationLocationAndContextCommand,
 } from '@simmer-mosquito/domain';
 import {
+	type CommandPayload,
 	isRecord,
 	readMissionExecutionOptions,
 	readNullableText,
@@ -71,7 +72,17 @@ import type { ApplicationBatchRow, ApplicationRow } from '../control-operations-
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, drawnGeometry } from './shared.js';
 
-function applicationContext(payload: Record<string, unknown>): ControlActionContext {
+/**
+ * The keys an application write reads that are not its columns: where it
+ * happened, what it was for, and the batch rows a create carries with it.
+ * `application_batches` is `snake_case` because it is that table's rows.
+ */
+type ApplicationArgument = 'locationSource' | 'geometry' | 'context' | 'application_batches';
+
+/** The body of a write to this module's table. */
+type ApplicationPayload = CommandPayload<'applications', ApplicationArgument>;
+
+function applicationContext(payload: ApplicationPayload): ControlActionContext {
 	return (payload.context ?? { kind: 'none' }) as ControlActionContext;
 }
 
@@ -88,7 +99,7 @@ function applicationContext(payload: Record<string, unknown>): ControlActionCont
  * domain refuses the whole create and names the index; dropping it would write
  * an application holding fewer batches than the crew recorded, behind a 201.
  */
-function applicationBatches(payload: Record<string, unknown>): readonly ApplicationBatchInput[] {
+function applicationBatches(payload: ApplicationPayload): readonly ApplicationBatchInput[] {
 	const rows = payload.application_batches;
 
 	if (rows === undefined) {
@@ -119,13 +130,13 @@ function applicationBatches(payload: Record<string, unknown>): readonly Applicat
  * `drawnGeometry` unwraps it — an outright `geometry` is honoured too, since that
  * is what the domain command itself takes.
  */
-function missionGeometry(payload: Record<string, unknown>): { readonly geometry?: unknown } {
-	const geometry = payload.geometry ?? drawnGeometry(payload);
+function missionGeometry(payload: ApplicationPayload): { readonly geometry?: unknown } {
+	const geometry = payload.geometry ?? drawnGeometry(payload.locationSource);
 	return geometry === undefined ? {} : { geometry };
 }
 
 /** The product and dose half, which both creates take identically. */
-function applicationFields(payload: Record<string, unknown>) {
+function applicationFields(payload: ApplicationPayload) {
 	return {
 		insecticideId: readText(payload.insecticide_id) ?? '',
 		amountApplied: readNumber(payload.amount_applied) ?? Number.NaN,
@@ -140,7 +151,7 @@ function applicationFields(payload: Record<string, unknown>) {
 
 export function applicationTableCommands(
 	db: CommandDb,
-): TableCommands<ApplicationCommand, ApplicationRow> {
+): TableCommands<'applications', ApplicationCommand, ApplicationRow, ApplicationArgument> {
 	return {
 		table: 'applications',
 		run: {
@@ -185,45 +196,49 @@ export function applicationTableCommands(
 				updateChemicalApplicationFieldDetailsCommand({
 					...agency,
 					applicationId: id,
-					...('application_date' in payload
+					...(payload.application_date !== undefined
 						? { applicationDate: readText(payload.application_date) ?? '' }
 						: {}),
-					...('applicator_profile_id' in payload
+					...(payload.applicator_profile_id !== undefined
 						? { applicatorProfileId: readNullableText(payload.applicator_profile_id) }
 						: {}),
-					...('application_method_id' in payload
+					...(payload.application_method_id !== undefined
 						? { applicationMethodId: readNullableText(payload.application_method_id) }
 						: {}),
-					...('insecticide_id' in payload
+					...(payload.insecticide_id !== undefined
 						? { insecticideId: readText(payload.insecticide_id) ?? '' }
 						: {}),
-					...('amount_applied' in payload
+					...(payload.amount_applied !== undefined
 						? { amountApplied: readNumber(payload.amount_applied) ?? Number.NaN }
 						: {}),
-					...('application_unit_id' in payload
+					...(payload.application_unit_id !== undefined
 						? { applicationUnitId: readText(payload.application_unit_id) ?? '' }
 						: {}),
-					...('vehicle_id' in payload ? { vehicleId: readNullableText(payload.vehicle_id) } : {}),
-					...('equipment_id' in payload
+					...(payload.vehicle_id !== undefined
+						? { vehicleId: readNullableText(payload.vehicle_id) }
+						: {}),
+					...(payload.equipment_id !== undefined
 						? { equipmentId: readNullableText(payload.equipment_id) }
 						: {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 					// Changing the product is what clears the batch links, since batches of
 					// the old insecticide cannot describe the new one. The old PATCH
 					// hard-coded this to `true`, so nobody could be asked.
-					acknowledgedBatchClearance: acknowledged(payload.acknowledgedBatchClearance),
+					acknowledgedBatchClearance: acknowledged(payload, 'acknowledgedBatchClearance'),
 				}),
 
 			'controlOperations.updateChemicalApplicationLocationAndContext': ({ payload, agency, id }) =>
 				updateChemicalApplicationLocationAndContextCommand({
 					...agency,
 					applicationId: id,
-					...('locationSource' in payload
+					...(payload.locationSource !== undefined
 						? { locationSource: payload.locationSource as ControlActionLocationSourceInput }
 						: {}),
-					...('address_id' in payload ? { addressId: readNullableText(payload.address_id) } : {}),
-					...('context' in payload ? { context: applicationContext(payload) } : {}),
-					...('requested_control_action_id' in payload
+					...(payload.address_id !== undefined
+						? { addressId: readNullableText(payload.address_id) }
+						: {}),
+					...(payload.context !== undefined ? { context: applicationContext(payload) } : {}),
+					...(payload.requested_control_action_id !== undefined
 						? { requestedControlActionId: readNullableText(payload.requested_control_action_id) }
 						: {}),
 				}),
@@ -233,9 +248,10 @@ export function applicationTableCommands(
 					...agency,
 					applicationId: id,
 					acknowledgedSupportRecordDeletion: acknowledged(
-						payload.acknowledgedSupportRecordDeletion,
+						payload,
+						'acknowledgedSupportRecordDeletion',
 					),
-					acknowledgedBatchDeletion: acknowledged(payload.acknowledgedBatchDeletion),
+					acknowledgedBatchDeletion: acknowledged(payload, 'acknowledgedBatchDeletion'),
 				}),
 		},
 	};
@@ -243,7 +259,7 @@ export function applicationTableCommands(
 
 export function applicationBatchTableCommands(
 	db: CommandDb,
-): TableCommands<ControlOperationsCommand, ApplicationBatchRow> {
+): TableCommands<'application_batches', ControlOperationsCommand, ApplicationBatchRow> {
 	return {
 		table: 'application_batches',
 		run: {

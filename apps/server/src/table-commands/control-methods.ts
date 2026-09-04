@@ -62,7 +62,7 @@ import {
 	type ControlMethodCommand,
 	writeControlMethodCommand,
 } from '../control-method-commands.js';
-import type { IntentBuilder, IntentMap, TableCommands } from './dispatch.js';
+import type { IntentBuilder, IntentMap, IntentRequest, TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
 /** What every builder in a catalog needs, with the id under a neutral name. */
@@ -106,18 +106,33 @@ interface MethodIntents {
 
 type MethodResponse = Awaited<ReturnType<typeof writeControlMethodCommand>>;
 
+/**
+ * The four tables this factory serves.
+ *
+ * Named as a union rather than left as `string`, so the payload the shared
+ * reader is handed is the four catalogs' columns and a key none of them has
+ * does not compile. They have the same columns, so the union costs nothing here.
+ */
+type ControlMethodTable =
+	| 'application_methods'
+	| 'source_reduction_methods'
+	| 'outreach_methods'
+	| 'biocontrol_methods';
+
+type MethodRequest = IntentRequest<ControlMethodTable>;
+
 function methodTableCommands(
 	db: CommandDb,
-	table: string,
+	table: ControlMethodTable,
 	names: MethodIntents,
 	build: MethodBuilders,
-): TableCommands<ControlMethodCommand, NonNullable<MethodResponse>> {
-	const target = ({ payload: _payload, agency, id }: Parameters<IntentBuilder<never>>[0]) => ({
+): TableCommands<ControlMethodTable, ControlMethodCommand, NonNullable<MethodResponse>> {
+	const target = ({ payload: _payload, agency, id }: MethodRequest) => ({
 		...agency,
 		id,
 	});
 
-	const intents: Record<string, IntentBuilder<ControlMethodCommand>> = {
+	const intents: Record<string, IntentBuilder<ControlMethodTable, ControlMethodCommand>> = {
 		[names.create]: (request) =>
 			build.create({
 				...target(request),
@@ -131,12 +146,15 @@ function methodTableCommands(
 		[names.update]: (request) =>
 			build.update({
 				...target(request),
-				...('name' in request.payload ? { name: readText(request.payload.name) ?? '' } : {}),
-				...('custom_schema' in request.payload
+				...(request.payload.name !== undefined
+					? { name: readText(request.payload.name) ?? '' }
+					: {}),
+				...(request.payload.custom_schema !== undefined
 					? { customSchema: request.payload.custom_schema ?? null }
 					: {}),
 				acknowledgedHistoricalLabelChange: acknowledged(
-					request.payload.acknowledgedHistoricalLabelChange,
+					request.payload,
+					'acknowledgedHistoricalLabelChange',
 				),
 			}),
 
@@ -156,7 +174,7 @@ function methodTableCommands(
 		// The keys are `AgencyCommandType` values held in `names`, so a typo is
 		// still a build error at the four call sites below; what the cast restores
 		// is only what computed keys erase.
-		intents: intents as IntentMap<ControlMethodCommand>,
+		intents: intents as IntentMap<ControlMethodTable, ControlMethodCommand>,
 	};
 }
 

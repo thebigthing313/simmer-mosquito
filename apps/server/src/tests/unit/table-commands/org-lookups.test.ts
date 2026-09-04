@@ -13,6 +13,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
+import type { CommandTable } from '../../../command-payload.js';
 import type { AgencyCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
@@ -26,7 +27,7 @@ const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const ACTOR = '22222222-2222-4222-8222-222222222222';
 const ROW = '33333333-3333-4333-8333-333333333333';
 
-function request(payload: Record<string, unknown>): IntentRequest {
+function request(payload: Record<string, unknown>): IntentRequest<CommandTable, string> {
 	return {
 		payload,
 		agency: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
@@ -40,9 +41,9 @@ function request(payload: Record<string, unknown>): IntentRequest {
 }
 
 function build<TCommand extends WritableCommand>(
-	spec: TableCommands<TCommand, unknown>,
+	spec: TableCommands<CommandTable, TCommand, unknown, string>,
 	intent: AgencyCommandType,
-	intentRequest: IntentRequest,
+	intentRequest: IntentRequest<CommandTable, string>,
 ): TCommand {
 	const builder = spec.intents[intent];
 	if (builder === undefined) {

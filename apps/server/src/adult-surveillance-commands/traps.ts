@@ -63,7 +63,7 @@ export function registerTrapRoutes(
 					trapName: readNullableText(payload.trapName),
 					trapCode: readNullableText(payload.trapCode),
 					description: readNullableText(payload.description),
-					acknowledgedDuplicateTrapCode: payload.acknowledgedDuplicateTrapCode === true,
+					acknowledgedDuplicateTrapCode: acknowledged(payload, 'acknowledgedDuplicateTrapCode'),
 				}),
 			run: (context, commands) => runTrapCommands(context, options.db, commands, 201),
 		}),
@@ -88,7 +88,7 @@ export function registerTrapRoutes(
 				deleteTrapCommand({
 					...ctx,
 					trapId: param('trapId'),
-					acknowledgedCascadeDelete: payload.acknowledgedCascadeDelete !== false,
+					acknowledgedCascadeDelete: acknowledged(payload, 'acknowledgedCascadeDelete'),
 				}),
 			run: (context, commands) => runTrapCommands(context, options.db, commands),
 		}),
@@ -116,7 +116,10 @@ function buildTrapUpdateCommands(
 				...(hasName ? { trapName: readNullableText(payload.trapName) } : {}),
 				...(hasCode ? { trapCode: readNullableText(payload.trapCode) } : {}),
 				...(hasDescription ? { description: readNullableText(payload.description) } : {}),
-				acknowledgedHistoricalLabelChange: acknowledged(payload.acknowledgedHistoricalLabelChange),
+				acknowledgedHistoricalLabelChange: acknowledged(
+					payload,
+					'acknowledgedHistoricalLabelChange',
+				),
 			}),
 		);
 		if (!result.ok) {
@@ -141,10 +144,12 @@ function buildTrapUpdateCommands(
 				...(hasAddress ? { addressId: readNullableText(payload.addressId) } : {}),
 				...(hasLure ? { collectionLureId: readNullableText(payload.collectionLureId) } : {}),
 				acknowledgedTrapLocationSemanticsChange: acknowledged(
-					payload.acknowledgedTrapLocationSemanticsChange,
+					payload,
+					'acknowledgedTrapLocationSemanticsChange',
 				),
 				acknowledgedTrapMethodSemanticsChange: acknowledged(
-					payload.acknowledgedTrapMethodSemanticsChange,
+					payload,
+					'acknowledgedTrapMethodSemanticsChange',
 				),
 			}),
 		);
@@ -160,7 +165,7 @@ function buildTrapUpdateCommands(
 				? reactivateTrapCommand({
 						...ctx,
 						trapId,
-						acknowledgedDuplicateTrapCode: payload.acknowledgedDuplicateTrapCode === true,
+						acknowledgedDuplicateTrapCode: acknowledged(payload, 'acknowledgedDuplicateTrapCode'),
 					})
 				: retireTrapCommand({ ...ctx, trapId }),
 		);

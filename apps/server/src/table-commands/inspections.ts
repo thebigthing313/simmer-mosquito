@@ -37,7 +37,12 @@ import {
 	updateInspectionFieldDetailsCommand,
 } from '@simmer-mosquito/domain';
 import type { AuthContext } from '../auth-context.js';
-import { readExecutionOptions, readNullableText, readText } from '../command-payload.js';
+import {
+	type CommandPayload,
+	readExecutionOptions,
+	readNullableText,
+	readText,
+} from '../command-payload.js';
 import { type CommandDb, readDate, readNumberOrNull } from '../command-write.js';
 import {
 	type InspectionCommand,
@@ -48,6 +53,15 @@ import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
 /**
+ * The keys an inspection write reads that are not its columns: where it
+ * happened, and when the assignment stop it closes was finished.
+ */
+type InspectionArgument = 'locationSource' | 'completedAt';
+
+/** The body of a write to this module's table. */
+type InspectionPayload = CommandPayload<'inspections', InspectionArgument>;
+
+/**
  * The result columns, as the domain names them.
  *
  * Every one of the four recording commands takes the whole set — an inspection
@@ -56,7 +70,7 @@ import { acknowledged } from './shared.js';
  * is false, and a client that sends `"true"` is sending something the column
  * cannot hold.
  */
-function inspectionResult(payload: Record<string, unknown>) {
+function inspectionResult(payload: InspectionPayload) {
 	return {
 		inspectionDate: readText(payload.inspection_date) ?? '',
 		inspectedByProfileId: readNullableText(payload.inspected_by_profile_id),
@@ -80,7 +94,7 @@ function inspectionPolicy(authContext: AuthContext): ResolvedLarvalInspectionEnt
 
 export function inspectionTableCommands(
 	db: CommandDb,
-): TableCommands<InspectionCommand, InspectionRow> {
+): TableCommands<'inspections', InspectionCommand, InspectionRow, InspectionArgument> {
 	return {
 		table: 'inspections',
 		run: { db, write: writeInspectionCommand, notFound: 'inspection_not_found', key: 'inspection' },
@@ -146,11 +160,13 @@ export function inspectionTableCommands(
 				updateAdHocInspectionLocationCommand({
 					...agency,
 					inspectionId: id,
-					...('locationSource' in payload
+					...(payload.locationSource !== undefined
 						? { locationSource: payload.locationSource as never }
 						: {}),
-					...('address_id' in payload ? { addressId: readNullableText(payload.address_id) } : {}),
-					...('habitat_type_id' in payload
+					...(payload.address_id !== undefined
+						? { addressId: readNullableText(payload.address_id) }
+						: {}),
+					...(payload.habitat_type_id !== undefined
 						? { habitatTypeId: readNullableText(payload.habitat_type_id) }
 						: {}),
 				}),
@@ -160,9 +176,10 @@ export function inspectionTableCommands(
 					...agency,
 					inspectionId: id,
 					acknowledgedAssociatedRecordsDeletion: acknowledged(
-						payload.acknowledgedAssociatedRecordsDeletion,
+						payload,
+						'acknowledgedAssociatedRecordsDeletion',
 					),
-					acknowledgedCrossDomainDetach: acknowledged(payload.acknowledgedCrossDomainDetach),
+					acknowledgedCrossDomainDetach: acknowledged(payload, 'acknowledgedCrossDomainDetach'),
 				}),
 		},
 	};

@@ -12,6 +12,7 @@
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
+import type { CommandTable } from '../../../command-payload.js';
 import type { AgencyCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
@@ -37,7 +38,7 @@ const SQUARE = {
 	],
 };
 
-function request(payload: Record<string, unknown>): IntentRequest {
+function request(payload: Record<string, unknown>): IntentRequest<CommandTable, string> {
 	return {
 		payload,
 		agency: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
@@ -69,9 +70,9 @@ function refusedPaths(run: () => unknown): readonly string[] {
 }
 
 function build<TCommand extends WritableCommand>(
-	spec: TableCommands<TCommand, unknown>,
+	spec: TableCommands<CommandTable, TCommand, unknown, string>,
 	intent: AgencyCommandType,
-	intentRequest: IntentRequest,
+	intentRequest: IntentRequest<CommandTable, string>,
 ): TCommand {
 	const builder = spec.intents[intent];
 	if (builder === undefined) {

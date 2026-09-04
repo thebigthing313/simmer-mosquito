@@ -92,9 +92,10 @@ export function registerMissionRoutes(
 					rainDate: readNullableText(payload.rainDate),
 					notificationTypeId: readNullableText(payload.notificationTypeId),
 					acknowledgedDuplicateRequestedActionMissioning: acknowledged(
-						payload.acknowledgedDuplicateRequestedActionMissioning,
+						payload,
+						'acknowledgedDuplicateRequestedActionMissioning',
 					),
-					acknowledgedMethodMismatch: acknowledged(payload.acknowledgedMethodMismatch),
+					acknowledgedMethodMismatch: acknowledged(payload, 'acknowledgedMethodMismatch'),
 				}),
 			run: (context, commands) => runMissionCommands(context, options.db, commands, 201),
 		}),
@@ -119,13 +120,17 @@ export function registerMissionRoutes(
 				deleteMissionCommand({
 					...ctx,
 					missionId: param('missionId'),
-					acknowledgedMissionItemDeletion: acknowledged(payload.acknowledgedMissionItemDeletion),
-					acknowledgedActualActionDetach: acknowledged(payload.acknowledgedActualActionDetach),
-					acknowledgedNotificationDeletion: acknowledged(payload.acknowledgedNotificationDeletion),
+					acknowledgedMissionItemDeletion: acknowledged(payload, 'acknowledgedMissionItemDeletion'),
+					acknowledgedActualActionDetach: acknowledged(payload, 'acknowledgedActualActionDetach'),
+					acknowledgedNotificationDeletion: acknowledged(
+						payload,
+						'acknowledgedNotificationDeletion',
+					),
 					// The mission's own state rather than something hanging off it, so
 					// it is read by the state guard rather than by the registry.
 					acknowledgedCompletedMissionDeletion: acknowledged(
-						payload.acknowledgedCompletedMissionDeletion,
+						payload,
+						'acknowledgedCompletedMissionDeletion',
 					),
 				}),
 			run: (context, commands) => runMissionCommands(context, options.db, commands),
@@ -168,10 +173,12 @@ function buildMissionUpdateCommands(
 					: {}),
 				...('rainDate' in payload ? { rainDate: readNullableText(payload.rainDate) } : {}),
 				acknowledgedNotificationTimingChange: acknowledged(
-					payload.acknowledgedNotificationTimingChange,
+					payload,
+					'acknowledgedNotificationTimingChange',
 				),
 				acknowledgedWorkedMissionScheduleChange: acknowledged(
-					payload.acknowledgedWorkedMissionScheduleChange,
+					payload,
+					'acknowledgedWorkedMissionScheduleChange',
 				),
 			}),
 		);
@@ -191,10 +198,12 @@ function buildMissionUpdateCommands(
 					? { plannedMethodId: readNullableText(payload.plannedMethodId) }
 					: {}),
 				acknowledgedNotificationPlanChange: acknowledged(
-					payload.acknowledgedNotificationPlanChange,
+					payload,
+					'acknowledgedNotificationPlanChange',
 				),
 				acknowledgedWorkedMissionPlanChange: acknowledged(
-					payload.acknowledgedWorkedMissionPlanChange,
+					payload,
+					'acknowledgedWorkedMissionPlanChange',
 				),
 			}),
 		);
@@ -209,7 +218,8 @@ function buildMissionUpdateCommands(
 				missionId,
 				assignedToProfileId: readNullableText(payload.assignedToProfileId),
 				acknowledgedInProgressAssignmentChange: acknowledged(
-					payload.acknowledgedInProgressAssignmentChange,
+					payload,
+					'acknowledgedInProgressAssignmentChange',
 				),
 			}),
 		);
@@ -224,7 +234,8 @@ function buildMissionUpdateCommands(
 				missionId,
 				notificationTypeId: readNullableText(payload.notificationTypeId),
 				acknowledgedNotificationRegenerationImpact: acknowledged(
-					payload.acknowledgedNotificationRegenerationImpact,
+					payload,
+					'acknowledgedNotificationRegenerationImpact',
 				),
 			}),
 		);
@@ -248,10 +259,12 @@ function buildMissionUpdateCommands(
 				cancellationReason: readText(payload.cancellationReason) ?? 'Cancelled',
 				cancelledAt: readDate(payload.cancelledAt),
 				acknowledgedProgressedMissionCancellation: acknowledged(
-					payload.acknowledgedProgressedMissionCancellation,
+					payload,
+					'acknowledgedProgressedMissionCancellation',
 				),
 				acknowledgedPartialWorkCancellation: acknowledged(
-					payload.acknowledgedPartialWorkCancellation,
+					payload,
+					'acknowledgedPartialWorkCancellation',
 				),
 			}),
 		);
@@ -263,7 +276,7 @@ function buildMissionUpdateCommands(
 				...ctx,
 				missionId,
 				startedAt: readDate(payload.startedAt),
-				acknowledgedEarlyStart: acknowledged(payload.acknowledgedEarlyStart),
+				acknowledgedEarlyStart: acknowledged(payload, 'acknowledgedEarlyStart'),
 			}),
 		);
 		if (!result.ok) return result;

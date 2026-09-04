@@ -79,14 +79,17 @@ export function registerMissionItemRoutes(
 								? {}
 								: { placement: payload.placement as MissionItemPlacement }),
 							acknowledgedInProgressMissionChange: acknowledged(
-								payload.acknowledgedInProgressMissionChange,
+								payload,
+								'acknowledgedInProgressMissionChange',
 							),
-							acknowledgedMethodMismatch: acknowledged(payload.acknowledgedMethodMismatch),
+							acknowledgedMethodMismatch: acknowledged(payload, 'acknowledgedMethodMismatch'),
 							acknowledgedDuplicateRequestedActionMissioning: acknowledged(
-								payload.acknowledgedDuplicateRequestedActionMissioning,
+								payload,
+								'acknowledgedDuplicateRequestedActionMissioning',
 							),
 							acknowledgedNotificationGeometryChange: acknowledged(
-								payload.acknowledgedNotificationGeometryChange,
+								payload,
+								'acknowledgedNotificationGeometryChange',
 							),
 						})
 					: addMissionItemCommand({
@@ -103,14 +106,17 @@ export function registerMissionItemRoutes(
 								? {}
 								: { placement: payload.placement as MissionItemPlacement }),
 							acknowledgedInProgressMissionChange: acknowledged(
-								payload.acknowledgedInProgressMissionChange,
+								payload,
+								'acknowledgedInProgressMissionChange',
 							),
-							acknowledgedMethodMismatch: acknowledged(payload.acknowledgedMethodMismatch),
+							acknowledgedMethodMismatch: acknowledged(payload, 'acknowledgedMethodMismatch'),
 							acknowledgedDuplicateRequestedActionMissioning: acknowledged(
-								payload.acknowledgedDuplicateRequestedActionMissioning,
+								payload,
+								'acknowledgedDuplicateRequestedActionMissioning',
 							),
 							acknowledgedNotificationGeometryChange: acknowledged(
-								payload.acknowledgedNotificationGeometryChange,
+								payload,
+								'acknowledgedNotificationGeometryChange',
 							),
 						});
 			},
@@ -139,10 +145,14 @@ export function registerMissionItemRoutes(
 				removeMissionItemCommand({
 					...ctx,
 					missionItemId: param('missionItemId'),
-					acknowledgedItemProgressDeletion: acknowledged(payload.acknowledgedItemProgressDeletion),
-					acknowledgedActualActionDetach: acknowledged(payload.acknowledgedActualActionDetach),
+					acknowledgedItemProgressDeletion: acknowledged(
+						payload,
+						'acknowledgedItemProgressDeletion',
+					),
+					acknowledgedActualActionDetach: acknowledged(payload, 'acknowledgedActualActionDetach'),
 					acknowledgedNotificationGeometryChange: acknowledged(
-						payload.acknowledgedNotificationGeometryChange,
+						payload,
+						'acknowledgedNotificationGeometryChange',
 					),
 				}),
 			run: (context, commands) => runMissionItemCommands(context, options.db, commands),
@@ -160,7 +170,8 @@ export function registerMissionItemRoutes(
 					missionItemIds: readStringArray(payload.missionItemIds),
 					placement: payload.placement as MissionItemPlacement,
 					acknowledgedProgressedItemReorder: acknowledged(
-						payload.acknowledgedProgressedItemReorder,
+						payload,
+						'acknowledgedProgressedItemReorder',
 					),
 				}),
 			run: (context, commands) => runMissionItemCommands(context, options.db, commands),
@@ -195,17 +206,21 @@ function buildMissionItemUpdateCommands(
 					? { requestedControlActionId: readNullableText(payload.requestedControlActionId) }
 					: {}),
 				acknowledgedNotificationGeometryChange: acknowledged(
-					payload.acknowledgedNotificationGeometryChange,
+					payload,
+					'acknowledgedNotificationGeometryChange',
 				),
 				acknowledgedActualActionContextChange: acknowledged(
-					payload.acknowledgedActualActionContextChange,
+					payload,
+					'acknowledgedActualActionContextChange',
 				),
 				acknowledgedProgressedItemLinkChange: acknowledged(
-					payload.acknowledgedProgressedItemLinkChange,
+					payload,
+					'acknowledgedProgressedItemLinkChange',
 				),
-				acknowledgedMethodMismatch: acknowledged(payload.acknowledgedMethodMismatch),
+				acknowledgedMethodMismatch: acknowledged(payload, 'acknowledgedMethodMismatch'),
 				acknowledgedDuplicateRequestedActionMissioning: acknowledged(
-					payload.acknowledgedDuplicateRequestedActionMissioning,
+					payload,
+					'acknowledgedDuplicateRequestedActionMissioning',
 				),
 			}),
 		);
@@ -221,7 +236,7 @@ function buildMissionItemUpdateCommands(
 				missionItemId,
 				skippedAt: readDate(payload.skippedAt),
 				skipReason: readText(payload.skipReason) ?? '',
-				acknowledgedEarlyStart: acknowledged(payload.acknowledgedEarlyStart),
+				acknowledgedEarlyStart: acknowledged(payload, 'acknowledgedEarlyStart'),
 			}),
 		);
 		if (!result.ok) return result;
@@ -232,7 +247,7 @@ function buildMissionItemUpdateCommands(
 				...ctx,
 				missionItemId,
 				completedAt: readDate(payload.completedAt),
-				acknowledgedEarlyStart: acknowledged(payload.acknowledgedEarlyStart),
+				acknowledgedEarlyStart: acknowledged(payload, 'acknowledgedEarlyStart'),
 			}),
 		);
 		if (!result.ok) return result;

@@ -72,7 +72,7 @@ export function registerFormulationRoutes(
 				deleteFormulationCommand({
 					...ctx,
 					formulationId: param('formulationId'),
-					acknowledgedComponentDeletion: acknowledged(payload.acknowledgedComponentDeletion),
+					acknowledgedComponentDeletion: acknowledged(payload, 'acknowledgedComponentDeletion'),
 				}),
 			run: (context, commands) => runFormulationCommands(context, options.db, commands),
 		}),

@@ -331,8 +331,9 @@ export interface CommandRequest<TPayload = Record<string, unknown>> {
  * How the endpoint treats the request body.
  *
  * `'optional'` is for the deletes that accept a body of acknowledgement flags
- * but do not require one: an absent or unparseable body yields `{}`, so a
- * `payload.acknowledgedX !== false` read defaults to acknowledged either way.
+ * but do not require one: an absent or unparseable body yields `{}`, and
+ * `acknowledged` reads a flag that is not there the way it reads one the body
+ * omitted.
  */
 export type CommandBody = 'required' | 'optional' | 'none';
 

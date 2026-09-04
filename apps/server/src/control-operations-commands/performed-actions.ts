@@ -271,7 +271,7 @@ export const sourceReductionConfig: ActionConfig<SourceReductionRow> = {
 		deleteSourceReductionCommand({
 			...ctx,
 			sourceReductionId: id,
-			acknowledgedSupportRecordDeletion: acknowledged(payload.acknowledgedSupportRecordDeletion),
+			acknowledgedSupportRecordDeletion: acknowledged(payload, 'acknowledgedSupportRecordDeletion'),
 		}),
 	write: writeSourceReductionCommand,
 };
@@ -664,7 +664,7 @@ export const outreachActionConfig: ActionConfig<OutreachActionRow> = {
 		deleteOutreachActionCommand({
 			...ctx,
 			outreachActionId: id,
-			acknowledgedSupportRecordDeletion: acknowledged(payload.acknowledgedSupportRecordDeletion),
+			acknowledgedSupportRecordDeletion: acknowledged(payload, 'acknowledgedSupportRecordDeletion'),
 		}),
 	write: writeOutreachActionCommand,
 };
@@ -893,7 +893,7 @@ export const biocontrolActionConfig: ActionConfig<BiocontrolActionRow> = {
 		deleteBiocontrolActionCommand({
 			...ctx,
 			biocontrolActionId: id,
-			acknowledgedSupportRecordDeletion: acknowledged(payload.acknowledgedSupportRecordDeletion),
+			acknowledgedSupportRecordDeletion: acknowledged(payload, 'acknowledgedSupportRecordDeletion'),
 		}),
 	write: writeBiocontrolActionCommand,
 };

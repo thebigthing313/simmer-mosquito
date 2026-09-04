@@ -158,7 +158,10 @@ export function registerCollectionRoutes(
 				deleteCollectionCommand({
 					...ctx,
 					collectionId: param('collectionId'),
-					acknowledgedSpeciesCountDeletion: payload.acknowledgedSpeciesCountDeletion !== false,
+					acknowledgedSpeciesCountDeletion: acknowledged(
+						payload,
+						'acknowledgedSpeciesCountDeletion',
+					),
 				}),
 			run: (context, commands) => runCollectionCommands(context, options.db, commands),
 		}),
@@ -224,7 +227,8 @@ function buildCollectionCreateCommand(
 					collectedByProfileId: readNullableText(payload.collectedByProfileId),
 					hasProblem: payload.hasProblem === true,
 					acknowledgedPendingTrapCollection: acknowledged(
-						payload.acknowledgedPendingTrapCollection,
+						payload,
+						'acknowledgedPendingTrapCollection',
 					),
 					metadata,
 				}),
@@ -345,7 +349,8 @@ function buildCollectionUpdateCommands(
 						...ctx,
 						collectionId,
 						acknowledgedSpeciesCountsClearance: acknowledged(
-							payload.acknowledgedSpeciesCountsClearance,
+							payload,
+							'acknowledgedSpeciesCountsClearance',
 						),
 					})
 				: clearCollectionZeroResultCommand({ ...ctx, collectionId }),

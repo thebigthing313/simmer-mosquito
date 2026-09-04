@@ -91,8 +91,9 @@ withholds.
   WorkOS. The handlers that need either read it server-side inside the
   transaction, and the operator console reads both over REST. Withheld is about
   what a client *receives*: the invite dialog sends `invited_email` and
-  `/commands/memberships` writes it, which is why
-  `scripts/check-command-columns.mjs` reads the same list.
+  `/commands/memberships` writes it. The command payload type takes its columns
+  from `packages/db/src/tables.ts` rather than from these schemas, so a withheld
+  column stays writable without a second list saying so.
 - Region membership is computed on read and never stored, so there is no table
   to sync. `GET /records/:recordType/:recordId/regions` answers it. See ADR 0015
   and `docs/region-membership-spec.md`.

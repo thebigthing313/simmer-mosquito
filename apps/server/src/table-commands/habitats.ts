@@ -8,7 +8,7 @@
  *
  * Compare `buildHabitatUpdateCommands` in
  * `larval-surveillance-commands/habitats.ts`, which is eighty lines of
- * `'habitatName' in payload`, `'locationSource' in payload`, and
+ * `payload.habitatName !== undefined`, `payload.locationSource !== undefined`, and
  * `typeof payload.isInaccessible === 'boolean'` reconstructing what the user
  * meant from which keys arrived. None of that is here, because the request says.
  *
@@ -45,9 +45,16 @@ import type { HabitatRow } from '../larval-surveillance-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, readIdList } from './shared.js';
 
+/**
+ * The keys a habitat write reads that are not its columns: where it is, the
+ * inspection a habitat can be created from, and the habitats a merge folds away.
+ * `inspection_id` is `snake_case` because it is the `inspections` row's id.
+ */
+type HabitatArgument = 'locationSource' | 'inspection_id' | 'sourceHabitatIds';
+
 export function habitatTableCommands(
 	db: CommandDb,
-): TableCommands<LarvalSurveillanceCommand, HabitatRow> {
+): TableCommands<'habitats', LarvalSurveillanceCommand, HabitatRow, HabitatArgument> {
 	return {
 		table: 'habitats',
 		run: { db, write: writeHabitatCommand, notFound: 'habitat_not_found', key: 'habitat' },
@@ -84,11 +91,13 @@ export function habitatTableCommands(
 				updateHabitatDetailsCommand({
 					...agency,
 					habitatId: id,
-					...('habitat_name' in payload
+					...(payload.habitat_name !== undefined
 						? { habitatName: readNullableText(payload.habitat_name) }
 						: {}),
-					...('description' in payload ? { description: readText(payload.description) ?? '' } : {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.description !== undefined
+						? { description: readText(payload.description) ?? '' }
+						: {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 				}),
 
 			'larvalSurveillance.updateHabitatLocation': ({ payload, agency, id }) =>
@@ -97,7 +106,8 @@ export function habitatTableCommands(
 					habitatId: id,
 					locationSource: payload.locationSource as never,
 					acknowledgedHabitatLocationSemanticsChange: acknowledged(
-						payload.acknowledgedHabitatLocationSemanticsChange,
+						payload,
+						'acknowledgedHabitatLocationSemanticsChange',
 					),
 				}),
 
@@ -105,12 +115,15 @@ export function habitatTableCommands(
 				updateHabitatConfigurationCommand({
 					...agency,
 					habitatId: id,
-					...('address_id' in payload ? { addressId: readNullableText(payload.address_id) } : {}),
-					...('habitat_type_id' in payload
+					...(payload.address_id !== undefined
+						? { addressId: readNullableText(payload.address_id) }
+						: {}),
+					...(payload.habitat_type_id !== undefined
 						? { habitatTypeId: readNullableText(payload.habitat_type_id) }
 						: {}),
 					acknowledgedHabitatConfigurationSemanticsChange: acknowledged(
-						payload.acknowledgedHabitatConfigurationSemanticsChange,
+						payload,
+						'acknowledgedHabitatConfigurationSemanticsChange',
 					),
 				}),
 
@@ -127,7 +140,7 @@ export function habitatTableCommands(
 				retireHabitatCommand({
 					...agency,
 					habitatId: id,
-					acknowledgedRouteRemoval: acknowledged(payload.acknowledgedRouteRemoval),
+					acknowledgedRouteRemoval: acknowledged(payload, 'acknowledgedRouteRemoval'),
 				}),
 
 			'larvalSurveillance.reactivateHabitat': ({ agency, id }) =>
@@ -142,7 +155,8 @@ export function habitatTableCommands(
 					targetHabitatId: id,
 					sourceHabitatIds: readIdList(payload.sourceHabitatIds),
 					acknowledgedMergeConsolidatesHistory: acknowledged(
-						payload.acknowledgedMergeConsolidatesHistory,
+						payload,
+						'acknowledgedMergeConsolidatesHistory',
 					),
 				}),
 
@@ -150,9 +164,9 @@ export function habitatTableCommands(
 				deleteHabitatCommand({
 					...agency,
 					habitatId: id,
-					acknowledgedHabitatDelete: acknowledged(payload.acknowledgedHabitatDelete),
-					acknowledgedInspectionDetach: acknowledged(payload.acknowledgedInspectionDetach),
-					acknowledgedCrossDomainDetach: acknowledged(payload.acknowledgedCrossDomainDetach),
+					acknowledgedHabitatDelete: acknowledged(payload, 'acknowledgedHabitatDelete'),
+					acknowledgedInspectionDetach: acknowledged(payload, 'acknowledgedInspectionDetach'),
+					acknowledgedCrossDomainDetach: acknowledged(payload, 'acknowledgedCrossDomainDetach'),
 				}),
 		},
 	};

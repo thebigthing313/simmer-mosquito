@@ -104,9 +104,9 @@ export function registerHabitatRoutes(
 				deleteHabitatCommand({
 					...ctx,
 					habitatId: param('habitatId'),
-					acknowledgedHabitatDelete: acknowledged(payload.acknowledgedHabitatDelete),
-					acknowledgedInspectionDetach: acknowledged(payload.acknowledgedInspectionDetach),
-					acknowledgedCrossDomainDetach: acknowledged(payload.acknowledgedCrossDomainDetach),
+					acknowledgedHabitatDelete: acknowledged(payload, 'acknowledgedHabitatDelete'),
+					acknowledgedInspectionDetach: acknowledged(payload, 'acknowledgedInspectionDetach'),
+					acknowledgedCrossDomainDetach: acknowledged(payload, 'acknowledgedCrossDomainDetach'),
 				}),
 			run: (context, commands) => runHabitatCommands(context, options.db, commands),
 		}),
@@ -149,7 +149,8 @@ function buildHabitatUpdateCommands(
 				habitatId,
 				locationSource: payload.locationSource as never,
 				acknowledgedHabitatLocationSemanticsChange: acknowledged(
-					payload.acknowledgedHabitatLocationSemanticsChange,
+					payload,
+					'acknowledgedHabitatLocationSemanticsChange',
 				),
 			}),
 		);
@@ -169,7 +170,8 @@ function buildHabitatUpdateCommands(
 				...(hasAddress ? { addressId: readNullableText(payload.addressId) } : {}),
 				...(hasType ? { habitatTypeId: readNullableText(payload.habitatTypeId) } : {}),
 				acknowledgedHabitatConfigurationSemanticsChange: acknowledged(
-					payload.acknowledgedHabitatConfigurationSemanticsChange,
+					payload,
+					'acknowledgedHabitatConfigurationSemanticsChange',
 				),
 			}),
 		);
@@ -198,7 +200,7 @@ function buildHabitatUpdateCommands(
 				: retireHabitatCommand({
 						...ctx,
 						habitatId,
-						acknowledgedRouteRemoval: acknowledged(payload.acknowledgedRouteRemoval),
+						acknowledgedRouteRemoval: acknowledged(payload, 'acknowledgedRouteRemoval'),
 					}),
 		);
 		if (!result.ok) {

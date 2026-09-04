@@ -8,7 +8,7 @@
  * it is for.
  *
  * Two scripts read it, which is why it is its own file rather than a constant in
- * the generator.
+ * the generator: `generate-table-schemas.mjs` and `check-search-corpus.mjs`.
  *
  * `generate-table-schemas.mjs` emits both halves of the withholding from here —
  * the column's absence from the schema, and the drift check's licence to expect
@@ -17,12 +17,14 @@
  * the column to the schema. Withholding by hand-editing a schema file lasts until
  * the next `pnpm generate:schemas`; withholding here is the statement itself.
  *
- * `check-command-columns.mjs` reads it to keep a withheld column *writable*. That
- * check reads its columns off the generated schemas, so without this it would
- * take a handler reading `payload.invited_email` for a typo — when in fact an
- * invited address is exactly the kind of column that is written in a request and
- * never streamed back. Withheld means no client receives it, not that no command
- * carries it.
+ * `check-search-corpus.mjs` reads it for the opposite direction: a withheld
+ * column must not be indexed, because the search endpoint has no column list of
+ * its own and would put it back on the wire.
+ *
+ * Withheld means no client receives it, not that no command carries it. The
+ * invite dialog sends `invited_email` and `/commands/memberships` writes it. The
+ * command payload type takes its columns from `packages/db/src/tables.ts` rather
+ * than from these schemas, so nothing has to say that twice.
  *
  * The emitted `Drift<…>` constrains these names to `keyof …Table`, so a column
  * that is renamed or dropped by a migration fails the build rather than sitting

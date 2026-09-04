@@ -185,7 +185,7 @@ async function assertUnitNotChosen(trx: CommandTransaction, unitId: string): Pro
 
 export function unitTableCommands(
 	db: CommandDb,
-): OperatorTableCommands<FoundationCommand, UnitRow> {
+): OperatorTableCommands<'units', FoundationCommand, UnitRow> {
 	return {
 		table: 'units',
 		actor: 'operator',
@@ -206,16 +206,22 @@ export function unitTableCommands(
 				updateUnitCommand({
 					operatorUserId,
 					unitId: id,
-					...('code' in payload ? { code: readText(payload.code) ?? '' } : {}),
-					...('unit_name' in payload ? { unitName: readText(payload.unit_name) ?? '' } : {}),
-					...('abbreviation' in payload
+					...(payload.code !== undefined ? { code: readText(payload.code) ?? '' } : {}),
+					...(payload.unit_name !== undefined
+						? { unitName: readText(payload.unit_name) ?? '' }
+						: {}),
+					...(payload.abbreviation !== undefined
 						? { abbreviation: readText(payload.abbreviation) ?? '' }
 						: {}),
-					...('unit_type' in payload ? { unitType: readText(payload.unit_type) ?? '' } : {}),
-					...('unit_system' in payload ? { unitSystem: readText(payload.unit_system) ?? '' } : {}),
+					...(payload.unit_type !== undefined
+						? { unitType: readText(payload.unit_type) ?? '' }
+						: {}),
+					...(payload.unit_system !== undefined
+						? { unitSystem: readText(payload.unit_system) ?? '' }
+						: {}),
 					// Guarded by the domain, and only when `code` is among the changes —
 					// so an edit that leaves the code alone never has to carry this.
-					acknowledgedUnitCodeChange: acknowledged(payload.acknowledgedUnitCodeChange),
+					acknowledgedUnitCodeChange: acknowledged(payload, 'acknowledgedUnitCodeChange'),
 				}),
 
 			'foundation.deleteUnit': ({ operatorUserId, id }) =>

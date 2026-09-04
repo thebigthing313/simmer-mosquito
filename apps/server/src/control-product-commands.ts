@@ -265,7 +265,8 @@ function buildInsecticideUpdateCommands(
 						...context,
 						insecticideId,
 						acknowledgedDependentDeactivation: acknowledged(
-							payload.acknowledgedDependentDeactivation,
+							payload,
+							'acknowledgedDependentDeactivation',
 						),
 					}),
 		);
@@ -801,8 +802,8 @@ function readInsecticidePayload(raw: Record<string, unknown>): PayloadResult<Ins
 			...(raw.shorthand === undefined ? {} : { shorthand: readOptionalText(raw.shorthand) }),
 			...(raw.metadata === undefined ? {} : { metadata: readOptionalJson(raw.metadata) }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
-			acknowledgedDependentDeactivation: acknowledged(raw.acknowledgedDependentDeactivation),
-			acknowledgedHistoricalProductChange: acknowledged(raw.acknowledgedHistoricalProductChange),
+			acknowledgedDependentDeactivation: acknowledged(raw, 'acknowledgedDependentDeactivation'),
+			acknowledgedHistoricalProductChange: acknowledged(raw, 'acknowledgedHistoricalProductChange'),
 		},
 	};
 }
@@ -822,7 +823,8 @@ function readInsecticideBatchPayload(
 			...(raw.batchName === undefined ? {} : { batchName: readRequiredText(raw.batchName) ?? '' }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
 			acknowledgedHistoricalBatchLabelChange: acknowledged(
-				raw.acknowledgedHistoricalBatchLabelChange,
+				raw,
+				'acknowledgedHistoricalBatchLabelChange',
 			),
 		},
 	};

@@ -56,7 +56,15 @@ import { writeAddressCommand } from '../foundation-commands/addresses.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, readIdList } from './shared.js';
 
-export function addressTableCommands(db: CommandDb): TableCommands<FoundationCommand, AddressRow> {
+/**
+ * The keys an address write reads that are not its columns: the shape to store,
+ * and the addresses a merge folds away.
+ */
+type AddressArgument = 'geometry' | 'sourceAddressIds';
+
+export function addressTableCommands(
+	db: CommandDb,
+): TableCommands<'addresses', FoundationCommand, AddressRow, AddressArgument> {
 	return {
 		table: 'addresses',
 		run: {
@@ -92,21 +100,23 @@ export function addressTableCommands(db: CommandDb): TableCommands<FoundationCom
 				updateAddressDetailsCommand({
 					...agency,
 					addressId: id,
-					...('display_name' in payload
+					...(payload.display_name !== undefined
 						? { displayName: readText(payload.display_name) ?? '' }
 						: {}),
-					...('address_line_1' in payload
+					...(payload.address_line_1 !== undefined
 						? { addressLine1: readNullableText(payload.address_line_1) }
 						: {}),
-					...('address_line_2' in payload
+					...(payload.address_line_2 !== undefined
 						? { addressLine2: readNullableText(payload.address_line_2) }
 						: {}),
-					...('locality' in payload ? { locality: readNullableText(payload.locality) } : {}),
-					...('region' in payload ? { region: readNullableText(payload.region) } : {}),
-					...('postal_code' in payload
+					...(payload.locality !== undefined
+						? { locality: readNullableText(payload.locality) }
+						: {}),
+					...(payload.region !== undefined ? { region: readNullableText(payload.region) } : {}),
+					...(payload.postal_code !== undefined
 						? { postalCode: readNullableText(payload.postal_code) }
 						: {}),
-					...('geocoder_response' in payload
+					...(payload.geocoder_response !== undefined
 						? { geocoderResponse: payload.geocoder_response ?? null }
 						: {}),
 				}),
@@ -124,7 +134,8 @@ export function addressTableCommands(db: CommandDb): TableCommands<FoundationCom
 					targetAddressId: id,
 					sourceAddressIds: readIdList(payload.sourceAddressIds),
 					acknowledgedMergeConsolidatesHistory: acknowledged(
-						payload.acknowledgedMergeConsolidatesHistory,
+						payload,
+						'acknowledgedMergeConsolidatesHistory',
 					),
 				}),
 
