@@ -427,13 +427,20 @@ function drawInstruction(
  * supposed to sit inside.
  */
 function holeInstruction(vertexCount: number, draft: DrawHoleDraft): string {
+	// At one piece there is no row list, so the number is a term the user has not
+	// seen. It earns its place the moment there are several shapes on screen.
+	const named = draft.partCount > 1 ? `piece ${draft.partNumber}` : 'the area';
 	if (draft.problem === 'escapes') {
-		return `The hole must stay inside piece ${draft.partNumber}.`;
+		return `The hole must stay inside ${named}.`;
 	}
 	if (draft.problem === 'swallows') {
-		return `The hole leaves nothing of piece ${draft.partNumber}.`;
+		return `The hole leaves nothing of ${named}.`;
 	}
-	return progress(vertexCount, 3, `Click the map to start the hole in piece ${draft.partNumber}.`);
+	const start =
+		draft.partCount > 1
+			? `Click the map to start the hole in piece ${draft.partNumber}.`
+			: 'Click the map to start the hole.';
+	return progress(vertexCount, 3, start);
 }
 
 /** How far along a ring or a line is, once it has a vertex on the map. */

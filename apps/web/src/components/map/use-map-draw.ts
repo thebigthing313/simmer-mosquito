@@ -177,6 +177,11 @@ export type DrawHoleProblem = 'escapes' | 'swallows';
 export interface DrawHoleDraft {
 	/** The piece the hole is cut into, numbered the way its row is. */
 	readonly partNumber: number;
+	/**
+	 * How many pieces the shape has, which is what says whether the number means
+	 * anything to the user. At one piece there is no row list to have read it off.
+	 */
+	readonly partCount: number;
 	readonly problem: DrawHoleProblem | null;
 }
 
@@ -1070,9 +1075,11 @@ function holeDraftOf(
 	if (mode.kind !== 'draw' || mode.target.kind !== 'hole') {
 		return null;
 	}
-	const part = drawParts(committed)[mode.target.partIndex];
+	const parts = drawParts(committed);
+	const part = parts[mode.target.partIndex];
 	return {
 		partNumber: mode.target.partIndex + 1,
+		partCount: parts.length,
 		problem: part === undefined ? null : holeProblem(part, dedupeTrailing(vertices)),
 	};
 }

@@ -226,20 +226,28 @@ describe('DrawToolbar', () => {
 	}
 
 	it('names the piece a hole has to stay inside', () => {
-		renderToolbar({ partNumber: 2, problem: 'escapes' });
+		renderToolbar({ partNumber: 2, partCount: 3, problem: 'escapes' });
 
 		expect(screen.getByText('The hole must stay inside piece 2.')).toBeDefined();
 	});
 
 	it('says when a hole would leave nothing of its piece', () => {
-		renderToolbar({ partNumber: 1, problem: 'swallows' });
+		renderToolbar({ partNumber: 2, partCount: 3, problem: 'swallows' });
 
-		expect(screen.getByText('The hole leaves nothing of piece 1.')).toBeDefined();
+		expect(screen.getByText('The hole leaves nothing of piece 2.')).toBeDefined();
 	});
 
-	it('counts the hole down while it is being drawn', () => {
-		renderToolbar({ partNumber: 1, problem: null }, 0);
+	// At one piece there is no row list, so a piece number names nothing the user
+	// has read.
+	it('leaves the number out where there is only one piece', () => {
+		renderToolbar({ partNumber: 1, partCount: 1, problem: 'escapes' });
 
-		expect(screen.getByText('Click the map to start the hole in piece 1.')).toBeDefined();
+		expect(screen.getByText('The hole must stay inside the area.')).toBeDefined();
+	});
+
+	it('prompts for the first vertex of a hole', () => {
+		renderToolbar({ partNumber: 1, partCount: 1, problem: null }, 0);
+
+		expect(screen.getByText('Click the map to start the hole.')).toBeDefined();
 	});
 });

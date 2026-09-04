@@ -572,7 +572,7 @@ describe('useMapDraw', () => {
 		act(() => {
 			result.current.draw.startHole(0);
 		});
-		expect(result.current.draw.holeDraft).toEqual({ partNumber: 1, problem: null });
+		expect(result.current.draw.holeDraft).toEqual({ partNumber: 1, partCount: 1, problem: null });
 		for (const [longitude, latitude] of POND) {
 			act(() => {
 				fake.click(longitude, latitude);
@@ -607,7 +607,11 @@ describe('useMapDraw', () => {
 		}
 
 		expect(result.current.draw.canFinish).toBe(false);
-		expect(result.current.draw.holeDraft).toEqual({ partNumber: 1, problem: 'escapes' });
+		expect(result.current.draw.holeDraft).toEqual({
+			partNumber: 1,
+			partCount: 1,
+			problem: 'escapes',
+		});
 
 		act(() => {
 			result.current.draw.finish();
