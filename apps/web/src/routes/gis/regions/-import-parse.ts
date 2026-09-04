@@ -4,7 +4,8 @@
  *
  * The parsing itself lives in `@simmer-mosquito/mapping` (shared with the record forms'
  * "fill geometry from a file" convenience); this module only adds the region-side
- * policy — polygons only, region naming, and the `MAX_POLYGONS` cap.
+ * policy: polygons only, region naming, the `MAX_POLYGONS` cap, and withholding
+ * shapes whose coordinates are not WGS84.
  */
 
 import {
@@ -13,6 +14,7 @@ import {
 	type ImportGroup,
 	type ImportPolygonGeometry,
 	importCandidatesFrom,
+	isWgs84Geometry,
 	POLYGON_KINDS,
 	parseGeoJsonGroups,
 } from '@simmer-mosquito/mapping';
@@ -32,6 +34,13 @@ export interface ParseResult {
 	readonly skipped: number;
 	/** True when the file held more than `MAX_POLYGONS` and only the first were kept. */
 	readonly truncated: boolean;
+	/**
+	 * Polygons withheld because their coordinates are not WGS84 lng/lat. Agency
+	 * exports are often in State Plane feet or UTM metres, which parse as valid
+	 * GeoJSON and land nowhere on earth: every write would fail the domain
+	 * position validator, and the preview map would fit to nothing.
+	 */
+	readonly projected: number;
 	/** Set when the file could not be parsed at all. */
 	readonly error?: string;
 }
@@ -42,7 +51,7 @@ export const MAX_POLYGONS = 1000;
 export function parseRegionsFromFile(text: string, fileName: string): ParseResult {
 	const { groups, error } = collectImportGroups(text, fileName, POLYGON_KINDS);
 	if (error !== undefined) {
-		return { regions: [], skipped: 0, truncated: false, error };
+		return { regions: [], skipped: 0, truncated: false, projected: 0, error };
 	}
 	return finalize(groups);
 }
@@ -61,10 +70,11 @@ function finalize(groups: readonly ImportGroup[]): ParseResult {
 		limit: MAX_POLYGONS,
 		fallbackName: 'Region',
 	});
-	const regions = candidates.flatMap((candidate) =>
+	const polygons = candidates.flatMap((candidate) =>
 		isPolygon(candidate.geometry) ? [{ name: candidate.name, geometry: candidate.geometry }] : [],
 	);
-	return { regions, skipped, truncated };
+	const regions = polygons.filter((region) => isWgs84Geometry(region.geometry));
+	return { regions, skipped, truncated, projected: polygons.length - regions.length };
 }
 
 function isPolygon(geometry: { readonly type: string }): geometry is ImportPolygon {

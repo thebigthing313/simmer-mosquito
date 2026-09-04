@@ -29,6 +29,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
+import { ProjectedCoordinatesNote } from '../../../components/map/projected-coordinates-note';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
@@ -91,6 +92,7 @@ function ImportRegionsRoute() {
 	const [items, setItems] = useState<readonly ImportItem[]>([]);
 	const [skipped, setSkipped] = useState(0);
 	const [truncated, setTruncated] = useState(false);
+	const [projected, setProjected] = useState(0);
 	const [fileName, setFileName] = useState<string | null>(null);
 	const [parseError, setParseError] = useState<string | null>(null);
 	const [folderId, setFolderId] = useState<string>(UNFILED);
@@ -110,12 +112,14 @@ function ImportRegionsRoute() {
 		setImportErrors([]);
 		setPendingSync(0);
 		setSelectedId(null);
+		setProjected(0);
 		try {
 			const text = await readImportFileText(file);
 			const result = parseRegionsFromFile(text, file.name);
 			setFileName(file.name);
 			setSkipped(result.skipped);
 			setTruncated(result.truncated);
+			setProjected(result.projected);
 			if (result.error !== undefined) {
 				setParseError(result.error);
 				setItems([]);
@@ -311,6 +315,7 @@ function ImportRegionsRoute() {
 									{skipped > 0 ? ` · ${skipped} non-polygon skipped` : ''}
 								</p>
 							)}
+							<ProjectedCoordinatesNote count={projected} />
 						</div>
 
 						{parseError === null ? null : (
