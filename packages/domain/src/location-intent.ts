@@ -6,7 +6,6 @@ import {
 	getOwnedGeometryPolicy,
 	type OwnedGeometryKind,
 	type SupportedGeoJsonGeometry,
-	type SupportedGeometryType,
 	validateGeometry,
 } from './shared.js';
 
@@ -310,7 +309,7 @@ function validateLocationSourceFlow<TOutput>(
 	const allowedGeometryTypes = getOwnedGeometryPolicy(geometryKind).allowedTypes;
 	if (!isRecord(input)) {
 		issues.push({ path, message: `${path} must be a location source object.` });
-		return fallbackLocationSource(allowedGeometryTypes) as TOutput;
+		return fallbackLocationSource() as TOutput;
 	}
 
 	const kind = input.kind;
@@ -319,7 +318,7 @@ function validateLocationSourceFlow<TOutput>(
 			path: `${path}.kind`,
 			message: `${path}.kind is not supported for this location source flow.`,
 		});
-		return fallbackLocationSource(allowedGeometryTypes) as TOutput;
+		return fallbackLocationSource() as TOutput;
 	}
 
 	switch (kind) {
@@ -394,19 +393,21 @@ function validateLocationSourceFlow<TOutput>(
 				),
 			} as TOutput;
 	}
-	return fallbackLocationSource(allowedGeometryTypes) as TOutput;
+	return fallbackLocationSource() as TOutput;
 }
 
-function fallbackLocationSource(
-	allowedGeometryTypes: readonly SupportedGeometryType[],
-): ManualPointGeometrySource | ManualLocatableGeometrySource {
-	return {
-		kind: 'geometry',
-		geometry:
-			allowedGeometryTypes[0] === 'Point'
-				? { type: 'Point', coordinates: [0, 0] }
-				: { type: allowedGeometryTypes[0] ?? 'Point', coordinates: [0, 0] },
-	} as ManualPointGeometrySource | ManualLocatableGeometrySource;
+/**
+ * The placeholder that keeps issue collection running past a bad location
+ * source.
+ *
+ * Unconditional, and never observed by a successful write: all three call sites
+ * push an issue first and the caller throws once the list is non-empty. It used
+ * to synthesize a geometry of the flow's own shape, which was already nonsense
+ * for a Polygon and would have grown six arms for no reader. Throwing here
+ * instead would lose the issues of sibling fields on the same command.
+ */
+function fallbackLocationSource(): ManualPointGeometrySource | ManualLocatableGeometrySource {
+	return { kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } };
 }
 
 function isRecord(value: unknown): value is Readonly<Record<string, unknown>> {

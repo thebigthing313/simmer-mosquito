@@ -1,3 +1,4 @@
+import { DomainValidationError, geometryCoversGround } from '@simmer-mosquito/domain';
 import { type RawBuilder, type Selectable, sql, type Transaction } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../tables.js';
@@ -152,8 +153,20 @@ export async function softDelete<
  * Accepts either a bare geometry or a Feature wrapping one, because both reach
  * the server: a domain location source carries the geometry itself, while a
  * geometry read back out of another row arrives already unwrapped.
+ *
+ * This is also where the covers-ground rule has its last say. `validateGeometry`
+ * runs it on every command-carried geometry and `loadOr404` runs it on an
+ * inherited one, but this package's own writers pass no domain builder, and this
+ * is the one function structurally guaranteed to see whatever reaches a `geom`
+ * column. `handleCommandError` answers a `DomainValidationError` with 400
+ * wherever it was raised, transaction included.
  */
 export function geojsonToGeom(geojson: unknown): RawBuilder<string> {
+	if (!geometryCoversGround(unwrapFeature(geojson))) {
+		throw new DomainValidationError('Geometry is invalid.', [
+			{ path: 'geometry', message: 'geometry covers no ground.' },
+		]);
+	}
 	const serialized = JSON.stringify(geojson);
 	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
 		case
@@ -162,6 +175,15 @@ export function geojsonToGeom(geojson: unknown): RawBuilder<string> {
 			else ${serialized}
 		end
 	), 4326))`;
+}
+
+/** The geometry inside a Feature, or the value itself when it is already bare. */
+function unwrapFeature(geojson: unknown): unknown {
+	if (typeof geojson !== 'object' || geojson === null) {
+		return geojson;
+	}
+	const geometry = (geojson as { readonly geometry?: unknown }).geometry;
+	return geometry === undefined || geometry === null ? geojson : geometry;
 }
 
 /**

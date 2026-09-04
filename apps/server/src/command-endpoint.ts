@@ -71,7 +71,17 @@ export class CommandError extends Error {
 		// invitation is a failure of a system upstream of this one, not of the
 		// request that reached it.
 		readonly status: 400 | 403 | 404 | 409 | 502,
-		readonly body: { readonly error: string; readonly reason?: string },
+		readonly body: {
+			readonly error: string;
+			readonly reason?: string;
+			/**
+			 * The record a refusal is about, where the caller named it only
+			 * indirectly. A location source carries an id and inherits that row's
+			 * geometry, so a refusal over the inherited shape has to say which row
+			 * to go and fix.
+			 */
+			readonly source?: { readonly table: string; readonly id: string };
+		},
 	) {
 		super(body.error);
 	}

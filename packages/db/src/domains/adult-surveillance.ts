@@ -18,6 +18,7 @@ import {
 	type MapTileInput,
 	mapRecordSurface,
 } from './map-surface.js';
+import { geojsonToGeom } from './org-owned-writes.js';
 import { assertIanaTimeZone, localDateSql } from './record-display-sql.js';
 import { checkedValues } from './write-references.js';
 
@@ -99,17 +100,6 @@ export interface SafeCollection {
 	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
-}
-
-function geojsonToGeom(geojson: GeoJsonGeometry): RawBuilder<string> {
-	const serialized = JSON.stringify(geojson);
-	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
-		case
-			when (${serialized}::jsonb -> 'geometry') is not null
-				then (${serialized}::jsonb -> 'geometry')::text
-			else ${serialized}
-		end
-	), 4326))`;
 }
 
 const trapReturnColumns = [
