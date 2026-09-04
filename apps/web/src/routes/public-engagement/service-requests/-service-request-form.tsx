@@ -185,6 +185,7 @@ export function ServiceRequestFormPage({
 	// The draw layer both renders the placed point and edits it, so the map needs no
 	// separate preview feature.
 	const location = useDrawLocation({
+		geometryKind: 'serviceRequest',
 		initialGeometry,
 		missingMessage: 'Place the request location on the map.',
 		required: requireLocation && !hideLocation,

@@ -111,6 +111,7 @@ export function TrapFormPage({
 	// The draw layer both renders the trap's point and edits it, so the map needs no
 	// separate preview feature.
 	const location = useDrawLocation({
+		geometryKind: 'trap',
 		initialGeometry,
 		missingMessage: 'Place the trap point on the map.',
 		required: requireLocation,

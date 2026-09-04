@@ -1,8 +1,14 @@
 // @vitest-environment jsdom
-import { act } from 'react';
+import type { Map as MapboxMap } from 'mapbox-gl';
+import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DrawGeometry } from '../../../../components/map/use-map-draw';
-import { useMapDraw } from '../../../../components/map/use-map-draw';
+import {
+	drawParts,
+	geometryFromParts,
+	toDrawGeometry,
+	useMapDraw,
+} from '../../../../components/map/use-map-draw';
 import type { FakeMap } from './fake-map';
 import { cleanupRenderedHooks, createFakeMap, pressKey, renderHook } from './fake-map';
 
@@ -27,6 +33,65 @@ function mount(value: DrawGeometry | null = null) {
 		onChange,
 	});
 	return { fake, onChange, ...harness };
+}
+
+/**
+ * The same hook with the committed value fed back in, which is what every form
+ * does. A piece is added to whatever the last change committed, so a harness
+ * that pins `value` cannot see the second piece at all.
+ */
+function useControlledDraw({
+	map,
+	initial,
+}: {
+	readonly map: MapboxMap;
+	readonly initial: DrawGeometry | null;
+}) {
+	const [value, setValue] = useState<DrawGeometry | null>(initial);
+	return { value, draw: useMapDraw({ map, isLoaded: true, value, onChange: setValue }) };
+}
+
+function mountControlled(initial: DrawGeometry | null = null) {
+	const fake = createFakeMap();
+	return { fake, ...renderHook(useControlledDraw, { map: fake.map, initial }) };
+}
+
+type ControlledHarness = ReturnType<typeof mountControlled>;
+
+const FIRST_SQUARE = [
+	[-90, 35],
+	[-90, 36],
+	[-89, 36],
+] as const;
+const SECOND_SQUARE = [
+	[-80, 35],
+	[-80, 36],
+	[-79, 36],
+] as const;
+
+/** Place a ring's vertices and finish it, the way a user draws one. */
+function drawPolygon(
+	fake: FakeMap,
+	result: ControlledHarness['result'],
+	ring: readonly (readonly [number, number])[],
+): void {
+	if (!result.current.draw.isDrawing) {
+		act(() => {
+			result.current.draw.start('Polygon');
+		});
+	}
+	for (const [longitude, latitude] of ring) {
+		act(() => {
+			fake.click(longitude, latitude);
+		});
+	}
+	act(() => {
+		result.current.draw.finish();
+	});
+}
+
+function closed(ring: readonly (readonly [number, number])[]): (readonly [number, number])[] {
+	return [...ring, ring[0] as readonly [number, number]];
 }
 
 /** Roles carried by the features the draft source is holding, in order. */
@@ -323,6 +388,161 @@ describe('useMapDraw', () => {
 		expect(result.current.isDrawing).toBe(false);
 	});
 
+	it('keeps a committed shape on the map while another piece is drawn', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.startPart();
+		});
+		for (const [longitude, latitude] of SECOND_SQUARE) {
+			act(() => {
+				fake.click(longitude, latitude);
+			});
+		}
+
+		expect(roles(fake)).toEqual([
+			'Polygon',
+			'vertex',
+			'vertex',
+			'vertex',
+			'Polygon',
+			'vertex',
+			'vertex',
+			'vertex',
+		]);
+	});
+
+	it('promotes to a multi shape on the second piece and demotes on losing it', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		expect(result.current.value?.type).toBe('Polygon');
+
+		act(() => {
+			result.current.draw.startPart();
+		});
+		expect(result.current.draw.isAddingPart).toBe(true);
+		drawPolygon(fake, result, SECOND_SQUARE);
+
+		expect(result.current.value?.type).toBe('MultiPolygon');
+		expect(drawParts(result.current.value)).toHaveLength(2);
+
+		act(() => {
+			result.current.draw.removePart(0);
+		});
+
+		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(SECOND_SQUARE)] });
+	});
+
+	it('leaves nothing behind when the last piece goes', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.removePart(0);
+		});
+
+		expect(result.current.value).toBeNull();
+		expect(drawParts(result.current.value)).toEqual([]);
+	});
+
+	it('adds a point piece on one click, the way a first point is placed', () => {
+		const { fake, result } = mountControlled();
+
+		act(() => {
+			result.current.draw.start('Point');
+		});
+		act(() => {
+			fake.click(-90, 35);
+		});
+		act(() => {
+			result.current.draw.startPart();
+		});
+		act(() => {
+			fake.click(-80, 36);
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'MultiPoint',
+			coordinates: [
+				[-90, 35],
+				[-80, 36],
+			],
+		});
+		expect(result.current.draw.isDrawing).toBe(false);
+	});
+
+	// "Redraw geometry" means the whole shape at any piece count, which is what
+	// puts the piece list directly above the button that does it.
+	it('takes every piece when the draw is a redraw', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.startPart();
+		});
+		drawPolygon(fake, result, SECOND_SQUARE);
+
+		act(() => {
+			result.current.draw.start('Polygon');
+		});
+
+		expect(result.current.value).toBeNull();
+		expect(drawParts(result.current.value)).toEqual([]);
+	});
+
+	it('has no piece to add before the first one is drawn', () => {
+		const { result } = mountControlled();
+
+		act(() => {
+			result.current.draw.startPart();
+		});
+
+		expect(result.current.draw.isDrawing).toBe(false);
+	});
+
+	// An Undo that reached back into a finished piece would eat work the user
+	// cannot get back, so it pops inside the piece being drawn and stops at zero.
+	it('undoes inside the piece being drawn and never into a finished one', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.startPart();
+		});
+		act(() => {
+			fake.click(-80, 35);
+		});
+		act(() => {
+			result.current.draw.undo();
+		});
+		act(() => {
+			result.current.draw.undo();
+		});
+
+		expect(result.current.draw.vertexCount).toBe(0);
+		expect(drawParts(result.current.value)).toHaveLength(1);
+	});
+
+	it('picks out the highlighted piece for the map to paint', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.startPart();
+		});
+		drawPolygon(fake, result, SECOND_SQUARE);
+		act(() => {
+			result.current.draw.highlightPart(1);
+		});
+
+		const shapes = fake
+			.featuresOf(SOURCE_ID)
+			.filter((feature) => feature.geometry.type === 'Polygon');
+		expect(shapes.map((feature) => feature.properties?.highlighted)).toEqual([false, true]);
+	});
+
 	it('resolves a requested point on the next click', async () => {
 		const { fake, result } = mount();
 
@@ -338,5 +558,44 @@ describe('useMapDraw', () => {
 
 		await expect(pending).resolves.toEqual({ type: 'Point', coordinates: [-90.7, 35.7] });
 		expect(result.current.isRequestingPoint).toBe(false);
+	});
+});
+
+describe('drawParts', () => {
+	it('takes a multi shape apart and puts it back', () => {
+		const multi: DrawGeometry = {
+			type: 'MultiPolygon',
+			coordinates: [[closed(FIRST_SQUARE)], [closed(SECOND_SQUARE)]],
+		};
+
+		const parts = drawParts(multi);
+
+		expect(parts.map((part) => part.type)).toEqual(['Polygon', 'Polygon']);
+		expect(geometryFromParts(parts)).toEqual(multi);
+	});
+
+	// A one-part multi shape is what ogr2ogr writes for a single-lot feature. The
+	// domain demotes one on the way in, and this is the same rule on the way out.
+	it('demotes a shape that is down to one piece', () => {
+		const parts = drawParts({ type: 'MultiPoint', coordinates: [[-90, 35]] });
+
+		expect(geometryFromParts(parts)).toEqual({ type: 'Point', coordinates: [-90, 35] });
+	});
+
+	it('reads nothing as no pieces', () => {
+		expect(drawParts(null)).toEqual([]);
+		expect(geometryFromParts([])).toBeNull();
+	});
+});
+
+describe('toDrawGeometry', () => {
+	it('reads a stored multi shape back, now that pieces can be edited', () => {
+		const multi = { type: 'MultiPolygon', coordinates: [[closed(FIRST_SQUARE)]] };
+
+		expect(toDrawGeometry(multi)).toEqual(multi);
+	});
+
+	it('still reads a geometry collection as nothing', () => {
+		expect(toDrawGeometry({ type: 'GeometryCollection', geometries: [] })).toBeNull();
 	});
 });

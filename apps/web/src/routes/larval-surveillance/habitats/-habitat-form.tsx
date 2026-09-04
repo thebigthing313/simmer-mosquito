@@ -92,6 +92,7 @@ export function HabitatFormPage({
 }: HabitatFormPageProps) {
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const location = useDrawLocation({
+		geometryKind: 'habitat',
 		initialGeometry,
 		missingMessage: 'Draw the habitat geometry on the map before saving.',
 	});

@@ -144,6 +144,7 @@ export function SourceReductionFormPage({
 	// geometry for context — never the action's geometry itself, which the draw
 	// layer renders.
 	const location = useDrawLocation({
+		geometryKind: 'controlAction',
 		initialGeometry,
 		missingMessage: 'Map where the sources were eliminated.',
 		required: requireLocation,

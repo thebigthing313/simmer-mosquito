@@ -130,6 +130,7 @@ export function OutreachFormPage({
 }: OutreachFormPageProps) {
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const location = useDrawLocation({
+		geometryKind: 'controlAction',
 		initialGeometry,
 		missingMessage: 'Map where the outreach happened.',
 		required: requireLocation,

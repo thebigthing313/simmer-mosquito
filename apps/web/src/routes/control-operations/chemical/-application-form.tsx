@@ -230,6 +230,7 @@ export function ApplicationFormPage({
 }: ApplicationFormPageProps) {
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const location = useDrawLocation({
+		geometryKind: 'controlAction',
 		initialGeometry,
 		missingMessage: 'Map where the product was applied.',
 		required: requireLocation,
