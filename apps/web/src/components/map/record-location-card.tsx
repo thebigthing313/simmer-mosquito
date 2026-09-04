@@ -179,7 +179,7 @@ export function RecordLocationCard({
 						<div className={`overflow-hidden rounded-md border border-border/40 ${height}`}>
 							<MapCanvas
 								contextGeoJson={contextGeojson as unknown as GeoJSON.GeoJSON | null}
-								controls={{ search: false, layers: false, geolocate: false }}
+								controls={{ search: false, geolocate: false }}
 								geoJson={geojson as unknown as GeoJSON.GeoJSON | null}
 								onMapReady={handleMapReady}
 								{...(camera === undefined ? {} : { camera })}

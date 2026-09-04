@@ -287,7 +287,7 @@ function SourceReductionExplorerRoute() {
 						inset={panel.inset}
 						searchWidth={panel.width}
 						contextMenu={{ create: [MAP_CREATE_TARGETS.sourceReduction] }}
-						controls={{ layers: false, measure: true, readout: true }}
+						controls={{ measure: true, readout: true }}
 						fitToData
 						layers={layers}
 						onMapReady={handleMapReady}

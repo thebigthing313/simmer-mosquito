@@ -583,8 +583,8 @@ export const webShellDomains: readonly WebShellDomain[] = [
 		label: 'GIS',
 		// The reference geography the rest of the product points at, not a second
 		// home for the records that carry it. Regions, addresses, and weather
-		// stations are created here and referenced everywhere; an inspection or a
-		// trap reached through the Data Map still belongs to its own domain.
+		// stations are created here and referenced everywhere; the Data Map will
+		// draw an inspection or a trap, which still belongs to its own domain.
 		summary: 'Reference geography: regions, addresses, and weather stations',
 		icon: iconRegistry.domains.gis.icon,
 		groups: [
@@ -596,6 +596,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						label: 'Data Map',
 						to: '/gis/data-explorer',
 						icon: iconRegistry.generic.compass.icon,
+						stub: true,
 					},
 				],
 			},

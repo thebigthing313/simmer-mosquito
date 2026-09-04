@@ -170,7 +170,6 @@ export function RequestFormPage({
 				aside={
 					<>
 						<MapCanvas
-							controls={{ layers: false }}
 							geoJson={location.referenceGeometry as unknown as GeoJSON.GeoJSON | null}
 							onMapReady={location.onMapReady}
 						/>

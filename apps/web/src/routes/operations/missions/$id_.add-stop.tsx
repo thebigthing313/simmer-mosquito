@@ -115,7 +115,6 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 			aside={
 				<>
 					<MapCanvas
-						controls={{ layers: false }}
 						geoJson={location.referenceGeometry as unknown as GeoJSON.GeoJSON | null}
 						onMapReady={location.onMapReady}
 					/>

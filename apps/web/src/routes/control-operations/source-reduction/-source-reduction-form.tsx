@@ -218,7 +218,6 @@ export function SourceReductionFormPage({
 				aside={
 					<>
 						<MapCanvas
-							controls={{ layers: false }}
 							geoJson={referenceGeometry as unknown as GeoJSON.GeoJSON | null}
 							onMapReady={location.onMapReady}
 						/>

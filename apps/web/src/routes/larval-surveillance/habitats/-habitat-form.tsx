@@ -154,7 +154,6 @@ export function HabitatFormPage({
 				aside={
 					<>
 						<MapCanvas
-							controls={{ layers: false }}
 							layers={[
 								{ kind: 'habitats', serverUrl: getServerUrl(), filters: { isActive: true } },
 							]}

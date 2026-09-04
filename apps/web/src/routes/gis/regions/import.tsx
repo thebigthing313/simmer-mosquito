@@ -280,7 +280,6 @@ function ImportRegionsRoute() {
 		<MapSplitPage
 			map={
 				<MapCanvas
-					controls={{ layers: false }}
 					geoJson={items.length === 0 ? null : previewGeoJson}
 					geoJsonInteraction={{
 						onSelectFeature: (id) =>

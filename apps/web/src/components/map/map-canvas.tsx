@@ -8,7 +8,6 @@ import { GeolocateControl } from './geolocate-control';
 import { MapContextMenu, type MapContextMenuConfig } from './map-context-menu';
 import { MapFallback } from './map-fallback';
 import { type MapInset, NO_MAP_INSET } from './map-inset';
-import { MapLayerControls } from './map-layer-controls';
 import { MapLegend, type MapLegendEntry } from './map-legend';
 import { MapReadout } from './map-readout';
 import { MapSearch } from './map-search';
@@ -31,12 +30,11 @@ import { useTileLayer } from './use-tile-layer';
 /**
  * Which on-map controls to render. Every control defaults to on; a consuming
  * route opts out of the ones it doesn't need — e.g. a habitat detail map turns
- * off `search` and `layers` to keep a focused, single-purpose surface.
+ * off `search` and `geolocate` to keep a focused, single-purpose surface.
  */
 export interface MapControlsConfig {
 	readonly search?: boolean;
 	readonly basemap?: boolean;
-	readonly layers?: boolean;
 	readonly geolocate?: boolean;
 	readonly zoom?: boolean;
 	/** Ephemeral distance/area tools. Off by default — see {@link MeasureControl}. */
@@ -51,10 +49,11 @@ export interface MapControlsConfig {
 }
 
 /**
- * The baseline full-bleed map surface for the GIS Data explorer. Owns the GL
- * instance and basemap choice, then arranges the floating controls — search,
- * basemap switch, layers, geolocate, zoom — around the map without crowding it.
- * Routes choose which controls appear through {@link MapControlsConfig}.
+ * The map surface every map-bearing route draws on. Owns the GL instance and
+ * basemap choice, then arranges the floating controls around the map without
+ * crowding it: search, basemap switch, measure, geolocate, zoom. Routes choose
+ * which controls appear through {@link MapControlsConfig}, and which records
+ * draw through the `layers` list.
  */
 export function MapCanvas({
 	className,
@@ -142,7 +141,6 @@ export function MapCanvas({
 	const show = {
 		search: controls?.search ?? true,
 		basemap: controls?.basemap ?? true,
-		layers: controls?.layers ?? true,
 		geolocate: controls?.geolocate ?? true,
 		zoom: controls?.zoom ?? true,
 		// Opt-in rather than on by default: measuring is occasional, and a map
@@ -248,7 +246,7 @@ export function MapCanvas({
 								<MapSearch map={map} width={searchWidth} />
 							</div>
 						) : null}
-						{show.basemap || show.layers || legend !== undefined ? (
+						{show.basemap || legend !== undefined ? (
 							<div
 								className="pointer-events-auto absolute top-4 flex flex-col items-end gap-3"
 								style={{ right: EDGE + clear.right }}
@@ -256,7 +254,6 @@ export function MapCanvas({
 								{show.basemap ? (
 									<BasemapSwitcher onChange={setBasemapId} value={basemapId} />
 								) : null}
-								{show.layers ? <MapLayerControls /> : null}
 								{legend === undefined ? null : <MapLegend entries={legend} />}
 							</div>
 						) : null}

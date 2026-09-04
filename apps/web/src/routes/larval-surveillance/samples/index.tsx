@@ -308,7 +308,7 @@ function SamplesExplorerRoute() {
 						inset={panel.inset}
 						searchWidth={panel.width}
 						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
-						controls={{ layers: false, measure: true, readout: true }}
+						controls={{ measure: true, readout: true }}
 						fitToData
 						layers={layers}
 						legend={legend}
