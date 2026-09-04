@@ -24,6 +24,7 @@ import {
 import { CheckIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useRef, useState } from 'react';
+import { ProjectedCoordinatesNote } from './projected-coordinates-note';
 import type { DrawGeometry } from './use-map-draw';
 
 /**
@@ -194,18 +195,6 @@ export function GeometryImportDialog({
 				</DialogFooter>
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-function ProjectedCoordinatesNote({ count }: { readonly count: number }) {
-	if (count === 0) {
-		return null;
-	}
-	return (
-		<p className="m-0 text-muted-foreground text-xs">
-			{count} {count === 1 ? 'shape uses' : 'shapes use'} coordinates outside the longitude/latitude
-			range. Re-export the file as WGS84 (EPSG:4326) to use {count === 1 ? 'it' : 'them'}.
-		</p>
 	);
 }
 

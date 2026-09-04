@@ -80,6 +80,67 @@ describe('parseGeoJson', () => {
 	});
 });
 
+describe('projected coordinates', () => {
+	// State Plane feet: parses as GeoJSON, lands nowhere on earth.
+	const projectedSquare = [
+		[6_012_345, 1_876_543],
+		[6_012_345, 1_876_643],
+		[6_012_445, 1_876_643],
+		[6_012_445, 1_876_543],
+		[6_012_345, 1_876_543],
+	];
+
+	it('offers nothing from a file whose coordinates are all projected', () => {
+		const result = parseGeoJson(
+			JSON.stringify({ type: 'Polygon', coordinates: [projectedSquare] }),
+		);
+		expect(result.regions).toEqual([]);
+		expect(result.projected).toBe(1);
+	});
+
+	it('offers only the WGS84 shapes from a mixed file and counts the rest', () => {
+		const geojson = JSON.stringify({
+			type: 'FeatureCollection',
+			features: [
+				{
+					type: 'Feature',
+					properties: { name: 'North' },
+					geometry: { type: 'Polygon', coordinates: [square] },
+				},
+				{
+					type: 'Feature',
+					properties: { name: 'Projected' },
+					geometry: { type: 'Polygon', coordinates: [projectedSquare] },
+				},
+			],
+		});
+
+		const result = parseGeoJson(geojson);
+
+		expect(result.regions.map((region) => region.name)).toEqual(['North']);
+		expect(result.projected).toBe(1);
+	});
+
+	it('counts each part of a projected multipolygon', () => {
+		const result = parseGeoJson(
+			JSON.stringify({ type: 'MultiPolygon', coordinates: [[projectedSquare], [projectedSquare]] }),
+		);
+		expect(result.regions).toEqual([]);
+		expect(result.projected).toBe(2);
+	});
+
+	it('reports nothing withheld for a fully valid file', () => {
+		const result = parseGeoJson(JSON.stringify({ type: 'Polygon', coordinates: [square] }));
+		expect(result.regions).toHaveLength(1);
+		expect(result.projected).toBe(0);
+	});
+
+	it('reports nothing withheld when the file could not be parsed', () => {
+		const result = parseRegionsFromFile('{ not json', 'broken.geojson');
+		expect(result.projected).toBe(0);
+	});
+});
+
 describe('flattenPolygons', () => {
 	it('recurses geometry collections and drops non-areal members', () => {
 		const polygons = flattenPolygons({
