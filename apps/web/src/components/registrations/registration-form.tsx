@@ -1,5 +1,4 @@
 import { createNotificationRegistrationCommand } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	FormSection,
 	LocationSection,
@@ -10,19 +9,14 @@ import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/com
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useId, useMemo, useState } from 'react';
+import { useId, useMemo, useState } from 'react';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../forms/domain-validation';
 import type { UnitLabel } from '../../hooks/queries/use-unit-labels';
 import { unitOptions } from '../../lib/unit-options';
 import { MapCanvas } from '../map';
-import { DrawToolbar, GeometryControl, useFitToGeometry } from '../map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../map/use-address-point';
-import {
-	type DrawGeometry,
-	type DrawGeometryType,
-	type MapDrawController,
-	useMapDraw,
-} from '../map/use-map-draw';
+import { DrawToolbar, GeometryControl } from '../map/geometry-control';
+import { type DrawLocation, useDrawLocation } from '../map/use-draw-location';
+import type { DrawGeometry, DrawGeometryType, MapDrawController } from '../map/use-map-draw';
 import { type AddressOption, AddressPicker } from '../pickers/address-picker';
 import { ContactPicker } from '../pickers/contact-picker';
 import type { RequestMapPoint } from '../pickers/new-address-form';
@@ -120,7 +114,7 @@ export interface RegistrationFormFieldsProps {
 	readonly organizationId: string;
 	readonly units: readonly UnitLabel[];
 	readonly notificationTypes: readonly { readonly id: string; readonly label: string }[];
-	readonly location: ReturnType<typeof useRegistrationLocation>;
+	readonly location: DrawLocation;
 }
 
 /**
@@ -160,12 +154,12 @@ export function RegistrationFormFields({
 				form={form}
 				geometry={geometry}
 				geometryType={geometryType}
-				locationError={location.error}
+				locationError={location.locationError}
 				onAddressSelected={location.selectAddress}
 				onClear={location.clear}
 				onDraw={location.startDraw}
 				onMoveToAddress={location.moveToAddress}
-				onTypeChange={location.setGeometryType}
+				onTypeChange={location.changeType}
 				organizationId={organizationId}
 				requestMapPoint={location.requestMapPoint}
 			/>
@@ -202,98 +196,22 @@ export function RegistrationFormFields({
 }
 
 /**
- * Everything the map half of this form holds, as one controller.
+ * The map half of a registration, as the shared record-form controller.
  *
- * The pieces move each other. Picking an address places the point, changing the
- * geometry type restarts the draw, drawing anything clears the location error,
- * so holding them as seven separate `useState` calls in the page makes the page
- * responsible for wiring that has nothing to do with the fields beside it. Same
- * reason `routes/operations/-location-section.tsx` puts geometry in a controller
- * rather than in form state.
+ * The canvas belongs to the page, which draws every registration this contact
+ * already has whether or not one is being edited, so the map is handed in rather
+ * than claimed: a controller that owned the map would mean a second map beside
+ * the one already on screen.
  */
-// Sixteen hooks, and every one of them is a piece of the same answer. This is
-// the shape the habitat, inspection and service-request forms already hold their
-// geometry in, all of which sit above the threshold in the saved baseline;
-// splitting it further would separate controls that move each other.
-// fallow-ignore-next-line complexity
 export function useRegistrationLocation(
-	// The canvas belongs to the page, which draws every registration this contact
-	// already has whether or not one is being edited. So the controller is handed
-	// the instance rather than claiming it: a controller that owned the map would
-	// mean a second map beside the one already on screen.
 	map: MapboxMap | null,
 	initialGeometry: DrawGeometry | null,
-) {
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryType, setType] = useState<DrawGeometryType>(initialGeometry?.type ?? 'Point');
-	const [error, setError] = useState<string | null>(null);
-
-	const onChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		if (next !== null) {
-			setError(null);
-		}
-	}, []);
-
-	const draw = useMapDraw({ map, isLoaded: map !== null, value: geometry, onChange });
-	const { start, requestPoint, isDrawing } = draw;
-
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, isDrawing);
-
-	const placePoint = useCallback((point: DrawPoint) => setGeometry(point), []);
-	const { addressCoord, moveToAddress, selectAddress } = useAddressPoint({
-		geometry,
-		onPlacePoint: placePoint,
+): DrawLocation {
+	return useDrawLocation({
+		initialGeometry,
+		map,
+		missingMessage: 'Draw the place this registration covers.',
 	});
-
-	const clearError = useCallback(() => setError(null), []);
-	const clear = useCallback(() => setGeometry(null), []);
-
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
-
-	const startDraw = useCallback(() => {
-		setError(null);
-		start(geometryType);
-	}, [geometryType, start]);
-
-	const setGeometryType = useCallback(
-		(next: DrawGeometryType) => {
-			setType(next);
-			// Restart the draw in the new shape rather than leaving the toolbar
-			// saying one thing while the map is still drawing another.
-			if (isDrawing) {
-				start(next);
-			}
-		},
-		[isDrawing, start],
-	);
-
-	const pickAddress = useCallback(
-		(option: AddressOption | null) => {
-			setError(null);
-			selectAddress(option);
-		},
-		[selectAddress],
-	);
-
-	return {
-		addressCoord,
-		clear,
-		clearError,
-		draw,
-		error,
-		geometry,
-		geometryType,
-		moveToAddress,
-		requestMapPoint,
-		selectAddress: pickAddress,
-		setError,
-		setGeometryType,
-		startDraw,
-	};
 }
 
 /**

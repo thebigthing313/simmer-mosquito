@@ -7,16 +7,15 @@ import {
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
 	GeometryControl,
 	POINT_DRAW_TYPES,
-	useFitToGeometry,
 } from '../../../components/map/geometry-control';
-import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry, MapDrawController } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
@@ -101,30 +100,12 @@ export function WeatherStationFormPage({
 	submitLabel,
 	onSave,
 }: WeatherStationFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [geometryError, setGeometryError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		setGeometryChanged(true);
-		if (next !== null) {
-			setGeometryError(null);
-		}
-	}, []);
-
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
+	const location = useDrawLocation({
+		initialGeometry,
+		missingMessage: 'Place the station on the map before saving.',
 	});
-	const { start } = draw;
-
-	useFitToGeometry(map, geometry, draw.isDrawing);
+	const { draw, geometry } = location;
 
 	const form = useAppForm({
 		defaultValues,
@@ -150,27 +131,16 @@ export function WeatherStationFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
-			if (geometry === null) {
-				setGeometryError('Place the station on the map before saving.');
+			if (!location.requireGeometry() || geometry === null) {
 				return;
 			}
 			try {
-				await onSave({ values: value, geometry, geometryChanged });
+				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 			} catch (error) {
 				setSaveError(error instanceof Error ? error.message : 'Unable to save weather station.');
 			}
 		},
 	});
-
-	const startDraw = useCallback(() => {
-		setGeometryError(null);
-		start('Point');
-	}, [start]);
-
-	const clearGeometry = useCallback(() => {
-		setGeometry(null);
-		setGeometryChanged(true);
-	}, []);
 
 	return (
 		<form.AppForm>
@@ -184,7 +154,7 @@ export function WeatherStationFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<MapCanvas controls={{ layers: false }} onMapReady={location.onMapReady} />
 						<DrawToolbar controller={draw} geometryType="Point" />
 						<MapLegend mode={mode} />
 					</>
@@ -224,10 +194,10 @@ export function WeatherStationFormPage({
 
 				<LocationSection
 					controller={draw}
-					error={geometryError}
+					error={location.locationError}
 					geometry={geometry}
-					onClear={clearGeometry}
-					onDraw={startDraw}
+					onClear={location.clear}
+					onDraw={location.startDraw}
 				/>
 
 				<form.AppField name="metadata">
@@ -259,7 +229,7 @@ function LocationSection({
 	onClear,
 }: {
 	readonly geometry: DrawGeometry | null;
-	readonly controller: ReturnType<typeof useMapDraw>;
+	readonly controller: MapDrawController;
 	readonly error: string | null;
 	readonly onDraw: () => void;
 	readonly onClear: () => void;

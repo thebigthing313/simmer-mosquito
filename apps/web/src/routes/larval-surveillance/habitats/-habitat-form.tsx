@@ -11,21 +11,12 @@ import {
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	useFitToGeometry,
-} from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
-import {
-	type DrawGeometry,
-	type DrawGeometryType,
-	useMapDraw,
-} from '../../../components/map/use-map-draw';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry, DrawGeometryType } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { WriteOnly } from '../../../components/write-only';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
@@ -62,6 +53,8 @@ export interface HabitatFormPageProps {
 	readonly onSave: (input: {
 		readonly values: HabitatFormValues;
 		readonly geometry: DrawGeometry;
+		/** True when the user drew or redrew the shape this session. */
+		readonly geometryChanged: boolean;
 	}) => Promise<void>;
 }
 
@@ -97,53 +90,12 @@ export function HabitatFormPage({
 	submitLabel,
 	onSave,
 }: HabitatFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryType, setGeometryType] = useState<DrawGeometryType>(
-		initialGeometry?.type ?? 'Point',
-	);
-	const [geometryError, setGeometryError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		if (next !== null) {
-			setGeometryError(null);
-		}
-	}, []);
-
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
+	const location = useDrawLocation({
+		initialGeometry,
+		missingMessage: 'Draw the habitat geometry on the map before saving.',
 	});
-	const { start, requestPoint } = draw;
-
-	// One frame the geometry lands, ease the map to frame it (edit pre-fill, or a
-	// freshly finished draw) so the result is centered without a manual pan.
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
-
-	// Reuse the address subform's manual "place on map" affordance against the same
-	// draw controller; it captures one click and resolves a point.
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
-
-	// Seeding from an address (or moving onto one) replaces the shape with a point,
-	// so the tool selector follows it. Same rule as every other located record:
-	// linking an address fills an empty location and never overwrites a drawn one.
-	const placeAddressPoint = useCallback((point: DrawPoint) => {
-		setGeometry(point);
-		setGeometryType('Point');
-		setGeometryError(null);
-	}, []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
-		geometry,
-		onPlacePoint: placeAddressPoint,
-	});
+	const { addressCoord, draw, geometry, geometryType } = location;
 
 	const form = useAppForm({
 		defaultValues,
@@ -172,35 +124,16 @@ export function HabitatFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
-			if (geometry === null) {
-				setGeometryError('Draw the habitat geometry on the map before saving.');
+			if (!location.requireGeometry() || geometry === null) {
 				return;
 			}
 			try {
-				await onSave({ values: value, geometry });
+				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 			} catch (error) {
 				setSaveError(error instanceof Error ? error.message : 'Unable to save habitat.');
 			}
 		},
 	});
-
-	const handleTypeChange = useCallback(
-		(next: DrawGeometryType) => {
-			setGeometryType(next);
-			// A new shape replaces the old one; clear so a stale point/line/polygon
-			// isn't silently saved under the wrong type.
-			setGeometry(null);
-			if (draw.isDrawing) {
-				start(next);
-			}
-		},
-		[draw.isDrawing, start],
-	);
-
-	const startDraw = useCallback(() => {
-		setGeometryError(null);
-		start(geometryType);
-	}, [geometryType, start]);
 
 	// On edit, open the map already framed on the saved geometry; create starts on
 	// the org's default view and lets the user pan to the site.
@@ -222,7 +155,7 @@ export function HabitatFormPage({
 						<MapCanvas
 							controls={{ layers: false }}
 							habitatLayer={{ serverUrl: getServerUrl(), filters: { isActive: true } }}
-							onMapReady={handleMapReady}
+							onMapReady={location.onMapReady}
 							{...(editCamera === undefined ? {} : { camera: editCamera })}
 						/>
 						<DrawToolbar
@@ -279,15 +212,15 @@ export function HabitatFormPage({
 				<WriteOnly minimum="manager">
 					<LocationSection
 						description="The geometry is the habitat itself — a point for a single site, a line or area for a stretch of one. An address is optional reference."
-						error={geometryError}
+						error={location.locationError}
 					>
 						<form.AppField name="addressId">
 							{(field) => (
 								<AddressPicker
-									create={{ requestMapPoint }}
+									create={{ requestMapPoint: location.requestMapPoint }}
 									onSelect={(address) => {
 										field.handleChange(address?.id ?? null);
-										selectAddress(address);
+										location.selectAddress(address);
 									}}
 									organizationId={organizationId}
 									value={field.state.value}
@@ -301,11 +234,11 @@ export function HabitatFormPage({
 							geometryType={geometryType}
 							label="Geometry"
 							required
-							onClear={() => setGeometry(null)}
-							onDraw={startDraw}
-							onTypeChange={handleTypeChange}
+							onClear={location.clear}
+							onDraw={location.startDraw}
+							onTypeChange={location.changeType}
 							organizationId={organizationId}
-							{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+							{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
 						/>
 					</LocationSection>
 				</WriteOnly>

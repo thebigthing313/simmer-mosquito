@@ -1,7 +1,7 @@
 import { LocationSection as LocationBand } from '@simmer-mosquito/ui-web/components/form';
 import type { ReactNode } from 'react';
 import { GeometryControl } from '../../components/map/geometry-control';
-import type { DrawLocation } from './-draw-location';
+import type { DrawLocation } from '../../components/map/use-draw-location';
 
 /**
  * The location band, wired to a {@link DrawLocation} controller.

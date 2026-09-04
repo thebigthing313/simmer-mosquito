@@ -1,32 +1,32 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useState } from 'react';
-import { useFitToGeometry } from '../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../components/map/use-address-point';
+import type { RequestMapPoint } from '../pickers/new-address-form';
+import { useFitToGeometry } from './geometry-control';
+import { type DrawPoint, useAddressPoint } from './use-address-point';
 import {
 	type DrawGeometry,
 	type DrawGeometryType,
 	type MapDrawController,
 	useMapDraw,
-} from '../../components/map/use-map-draw';
-import type { RequestMapPoint } from '../../components/pickers/new-address-form';
+} from './use-map-draw';
 
 /**
- * Everything a form's location section needs to hold.
+ * Everything a record form's location section holds.
  *
  * The map instance, the shape being drawn, which tool is drawing it, an outline
- * shown behind it for context, and the "you have not placed this yet" error are
- * one piece of state wearing five `useState`s. Pulled out of the route components
- * because they only ever change together, and because leaving them inline put
- * more than twenty hooks in one function.
+ * shown behind it for context, whether the shape has been redrawn, and the "you
+ * have not placed this yet" error are one piece of state wearing six
+ * `useState`s. Twelve forms had each written their own copy, and the copies had
+ * drifted: the habitat form tracked no redraw flag at all and its route
+ * recovered one by comparing two JSON serialisations, so a description edit
+ * named `updateHabitatLocation` and was refused for a collector (#427). The
+ * registration form's tool selector left the old shape in place, so a point
+ * could be saved under `Polygon`.
  *
  * It deliberately does not know about the form: `addressId` and `habitatId` stay
  * form fields, and their `onSelect` handlers call in here for the map's half of
  * the reaction. What lives here is only what a map draws.
- *
- * Three surfaces share it — raising a request, editing one, and placing an ad hoc
- * mission stop — and all three capture the same thing: one Point, LineString, or
- * Polygon the record will own.
  */
 export interface DrawLocation {
 	readonly geometry: DrawGeometry | null;
@@ -37,7 +37,8 @@ export interface DrawLocation {
 	 *
 	 * An edit only sends a location source when this is true: the server
 	 * re-resolves geometry from whatever it is handed, so re-sending an unchanged
-	 * shape is a write nobody asked for.
+	 * shape is a write nobody asked for, and on habitats it is a write the
+	 * collector floor refuses.
 	 */
 	readonly geometryChanged: boolean;
 	/** Context drawn behind the record's own shape — a habitat outline, say. */
@@ -58,6 +59,8 @@ export interface DrawLocation {
 	 * user placed is the answer and must not be overwritten by a later pick.
 	 */
 	readonly selectReference: (point: { readonly lat: number; readonly lng: number } | null) => void;
+	/** The context outline directly, for a form that fetches a whole shape rather than a point. */
+	readonly setReferenceGeometry: (next: GeoJsonGeometry | null) => void;
 	readonly startDraw: () => void;
 	readonly changeType: (next: DrawGeometryType) => void;
 	readonly clear: () => void;
@@ -66,21 +69,55 @@ export interface DrawLocation {
 	readonly requireGeometry: () => boolean;
 }
 
-export function useDrawLocation(options: {
+export interface DrawLocationOptions {
 	/** The shape the record already holds. Edit forms seed it; create forms do not. */
 	readonly initialGeometry?: DrawGeometry | null;
+	/**
+	 * The tool a form with no shape yet starts on. A region is an area; every
+	 * other record starts as a point and may be widened.
+	 */
+	readonly geometryType?: DrawGeometryType;
+	/** Context the form opens with, such as the trap a collection already names. */
+	readonly initialReferenceGeometry?: GeoJsonGeometry | null;
+	/**
+	 * The map, when the page owns the canvas rather than the form.
+	 *
+	 * A contact's registrations all draw on one map the page holds, so the
+	 * controller is handed the instance rather than claiming it. Left out, the
+	 * form wires {@link DrawLocation.onMapReady} to its own `MapCanvas`.
+	 */
+	readonly map?: MapboxMap | null;
 	/** What to say when submit finds no geometry. */
 	readonly missingMessage: string;
-}): DrawLocation {
-	const { initialGeometry = null, missingMessage } = options;
+	/**
+	 * Whether a shape must be placed to submit.
+	 *
+	 * False on the edit forms whose location the record already has:
+	 * {@link DrawLocation.requireGeometry} passes an empty map, and the save sends
+	 * no location command.
+	 */
+	readonly required?: boolean;
+}
 
-	const [map, setMap] = useState<MapboxMap | null>(null);
+export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
+	const {
+		initialGeometry = null,
+		initialReferenceGeometry = null,
+		map: externalMap,
+		missingMessage,
+		required = true,
+	} = options;
+
+	const [ownMap, setOwnMap] = useState<MapboxMap | null>(null);
+	const map = externalMap === undefined ? ownMap : externalMap;
 	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
 	const [geometryType, setGeometryType] = useState<DrawGeometryType>(
-		initialGeometry?.type ?? 'Point',
+		initialGeometry?.type ?? options.geometryType ?? 'Point',
 	);
 	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [referenceGeometry, setReferenceGeometry] = useState<GeoJsonGeometry | null>(null);
+	const [referenceGeometry, setReferenceGeometry] = useState<GeoJsonGeometry | null>(
+		initialReferenceGeometry,
+	);
 	const [locationError, setLocationError] = useState<string | null>(null);
 
 	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
@@ -110,6 +147,7 @@ export function useDrawLocation(options: {
 		setGeometry(point);
 		setGeometryType('Point');
 		setGeometryChanged(true);
+		setLocationError(null);
 	}, []);
 	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
 		geometry,
@@ -156,13 +194,13 @@ export function useDrawLocation(options: {
 	}, [geometryType, start]);
 
 	const requireGeometry = useCallback(() => {
-		if (geometry === null) {
+		if (geometry === null && required) {
 			setLocationError(missingMessage);
 			return false;
 		}
 		setLocationError(null);
 		return true;
-	}, [geometry, missingMessage]);
+	}, [geometry, missingMessage, required]);
 
 	return {
 		geometry,
@@ -172,7 +210,7 @@ export function useDrawLocation(options: {
 		referenceGeometry,
 		locationError,
 		addressCoord,
-		onMapReady: setMap,
+		onMapReady: setOwnMap,
 		requestMapPoint: useCallback<RequestMapPoint>(
 			(pointOptions) => requestPoint(pointOptions?.prompt),
 			[requestPoint],
@@ -180,6 +218,7 @@ export function useDrawLocation(options: {
 		selectAddress,
 		moveToAddress,
 		selectReference,
+		setReferenceGeometry,
 		startDraw,
 		changeType,
 		clear: useCallback(() => {

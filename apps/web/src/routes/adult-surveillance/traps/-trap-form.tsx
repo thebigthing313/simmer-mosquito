@@ -1,5 +1,4 @@
 import { createTrapCommand } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	FormSection,
 	LocationSection,
@@ -7,17 +6,15 @@ import {
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
 	GeometryControl,
 	POINT_DRAW_TYPES,
-	useFitToGeometry,
 } from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
-import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import type { TrapFields } from '../../../hooks/mutations/use-trap-mutations';
 import type {
@@ -114,37 +111,15 @@ export function TrapFormPage({
 	submitLabel,
 	onSave,
 }: TrapFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [locationError, setLocationError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		setGeometryChanged(true);
-		if (next !== null) {
-			setLocationError(null);
-		}
-	}, []);
 	// The draw layer both renders the trap's point and edits it, so the map needs no
 	// separate preview feature.
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
+	const location = useDrawLocation({
+		initialGeometry,
+		missingMessage: 'Place the trap point on the map.',
+		required: requireLocation,
 	});
-	const { start, requestPoint } = draw;
-	// The inline "create address" subform places its point against this form's own
-	// map, so a new address can be sited without leaving the record being filled in.
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
-
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
+	const { addressCoord, draw, geometry } = location;
 
 	const methodOptions = useMemo(
 		() =>
@@ -178,41 +153,21 @@ export function TrapFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
-			setLocationError(null);
+			location.clearError();
 			if (value.collectionMethodId === '') {
 				setSaveError('Select the collection method for this trap.');
 				return;
 			}
-			if (requireLocation && geometry === null) {
-				setLocationError('Place the trap point on the map.');
+			if (!location.requireGeometry()) {
 				return;
 			}
 			try {
-				await onSave({ values: value, geometry, geometryChanged });
+				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 			} catch (error) {
 				setSaveError(error instanceof Error ? error.message : 'Unable to save trap.');
 			}
 		},
 	});
-
-	const placeAddressPoint = useCallback((point: DrawPoint) => {
-		setGeometry(point);
-		setGeometryChanged(true);
-	}, []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
-		geometry,
-		onPlacePoint: placeAddressPoint,
-	});
-
-	const startDraw = useCallback(() => {
-		setLocationError(null);
-		start('Point');
-	}, [start]);
-
-	const clearPoint = useCallback(() => {
-		setGeometry(null);
-		setGeometryChanged(true);
-	}, []);
 
 	return (
 		<form.AppForm>
@@ -226,7 +181,7 @@ export function TrapFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<MapCanvas controls={{ layers: false }} onMapReady={location.onMapReady} />
 						<DrawToolbar
 							controller={draw}
 							geometryType="Point"
@@ -248,17 +203,17 @@ export function TrapFormPage({
 
 				<LocationSection
 					description="The point is the trap’s exact location. An address is optional reference — refine the point off it to the precise spot."
-					error={locationError}
+					error={location.locationError}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
 							<AddressPicker
-								create={{ requestMapPoint }}
+								create={{ requestMapPoint: location.requestMapPoint }}
 								label="Address"
 								onSelect={(address) => {
 									field.handleChange(address?.id ?? null);
-									setLocationError(null);
-									selectAddress(address);
+									location.clearError();
+									location.selectAddress(address);
 								}}
 								organizationId={organizationId}
 								value={field.state.value}
@@ -273,9 +228,9 @@ export function TrapFormPage({
 						geometryType="Point"
 						label="Point"
 						required={requireLocation}
-						onClear={clearPoint}
-						onDraw={startDraw}
-						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+						onClear={location.clear}
+						onDraw={location.startDraw}
+						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
 					/>
 				</LocationSection>
 

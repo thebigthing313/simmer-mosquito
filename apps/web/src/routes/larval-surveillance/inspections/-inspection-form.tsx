@@ -35,23 +35,14 @@ import {
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { CheckIcon, PlusIcon, SearchIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
-import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useDeferredValue, useMemo, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { densityLabel, type LifeStageFlags } from '../../../components/larval-display';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	useFitToGeometry,
-} from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
-import {
-	type DrawGeometry,
-	type DrawGeometryType,
-	useMapDraw,
-} from '../../../components/map/use-map-draw';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
@@ -292,61 +283,29 @@ export function InspectionFormPage({
 	const entryMode = policy.mode;
 	const columns = resultColumnsForMode(entryMode);
 
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [adhocGeometry, setAdhocGeometry] = useState<DrawGeometry | null>(initialAdhocGeometry);
-	const [adhocGeometryType, setAdhocGeometryType] = useState<DrawGeometryType>(
-		initialAdhocGeometry?.type ?? 'Point',
-	);
-	// The selected habitat's shape, shown for reference in habitat mode. Ad-hoc
-	// geometry is rendered by the draw layer instead.
-	const [previewGeometry, setPreviewGeometry] = useState<GeoJsonGeometry | null>(
-		initialPreviewGeometry,
-	);
-	const [locationError, setLocationError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
+	// Habitat mode reports against the same band as the drawn location, but it is
+	// a missing pick rather than a missing shape, so the hook does not own it.
+	const [habitatError, setHabitatError] = useState<string | null>(null);
 	// Switching to dry throws away whatever abundance was keyed in — the command
 	// rejects a dry inspection that carries any — so the crew is asked first.
 	const [pendingDry, setPendingDry] = useState(false);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleAdhocGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setAdhocGeometry(next);
-		if (next !== null) {
-			setLocationError(null);
-		}
-	}, []);
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: adhocGeometry,
-		onChange: handleAdhocGeometryChange,
+	// `referenceGeometry` is the selected habitat's shape, shown for reference in
+	// habitat mode. Ad-hoc geometry is rendered by the draw layer instead.
+	const location = useDrawLocation({
+		initialGeometry: initialAdhocGeometry,
+		initialReferenceGeometry: initialPreviewGeometry,
+		missingMessage: 'Map the area this ad-hoc inspection covers.',
 	});
-	const { start, requestPoint } = draw;
-
-	// The address picker's own "Create Address" places its point against this
-	// form's map, so a new address can be sited without leaving the inspection.
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
-
-	// Same rule as every other located record: linking an address fills an empty
-	// location and never overwrites a shape the crew drew. Moving onto it stays an
-	// explicit act.
-	const placeAddressPoint = useCallback((point: DrawPoint) => {
-		setAdhocGeometry(point);
-		setAdhocGeometryType('Point');
-		setLocationError(null);
-	}, []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
+	const {
+		addressCoord,
+		draw,
 		geometry: adhocGeometry,
-		onPlacePoint: placeAddressPoint,
-	});
-
-	// Ease the map to frame whatever location is currently chosen (a selected
-	// habitat's geometry or freshly drawn ad-hoc geometry) without a manual pan.
-	useFitToGeometry(map, previewGeometry, draw.isDrawing);
-	useFitToGeometry(map, adhocGeometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
+		geometryType: adhocGeometryType,
+		referenceGeometry: previewGeometry,
+		setReferenceGeometry,
+		startDraw,
+	} = location;
 
 	const form = useAppForm({
 		defaultValues,
@@ -387,13 +346,13 @@ export function InspectionFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
-			setLocationError(null);
+			location.clearError();
+			setHabitatError(null);
 			if (value.locationMode === 'habitat' && value.habitatId === null) {
-				setLocationError('Select the habitat this inspection covers.');
+				setHabitatError('Select the habitat this inspection covers.');
 				return;
 			}
-			if (value.locationMode === 'adhoc' && adhocGeometry === null) {
-				setLocationError('Map the area this ad-hoc inspection covers.');
+			if (value.locationMode === 'adhoc' && !location.requireGeometry()) {
 				return;
 			}
 			try {
@@ -408,41 +367,28 @@ export function InspectionFormPage({
 		},
 	});
 
-	const handleHabitatSelected = useCallback((habitat: HabitatMatch | null) => {
-		setLocationError(null);
-		if (habitat === null) {
-			setPreviewGeometry(null);
-			return;
-		}
-		// Habitat geometry is not part of the Electric shape (ADR 0009); fetch it so
-		// the map can frame the selected habitat.
-		void fetchHabitatGeometry(habitat.id).then((geometry) => setPreviewGeometry(geometry));
-	}, []);
-
-	// Switching tools replaces the shape, so the old one is cleared rather than
-	// silently saved under the wrong type.
-	const handleAdhocTypeChange = useCallback(
-		(next: DrawGeometryType) => {
-			setAdhocGeometryType(next);
-			setAdhocGeometry(null);
-			if (draw.isDrawing) {
-				start(next);
+	const { clearError } = location;
+	const handleHabitatSelected = useCallback(
+		(habitat: HabitatMatch | null) => {
+			clearError();
+			setHabitatError(null);
+			if (habitat === null) {
+				setReferenceGeometry(null);
+				return;
 			}
+			// Habitat geometry is not part of the Electric shape (ADR 0009); fetch it
+			// so the map can frame the selected habitat.
+			void fetchHabitatGeometry(habitat.id).then((geometry) => setReferenceGeometry(geometry));
 		},
-		[draw.isDrawing, start],
+		[clearError, setReferenceGeometry],
 	);
 
 	const startAdhocDraw = useCallback(() => {
-		setLocationError(null);
 		// Ad-hoc geometry is the inspection's own; drop any habitat reference shape
 		// still framing the map from a previous mode.
-		setPreviewGeometry(null);
-		start(adhocGeometryType);
-	}, [adhocGeometryType, start]);
-
-	const clearAdhoc = useCallback(() => {
-		setAdhocGeometry(null);
-	}, []);
+		setReferenceGeometry(null);
+		startDraw();
+	}, [setReferenceGeometry, startDraw]);
 
 	return (
 		<form.AppForm>
@@ -460,7 +406,7 @@ export function InspectionFormPage({
 							controls={{ layers: false }}
 							geoJson={previewGeometry as unknown as GeoJSON.GeoJSON | null}
 							habitatLayer={{ serverUrl: getServerUrl(), filters: { isActive: true } }}
-							onMapReady={handleMapReady}
+							onMapReady={location.onMapReady}
 						/>
 						<DrawToolbar controller={draw} geometryType={adhocGeometryType} />
 					</>
@@ -529,7 +475,7 @@ export function InspectionFormPage({
 							? 'The habitat or ad-hoc choice is fixed. Record a new inspection to cover a different site.'
 							: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers. An address is optional reference.'
 					}
-					error={locationError}
+					error={habitatError ?? location.locationError}
 				>
 					<form.AppField name="locationMode">
 						{(field) => (
@@ -584,12 +530,12 @@ export function InspectionFormPage({
 									<form.AppField name="addressId">
 										{(field) => (
 											<AddressPicker
-												create={{ requestMapPoint }}
+												create={{ requestMapPoint: location.requestMapPoint }}
 												label="Address"
 												onSelect={(address) => {
 													field.handleChange(address?.id ?? null);
-													setLocationError(null);
-													selectAddress(address);
+													location.clearError();
+													location.selectAddress(address);
 												}}
 												organizationId={organizationId}
 												value={field.state.value}
@@ -602,12 +548,12 @@ export function InspectionFormPage({
 										geometry={adhocGeometry}
 										geometryType={adhocGeometryType}
 										label="Inspected location"
-										onClear={clearAdhoc}
+										onClear={location.clear}
 										onDraw={startAdhocDraw}
-										onTypeChange={handleAdhocTypeChange}
+										onTypeChange={location.changeType}
 										organizationId={organizationId}
 										required
-										{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+										{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
 									/>
 									<form.AppField name="habitatTypeId">
 										{(field) => (

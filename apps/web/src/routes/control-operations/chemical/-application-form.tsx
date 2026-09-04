@@ -2,7 +2,6 @@ import {
 	expandFormulationApplicationCommands,
 	recordChemicalApplicationCommand,
 } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -17,22 +16,13 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	useFitToGeometry,
-} from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
-import {
-	type DrawGeometry,
-	type DrawGeometryType,
-	useMapDraw,
-} from '../../../components/map/use-map-draw';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
@@ -238,38 +228,13 @@ export function ApplicationFormPage({
 	submitLabel,
 	onSave,
 }: ApplicationFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryType, setGeometryType] = useState<DrawGeometryType>(
-		initialGeometry?.type ?? 'Point',
-	);
-	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [locationError, setLocationError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		setGeometryChanged(true);
-		if (next !== null) {
-			setLocationError(null);
-		}
-	}, []);
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
+	const location = useDrawLocation({
+		initialGeometry,
+		missingMessage: 'Map where the product was applied.',
+		required: requireLocation,
 	});
-	const { start, requestPoint } = draw;
-	// The inline "create address" subform places its point against this form's own
-	// map, so a new address can be sited without leaving the record being filled in.
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
-
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
+	const { addressCoord, draw, geometry, geometryType } = location;
 
 	const insecticideOptions = useMemo(
 		() => lifecycleOptions(insecticides, (row) => row.isActive, insecticideDisplayName),
@@ -429,59 +394,22 @@ export function ApplicationFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
-			setLocationError(null);
+			location.clearError();
 			const invalid = validate(value, componentsFor(value.formulationId).length);
 			if (invalid !== null) {
 				setSaveError(invalid);
 				return;
 			}
-			if (requireLocation && geometry === null) {
-				setLocationError('Map where the product was applied.');
+			if (!location.requireGeometry()) {
 				return;
 			}
 			try {
-				await onSave({ values: value, geometry, geometryChanged });
+				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 			} catch (error) {
 				setSaveError(error instanceof Error ? error.message : 'Unable to save application.');
 			}
 		},
 	});
-
-	// Seeding from an address (or moving onto one) replaces the drawn shape with a
-	// point, so the tool selector follows it.
-	const placeAddressPoint = useCallback((point: DrawPoint) => {
-		setGeometry(point);
-		setGeometryType('Point');
-		setGeometryChanged(true);
-	}, []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
-		geometry,
-		onPlacePoint: placeAddressPoint,
-	});
-
-	// Switching tools replaces the shape, so the old one is cleared rather than
-	// silently saved under the wrong type.
-	const handleTypeChange = useCallback(
-		(next: DrawGeometryType) => {
-			setGeometryType(next);
-			setGeometry(null);
-			setGeometryChanged(true);
-			if (draw.isDrawing) {
-				start(next);
-			}
-		},
-		[draw.isDrawing, start],
-	);
-
-	const startDraw = useCallback(() => {
-		setLocationError(null);
-		start(geometryType);
-	}, [geometryType, start]);
-
-	const clearGeometry = useCallback(() => {
-		setGeometry(null);
-		setGeometryChanged(true);
-	}, []);
 
 	return (
 		<form.AppForm>
@@ -495,7 +423,7 @@ export function ApplicationFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<MapCanvas controls={{ layers: false }} onMapReady={location.onMapReady} />
 						<DrawToolbar controller={draw} geometryType={geometryType} />
 					</>
 				}
@@ -554,17 +482,17 @@ export function ApplicationFormPage({
 
 				<LocationSection
 					description="The geometry is where the product was applied — a point for a spot treatment, a line or area for a treated swath. An address is optional reference, and a habitat links the treatment to a known larval site."
-					error={locationError}
+					error={location.locationError}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
 							<AddressPicker
-								create={{ requestMapPoint }}
+								create={{ requestMapPoint: location.requestMapPoint }}
 								label="Address"
 								onSelect={(address) => {
 									field.handleChange(address?.id ?? null);
-									setLocationError(null);
-									selectAddress(address);
+									location.clearError();
+									location.selectAddress(address);
 								}}
 								organizationId={organizationId}
 								value={field.state.value}
@@ -578,11 +506,11 @@ export function ApplicationFormPage({
 						geometryType={geometryType}
 						label="Geometry"
 						required={requireLocation}
-						onClear={clearGeometry}
-						onDraw={startDraw}
-						onTypeChange={handleTypeChange}
+						onClear={location.clear}
+						onDraw={location.startDraw}
+						onTypeChange={location.changeType}
 						organizationId={organizationId}
-						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
 					/>
 
 					<form.AppField name="habitatId">

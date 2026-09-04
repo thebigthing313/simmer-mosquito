@@ -22,6 +22,20 @@
  * first command's fields under the second command's name and be dropped behind
  * a 200.
  *
+ * {@link habitatUpdatePlan} is that comparison, pure and tested on its own.
+ *
+ * ## The redraw flag comes from the map, not from a diff
+ *
+ * `updateHabitatLocation` is manager-and-above while `updateHabitatDetails` is
+ * collector-and-above, and the server authorizes intent names before any builder
+ * runs. So naming the location command on a save that touched no shape is not a
+ * wasted write, it is a refusal: #427 was a collector unable to fix a
+ * description. The edit route used to recover the flag by comparing
+ * `JSON.stringify` of the drawn shape against `JSON.stringify` of the one the
+ * geometry endpoint returned, two serialisations built by different code that
+ * differ on key order and float formatting. The flag now comes from
+ * `useDrawLocation`, which knows because it is the state the draw writes into.
+ *
  * ## The geometry is a location source, not a column
  *
  * `geom` never syncs (ADR 0009), so the shape rides beside the row as
@@ -69,6 +83,86 @@ export interface HabitatFields {
 	readonly metadata: unknown;
 }
 
+/** The shape a redrawn habitat carries, with the centroid the row shows before the trigger answers. */
+export interface HabitatRedraw {
+	readonly geometry: GeoJsonGeometry;
+	readonly centroid: HabitatCentroid;
+}
+
+type HabitatUpdateIntent =
+	| 'larvalSurveillance.updateHabitatDetails'
+	| 'larvalSurveillance.updateHabitatConfiguration'
+	| 'larvalSurveillance.updateHabitatLocation';
+
+/** What an edit means, the columns it moves, and the shape it carries. */
+export interface HabitatUpdatePlan {
+	readonly intents: readonly HabitatUpdateIntent[];
+	readonly changes: Partial<Habitat>;
+	/** Present only when the shape was redrawn. */
+	readonly locationSource?: { readonly kind: 'geometry'; readonly geometry: GeoJsonGeometry };
+}
+
+/**
+ * Which of the three commands an edit is, from what actually changed.
+ *
+ * Pure and exported for its tests. `null` when nothing moved, because an
+ * untouched save is not a write and the domain refuses a command with nothing to
+ * change.
+ *
+ * `redraw` is null when the user did not touch the map, and that is the whole of
+ * #427: `updateHabitatLocation` sits at the manager floor while
+ * `updateHabitatDetails` sits at the collector floor, and the server authorizes
+ * the intent names before any builder runs. A description edit that named the
+ * location command was refused outright for a collector.
+ */
+export function habitatUpdatePlan(input: {
+	readonly fields: HabitatFields;
+	readonly current: HabitatFields;
+	readonly redraw: HabitatRedraw | null;
+}): HabitatUpdatePlan | null {
+	const { fields, current, redraw } = input;
+	const intents: HabitatUpdateIntent[] = [];
+	const changes: Partial<Habitat> = {};
+
+	if (
+		fields.habitatName !== current.habitatName ||
+		fields.description !== current.description ||
+		metadataChanged(current.metadata, fields.metadata)
+	) {
+		intents.push('larvalSurveillance.updateHabitatDetails');
+		changes.habitat_name = fields.habitatName;
+		changes.description = fields.description;
+		changes.metadata = fields.metadata ?? null;
+	}
+
+	if (fields.addressId !== current.addressId || fields.habitatTypeId !== current.habitatTypeId) {
+		intents.push('larvalSurveillance.updateHabitatConfiguration');
+		changes.address_id = fields.addressId;
+		changes.habitat_type_id = fields.habitatTypeId;
+	}
+
+	if (redraw !== null) {
+		intents.push('larvalSurveillance.updateHabitatLocation');
+		changes.lat = redraw.centroid.lat;
+		changes.lng = redraw.centroid.lng;
+		changes.geom_type = redraw.centroid.geomType;
+	}
+
+	if (intents.length === 0) {
+		return null;
+	}
+
+	// The location source is absent unless the location command is one of the
+	// names: a shape sent under a command with no reader for it is a key the
+	// server ignores, and sending one anyway makes the body claim an edit it is
+	// not making.
+	return {
+		intents,
+		changes,
+		...(redraw === null ? {} : { locationSource: { kind: 'geometry', geometry: redraw.geometry } }),
+	};
+}
+
 export interface HabitatMutations {
 	/** Returns the new habitat's id, so the caller can navigate to it. */
 	readonly create: (
@@ -79,7 +173,7 @@ export interface HabitatMutations {
 	/**
 	 * Save an edited habitat.
 	 *
-	 * `geometry` is null when the shape was not redrawn, which is not the same as
+	 * `redraw` is null when the shape was not redrawn, which is not the same as
 	 * clearing it: naming the location command with the shape it already has is a
 	 * write with no edit behind it, and the domain refuses it.
 	 *
@@ -90,7 +184,7 @@ export interface HabitatMutations {
 		habitatId: string,
 		fields: HabitatFields,
 		current: HabitatFields,
-		geometry: { readonly geometry: GeoJsonGeometry; readonly centroid: HabitatCentroid } | null,
+		redraw: HabitatRedraw | null,
 	) => Promise<void>;
 	/** Whether crews can reach it — two commands rather than a boolean read for its direction. */
 	readonly setInaccessible: (habitatId: string, isInaccessible: boolean) => Promise<void>;
@@ -159,62 +253,24 @@ export function useHabitatMutations(): HabitatMutations {
 			habitatId: string,
 			fields: HabitatFields,
 			current: HabitatFields,
-			geometry: { readonly geometry: GeoJsonGeometry; readonly centroid: HabitatCentroid } | null,
+			redraw: HabitatRedraw | null,
 		) => {
-			const intents: (
-				| 'larvalSurveillance.updateHabitatDetails'
-				| 'larvalSurveillance.updateHabitatConfiguration'
-				| 'larvalSurveillance.updateHabitatLocation'
-			)[] = [];
-			const changes: Partial<Habitat> = {};
-
-			if (
-				fields.habitatName !== current.habitatName ||
-				fields.description !== current.description ||
-				metadataChanged(current.metadata, fields.metadata)
-			) {
-				intents.push('larvalSurveillance.updateHabitatDetails');
-				changes.habitat_name = fields.habitatName;
-				changes.description = fields.description;
-				changes.metadata = fields.metadata ?? null;
-			}
-
-			if (
-				fields.addressId !== current.addressId ||
-				fields.habitatTypeId !== current.habitatTypeId
-			) {
-				intents.push('larvalSurveillance.updateHabitatConfiguration');
-				changes.address_id = fields.addressId;
-				changes.habitat_type_id = fields.habitatTypeId;
-			}
-
-			if (geometry !== null) {
-				intents.push('larvalSurveillance.updateHabitatLocation');
-				changes.lat = geometry.centroid.lat;
-				changes.lng = geometry.centroid.lng;
-				changes.geom_type = geometry.centroid.geomType;
-			}
-
-			if (intents.length === 0) {
+			const plan = habitatUpdatePlan({ fields, current, redraw });
+			if (plan === null) {
 				return;
 			}
 
 			await settleWrite(
 				mutateCollection(habitats, {
 					operation: 'update',
-					intent: intents,
+					intent: plan.intents,
 					key: habitatId,
 					changes: {
-						...changes,
+						...plan.changes,
 						updated_by_profile_id: actorProfileId,
 						updated_at: optimisticStamp(),
 					},
-					// Absent unless the location command is one of the names: a shape sent
-					// under a command with no reader for it is a key the server ignores,
-					// and sending one anyway makes the body claim an edit it is not making.
-					...(geometry === null
-						? {}
-						: { locationSource: { kind: 'geometry', geometry: geometry.geometry } }),
+					...(plan.locationSource === undefined ? {} : { locationSource: plan.locationSource }),
 				}),
 			);
 		},

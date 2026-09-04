@@ -14,6 +14,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { useMissionItemMutations } from '../../../hooks/mutations/use-mission-item-mutations';
 import { missionDisplayName } from '../../../hooks/queries/operations-view';
@@ -22,7 +23,6 @@ import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { isBelowRole } from '../../../lib/write-access';
 import { useCommandRunner } from '../-command-runner';
-import { useDrawLocation } from '../-draw-location';
 import { LocationSection } from '../-location-section';
 import { canEditMissionPlan, useMissionStopViews } from '../-operations-data';
 

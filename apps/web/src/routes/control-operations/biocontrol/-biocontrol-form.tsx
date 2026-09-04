@@ -1,5 +1,4 @@
 import { isBiocontrolUnitType, recordBiocontrolActionCommand } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -11,29 +10,19 @@ import {
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	useFitToGeometry,
-} from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
-import {
-	type DrawGeometry,
-	type DrawGeometryType,
-	useMapDraw,
-} from '../../../components/map/use-map-draw';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
 	validationLocationSource,
 } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
-import type { HabitatMatch } from '../../../hooks/queries/habitat-view';
 import type { SchemaCatalogListing } from '../../../hooks/queries/use-catalog-rosters';
 import type { ProfileListing } from '../../../hooks/queries/use-profile-roster';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
@@ -145,44 +134,16 @@ export function BiocontrolFormPage({
 	submitLabel,
 	onSave,
 }: BiocontrolFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryType, setGeometryType] = useState<DrawGeometryType>(
-		initialGeometry?.type ?? 'Point',
-	);
-	const [geometryChanged, setGeometryChanged] = useState(false);
-	// A habitat's shape, shown alongside the action's own geometry for context —
-	// never the action's geometry itself, which the draw layer renders.
-	const [referenceGeometry, setReferenceGeometry] = useState<GeoJsonGeometry | null>(null);
-	const [locationError, setLocationError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		setGeometryChanged(true);
-		if (next !== null) {
-			setLocationError(null);
-		}
-	}, []);
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
+	// `referenceGeometry` is a habitat's shape, shown alongside the action's own
+	// geometry for context — never the action's geometry itself, which the draw
+	// layer renders.
+	const location = useDrawLocation({
+		initialGeometry,
+		missingMessage: 'Map where the agents were released.',
+		required: requireLocation,
 	});
-	const { start, requestPoint } = draw;
-	// The inline "create address" subform places its point against this form's own
-	// map, so a new address can be sited without leaving the record being filled in.
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
-
-	// The action's own geometry is framed last so it wins when a habitat pick and
-	// a geometry change land on the same render.
-	useFitToGeometry(map, referenceGeometry, draw.isDrawing);
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
+	const { addressCoord, draw, geometry, geometryType, referenceGeometry } = location;
 
 	const methodOptions = useMemo(
 		() =>
@@ -231,7 +192,7 @@ export function BiocontrolFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
-			setLocationError(null);
+			location.clearError();
 			if (value.biocontrolMethodId === '') {
 				setSaveError('Select the biocontrol method that was used.');
 				return;
@@ -248,78 +209,16 @@ export function BiocontrolFormPage({
 				setSaveError('Enter the date the agents were released.');
 				return;
 			}
-			if (requireLocation && geometry === null) {
-				setLocationError('Map where the agents were released.');
+			if (!location.requireGeometry()) {
 				return;
 			}
 			try {
-				await onSave({ values: value, geometry, geometryChanged });
+				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 			} catch (error) {
 				setSaveError(error instanceof Error ? error.message : 'Unable to save biocontrol action.');
 			}
 		},
 	});
-
-	// Seeding from an address (or moving onto one) replaces the drawn shape with a
-	// point, so the tool selector follows it.
-	const placeAddressPoint = useCallback((point: DrawPoint) => {
-		setGeometry(point);
-		setGeometryType('Point');
-		setGeometryChanged(true);
-	}, []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
-		geometry,
-		onPlacePoint: placeAddressPoint,
-	});
-
-	// Picking a habitat frames the map on the larval site the release targets, and
-	// seeds the geometry there when nothing has been drawn yet.
-	const handleHabitatSelected = useCallback(
-		(habitat: HabitatMatch | null) => {
-			if (habitat === null) {
-				setReferenceGeometry(null);
-				return;
-			}
-			const point: DrawGeometry = {
-				type: 'Point',
-				coordinates: [habitat.longitude, habitat.latitude],
-			};
-			if (geometry === null) {
-				// Seeded as the action's own geometry, so it needs no reference copy.
-				setGeometry(point);
-				setGeometryType('Point');
-				setGeometryChanged(true);
-				setReferenceGeometry(null);
-				return;
-			}
-			setReferenceGeometry(point as unknown as GeoJsonGeometry);
-		},
-		[geometry],
-	);
-
-	// Switching tools replaces the shape, so the old one is cleared rather than
-	// silently saved under the wrong type.
-	const handleTypeChange = useCallback(
-		(next: DrawGeometryType) => {
-			setGeometryType(next);
-			setGeometry(null);
-			setGeometryChanged(true);
-			if (draw.isDrawing) {
-				start(next);
-			}
-		},
-		[draw.isDrawing, start],
-	);
-
-	const startDraw = useCallback(() => {
-		setLocationError(null);
-		start(geometryType);
-	}, [geometryType, start]);
-
-	const clearGeometry = useCallback(() => {
-		setGeometry(null);
-		setGeometryChanged(true);
-	}, []);
 
 	return (
 		<form.AppForm>
@@ -336,7 +235,7 @@ export function BiocontrolFormPage({
 						<MapCanvas
 							controls={{ layers: false }}
 							geoJson={referenceGeometry as unknown as GeoJSON.GeoJSON | null}
-							onMapReady={handleMapReady}
+							onMapReady={location.onMapReady}
 						/>
 						<DrawToolbar controller={draw} geometryType={geometryType} />
 					</>
@@ -395,17 +294,17 @@ export function BiocontrolFormPage({
 
 				<LocationSection
 					description="The geometry is where the agents were released — a point for a single release, a line or area for a distributed one. An address is optional reference, and a habitat links the release to the larval site it was performed against."
-					error={locationError}
+					error={location.locationError}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
 							<AddressPicker
-								create={{ requestMapPoint }}
+								create={{ requestMapPoint: location.requestMapPoint }}
 								label="Address"
 								onSelect={(address) => {
 									field.handleChange(address?.id ?? null);
-									setLocationError(null);
-									selectAddress(address);
+									location.clearError();
+									location.selectAddress(address);
 								}}
 								organizationId={organizationId}
 								value={field.state.value}
@@ -419,11 +318,11 @@ export function BiocontrolFormPage({
 						geometryType={geometryType}
 						label="Geometry"
 						required={requireLocation}
-						onClear={clearGeometry}
-						onDraw={startDraw}
-						onTypeChange={handleTypeChange}
+						onClear={location.clear}
+						onDraw={location.startDraw}
+						onTypeChange={location.changeType}
 						organizationId={organizationId}
-						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
 					/>
 
 					<form.AppField name="habitatId">
@@ -433,7 +332,12 @@ export function BiocontrolFormPage({
 								organizationId={organizationId}
 								onSelect={(habitat) => {
 									field.handleChange(habitat?.id ?? null);
-									handleHabitatSelected(habitat);
+									// The habitat is larval context, not the action's location, but
+									// framing the map on it (and seeding unplaced geometry) saves the
+									// crew a pan across the county.
+									location.selectReference(
+										habitat === null ? null : { lat: habitat.latitude, lng: habitat.longitude },
+									);
 								}}
 								value={field.state.value}
 							/>
