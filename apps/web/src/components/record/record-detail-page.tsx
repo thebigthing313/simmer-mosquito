@@ -125,7 +125,7 @@ export function RecordDetailPage<TRecord>(
 				) : (
 					<div className="flex items-center justify-between gap-3">
 						<BackTo back={back} />
-						<div className="flex items-center gap-2">{actions}</div>
+						<div className="flex flex-wrap items-center gap-2">{actions}</div>
 					</div>
 				)}
 				{props.body === undefined ? (
