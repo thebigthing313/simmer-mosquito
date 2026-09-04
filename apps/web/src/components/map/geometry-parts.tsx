@@ -1,7 +1,14 @@
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { CircleIcon, MapPinnedIcon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import {
+	CircleIcon,
+	iconRegistry,
+	MapPinnedIcon,
+	XIcon,
+} from '@simmer-mosquito/ui-web/icons/registry';
 import { useState } from 'react';
 import { type DrawGeometryType, type DrawPartGeometry, drawHoles } from './use-map-draw';
+
+const EditIcon = iconRegistry.actions.edit.icon;
 
 /**
  * How a drawn shape and its pieces are named on screen.
@@ -136,13 +143,14 @@ export function GeometryPartSummary({
  * No reorder, because a shape's piece order carries no meaning, and no redraw,
  * because Remove then Add piece is the same result with one mode fewer.
  *
- * Cut hole is a per-row action here rather than one button on the control,
- * because the piece is named before the gesture starts. Nothing is hit-tested to
- * work out which piece a hole was meant for.
+ * Cut hole and Continue are per-row actions here rather than buttons on the
+ * control, because the piece is named before the gesture starts. Nothing is
+ * hit-tested to work out which piece was meant.
  */
 export function GeometryPartList({
 	parts,
 	disabled,
+	onContinue,
 	onCutHole,
 	onHighlight,
 	onRemove,
@@ -151,6 +159,7 @@ export function GeometryPartList({
 }: {
 	readonly parts: readonly DrawPartGeometry[];
 	readonly disabled: boolean;
+	readonly onContinue: (index: number) => void;
 	readonly onCutHole: (index: number) => void;
 	readonly onHighlight: (index: number | null) => void;
 	readonly onRemove: (index: number) => void;
@@ -190,6 +199,19 @@ export function GeometryPartList({
 									Piece {index + 1} · {describeDrawPart(part)}
 								</span>
 							</Button>
+							{/* A point is one position, so there is no end to carry on from. */}
+							{part.type === 'Point' ? null : (
+								<Button
+									aria-label={`Continue piece ${index + 1}`}
+									disabled={disabled}
+									onClick={() => onContinue(index)}
+									size="sm"
+									type="button"
+									variant="ghost"
+								>
+									<EditIcon aria-hidden="true" />
+								</Button>
+							)}
 							{/* Areas only: a point and a line have no inside to cut. */}
 							{part.type === 'Polygon' ? (
 								<Button

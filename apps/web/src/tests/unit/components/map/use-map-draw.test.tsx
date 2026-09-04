@@ -739,6 +739,300 @@ describe('useMapDraw', () => {
 		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(BLOCK)] });
 	});
 
+	it('adds to a finished area and keeps the vertices it already had', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+		expect(result.current.draw.vertexCount).toBe(3);
+		act(() => {
+			fake.click(-89, 35);
+		});
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closed([...FIRST_SQUARE, [-89, 35] as const])],
+		});
+	});
+
+	// A ring adopted from a file or a region is only closed if whoever wrote it
+	// closed it, and slicing one that is not would lose a corner.
+	it('keeps every corner of an unclosed ring it continues', () => {
+		const { result } = mountControlled({ type: 'Polygon', coordinates: [[...FIRST_SQUARE]] });
+
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+
+		expect(result.current.draw.vertexCount).toBe(3);
+	});
+
+	it('adds to a finished line at its end', () => {
+		const { fake, result } = mountControlled();
+
+		act(() => {
+			result.current.draw.start('LineString');
+		});
+		act(() => {
+			fake.click(-90, 35);
+		});
+		act(() => {
+			fake.click(-90, 36);
+		});
+		act(() => {
+			result.current.draw.finish();
+		});
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+		act(() => {
+			fake.click(-89, 36);
+		});
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'LineString',
+			coordinates: [
+				[-90, 35],
+				[-90, 36],
+				[-89, 36],
+			],
+		});
+	});
+
+	// A point is one position. There is no end to pick up from.
+	it('has nothing to continue on a point', () => {
+		const { fake, result } = mountControlled();
+
+		act(() => {
+			result.current.draw.start('Point');
+		});
+		act(() => {
+			fake.click(-90, 35);
+		});
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+
+		expect(result.current.draw.isDrawing).toBe(false);
+		expect(result.current.draw.continuedPart).toBeNull();
+	});
+
+	it('refuses to continue a piece that is not there', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.continuePart(4);
+		});
+
+		expect(result.current.draw.isDrawing).toBe(false);
+	});
+
+	it('leaves the other pieces alone while one is continued', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.startPart();
+		});
+		drawPolygon(fake, result, SECOND_SQUARE);
+
+		act(() => {
+			result.current.draw.continuePart(1);
+		});
+		expect(result.current.draw.continuedPart).toEqual({
+			partNumber: 2,
+			partCount: 2,
+			problem: null,
+		});
+		act(() => {
+			fake.click(-79, 35);
+		});
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'MultiPolygon',
+			coordinates: [[closed(FIRST_SQUARE)], [closed([...SECOND_SQUARE, [-79, 35] as const])]],
+		});
+	});
+
+	// The piece being continued is the draft, so drawing it twice would put a
+	// finished outline under a growing one.
+	it('draws the piece being continued once, as the draft', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.startPart();
+		});
+		drawPolygon(fake, result, SECOND_SQUARE);
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+
+		const shapes = fake
+			.featuresOf(SOURCE_ID)
+			.filter((feature) => feature.geometry.type === 'Polygon');
+		expect(shapes).toHaveLength(2);
+	});
+
+	it('puts the piece back as it was when a continuation is cancelled', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+		act(() => {
+			fake.click(-89, 35);
+		});
+		act(() => {
+			result.current.draw.cancel();
+		});
+
+		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(FIRST_SQUARE)] });
+		expect(result.current.draw.isDrawing).toBe(false);
+	});
+
+	// Undo pops what the continuation added and stops there. Eating into the
+	// piece's own vertices would take back work the user never asked to undo.
+	it('undoes only the vertices a continuation added', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+		expect(result.current.draw.canUndo).toBe(false);
+		act(() => {
+			fake.click(-89, 35);
+		});
+		expect(result.current.draw.canUndo).toBe(true);
+
+		act(() => {
+			result.current.draw.undo();
+		});
+		expect(result.current.draw.vertexCount).toBe(3);
+		expect(result.current.draw.canUndo).toBe(false);
+
+		act(() => {
+			result.current.draw.undo();
+		});
+		expect(result.current.draw.vertexCount).toBe(3);
+	});
+
+	it('keeps the holes already cut into the piece it continues', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.startHole(0);
+		});
+		for (const [longitude, latitude] of POND) {
+			act(() => {
+				fake.click(longitude, latitude);
+			});
+		}
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+		// The outline's vertices only. A hole is its own ring and is not being
+		// redrawn.
+		expect(result.current.draw.vertexCount).toBe(4);
+		act(() => {
+			fake.click(-88, 33);
+		});
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closed([...BLOCK, [-88, 33] as const]), closed(POND)],
+		});
+	});
+
+	// Appending a vertex can carve the outline inward, and a hole left outside it
+	// is a polygon PostGIS calls invalid.
+	it('refuses to finish a continuation that has pushed a hole outside', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.startHole(0);
+		});
+		for (const [longitude, latitude] of POND) {
+			act(() => {
+				fake.click(longitude, latitude);
+			});
+		}
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+		act(() => {
+			fake.click(-89.5, 36.5);
+		});
+
+		expect(result.current.draw.canFinish).toBe(false);
+		expect(result.current.draw.continuedPart?.problem).toBe('holesEscape');
+		// Red on the map too, so the refusal is not only a greyed-out button.
+		const refused = fake
+			.featuresOf(SOURCE_ID)
+			.filter((feature) => feature.properties?.refused === true);
+		expect(refused.length).toBeGreaterThan(0);
+
+		act(() => {
+			result.current.draw.finish();
+		});
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+	});
+
+	// The piece being continued is hidden and redrawn as the draft, so its holes
+	// have to come with it, corners and all.
+	it('keeps a hole and its corners on the map through a continuation', () => {
+		const { fake, result } = mountControlled({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+
+		expect(roles(fake)).toEqual([
+			'Polygon',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+		]);
+	});
+
 	it('renders the corners of a hole as vertices of its piece', () => {
 		const { fake } = mount({
 			type: 'Polygon',

@@ -29,6 +29,7 @@ import { GeometryImportDialog } from './geometry-import-dialog';
 import { GEOMETRY_TYPE_LABELS, GeometryPartList, GeometryPartSummary } from './geometry-parts';
 import { RegionBoundaryPicker } from './region-boundary-picker';
 import {
+	type DrawContinueDraft,
 	type DrawGeometry,
 	type DrawGeometryType,
 	type DrawHoleDraft,
@@ -56,6 +57,7 @@ import {
 
 const UploadIcon = iconRegistry.actions.upload.icon;
 const AddIcon = iconRegistry.actions.add.icon;
+const EditIcon = iconRegistry.actions.edit.icon;
 
 export interface GeometryControlProps {
 	readonly controller: MapDrawController;
@@ -101,34 +103,23 @@ export function GeometryControl({
 	extraActions,
 }: GeometryControlProps) {
 	const allowedTypes = getOwnedGeometryBaseTypes(geometryKind);
-	const [isImporting, setIsImporting] = useState(false);
 	const hasGeometry = geometry !== null;
 	const isBusy = controller.isDrawing || controller.isRequestingPoint;
 	// Read off the shape this control is showing rather than off the controller,
 	// because the address form drives the controller for its "place on map" path
 	// alone and holds its point itself.
 	const parts = drawParts(geometry);
+	// One piece is what puts Continue and Cut hole on the control at all. At two
+	// they move onto the rows, where the piece each belongs to is the row it sits
+	// on.
+	const only = parts.length === 1 ? parts[0] : undefined;
 	// Hidden rather than disabled where the record cannot store the multi shape,
 	// so a Notification Registration never offers a piece it would refuse to save.
 	// The first piece is the draw button's, so it needs something to add to.
 	const canAddPart = hasGeometry && ownedGeometryAllowsParts(geometryKind, geometryType);
-	// A hole is a ring inside a ring, so only an area has anywhere to put one. At
-	// two pieces and up it moves onto the rows, where the piece it belongs to is
-	// the row it sits on.
-	const canCutHole = parts.length === 1 && parts[0]?.type === 'Polygon';
 	// Snapping to an address produces a point, so the affordance only belongs on
-	// the point tool — offering it under Line/Polygon would contradict the toggle.
+	// the point tool. Offering it under Line/Polygon would contradict the toggle.
 	const canMoveToAddress = onMoveToAddress !== undefined && geometryType === 'Point';
-	// A region boundary is an area, so the shortcut belongs to that tool only.
-	const canUseRegion =
-		geometryType === 'Polygon' && organizationId !== undefined && organizationId.length > 0;
-	// What the record stores, filtered to what the file parser can produce. The
-	// parser is the narrower of the two: it has no Point arm and KML carries
-	// geometry only as an area or a line, so a Point-only record offers no file
-	// import at all and importing a point is a capability nothing has yet.
-	const importableTypes: readonly ImportGeometryKind[] =
-		getOwnedGeometryPolicy(geometryKind).allowedTypes.filter(isImportGeometryKind);
-	const canImportFile = importableTypes.length > 0;
 
 	return (
 		<div className="grid gap-2 rounded-md border border-border/40 bg-background/70 p-3">
@@ -180,6 +171,7 @@ export function GeometryControl({
 			{parts.length > 1 ? (
 				<GeometryPartList
 					disabled={isBusy}
+					onContinue={controller.continuePart}
 					onCutHole={controller.startHole}
 					onHighlight={controller.highlightPart}
 					onRemove={controller.removePart}
@@ -210,6 +202,19 @@ export function GeometryControl({
 					)}
 					{controller.isDrawing ? 'Drawing on the Map…' : drawLabel(geometryType, hasGeometry)}
 				</Button>
+				{/* A point is one position, so there is no end to carry on from. */}
+				{only !== undefined && only.type !== 'Point' ? (
+					<Button
+						disabled={isBusy}
+						onClick={() => controller.continuePart(0)}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						<EditIcon aria-hidden="true" data-icon="inline-start" />
+						Continue
+					</Button>
+				) : null}
 				{canAddPart ? (
 					<Button
 						disabled={isBusy}
@@ -222,7 +227,8 @@ export function GeometryControl({
 						Add piece
 					</Button>
 				) : null}
-				{canCutHole ? (
+				{/* A hole is a ring inside a ring, so only an area has anywhere to put one. */}
+				{only?.type === 'Polygon' ? (
 					<Button
 						disabled={isBusy}
 						onClick={() => controller.startHole(0)}
@@ -255,35 +261,86 @@ export function GeometryControl({
 				) : null}
 			</div>
 
-			{/* Shapes an agency already holds — a region boundary, a file from GIS
-			    staff — beat re-tracing them by hand, so they sit beside the draw
-			    tool rather than replacing it: whatever lands here is still editable. */}
-			{canUseRegion || canImportFile ? (
-				<div className="flex flex-wrap items-center gap-2 border-border/40 border-t pt-2">
-					<span className="text-muted-foreground text-xs">Fill from</span>
-					{canUseRegion && organizationId !== undefined ? (
-						<RegionBoundaryPicker
-							allowsParts={ownedGeometryAllowsParts(geometryKind, 'Polygon')}
-							disabled={isBusy}
-							onSelect={(boundary) => controller.commit(boundary)}
-							organizationId={organizationId}
-						/>
-					) : null}
-					{canImportFile ? (
-						<Button
-							aria-label="Fill this geometry from a KML, KMZ, or GeoJSON file"
-							disabled={isBusy}
-							onClick={() => setIsImporting(true)}
-							size="sm"
-							type="button"
-							variant="outline"
-						>
-							<UploadIcon aria-hidden="true" data-icon="inline-start" />
-							File
-						</Button>
-					) : null}
-				</div>
-			) : null}
+			<GeometrySources
+				controller={controller}
+				geometryKind={geometryKind}
+				geometryType={geometryType}
+				isBusy={isBusy}
+				onTypeChange={onTypeChange}
+				organizationId={organizationId}
+			/>
+		</div>
+	);
+}
+
+/**
+ * The shapes an agency already holds: one of its regions, or a KML, KMZ or
+ * GeoJSON file from GIS staff.
+ *
+ * Both beat re-tracing a boundary by hand, so they sit beside the draw tool
+ * rather than replacing it. Both commit through the same draw controller, so
+ * what lands here can still be redrawn or cleared.
+ */
+function GeometrySources({
+	controller,
+	geometryKind,
+	geometryType,
+	isBusy,
+	onTypeChange,
+	organizationId,
+}: {
+	readonly controller: MapDrawController;
+	readonly geometryKind: OwnedGeometryKind;
+	readonly geometryType: DrawGeometryType;
+	readonly isBusy: boolean;
+	readonly onTypeChange: ((type: DrawGeometryType) => void) | undefined;
+	readonly organizationId: string | undefined;
+}) {
+	const [isImporting, setIsImporting] = useState(false);
+	// A region boundary is an area, so the shortcut belongs to that tool only, and
+	// there has to be an agency to search.
+	const regionOrganizationId =
+		geometryType === 'Polygon' && organizationId !== undefined && organizationId.length > 0
+			? organizationId
+			: null;
+	// What the record stores, filtered to what the file parser can produce. The
+	// parser is the narrower of the two: it has no Point arm and KML carries
+	// geometry only as an area or a line, so a Point-only record offers no file
+	// import at all and importing a point is a capability nothing has yet.
+	const importableTypes: readonly ImportGeometryKind[] =
+		getOwnedGeometryPolicy(geometryKind).allowedTypes.filter(isImportGeometryKind);
+	const canImportFile = importableTypes.length > 0;
+
+	if (regionOrganizationId === null && !canImportFile) {
+		return null;
+	}
+
+	return (
+		<>
+			<div className="flex flex-wrap items-center gap-2 border-border/40 border-t pt-2">
+				<span className="text-muted-foreground text-xs">Fill from</span>
+				{regionOrganizationId === null ? null : (
+					<RegionBoundaryPicker
+						allowsParts={ownedGeometryAllowsParts(geometryKind, 'Polygon')}
+						disabled={isBusy}
+						onSelect={(boundary) => controller.commit(boundary)}
+						organizationId={regionOrganizationId}
+					/>
+				)}
+				{canImportFile ? (
+					<Button
+						aria-label="Fill this geometry from a KML, KMZ, or GeoJSON file"
+						disabled={isBusy}
+						onClick={() => setIsImporting(true)}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						<UploadIcon aria-hidden="true" data-icon="inline-start" />
+						File
+					</Button>
+				) : null}
+			</div>
 
 			{canImportFile ? (
 				<GeometryImportDialog
@@ -302,7 +359,7 @@ export function GeometryControl({
 					open={isImporting}
 				/>
 			) : null}
-		</div>
+		</>
 	);
 }
 
@@ -339,14 +396,12 @@ export function DrawToolbar({
 		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
 			<div className="pointer-events-auto flex max-w-full flex-col gap-2 rounded-lg border border-border/60 bg-card/95 p-2 shadow-lg backdrop-blur-sm">
 				<p className="m-0 px-1 text-muted-foreground text-xs">
-					{controller.holeDraft === null
-						? drawInstruction(geometryType, controller.vertexCount, controller.isAddingPart)
-						: holeInstruction(controller.vertexCount, controller.holeDraft)}
+					{toolbarInstruction(controller, geometryType)}
 				</p>
 				<div className="flex items-center gap-1.5">
 					{isPoint ? null : (
 						<Button
-							disabled={controller.vertexCount === 0}
+							disabled={!controller.canUndo}
 							onClick={controller.undo}
 							size="sm"
 							type="button"
@@ -419,6 +474,17 @@ function drawLabel(type: DrawGeometryType, hasGeometry: boolean): string {
 	return `${verb} ${type === 'LineString' ? 'Line' : 'Polygon'}`;
 }
 
+/** What the toolbar says the current draw is, which is one of three things. */
+function toolbarInstruction(controller: MapDrawController, type: DrawGeometryType): string {
+	if (controller.holeDraft !== null) {
+		return holeInstruction(controller.vertexCount, controller.holeDraft);
+	}
+	if (controller.continuedPart !== null) {
+		return continueInstruction(controller.vertexCount, controller.continuedPart);
+	}
+	return drawInstruction(type, controller.vertexCount, controller.isAddingPart);
+}
+
 function drawInstruction(
 	type: DrawGeometryType,
 	vertexCount: number,
@@ -460,6 +526,22 @@ function holeInstruction(vertexCount: number, draft: DrawHoleDraft): string {
 			? `Click the map to start the hole in piece ${draft.partNumber}.`
 			: 'Click the map to start the hole.';
 	return progress(vertexCount, 3, start);
+}
+
+/**
+ * What the toolbar says while a finished piece is being added to.
+ *
+ * It opens with the piece's vertices already on the map, so there is no "start
+ * here" line to write. The piece is named once there are several, the way a hole
+ * names the one it is cut into.
+ */
+function continueInstruction(vertexCount: number, draft: DrawContinueDraft): string {
+	const named = draft.partCount > 1 ? `piece ${draft.partNumber}` : 'the shape';
+	if (draft.problem === 'holesEscape') {
+		return `The holes must stay inside ${named}.`;
+	}
+	const count = `${vertexCount} ${vertexCount === 1 ? 'vertex' : 'vertices'}`;
+	return `Continuing ${named} · ${count} · double-click or Finish to complete.`;
 }
 
 /** How far along a ring or a line is, once it has a vertex on the map. */
