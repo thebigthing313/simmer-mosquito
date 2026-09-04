@@ -19,14 +19,34 @@ import type {
 	LineLayerSpecification,
 	Map as MapboxMap,
 	MapMouseEvent,
+	PointLike,
 } from 'mapbox-gl';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import {
+	type Dispatch,
+	type SetStateAction,
+	useCallback,
+	useEffect,
+	useMemo,
+	useRef,
+	useState,
+} from 'react';
+import {
+	closeRing,
+	type DrawPosition,
+	type DrawRing,
+	type DrawVertexRef,
+	hasDistinctPositions,
+	insertRingVertex,
+	moveRingVertex,
+	nearestRingEdge,
+	removeRingVertex,
+	samePosition,
+	unclosedRing,
+} from './draw-vertex-edit';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
-type Position = readonly [number, number];
-type Ring = readonly Position[];
-type PolygonRings = readonly Ring[];
+type PolygonRings = readonly DrawRing[];
 
 /**
  * The shape the type toggle offers, which is the domain's base shapes.
@@ -47,10 +67,10 @@ export type DrawGeometryType = BaseGeometryType;
  * point paths read `coordinates[0]` and `[1]` directly.
  */
 export type DrawGeometry =
-	| { readonly type: 'Point'; readonly coordinates: Position }
-	| { readonly type: 'LineString'; readonly coordinates: Ring }
+	| { readonly type: 'Point'; readonly coordinates: DrawPosition }
+	| { readonly type: 'LineString'; readonly coordinates: DrawRing }
 	| { readonly type: 'Polygon'; readonly coordinates: PolygonRings }
-	| { readonly type: 'MultiPoint'; readonly coordinates: Ring }
+	| { readonly type: 'MultiPoint'; readonly coordinates: DrawRing }
 	| { readonly type: 'MultiLineString'; readonly coordinates: PolygonRings }
 	| { readonly type: 'MultiPolygon'; readonly coordinates: readonly PolygonRings[] };
 
@@ -160,7 +180,7 @@ export function geometryFromParts(parts: readonly DrawPartGeometry[]): DrawGeome
  * A polygon's first ring is its outline and every ring after it is a hole, so
  * the hole rows and Remove both read this rather than slicing rings by hand.
  */
-export function drawHoles(part: DrawPartGeometry): readonly Ring[] {
+export function drawHoles(part: DrawPartGeometry): readonly DrawRing[] {
 	return part.type === 'Polygon' ? part.coordinates.slice(1) : [];
 }
 
@@ -202,6 +222,23 @@ export type DrawContinueProblem = 'holesEscape';
 /** The part being continued, and what is wrong with the outline as drawn. */
 export interface DrawContinueDraft extends DrawPartTarget {
 	readonly problem: DrawContinueProblem | null;
+}
+
+/**
+ * Why a part as edited cannot go back into the shape.
+ *
+ * `holesEscape` is the continuation's, read from the other end: a hole the edit
+ * has pushed outside the outline, or one that now takes the whole of it.
+ * `tooFewVertices` is a ring left below the three distinct corners an area
+ * needs, or a line below two, which Delete may do and Finish may not.
+ */
+export type DrawEditProblem = DrawContinueProblem | 'tooFewVertices';
+
+/** The part being edited, what is wrong with it, and which vertex is picked. */
+export interface DrawEditDraft extends DrawPartTarget {
+	readonly problem: DrawEditProblem | null;
+	/** The vertex Delete would remove, or null while none is picked. */
+	readonly selected: DrawVertexRef | null;
 }
 
 /**
@@ -252,6 +289,31 @@ export interface MapDrawController {
 	readonly continuePart: (index: number) => void;
 	/** The part being continued, or null while the draw is not one. */
 	readonly continuedPart: DrawContinueDraft | null;
+	/**
+	 * Open the part at `index` for vertex editing: every ring it has, shell and
+	 * holes, seeded into a draft that drags, inserts and deletes corners. Finish
+	 * puts it back at the index it came from, Cancel leaves it as it was.
+	 *
+	 * A no-op for an index no part holds. A point is **not** a no-op here, unlike
+	 * {@link continuePart}: it is one position, so there is no end to carry on
+	 * from, but there is a corner to pick up and move. Insert and Delete have
+	 * nothing to act on there, and dropping the position would leave a piece with
+	 * no way back, which is what `removePart` is for.
+	 */
+	readonly editPart: (index: number) => void;
+	/** The part being edited, or null while the draw is not one. */
+	readonly editedPart: DrawEditDraft | null;
+	/** Put one vertex of the open edit at `position`. */
+	readonly moveVertex: (vertex: DrawVertexRef, position: DrawPosition) => void;
+	/**
+	 * Put `position` on the edge that starts at `edge`, between its two ends
+	 * rather than at the end of the ring, and pick the new vertex.
+	 */
+	readonly insertVertex: (edge: DrawVertexRef, position: DrawPosition) => void;
+	/** Drop one vertex of the open edit, below the ring minimum included. */
+	readonly deleteVertex: (vertex: DrawVertexRef) => void;
+	/** Pick the vertex Delete acts on, or clear the pick with `null`. */
+	readonly selectVertex: (vertex: DrawVertexRef | null) => void;
 	/** Drop one part, demoting to the base shape at one and to nothing at zero. */
 	readonly removePart: (index: number) => void;
 	/** Drop one hole from one part, leaving the part itself alone. */
@@ -369,7 +431,10 @@ function drawLayers(): (
 			filter: isVertex,
 			paint: {
 				'circle-color': whenRefused(draft.refused, draft.vertex),
-				'circle-radius': 5,
+				// Weight, not a second colour, so the vertex an edit has picked reads
+				// the way a highlighted piece does. Refusal is the only state that
+				// gets a colour of its own.
+				'circle-radius': whenHighlighted(7.5, 5),
 				'circle-stroke-color': draft.vertexStroke,
 				'circle-stroke-width': 2,
 			},
@@ -395,7 +460,8 @@ const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: 
  * What a finished draw does with the parts already committed. `replace` takes
  * every one of them, which is what "Redraw geometry" means at any part count;
  * `part` appends; `hole` cuts a ring out of the one part it names; `continue`
- * puts back the one part it names, redrawn from the vertices it already had.
+ * puts back the one part it names, redrawn from the vertices it already had;
+ * `edit` puts back the one part it names, rings and all, as the edit left it.
  */
 type DrawTarget =
 	| { readonly kind: 'replace' }
@@ -406,7 +472,8 @@ type DrawTarget =
 			readonly partIndex: number;
 			/** How many vertices the part arrived with, which is where Undo stops. */
 			readonly seeded: number;
-	  };
+	  }
+	| { readonly kind: 'edit'; readonly partIndex: number };
 
 type DrawMode = {
 	readonly kind: 'draw';
@@ -414,14 +481,47 @@ type DrawMode = {
 	readonly target: DrawTarget;
 };
 
+/**
+ * A committed part open for vertex editing.
+ *
+ * Its own mode rather than another {@link DrawTarget}, because a draw collects
+ * one flat list of vertices and an edit holds every ring of the part at once. It
+ * is the seam #496 and #497 are specified to preview into, so opening it,
+ * painting it and committing it are separate from the three gestures that
+ * change it. Neither is built.
+ */
+type EditMode = {
+	readonly kind: 'edit';
+	readonly type: DrawGeometryType;
+	readonly partIndex: number;
+	/** Ring 0 is the outline; the rest are holes. Closing positions are dropped. */
+	readonly rings: readonly DrawRing[];
+	/**
+	 * The rings before each gesture, oldest first.
+	 *
+	 * Undo's floor is the part as it was opened, the way a continuation's floor is
+	 * the vertices it opened with: an edit must not eat into the piece the user
+	 * asked to edit.
+	 */
+	readonly history: readonly (readonly DrawRing[])[];
+	readonly selected: DrawVertexRef | null;
+};
+
 type Mode =
 	| { readonly kind: 'idle' }
 	| DrawMode
+	| EditMode
 	| {
 			readonly kind: 'point';
 			readonly resolve: (point: DrawGeometry & { readonly type: 'Point' }) => void;
 			readonly reject: (error: Error) => void;
 	  };
+
+/** A vertex the pointer has hold of, drawn where the cursor is until it lands. */
+interface DrawDrag {
+	readonly vertex: DrawVertexRef;
+	readonly position: DrawPosition;
+}
 
 /**
  * Binds a draft-geometry source + layers to a live map and runs a small draw
@@ -447,11 +547,11 @@ export function useMapDraw({
 	readonly onChange: (value: DrawGeometry | null) => void;
 }): MapDrawController {
 	const [mode, setMode] = useState<Mode>({ kind: 'idle' });
-	const [vertices, setVertices] = useState<readonly Position[]>([]);
+	const [vertices, setVertices] = useState<readonly DrawPosition[]>([]);
 
 	// Frequently-changing render inputs live in refs so the rubber band can be
 	// repainted on mousemove without a React re-render per frame.
-	const cursorRef = useRef<Position | null>(null);
+	const cursorRef = useRef<DrawPosition | null>(null);
 	const modeRef = useRef(mode);
 	modeRef.current = mode;
 	const verticesRef = useRef(vertices);
@@ -461,9 +561,14 @@ export function useMapDraw({
 	const onChangeRef = useRef(onChange);
 	onChangeRef.current = onChange;
 
+	// The vertex the pointer has hold of rides a ref rather than state, the way
+	// the rubber band does: a drag repaints every frame and lands as one change.
+	const dragRef = useRef<DrawDrag | null>(null);
+
 	const {
 		applyPart,
 		continuePart,
+		editPart,
 		highlightedPart,
 		highlightedRef,
 		highlightPart,
@@ -472,9 +577,18 @@ export function useMapDraw({
 		startHole,
 		startPart,
 		zoomToPart,
-	} = useDrawPartActions({ map, cursorRef, modeRef, valueRef, onChangeRef, setMode, setVertices });
+	} = useDrawPartActions({
+		map,
+		cursorRef,
+		dragRef,
+		modeRef,
+		valueRef,
+		onChangeRef,
+		setMode,
+		setVertices,
+	});
 
-	const { holeDraft, continuedPart } = useDrawDrafts(mode, value, vertices);
+	const { holeDraft, continuedPart, editedPart } = useDrawDrafts(mode, value, vertices);
 
 	const repaint = useCallback(() => {
 		if (!isMapLive(map)) {
@@ -487,6 +601,7 @@ export function useMapDraw({
 				mode: modeRef.current,
 				vertices: verticesRef.current,
 				cursor: cursorRef.current,
+				drag: dragRef.current,
 				highlighted: highlightedRef.current,
 			}),
 		);
@@ -503,6 +618,7 @@ export function useMapDraw({
 				mode,
 				vertices,
 				cursor: cursorRef.current,
+				drag: dragRef.current,
 				highlighted: highlightedPart,
 			}),
 		[value, mode, vertices, highlightedPart],
@@ -529,6 +645,7 @@ export function useMapDraw({
 		mode,
 		modeRef,
 		cursorRef,
+		dragRef,
 		repaint,
 		applyPart,
 		finishRef,
@@ -536,84 +653,54 @@ export function useMapDraw({
 		setVertices,
 	});
 
-	const start = useCallback(
-		(type: DrawGeometryType) => {
-			// Starting a fresh draw clears every committed part, at any part count, so
-			// the map shows exactly what the in-progress shape will become.
-			rejectPending(modeRef.current);
-			cursorRef.current = null;
-			setVertices([]);
-			highlightPart(null);
-			onChangeRef.current(null);
-			setMode({ kind: 'draw', type, target: { kind: 'replace' } });
-		},
-		[highlightPart],
-	);
+	const { selectVertex, moveVertex, insertVertex, deleteVertex } = useDrawVertexActions(setMode);
 
-	const cancel = useCallback(() => {
-		rejectPending(modeRef.current);
-		cursorRef.current = null;
-		setVertices([]);
-		setMode({ kind: 'idle' });
-	}, []);
+	const { start, cancel, commit, undo, finish, requestPoint } = useDrawSession({
+		map,
+		applyPart,
+		highlightPart,
+		cursorRef,
+		dragRef,
+		modeRef,
+		valueRef,
+		verticesRef,
+		onChangeRef,
+		finishRef,
+		setMode,
+		setVertices,
+	});
 
-	const commit = useCallback((geometry: DrawGeometry | null) => {
-		rejectPending(modeRef.current);
-		cursorRef.current = null;
-		setVertices([]);
-		onChangeRef.current(geometry);
-		setMode({ kind: 'idle' });
-	}, []);
+	useDrawEditEvents({
+		map,
+		isLoaded,
+		isEditing: mode.kind === 'edit',
+		modeRef,
+		dragRef,
+		repaint,
+		moveVertex,
+		insertVertex,
+		deleteVertex,
+		selectVertex,
+	});
 
-	const undo = useCallback(() => {
-		setVertices((previous) => poppedTo(previous, vertexFloor(modeRef.current)));
-	}, []);
-
-	const finish = useCallback(() => {
-		const current = modeRef.current;
-		if (current.kind !== 'draw' || current.type === 'Point') {
-			return;
-		}
-		const part = draftPart(current, valueRef.current, dedupeTrailing(verticesRef.current));
-		if (part === null) {
-			return;
-		}
-		applyPart(current.target, part);
-	}, [applyPart]);
-	finishRef.current = finish;
-
-	const requestPoint = useCallback(
-		(_prompt?: string) =>
-			new Promise<DrawGeometry & { readonly type: 'Point' }>((resolve, reject) => {
-				if (!isMapLive(map)) {
-					reject(new Error('The map is not ready yet.'));
-					return;
-				}
-				rejectPending(modeRef.current);
-				cursorRef.current = null;
-				setVertices([]);
-				setMode({ kind: 'point', resolve, reject });
-			}),
-		[map],
-	);
-
-	const drawType = mode.kind === 'draw' ? mode.type : null;
-	const canFinish =
-		mode.kind === 'draw' && draftPart(mode, value, dedupeTrailing(vertices)) !== null;
+	const progress = draftProgress(mode, value, vertices);
 
 	return {
-		isDrawing: mode.kind === 'draw',
+		isDrawing: mode.kind === 'draw' || mode.kind === 'edit',
 		isAddingPart: mode.kind === 'draw' && mode.target.kind === 'part',
 		isRequestingPoint: mode.kind === 'point',
-		drawType,
-		vertexCount: vertices.length,
-		canFinish,
-		canUndo: vertices.length > vertexFloor(mode),
+		...progress,
 		start,
 		startPart,
 		startHole,
 		continuePart,
 		continuedPart,
+		editPart,
+		editedPart,
+		moveVertex,
+		insertVertex,
+		deleteVertex,
+		selectVertex,
 		removePart,
 		removeHole,
 		holeDraft,
@@ -654,7 +741,7 @@ export function fitMapToGeometry(map: MapboxMap, geometry: GeoJsonGeometry): voi
 
 /**
  * What the toolbar and the map both have to know about the draw in progress:
- * the hole being cut, and the part being continued.
+ * the hole being cut, the part being continued, and the part being edited.
  *
  * Recomputed from the committed parts and the vertices placed so far, so the
  * button, the instruction line and the paint on the map read one answer.
@@ -662,22 +749,262 @@ export function fitMapToGeometry(map: MapboxMap, geometry: GeoJsonGeometry): voi
 function useDrawDrafts(
 	mode: Mode,
 	value: DrawGeometry | null,
-	vertices: readonly Position[],
+	vertices: readonly DrawPosition[],
 ): {
 	readonly holeDraft: DrawHoleDraft | null;
 	readonly continuedPart: DrawContinueDraft | null;
+	readonly editedPart: DrawEditDraft | null;
 } {
 	const holeDraft = useMemo(() => holeDraftOf(mode, value, vertices), [mode, value, vertices]);
 	const continuedPart = useMemo(
 		() => continuedPartOf(mode, value, vertices),
 		[mode, value, vertices],
 	);
-	return { holeDraft, continuedPart };
+	const editedPart = useMemo(() => editDraftOf(mode, value), [mode, value]);
+	return { holeDraft, continuedPart, editedPart };
 }
 
 /** `vertices` with its last one dropped, unless that would go below `floor`. */
-function poppedTo(vertices: readonly Position[], floor: number): readonly Position[] {
+function poppedTo(vertices: readonly DrawPosition[], floor: number): readonly DrawPosition[] {
 	return vertices.length <= floor ? vertices : vertices.slice(0, -1);
+}
+
+/**
+ * The five buttons that open, close and take back a draw, and the point request
+ * the address subform makes.
+ *
+ * Every one of them ends the same way, by putting the control somewhere new and
+ * leaving nothing of the last draw behind, which is why they sit together and
+ * share one {@link clear}. What a finished draw does with the committed parts is
+ * `applyPart`'s and stays there.
+ */
+function useDrawSession({
+	map,
+	applyPart,
+	highlightPart,
+	cursorRef,
+	dragRef,
+	modeRef,
+	valueRef,
+	verticesRef,
+	onChangeRef,
+	finishRef,
+	setMode,
+	setVertices,
+}: {
+	readonly map: MapboxMap | null;
+	readonly applyPart: (target: DrawTarget, part: DrawPartGeometry) => void;
+	readonly highlightPart: (index: number | null) => void;
+	readonly cursorRef: { current: DrawPosition | null };
+	readonly dragRef: { current: DrawDrag | null };
+	readonly modeRef: { current: Mode };
+	readonly valueRef: { current: DrawGeometry | null };
+	readonly verticesRef: { current: readonly DrawPosition[] };
+	readonly onChangeRef: { current: (value: DrawGeometry | null) => void };
+	readonly finishRef: { current: () => void };
+	readonly setMode: Dispatch<SetStateAction<Mode>>;
+	readonly setVertices: Dispatch<SetStateAction<readonly DrawPosition[]>>;
+}): Pick<MapDrawController, 'start' | 'cancel' | 'commit' | 'undo' | 'finish' | 'requestPoint'> {
+	// Nothing of the last draw survives a mode change: a pending point request is
+	// told it was superseded, and the cursor, the grabbed vertex and the placed
+	// vertices all go.
+	const clear = useCallback(() => {
+		rejectPending(modeRef.current);
+		cursorRef.current = null;
+		dragRef.current = null;
+		setVertices([]);
+	}, [cursorRef, dragRef, modeRef, setVertices]);
+
+	const start = useCallback(
+		(type: DrawGeometryType) => {
+			// Starting a fresh draw clears every committed part, at any part count, so
+			// the map shows exactly what the in-progress shape will become.
+			clear();
+			highlightPart(null);
+			onChangeRef.current(null);
+			setMode({ kind: 'draw', type, target: { kind: 'replace' } });
+		},
+		[clear, highlightPart, onChangeRef, setMode],
+	);
+
+	const cancel = useCallback(() => {
+		clear();
+		setMode({ kind: 'idle' });
+	}, [clear, setMode]);
+
+	const commit = useCallback(
+		(geometry: DrawGeometry | null) => {
+			clear();
+			onChangeRef.current(geometry);
+			setMode({ kind: 'idle' });
+		},
+		[clear, onChangeRef, setMode],
+	);
+
+	const undo = useCallback(() => {
+		if (modeRef.current.kind === 'edit') {
+			setMode(undoneEdit);
+			return;
+		}
+		setVertices((previous) => poppedTo(previous, vertexFloor(modeRef.current)));
+	}, [modeRef, setMode, setVertices]);
+
+	const finish = useCallback(() => {
+		const current = modeRef.current;
+		const finished = finishedPart(current, valueRef.current, verticesRef.current);
+		if (finished !== null) {
+			applyPart(finished.target, finished.part);
+		}
+	}, [applyPart, modeRef, valueRef, verticesRef]);
+	finishRef.current = finish;
+
+	const requestPoint = useCallback(
+		(_prompt?: string) =>
+			new Promise<DrawGeometry & { readonly type: 'Point' }>((resolve, reject) => {
+				if (!isMapLive(map)) {
+					reject(new Error('The map is not ready yet.'));
+					return;
+				}
+				clear();
+				setMode({ kind: 'point', resolve, reject });
+			}),
+		[clear, map, setMode],
+	);
+
+	return { start, cancel, commit, undo, finish, requestPoint };
+}
+
+/**
+ * What Finish commits and where it goes, or null while the draft is not one the
+ * record can hold.
+ *
+ * A point draw is left out because it commits on its own first click, and there
+ * is no Finish button under it to press.
+ */
+function finishedPart(
+	mode: Mode,
+	committed: DrawGeometry | null,
+	vertices: readonly DrawPosition[],
+): { readonly target: DrawTarget; readonly part: DrawPartGeometry } | null {
+	if (mode.kind === 'edit') {
+		const part = editedPartOf(mode);
+		return part === null ? null : { target: { kind: 'edit', partIndex: mode.partIndex }, part };
+	}
+	if (mode.kind !== 'draw' || mode.type === 'Point') {
+		return null;
+	}
+	const part = draftPart(mode, committed, dedupeTrailing(vertices));
+	return part === null ? null : { target: mode.target, part };
+}
+
+/**
+ * The three gestures an open edit answers to, plus the pick Delete reads.
+ *
+ * Its own hook because all four write the edit mode and nothing else in the
+ * controller does. The three that change the rings land through `changeRings`,
+ * so a gesture costs exactly one Undo step and none of them can forget to
+ * record one.
+ */
+function useDrawVertexActions(setMode: Dispatch<SetStateAction<Mode>>) {
+	const selectVertex = useCallback(
+		(vertex: DrawVertexRef | null) => {
+			setMode((previous) =>
+				previous.kind === 'edit' ? { ...previous, selected: vertex } : previous,
+			);
+		},
+		[setMode],
+	);
+
+	const changeRings = useCallback(
+		(
+			change: (rings: readonly DrawRing[]) => readonly DrawRing[] | null,
+			selected: (rings: readonly DrawRing[]) => DrawVertexRef | null,
+		) => {
+			setMode((previous) => {
+				if (previous.kind !== 'edit') {
+					return previous;
+				}
+				const rings = change(previous.rings);
+				if (rings === null) {
+					return previous;
+				}
+				return {
+					...previous,
+					rings,
+					history: [...previous.history, previous.rings],
+					selected: selected(rings),
+				};
+			});
+		},
+		[setMode],
+	);
+
+	const moveVertex = useCallback(
+		(vertex: DrawVertexRef, position: DrawPosition) => {
+			changeRings(
+				(rings) => moveRingVertex(rings, vertex, position),
+				() => vertex,
+			);
+		},
+		[changeRings],
+	);
+
+	// The new vertex is picked, so clicking an edge and pressing Delete undoes
+	// itself rather than removing whichever corner happened to be picked before.
+	const insertVertex = useCallback(
+		(edge: DrawVertexRef, position: DrawPosition) => {
+			changeRings(
+				(rings) => insertRingVertex(rings, edge, position),
+				() => ({ ring: edge.ring, vertex: edge.vertex + 1 }),
+			);
+		},
+		[changeRings],
+	);
+
+	// Nothing stays picked: every index after the one dropped has shifted, so a
+	// pick kept here would name a different corner than the one on screen did.
+	const deleteVertex = useCallback(
+		(vertex: DrawVertexRef) => {
+			changeRings(
+				(rings) => removeRingVertex(rings, vertex),
+				() => null,
+			);
+		},
+		[changeRings],
+	);
+
+	return { selectVertex, moveVertex, insertVertex, deleteVertex };
+}
+
+/**
+ * How far along the draw in progress is: which tool it is on, how many vertices
+ * it holds, and whether Finish and Undo have anything to do.
+ *
+ * One place rather than four expressions beside the returned object, because a
+ * draw and an edit answer each of them differently and the four had to agree on
+ * which of the two they were reading.
+ */
+function draftProgress(
+	mode: Mode,
+	committed: DrawGeometry | null,
+	vertices: readonly DrawPosition[],
+): Pick<MapDrawController, 'drawType' | 'vertexCount' | 'canFinish' | 'canUndo'> {
+	if (mode.kind === 'edit') {
+		return {
+			drawType: mode.type,
+			vertexCount: countRingVertices(mode.rings),
+			// The same covers-ground rule a draw runs, read off the rings as edited.
+			canFinish: editedPartOf(mode) !== null,
+			canUndo: mode.history.length > 0,
+		};
+	}
+	return {
+		drawType: mode.kind === 'draw' ? mode.type : null,
+		vertexCount: vertices.length,
+		canFinish:
+			mode.kind === 'draw' && draftPart(mode, committed, dedupeTrailing(vertices)) !== null,
+		canUndo: vertices.length > vertexFloor(mode),
+	};
 }
 
 /**
@@ -691,6 +1018,7 @@ function poppedTo(vertices: readonly Position[], floor: number): readonly Positi
 function useDrawPartActions({
 	map,
 	cursorRef,
+	dragRef,
 	modeRef,
 	valueRef,
 	onChangeRef,
@@ -698,12 +1026,13 @@ function useDrawPartActions({
 	setVertices,
 }: {
 	readonly map: MapboxMap | null;
-	readonly cursorRef: { current: Position | null };
+	readonly cursorRef: { current: DrawPosition | null };
+	readonly dragRef: { current: DrawDrag | null };
 	readonly modeRef: { current: Mode };
 	readonly valueRef: { current: DrawGeometry | null };
 	readonly onChangeRef: { current: (value: DrawGeometry | null) => void };
 	readonly setMode: (next: Mode) => void;
-	readonly setVertices: (next: readonly Position[]) => void;
+	readonly setVertices: (next: readonly DrawPosition[]) => void;
 }) {
 	const [highlightedPart, setHighlightedPart] = useState<number | null>(null);
 	const highlightedRef = useRef(highlightedPart);
@@ -717,11 +1046,12 @@ function useDrawPartActions({
 		(target: DrawTarget, part: DrawPartGeometry) => {
 			const existing = drawParts(valueRef.current);
 			cursorRef.current = null;
+			dragRef.current = null;
 			setVertices([]);
 			setMode({ kind: 'idle' });
 			onChangeRef.current(geometryFromParts(withPart(existing, target, part)));
 		},
-		[cursorRef, valueRef, onChangeRef, setMode, setVertices],
+		[cursorRef, dragRef, valueRef, onChangeRef, setMode, setVertices],
 	);
 
 	// The base shape comes off the committed parts rather than off the toggle:
@@ -781,6 +1111,33 @@ function useDrawPartActions({
 		[cursorRef, modeRef, valueRef, setMode, setVertices],
 	);
 
+	// Every ring the part has, not just its outline: a hole is edited with the same
+	// three gestures as the shell, so all of them are seeded together and go back
+	// together. The part stays committed through the edit, so Cancel and Escape put
+	// it back with nothing to restore, holes included.
+	const editPart = useCallback(
+		(index: number) => {
+			const part = drawParts(valueRef.current)[index];
+			if (part === undefined) {
+				return;
+			}
+			rejectPending(modeRef.current);
+			cursorRef.current = null;
+			dragRef.current = null;
+			setVertices([]);
+			setHighlightedPart(null);
+			setMode({
+				kind: 'edit',
+				type: part.type,
+				partIndex: index,
+				rings: ringsOfPart(part),
+				history: [],
+				selected: null,
+			});
+		},
+		[cursorRef, dragRef, modeRef, valueRef, setMode, setVertices],
+	);
+
 	const removePart = useCallback(
 		(index: number) => {
 			setHighlightedPart(null);
@@ -826,6 +1183,7 @@ function useDrawPartActions({
 	return {
 		applyPart,
 		continuePart,
+		editPart,
 		highlightedPart,
 		highlightedRef,
 		highlightPart: setHighlightedPart,
@@ -867,18 +1225,26 @@ function withPart(
  *
  * Null for a point, which is one position with no end to carry on from.
  */
-function continuedVertices(part: DrawPartGeometry): readonly Position[] | null {
+function continuedVertices(part: DrawPartGeometry): readonly DrawPosition[] | null {
+	return part.type === 'Point' ? null : (ringsOfPart(part)[0] ?? []);
+}
+
+/**
+ * The rings of `part`, closing positions dropped, which is what an edit draft
+ * holds and where a continuation picks up.
+ *
+ * Ring 0 is the outline of an area, the whole of a line, or the single position
+ * of a point. A line is left exactly as stored: it has no closing position, and
+ * one whose ends happen to meet would lose a real corner to the drop.
+ */
+function ringsOfPart(part: DrawPartGeometry): readonly DrawRing[] {
 	if (part.type === 'Point') {
-		return null;
+		return [[part.coordinates]];
 	}
 	if (part.type === 'LineString') {
-		return part.coordinates;
+		return [part.coordinates];
 	}
-	const outline = part.coordinates[0] ?? [];
-	const first = outline[0];
-	const last = outline.at(-1);
-	const closed = first !== undefined && last !== undefined && samePosition(first, last);
-	return closed ? outline.slice(0, -1) : outline;
+	return part.coordinates.map(unclosedRing);
 }
 
 /** How far Undo pops back, which is the vertices a continuation opened with. */
@@ -892,7 +1258,7 @@ function vertexFloor(mode: Mode): number {
  * A continuation redraws the outline and nothing else, so the rings the user cut
  * earlier are not theirs to lose by adding one vertex to it.
  */
-function continuedHoles(mode: DrawMode, committed: DrawGeometry | null): readonly Ring[] {
+function continuedHoles(mode: DrawMode, committed: DrawGeometry | null): readonly DrawRing[] {
 	if (mode.target.kind !== 'continue') {
 		return [];
 	}
@@ -901,7 +1267,7 @@ function continuedHoles(mode: DrawMode, committed: DrawGeometry | null): readonl
 }
 
 /** `part` with `holes` put back into it, which only an area can hold. */
-function withHoles(part: DrawPartGeometry, holes: readonly Ring[]): DrawPartGeometry {
+function withHoles(part: DrawPartGeometry, holes: readonly DrawRing[]): DrawPartGeometry {
 	return part.type === 'Polygon' && holes.length > 0
 		? { type: 'Polygon', coordinates: [...part.coordinates, ...holes] }
 		: part;
@@ -921,6 +1287,7 @@ function useDrawMapEvents({
 	mode,
 	modeRef,
 	cursorRef,
+	dragRef,
 	repaint,
 	applyPart,
 	finishRef,
@@ -931,13 +1298,16 @@ function useDrawMapEvents({
 	readonly isLoaded: boolean;
 	readonly mode: Mode;
 	readonly modeRef: { current: Mode };
-	readonly cursorRef: { current: Position | null };
+	readonly cursorRef: { current: DrawPosition | null };
+	readonly dragRef: { current: DrawDrag | null };
 	readonly repaint: () => void;
 	readonly applyPart: (target: DrawTarget, part: DrawPartGeometry) => void;
 	readonly finishRef: { current: () => void };
 	readonly setMode: (next: Mode) => void;
 	readonly setVertices: (
-		next: readonly Position[] | ((previous: readonly Position[]) => readonly Position[]),
+		next:
+			| readonly DrawPosition[]
+			| ((previous: readonly DrawPosition[]) => readonly DrawPosition[]),
 	) => void;
 }): void {
 	useEffect(() => {
@@ -953,7 +1323,7 @@ function useDrawMapEvents({
 
 		function handleClick(event: MapMouseEvent) {
 			const current = modeRef.current;
-			const position: Position = [event.lngLat.lng, event.lngLat.lat];
+			const position: DrawPosition = [event.lngLat.lng, event.lngLat.lat];
 			if (current.kind === 'point') {
 				current.resolve({ type: 'Point', coordinates: position });
 				setMode({ kind: 'idle' });
@@ -971,6 +1341,13 @@ function useDrawMapEvents({
 		}
 
 		function handleMove(event: MapMouseEvent) {
+			// An edit owns the cursor: {@link useDrawEditEvents} says whether a vertex
+			// is under the pointer, and this would paint over the answer. Both
+			// handlers are live at once and which runs last follows whichever effect
+			// re-registered most recently, so the answer cannot be left to order.
+			if (modeRef.current.kind === 'edit') {
+				return;
+			}
 			canvas.style.cursor = 'crosshair';
 			if (isRubberBanding(modeRef.current)) {
 				cursorRef.current = [event.lngLat.lng, event.lngLat.lat];
@@ -998,6 +1375,7 @@ function useDrawMapEvents({
 				current.reject(new Error('Point selection cancelled.'));
 			}
 			cursorRef.current = null;
+			dragRef.current = null;
 			setVertices([]);
 			setMode({ kind: 'idle' });
 		}
@@ -1027,12 +1405,206 @@ function useDrawMapEvents({
 		mode,
 		modeRef,
 		cursorRef,
+		dragRef,
 		repaint,
 		applyPart,
 		finishRef,
 		setMode,
 		setVertices,
 	]);
+}
+
+/**
+ * How far from the pointer a vertex or an edge still counts as under it, in
+ * pixels. A 5px circle is a small thing to hit with a mouse and a smaller one
+ * with a thumb.
+ */
+const HIT_TOLERANCE = 8;
+
+const VERTEX_LAYER = `${SOURCE_ID}-vertex`;
+/** The layers a part's own boundary draws on, which is where an edge is clicked. */
+const EDGE_LAYERS = [`${SOURCE_ID}-outline`, `${SOURCE_ID}-line`];
+
+/**
+ * The pointer half of vertex editing: grab, drag, drop, click an edge, and
+ * Delete.
+ *
+ * Its own hook, live only while a part is open for editing, because none of it
+ * belongs on a map that is drawing or idle. What each gesture does to the rings
+ * is the controller's; this only says which ring and which vertex was meant.
+ */
+function useDrawEditEvents({
+	map,
+	isLoaded,
+	isEditing,
+	modeRef,
+	dragRef,
+	repaint,
+	moveVertex,
+	insertVertex,
+	deleteVertex,
+	selectVertex,
+}: {
+	readonly map: MapboxMap | null;
+	readonly isLoaded: boolean;
+	readonly isEditing: boolean;
+	readonly modeRef: { current: Mode };
+	readonly dragRef: { current: DrawDrag | null };
+	readonly repaint: () => void;
+	readonly moveVertex: (vertex: DrawVertexRef, position: DrawPosition) => void;
+	readonly insertVertex: (edge: DrawVertexRef, position: DrawPosition) => void;
+	readonly deleteVertex: (vertex: DrawVertexRef) => void;
+	readonly selectVertex: (vertex: DrawVertexRef | null) => void;
+}): void {
+	useEffect(() => {
+		if (!isMapLive(map) || !isLoaded || !isEditing) {
+			return;
+		}
+		const activeMap = map;
+		const canvas = activeMap.getCanvas();
+
+		function handleDown(event: MapMouseEvent) {
+			const vertex = vertexUnder(activeMap, event);
+			if (vertex === null) {
+				return;
+			}
+			// Mapbox pans on a drag unless the gesture is claimed here, so the map
+			// would slide out from under the vertex being moved.
+			event.preventDefault();
+			dragRef.current = { vertex, position: [event.lngLat.lng, event.lngLat.lat] };
+			selectVertex(vertex);
+		}
+
+		// A drag repaints from the ref rather than through state, so the vertex
+		// follows the cursor at frame rate and the move lands as one change.
+		function handleMove(event: MapMouseEvent) {
+			const drag = dragRef.current;
+			if (drag !== null) {
+				dragRef.current = { vertex: drag.vertex, position: [event.lngLat.lng, event.lngLat.lat] };
+				canvas.style.cursor = 'grabbing';
+				repaint();
+				return;
+			}
+			canvas.style.cursor = vertexUnder(activeMap, event) === null ? 'crosshair' : 'move';
+		}
+
+		// On the window rather than the map, because a button released off the canvas
+		// never reaches the map and would leave the vertex following the cursor with
+		// nothing to drop it. The drag's own last position is where it lands: past
+		// the canvas edge there is no longer a map coordinate to read.
+		function handleUp() {
+			const drag = dragRef.current;
+			dragRef.current = null;
+			const current = modeRef.current;
+			if (drag === null || current.kind !== 'edit') {
+				return;
+			}
+			// A click on a vertex is a mousedown and a mouseup in one spot. Landing it
+			// as a move would cost an Undo step that took nothing back.
+			const from = current.rings[drag.vertex.ring]?.[drag.vertex.vertex];
+			if (from !== undefined && !samePosition(from, drag.position)) {
+				moveVertex(drag.vertex, drag.position);
+			}
+			repaint();
+		}
+
+		function handleClick(event: MapMouseEvent) {
+			const vertex = vertexUnder(activeMap, event);
+			if (vertex !== null) {
+				selectVertex(vertex);
+				return;
+			}
+			const current = modeRef.current;
+			const position: DrawPosition = [event.lngLat.lng, event.lngLat.lat];
+			// Only the boundary, not the fill: a click in the middle of an area is not
+			// aimed at an edge, and inserting on the nearest one would be a guess.
+			const edge =
+				current.kind === 'edit' && isOverEdge(activeMap, event)
+					? nearestRingEdge(current.rings, position, current.type === 'Polygon')
+					: null;
+			if (edge === null) {
+				selectVertex(null);
+				return;
+			}
+			insertVertex(edge, position);
+		}
+
+		// Backspace as well as Delete, because a laptop keyboard often has only the
+		// one key. That is also why the field guard is here and not optional: the
+		// location panel sits beside the map, and a backspace meant for a
+		// description would otherwise take a corner off the shape.
+		function handleKeyDown(event: KeyboardEvent) {
+			if (event.key !== 'Delete' && event.key !== 'Backspace') {
+				return;
+			}
+			const current = modeRef.current;
+			if (current.kind !== 'edit' || current.selected === null || isTypingInto(event.target)) {
+				return;
+			}
+			event.preventDefault();
+			deleteVertex(current.selected);
+		}
+
+		activeMap.on('mousedown', handleDown);
+		activeMap.on('mousemove', handleMove);
+		activeMap.on('click', handleClick);
+		window.addEventListener('mouseup', handleUp);
+		window.addEventListener('keydown', handleKeyDown);
+
+		return () => {
+			activeMap.off('mousedown', handleDown);
+			activeMap.off('mousemove', handleMove);
+			activeMap.off('click', handleClick);
+			window.removeEventListener('mouseup', handleUp);
+			window.removeEventListener('keydown', handleKeyDown);
+			dragRef.current = null;
+		};
+	}, [
+		map,
+		isLoaded,
+		isEditing,
+		modeRef,
+		dragRef,
+		repaint,
+		moveVertex,
+		insertVertex,
+		deleteVertex,
+		selectVertex,
+	]);
+}
+
+/** The vertex under the pointer, read off the feature the map answers with. */
+function vertexUnder(map: MapboxMap, event: MapMouseEvent): DrawVertexRef | null {
+	const [feature] = map.queryRenderedFeatures(hitBox(event), { layers: [VERTEX_LAYER] });
+	const ring = feature?.properties?.ring;
+	const vertex = feature?.properties?.vertex;
+	return typeof ring === 'number' && typeof vertex === 'number' ? { ring, vertex } : null;
+}
+
+/** Whether the key went somewhere a person is typing, where Delete is a delete. */
+function isTypingInto(target: EventTarget | null): boolean {
+	if (!(target instanceof HTMLElement)) {
+		return false;
+	}
+	return (
+		target.isContentEditable ||
+		target.tagName === 'INPUT' ||
+		target.tagName === 'TEXTAREA' ||
+		target.tagName === 'SELECT'
+	);
+}
+
+/** Whether the pointer is on a boundary rather than inside or outside a shape. */
+function isOverEdge(map: MapboxMap, event: MapMouseEvent): boolean {
+	return map.queryRenderedFeatures(hitBox(event), { layers: EDGE_LAYERS }).length > 0;
+}
+
+function hitBox(event: MapMouseEvent): [PointLike, PointLike] {
+	const { x, y } = event.point;
+	return [
+		[x - HIT_TOLERANCE, y - HIT_TOLERANCE],
+		[x + HIT_TOLERANCE, y + HIT_TOLERANCE],
+	];
 }
 
 /** Whether the cursor is trailing a segment, which only a line or an area does. */
@@ -1051,26 +1623,27 @@ function rejectPending(mode: Mode): void {
  *
  * The committed parts stay on the map through an add and through a hole, so the
  * user places the new ring against what is already there. A replace has already
- * cleared them. A continuation is the one case that hides a committed part: the
- * draft is that part, and drawing both would put a finished outline under a
- * growing one.
+ * cleared them. A continuation and an edit are the two cases that hide a
+ * committed part: the draft is that part, and drawing both would put a finished
+ * outline under a changing one.
  */
 function buildFeatures({
 	committed,
 	mode,
 	vertices,
 	cursor,
+	drag,
 	highlighted,
 }: {
 	readonly committed: DrawGeometry | null;
 	readonly mode: Mode;
-	readonly vertices: readonly Position[];
-	readonly cursor: Position | null;
+	readonly vertices: readonly DrawPosition[];
+	readonly cursor: DrawPosition | null;
+	readonly drag: DrawDrag | null;
 	readonly highlighted: number | null;
 }): GeoJSON.FeatureCollection {
 	const features: GeoJSON.Feature[] = [];
-	const drafted =
-		mode.kind === 'draw' && mode.target.kind === 'continue' ? mode.target.partIndex : null;
+	const drafted = draftedPartIndex(mode);
 	drawParts(committed).forEach((part, index) => {
 		if (index !== drafted) {
 			features.push(...partFeatures(part, index === highlighted));
@@ -1080,8 +1653,53 @@ function buildFeatures({
 	if (mode.kind === 'draw') {
 		features.push(...draftFeatures(mode, committed, vertices, cursor));
 	}
+	if (mode.kind === 'edit') {
+		features.push(...editFeatures(mode, drag));
+	}
 
 	return features.length === 0 ? EMPTY : { type: 'FeatureCollection', features };
+}
+
+/** Which committed part the draft has taken over drawing, if any. */
+function draftedPartIndex(mode: Mode): number | null {
+	if (mode.kind === 'edit') {
+		return mode.partIndex;
+	}
+	return mode.kind === 'draw' && mode.target.kind === 'continue' ? mode.target.partIndex : null;
+}
+
+/**
+ * The part being edited: its rings as they stand, and every corner of every one
+ * of them as a vertex to grab.
+ *
+ * A vertex carries the ring and the index it sits at, so the pointer hit-test
+ * reads the target off the feature rather than searching the rings for the
+ * nearest position. The vertex being dragged is drawn under the cursor before
+ * the move lands, which is what makes the drag look like one.
+ */
+function editFeatures(mode: EditMode, drag: DrawDrag | null): GeoJSON.Feature[] {
+	const rings =
+		drag === null
+			? mode.rings
+			: (moveRingVertex(mode.rings, drag.vertex, drag.position) ?? mode.rings);
+	const [shell = [], ...holes] = rings;
+	const shape = previewShape(mode.type, shell);
+	const preview = shape === null ? null : withHoles(shape, holes.map(closeRing));
+	const refused = editedPartOf({ ...mode, rings }) === null;
+	return [
+		...(preview === null ? [] : [geometryFeature(preview, false, refused)]),
+		...rings.flatMap((ring, ringIndex) =>
+			ring.map((position, vertexIndex) =>
+				pointFeature(position, {
+					role: 'vertex',
+					refused,
+					ring: ringIndex,
+					vertex: vertexIndex,
+					highlighted: mode.selected?.ring === ringIndex && mode.selected.vertex === vertexIndex,
+				}),
+			),
+		),
+	];
 }
 
 /**
@@ -1095,8 +1713,8 @@ function buildFeatures({
 function draftFeatures(
 	mode: DrawMode,
 	committed: DrawGeometry | null,
-	vertices: readonly Position[],
-	cursor: Position | null,
+	vertices: readonly DrawPosition[],
+	cursor: DrawPosition | null,
 ): GeoJSON.Feature[] {
 	if (mode.type === 'Point') {
 		return [];
@@ -1113,7 +1731,7 @@ function draftFeatures(
 	return [
 		...(preview === null ? [] : [geometryFeature(preview, false, refused)]),
 		...[...vertices, ...holes.flatMap((ring) => ring.slice(0, -1))].map((vertex) =>
-			pointFeature(vertex, 'vertex', false, refused),
+			pointFeature(vertex, { role: 'vertex', refused }),
 		),
 	];
 }
@@ -1124,7 +1742,7 @@ function draftFeatures(
  */
 function previewShape(
 	type: DrawGeometryType,
-	preview: readonly Position[],
+	preview: readonly DrawPosition[],
 ): DrawPartGeometry | null {
 	if (type === 'Polygon' && preview.length >= 3) {
 		return { type: 'Polygon', coordinates: [closeRing(preview)] };
@@ -1134,12 +1752,14 @@ function previewShape(
 
 function partFeatures(part: DrawPartGeometry, highlighted: boolean): GeoJSON.Feature[] {
 	if (part.type === 'Point') {
-		return [pointFeature(part.coordinates, 'point', highlighted)];
+		return [pointFeature(part.coordinates, { role: 'point', highlighted })];
 	}
 	if (part.type === 'LineString') {
 		return [
 			geometryFeature(part, highlighted),
-			...part.coordinates.map((position) => pointFeature(position, 'vertex', highlighted)),
+			...part.coordinates.map((position) =>
+				pointFeature(position, { role: 'vertex', highlighted }),
+			),
 		];
 	}
 	// Every ring, so a hole's corners can be seen and counted the way the outline's
@@ -1147,7 +1767,7 @@ function partFeatures(part: DrawPartGeometry, highlighted: boolean): GeoJSON.Fea
 	return [
 		geometryFeature(part, highlighted),
 		...part.coordinates.flatMap((ring) =>
-			ring.slice(0, -1).map((position) => pointFeature(position, 'vertex', highlighted)),
+			ring.slice(0, -1).map((position) => pointFeature(position, { role: 'vertex', highlighted })),
 		),
 	];
 }
@@ -1164,15 +1784,22 @@ function geometryFeature(
 	};
 }
 
+/**
+ * One position as its own feature, carrying whatever the layers and the pointer
+ * hit-test read off it.
+ *
+ * Properties rather than a fixed argument list because an edit's vertices carry
+ * two more of them, the ring and the index, and every expression in
+ * {@link drawLayers} already falls back to false for a property a feature does
+ * not have.
+ */
 function pointFeature(
-	position: Position,
-	role: 'vertex' | 'point',
-	highlighted = false,
-	refused = false,
+	position: DrawPosition,
+	properties: GeoJSON.GeoJsonProperties,
 ): GeoJSON.Feature {
 	return {
 		type: 'Feature',
-		properties: { role, highlighted, refused },
+		properties,
 		geometry: { type: 'Point', coordinates: [position[0], position[1]] },
 	};
 }
@@ -1187,7 +1814,7 @@ function pointFeature(
  */
 function partFromVertices(
 	type: DrawGeometryType,
-	vertices: readonly Position[],
+	vertices: readonly DrawPosition[],
 ): DrawPartGeometry | null {
 	const part = shapeFromVertices(type, vertices);
 	return part !== null && geometryCoversGround(part) ? part : null;
@@ -1204,7 +1831,7 @@ function partFromVertices(
 function draftPart(
 	mode: DrawMode,
 	committed: DrawGeometry | null,
-	vertices: readonly Position[],
+	vertices: readonly DrawPosition[],
 ): DrawPartGeometry | null {
 	if (mode.target.kind === 'hole') {
 		const part = drawParts(committed)[mode.target.partIndex];
@@ -1251,7 +1878,7 @@ function continuationProblem(
  */
 function partWithHole(
 	part: DrawPartGeometry,
-	vertices: readonly Position[],
+	vertices: readonly DrawPosition[],
 ): DrawPartGeometry | null {
 	return part.type === 'Polygon'
 		? { type: 'Polygon', coordinates: [...part.coordinates, closeRing(vertices)] }
@@ -1267,7 +1894,7 @@ function partWithHole(
 function holeDraftOf(
 	mode: Mode,
 	committed: DrawGeometry | null,
-	vertices: readonly Position[],
+	vertices: readonly DrawPosition[],
 ): DrawHoleDraft | null {
 	if (mode.kind !== 'draw' || mode.target.kind !== 'hole') {
 		return null;
@@ -1289,7 +1916,7 @@ function holeDraftOf(
 function continuedPartOf(
 	mode: Mode,
 	committed: DrawGeometry | null,
-	vertices: readonly Position[],
+	vertices: readonly DrawPosition[],
 ): DrawContinueDraft | null {
 	if (mode.kind !== 'draw' || mode.target.kind !== 'continue') {
 		return null;
@@ -1316,7 +1943,7 @@ function partTargetOf(committed: DrawGeometry | null, partIndex: number): DrawPa
  */
 function holeProblem(
 	part: DrawPartGeometry,
-	vertices: readonly Position[],
+	vertices: readonly DrawPosition[],
 ): DrawHoleProblem | null {
 	if (part.type !== 'Polygon') {
 		return null;
@@ -1336,7 +1963,7 @@ function holeProblem(
 
 function shapeFromVertices(
 	type: DrawGeometryType,
-	vertices: readonly Position[],
+	vertices: readonly DrawPosition[],
 ): DrawPartGeometry | null {
 	if (type === 'Point') {
 		const point = vertices[0];
@@ -1348,19 +1975,10 @@ function shapeFromVertices(
 	return vertices.length < 3 ? null : { type: 'Polygon', coordinates: [closeRing(vertices)] };
 }
 
-function closeRing(vertices: readonly Position[]): readonly Position[] {
-	const first = vertices[0];
-	const last = vertices.at(-1);
-	if (first === undefined || last === undefined) {
-		return vertices;
-	}
-	return first[0] === last[0] && first[1] === last[1] ? vertices : [...vertices, first];
-}
-
 // A double-click to finish lands as two near-identical clicks; drop a trailing
 // vertex that duplicates the one before it so the saved shape has no zero-length
 // final segment.
-function dedupeTrailing(vertices: readonly Position[]): readonly Position[] {
+function dedupeTrailing(vertices: readonly DrawPosition[]): readonly DrawPosition[] {
 	if (vertices.length < 2) {
 		return vertices;
 	}
@@ -1372,6 +1990,89 @@ function dedupeTrailing(vertices: readonly Position[]): readonly Position[] {
 	return vertices;
 }
 
-function samePosition(first: Position, second: Position): boolean {
-	return Math.abs(first[0] - second[0]) < 1e-9 && Math.abs(first[1] - second[1]) < 1e-9;
+/**
+ * What an edit commits: the rings as they stand, each closed, with the same
+ * covers-ground rule a draw runs.
+ *
+ * `canFinish` reads it, so the button and the commit cannot disagree. Holes are
+ * folded in one at a time through {@link holeProblem}, which is the rule that
+ * refuses one while it is being cut, so an edit that pushes a hole out of the
+ * outline is refused by the same answer read from the other end.
+ */
+function editedPartOf(mode: EditMode): DrawPartGeometry | null {
+	const [shell = [], ...holes] = mode.rings;
+	if (mode.type === 'Point') {
+		const position = shell[0];
+		return position === undefined ? null : { type: 'Point', coordinates: position };
+	}
+	let part = partFromVertices(mode.type, shell);
+	const minimum = ringMinimum(mode.type);
+	for (const hole of holes) {
+		// The same minimum {@link editProblem} names, so Finish and the message
+		// under it cannot disagree about which ring is too short.
+		if (part === null || !hasDistinctPositions(hole, minimum) || holeProblem(part, hole) !== null) {
+			return null;
+		}
+		part = partWithHole(part, hole);
+	}
+	return part;
+}
+
+/**
+ * The part `mode` is editing, or null while the draw is not one.
+ *
+ * The toolbar reads it to say what is wrong and which vertex Delete would take,
+ * so a refused draft and an enabled Finish cannot appear together.
+ */
+function editDraftOf(mode: Mode, committed: DrawGeometry | null): DrawEditDraft | null {
+	if (mode.kind !== 'edit') {
+		return null;
+	}
+	return {
+		...partTargetOf(committed, mode.partIndex),
+		problem: editProblem(mode),
+		selected: mode.selected,
+	};
+}
+
+/**
+ * What is wrong with the rings as edited, or null while nothing has a name.
+ *
+ * Null is not the same as finishable. A ring of three distinct corners that lie
+ * on one line encloses no area, and {@link editedPartOf} refuses it while there
+ * is nothing here to call it, which is how a continuation already behaves. The
+ * map paints refused off the part rather than off this, so the refusal shows
+ * either way.
+ */
+function editProblem(mode: EditMode): DrawEditProblem | null {
+	const [shell = [], ...holes] = mode.rings;
+	if (mode.rings.some((ring) => !hasDistinctPositions(ring, ringMinimum(mode.type)))) {
+		return 'tooFewVertices';
+	}
+	const outline = partFromVertices(mode.type, shell);
+	return holes.length > 0 && outline !== null && editedPartOf(mode) === null ? 'holesEscape' : null;
+}
+
+/** How many distinct positions one ring of `type` needs to be worth anything. */
+function ringMinimum(type: DrawGeometryType): number {
+	if (type === 'Point') {
+		return 1;
+	}
+	return type === 'LineString' ? 2 : 3;
+}
+
+/** Every vertex an edit is holding, the holes' corners included. */
+function countRingVertices(rings: readonly DrawRing[]): number {
+	return rings.reduce((total, ring) => total + ring.length, 0);
+}
+
+/** `mode` with its last gesture taken back, stopping at the part as opened. */
+function undoneEdit(mode: Mode): Mode {
+	if (mode.kind !== 'edit') {
+		return mode;
+	}
+	const rings = mode.history.at(-1);
+	return rings === undefined
+		? mode
+		: { ...mode, rings, history: mode.history.slice(0, -1), selected: null };
 }

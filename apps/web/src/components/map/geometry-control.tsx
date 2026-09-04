@@ -21,6 +21,7 @@ import {
 	iconRegistry,
 	Loader2Icon,
 	MapPinnedIcon,
+	SplineIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -30,6 +31,7 @@ import { GEOMETRY_TYPE_LABELS, GeometryPartList, GeometryPartSummary } from './g
 import { RegionBoundaryPicker } from './region-boundary-picker';
 import {
 	type DrawContinueDraft,
+	type DrawEditDraft,
 	type DrawGeometry,
 	type DrawGeometryType,
 	type DrawHoleDraft,
@@ -59,6 +61,7 @@ import {
 const UploadIcon = iconRegistry.actions.upload.icon;
 const AddIcon = iconRegistry.actions.add.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
+const DeleteIcon = iconRegistry.actions.delete.icon;
 
 export interface GeometryControlProps {
 	readonly controller: MapDrawController;
@@ -174,6 +177,7 @@ export function GeometryControl({
 					disabled={isBusy}
 					onContinue={controller.continuePart}
 					onCutHole={controller.startHole}
+					onEditVertices={controller.editPart}
 					onHighlight={controller.highlightPart}
 					onRemove={controller.removePart}
 					onRemoveHole={controller.removeHole}
@@ -214,6 +218,18 @@ export function GeometryControl({
 					>
 						<EditIcon aria-hidden="true" data-icon="inline-start" />
 						Continue
+					</Button>
+				) : null}
+				{only !== undefined ? (
+					<Button
+						disabled={isBusy}
+						onClick={() => controller.editPart(0)}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						<SplineIcon aria-hidden="true" data-icon="inline-start" />
+						Edit vertices
 					</Button>
 				) : null}
 				{canAddPart ? (
@@ -392,7 +408,12 @@ export function DrawToolbar({
 		return null;
 	}
 
-	const isPoint = geometryType === 'Point';
+	// An edit of a point is a corner to drag, so the toolbar it needs is the full
+	// one. Only a point being *placed* finishes on its first click with nothing to
+	// undo or complete.
+	const editedPart = controller.editedPart;
+	const isPoint = geometryType === 'Point' && editedPart === null;
+	const selected = editedPart?.selected ?? null;
 
 	return (
 		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
@@ -411,6 +432,22 @@ export function DrawToolbar({
 						>
 							<ArrowLeftIcon aria-hidden="true" data-icon="inline-start" />
 							Undo
+						</Button>
+					)}
+					{editedPart === null ? null : (
+						<Button
+							disabled={selected === null}
+							onClick={() => {
+								if (selected !== null) {
+									controller.deleteVertex(selected);
+								}
+							}}
+							size="sm"
+							type="button"
+							variant="ghost"
+						>
+							<DeleteIcon aria-hidden="true" data-icon="inline-start" />
+							Delete vertex
 						</Button>
 					)}
 					<Button onClick={controller.cancel} size="sm" type="button" variant="ghost">
@@ -484,7 +521,28 @@ function toolbarInstruction(controller: MapDrawController, type: DrawGeometryTyp
 	if (controller.continuedPart !== null) {
 		return continueInstruction(controller.vertexCount, controller.continuedPart);
 	}
+	if (controller.editedPart !== null) {
+		return editInstruction(controller.editedPart);
+	}
 	return drawInstruction(type, controller.vertexCount, controller.isAddingPart);
+}
+
+/**
+ * What the toolbar says while a finished piece is being edited.
+ *
+ * Drag and click are named because the map is the only place either happens.
+ * Delete is not: it has a button of its own beside Finish. The piece is named
+ * once there are several, the way a hole names the one it is cut into.
+ */
+function editInstruction(draft: DrawEditDraft): string {
+	const named = draft.partCount > 1 ? `piece ${draft.partNumber}` : 'the shape';
+	if (draft.problem === 'holesEscape') {
+		return `The holes must stay inside ${named}.`;
+	}
+	if (draft.problem === 'tooFewVertices') {
+		return 'Add a vertex back to finish.';
+	}
+	return `Editing ${named} · drag a vertex, or click an edge to add one.`;
 }
 
 function drawInstruction(

@@ -2,6 +2,7 @@
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { nearestRingEdge } from '../../../../components/map/draw-vertex-edit';
 import type { DrawGeometry } from '../../../../components/map/use-map-draw';
 import {
 	drawHoles,
@@ -1052,6 +1053,363 @@ describe('useMapDraw', () => {
 		]);
 	});
 
+	it('moves a vertex of a finished piece and commits it where it was dropped', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.moveVertex({ ring: 0, vertex: 2 }, [-88, 36]);
+		});
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [
+				closed([
+					[-90, 35],
+					[-90, 36],
+					[-88, 36],
+				]),
+			],
+		});
+	});
+
+	// Between the edge's two ends, not at the end of the ring. Appending would
+	// leave the same corners wound into a different shape.
+	it('inserts a vertex into the edge it was aimed at', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.insertVertex({ ring: 0, vertex: 0 }, [-90, 35.5]);
+		});
+		// The new corner is the one Delete acts on, so clicking an edge and pressing
+		// Delete takes back exactly what it added.
+		expect(result.current.draw.editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [
+				closed([
+					[-90, 35],
+					[-90, 35.5],
+					[-90, 36],
+					[-89, 36],
+				]),
+			],
+		});
+	});
+
+	it('lets a ring go below three corners and refuses the finish until one is back', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.deleteVertex({ ring: 0, vertex: 2 });
+		});
+
+		expect(result.current.draw.canFinish).toBe(false);
+		expect(result.current.draw.editedPart?.problem).toBe('tooFewVertices');
+		// Red on the map too, so the refusal is not only a greyed-out button.
+		const refused = fake
+			.featuresOf(SOURCE_ID)
+			.filter((feature) => feature.properties?.refused === true);
+		expect(refused.length).toBeGreaterThan(0);
+
+		act(() => {
+			result.current.draw.insertVertex({ ring: 0, vertex: 1 }, [-89, 36]);
+		});
+		expect(result.current.draw.canFinish).toBe(true);
+		expect(result.current.draw.editedPart?.problem).toBeNull();
+	});
+
+	// An edge is the only way to put a vertex back, and a ring of one has none, so
+	// two is where Delete stops. Removing a ring whole is Remove's job.
+	it('keeps the two vertices an edge needs', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.deleteVertex({ ring: 0, vertex: 2 });
+		});
+		act(() => {
+			result.current.draw.deleteVertex({ ring: 0, vertex: 1 });
+		});
+
+		expect(result.current.draw.vertexCount).toBe(2);
+		// The refused Delete recorded nothing, so one Undo is back to three.
+		act(() => {
+			result.current.draw.undo();
+		});
+		expect(result.current.draw.vertexCount).toBe(3);
+		expect(result.current.draw.canUndo).toBe(false);
+	});
+
+	it('puts the piece back as it was when an edit is cancelled, holes included', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.startHole(0);
+		});
+		for (const [longitude, latitude] of POND) {
+			act(() => {
+				fake.click(longitude, latitude);
+			});
+		}
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.moveVertex({ ring: 1, vertex: 0 }, [-89.5, 35.5]);
+		});
+		act(() => {
+			result.current.draw.cancel();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+		expect(result.current.draw.isDrawing).toBe(false);
+	});
+
+	it('edits a hole ring with the same three gestures as the outline', () => {
+		const { result } = mountControlled({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.moveVertex({ ring: 1, vertex: 0 }, [-90.5, 35]);
+		});
+		act(() => {
+			result.current.draw.insertVertex({ ring: 1, vertex: 2 }, [-89, 35.5]);
+		});
+		act(() => {
+			result.current.draw.deleteVertex({ ring: 1, vertex: 4 });
+		});
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [
+				closed(BLOCK),
+				closed([
+					[-90.5, 35],
+					[-90, 36],
+					[-89, 36],
+					[-89, 35.5],
+				]),
+			],
+		});
+	});
+
+	// The same rule the continuation path reports, read from the other end: an
+	// outline pulled in past a hole is a polygon PostGIS calls invalid.
+	it('refuses an edit that has pushed a hole outside the outline', () => {
+		const { result } = mountControlled({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.moveVertex({ ring: 0, vertex: 2 }, [-89.5, 36.5]);
+		});
+
+		expect(result.current.draw.canFinish).toBe(false);
+		expect(result.current.draw.editedPart?.problem).toBe('holesEscape');
+
+		act(() => {
+			result.current.draw.finish();
+		});
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+	});
+
+	it('leaves the other pieces alone and keeps the edited one at its index', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.startPart();
+		});
+		drawPolygon(fake, result, SECOND_SQUARE);
+
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		expect(result.current.draw.editedPart).toEqual({
+			partNumber: 1,
+			partCount: 2,
+			problem: null,
+			selected: null,
+		});
+		act(() => {
+			result.current.draw.moveVertex({ ring: 0, vertex: 0 }, [-91, 35]);
+		});
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'MultiPolygon',
+			coordinates: [
+				[
+					closed([
+						[-91, 35],
+						[-90, 36],
+						[-89, 36],
+					]),
+				],
+				[closed(SECOND_SQUARE)],
+			],
+		});
+	});
+
+	// The piece being edited is the draft, so drawing it twice would put a
+	// finished outline under a changing one.
+	it('draws the piece being edited once, as the draft', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.startPart();
+		});
+		drawPolygon(fake, result, SECOND_SQUARE);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+
+		const shapes = fake
+			.featuresOf(SOURCE_ID)
+			.filter((feature) => feature.geometry.type === 'Polygon');
+		expect(shapes).toHaveLength(2);
+	});
+
+	it('refuses to edit a piece that is not there', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.editPart(4);
+		});
+
+		expect(result.current.draw.isDrawing).toBe(false);
+		expect(result.current.draw.editedPart).toBeNull();
+	});
+
+	// A point has no end to carry on from, which is why Continue skips it, and one
+	// corner to pick up, which is why this does not.
+	it('moves the position of a point piece', () => {
+		const { fake, result } = mountControlled();
+
+		act(() => {
+			result.current.draw.start('Point');
+		});
+		act(() => {
+			fake.click(-90, 35);
+		});
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		expect(result.current.draw.isDrawing).toBe(true);
+		act(() => {
+			result.current.draw.moveVertex({ ring: 0, vertex: 0 }, [-89, 34]);
+		});
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({ type: 'Point', coordinates: [-89, 34] });
+	});
+
+	// Undo takes back gestures and stops at the piece as it was opened. Eating
+	// into it would take back work the user never asked to undo.
+	it('undoes only the gestures an edit made', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		expect(result.current.draw.canUndo).toBe(false);
+
+		act(() => {
+			result.current.draw.moveVertex({ ring: 0, vertex: 0 }, [-91, 35]);
+		});
+		act(() => {
+			result.current.draw.insertVertex({ ring: 0, vertex: 0 }, [-90.5, 35.5]);
+		});
+		expect(result.current.draw.canUndo).toBe(true);
+
+		act(() => {
+			result.current.draw.undo();
+		});
+		act(() => {
+			result.current.draw.undo();
+		});
+		expect(result.current.draw.canUndo).toBe(false);
+
+		act(() => {
+			result.current.draw.undo();
+		});
+		act(() => {
+			result.current.draw.finish();
+		});
+		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(FIRST_SQUARE)] });
+	});
+
+	it('picks the vertex Delete acts on and drops the pick with it', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.selectVertex({ ring: 0, vertex: 1 });
+		});
+		expect(result.current.draw.editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
+
+		act(() => {
+			result.current.draw.deleteVertex({ ring: 0, vertex: 1 });
+		});
+		expect(result.current.draw.editedPart?.selected).toBeNull();
+		expect(result.current.draw.vertexCount).toBe(2);
+	});
+
 	it('resolves a requested point on the next click', async () => {
 		const { fake, result } = mount();
 
@@ -1119,5 +1477,45 @@ describe('toDrawGeometry', () => {
 
 	it('still reads a geometry collection as nothing', () => {
 		expect(toDrawGeometry({ type: 'GeometryCollection', geometries: [] })).toBeNull();
+	});
+});
+
+/**
+ * Which edge a click on the boundary lands on. The map settles that the pointer
+ * is on the shape; this settles which of its edges was meant, and a wrong answer
+ * puts the new vertex on the far side of the ring.
+ */
+describe('nearestRingEdge', () => {
+	const SQUARE = [
+		[0, 0],
+		[0, 10],
+		[10, 10],
+		[10, 0],
+	] as const;
+
+	it('names an edge by the vertex it starts at', () => {
+		expect(nearestRingEdge([SQUARE], [0, 5], true)).toEqual({ ring: 0, vertex: 0 });
+		expect(nearestRingEdge([SQUARE], [5, 10], true)).toEqual({ ring: 0, vertex: 1 });
+	});
+
+	// The closing edge is the one an area has and a line does not, and the one an
+	// insert appended to the end of the list would silently get wrong.
+	it('gives an area the edge that closes it and a line none', () => {
+		expect(nearestRingEdge([SQUARE], [7, 0.5], true)).toEqual({ ring: 0, vertex: 3 });
+		expect(nearestRingEdge([SQUARE], [7, 0.5], false)).toEqual({ ring: 0, vertex: 2 });
+	});
+
+	it('reaches the holes as well as the outline', () => {
+		const hole = [
+			[2, 2],
+			[2, 4],
+			[4, 4],
+		] as const;
+
+		expect(nearestRingEdge([SQUARE, hole], [2, 3], true)).toEqual({ ring: 1, vertex: 0 });
+	});
+
+	it('has no edge to name in an empty ring', () => {
+		expect(nearestRingEdge([[]], [0, 0], true)).toBeNull();
 	});
 });

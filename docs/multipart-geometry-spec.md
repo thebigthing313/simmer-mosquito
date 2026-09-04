@@ -1302,7 +1302,9 @@ Ruled out on the map, each with the ticket that ruled it.
   Tracked in #449. "Continue a part", the cheap partial where a part re-enters
   draw mode with its vertices preloaded, went out with it here and was built
   afterwards under #445, so a shape that stopped one vertex early is no longer
-  redraw-or-nothing.
+  redraw-or-nothing. The three gestures themselves were built afterwards too,
+  under #495, over an edit draft seeded with every ring of one part. Reshape and
+  split, #449's other two children, preview into that draft and are not built.
 - Importing a point from a file. No import surface has ever produced a Point, and
   adding one is a new capability with no multipart in it.
 - GeometryCollection as a record geometry. Nothing in mosquito control needs a

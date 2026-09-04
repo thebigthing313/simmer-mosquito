@@ -3,6 +3,7 @@ import {
 	CircleIcon,
 	iconRegistry,
 	MapPinnedIcon,
+	SplineIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { useState } from 'react';
@@ -143,15 +144,16 @@ export function GeometryPartSummary({
  * No reorder, because a shape's piece order carries no meaning, and no redraw,
  * because Remove then Add piece is the same result with one mode fewer.
  *
- * Cut hole and Continue are per-row actions here rather than buttons on the
- * control, because the piece is named before the gesture starts. Nothing is
- * hit-tested to work out which piece was meant.
+ * Cut hole, Continue and Edit vertices are per-row actions here rather than
+ * buttons on the control, because the piece is named before the gesture starts.
+ * Nothing is hit-tested to work out which piece was meant.
  */
 export function GeometryPartList({
 	parts,
 	disabled,
 	onContinue,
 	onCutHole,
+	onEditVertices,
 	onHighlight,
 	onRemove,
 	onRemoveHole,
@@ -161,6 +163,7 @@ export function GeometryPartList({
 	readonly disabled: boolean;
 	readonly onContinue: (index: number) => void;
 	readonly onCutHole: (index: number) => void;
+	readonly onEditVertices: (index: number) => void;
 	readonly onHighlight: (index: number | null) => void;
 	readonly onRemove: (index: number) => void;
 	readonly onRemoveHole: (partIndex: number, holeIndex: number) => void;
@@ -212,6 +215,17 @@ export function GeometryPartList({
 									<EditIcon aria-hidden="true" />
 								</Button>
 							)}
+							{/* A point has one corner and no edge, and moving it is the whole edit. */}
+							<Button
+								aria-label={`Edit the vertices of piece ${index + 1}`}
+								disabled={disabled}
+								onClick={() => onEditVertices(index)}
+								size="sm"
+								type="button"
+								variant="ghost"
+							>
+								<SplineIcon aria-hidden="true" />
+							</Button>
 							{/* Areas only: a point and a line have no inside to cut. */}
 							{part.type === 'Polygon' ? (
 								<Button
