@@ -19,6 +19,7 @@
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { OutreachAction } from '../../../../hooks/queries/outreach-view';
+import { installMemoryCollections } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -32,18 +33,6 @@ const STOP = '88888888-8888-4888-8888-888888888888';
 vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
-});
-vi.mock('../../../../lib/collections/service_requests', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { service_requests: stubCollection('service_requests') };
-});
-vi.mock('../../../../lib/collections/outreach_actions', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { outreach_actions: stubCollection('outreach_actions') };
-});
-vi.mock('../../../../lib/collections/contacts', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { contacts: stubCollection('contacts') };
 });
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => ({
@@ -71,6 +60,7 @@ const SHAPE = { type: 'Point', coordinates: [-121.49, 38.58] } as const;
 const LOCATION_SOURCE = { kind: 'geometry', geometry: SHAPE } as const;
 
 beforeEach(() => {
+	installMemoryCollections();
 	resetDispatches();
 	stubApi();
 });

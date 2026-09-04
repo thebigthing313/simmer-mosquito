@@ -38,7 +38,7 @@ export function useApplicationBatches(applicationId: string | null): Application
 			gcTime: applicationBatchesGcTimeMs,
 			query: (query) =>
 				query
-					.from({ entry: application_batches })
+					.from({ entry: application_batches() })
 					.where(({ entry }) => eq(entry.application_id, applicationId ?? unmatchableId))
 					.orderBy(({ entry }) => entry.created_at, 'asc')
 					.select(({ entry }) => ({

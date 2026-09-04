@@ -27,15 +27,15 @@ export function useServiceRequest(
 			gcTime: options?.gcTime ?? mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ request: service_requests })
+					.from({ request: service_requests() })
 					.where(({ request }) => eq(request.id, requestId ?? unmatchableId))
 					.join(
-						{ contact: contacts },
+						{ contact: contacts() },
 						({ request, contact }) => eq(request.contact_id, contact.id),
 						'left',
 					)
 					.join(
-						{ address: addresses },
+						{ address: addresses() },
 						({ request, address }) => eq(request.address_id, address.id),
 						'left',
 					)

@@ -26,7 +26,7 @@ export function usePersonnelOptions(): {
 	const result = useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ profile: profiles })
+				.from({ profile: profiles() })
 				.orderBy(({ profile }) => profile.display_name, 'asc')
 				.select(({ profile }) => ({ id: profile.id, label: profile.display_name })),
 		[],

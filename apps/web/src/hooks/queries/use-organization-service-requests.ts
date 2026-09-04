@@ -61,7 +61,7 @@ export function useOrganizationServiceRequests(): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ request: service_requests })
+					.from({ request: service_requests() })
 					.orderBy(({ request }) => request.request_date, 'desc')
 					.select(({ request }) => ({
 						id: request.id,

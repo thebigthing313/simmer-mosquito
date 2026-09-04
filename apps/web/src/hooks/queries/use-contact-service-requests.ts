@@ -31,7 +31,7 @@ export function useContactServiceRequests(contactId: string | null | undefined):
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ request: service_requests })
+					.from({ request: service_requests() })
 					.where(({ request }) => eq(request.contact_id, id))
 					.orderBy(({ request }) => request.request_date, 'desc')
 					.select(({ request }) => ({

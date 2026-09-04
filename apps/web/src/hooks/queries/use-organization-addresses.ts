@@ -41,7 +41,7 @@ export function useOrganizationAddresses(): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ address: addresses })
+					.from({ address: addresses() })
 					.orderBy(({ address }) => address.display_name, 'asc')
 					.select(({ address }) => ({
 						id: address.id,

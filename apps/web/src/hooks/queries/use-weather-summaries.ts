@@ -50,7 +50,7 @@ export function useWeatherSummaries(stationId: string | null): {
 			gcTime: summariesGcTimeMs,
 			query: (query) =>
 				query
-					.from({ summary: weather_summaries })
+					.from({ summary: weather_summaries() })
 					.where(({ summary }) => eq(summary.weather_source_id, stationId ?? unmatchableId))
 					.orderBy(({ summary }) => summary.end_date, 'desc')
 					.select(({ summary }) => ({

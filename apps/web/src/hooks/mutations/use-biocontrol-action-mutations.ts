@@ -95,7 +95,7 @@ export function useBiocontrolActionMutations(): BiocontrolActionMutations {
 			}
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(biocontrol_actions, {
+				mutateCollection(biocontrol_actions(), {
 					operation: 'insert',
 					intent:
 						missionItemId === null
@@ -168,7 +168,7 @@ export function useBiocontrolActionMutations(): BiocontrolActionMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(biocontrol_actions, {
+				mutateCollection(biocontrol_actions(), {
 					operation: 'update',
 					intent,
 					key: current.id,
@@ -212,7 +212,7 @@ export function useBiocontrolActionMutations(): BiocontrolActionMutations {
 			acknowledgements: Readonly<Record<string, boolean>> = {},
 		) => {
 			await settleWrite(
-				mutateCollection(biocontrol_actions, {
+				mutateCollection(biocontrol_actions(), {
 					operation: 'delete',
 					intent: 'controlOperations.deleteBiocontrolAction',
 					key: biocontrolActionId,

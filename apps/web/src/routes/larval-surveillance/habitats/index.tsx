@@ -527,7 +527,7 @@ function useSelectedHabitat(
 			// already in the visible list or nothing is selected.
 			query: (query) =>
 				query
-					.from({ habitat: habitats })
+					.from({ habitat: habitats() })
 					.where(({ habitat }) => eq(habitat.id, needsFetch ? selectedId : UNMATCHABLE_ID))
 					.select(({ habitat }) => ({
 						id: habitat.id,

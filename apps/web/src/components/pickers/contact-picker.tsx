@@ -43,7 +43,7 @@ export function ContactPicker({
 	// An edit form arrives holding only the contact id, so the current selection is
 	// resolved from the collection rather than left as an empty-looking field.
 	const selectedLabel = useSelectedRowLabel({
-		collection: contacts,
+		collection: contacts(),
 		pickedLabel,
 		toLabel: (row) => contactLabel(contactLabelParts(row)),
 		value,
@@ -106,7 +106,7 @@ function ContactResults({
 				// No organization predicate: the shape is scoped to the agency
 				// server-side, so re-stating it here is redundant — and a stale column
 				// spelling in one is what empties a list rather than narrowing it.
-				const base = query.from({ contact: contacts });
+				const base = query.from({ contact: contacts() });
 				const filtered =
 					normalized.length === 0
 						? base

@@ -44,7 +44,7 @@ export function useCollectionIdentifications(collectionId: string): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ identification: collection_species })
+					.from({ identification: collection_species() })
 					.where(({ identification }) => eq(identification.collection_id, collectionId))
 					.orderBy(({ identification }) => identification.created_at, 'asc')
 					.select(({ identification }) => ({

@@ -22,7 +22,7 @@ export function useProfileNames(): ReadonlyMap<string, string> {
 	const result = useLiveQuery(
 		(query) =>
 			query
-				.from({ profile: profiles })
+				.from({ profile: profiles() })
 				.select(({ profile }) => ({ id: profile.id, name: profile.display_name })),
 		[],
 	);

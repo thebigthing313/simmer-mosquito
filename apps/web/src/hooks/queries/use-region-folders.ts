@@ -27,7 +27,7 @@ export function useRegionFolders(): {
 } {
 	const result = useLiveQuery(
 		(query) =>
-			query.from({ folder: region_folders }).select(({ folder }) => ({
+			query.from({ folder: region_folders() }).select(({ folder }) => ({
 				id: folder.id,
 				name: folder.name,
 				description: folder.description,

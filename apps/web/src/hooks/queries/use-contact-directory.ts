@@ -41,7 +41,7 @@ export function useContactDirectory(): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ contact: contacts })
+					.from({ contact: contacts() })
 					.orderBy(({ contact }) => contact.contact_name, 'asc')
 					.select(({ contact }) => ({
 						id: contact.id,

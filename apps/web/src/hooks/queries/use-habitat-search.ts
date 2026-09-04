@@ -37,7 +37,7 @@ export function useHabitatSearch(
 		{
 			query: (query) => {
 				const scoped = query
-					.from({ habitat: habitats })
+					.from({ habitat: habitats() })
 					.where(({ habitat }) =>
 						includeRetired
 							? eq(habitat.organization_id, organizationId)

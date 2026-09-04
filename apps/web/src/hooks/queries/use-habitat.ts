@@ -28,17 +28,17 @@ export function useHabitat(
 			gcTime: options?.gcTime ?? mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ habitat: habitats })
+					.from({ habitat: habitats() })
 					.where(({ habitat }) => eq(habitat.id, habitatId ?? unmatchableId))
 					// `left`: a Habitat need not have a type, and an `inner` join would make
 					// an untyped one disappear from its own card.
 					.join(
-						{ type: habitat_types },
+						{ type: habitat_types() },
 						({ habitat, type }) => eq(habitat.habitat_type_id, type.id),
 						'left',
 					)
 					.join(
-						{ address: addresses },
+						{ address: addresses() },
 						({ habitat, address }) => eq(habitat.address_id, address.id),
 						'left',
 					)

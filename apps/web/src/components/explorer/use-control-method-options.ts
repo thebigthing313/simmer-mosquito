@@ -33,22 +33,22 @@ interface CatalogOptions {
 
 /** Application methods — how an insecticide was put out. */
 export function useApplicationMethodOptions(): CatalogOptions {
-	return useNamedCatalog(application_methods);
+	return useNamedCatalog(application_methods());
 }
 
 /** Source reduction methods — what was done to remove the source. */
 export function useSourceReductionMethodOptions(): CatalogOptions {
-	return useNamedCatalog(source_reduction_methods);
+	return useNamedCatalog(source_reduction_methods());
 }
 
 /** Biocontrol methods — which organism was released. */
 export function useBiocontrolMethodOptions(): CatalogOptions {
-	return useNamedCatalog(biocontrol_methods);
+	return useNamedCatalog(biocontrol_methods());
 }
 
 /** Outreach methods — how the public was reached. */
 export function useOutreachMethodOptions(): CatalogOptions {
-	return useNamedCatalog(outreach_methods);
+	return useNamedCatalog(outreach_methods());
 }
 
 /**
@@ -93,7 +93,7 @@ export function useInsecticideOptions(): CatalogOptions {
 	const result = useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ product: insecticides })
+				.from({ product: insecticides() })
 				.orderBy(({ product }) => product.trade_name, 'asc')
 				.select(({ product }) => ({ id: product.id, label: product.trade_name })),
 		[],

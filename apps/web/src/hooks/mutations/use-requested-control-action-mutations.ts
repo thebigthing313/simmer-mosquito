@@ -108,7 +108,7 @@ export function useRequestedControlActionMutations(): RequestMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(requested_control_actions, {
+				mutateCollection(requested_control_actions(), {
 					operation: 'insert',
 					intent: 'controlOperations.requestControlAction',
 					row: {
@@ -190,7 +190,7 @@ export function useRequestedControlActionMutations(): RequestMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(requested_control_actions, {
+				mutateCollection(requested_control_actions(), {
 					operation: 'update',
 					intent: intents,
 					key: requestId,
@@ -214,7 +214,7 @@ export function useRequestedControlActionMutations(): RequestMutations {
 	const resolve = useCallback(
 		async (requestId: string) => {
 			await settleWrite(
-				mutateCollection(requested_control_actions, {
+				mutateCollection(requested_control_actions(), {
 					operation: 'update',
 					intent: 'controlOperations.resolveRequestedControlAction',
 					key: requestId,
@@ -233,7 +233,7 @@ export function useRequestedControlActionMutations(): RequestMutations {
 	const reopen = useCallback(
 		async (requestId: string) => {
 			await settleWrite(
-				mutateCollection(requested_control_actions, {
+				mutateCollection(requested_control_actions(), {
 					operation: 'update',
 					intent: 'controlOperations.reopenRequestedControlAction',
 					key: requestId,
@@ -252,7 +252,7 @@ export function useRequestedControlActionMutations(): RequestMutations {
 	const remove = useCallback(
 		async (requestId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(requested_control_actions, {
+				mutateCollection(requested_control_actions(), {
 					operation: 'delete',
 					intent: 'controlOperations.deleteRequestedControlAction',
 					key: requestId,

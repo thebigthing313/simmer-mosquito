@@ -53,7 +53,7 @@ export function useRequestParties(
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ contact: contacts })
+					.from({ contact: contacts() })
 					.where(({ contact }) => inArray(contact.id, contactQueryIds))
 					.select(({ contact }) => ({
 						id: contact.id,
@@ -71,7 +71,7 @@ export function useRequestParties(
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ address: addresses })
+					.from({ address: addresses() })
 					.where(({ address }) => inArray(address.id, addressQueryIds))
 					.select(({ address }) => ({
 						id: address.id,

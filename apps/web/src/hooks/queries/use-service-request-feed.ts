@@ -85,7 +85,7 @@ export function useServiceRequestFeed(
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ comment: comments })
+					.from({ comment: comments() })
 					// Persisted rows store entity_type in snake_case; an optimistic row that
 					// has not synced yet still carries the camelCase domain value. Match both.
 					.where(({ comment }) =>

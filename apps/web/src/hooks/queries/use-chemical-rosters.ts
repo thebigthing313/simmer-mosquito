@@ -37,7 +37,7 @@ export interface InsecticideListing {
 
 export function useInsecticideRoster(): readonly InsecticideListing[] {
 	return useLiveSuspenseQuery((query) =>
-		query.from({ row: insecticides }).select(({ row }) => ({
+		query.from({ row: insecticides() }).select(({ row }) => ({
 			id: row.id,
 			tradeName: row.trade_name,
 			isActive: row.is_active,
@@ -55,7 +55,7 @@ export interface RigListing {
 
 export function useVehicleRoster(): readonly RigListing[] {
 	return useLiveSuspenseQuery((query) =>
-		query.from({ row: vehicles }).select(({ row }) => ({
+		query.from({ row: vehicles() }).select(({ row }) => ({
 			id: row.id,
 			name: row.vehicle_name,
 			isActive: row.is_active,
@@ -65,7 +65,7 @@ export function useVehicleRoster(): readonly RigListing[] {
 
 export function useEquipmentRoster(): readonly RigListing[] {
 	return useLiveSuspenseQuery((query) =>
-		query.from({ row: equipmentCollection }).select(({ row }) => ({
+		query.from({ row: equipmentCollection() }).select(({ row }) => ({
 			id: row.id,
 			name: row.equipment_name,
 			isActive: row.is_active,
@@ -84,7 +84,7 @@ export interface FormulationListing {
 
 export function useFormulationRoster(): readonly FormulationListing[] {
 	return useLiveSuspenseQuery((query) =>
-		query.from({ row: formulations }).select(({ row }) => ({
+		query.from({ row: formulations() }).select(({ row }) => ({
 			id: row.id,
 			formulationName: row.formulation_name,
 			isActive: row.is_active,
@@ -105,7 +105,7 @@ export interface FormulationComponentListing {
 
 export function useFormulationComponentRoster(): readonly FormulationComponentListing[] {
 	return useLiveSuspenseQuery((query) =>
-		query.from({ row: formulation_insecticides }).select(({ row }) => ({
+		query.from({ row: formulation_insecticides() }).select(({ row }) => ({
 			id: row.id,
 			formulationId: row.formulation_id,
 			insecticideId: row.insecticide_id,

@@ -4,7 +4,7 @@ This document is the table-level matrix for Electric-backed TanStack DB
 collections, and the policy behind it. It covers what each app baselines, what
 it loads from screen predicates, and where the pieces live.
 
-`apps/web` is migrated: all fifty of its tables read through
+`apps/web` is migrated: all fifty-three of its tables read through
 `apps/web/src/lib/collections`, and every write names the domain command it
 means. `apps/mobile` has the same migration ahead of it, and its matrix below
 is a plan rather than a description.
@@ -24,9 +24,11 @@ is a plan rather than a description.
 - **Progressive** means the app should become usable from an initial subset,
   then continue filling a broader collection in the background.
 - Eager and on-demand are declared per app, not per package: each module under
-  `apps/web/src/lib/collections` passes `syncMode` to the collection factory.
-  The matrix below is what those fifty-three modules say, so a table that changes
-  mode changes it there and this table follows.
+  `apps/web/src/lib/collections` declares its own `syncMode`, and the source
+  installed at startup passes it to the collection factory. The matrix below is
+  what those fifty-three modules say, so a table that changes mode changes it
+  there and this table follows. `collection-modules.test.ts` holds the two to
+  each other, so the matrix is checked rather than maintained by hand.
 - Web is online-only in v1. Mobile uses automatic scoped offline persistence.
 
 ## Web matrix
@@ -117,15 +119,26 @@ Who owns which leg:
   turns a mutation into a named domain command.
 - `apps/server` owns authenticated shape proxy routes and forces table,
   columns, and tenant scope server-side.
-- `apps/web` owns the fifty collection singletons under `src/lib/collections`,
-  their `syncMode`, and the surface-shaped read hooks under `src/hooks/queries`
-  that join them. Route components read hooks, not collections.
+- `apps/web` owns the fifty-three collection declarations under
+  `src/lib/collections`, their `syncMode`, and the surface-shaped read hooks
+  under `src/hooks/queries` that join them. Route components read hooks, not
+  collections.
 
 Writes take the mirror path. A mutation applied optimistically to a collection
 carries the domain command it means; the server validates that command, commits
 it in one Kysely transaction, and returns `pg_current_xact_id()` from the same
 transaction so Electric can confirm the optimistic write. The server never
 infers the command from which fields changed.
+
+### Where a collection comes from
+
+A module in `apps/web/src/lib/collections` names the factory from
+`packages/sync`, its `syncMode`, and whether this app writes the table. It does
+not call the factory. `main.tsx` installs the sync-backed source before the
+first render, and the registry builds each collection the first time a hook asks
+for it, so importing a hook opens no shape stream and needs no server URL. A
+test installs a memory-backed source instead, which is how `apps/web` tests a
+read at all. See `lib/collections/registry.ts`.
 
 ## Mutation confirmation and transaction IDs
 
@@ -321,8 +334,8 @@ the same rows on a different sync policy without a second copy of the schema.
 
 `apps/web` owns:
 
-- the fifty collection singletons in `src/lib/collections`, one per table,
-  each naming its own `syncMode`;
+- the fifty-three collection declarations in `src/lib/collections`, one per
+  table, each naming its own `syncMode`;
 - the read seam in `src/hooks/queries`, one hook per surface, joining
   collections and returning camelCase;
 - the explicit eager baseline preload bundle and route live-query preloads.

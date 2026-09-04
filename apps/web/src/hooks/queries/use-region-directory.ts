@@ -39,7 +39,7 @@ export function useRegionDirectory(): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ region: regions })
+					.from({ region: regions() })
 					.orderBy(({ region }) => region.name, 'asc')
 					.select(({ region }) => ({
 						id: region.id,

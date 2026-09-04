@@ -22,7 +22,7 @@ export function useOrganizationIdentity(): OrganizationIdentity | undefined {
 	const result = useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ organization: organizations })
+				.from({ organization: organizations() })
 				.select(({ organization }) => ({ id: organization.id, name: organization.name })),
 		[],
 	);

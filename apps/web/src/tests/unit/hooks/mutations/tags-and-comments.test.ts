@@ -18,6 +18,7 @@
 
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { installMemoryCollections } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -27,14 +28,6 @@ const TARGET = '44444444-4444-4444-8444-444444444444';
 vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
-});
-vi.mock('../../../../lib/collections/tags', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { tags: stubCollection('tags') };
-});
-vi.mock('../../../../lib/collections/comments', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { comments: stubCollection('comments') };
 });
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => ({
@@ -53,6 +46,7 @@ const { useCommentMutations } = await import('../../../../hooks/mutations/use-co
 const COLOR = '#a3e635';
 
 beforeEach(() => {
+	installMemoryCollections();
 	resetDispatches();
 	stubApi();
 });

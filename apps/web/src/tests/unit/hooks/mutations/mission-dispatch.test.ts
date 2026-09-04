@@ -21,6 +21,7 @@ import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { MissionPlanInput } from '../../../../hooks/mutations/use-mission-mutations';
 import type { RegistrationFields } from '../../../../hooks/mutations/use-notification-registration-mutations';
+import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -42,22 +43,6 @@ vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
 });
-vi.mock('../../../../lib/collections/missions', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { missions: stubCollection('missions') };
-});
-vi.mock('../../../../lib/collections/mission_items', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { mission_items: stubCollection('mission_items') };
-});
-vi.mock('../../../../lib/collections/notification_registrations', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { notification_registrations: stubCollection('notification_registrations') };
-});
-vi.mock('../../../../lib/collections/notification_registration_types', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { notification_registration_types: stubCollection('notification_registration_types') };
-});
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => ({
 		authenticated: true,
@@ -75,9 +60,9 @@ const {
 	lastWrite,
 	requests,
 	resetDispatches,
-	seedRows,
 	stubApi,
 } = await import('./dispatch-harness');
+const { mission_items } = await import('../../../../lib/collections/mission_items');
 const { MISSION_DELETE_REFUSALS, REGISTRATION_SAVE_REFUSALS } = await import(
 	'../../../../lib/acknowledgement-copy'
 );
@@ -97,6 +82,7 @@ const START = new Date('2026-08-10T15:00:00.000Z');
 const END = new Date('2026-08-10T19:00:00.000Z');
 
 beforeEach(() => {
+	installMemoryCollections();
 	resetDispatches();
 	stubApi();
 });
@@ -323,7 +309,7 @@ describe('a mission write', () => {
 		// The stops are renumbered optimistically so nothing shifts twice on
 		// screen, and one request per moved row would be a second description of
 		// the same command.
-		seedRows('mission_items', [
+		seedRows(mission_items, [
 			{ id: STOP, position: 1 },
 			{ id: SECOND_STOP, position: 2 },
 			{ id: THIRD_STOP, position: 3 },
@@ -349,7 +335,7 @@ describe('a mission write', () => {
 	it('names the anchor as a stop id, because that is what the endpoint takes', async () => {
 		// `anchorId` is the reorder control's word for it and names no table. A
 		// placement that kept it would resolve to nothing and reorder silently.
-		seedRows('mission_items', [
+		seedRows(mission_items, [
 			{ id: STOP, position: 1 },
 			{ id: SECOND_STOP, position: 2 },
 		]);

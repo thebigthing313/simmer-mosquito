@@ -95,7 +95,7 @@ function useNewInspectionDraft(): string {
 			gcTime: warmGcTimeMs,
 			query: (query) =>
 				query
-					.from({ sample: samples })
+					.from({ sample: samples() })
 					.where(({ sample }) => eq(sample.inspection_id, inspectionId)),
 		},
 		[inspectionId],

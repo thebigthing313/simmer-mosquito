@@ -120,7 +120,7 @@ export function useSourceReductionMutations(): SourceReductionMutations {
 			}
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(source_reductions, {
+				mutateCollection(source_reductions(), {
 					operation: 'insert',
 					// The stop is what makes it the other command. Both write this table;
 					// only one of them also closes the mission item.
@@ -200,7 +200,7 @@ export function useSourceReductionMutations(): SourceReductionMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(source_reductions, {
+				mutateCollection(source_reductions(), {
 					operation: 'update',
 					intent,
 					key: current.id,
@@ -241,7 +241,7 @@ export function useSourceReductionMutations(): SourceReductionMutations {
 	const remove = useCallback(
 		async (sourceReductionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(source_reductions, {
+				mutateCollection(source_reductions(), {
 					operation: 'delete',
 					intent: 'controlOperations.deleteSourceReduction',
 					key: sourceReductionId,

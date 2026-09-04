@@ -65,25 +65,25 @@ export function useControlActionsForDay(date: string): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ application: applications })
+					.from({ application: applications() })
 					.where(({ application }) => eq(application.application_date, date))
 					.join(
-						{ product: insecticides },
+						{ product: insecticides() },
 						({ application, product }) => eq(application.insecticide_id, product.id),
 						'left',
 					)
 					.join(
-						{ method: application_methods },
+						{ method: application_methods() },
 						({ application, method }) => eq(application.application_method_id, method.id),
 						'left',
 					)
 					.join(
-						{ unit: units },
+						{ unit: units() },
 						({ application, unit }) => eq(application.application_unit_id, unit.id),
 						'left',
 					)
 					.join(
-						{ performer: profiles },
+						{ performer: profiles() },
 						({ application, performer }) => eq(application.applicator_profile_id, performer.id),
 						'left',
 					)
@@ -116,20 +116,20 @@ export function useControlActionsForDay(date: string): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ action: source_reductions })
+					.from({ action: source_reductions() })
 					.where(({ action }) => eq(action.source_reduction_date, date))
 					.join(
-						{ method: source_reduction_methods },
+						{ method: source_reduction_methods() },
 						({ action, method }) => eq(action.source_reduction_method_id, method.id),
 						'left',
 					)
 					.join(
-						{ unit: units },
+						{ unit: units() },
 						({ action, unit }) => eq(action.sources_eliminated_unit_id, unit.id),
 						'left',
 					)
 					.join(
-						{ performer: profiles },
+						{ performer: profiles() },
 						({ action, performer }) => eq(action.technician_profile_id, performer.id),
 						'left',
 					)
@@ -157,16 +157,20 @@ export function useControlActionsForDay(date: string): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ action: biocontrol_actions })
+					.from({ action: biocontrol_actions() })
 					.where(({ action }) => eq(action.biocontrol_date, date))
 					.join(
-						{ method: biocontrol_methods },
+						{ method: biocontrol_methods() },
 						({ action, method }) => eq(action.biocontrol_method_id, method.id),
 						'left',
 					)
-					.join({ unit: units }, ({ action, unit }) => eq(action.release_unit_id, unit.id), 'left')
 					.join(
-						{ performer: profiles },
+						{ unit: units() },
+						({ action, unit }) => eq(action.release_unit_id, unit.id),
+						'left',
+					)
+					.join(
+						{ performer: profiles() },
 						({ action, performer }) => eq(action.technician_profile_id, performer.id),
 						'left',
 					)

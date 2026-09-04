@@ -153,7 +153,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 	// Not suspense: this is a write hook, and a form that has not been submitted
 	// should not be what holds a page behind a fallback. Until the row arrives
 	// `canWrite` is false and the surfaces disable their controls.
-	const result = useLiveQuery((query) => query.from({ organization: organizations }), []);
+	const result = useLiveQuery((query) => query.from({ organization: organizations() }), []);
 	const row: Organization | undefined = result.data?.[0];
 
 	/**
@@ -194,7 +194,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 				url: `${getServerUrl()}/organization-settings/${route}`,
 				body: { ...payload, expectedUpdatedAt: expectedUpdatedAt() },
 				apply: () => {
-					organizations.update(organizationId, (draft) => {
+					organizations().update(organizationId, (draft) => {
 						draft.settings = next(settings);
 					});
 				},
@@ -222,7 +222,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 				const details = plan.details;
 				try {
 					await settleWrite(
-						mutateCollection(organizations, {
+						mutateCollection(organizations(), {
 							operation: 'update',
 							intent: 'identity.updateOrganizationDetails',
 							key: organizationId,
@@ -257,7 +257,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 				// command just streamed in rather than off the closure's copy, which is
 				// the render's and predates the write.
 				lastCommittedAt.current =
-					organizations.get(organizationId)?.updated_at?.toISOString() ?? null;
+					organizations().get(organizationId)?.updated_at?.toISOString() ?? null;
 			}
 
 			// Second, and only if it moved: `expectedUpdatedAt` now reads the stamp

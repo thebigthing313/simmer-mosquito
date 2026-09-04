@@ -220,7 +220,7 @@ function SampleTopBar({
 				to="/larval-surveillance/samples"
 			>
 				<ArrowLeftIcon aria-hidden="true" />
-				Back to samples
+				Back to samples()
 			</Link>
 			<div className="flex flex-wrap items-center gap-2">
 				{inspectionId === null ? null : (
@@ -407,7 +407,7 @@ function IdentificationCard({
 		{
 			gcTime: sampleRecordGcTimeMs,
 			query: (query) =>
-				query.from({ sample: samples }).where(({ sample }) => eq(sample.id, sampleId)),
+				query.from({ sample: samples() }).where(({ sample }) => eq(sample.id, sampleId)),
 		},
 		[sampleId],
 	);
@@ -416,7 +416,7 @@ function IdentificationCard({
 			gcTime: sampleRecordGcTimeMs,
 			query: (query) =>
 				query
-					.from({ sampleSpecies: sample_species })
+					.from({ sampleSpecies: sample_species() })
 					.where(({ sampleSpecies }) => eq(sampleSpecies.sample_id, sampleId))
 					.orderBy(({ sampleSpecies }) => sampleSpecies.larvae_count, 'desc')
 					.select(({ sampleSpecies }) => ({

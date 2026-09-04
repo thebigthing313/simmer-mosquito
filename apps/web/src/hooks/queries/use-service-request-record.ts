@@ -49,7 +49,7 @@ export function useServiceRequestRecord(requestId: string | null | undefined): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ request: service_requests })
+					.from({ request: service_requests() })
 					.where(({ request }) => eq(request.id, id))
 					.select(({ request }) => ({
 						id: request.id,

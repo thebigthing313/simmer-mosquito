@@ -227,7 +227,7 @@ export function useAssignment(assignmentId: string | null): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ assignment: assignments })
+					.from({ assignment: assignments() })
 					.where(({ assignment }) => eq(assignment.id, assignmentId ?? UNMATCHABLE_ID))
 					.select(({ assignment }) => ({
 						id: assignment.id,
@@ -283,7 +283,7 @@ export function useAssignmentItems(assignmentId: string | null): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: assignment_items })
+					.from({ item: assignment_items() })
 					.where(({ item }) => eq(item.assignment_id, assignmentId ?? UNMATCHABLE_ID))
 					.orderBy(({ item }) => item.position, 'asc')
 					.select(({ item }) => ({
@@ -353,7 +353,7 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ trap: traps })
+					.from({ trap: traps() })
 					.where(({ trap }) => inArray(trap.id, trapIds.length > 0 ? trapIds : [UNMATCHABLE_ID]))
 					.select(({ trap }) => ({
 						id: trap.id,
@@ -374,7 +374,7 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ habitat: habitats })
+					.from({ habitat: habitats() })
 					.where(({ habitat }) =>
 						inArray(habitat.id, habitatIds.length > 0 ? habitatIds : [UNMATCHABLE_ID]),
 					)
@@ -397,7 +397,7 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ request: service_requests })
+					.from({ request: service_requests() })
 					.where(({ request }) =>
 						inArray(request.id, requestIds.length > 0 ? requestIds : [UNMATCHABLE_ID]),
 					)
@@ -442,7 +442,7 @@ function useAssignmentTargets(items: readonly AssignmentItemView[]): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ address: addresses })
+					.from({ address: addresses() })
 					.where(({ address }) =>
 						inArray(address.id, addressIds.length > 0 ? addressIds : [UNMATCHABLE_ID]),
 					)
@@ -548,7 +548,7 @@ function usePendingTrapCollections(
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ collection: collections })
+					.from({ collection: collections() })
 					.where(({ collection }) =>
 						and(
 							inArray(collection.trap_id, trapIds.length > 0 ? trapIds : [UNMATCHABLE_ID]),
@@ -687,7 +687,7 @@ export function useOpenServiceRequests(): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ request: service_requests })
+					.from({ request: service_requests() })
 					.where(({ request }) => isNull(request.closed_at))
 					.orderBy(({ request }) => request.request_date, 'desc')
 					.select(({ request }) => ({
@@ -728,7 +728,7 @@ export function useRouteSnapshotItems(routeId: string | null): {
 			gcTime: assignmentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: route_items })
+					.from({ item: route_items() })
 					.where(({ item }) => eq(item.route_id, routeId ?? UNMATCHABLE_ID))
 					.orderBy(({ item }) => item.position, 'asc')
 					.select(({ item }) => ({

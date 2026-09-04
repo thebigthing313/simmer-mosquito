@@ -60,7 +60,7 @@ export function useUnitLabels(): {
 } {
 	const result = useLiveSuspenseQuery(
 		(query) =>
-			query.from({ unit: units }).select(({ unit }) => ({
+			query.from({ unit: units() }).select(({ unit }) => ({
 				id: unit.id,
 				code: unit.code,
 				abbreviation: unit.abbreviation,

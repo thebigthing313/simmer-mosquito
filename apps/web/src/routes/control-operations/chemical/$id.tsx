@@ -309,7 +309,7 @@ function ApplicationBatchesCard({
 			gcTime: applicationGcTimeMs,
 			query: (query) =>
 				query
-					.from({ batch: insecticide_batches })
+					.from({ batch: insecticide_batches() })
 					.where(({ batch }) => eq(batch.insecticide_id, application.insecticideId))
 					.orderBy(({ batch }) => batch.batch_name, 'asc'),
 		},

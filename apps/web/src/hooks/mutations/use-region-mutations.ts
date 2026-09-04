@@ -178,7 +178,7 @@ export function useRegionMutations(): RegionMutations {
 			}
 
 			const now = optimisticStamp();
-			const write = mutateCollection(regions, {
+			const write = mutateCollection(regions(), {
 				operation: 'insert',
 				intent: 'foundation.createRegion',
 				row: {
@@ -225,7 +225,7 @@ export function useRegionMutations(): RegionMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(regions, {
+				mutateCollection(regions(), {
 					operation: 'update',
 					intent: plan.intents,
 					key: input.regionId,
@@ -245,7 +245,7 @@ export function useRegionMutations(): RegionMutations {
 	const rename = useCallback(
 		async (regionId: string, name: string) => {
 			await settleWrite(
-				mutateCollection(regions, {
+				mutateCollection(regions(), {
 					operation: 'update',
 					intent: 'foundation.updateRegionDetails',
 					key: regionId,
@@ -264,7 +264,7 @@ export function useRegionMutations(): RegionMutations {
 	const move = useCallback(
 		async (regionId: string, folderId: string | null) => {
 			await settleWrite(
-				mutateCollection(regions, {
+				mutateCollection(regions(), {
 					operation: 'update',
 					intent: 'foundation.moveRegionToFolder',
 					key: regionId,
@@ -283,7 +283,7 @@ export function useRegionMutations(): RegionMutations {
 	const remove = useCallback(
 		async (regionId: string) => {
 			await settleWrite(
-				mutateCollection(regions, {
+				mutateCollection(regions(), {
 					operation: 'delete',
 					intent: 'foundation.deleteRegion',
 					key: regionId,

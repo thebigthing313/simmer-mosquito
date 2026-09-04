@@ -82,7 +82,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(assignment_items, {
+				mutateCollection(assignment_items(), {
 					operation: 'insert',
 					intent: 'fieldWork.addAssignmentItem',
 					row: {
@@ -113,7 +113,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 		async (assignmentItemId: string, directions: string) => {
 			const trimmed = directions.trim();
 			await settleWrite(
-				mutateCollection(assignment_items, {
+				mutateCollection(assignment_items(), {
 					operation: 'update',
 					intent: 'fieldWork.updateAssignmentItem',
 					key: assignmentItemId,
@@ -130,7 +130,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 
 	const removeStop = useCallback(async (assignmentItemId: string) => {
 		await settleWrite(
-			mutateCollection(assignment_items, {
+			mutateCollection(assignment_items(), {
 				operation: 'delete',
 				intent: 'fieldWork.removeAssignmentItem',
 				key: assignmentItemId,
@@ -141,7 +141,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 	const complete = useCallback(
 		async (assignmentItemId: string) => {
 			await settleWrite(
-				mutateCollection(assignment_items, {
+				mutateCollection(assignment_items(), {
 					operation: 'update',
 					intent: 'fieldWork.completeAssignmentItem',
 					key: assignmentItemId,
@@ -166,7 +166,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 	const reopen = useCallback(
 		async (assignmentItemId: string) => {
 			await settleWrite(
-				mutateCollection(assignment_items, {
+				mutateCollection(assignment_items(), {
 					operation: 'update',
 					intent: 'fieldWork.reopenAssignmentItem',
 					key: assignmentItemId,
@@ -185,7 +185,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 	const skip = useCallback(
 		async (assignmentItemId: string, skipReason: string) => {
 			await settleWrite(
-				mutateCollection(assignment_items, {
+				mutateCollection(assignment_items(), {
 					operation: 'update',
 					intent: 'fieldWork.skipAssignmentItem',
 					key: assignmentItemId,
@@ -207,7 +207,7 @@ export function useAssignmentItemMutations(): AssignmentItemMutations {
 	const unskip = useCallback(
 		async (assignmentItemId: string) => {
 			await settleWrite(
-				mutateCollection(assignment_items, {
+				mutateCollection(assignment_items(), {
 					operation: 'update',
 					intent: 'fieldWork.unskipAssignmentItem',
 					key: assignmentItemId,

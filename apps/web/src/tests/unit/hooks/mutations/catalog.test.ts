@@ -25,6 +25,7 @@ import type {
 	InsecticideBatchFields,
 	InsecticideFields,
 } from '../../../../hooks/mutations/use-insecticide-mutations';
+import { installMemoryCollections } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -35,54 +36,6 @@ const PRODUCT = '55555555-5555-4555-8555-555555555555';
 vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
-});
-vi.mock('../../../../lib/collections/application_methods', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { application_methods: stubCollection('application_methods') };
-});
-vi.mock('../../../../lib/collections/biocontrol_methods', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { biocontrol_methods: stubCollection('biocontrol_methods') };
-});
-vi.mock('../../../../lib/collections/collection_lures', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { collection_lures: stubCollection('collection_lures') };
-});
-vi.mock('../../../../lib/collections/collection_methods', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { collection_methods: stubCollection('collection_methods') };
-});
-vi.mock('../../../../lib/collections/habitat_types', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { habitat_types: stubCollection('habitat_types') };
-});
-vi.mock('../../../../lib/collections/notification_types', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { notification_types: stubCollection('notification_types') };
-});
-vi.mock('../../../../lib/collections/outreach_methods', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { outreach_methods: stubCollection('outreach_methods') };
-});
-vi.mock('../../../../lib/collections/source_reduction_methods', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { source_reduction_methods: stubCollection('source_reduction_methods') };
-});
-vi.mock('../../../../lib/collections/equipment', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { equipment: stubCollection('equipment') };
-});
-vi.mock('../../../../lib/collections/vehicles', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { vehicles: stubCollection('vehicles') };
-});
-vi.mock('../../../../lib/collections/insecticides', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { insecticides: stubCollection('insecticides') };
-});
-vi.mock('../../../../lib/collections/insecticide_batches', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { insecticide_batches: stubCollection('insecticide_batches') };
 });
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => ({
@@ -123,6 +76,7 @@ const { useInsecticideBatchMutations, useInsecticideMutations } = await import(
 );
 
 beforeEach(() => {
+	installMemoryCollections();
 	resetDispatches();
 	stubApi();
 });
@@ -463,11 +417,11 @@ describe('the four control-method catalogs', () => {
 
 			await result.current.create(catalogFields());
 			expect(lastIntents()).toEqual([catalog.create]);
-			expect(lastCollection()).toBe(catalog.collection);
+			expect(lastCollection()).toBe(catalog.collection());
 
 			await result.current.setActive(RECORD, false, {});
 			expect(lastIntents()).toEqual([catalog.deactivate]);
-			expect(lastCollection()).toBe(catalog.collection);
+			expect(lastCollection()).toBe(catalog.collection());
 		});
 	}
 });

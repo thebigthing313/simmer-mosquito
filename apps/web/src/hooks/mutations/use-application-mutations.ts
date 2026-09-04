@@ -238,9 +238,9 @@ export function useApplicationMutations(): ApplicationMutations {
 						},
 					},
 					apply: () => {
-						applications.insert(row);
+						applications().insert(row);
 						for (const link of links) {
-							application_batches.insert(link);
+							application_batches().insert(link);
 						}
 					},
 				}),
@@ -287,7 +287,7 @@ export function useApplicationMutations(): ApplicationMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(applications, {
+				mutateCollection(applications(), {
 					operation: 'update',
 					intent,
 					key: current.id,
@@ -336,7 +336,7 @@ export function useApplicationMutations(): ApplicationMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(application_batches, {
+				mutateCollection(application_batches(), {
 					operation: 'insert',
 					intent: 'controlOperations.addChemicalApplicationBatch',
 					row: {
@@ -357,7 +357,7 @@ export function useApplicationMutations(): ApplicationMutations {
 
 	const removeBatch = useCallback(async (applicationBatchId: string) => {
 		await settleWrite(
-			mutateCollection(application_batches, {
+			mutateCollection(application_batches(), {
 				operation: 'delete',
 				intent: 'controlOperations.removeChemicalApplicationBatch',
 				key: applicationBatchId,
@@ -386,7 +386,7 @@ export function useApplicationMutations(): ApplicationMutations {
 	const remove = useCallback(
 		async (applicationId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(applications, {
+				mutateCollection(applications(), {
 					operation: 'delete',
 					intent: 'controlOperations.deleteChemicalApplication',
 					key: applicationId,

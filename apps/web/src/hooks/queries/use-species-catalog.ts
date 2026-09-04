@@ -32,7 +32,7 @@ export function useSpeciesCatalog(): readonly SpeciesListing[] {
 	const result = useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ taxon: species })
+				.from({ taxon: species() })
 				.orderBy(({ taxon }) => taxon.display_name, 'asc')
 				.select(({ taxon }) => ({
 					id: taxon.id,

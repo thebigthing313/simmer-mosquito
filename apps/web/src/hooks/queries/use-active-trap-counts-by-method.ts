@@ -20,7 +20,7 @@ export function useActiveTrapCountsByMethod(): ReadonlyMap<string, number> {
 	const result = useLiveQuery(
 		(query) =>
 			query
-				.from({ trap: traps })
+				.from({ trap: traps() })
 				.where(({ trap }) => eq(trap.is_active, true))
 				.groupBy(({ trap }) => trap.collection_method_id)
 				.select(({ trap }) => ({

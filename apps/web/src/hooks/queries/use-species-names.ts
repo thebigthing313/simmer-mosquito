@@ -24,7 +24,7 @@ export function useSpeciesNames(): ReadonlyMap<string, string> {
 	const result = useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ taxon: species })
+				.from({ taxon: species() })
 				.select(({ taxon }) => ({ id: taxon.id, name: taxon.display_name })),
 		[],
 	);

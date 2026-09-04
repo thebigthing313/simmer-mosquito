@@ -63,7 +63,7 @@ export function useAddressSurveillance(addressIds: readonly string[]): AddressSu
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ habitat: habitats })
+					.from({ habitat: habitats() })
 					.where(({ habitat }) => inArray(habitat.address_id, queryIds))
 					.select(({ habitat }) => ({
 						id: habitat.id,
@@ -80,7 +80,7 @@ export function useAddressSurveillance(addressIds: readonly string[]): AddressSu
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ trap: traps })
+					.from({ trap: traps() })
 					.where(({ trap }) => inArray(trap.address_id, queryIds))
 					.select(({ trap }) => ({
 						id: trap.id,

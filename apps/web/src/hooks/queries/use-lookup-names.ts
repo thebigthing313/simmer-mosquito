@@ -24,17 +24,17 @@ import { insecticides } from '../../lib/collections/insecticides';
 import { source_reduction_methods } from '../../lib/collections/source_reduction_methods';
 
 export function useLookupNames(): ReadonlyMap<string, string> {
-	const habitatTypeRows = useNames(habitat_types);
-	const collectionMethodRows = useNames(collection_methods);
-	const sourceReductionMethodRows = useNames(source_reduction_methods);
-	const biocontrolMethodRows = useNames(biocontrol_methods);
+	const habitatTypeRows = useNames(habitat_types());
+	const collectionMethodRows = useNames(collection_methods());
+	const sourceReductionMethodRows = useNames(source_reduction_methods());
+	const biocontrolMethodRows = useNames(biocontrol_methods());
 
 	// Its own query rather than a fifth `useNames`, because a product is named by
 	// its trade name — `shorthand` is an agency's data-entry abbreviation.
 	const productResult = useLiveQuery(
 		(query) =>
 			query
-				.from({ product: insecticides })
+				.from({ product: insecticides() })
 				.select(({ product }) => ({ id: product.id, name: product.trade_name })),
 		[],
 	);

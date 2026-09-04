@@ -21,7 +21,7 @@ export function useTagOptions(): {
 	const result = useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ tag: tags })
+				.from({ tag: tags() })
 				.orderBy(({ tag }) => tag.tag_name, 'asc')
 				.select(({ tag }) => ({
 					id: tag.id,

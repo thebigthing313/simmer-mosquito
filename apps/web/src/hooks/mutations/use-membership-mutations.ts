@@ -81,7 +81,7 @@ export function useMembershipMutations(): MembershipMutations {
 
 	const changeRole = useCallback(async (membershipId: string, role: SimmerRole) => {
 		await settleWrite(
-			mutateCollection(memberships, {
+			mutateCollection(memberships(), {
 				operation: 'update',
 				intent: 'identity.changeRole',
 				key: membershipId,
@@ -92,7 +92,7 @@ export function useMembershipMutations(): MembershipMutations {
 
 	const endMembership = useCallback(async (membershipId: string) => {
 		await settleWrite(
-			mutateCollection(memberships, {
+			mutateCollection(memberships(), {
 				operation: 'update',
 				intent: 'identity.endMembership',
 				key: membershipId,
@@ -156,7 +156,7 @@ async function postMembershipCommand(
 	const url = `${getServerUrl()}${path}${membershipId === null ? '' : `/${membershipId}`}`;
 	const txid = await writeCommand(url, method, body, 'Unable to send the invitation.');
 
-	await Promise.all([awaitTxIdOn(memberships, txid), awaitTxIdOn(profiles, txid)]);
+	await Promise.all([awaitTxIdOn(memberships(), txid), awaitTxIdOn(profiles(), txid)]);
 }
 
 /**

@@ -125,7 +125,7 @@ export function useProfileMutations(): ProfileMutations {
 			} satisfies Profile;
 
 			await settleWrite(
-				mutateCollection(profiles, {
+				mutateCollection(profiles(), {
 					operation: 'insert',
 					intent: 'identity.createProfile',
 					row,
@@ -146,7 +146,7 @@ export function useProfileMutations(): ProfileMutations {
 		}
 
 		await settleWrite(
-			mutateCollection(profiles, {
+			mutateCollection(profiles(), {
 				operation: 'update',
 				intent: 'identity.updateProfile',
 				key: id,

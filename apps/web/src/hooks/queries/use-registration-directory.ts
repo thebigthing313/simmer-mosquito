@@ -35,7 +35,7 @@ export function useRegistrationDirectory(): {
 } {
 	const result = useLiveQuery({
 		query: (query) =>
-			query.from({ registration: notification_registrations }).select(({ registration }) => ({
+			query.from({ registration: notification_registrations() }).select(({ registration }) => ({
 				id: registration.id,
 				contactId: registration.contact_id,
 				lat: registration.lat,

@@ -200,11 +200,11 @@ export function useInspectionMutations(): InspectionMutations {
 							body: stopInspectionRequestBody(row, placement, acknowledgements),
 						},
 						apply: () => {
-							inspections.insert(row);
+							inspections().insert(row);
 							// The stop the inspector was sent to, closed by the record that
 							// was the reason for it. Backdated like every lifecycle stamp,
 							// so a fast browser clock cannot have it refused as future.
-							assignment_items.update(placement.assignmentItemId, (draft) => {
+							assignment_items().update(placement.assignmentItemId, (draft) => {
 								draft.completed_at = lifecycleStamp();
 								draft.completed_by_profile_id = actorProfileId;
 								draft.skipped_at = null;
@@ -220,7 +220,7 @@ export function useInspectionMutations(): InspectionMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(inspections, {
+				mutateCollection(inspections(), {
 					operation: 'insert',
 					intent:
 						placement.kind === 'habitat'
@@ -287,7 +287,7 @@ export function useInspectionMutations(): InspectionMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(inspections, {
+				mutateCollection(inspections(), {
 					operation: 'update',
 					intent: intents,
 					key: inspectionId,
@@ -311,7 +311,7 @@ export function useInspectionMutations(): InspectionMutations {
 	const remove = useCallback(
 		async (inspectionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(inspections, {
+				mutateCollection(inspections(), {
 					operation: 'delete',
 					intent: 'larvalSurveillance.deleteInspection',
 					key: inspectionId,

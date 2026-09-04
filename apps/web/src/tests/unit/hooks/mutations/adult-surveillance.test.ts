@@ -22,6 +22,7 @@ import type {
 	CollectionTiming,
 } from '../../../../hooks/mutations/use-collection-mutations';
 import type { TrapFields } from '../../../../hooks/mutations/use-trap-mutations';
+import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -35,22 +36,6 @@ const UNIT = '88888888-8888-4888-8888-888888888888';
 vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
-});
-vi.mock('../../../../lib/collections/traps', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { traps: stubCollection('traps') };
-});
-vi.mock('../../../../lib/collections/collections', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { collections: stubCollection('collections') };
-});
-vi.mock('../../../../lib/collections/assignment_items', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { assignment_items: stubCollection('assignment_items') };
-});
-vi.mock('../../../../lib/collections/collection_species', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { collection_species: stubCollection('collection_species') };
 });
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => ({
@@ -69,7 +54,6 @@ const {
 	lastWrite,
 	requests,
 	resetDispatches,
-	seedRows,
 	stubApi,
 } = await import('./dispatch-harness');
 const {
@@ -80,6 +64,7 @@ const {
 	TRAP_SAVE_REFUSALS,
 } = await import('../../../../lib/acknowledgement-copy');
 const { assignment_items } = await import('../../../../lib/collections/assignment_items');
+const { collections } = await import('../../../../lib/collections/collections');
 const { useTrapMutations } = await import('../../../../hooks/mutations/use-trap-mutations');
 const { useCollectionMutations } = await import(
 	'../../../../hooks/mutations/use-collection-mutations'
@@ -92,6 +77,7 @@ const SHAPE = { type: 'Point', coordinates: [-121.49, 38.58] } as const;
 const CENTROID = { lat: 38.58, lng: -121.49, geomType: 'st_point' };
 
 beforeEach(() => {
+	installMemoryCollections();
 	resetDispatches();
 	stubApi();
 });
@@ -374,7 +360,7 @@ describe('a collection write', () => {
 		// ADR 0012, and the seam that can go quiet: without `assignmentItemId` the
 		// server takes the ordinary branch, answers 201, and sync drops the closed
 		// stop a moment later with nothing thrown.
-		seedRows('assignment_items', [{ id: STOP }]);
+		seedRows(assignment_items, [{ id: STOP }]);
 		const { result } = renderHook(() => useCollectionMutations());
 
 		await result.current.record({
@@ -399,8 +385,8 @@ describe('a collection write', () => {
 	});
 
 	it('names the collected stop recording when the trap was emptied on the same visit', async () => {
-		seedRows('assignment_items', [{ id: STOP }]);
-		const update = vi.spyOn(assignment_items, 'update');
+		seedRows(assignment_items, [{ id: STOP }]);
+		const update = vi.spyOn(assignment_items(), 'update');
 		const { result } = renderHook(() => useCollectionMutations());
 
 		await result.current.record({
@@ -528,8 +514,8 @@ describe('a collection write', () => {
 		// because this path posts rather than dispatches. The other four stop flags
 		// are state refusals that repeat what the form already shows, so they stay
 		// silent.
-		seedRows('assignment_items', [{ id: STOP }]);
-		seedRows('collections', [{ id: RECORD }]);
+		seedRows(assignment_items, [{ id: STOP }]);
+		seedRows(collections, [{ id: RECORD }]);
 		const { result } = renderHook(() => useCollectionMutations());
 
 		await firstAttempt(STOP_RECORD_REFUSALS, (acknowledgements) =>

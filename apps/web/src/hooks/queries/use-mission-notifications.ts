@@ -37,7 +37,7 @@ export function useMissionNotifications(missionId: string | null | undefined): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ notification: mission_notifications })
+					.from({ notification: mission_notifications() })
 					.where(({ notification }) => eq(notification.mission_id, id))
 					.select(({ notification }) => ({
 						id: notification.id,

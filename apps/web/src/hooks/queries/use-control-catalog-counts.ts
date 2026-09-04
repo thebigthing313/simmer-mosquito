@@ -29,11 +29,11 @@ export interface ControlCatalogCounts {
 
 export function useControlCatalogCounts(): ControlCatalogCounts {
 	return {
-		applicationMethods: useActiveCount(application_methods),
-		insecticides: useActiveCount(insecticides),
-		formulations: useActiveCount(formulations),
-		sourceReductionMethods: useActiveCount(source_reduction_methods),
-		biocontrolMethods: useActiveCount(biocontrol_methods),
+		applicationMethods: useActiveCount(application_methods()),
+		insecticides: useActiveCount(insecticides()),
+		formulations: useActiveCount(formulations()),
+		sourceReductionMethods: useActiveCount(source_reduction_methods()),
+		biocontrolMethods: useActiveCount(biocontrol_methods()),
 	};
 }
 

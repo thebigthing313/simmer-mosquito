@@ -163,7 +163,7 @@ export function useAddressMutations(): AddressMutations {
 			const now = optimisticStamp();
 			const addressId = newRecordId();
 			await settleWrite(
-				mutateCollection(addresses, {
+				mutateCollection(addresses(), {
 					operation: 'insert',
 					intent: 'foundation.createAddress',
 					row: {
@@ -206,7 +206,7 @@ export function useAddressMutations(): AddressMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(addresses, {
+				mutateCollection(addresses(), {
 					operation: 'update',
 					intent: plan.intents,
 					key: addressId,
@@ -224,7 +224,7 @@ export function useAddressMutations(): AddressMutations {
 
 	const remove = useCallback(async (addressId: string) => {
 		await settleWrite(
-			mutateCollection(addresses, {
+			mutateCollection(addresses(), {
 				operation: 'delete',
 				intent: 'foundation.deleteAddress',
 				key: addressId,

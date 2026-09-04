@@ -36,10 +36,10 @@ export function useInsecticideUsage(sinceDate: string): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ application: applications })
+					.from({ application: applications() })
 					.where(({ application }) => gte(application.application_date, sinceDate))
 					.join(
-						{ product: insecticides },
+						{ product: insecticides() },
 						({ application, product }) => eq(application.insecticide_id, product.id),
 						'left',
 					)

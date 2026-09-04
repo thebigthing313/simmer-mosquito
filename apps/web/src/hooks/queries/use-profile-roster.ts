@@ -30,7 +30,7 @@ export interface ProfileListing {
 export function useProfileRoster(): readonly ProfileListing[] {
 	const result = useLiveQuery(
 		(query) =>
-			query.from({ profile: profiles }).select(({ profile }) => ({
+			query.from({ profile: profiles() }).select(({ profile }) => ({
 				id: profile.id,
 				displayName: profile.display_name,
 				isActive: profile.is_active,

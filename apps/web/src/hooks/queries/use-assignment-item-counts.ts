@@ -27,7 +27,7 @@ export function useAssignmentItemCounts(assignmentIds: readonly string[]): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: assignment_items })
+					.from({ item: assignment_items() })
 					.where(({ item }) => inArray(item.assignment_id, queryIds))
 					.groupBy(({ item }) => item.assignment_id)
 					.select(({ item }) => ({

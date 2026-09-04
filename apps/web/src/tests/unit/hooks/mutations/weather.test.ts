@@ -23,6 +23,7 @@
 
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { installMemoryCollections } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -32,14 +33,6 @@ const STATION = '44444444-4444-4444-8444-444444444444';
 vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
-});
-vi.mock('../../../../lib/collections/weather_sources', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { weather_sources: stubCollection('weather_sources') };
-});
-vi.mock('../../../../lib/collections/weather_summaries', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { weather_summaries: stubCollection('weather_summaries') };
 });
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => ({
@@ -71,6 +64,7 @@ const { useWeatherSummaryMutations } = await import(
 const PIN = { type: 'Point', coordinates: [-121.49, 38.58] } as const;
 
 beforeEach(() => {
+	installMemoryCollections();
 	resetDispatches();
 	stubApi();
 });

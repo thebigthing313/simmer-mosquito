@@ -134,7 +134,7 @@ export function useContactMutations(): ContactMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(contacts, {
+				mutateCollection(contacts(), {
 					operation: 'insert',
 					intent: 'publicEngagement.createContact',
 					row: {
@@ -170,7 +170,7 @@ export function useContactMutations(): ContactMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(contacts, {
+				mutateCollection(contacts(), {
 					operation: 'update',
 					intent: plan.intents,
 					key: contactId,
@@ -187,7 +187,7 @@ export function useContactMutations(): ContactMutations {
 
 	const remove = useCallback(async (contactId: string) => {
 		await settleWrite(
-			mutateCollection(contacts, {
+			mutateCollection(contacts(), {
 				operation: 'delete',
 				intent: 'publicEngagement.deleteContact',
 				key: contactId,

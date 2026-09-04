@@ -112,7 +112,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 			gcTime: historyGcTimeMs,
 			query: (query) =>
 				query
-					.from({ inspection: inspections })
+					.from({ inspection: inspections() })
 					.where(({ inspection }) => eq(inspection.habitat_id, habitatId))
 					.orderBy(({ inspection }) => inspection.inspection_date, 'desc')
 					.select(({ inspection }) => ({
@@ -131,7 +131,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 						hasPupae: inspection.has_pupae,
 						samples: toArray(
 							query
-								.from({ sample: samples })
+								.from({ sample: samples() })
 								.where(({ sample }) => eq(sample.inspection_id, inspection.id))
 								.select(({ sample }) => ({
 									id: sample.id,
@@ -142,7 +142,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 									unidentifiableReason: sample.unidentifiable_reason,
 									species: toArray(
 										query
-											.from({ species: sample_species })
+											.from({ species: sample_species() })
 											.where(({ species }) => eq(species.sample_id, sample.id))
 											.select(({ species }) => ({
 												id: species.id,
@@ -162,7 +162,7 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 			gcTime: historyGcTimeMs,
 			query: (query) =>
 				query
-					.from({ application: applications })
+					.from({ application: applications() })
 					.where(({ application }) => eq(application.habitat_id, habitatId))
 					.orderBy(({ application }) => application.application_date, 'desc')
 					.select(({ application }) => ({

@@ -34,10 +34,10 @@ export function useMissionsForRequest(requestId: string | null): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: mission_items })
+					.from({ item: mission_items() })
 					.where(({ item }) => eq(item.requested_control_action_id, requestId ?? unmatchableId))
 					.join(
-						{ mission: missions },
+						{ mission: missions() },
 						({ item, mission }) => eq(item.mission_id, mission.id),
 						'inner',
 					)

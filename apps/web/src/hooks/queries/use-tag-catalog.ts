@@ -41,7 +41,7 @@ function useTagHalf(isActive: boolean): readonly TagRecord[] {
 	return useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ tag: tags })
+				.from({ tag: tags() })
 				.where(({ tag }) => eq(tag.is_active, isActive))
 				.orderBy(({ tag }) => tag.tag_name, 'asc')
 				.select(({ tag }) => ({

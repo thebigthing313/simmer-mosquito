@@ -59,7 +59,7 @@ export function AddressPicker({
 	// An edit form arrives holding only the address id, so the current selection is
 	// resolved from the collection rather than left as an empty-looking field.
 	const selectedLabel = useSelectedRowLabel({
-		collection: addresses,
+		collection: addresses(),
 		pickedLabel,
 		toLabel: (row) => addressPrimaryLabel(addressLabelParts(row)),
 		value,
@@ -155,7 +155,7 @@ function AddressResults({
 				// No organization predicate: the shape is scoped to the agency
 				// server-side, so re-stating it here is redundant — and a stale column
 				// spelling in one is what empties a list rather than narrowing it.
-				const base = query.from({ address: addresses });
+				const base = query.from({ address: addresses() });
 				const filtered =
 					normalized.length === 0
 						? base
