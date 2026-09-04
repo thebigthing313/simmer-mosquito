@@ -7,11 +7,11 @@ what gets built.
 All six slices of the build order below are built: the register, the domain types
 and the covers-ground rule, the columns and region membership, the draw control's
 parts and holes, and the import path. Two things it names as out of scope have
-their own issues, #445 for continuing a finished part and #446 for importing a
-point. Every decision below was settled on the map in #415,
-whose nine tickets hold the measurements and the rejected alternatives. Where a
-line says "measured", the numbers came from the local compose Postgres or from a
-production clone.
+their own issues: #445, continuing a finished part, which is built, and #446,
+importing a point, which is not. Every decision below was settled on the map in
+#415, whose nine tickets hold the measurements and the rejected alternatives.
+Where a line says "measured", the numbers came from the local compose Postgres or
+from a production clone.
 
 ## What drives it
 
@@ -1295,8 +1295,10 @@ Ruled out on the map, each with the ticket that ruled it.
   tracked it: a 40-vertex Polygon is redraw-or-nothing today. That is not a
   multipart gap, and the part list makes the multipart case better than the single
   one, because Remove plus Add piece redraws one part without touching the others.
-  "Continue a part", the cheap partial where a part re-enters draw mode with its
-  vertices preloaded, goes out with it.
+  Tracked in #449. "Continue a part", the cheap partial where a part re-enters
+  draw mode with its vertices preloaded, went out with it here and was built
+  afterwards under #445, so a shape that stopped one vertex early is no longer
+  redraw-or-nothing.
 - Importing a point from a file. No import surface has ever produced a Point, and
   adding one is a new capability with no multipart in it.
 - GeometryCollection as a record geometry. Nothing in mosquito control needs a

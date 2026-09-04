@@ -67,10 +67,13 @@ function fakeController(): MapDrawController {
 		drawType: null,
 		vertexCount: 0,
 		canFinish: false,
+		canUndo: false,
 		holeDraft: null,
+		continuedPart: null,
 		start: vi.fn(),
 		startPart: vi.fn(),
 		startHole: vi.fn(),
+		continuePart: vi.fn(),
 		removePart: vi.fn(),
 		removeHole: vi.fn(),
 		highlightPart: vi.fn(),
@@ -238,6 +241,53 @@ describe('GeometryControl', () => {
 		expect(controller.removeHole).toHaveBeenCalledWith(0, 0);
 	});
 
+	it('continues the only piece from the control', () => {
+		const controller = renderControl({ parts: [square(-90)] });
+
+		fireEvent.click(screen.getByText('Continue'));
+
+		expect(controller.continuePart).toHaveBeenCalledWith(0);
+	});
+
+	// At two pieces the button would have to guess which one was meant, so it
+	// moves onto the rows, the way Cut hole does.
+	it('moves Continue onto the rows at two pieces', () => {
+		const controller = renderControl({ parts: [square(-90), square(-80)] });
+
+		expect(screen.queryByText('Continue')).toBeNull();
+		fireEvent.click(screen.getByLabelText('Continue piece 2'));
+
+		expect(controller.continuePart).toHaveBeenCalledWith(1);
+	});
+
+	it('offers nothing to continue on a point', () => {
+		render(
+			<GeometryControl
+				controller={fakeController()}
+				geometry={{ type: 'Point', coordinates: [-90, 35] }}
+				geometryKind="habitat"
+				geometryType="Point"
+				onClear={vi.fn()}
+				onDraw={vi.fn()}
+			/>,
+		);
+
+		expect(screen.queryByText('Continue')).toBeNull();
+	});
+
+	it('leaves the point pieces of a multi shape with nothing to continue', () => {
+		renderControl({
+			parts: [
+				{ type: 'Point', coordinates: [-90, 35] },
+				{ type: 'Point', coordinates: [-80, 35] },
+			],
+			geometryType: 'Point',
+		});
+
+		expect(screen.queryByLabelText('Continue piece 1')).toBeNull();
+		expect(screen.queryByLabelText('Continue piece 2')).toBeNull();
+	});
+
 	it('names the piece a hole belongs to once there are several', () => {
 		const controller = renderControl({ parts: [square(-95), squareWithHole(-90)] });
 
@@ -281,5 +331,41 @@ describe('DrawToolbar', () => {
 		renderToolbar({ partNumber: 1, partCount: 1, problem: null }, 0);
 
 		expect(screen.getByText('Click the map to start the hole.')).toBeDefined();
+	});
+
+	it('names the piece being continued once there are several', () => {
+		render(
+			<DrawToolbar
+				controller={{
+					...fakeController(),
+					continuedPart: { partNumber: 2, partCount: 3 },
+					isDrawing: true,
+					vertexCount: 5,
+				}}
+				geometryType="Polygon"
+			/>,
+		);
+
+		expect(
+			screen.getByText('Continuing piece 2 · 5 vertices · double-click or Finish to complete.'),
+		).toBeDefined();
+	});
+
+	// A continuation opens with the piece's own vertices placed, so a count above
+	// zero is not what says Undo has anything to pop.
+	it('offers no Undo until a continuation has added a vertex', () => {
+		render(
+			<DrawToolbar
+				controller={{
+					...fakeController(),
+					continuedPart: { partNumber: 1, partCount: 1 },
+					isDrawing: true,
+					vertexCount: 4,
+				}}
+				geometryType="Polygon"
+			/>,
+		);
+
+		expect(screen.getByText('Undo').closest('button')?.disabled).toBe(true);
 	});
 });

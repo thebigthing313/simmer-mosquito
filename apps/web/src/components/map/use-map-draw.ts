@@ -173,15 +173,21 @@ export function drawHoles(part: DrawPartGeometry): readonly Ring[] {
  */
 export type DrawHoleProblem = 'escapes' | 'swallows';
 
-/** The hole being drawn: the piece it belongs to, and what is wrong with it. */
-export interface DrawHoleDraft {
-	/** The piece the hole is cut into, numbered the way its row is. */
+/**
+ * Which piece a draw is aimed at, and how many pieces there are to tell it from.
+ *
+ * The toolbar names the piece only once there are several: at one piece there is
+ * no row list the user could have read a number off, so the number is a term
+ * they have not seen.
+ */
+export interface DrawPartTarget {
+	/** The piece the draw is aimed at, numbered the way its row is. */
 	readonly partNumber: number;
-	/**
-	 * How many pieces the shape has, which is what says whether the number means
-	 * anything to the user. At one piece there is no row list to have read it off.
-	 */
 	readonly partCount: number;
+}
+
+/** The hole being drawn: the piece it belongs to, and what is wrong with it. */
+export interface DrawHoleDraft extends DrawPartTarget {
 	readonly problem: DrawHoleProblem | null;
 }
 
@@ -198,6 +204,13 @@ export interface MapDrawController {
 	readonly drawType: DrawGeometryType | null;
 	readonly vertexCount: number;
 	readonly canFinish: boolean;
+	/**
+	 * Whether Undo has anything left to pop.
+	 *
+	 * Not `vertexCount > 0`: a continuation opens with the piece's own vertices
+	 * already placed, and Undo stops there rather than eating into them.
+	 */
+	readonly canUndo: boolean;
 	readonly start: (type: DrawGeometryType) => void;
 	/**
 	 * Draw one more part of the shape already committed, leaving the rest of it on
@@ -213,6 +226,19 @@ export interface MapDrawController {
 	 * A no-op for a part that is not an area, and for an index no part holds.
 	 */
 	readonly startHole: (index: number) => void;
+	/**
+	 * Draw the part at `index` again from where it stops, its vertices already
+	 * placed and the next click appending to them. Finish closes it, Cancel puts
+	 * it back as it was.
+	 *
+	 * A no-op for a point, which is one position and has no end to pick up from,
+	 * and for an index no part holds. Undo is deliberately not this: it pops
+	 * inside the part being drawn and stops at zero, so reopening a finished part
+	 * is something the user asks for.
+	 */
+	readonly continuePart: (index: number) => void;
+	/** The part being continued, or null while the draw is not one. */
+	readonly continuedPart: DrawPartTarget | null;
 	/** Drop one part, demoting to the base shape at one and to nothing at zero. */
 	readonly removePart: (index: number) => void;
 	/** Drop one hole from one part, leaving the part itself alone. */
@@ -355,12 +381,19 @@ const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: 
 /**
  * What a finished draw does with the parts already committed. `replace` takes
  * every one of them, which is what "Redraw geometry" means at any part count;
- * `part` appends; `hole` cuts a ring out of the one part it names.
+ * `part` appends; `hole` cuts a ring out of the one part it names; `continue`
+ * puts back the one part it names, redrawn from the vertices it already had.
  */
 type DrawTarget =
 	| { readonly kind: 'replace' }
 	| { readonly kind: 'part' }
-	| { readonly kind: 'hole'; readonly partIndex: number };
+	| { readonly kind: 'hole'; readonly partIndex: number }
+	| {
+			readonly kind: 'continue';
+			readonly partIndex: number;
+			/** How many vertices the part arrived with, which is where Undo stops. */
+			readonly seeded: number;
+	  };
 
 type DrawMode = {
 	readonly kind: 'draw';
@@ -417,6 +450,7 @@ export function useMapDraw({
 
 	const {
 		applyPart,
+		continuePart,
 		highlightedPart,
 		highlightedRef,
 		highlightPart,
@@ -427,9 +461,7 @@ export function useMapDraw({
 		zoomToPart,
 	} = useDrawPartActions({ map, cursorRef, modeRef, valueRef, onChangeRef, setMode, setVertices });
 
-	// The hole in progress, recomputed from the committed parts and the vertices
-	// placed so far, so the toolbar and the map read one answer.
-	const holeDraft = useMemo(() => holeDraftOf(mode, value, vertices), [mode, value, vertices]);
+	const { holeDraft, continuedPart } = useDrawDrafts(mode, value, vertices);
 
 	const repaint = useCallback(() => {
 		if (!isMapLive(map)) {
@@ -521,7 +553,7 @@ export function useMapDraw({
 	}, []);
 
 	const undo = useCallback(() => {
-		setVertices((previous) => previous.slice(0, -1));
+		setVertices((previous) => poppedTo(previous, vertexFloor(modeRef.current)));
 	}, []);
 
 	const finish = useCallback(() => {
@@ -563,9 +595,12 @@ export function useMapDraw({
 		drawType,
 		vertexCount: vertices.length,
 		canFinish,
+		canUndo: vertices.length > vertexFloor(mode),
 		start,
 		startPart,
 		startHole,
+		continuePart,
+		continuedPart,
 		removePart,
 		removeHole,
 		holeDraft,
@@ -602,6 +637,31 @@ export function fitMapToGeometry(map: MapboxMap, geometry: GeoJsonGeometry): voi
 		return;
 	}
 	map.easeTo({ center: [bounds.west, bounds.south], zoom: Math.max(map.getZoom(), 15) });
+}
+
+/**
+ * What the toolbar and the map both have to know about the draw in progress:
+ * the hole being cut, and the part being continued.
+ *
+ * Recomputed from the committed parts and the vertices placed so far, so the
+ * button, the instruction line and the paint on the map read one answer.
+ */
+function useDrawDrafts(
+	mode: Mode,
+	value: DrawGeometry | null,
+	vertices: readonly Position[],
+): {
+	readonly holeDraft: DrawHoleDraft | null;
+	readonly continuedPart: DrawPartTarget | null;
+} {
+	const holeDraft = useMemo(() => holeDraftOf(mode, value, vertices), [mode, value, vertices]);
+	const continuedPart = useMemo(() => continuedPartOf(mode, value), [mode, value]);
+	return { holeDraft, continuedPart };
+}
+
+/** `vertices` with its last one dropped, unless that would go below `floor`. */
+function poppedTo(vertices: readonly Position[], floor: number): readonly Position[] {
+	return vertices.length <= floor ? vertices : vertices.slice(0, -1);
 }
 
 /**
@@ -681,6 +741,30 @@ function useDrawPartActions({
 		[cursorRef, modeRef, valueRef, setMode, setVertices],
 	);
 
+	// The part stays committed through the continuation, so Cancel and Escape put
+	// it back with nothing to restore: the draw is abandoned and the part is still
+	// where it was. What is committed is what the map draws, so the draft takes
+	// over drawing this one part while the mode is on it.
+	const continuePart = useCallback(
+		(index: number) => {
+			const part = drawParts(valueRef.current)[index];
+			const seeded = part === undefined ? null : continuedVertices(part);
+			if (part === undefined || seeded === null) {
+				return;
+			}
+			rejectPending(modeRef.current);
+			cursorRef.current = null;
+			setVertices(seeded);
+			setHighlightedPart(null);
+			setMode({
+				kind: 'draw',
+				type: part.type,
+				target: { kind: 'continue', partIndex: index, seeded: seeded.length },
+			});
+		},
+		[cursorRef, modeRef, valueRef, setMode, setVertices],
+	);
+
 	const removePart = useCallback(
 		(index: number) => {
 			setHighlightedPart(null);
@@ -725,6 +809,7 @@ function useDrawPartActions({
 
 	return {
 		applyPart,
+		continuePart,
 		highlightedPart,
 		highlightedRef,
 		highlightPart: setHighlightedPart,
@@ -738,7 +823,8 @@ function useDrawPartActions({
 
 /**
  * `parts` with a finished draw folded into them, which is the whole list for a
- * replace, one more entry for an add, and one entry swapped for a hole.
+ * replace, one more entry for an add, and one entry swapped for a hole or a
+ * continuation.
  */
 function withPart(
 	parts: readonly DrawPartGeometry[],
@@ -752,6 +838,49 @@ function withPart(
 		return [...parts, part];
 	}
 	return parts.map((at, index) => (index === target.partIndex ? part : at));
+}
+
+/**
+ * Where a continuation picks up: the part's own vertices, in order, with a
+ * ring's repeated closing position dropped so the next click appends to the last
+ * corner the user actually placed. `closeRing` puts it back on Finish.
+ *
+ * Null for a point, which is one position with no end to carry on from.
+ */
+function continuedVertices(part: DrawPartGeometry): readonly Position[] | null {
+	if (part.type === 'Point') {
+		return null;
+	}
+	if (part.type === 'LineString') {
+		return part.coordinates;
+	}
+	return (part.coordinates[0] ?? []).slice(0, -1);
+}
+
+/** How far Undo pops back, which is the vertices a continuation opened with. */
+function vertexFloor(mode: Mode): number {
+	return mode.kind === 'draw' && mode.target.kind === 'continue' ? mode.target.seeded : 0;
+}
+
+/**
+ * The holes already cut into the part a continuation is redrawing.
+ *
+ * A continuation redraws the outline and nothing else, so the rings the user cut
+ * earlier are not theirs to lose by adding one vertex to it.
+ */
+function continuedHoles(mode: DrawMode, committed: DrawGeometry | null): readonly Ring[] {
+	if (mode.target.kind !== 'continue') {
+		return [];
+	}
+	const part = drawParts(committed)[mode.target.partIndex];
+	return part === undefined ? [] : drawHoles(part);
+}
+
+/** `part` with `holes` put back into it, which only an area can hold. */
+function withHoles(part: DrawPartGeometry, holes: readonly Ring[]): DrawPartGeometry {
+	return part.type === 'Polygon' && holes.length > 0
+		? { type: 'Polygon', coordinates: [...part.coordinates, ...holes] }
+		: part;
 }
 
 /**
@@ -898,7 +1027,9 @@ function rejectPending(mode: Mode): void {
  *
  * The committed parts stay on the map through an add and through a hole, so the
  * user places the new ring against what is already there. A replace has already
- * cleared them, so the same code covers all three.
+ * cleared them. A continuation is the one case that hides a committed part: the
+ * draft is that part, and drawing both would put a finished outline under a
+ * growing one.
  */
 function buildFeatures({
 	committed,
@@ -914,8 +1045,12 @@ function buildFeatures({
 	readonly highlighted: number | null;
 }): GeoJSON.FeatureCollection {
 	const features: GeoJSON.Feature[] = [];
+	const drafted =
+		mode.kind === 'draw' && mode.target.kind === 'continue' ? mode.target.partIndex : null;
 	drawParts(committed).forEach((part, index) => {
-		features.push(...partFeatures(part, index === highlighted));
+		if (index !== drafted) {
+			features.push(...partFeatures(part, index === highlighted));
+		}
 	});
 
 	if (mode.kind === 'draw') {
@@ -943,7 +1078,10 @@ function draftFeatures(
 		return [];
 	}
 	const refused = holeDraftOf(mode, committed, vertices)?.problem != null;
-	const preview = previewShape(mode.type, cursor === null ? vertices : [...vertices, cursor]);
+	const shape = previewShape(mode.type, cursor === null ? vertices : [...vertices, cursor]);
+	// A continuation's holes ride along with the preview, so cutting one and then
+	// extending the outline does not look like the hole has gone.
+	const preview = shape === null ? null : withHoles(shape, continuedHoles(mode, committed));
 	return [
 		...(preview === null ? [] : [geometryFeature(preview, false, refused)]),
 		...vertices.map((vertex) => pointFeature(vertex, 'vertex', false, refused)),
@@ -954,7 +1092,10 @@ function draftFeatures(
  * What the placed vertices look like before they are a shape: an area once three
  * of them close a ring, a line before that, and nothing at all below two.
  */
-function previewShape(type: DrawGeometryType, preview: readonly Position[]): DrawGeometry | null {
+function previewShape(
+	type: DrawGeometryType,
+	preview: readonly Position[],
+): DrawPartGeometry | null {
 	if (type === 'Polygon' && preview.length >= 3) {
 		return { type: 'Polygon', coordinates: [closeRing(preview)] };
 	}
@@ -1023,8 +1164,9 @@ function partFromVertices(
 }
 
 /**
- * What a finished draw commits, which is a whole part for a replace or an add
- * and the part with one more ring in it for a hole.
+ * What a finished draw commits, which is a whole part for a replace or an add,
+ * the part with one more ring in it for a hole, and the part redrawn with its
+ * holes still in it for a continuation.
  *
  * `canFinish` and `finish` both read it, so the button and the commit cannot
  * disagree about whether the shape on screen is one the record can hold.
@@ -1034,14 +1176,23 @@ function draftPart(
 	committed: DrawGeometry | null,
 	vertices: readonly Position[],
 ): DrawPartGeometry | null {
-	if (mode.target.kind !== 'hole') {
-		return partFromVertices(mode.type, vertices);
+	if (mode.target.kind === 'hole') {
+		const part = drawParts(committed)[mode.target.partIndex];
+		if (part === undefined || vertices.length < 3 || holeProblem(part, vertices) !== null) {
+			return null;
+		}
+		return partWithHole(part, vertices);
 	}
-	const part = drawParts(committed)[mode.target.partIndex];
-	if (part === undefined || vertices.length < 3 || holeProblem(part, vertices) !== null) {
-		return null;
+	const outline = partFromVertices(mode.type, vertices);
+	if (outline === null || mode.target.kind !== 'continue') {
+		return outline;
 	}
-	return partWithHole(part, vertices);
+	// An appended vertex can carve the outline inward, and a hole left outside it
+	// is a polygon PostGIS calls invalid. Finish refuses it here, the same way it
+	// refuses a hole that escapes while it is being cut.
+	const holes = continuedHoles(mode, committed);
+	const escaped = holes.some((hole) => holeProblem(outline, hole) !== null);
+	return escaped ? null : withHoles(outline, holes);
 }
 
 /**
@@ -1075,13 +1226,22 @@ function holeDraftOf(
 	if (mode.kind !== 'draw' || mode.target.kind !== 'hole') {
 		return null;
 	}
-	const parts = drawParts(committed);
-	const part = parts[mode.target.partIndex];
+	const part = drawParts(committed)[mode.target.partIndex];
 	return {
-		partNumber: mode.target.partIndex + 1,
-		partCount: parts.length,
+		...partTargetOf(committed, mode.target.partIndex),
 		problem: part === undefined ? null : holeProblem(part, dedupeTrailing(vertices)),
 	};
+}
+
+/** The part `mode` is continuing, or null while the draw is not one. */
+function continuedPartOf(mode: Mode, committed: DrawGeometry | null): DrawPartTarget | null {
+	return mode.kind === 'draw' && mode.target.kind === 'continue'
+		? partTargetOf(committed, mode.target.partIndex)
+		: null;
+}
+
+function partTargetOf(committed: DrawGeometry | null, partIndex: number): DrawPartTarget {
+	return { partNumber: partIndex + 1, partCount: drawParts(committed).length };
 }
 
 /**
