@@ -8,19 +8,20 @@ domain doc instead of expanding this file.
 
 | Term | Meaning | Avoid |
 |---|---|---|
-| **Agency** | Mosquito control organization that owns operational records and field workflows. | tenant, account |
-| **Profile** | Agency-scoped person used for field attribution, audit attribution, and role-bound work. | user, login, account |
-| **Membership** | A person's current access relationship to an agency through a role and profile. | permission row, user role |
-| **Invitation** | An offer of login access to an Agency, held against the address it was sent to and the role it would grant. Becomes an active Membership when the person accepts. | pending user, seat, signup |
+| **Organization** | A group that runs mosquito control and owns its operational records, settings, and field workflows. Any group that does the work: an abatement district, a city or county program, a health department, a university, a contractor. | agency, tenant, account |
+| **Profile** | Organization-scoped person used for field attribution, audit attribution, and role-bound work. | user, login, account |
+| **Membership** | A person's current access relationship to an organization through a role and profile. | permission row, user role |
+| **Account** | What one person signs in with, held against a WorkOS identity and shared across every Organization they belong to. | user, login, seat |
+| **Invitation** | An offer of access to an Organization, held against the address it was sent to and the role it would grant. Becomes an active Membership when the person accepts. | pending user, seat, signup |
 | **Re-invitation** | A new offer to an address that already holds a live Invitation. May carry a different role, and ends the earlier offer. | resend, re-send invite |
-| **SIMMER Operator** | Platform-side administrator for SIMMER-controlled setup and support workflows. | superuser, agency admin |
-| **Address** | Agency-owned address book entry that can help choose locations without becoming canonical for operational records. | canonical location, property |
-| **Region** | Agency-defined area used for GIS grouping, reporting, and spatial lookup. One boundary, in one piece or several. | district, zone |
+| **SIMMER Operator** | Platform-side administrator for SIMMER-controlled setup and support workflows. | superuser, organization admin |
+| **Address** | Organization-owned address book entry that can help choose locations without becoming canonical for operational records. | canonical location, property |
+| **Region** | Organization-defined area used for GIS grouping, reporting, and spatial lookup. One boundary, in one piece or several. | district, zone |
 | **Part** | One of the pieces of a record's geometry. Two or more parts store a Multi shape, one part stores the base shape, and part order carries no meaning. User-facing copy says "piece". | feature, shape, sub-geometry |
 | **Covers no ground** | Said of a geometry that encloses zero area or spans zero length. Refused on write, naming the part. Distinct from **invalid**, a ring crossing itself, which SIMMER does not police. | empty, degenerate, invalid |
-| **Global Taxonomy** | SIMMER-controlled mosquito genus/species vocabulary shared across agencies. | agency species list |
-| **Organization Species** | Agency-selected subset of global species available for new data entry. | enabled species, species setting |
-| **Organization Lookup** | Agency-owned catalog value used to configure surveillance or control workflows. | dropdown option, enum |
+| **Global Taxonomy** | SIMMER-controlled mosquito genus/species vocabulary shared across organizations. | species list, organization species |
+| **Organization Species** | Organization-selected subset of global species available for new data entry. | enabled species, species setting |
+| **Organization Lookup** | Organization-owned catalog value used to configure surveillance or control workflows. | dropdown option, enum |
 | **Delete** | Removing a record that should never have existed. Refused while any live record refers to it. | archive, retire, purge |
 | **Deactivate** | Retiring a record that should not be referred to from now on. Leaves records that already name it alone. | delete, disable, archive |
 
@@ -40,9 +41,9 @@ domain doc instead of expanding this file.
 
 ## Relationship cues
 
-- An **Agency** owns operational records and settings.
-- A **Profile** belongs to one **Agency**; a **Membership** links login access to
-  one agency/profile/role relationship.
+- An **Organization** owns operational records and settings.
+- A **Profile** belongs to one **Organization**; a **Membership** links an
+  **Account** to one organization/profile/role relationship.
 - **Address Geometry** is a convenience source. Later address edits do not move
   operational records.
 - A **Trap** can produce many **Collections**; a **Collection** can have many
@@ -104,6 +105,16 @@ Common source terms:
 - "Notification" can mean preference, generated worklist row, or delivery. Use
   **Notification Type**, **Notification Registration**, and **Mission
   Notification** for the v1 concepts.
-- "Site" is intentionally not a shared abstraction yet. Use concrete locatable
-  records such as traps, habitats, addresses, service requests, and mission
-  items until a workflow proves a generic site model is worth it.
+- "Organization" is the group the signed-in person belongs to, never a member of
+  the public. An Organization is a record SIMMER owns, with an id, memberships,
+  and settings; text somebody typed is not one, even when it names a real body.
+  Where a **Contact** works is text, labelled **Company**. The rule binds on
+  labels, filters, headings, and columns; lowercase "organization" in a sentence
+  is not a term.
+- "District" can mean the **Organization** itself, since an abatement district is
+  one, or a piece of its geography, which is a **Region**. Neither is a term:
+  write Organization or Region.
+- "Site" reads as a **Habitat** to one person and a **Trap** to the next, and is
+  not a shared abstraction. Write the concrete record: Habitat, Trap, Address,
+  Service Request, Mission Item. A workflow that proves a generic site model is
+  worth it has to replace this entry first.
