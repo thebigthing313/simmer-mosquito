@@ -1,3 +1,4 @@
+import { DomainValidationError } from '@simmer-mosquito/domain';
 import {
 	DummyDriver,
 	Kysely,
@@ -9,6 +10,7 @@ import {
 import { describe, expect, it } from 'vitest';
 import {
 	type GeomTable,
+	geojsonToGeom,
 	loadGeojson,
 	type OrgOwnedTable,
 	softDelete,
@@ -167,6 +169,53 @@ describe('org-owned writes', () => {
 		expect(updated).toBeNull();
 		expect(deleted).toBeNull();
 		expect(geojson).toBeUndefined();
+	});
+});
+
+/** Closed, four positions, and zero area. */
+const PINPRICK = {
+	type: 'Polygon',
+	coordinates: [
+		[
+			[0, 0],
+			[0, 0],
+			[0, 0],
+			[0, 0],
+		],
+	],
+};
+
+/**
+ * The covers-ground backstop, at the one layer guaranteed to see every value
+ * reaching a `geom` column.
+ *
+ * `validateGeometry` runs the same rule on a command-carried geometry and
+ * `loadOr404` on an inherited one, but this package's own writers pass no domain
+ * builder. `POLYGON((0 0,0 0,0 0,0 0))` is the case that gets here: it is not
+ * empty, it has four positions with a matching first and last, and PostGIS
+ * stores it with `st_area` 0 after a notice nobody reads.
+ */
+describe('geojsonToGeom', () => {
+	it('refuses a geometry that covers no ground', () => {
+		expect(() => geojsonToGeom(PINPRICK)).toThrow(DomainValidationError);
+		expect(() => geojsonToGeom({ type: 'Feature', geometry: PINPRICK })).toThrow(
+			DomainValidationError,
+		);
+	});
+
+	it('names the rule rather than the shape', () => {
+		try {
+			geojsonToGeom(PINPRICK);
+			expect.unreachable('geojsonToGeom accepted a zero-area polygon');
+		} catch (error) {
+			expect((error as DomainValidationError).issues).toEqual([
+				{ path: 'geometry', message: 'geometry covers no ground.' },
+			]);
+		}
+	});
+
+	it('takes a shape that does', () => {
+		expect(() => geojsonToGeom({ type: 'Point', coordinates: [-90.5, 35.5] })).not.toThrow();
 	});
 });
 

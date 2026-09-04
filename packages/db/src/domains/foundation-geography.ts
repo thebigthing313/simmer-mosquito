@@ -4,7 +4,7 @@ import type { DbExecutor, GeoJsonGeometry, OwnedGeometryInfo } from '../index.js
 import type { MapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import { type MapFilterInput, type MapTileInput, mapSurface } from './map-surface.js';
-import type { SelectedRow } from './org-owned-writes.js';
+import { geojsonToGeom, type SelectedRow } from './org-owned-writes.js';
 import { checkedValues } from './write-references.js';
 
 export interface CreateAddressInput {
@@ -121,17 +121,6 @@ export interface SafeRegion {
 	readonly updatedByProfileId: string | null;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
-}
-
-function geojsonToGeom(geojson: unknown): RawBuilder<string> {
-	const serialized = JSON.stringify(geojson);
-	return sql<string>`st_force2d(st_setsrid(st_geomfromgeojson(
-		case
-			when (${serialized}::jsonb -> 'geometry') is not null
-				then (${serialized}::jsonb -> 'geometry')::text
-			else ${serialized}
-		end
-	), 4326))`;
 }
 
 export async function createAddress(

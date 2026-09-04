@@ -1,5 +1,9 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
-import { isSupportedGeometryType } from '@simmer-mosquito/domain';
+import {
+	type BaseGeometryType,
+	geometryCoversGround,
+	isBaseGeometryType,
+} from '@simmer-mosquito/domain';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -17,8 +21,11 @@ import { isMapLive } from './use-mapbox-map';
  * A geometry the habitat draw flow can produce. Mirrors the GeoJSON shape the
  * habitat command's `locationSource.geometry` expects, so a finished draft can
  * be handed straight to the optimistic mutation without translation.
+ *
+ * The type is the domain's base shapes, which is what the toggle offers and what
+ * a one-part multi shape demotes to.
  */
-export type DrawGeometryType = 'Point' | 'LineString' | 'Polygon';
+export type DrawGeometryType = BaseGeometryType;
 
 export type DrawGeometry =
 	| { readonly type: 'Point'; readonly coordinates: readonly [number, number] }
@@ -32,10 +39,12 @@ export type DrawGeometry =
  * Whether `value` names a shape this controller can draw.
  *
  * The domain's register is what says which shapes exist; three files used to
- * spell the same three names out by hand instead.
+ * spell the same three names out by hand instead. A multi shape is not one of
+ * them until the part list lands, so `toDrawGeometry` still reads one as "no
+ * geometry" and the record keeps what it has.
  */
 export function isDrawGeometryType(value: unknown): value is DrawGeometryType {
-	return isSupportedGeometryType(value);
+	return isBaseGeometryType(value);
 }
 
 /**
@@ -487,7 +496,23 @@ function pointFeature(position: Position, role: 'vertex' | 'point'): GeoJSON.Fea
 	};
 }
 
+/**
+ * The shape the drawn vertices make, or `null` while there is not one yet.
+ *
+ * `canFinish` reads this too, so the covers-ground rule runs here rather than
+ * beside the button: Finish would otherwise promise a write the server answers
+ * 400. Three clicks in one spot passed `vertices.length < 3` and finished a
+ * zero-area Polygon.
+ */
 function geometryFromVertices(
+	type: DrawGeometryType,
+	vertices: readonly Position[],
+): DrawGeometry | null {
+	const geometry = shapeFromVertices(type, vertices);
+	return geometry !== null && geometryCoversGround(geometry) ? geometry : null;
+}
+
+function shapeFromVertices(
 	type: DrawGeometryType,
 	vertices: readonly Position[],
 ): DrawGeometry | null {

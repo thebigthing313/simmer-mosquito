@@ -32,7 +32,7 @@ import {
 	type SimmerDatabase,
 	type Transaction,
 } from '@simmer-mosquito/db';
-import type { LocationSource } from '@simmer-mosquito/domain';
+import { geometryCoversGround, type LocationSource } from '@simmer-mosquito/domain';
 
 import { CommandError } from './command-endpoint.js';
 
@@ -90,6 +90,18 @@ export async function loadOr404(
 	const geojson = await loadGeojson(trx, table, id, organizationId);
 	if (geojson === undefined) {
 		throw new CommandError(404, { error: `${table}_not_found` });
+	}
+	// The covers-ground rule on the inherited path. `validateGeometry` refuses a
+	// drawn geometry and `geojsonToGeom` is the backstop, but this is the only
+	// layer that knows which record the geometry came from, so "go fix that
+	// habitat" is sayable only here. Nothing in production is in this state; the
+	// induction that an inherited geometry needs no normalization holds today by
+	// measurement, and this is what makes it hold by construction.
+	if (!geometryCoversGround(geojson)) {
+		throw new CommandError(400, {
+			error: 'source_geometry_covers_no_ground',
+			source: { table, id },
+		});
 	}
 	return geojsonToGeom(geojson);
 }
