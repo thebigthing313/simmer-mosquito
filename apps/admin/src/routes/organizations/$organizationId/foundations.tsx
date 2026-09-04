@@ -1,4 +1,4 @@
-import { getOwnedGeometryBaseTypes } from '@simmer-mosquito/domain';
+import { getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
 import {
 	type GeoJsonGeometry,
 	type GeoJsonPoint,
@@ -42,7 +42,7 @@ const CheckIcon = iconRegistry.actions.check.icon;
  * a stable reference; a literal in the render would be a new array every pass.
  */
 const REGION_IMPORT_KINDS: readonly ImportGeometryKind[] =
-	getOwnedGeometryBaseTypes('region').filter(isImportGeometryKind);
+	getOwnedGeometryPolicy('region').allowedTypes.filter(isImportGeometryKind);
 
 export const Route = createFileRoute('/organizations/$organizationId/foundations')({
 	component: AgencyFoundationsRoute,

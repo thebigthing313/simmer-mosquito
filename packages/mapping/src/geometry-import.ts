@@ -3,13 +3,20 @@
  * Everything here is dependency-free: GeoJSON via `JSON.parse`, KML via the
  * browser's built-in `DOMParser`, and KMZ via `./kmz.js`.
  *
- * Callers say which geometry kinds they want (`Polygon`, `LineString`, or both);
- * every other geometry in the file is ignored and counted as skipped. Multi-part
- * geometries are flattened — a MultiPolygon becomes one candidate per polygon —
- * because the shapes this app stores are single-part.
+ * One source feature is one shape. A GeoJSON `Feature` or a KML `<Placemark>`
+ * carrying several pieces keeps them, as the multi shape they make; a feature
+ * carrying one piece comes back as the plain shape, whatever the file called it.
+ * Splitting a MultiPolygon into a shape per piece is what this used to do, and
+ * it turned a park on three lots into three records without saying so.
+ *
+ * Callers say which kinds they want, read off the geometry register in
+ * `@simmer-mosquito/domain`. A feature of a kind nobody asked for is counted as
+ * skipped; a feature whose pieces the caller cannot store, and one mixing kinds,
+ * are refused with a reason of their own, so a preview can say why a shape it
+ * found is not on offer.
  *
  * Two consumers share this: the bulk region import (`gis/regions/import`, which
- * turns every polygon in the file into a region) and the record forms' "fill
+ * turns every feature in the file into a region) and the record forms' "fill
  * geometry from a file" convenience, which lets the user pick one shape.
  *
  * Reading a file (`readImportFileText`) is separate from parsing its text
@@ -33,45 +40,106 @@ export interface ImportLineGeometry {
 	readonly coordinates: ImportPosition[];
 }
 
-export type ImportGeometry = ImportPolygonGeometry | ImportLineGeometry;
+export interface ImportMultiPolygonGeometry {
+	readonly type: 'MultiPolygon';
+	/** One `[outer ring, ...holes]` list per piece. */
+	readonly coordinates: ImportPosition[][][];
+}
+
+export interface ImportMultiLineGeometry {
+	readonly type: 'MultiLineString';
+	readonly coordinates: ImportPosition[][];
+}
+
+/** A shape carrying exactly one piece, which is what a piece is on its own. */
+export type ImportBaseGeometry = ImportPolygonGeometry | ImportLineGeometry;
+
+export type ImportGeometry =
+	| ImportPolygonGeometry
+	| ImportLineGeometry
+	| ImportMultiPolygonGeometry
+	| ImportMultiLineGeometry;
+
+/** The areal shapes: one polygon, or several carried as one. */
+export type ImportArealGeometry = ImportPolygonGeometry | ImportMultiPolygonGeometry;
 
 export type ImportGeometryKind = ImportGeometry['type'];
 
 /**
- * Every kind, as a value.
+ * The single-piece kind behind each kind, mirroring the register's own base map.
  *
  * An object keyed by the union rather than a list of names, so the compiler
  * requires an entry per kind and the KML tag check below cannot fall out of step
  * with what the parser actually reads.
  */
-const IMPORT_GEOMETRY_KINDS: Readonly<Record<ImportGeometryKind, true>> = {
-	Polygon: true,
-	LineString: true,
-};
+const IMPORT_BASE_KIND = {
+	Polygon: 'Polygon',
+	LineString: 'LineString',
+	MultiPolygon: 'Polygon',
+	MultiLineString: 'LineString',
+} as const satisfies Readonly<Record<ImportGeometryKind, ImportGeometryKind>>;
+
+export type ImportBaseGeometryKind = ImportBaseGeometry['type'];
 
 /**
  * Whether `value` names a geometry kind this parser can produce.
  *
  * Callers derive their `kinds` argument from the geometry register in
  * `@simmer-mosquito/domain`, which speaks in shapes this parser has no arm for
- * — a Point, for one — so they filter the register's answer through this. It
- * doubles as the KML element-name test, because the tags KML uses for a geometry
- * are spelled exactly as the kinds are.
+ * — a Point, for one — so they filter the register's answer through this.
  */
 export function isImportGeometryKind(value: string): value is ImportGeometryKind {
-	return Object.hasOwn(IMPORT_GEOMETRY_KINDS, value);
+	return Object.hasOwn(IMPORT_BASE_KIND, value);
 }
 
 /**
- * One source feature — a GeoJSON `Feature` or a KML `<Placemark>` — and the
- * geometries of the requested kinds it yielded. The grouping is what lets a
- * multi-part feature name its parts "North (1)", "North (2)".
+ * The single-piece kind behind `kind`.
+ *
+ * What the dialog's noun is read off: a caller allowing Polygon and MultiPolygon
+ * allows one kind of thing, and says "polygon" rather than falling back to the
+ * general word.
+ */
+export function importBaseGeometryKind(kind: ImportGeometryKind): ImportBaseGeometryKind {
+	return IMPORT_BASE_KIND[kind];
+}
+
+/**
+ * Whether `tagName` is a KML element holding one geometry.
+ *
+ * The tags KML uses are spelled exactly as the single-piece kinds are, and KML
+ * has no tag for a multi shape at all: several pieces arrive as several tags
+ * inside a `<MultiGeometry>`.
+ */
+function isKmlGeometryTag(tagName: string): tagName is ImportBaseGeometryKind {
+	return IMPORT_BASE_KIND[tagName as ImportGeometryKind] === tagName;
+}
+
+/**
+ * Why a source feature's geometry is not on offer.
+ *
+ * A refusal is a note the preview states, not a row it hides. Making a refused
+ * feature simply absent is the failure the per-feature rewrite exists to delete:
+ * the user picks a parks file, the park they came for is not in the list, and
+ * nothing says why.
+ */
+export type ImportRefusal =
+	/** Of a kind the caller never wanted, or one this parser has no arm for. */
+	| 'unsupported'
+	/** Several pieces, on a caller that stores one. */
+	| 'multipart'
+	/** A GeoJSON GeometryCollection, or a KML `<MultiGeometry>` mixing kinds. */
+	| 'mixed';
+
+/**
+ * One source feature — a GeoJSON `Feature` or a KML `<Placemark>` — as one shape.
+ *
+ * Exactly one of `geometry` and `refusal` is set: a feature is either on offer or
+ * refused with a reason.
  */
 export interface ImportGroup {
 	readonly name: string | null;
-	readonly geometries: ImportGeometry[];
-	/** True when the source carried geometry, but none of the requested kinds. */
-	readonly skipped: boolean;
+	readonly geometry: ImportGeometry | null;
+	readonly refusal: ImportRefusal | null;
 }
 
 export interface ImportGroupResult {
@@ -88,9 +156,13 @@ export interface ImportCandidate {
 
 export interface ImportCandidateResult {
 	readonly candidates: ImportCandidate[];
-	/** Source geometries of an unwanted kind (points, lines under a polygon ask). */
+	/** Features of an unwanted kind (points, lines under a polygon ask). */
 	readonly skipped: number;
-	/** True when the file held more than `limit` shapes and only the first were kept. */
+	/** Features refused because they hold several pieces and the caller stores one. */
+	readonly multipart: number;
+	/** Features refused because they mix geometry kinds. */
+	readonly mixed: number;
+	/** True when the file held more than `limit` features and only the first were kept. */
 	readonly truncated: boolean;
 }
 
@@ -155,40 +227,74 @@ export function collectImportGroups(
 }
 
 /**
- * Flatten groups into named candidates, capped at `limit`. A group with several
- * geometries numbers its parts; an unnamed group falls back to `fallbackName N`.
+ * Turn groups into named candidates, one per feature, capped at `limit`. An
+ * unnamed feature falls back to `fallbackName N`.
+ *
+ * The cap bounds writes, and the write count is the feature count, so a file of
+ * 400 features averaging three pieces each now costs 400 rather than 1200.
  */
 export function importCandidatesFrom(
 	groups: readonly ImportGroup[],
 	options: { readonly limit: number; readonly fallbackName: string },
 ): ImportCandidateResult {
 	const candidates: ImportCandidate[] = [];
-	let skipped = 0;
+	const refused: Record<ImportRefusal, number> = { unsupported: 0, multipart: 0, mixed: 0 };
 	let truncated = false;
 
 	for (const group of groups) {
-		if (group.geometries.length === 0) {
-			if (group.skipped) {
-				skipped += 1;
+		if (group.geometry === null) {
+			if (group.refusal !== null) {
+				refused[group.refusal] += 1;
 			}
 			continue;
 		}
-		for (let index = 0; index < group.geometries.length; index += 1) {
-			if (candidates.length >= options.limit) {
-				// More shapes remain in the file; keep only the first `limit`.
-				truncated = true;
-				break;
-			}
-			const base = group.name ?? `${options.fallbackName} ${candidates.length + 1}`;
-			const name = group.geometries.length > 1 ? `${base} (${index + 1})` : base;
-			candidates.push({ name, geometry: group.geometries[index] as ImportGeometry });
-		}
-		if (truncated) {
+		if (candidates.length >= options.limit) {
+			// More features remain in the file; keep only the first `limit`.
+			truncated = true;
 			break;
 		}
+		candidates.push({
+			name: group.name ?? `${options.fallbackName} ${candidates.length + 1}`,
+			geometry: group.geometry,
+		});
 	}
 
-	return { candidates, skipped, truncated };
+	return {
+		candidates,
+		skipped: refused.unsupported,
+		multipart: refused.multipart,
+		mixed: refused.mixed,
+		truncated,
+	};
+}
+
+/**
+ * Every ring of `geometry`, pieces and holes alike, in stored order.
+ *
+ * The one place a shape is taken apart here, so "does this land on earth" and
+ * "how big is it" cannot disagree about what the shape holds. A line is one ring
+ * for this purpose: an open one, but a list of positions all the same.
+ */
+function importRings(geometry: ImportGeometry): readonly (readonly ImportPosition[])[] {
+	switch (geometry.type) {
+		case 'LineString':
+			return [geometry.coordinates];
+		case 'MultiLineString':
+			return geometry.coordinates;
+		default:
+			return arealParts(geometry).flat();
+	}
+}
+
+/** The pieces `geometry` holds: one for a plain shape, however many a multi has. */
+export function importPartCount(geometry: ImportGeometry): number {
+	switch (geometry.type) {
+		case 'MultiPolygon':
+		case 'MultiLineString':
+			return geometry.coordinates.length;
+		default:
+			return 1;
+	}
 }
 
 /**
@@ -198,21 +304,41 @@ export function importCandidatesFrom(
  * whose coordinates parse as valid GeoJSON but land nowhere on earth — the
  * server's geometry validation rejects them, and the map would fly to nothing.
  * Catching it here lets a caller say so before the user fills out a whole form.
+ *
+ * Every piece, not the first one. Reading a multi shape as a single-part one
+ * destructured a whole piece into `lng`, so the comparison was `NaN` and every
+ * multipart feature was silently withheld as projected.
  */
 export function isWgs84Geometry(geometry: ImportGeometry): boolean {
-	const rings = geometry.type === 'Polygon' ? geometry.coordinates : [geometry.coordinates];
-	return rings.every((ring) =>
+	return importRings(geometry).every((ring) =>
 		ring.every(([lng, lat]) => lng >= -180 && lng <= 180 && lat >= -90 && lat <= 90),
 	);
 }
 
-/** Vertices a user would count: a polygon's closing position is not counted twice. */
+/**
+ * Vertices a user would count, over every piece.
+ *
+ * A polygon's closing position is not counted twice, and a hole is not counted
+ * at all: the draw control's piece rows count the outline and name holes
+ * separately, and one number for the same shape in two places has to mean the
+ * same thing in both.
+ */
 export function importVertexCount(geometry: ImportGeometry): number {
-	if (geometry.type === 'LineString') {
-		return geometry.coordinates.length;
+	if (IMPORT_BASE_KIND[geometry.type] === 'LineString') {
+		return importRings(geometry).reduce((total, ring) => total + ring.length, 0);
 	}
-	const ring = geometry.coordinates[0] ?? [];
-	return Math.max(ring.length - 1, 0);
+	return arealParts(geometry).reduce(
+		(total, rings) => total + Math.max((rings[0]?.length ?? 0) - 1, 0),
+		0,
+	);
+}
+
+/** The `[outer ring, ...holes]` list of each piece of an areal shape. */
+function arealParts(geometry: ImportGeometry): readonly (readonly (readonly ImportPosition[])[])[] {
+	if (geometry.type === 'MultiPolygon') {
+		return geometry.coordinates;
+	}
+	return geometry.type === 'Polygon' ? [geometry.coordinates] : [];
 }
 
 // ---------------------------------------------------------------------------
@@ -234,14 +360,106 @@ function collectGeoJson(node: unknown, kinds: readonly ImportGeometryKind[]): Im
 		return node.features.flatMap((feature) => collectGeoJson(feature, kinds));
 	}
 	if (node.type === 'Feature') {
-		const geometries = flattenGeometries(node.geometry, kinds);
 		return [
-			{ name: readGeoJsonName(node.properties), geometries, skipped: geometries.length === 0 },
+			importGroup(readGeoJsonName(node.properties), readGeoJsonGeometry(node.geometry), kinds),
 		];
 	}
 	// A bare geometry object.
-	const geometries = flattenGeometries(node, kinds);
-	return [{ name: null, geometries, skipped: geometries.length === 0 }];
+	return [importGroup(null, readGeoJsonGeometry(node), kinds)];
+}
+
+/**
+ * One feature's geometry, held to what the caller may store.
+ *
+ * The single place the kinds gate is applied, so both parsers answer it the same
+ * way. A multi shape the caller cannot store but whose single form it can is
+ * refused by name rather than folded into the generic skipped count: only that
+ * case is worth a sentence, because it is the one where the user can see the
+ * shape in their file and would otherwise never learn why it is missing.
+ */
+function importGroup(
+	name: string | null,
+	read: ImportGeometry | ImportRefusal,
+	kinds: readonly ImportGeometryKind[],
+): ImportGroup {
+	if (typeof read === 'string') {
+		return { name, geometry: null, refusal: read };
+	}
+	if (kinds.includes(read.type)) {
+		return { name, geometry: read, refusal: null };
+	}
+	const base = IMPORT_BASE_KIND[read.type];
+	const refusal = base !== read.type && kinds.includes(base) ? 'multipart' : 'unsupported';
+	return { name, geometry: null, refusal };
+}
+
+/**
+ * A GeoJSON geometry as the one shape its feature holds.
+ *
+ * A multi shape keeps its pieces, and one holding a single piece comes back as
+ * the plain shape: `ogr2ogr` emits MultiPolygon for every feature in a
+ * shapefile, single-lot ones included, so a one-piece multi is a tool artifact
+ * rather than something the user chose. That mirrors the demote the domain
+ * builders run, which is what lets a Polygon-only record take such a file.
+ *
+ * A GeometryCollection is refused. Recursing into one and taking what it held
+ * dissolves a feature into pieces of unrelated kinds, which is the silent drop
+ * this parser stopped doing.
+ */
+function readGeoJsonGeometry(geometry: unknown): ImportGeometry | ImportRefusal {
+	if (!isRecord(geometry) || typeof geometry.type !== 'string') {
+		return 'unsupported';
+	}
+	switch (geometry.type) {
+		case 'Polygon':
+			return polygonFromParts(normalizedParts([geometry.coordinates], normalizeRings));
+		case 'MultiPolygon':
+			return polygonFromParts(normalizedParts(geometry.coordinates, normalizeRings));
+		case 'LineString':
+			return lineFromParts(normalizedParts([geometry.coordinates], normalizeLine));
+		case 'MultiLineString':
+			return lineFromParts(normalizedParts(geometry.coordinates, normalizeLine));
+		case 'GeometryCollection':
+			return 'mixed';
+		default:
+			return 'unsupported';
+	}
+}
+
+/** Every piece a raw coordinate list yields, the ones that read as nothing dropped. */
+function normalizedParts<TPart>(
+	coordinates: unknown,
+	normalize: (part: unknown) => TPart | null,
+): TPart[] {
+	if (!Array.isArray(coordinates)) {
+		return [];
+	}
+	return coordinates.flatMap((part) => {
+		const normalized = normalize(part);
+		return normalized === null ? [] : [normalized];
+	});
+}
+
+/** An areal feature's pieces as one shape: Polygon at one, MultiPolygon above. */
+function polygonFromParts(parts: readonly ImportPosition[][][]): ImportGeometry | ImportRefusal {
+	const first = parts[0];
+	if (first === undefined) {
+		return 'unsupported';
+	}
+	return parts.length === 1
+		? { type: 'Polygon', coordinates: first }
+		: { type: 'MultiPolygon', coordinates: [...parts] };
+}
+
+/** A linear feature's pieces as one shape: LineString at one, MultiLineString above. */
+function lineFromParts(parts: readonly ImportPosition[][]): ImportGeometry | ImportRefusal {
+	const first = parts[0];
+	if (first === undefined) {
+		return 'unsupported';
+	}
+	return parts.length === 1
+		? { type: 'LineString', coordinates: first }
+		: { type: 'MultiLineString', coordinates: [...parts] };
 }
 
 function readGeoJsonName(properties: unknown): string | null {
@@ -258,56 +476,14 @@ function readGeoJsonName(properties: unknown): string | null {
 }
 
 /**
- * Flatten any GeoJSON geometry into the requested kinds. Multi-geometries split
- * into their members, GeometryCollections recurse, and everything else — points,
- * and whichever of line/polygon the caller did not ask for — yields nothing.
- */
-export function flattenGeometries(
-	geometry: unknown,
-	kinds: readonly ImportGeometryKind[],
-): ImportGeometry[] {
-	if (!isRecord(geometry) || typeof geometry.type !== 'string') {
-		return [];
-	}
-	const wantsPolygon = kinds.includes('Polygon');
-	const wantsLine = kinds.includes('LineString');
-
-	if (geometry.type === 'Polygon' && wantsPolygon) {
-		const rings = normalizeRings(geometry.coordinates);
-		return rings === null ? [] : [{ type: 'Polygon', coordinates: rings }];
-	}
-	if (geometry.type === 'MultiPolygon' && wantsPolygon) {
-		if (!Array.isArray(geometry.coordinates)) {
-			return [];
-		}
-		return geometry.coordinates
-			.map((polygon) => normalizeRings(polygon))
-			.filter((rings): rings is ImportPosition[][] => rings !== null)
-			.map((rings) => ({ type: 'Polygon', coordinates: rings }));
-	}
-	if (geometry.type === 'LineString' && wantsLine) {
-		const line = normalizeLine(geometry.coordinates);
-		return line === null ? [] : [{ type: 'LineString', coordinates: line }];
-	}
-	if (geometry.type === 'MultiLineString' && wantsLine) {
-		if (!Array.isArray(geometry.coordinates)) {
-			return [];
-		}
-		return geometry.coordinates
-			.map((line) => normalizeLine(line))
-			.filter((line): line is ImportPosition[] => line !== null)
-			.map((line) => ({ type: 'LineString', coordinates: line }));
-	}
-	if (geometry.type === 'GeometryCollection' && Array.isArray(geometry.geometries)) {
-		return geometry.geometries.flatMap((child) => flattenGeometries(child, kinds));
-	}
-	return [];
-}
-
-/**
  * Coerce raw coordinate arrays into `[ring, ...holes]` of `[lng, lat]` pairs.
  * Rings are closed here, so a file that leaves the closing position off still
  * produces a polygon PostGIS accepts.
+ *
+ * There is no position minimum. The one that used to sit here counted positions,
+ * so four copies of one corner passed a filter that read as if it caught them.
+ * Whether a shape covers ground is `geometryCoversGround`'s question, and it is
+ * asked where the shape is written rather than guessed at here.
  */
 function normalizeRings(coordinates: unknown): ImportPosition[][] | null {
 	if (!Array.isArray(coordinates)) {
@@ -319,11 +495,7 @@ function normalizeRings(coordinates: unknown): ImportPosition[][] | null {
 		if (positions === null) {
 			return null;
 		}
-		const closed = closeRing(positions);
-		// Three distinct corners plus the closing position is the smallest area.
-		if (closed.length >= 4) {
-			rings.push(closed);
-		}
+		rings.push(closeRing(positions));
 	}
 	return rings.length === 0 ? null : rings;
 }
@@ -449,23 +621,37 @@ function collectKmlGroups(
 ): void {
 	for (const child of Array.from(element.children)) {
 		if (child.tagName === 'Placemark') {
-			const geometries = kmlGeometriesWithin(child, kinds);
-			out.push({
-				name: kmlPlacemarkName(child),
-				geometries,
-				skipped: geometries.length === 0,
-			});
-		} else if (isImportGeometryKind(child.tagName)) {
-			const geometry = kmlGeometryFromNode(child, kinds);
-			out.push({
-				name: null,
-				geometries: geometry === null ? [] : [geometry],
-				skipped: geometry === null,
-			});
+			const name = kmlPlacemarkName(child);
+			out.push(importGroup(name, combineKmlParts(kmlGeometriesWithin(child)), kinds));
+		} else if (isKmlGeometryTag(child.tagName)) {
+			const geometry = kmlGeometryFromNode(child);
+			out.push(importGroup(null, geometry ?? 'unsupported', kinds));
 		} else {
 			collectKmlGroups(child, kinds, out);
 		}
 	}
+}
+
+/**
+ * A Placemark's geometry elements as the one shape it holds.
+ *
+ * A `<MultiGeometry>` of three polygons is one shape in three pieces, exactly as
+ * a GeoJSON MultiPolygon is. One mixing an area and a line is refused: there is
+ * no shape both belong to, and picking one of them is the silent drop.
+ */
+function combineKmlParts(parts: readonly ImportBaseGeometry[]): ImportGeometry | ImportRefusal {
+	const first = parts[0];
+	if (first === undefined) {
+		return 'unsupported';
+	}
+	if (parts.some((part) => part.type !== first.type)) {
+		return 'mixed';
+	}
+	return first.type === 'Polygon'
+		? polygonFromParts(parts.flatMap((part) => (part.type === 'Polygon' ? [part.coordinates] : [])))
+		: lineFromParts(
+				parts.flatMap((part) => (part.type === 'LineString' ? [part.coordinates] : [])),
+			);
 }
 
 function kmlPlacemarkName(placemark: Element): string | null {
@@ -482,15 +668,12 @@ function kmlPlacemarkName(placemark: Element): string | null {
  * Collect every geometry descendant of an element (e.g. a Placemark's geometry),
  * in document order so a MultiGeometry's parts keep the file's ordering.
  */
-function kmlGeometriesWithin(
-	element: Element,
-	kinds: readonly ImportGeometryKind[],
-): ImportGeometry[] {
-	const geometries: ImportGeometry[] = [];
+function kmlGeometriesWithin(element: Element): ImportBaseGeometry[] {
+	const geometries: ImportBaseGeometry[] = [];
 	const walk = (node: Element): void => {
 		for (const child of Array.from(node.children)) {
-			if (isImportGeometryKind(child.tagName)) {
-				const geometry = kmlGeometryFromNode(child, kinds);
+			if (isKmlGeometryTag(child.tagName)) {
+				const geometry = kmlGeometryFromNode(child);
 				if (geometry !== null) {
 					geometries.push(geometry);
 				}
@@ -504,15 +687,15 @@ function kmlGeometriesWithin(
 	return geometries;
 }
 
-/** Turn one `<Polygon>`/`<LineString>` element into a geometry, or null if unusable. */
-function kmlGeometryFromNode(
-	node: Element,
-	kinds: readonly ImportGeometryKind[],
-): ImportGeometry | null {
+/**
+ * Turn one `<Polygon>`/`<LineString>` element into a geometry, or null if unusable.
+ *
+ * Whether the caller wants this kind is not asked here. A Placemark holding an
+ * area and a line is refused as mixed however narrow the ask is, so both have to
+ * be read before anything is gated.
+ */
+function kmlGeometryFromNode(node: Element): ImportBaseGeometry | null {
 	if (node.tagName === 'Polygon') {
-		if (!kinds.includes('Polygon')) {
-			return null;
-		}
 		const outer = firstRingCoordinates(node, 'outerBoundaryIs');
 		if (outer === null) {
 			return null;
@@ -522,9 +705,6 @@ function kmlGeometryFromNode(
 			rings.push(inner);
 		}
 		return { type: 'Polygon', coordinates: rings };
-	}
-	if (!kinds.includes('LineString')) {
-		return null;
 	}
 	const coordinates = Array.from(node.getElementsByTagName('coordinates'))[0];
 	if (coordinates === undefined) {

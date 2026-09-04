@@ -1,5 +1,10 @@
 import type { GeoJsonPolygon } from '@simmer-mosquito/mapping';
-import { IMPORT_FILE_ACCEPT, readImportFileText } from '@simmer-mosquito/mapping';
+import {
+	IMPORT_FILE_ACCEPT,
+	importPartCount,
+	importVertexCount,
+	readImportFileText,
+} from '@simmer-mosquito/mapping';
 import { isTxIdConfirmationTimeout } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -29,14 +34,18 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
-import { ProjectedCoordinatesNote } from '../../../components/map/projected-coordinates-note';
+import {
+	ImportNotes,
+	type ImportNoun,
+	type ImportRefusalCounts,
+} from '../../../components/map/import-notes';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
 import { regions } from '../../../lib/collections/regions';
 import { isBelowRole } from '../../../lib/write-access';
 import { RegionFolderDialog } from './-folder-dialog';
-import { type ImportPolygon, MAX_POLYGONS, parseRegionsFromFile } from './-import-parse';
+import { MAX_REGIONS, parseRegionsFromFile, type RegionBoundary } from './-import-parse';
 
 export const Route = createFileRoute('/gis/regions/import')({
 	beforeLoad: async ({ context }) => {
@@ -70,8 +79,13 @@ interface ImportProgress {
 interface ImportItem {
 	readonly id: string;
 	readonly name: string;
-	readonly geometry: ImportPolygon;
+	readonly geometry: RegionBoundary;
 }
+
+const NO_REFUSALS: ImportRefusalCounts = { projected: 0, multipart: 0, mixed: 0 };
+
+/** A Region is always an area here, so the notes have their word already. */
+const AREA: ImportNoun = { one: 'area', many: 'areas' };
 
 function ImportRegionsRoute() {
 	const navigate = useNavigate();
@@ -92,7 +106,7 @@ function ImportRegionsRoute() {
 	const [items, setItems] = useState<readonly ImportItem[]>([]);
 	const [skipped, setSkipped] = useState(0);
 	const [truncated, setTruncated] = useState(false);
-	const [projected, setProjected] = useState(0);
+	const [refusals, setRefusals] = useState<ImportRefusalCounts>(NO_REFUSALS);
 	const [fileName, setFileName] = useState<string | null>(null);
 	const [parseError, setParseError] = useState<string | null>(null);
 	const [folderId, setFolderId] = useState<string>(UNFILED);
@@ -112,14 +126,18 @@ function ImportRegionsRoute() {
 		setImportErrors([]);
 		setPendingSync(0);
 		setSelectedId(null);
-		setProjected(0);
+		setRefusals(NO_REFUSALS);
 		try {
 			const text = await readImportFileText(file);
 			const result = parseRegionsFromFile(text, file.name);
 			setFileName(file.name);
 			setSkipped(result.skipped);
 			setTruncated(result.truncated);
-			setProjected(result.projected);
+			setRefusals({
+				projected: result.projected,
+				multipart: result.multipart,
+				mixed: result.mixed,
+			});
 			if (result.error !== undefined) {
 				setParseError(result.error);
 				setItems([]);
@@ -145,7 +163,7 @@ function ImportRegionsRoute() {
 				type: 'Feature',
 				id: index,
 				properties: { name: item.name },
-				geometry: item.geometry as unknown as GeoJSON.Polygon,
+				geometry: item.geometry as unknown as GeoJSON.Geometry,
 			})),
 		}),
 		[items],
@@ -283,8 +301,8 @@ function ImportRegionsRoute() {
 							Import Regions
 						</h1>
 						<p className="m-0 text-muted-foreground text-sm">
-							Upload a KML, KMZ, or GeoJSON file. Polygons are flattened into individual regions you
-							can review before importing.
+							Upload a KML, KMZ, or GeoJSON file. Each feature in it becomes one region you can
+							review before importing.
 						</p>
 					</div>
 				</header>
@@ -311,11 +329,11 @@ function ImportRegionsRoute() {
 							</Button>
 							{fileName === null ? null : (
 								<p className="m-0 text-muted-foreground text-xs">
-									{fileName} · {items.length} {items.length === 1 ? 'polygon' : 'polygons'}
-									{skipped > 0 ? ` · ${skipped} non-polygon skipped` : ''}
+									{fileName} · {items.length} {items.length === 1 ? 'region' : 'regions'}
+									{skipped > 0 ? ` · ${skipped} skipped` : ''}
 								</p>
 							)}
-							<ProjectedCoordinatesNote count={projected} />
+							<ImportNotes counts={refusals} noun={AREA} />
 						</div>
 
 						{parseError === null ? null : (
@@ -327,10 +345,10 @@ function ImportRegionsRoute() {
 
 						{truncated ? (
 							<Alert>
-								<AlertTitle>Only the first {MAX_POLYGONS} polygons were kept</AlertTitle>
+								<AlertTitle>Only the first {MAX_REGIONS} features were kept</AlertTitle>
 								<AlertDescription>
-									This file holds more than {MAX_POLYGONS} polygons. To import the rest, split the
-									file and upload the remaining polygons separately.
+									This file holds more than {MAX_REGIONS} features. To import the rest, split the
+									file and upload the remaining features separately.
 								</AlertDescription>
 							</Alert>
 						) : null}
@@ -366,9 +384,7 @@ function ImportRegionsRoute() {
 
 								<div className="grid gap-2">
 									<div className="flex items-center justify-between">
-										<span className="font-semibold text-foreground text-sm">
-											Polygons to import
-										</span>
+										<span className="font-semibold text-foreground text-sm">Regions to import</span>
 										<Badge tone="neutral" variant="outline">
 											{items.length}
 										</Badge>
@@ -485,13 +501,18 @@ function ImportRow({
 }) {
 	return (
 		<li className="flex items-center gap-1">
-			<Input
-				aria-label={`Name for polygon ${index + 1}`}
-				className={cn('min-w-0 flex-1', isSelected ? 'border-primary/60 bg-primary/5' : null)}
-				onChange={(event) => onRename(event.target.value)}
-				onFocus={onSelect}
-				value={item.name}
-			/>
+			<span className="grid min-w-0 flex-1 gap-0.5">
+				<Input
+					aria-label={`Name for region ${index + 1}`}
+					className={cn('min-w-0', isSelected ? 'border-primary/60 bg-primary/5' : null)}
+					onChange={(event) => onRename(event.target.value)}
+					onFocus={onSelect}
+					value={item.name}
+				/>
+				<span className="truncate px-1 text-muted-foreground text-xs">
+					{describeBoundary(item.geometry)}
+				</span>
+			</span>
 			<Button
 				aria-label={`Show ${item.name} on the map`}
 				className={cn(
@@ -521,6 +542,19 @@ function ImportRow({
 	);
 }
 
+/**
+ * The line under a row's name: its pieces where it has several, its vertices.
+ *
+ * The piece count earns its place because it names what changed. A file that
+ * used to produce three rows now produces one, and the count is what says those
+ * three lots are still there rather than dissolved.
+ */
+function describeBoundary(geometry: RegionBoundary): string {
+	const parts = importPartCount(geometry);
+	const vertices = `${importVertexCount(geometry)} vertices`;
+	return parts > 1 ? `${parts} pieces · ${vertices}` : vertices;
+}
+
 function delay(ms: number): Promise<void> {
 	return new Promise((resolve) => {
 		setTimeout(resolve, ms);
@@ -548,19 +582,25 @@ async function forEachWithConcurrency<T>(
 	await Promise.all(runners);
 }
 
+/**
+ * Frame the map on `items`.
+ *
+ * It walks positions rather than rings, because a boundary in several pieces
+ * nests one level deeper than one in a single piece. Walking rings gave a
+ * multipart item `NaN` bounds, and the preview map then stopped fitting with no
+ * error at all.
+ */
 function fitMapToItems(map: MapboxMap, items: readonly ImportItem[]): void {
 	let west = Number.POSITIVE_INFINITY;
 	let south = Number.POSITIVE_INFINITY;
 	let east = Number.NEGATIVE_INFINITY;
 	let north = Number.NEGATIVE_INFINITY;
 	for (const item of items) {
-		for (const ring of item.geometry.coordinates) {
-			for (const [lng, lat] of ring) {
-				west = Math.min(west, lng);
-				south = Math.min(south, lat);
-				east = Math.max(east, lng);
-				north = Math.max(north, lat);
-			}
+		for (const [lng, lat] of boundaryPositions(item.geometry)) {
+			west = Math.min(west, lng);
+			south = Math.min(south, lat);
+			east = Math.max(east, lng);
+			north = Math.max(north, lat);
 		}
 	}
 	if (!Number.isFinite(west)) {
@@ -573,4 +613,10 @@ function fitMapToItems(map: MapboxMap, items: readonly ImportItem[]): void {
 		],
 		{ padding: 56, maxZoom: 15, duration: 500 },
 	);
+}
+
+/** Every position a boundary holds, whichever depth its pieces sit at. */
+function boundaryPositions(geometry: RegionBoundary): readonly (readonly [number, number])[] {
+	const parts = geometry.type === 'MultiPolygon' ? geometry.coordinates : [geometry.coordinates];
+	return parts.flat(2);
 }

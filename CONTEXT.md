@@ -87,6 +87,16 @@ Common source terms:
   mission item.
 - **Weather Station Geometry**: explicit point geometry for a station.
 
+## Geometry shape terms
+
+- A **Part** is one of the pieces of a multipart geometry. A record with two or
+  more parts stores a Multi shape; one part stores the base shape. Part order
+  carries no meaning. The draw control and the import preview call a part a
+  **piece** on screen, which is the word a user reads for the thing they drew.
+- A geometry **covers no ground** when it encloses zero area or spans zero
+  length. It is distinct from invalid, which is about a ring crossing itself and
+  which SIMMER does not police.
+
 ## Ambiguities to preserve
 
 - "Application" can mean software or control work. Use **Chemical Application**

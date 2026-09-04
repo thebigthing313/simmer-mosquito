@@ -1,20 +1,20 @@
 /**
  * The bulk region import's view of an uploaded KML, KMZ, or GeoJSON file: every
- * polygon in the file becomes one region, named after its Feature/Placemark.
+ * feature in the file becomes one region, named after its Feature/Placemark.
  *
  * The parsing itself lives in `@simmer-mosquito/mapping` (shared with the record forms'
  * "fill geometry from a file" convenience); this module only adds the region-side
- * policy: polygons only, region naming, the `MAX_POLYGONS` cap, and withholding
- * shapes whose coordinates are not WGS84.
+ * policy: which shapes a Region may store, region naming, the `MAX_REGIONS` cap,
+ * and withholding shapes whose coordinates are not WGS84.
  */
 
-import { getOwnedGeometryBaseTypes } from '@simmer-mosquito/domain';
+import { getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
 import {
 	collectImportGroups,
-	flattenGeometries,
+	type ImportArealGeometry,
+	type ImportGeometry,
 	type ImportGeometryKind,
 	type ImportGroup,
-	type ImportPolygonGeometry,
 	importCandidatesFrom,
 	isImportGeometryKind,
 	isWgs84Geometry,
@@ -23,21 +23,26 @@ import {
 
 export { declareMissingNamespaces, parseKmlCoordinates } from '@simmer-mosquito/mapping';
 
-export type ImportPolygon = ImportPolygonGeometry;
+/** What a Region's boundary may be: one area, or several carried as one. */
+export type RegionBoundary = ImportArealGeometry;
 
 export interface ParsedRegion {
 	readonly name: string;
-	readonly geometry: ImportPolygon;
+	readonly geometry: RegionBoundary;
 }
 
 export interface ParseResult {
 	readonly regions: ParsedRegion[];
-	/** Non-polygon geometries (points, lines, empties) that were ignored. */
+	/** Features of a kind a Region never stores (points, lines, empties). */
 	readonly skipped: number;
-	/** True when the file held more than `MAX_POLYGONS` and only the first were kept. */
+	/** Features refused because a Region cannot hold their pieces. */
+	readonly multipart: number;
+	/** Features refused because they mix geometry kinds. */
+	readonly mixed: number;
+	/** True when the file held more than `MAX_REGIONS` and only the first were kept. */
 	readonly truncated: boolean;
 	/**
-	 * Polygons withheld because their coordinates are not WGS84 lng/lat. Agency
+	 * Boundaries withheld because their coordinates are not WGS84 lng/lat. Agency
 	 * exports are often in State Plane feet or UTM metres, which parse as valid
 	 * GeoJSON and land nowhere on earth: every write would fail the domain
 	 * position validator, and the preview map would fit to nothing.
@@ -47,8 +52,13 @@ export interface ParseResult {
 	readonly error?: string;
 }
 
-/** Hard cap on how many polygons a single import may contribute. */
-export const MAX_POLYGONS = 1000;
+/**
+ * Hard cap on how many regions a single import may contribute.
+ *
+ * It counts features rather than pieces, because a feature is a write. A file of
+ * 400 parks averaging three lots each costs 400 rather than 1200.
+ */
+export const MAX_REGIONS = 1000;
 
 /**
  * What a Region may store, filtered to what the file parser can produce.
@@ -59,12 +69,21 @@ export const MAX_POLYGONS = 1000;
  * being asked for.
  */
 const REGION_IMPORT_KINDS: readonly ImportGeometryKind[] =
-	getOwnedGeometryBaseTypes('region').filter(isImportGeometryKind);
+	getOwnedGeometryPolicy('region').allowedTypes.filter(isImportGeometryKind);
+
+const EMPTY: ParseResult = {
+	regions: [],
+	skipped: 0,
+	multipart: 0,
+	mixed: 0,
+	truncated: false,
+	projected: 0,
+};
 
 export function parseRegionsFromFile(text: string, fileName: string): ParseResult {
 	const { groups, error } = collectImportGroups(text, fileName, REGION_IMPORT_KINDS);
 	if (error !== undefined) {
-		return { regions: [], skipped: 0, truncated: false, projected: 0, error };
+		return { ...EMPTY, error };
 	}
 	return finalize(groups);
 }
@@ -73,23 +92,34 @@ export function parseGeoJson(text: string): ParseResult {
 	return finalize(parseGeoJsonGroups(text, REGION_IMPORT_KINDS));
 }
 
-/** Flatten any GeoJSON geometry into the polygons it contains. */
-export function flattenPolygons(geometry: unknown): ImportPolygon[] {
-	return flattenGeometries(geometry, REGION_IMPORT_KINDS).filter(isPolygon);
-}
-
 function finalize(groups: readonly ImportGroup[]): ParseResult {
-	const { candidates, skipped, truncated } = importCandidatesFrom(groups, {
-		limit: MAX_POLYGONS,
+	const { candidates, skipped, multipart, mixed, truncated } = importCandidatesFrom(groups, {
+		limit: MAX_REGIONS,
 		fallbackName: 'Region',
 	});
-	const polygons = candidates.flatMap((candidate) =>
-		isPolygon(candidate.geometry) ? [{ name: candidate.name, geometry: candidate.geometry }] : [],
+	const boundaries = candidates.flatMap((candidate) =>
+		isRegionBoundary(candidate.geometry)
+			? [{ name: candidate.name, geometry: candidate.geometry }]
+			: [],
 	);
-	const regions = polygons.filter((region) => isWgs84Geometry(region.geometry));
-	return { regions, skipped, truncated, projected: polygons.length - regions.length };
+	const regions = boundaries.filter((region) => isWgs84Geometry(region.geometry));
+	return {
+		regions,
+		skipped,
+		multipart,
+		mixed,
+		truncated,
+		projected: boundaries.length - regions.length,
+	};
 }
 
-function isPolygon(geometry: { readonly type: string }): geometry is ImportPolygon {
-	return geometry.type === 'Polygon';
+/**
+ * Whether a parsed shape is one a Region stores.
+ *
+ * The parser was already asked for these kinds and answers with nothing else, so
+ * this is a narrowing rather than a second gate. It reads the same derived list
+ * the parser was handed, which is what keeps it from becoming one.
+ */
+function isRegionBoundary(geometry: ImportGeometry): geometry is RegionBoundary {
+	return REGION_IMPORT_KINDS.includes(geometry.type);
 }
