@@ -58,6 +58,7 @@ export type {
 	ImportMultiLineGeometry,
 	ImportMultiPointGeometry,
 	ImportMultiPolygonGeometry,
+	ImportNote,
 	ImportPointGeometry,
 	ImportPolygonGeometry,
 	ImportPosition,

@@ -231,16 +231,26 @@ describe('importCandidatesFrom', () => {
 	it('offers one candidate per feature and counts each refusal apart', () => {
 		const result = importCandidatesFrom(
 			[
-				{ name: 'Park A', geometry: polygon, refusal: null },
-				{ name: null, geometry: polygon, refusal: null },
-				{ name: 'A point', geometry: null, refusal: 'unsupported' },
-				{ name: 'Split', geometry: null, refusal: 'multipart' },
-				{ name: 'Mixed', geometry: null, refusal: 'mixed' },
+				{ name: 'Park A', geometry: polygon, refusal: null, note: null },
+				{ name: 'Labelled', geometry: polygon, refusal: null, note: 'labelPoint' },
+				{ name: null, geometry: polygon, refusal: null, note: null },
+				{ name: 'A point', geometry: null, refusal: 'unsupported', note: null },
+				{ name: 'Split', geometry: null, refusal: 'multipart', note: null },
+				{ name: 'Mixed', geometry: null, refusal: 'mixed', note: null },
 			],
 			{ limit: 10, fallbackName: 'Shape' },
 		);
 
-		expect(result.candidates.map((candidate) => candidate.name)).toEqual(['Park A', 'Shape 2']);
+		expect(result.candidates.map((candidate) => candidate.name)).toEqual([
+			'Park A',
+			'Labelled',
+			'Shape 3',
+		]);
+		expect(result.candidates.map((candidate) => candidate.note)).toEqual([
+			null,
+			'labelPoint',
+			null,
+		]);
 		expect(result.skipped).toBe(1);
 		expect(result.multipart).toBe(1);
 		expect(result.mixed).toBe(1);
@@ -252,6 +262,7 @@ describe('importCandidatesFrom', () => {
 			name: null,
 			geometry: polygon,
 			refusal: null,
+			note: null,
 		}));
 
 		const result = importCandidatesFrom(groups, { limit: 3, fallbackName: 'Shape' });

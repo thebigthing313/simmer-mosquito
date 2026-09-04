@@ -1,7 +1,11 @@
 import {
 	type ImportBaseGeometryKind,
+	type ImportGeometry,
 	type ImportGeometryKind,
+	type ImportNote,
 	importBaseGeometryKind,
+	importPartCount,
+	importVertexCount,
 } from '@simmer-mosquito/mapping';
 
 /**
@@ -50,6 +54,37 @@ export function importNoun(allowedTypes: readonly ImportGeometryKind[]): ImportN
 /** The noun as a title reads it: "Import a Polygon", "Use This Geometry". */
 export function importNounTitle(noun: ImportNoun): string {
 	return `${noun.one.slice(0, 1).toUpperCase()}${noun.one.slice(1)}`;
+}
+
+/**
+ * What a row says about what reading its feature dropped, keyed by the note so
+ * the compiler asks for a sentence per note rather than letting a new one pass
+ * unsaid.
+ */
+const NOTE_TEXT = {
+	labelPoint: 'label point dropped',
+} as const satisfies Readonly<Record<ImportNote, string>>;
+
+/**
+ * The line under an import row's name: its pieces where it has several, its
+ * vertices, and anything the reading dropped.
+ *
+ * Both surfaces show it and both say the same things, so it is written once. The
+ * piece count earns its place because it names what changed: a file that used to
+ * produce three rows now produces one, and the count is what says those three
+ * lots are still there rather than dissolved. A point has one vertex, and "1
+ * vertices" is the sort of thing a user reads as a bug in the file.
+ */
+export function importRowSummary(geometry: ImportGeometry, note: ImportNote | null): string {
+	const parts = importPartCount(geometry);
+	const count = importVertexCount(geometry);
+	return [
+		parts > 1 ? `${parts} pieces` : null,
+		`${count} ${count === 1 ? 'vertex' : 'vertices'}`,
+		note === null ? null : NOTE_TEXT[note],
+	]
+		.filter((piece) => piece !== null)
+		.join(' · ');
 }
 
 export interface ImportRefusalCounts {
