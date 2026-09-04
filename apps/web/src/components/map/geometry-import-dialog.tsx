@@ -6,8 +6,6 @@ import {
 	importCandidatesFrom,
 	importVertexCount,
 	isWgs84Geometry,
-	LINE_KINDS,
-	POLYGON_KINDS,
 	readImportFileText,
 } from '@simmer-mosquito/mapping';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -67,7 +65,7 @@ export function GeometryImportDialog({
 }: {
 	readonly open: boolean;
 	/** Which shape the form is capturing; only matching geometries are offered. */
-	readonly geometryType: 'Polygon' | 'LineString';
+	readonly geometryType: ImportGeometryKind;
 	readonly onOpenChange: (open: boolean) => void;
 	readonly onSelect: (geometry: DrawGeometry) => void;
 }) {
@@ -86,13 +84,9 @@ export function GeometryImportDialog({
 	async function readFile(file: File) {
 		reset();
 		try {
-			const kinds: readonly ImportGeometryKind[] =
-				geometryType === 'Polygon' ? POLYGON_KINDS : LINE_KINDS;
-			const { groups, error } = collectImportGroups(
-				await readImportFileText(file),
-				file.name,
-				kinds,
-			);
+			const { groups, error } = collectImportGroups(await readImportFileText(file), file.name, [
+				geometryType,
+			]);
 			if (error !== undefined) {
 				setParseError(error);
 				return;

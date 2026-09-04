@@ -1,6 +1,34 @@
+import { OWNED_GEOMETRY_POLICIES } from '@simmer-mosquito/domain';
+import type { Kysely } from 'kysely';
 import { expect, it } from 'vitest';
-import { createAddress, listHabitatDisplayRowsByBounds, sql } from '../../index.js';
+import {
+	createAddress,
+	listHabitatDisplayRowsByBounds,
+	type SimmerDatabase,
+	sql,
+} from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
+
+/**
+ * The GeoJSON name of each shape, keyed by the upper-cased form the DDL is read
+ * in: `postgis_typmod_type` answers in mixed case and a CHECK carries the
+ * upper-cased name, and the register speaks GeoJSON.
+ *
+ * All six are listed, including the three the register cannot yet hold, so a
+ * column widened to a multi shape ahead of its policy row reads back as one and
+ * fails the comparison rather than going unnoticed.
+ */
+const SHAPE_BY_UPPER_NAME: Readonly<Record<string, string>> = {
+	POINT: 'Point',
+	LINESTRING: 'LineString',
+	POLYGON: 'Polygon',
+	MULTIPOINT: 'MultiPoint',
+	MULTILINESTRING: 'MultiLineString',
+	MULTIPOLYGON: 'MultiPolygon',
+};
+
+/** What an unrestricted `geom` column will take. */
+const EVERY_SHAPE: readonly string[] = Object.values(SHAPE_BY_UPPER_NAME);
 
 describeDbIntegration('owned geometry columns', () => {
 	it('stores direct address geometry without spatial feature indirection', async () => {
@@ -120,4 +148,120 @@ describeDbIntegration('owned geometry columns', () => {
 			});
 		});
 	});
+
+	/**
+	 * The register is the single source of which record kind stores which shapes;
+	 * this is what holds it to the database. `pnpm check:geometry-policies` gates
+	 * the TypeScript copies, and there is no static half for the DDL: reading the
+	 * CHECKs out of the migration files means folding `add constraint`, `drop
+	 * constraint` and `alter column type` across them in order, which is a small
+	 * SQL interpreter, and `schema.sql` is not committed.
+	 *
+	 * Both halves of the DDL restrict a column, so the storable set is their
+	 * intersection: the typmod from `postgis_typmod_type`, the accepted names from
+	 * `pg_get_constraintdef`. A generic typmod restricts nothing and an absent
+	 * CHECK restricts nothing.
+	 *
+	 * Never read `geometry_columns` for this. It falls back to the CHECK when the
+	 * typmod is generic and takes the first quoted name with `split_part`, so all
+	 * nine `geometry(Geometry,4326)` tables report `POINT` today.
+	 *
+	 * It iterates the register, so a new kind needs no edit here.
+	 */
+	it('stores the shapes the register says, on every table it names', async () => {
+		await withTestDb(async ({ db, schemaName }) => {
+			const storable = await readStorableShapes(db, schemaName);
+
+			for (const policy of OWNED_GEOMETRY_POLICIES) {
+				for (const table of policy.tables) {
+					expect(storable.get(table), `${table} has no geom column`).toBeDefined();
+					expect([...(storable.get(table) ?? [])].sort(), `${table} (${policy.kind})`).toEqual(
+						[...policy.allowedTypes].sort(),
+					);
+				}
+			}
+		});
+	});
+
+	/**
+	 * The other direction, which is what catches a sixteenth geometry table added
+	 * with no registration. Without it the register can go stale by omission and
+	 * every assertion above still passes.
+	 */
+	it('registers every table that holds a geometry', async () => {
+		await withTestDb(async ({ db, schemaName }) => {
+			const storable = await readStorableShapes(db, schemaName);
+			const owners = new Map<string, string[]>();
+			for (const policy of OWNED_GEOMETRY_POLICIES) {
+				for (const table of policy.tables) {
+					owners.set(table, [...(owners.get(table) ?? []), policy.kind]);
+				}
+			}
+
+			for (const table of storable.keys()) {
+				expect(owners.get(table), `${table} is in no policy row`).toHaveLength(1);
+			}
+			expect([...storable.keys()].sort()).toEqual([...owners.keys()].sort());
+		});
+	});
 });
+
+/** What each `geom` column will accept, read from the catalog. */
+async function readStorableShapes(
+	db: Kysely<SimmerDatabase>,
+	schemaName: string,
+): Promise<Map<string, ReadonlySet<string>>> {
+	const columns = await sql<{ table_name: string; typmod_type: string | null }>`
+		select r.relname as table_name, postgis_typmod_type(a.atttypmod) as typmod_type
+		from pg_attribute a
+		join pg_class r on r.oid = a.attrelid
+		join pg_namespace n on n.oid = r.relnamespace
+		where n.nspname = ${schemaName}
+			and a.attname = 'geom'
+			and not a.attisdropped
+			and r.relkind = 'r'
+	`.execute(db);
+
+	const constraints = await sql<{ table_name: string; definition: string }>`
+		select r.relname as table_name, pg_get_constraintdef(c.oid) as definition
+		from pg_constraint c
+		join pg_class r on r.oid = c.conrelid
+		join pg_namespace n on n.oid = r.relnamespace
+		where n.nspname = ${schemaName} and c.contype = 'c'
+	`.execute(db);
+
+	const accepted = new Map<string, Set<string>>();
+	for (const row of constraints.rows) {
+		if (!/geometrytype\s*\(/i.test(row.definition)) {
+			continue;
+		}
+		const named = shapesNamedIn(row.definition);
+		const existing = accepted.get(row.table_name);
+		accepted.set(
+			row.table_name,
+			existing === undefined ? named : new Set([...existing].filter((name) => named.has(name))),
+		);
+	}
+
+	const storable = new Map<string, ReadonlySet<string>>();
+	for (const row of columns.rows) {
+		const byTypmod = shapesNamedIn(row.typmod_type ?? '');
+		const byCheck = accepted.get(row.table_name);
+		const shapes = (byTypmod.size === 0 ? EVERY_SHAPE : [...byTypmod]).filter(
+			(name) => byCheck === undefined || byCheck.has(name),
+		);
+		storable.set(row.table_name, new Set(shapes));
+	}
+	return storable;
+}
+
+/** The shapes a fragment of DDL names, whatever its case or quoting. */
+function shapesNamedIn(text: string): Set<string> {
+	const named = new Set<string>();
+	for (const [upper, shape] of Object.entries(SHAPE_BY_UPPER_NAME)) {
+		if (new RegExp(`\\b${upper}\\b`, 'i').test(text)) {
+			named.add(shape);
+		}
+	}
+	return named;
+}

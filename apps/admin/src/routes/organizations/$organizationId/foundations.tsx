@@ -1,4 +1,10 @@
-import type { GeoJsonGeometry, GeoJsonPoint, ImportGeometryKind } from '@simmer-mosquito/mapping';
+import { getOwnedGeometryBaseTypes } from '@simmer-mosquito/domain';
+import {
+	type GeoJsonGeometry,
+	type GeoJsonPoint,
+	type ImportGeometryKind,
+	isImportGeometryKind,
+} from '@simmer-mosquito/mapping';
 import { ListLoading } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -29,8 +35,14 @@ const TrapIcon = iconRegistry.entities.trap.icon;
 const AddIcon = iconRegistry.actions.add.icon;
 const CheckIcon = iconRegistry.actions.check.icon;
 
-/** Stable reference — a literal here would be a new array on every render. */
-const POLYGON_ONLY: readonly ImportGeometryKind[] = ['Polygon'];
+/**
+ * What a Region may store, filtered to what the file parser can produce.
+ *
+ * Read from the geometry register rather than named here. Module scope keeps it
+ * a stable reference; a literal in the render would be a new array every pass.
+ */
+const REGION_IMPORT_KINDS: readonly ImportGeometryKind[] =
+	getOwnedGeometryBaseTypes('region').filter(isImportGeometryKind);
 
 export const Route = createFileRoute('/organizations/$organizationId/foundations')({
 	component: AgencyFoundationsRoute,
@@ -758,7 +770,7 @@ function RegionForm({
 			<TextAreaRow label="Description" onChange={setDescription} value={description} />
 			<GeometryFileInput
 				description="The district boundary, from the customer's KML, KMZ, or GeoJSON."
-				kinds={POLYGON_ONLY}
+				kinds={REGION_IMPORT_KINDS}
 				label="Boundary"
 				onChange={setGeometry}
 				value={geometry}

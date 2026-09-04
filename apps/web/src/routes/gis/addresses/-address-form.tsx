@@ -17,7 +17,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { MapCanvas } from '../../../components/map';
-import { GeometryControl, POINT_DRAW_TYPES } from '../../../components/map/geometry-control';
+import { GeometryControl } from '../../../components/map/geometry-control';
 import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
 import {
 	GeocoderDialog,
@@ -291,7 +291,6 @@ export function AddressFormPage({
 							title="Address location"
 						>
 							<GeometryControl
-								allowedTypes={POINT_DRAW_TYPES}
 								controller={draw}
 								extraActions={
 									<Button
@@ -315,6 +314,7 @@ export function AddressFormPage({
 								}
 								geometry={geometry as DrawGeometry | null}
 								geometryType="Point"
+								geometryKind="address"
 								label="Location"
 								onClear={clearPoint}
 								onDraw={() => void drawManualPoint()}

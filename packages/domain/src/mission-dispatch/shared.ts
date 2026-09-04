@@ -20,7 +20,8 @@ import {
 	type DomainValidationIssue,
 	type JsonObject,
 	type LocalDateString,
-	normalizeLocatableGeometry,
+	normalizeOwnedGeometry,
+	type OwnedGeometryKind,
 	type SupportedGeoJsonGeometry,
 } from '../shared.js';
 
@@ -180,12 +181,13 @@ export function basePayload(input: MissionDispatchCommandInput): MissionDispatch
 }
 
 function validateLocatableGeometry(
+	kind: OwnedGeometryKind,
 	value: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
 ): SupportedGeoJsonGeometry {
 	try {
-		return normalizeLocatableGeometry(value, path);
+		return normalizeOwnedGeometry(kind, value, path);
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);
@@ -326,7 +328,14 @@ export function validateMissionItemLocationInput(
 		return {};
 	}
 	if (hasGeometry) {
-		return { geometry: validateLocatableGeometry(input.geometry, `${path}.geometry`, issues) };
+		return {
+			geometry: validateLocatableGeometry(
+				'missionItem',
+				input.geometry,
+				`${path}.geometry`,
+				issues,
+			),
+		};
 	}
 	return {
 		locationSource: validateMissionItemLocationSource(
@@ -411,7 +420,7 @@ export function validateMissionExecutionBase(
 	validateBase(input, issues);
 	requireUuid(input.missionItemId, 'missionItemId', issues);
 	if (input.geometry !== undefined) {
-		validateLocatableGeometry(input.geometry, 'geometry', issues);
+		validateLocatableGeometry('controlAction', input.geometry, 'geometry', issues);
 	}
 	if (input.addressId !== undefined) {
 		normalizeOptionalUuid(input.addressId, 'addressId', issues);
@@ -444,7 +453,7 @@ export function missionExecutionPayload(
 		acknowledgedCompletedItemAdditionalAction:
 			input.acknowledgedCompletedItemAdditionalAction ?? false,
 		...(input.geometry !== undefined
-			? { geometry: validateLocatableGeometry(input.geometry, 'geometry', issues) }
+			? { geometry: validateLocatableGeometry('controlAction', input.geometry, 'geometry', issues) }
 			: {}),
 		...(input.addressId !== undefined
 			? { addressId: normalizeOptionalUuid(input.addressId, 'addressId', issues) }

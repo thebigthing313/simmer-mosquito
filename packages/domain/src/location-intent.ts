@@ -3,6 +3,8 @@ import {
 	type DomainId,
 	type DomainValidationIssue,
 	type GeoJsonPoint,
+	getOwnedGeometryPolicy,
+	type OwnedGeometryKind,
 	type SupportedGeoJsonGeometry,
 	type SupportedGeometryType,
 	validateGeometry,
@@ -129,9 +131,6 @@ export type ControlActionLocationSource =
 	| AdHocControlActionLocationSource
 	| InheritedControlActionLocationSource;
 
-const POINT_GEOMETRY_TYPES = ['Point'] as const;
-const LOCATABLE_GEOMETRY_TYPES = ['Point', 'LineString', 'Polygon'] as const;
-
 /**
  * Which sources each workflow permits.
  *
@@ -177,13 +176,7 @@ export function validateTrapLocationSource(
 	path: string,
 	issues: DomainValidationIssue[],
 ): TrapLocationSource {
-	return validateLocationSourceFlow(
-		input,
-		path,
-		issues,
-		TRAP_LOCATION_SOURCE_KINDS,
-		POINT_GEOMETRY_TYPES,
-	);
+	return validateLocationSourceFlow(input, path, issues, TRAP_LOCATION_SOURCE_KINDS, 'trap');
 }
 
 export function validateAdultCollectionLocationSource(
@@ -196,7 +189,7 @@ export function validateAdultCollectionLocationSource(
 		path,
 		issues,
 		ADULT_COLLECTION_LOCATION_SOURCE_KINDS,
-		POINT_GEOMETRY_TYPES,
+		'collection',
 	);
 }
 
@@ -205,13 +198,7 @@ export function validateHabitatLocationSource(
 	path: string,
 	issues: DomainValidationIssue[],
 ): HabitatLocationSource {
-	return validateLocationSourceFlow(
-		input,
-		path,
-		issues,
-		HABITAT_LOCATION_SOURCE_KINDS,
-		LOCATABLE_GEOMETRY_TYPES,
-	);
+	return validateLocationSourceFlow(input, path, issues, HABITAT_LOCATION_SOURCE_KINDS, 'habitat');
 }
 
 export function validateAdHocInspectionLocationSource(
@@ -224,7 +211,7 @@ export function validateAdHocInspectionLocationSource(
 		path,
 		issues,
 		AD_HOC_INSPECTION_LOCATION_SOURCE_KINDS,
-		LOCATABLE_GEOMETRY_TYPES,
+		'inspection',
 	);
 }
 
@@ -238,7 +225,7 @@ export function validateRequestedControlActionLocationSource(
 		path,
 		issues,
 		REQUESTED_CONTROL_ACTION_LOCATION_SOURCE_KINDS,
-		LOCATABLE_GEOMETRY_TYPES,
+		'requestedControlAction',
 	);
 }
 
@@ -252,7 +239,7 @@ export function validateMissionItemLocationSource(
 		path,
 		issues,
 		MISSION_ITEM_LOCATION_SOURCE_KINDS,
-		LOCATABLE_GEOMETRY_TYPES,
+		'missionItem',
 	);
 }
 
@@ -266,7 +253,7 @@ export function validateControlActionLocationSource(
 		path,
 		issues,
 		CONTROL_ACTION_LOCATION_SOURCE_KINDS,
-		LOCATABLE_GEOMETRY_TYPES,
+		'controlAction',
 	);
 }
 
@@ -305,13 +292,22 @@ export type LocationSource =
 	| RequestedControlActionGeometrySource
 	| MissionItemGeometrySource;
 
+/**
+ * Validate one workflow's location source: which source terms it takes, and
+ * which shapes a hand-drawn geometry may be.
+ *
+ * The shapes come from the register rather than from a list here. Two private
+ * lists used to say it, so a widened policy reached this validator only if
+ * somebody remembered to widen them too.
+ */
 function validateLocationSourceFlow<TOutput>(
 	input: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
 	allowedKinds: readonly LocationSourceKind[],
-	allowedGeometryTypes: readonly SupportedGeometryType[],
+	geometryKind: OwnedGeometryKind,
 ): TOutput {
+	const allowedGeometryTypes = getOwnedGeometryPolicy(geometryKind).allowedTypes;
 	if (!isRecord(input)) {
 		issues.push({ path, message: `${path} must be a location source object.` });
 		return fallbackLocationSource(allowedGeometryTypes) as TOutput;

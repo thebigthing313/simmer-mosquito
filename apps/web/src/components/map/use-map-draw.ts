@@ -1,4 +1,5 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
+import { isSupportedGeometryType } from '@simmer-mosquito/domain';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -26,6 +27,37 @@ export type DrawGeometry =
 			readonly type: 'Polygon';
 			readonly coordinates: readonly (readonly (readonly [number, number])[])[];
 	  };
+
+/**
+ * Whether `value` names a shape this controller can draw.
+ *
+ * The domain's register is what says which shapes exist; three files used to
+ * spell the same three names out by hand instead.
+ */
+export function isDrawGeometryType(value: unknown): value is DrawGeometryType {
+	return isSupportedGeometryType(value);
+}
+
+/**
+ * Read a stored geometry back into something the draw flow can edit.
+ *
+ * Anything else (a legacy multi-geometry) can't be re-drawn vertex-by-vertex, so
+ * it reads as "no geometry" and the record keeps its stored shape unless the user
+ * redraws. This is the one predicate for that: the three copies it replaced sat
+ * in two edit routes and the region picker, and each one listed the shapes again.
+ */
+export function toDrawGeometry(geojson: unknown): DrawGeometry | null {
+	if (geojson === null || typeof geojson !== 'object') {
+		return null;
+	}
+	const candidate = geojson as { readonly type?: unknown; readonly coordinates?: unknown };
+	// A type-only geometry would crash the summary and the preview, so require
+	// coordinates to be present and non-empty.
+	if (!Array.isArray(candidate.coordinates) || candidate.coordinates.length === 0) {
+		return null;
+	}
+	return isDrawGeometryType(candidate.type) ? (candidate as DrawGeometry) : null;
+}
 
 type Position = readonly [number, number];
 

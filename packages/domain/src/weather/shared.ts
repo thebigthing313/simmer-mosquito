@@ -10,7 +10,7 @@ import {
 	type DomainValidationIssue,
 	type GeoJsonPoint,
 	type LocalDateString,
-	normalizePointGeometry,
+	normalizeOwnedGeometry,
 } from '../shared.js';
 
 export const WEATHER_METRIC_DECIMAL_PLACES = 2;
@@ -93,13 +93,14 @@ export function basePayload(input: WeatherCommandInput): WeatherCommandPayload {
 	return validateAgencyCommandContext(input, createIssues());
 }
 
+/** A Weather Source's geometry, against the Weather Station policy. */
 export function validatePointGeometry(
 	value: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
 ): GeoJsonPoint {
 	try {
-		return normalizePointGeometry(value, path);
+		return normalizeOwnedGeometry('weatherStation', value, path) as GeoJsonPoint;
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);

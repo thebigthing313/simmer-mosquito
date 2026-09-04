@@ -296,6 +296,7 @@ export function OutreachFormPage({
 						controller={draw}
 						geometry={geometry}
 						geometryType={geometryType}
+						geometryKind="controlAction"
 						label="Geometry"
 						onClear={location.clear}
 						onDraw={location.startDraw}

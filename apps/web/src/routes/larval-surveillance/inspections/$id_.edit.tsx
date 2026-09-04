@@ -7,6 +7,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
+import { toDrawGeometry } from '../../../components/map/use-map-draw';
 import { RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
@@ -329,27 +330,6 @@ async function fetchInspectionGeometry(
 		readonly inspection?: { readonly geojson?: unknown };
 	};
 	return (body.inspection?.geojson ?? null) as GeoJsonGeometry | null;
-}
-
-// The draw flow owns single Point/LineString/Polygon geometries. Anything else
-// (a legacy multi-geometry) cannot be re-drawn vertex-by-vertex here, so it seeds
-// as "no geometry" — the findings are still editable and a redraw replaces it.
-function toDrawGeometry(geojson: unknown): DrawGeometry | null {
-	if (geojson === null || typeof geojson !== 'object') {
-		return null;
-	}
-	const candidate = geojson as { readonly type?: unknown; readonly coordinates?: unknown };
-	if (!Array.isArray(candidate.coordinates) || candidate.coordinates.length === 0) {
-		return null;
-	}
-	if (
-		candidate.type === 'Point' ||
-		candidate.type === 'LineString' ||
-		candidate.type === 'Polygon'
-	) {
-		return geojson as DrawGeometry;
-	}
-	return null;
 }
 
 function EditFormSkeleton() {

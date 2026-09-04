@@ -275,6 +275,7 @@ function RegistrationLocation({
 				controller={controller}
 				geometry={geometry}
 				geometryType={geometryType}
+				geometryKind="notificationRegistration"
 				label="Geometry"
 				required
 				onClear={onClear}

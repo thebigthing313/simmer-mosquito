@@ -1,4 +1,9 @@
-import { boundsFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { getOwnedGeometryBaseTypes, type OwnedGeometryKind } from '@simmer-mosquito/domain';
+import {
+	boundsFromGeoJson,
+	type GeoJsonGeometry,
+	isImportGeometryKind,
+} from '@simmer-mosquito/mapping';
 import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -15,17 +20,22 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { GeometryImportDialog } from './geometry-import-dialog';
 import { RegionBoundaryPicker } from './region-boundary-picker';
-import type { DrawGeometry, DrawGeometryType, MapDrawController } from './use-map-draw';
+import {
+	type DrawGeometry,
+	type DrawGeometryType,
+	isDrawGeometryType,
+	type MapDrawController,
+} from './use-map-draw';
 
 /**
  * The geometry-capture chrome every record that owns Point/LineString/Polygon
  * geometry shares: the type toggle, the current-shape summary, and the buttons
  * that drive `useMapDraw`.
  *
- * Which types a given record may store is a domain decision, not a UI one — see
- * `OWNED_GEOMETRY_POLICIES` in `packages/domain/src/shared.ts`. Callers pass the
- * matching `allowedTypes`: {@link LOCATABLE_DRAW_TYPES} for records that may hold
- * any shape, {@link POINT_DRAW_TYPES} for the point-only ones.
+ * Which shapes a given record may store is a domain decision, not a UI one, so
+ * callers name the record kind and the control reads the register:
+ * `OWNED_GEOMETRY_POLICIES` in `packages/domain/src/shared.ts`. A kind allowing
+ * one shape renders without its type toggle.
  *
  * Areas and lines can also be filled from a shape the agency already has — one of
  * its regions, or a KML/KMZ/GeoJSON file — instead of being traced by hand. Those
@@ -41,22 +51,6 @@ const GEOMETRY_TYPE_LABELS: Readonly<Record<DrawGeometryType, string>> = {
 	Polygon: 'Polygon',
 };
 
-/** The full locatable set — matches the domain's `LOCATABLE_GEOMETRY_TYPES`. */
-const LOCATABLE_DRAW_TYPES: readonly DrawGeometryType[] = ['Point', 'LineString', 'Polygon'];
-
-/**
- * The point-only set — matches the domain's `ADDRESS_GEOMETRY_TYPES`, the policy
- * behind addresses, traps, collections, service requests, and weather stations.
- * A single allowed type renders the control without its type toggle.
- */
-export const POINT_DRAW_TYPES: readonly DrawGeometryType[] = ['Point'];
-
-/**
- * The area-only set, for records whose geometry is a boundary by definition —
- * regions. A single allowed type renders the control without its type toggle.
- */
-export const POLYGON_DRAW_TYPES: readonly DrawGeometryType[] = ['Polygon'];
-
 export interface GeometryControlProps {
 	readonly controller: MapDrawController;
 	readonly geometry: DrawGeometry | null;
@@ -65,8 +59,8 @@ export interface GeometryControlProps {
 	readonly onTypeChange?: (type: DrawGeometryType) => void;
 	readonly onDraw: () => void;
 	readonly onClear: () => void;
-	/** Types this record's geometry policy allows. Defaults to all three. */
-	readonly allowedTypes?: readonly DrawGeometryType[];
+	/** The record kind whose geometry this captures. Its policy sets the toggle. */
+	readonly geometryKind: OwnedGeometryKind;
 	readonly label?: string;
 	/** Marks the label with `*` when the record cannot be saved without geometry. */
 	readonly required?: boolean;
@@ -93,13 +87,14 @@ export function GeometryControl({
 	onTypeChange,
 	onDraw,
 	onClear,
-	allowedTypes = LOCATABLE_DRAW_TYPES,
+	geometryKind,
 	label = 'Geometry',
 	required = false,
 	onMoveToAddress,
 	organizationId,
 	extraActions,
 }: GeometryControlProps) {
+	const allowedTypes = getOwnedGeometryBaseTypes(geometryKind);
 	const [isImporting, setIsImporting] = useState(false);
 	const hasGeometry = geometry !== null;
 	const isBusy = controller.isDrawing || controller.isRequestingPoint;
@@ -110,7 +105,9 @@ export function GeometryControl({
 	// only; a point is faster to place by clicking than to source from a file.
 	const canUseRegion =
 		geometryType === 'Polygon' && organizationId !== undefined && organizationId.length > 0;
-	const canImportFile = geometryType === 'Polygon' || geometryType === 'LineString';
+	// The file parser is what caps this, not the record's policy: it has no Point
+	// arm, and KML carries geometry only as an area or a line.
+	const canImportFile = isImportGeometryKind(geometryType);
 
 	return (
 		<div className="grid gap-2 rounded-md border border-border/40 bg-background/70 p-3">
@@ -343,24 +340,6 @@ function geometrySummary(geometry: DrawGeometry | null): string {
 	return `Polygon · ${Math.max(ring.length - 1, 0)} vertices`;
 }
 
-/**
- * The draw flow owns single Point/LineString/Polygon geometries. Anything else
- * (a legacy multi-geometry) can't be re-drawn vertex-by-vertex, so it reads as
- * "no geometry" — the record keeps its stored shape unless the user redraws.
- */
-export function toDrawGeometry(geojson: unknown): DrawGeometry | null {
-	if (geojson === null || typeof geojson !== 'object') {
-		return null;
-	}
-	const candidate = geojson as { readonly type?: unknown; readonly coordinates?: unknown };
-	// A type-only geometry would crash the summary and the preview, so require
-	// coordinates to be present and non-empty.
-	if (!Array.isArray(candidate.coordinates) || candidate.coordinates.length === 0) {
-		return null;
-	}
-	return isDrawGeometryType(candidate.type) ? (candidate as DrawGeometry) : null;
-}
-
 /** Ease the map to frame `geometry` when it changes, but never mid-draw. */
 export function useFitToGeometry(
 	map: MapboxMap | null,
@@ -400,10 +379,6 @@ export function useFitToGeometry(
 }
 
 // --- helpers ----------------------------------------------------------------
-
-function isDrawGeometryType(value: unknown): value is DrawGeometryType {
-	return value === 'Point' || value === 'LineString' || value === 'Polygon';
-}
 
 function drawLabel(type: DrawGeometryType, hasGeometry: boolean): string {
 	const verb = hasGeometry ? 'Redraw' : 'Draw';

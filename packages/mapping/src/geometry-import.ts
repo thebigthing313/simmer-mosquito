@@ -37,8 +37,30 @@ export type ImportGeometry = ImportPolygonGeometry | ImportLineGeometry;
 
 export type ImportGeometryKind = ImportGeometry['type'];
 
-export const POLYGON_KINDS: readonly ImportGeometryKind[] = ['Polygon'];
-export const LINE_KINDS: readonly ImportGeometryKind[] = ['LineString'];
+/**
+ * Every kind, as a value.
+ *
+ * An object keyed by the union rather than a list of names, so the compiler
+ * requires an entry per kind and the KML tag check below cannot fall out of step
+ * with what the parser actually reads.
+ */
+const IMPORT_GEOMETRY_KINDS: Readonly<Record<ImportGeometryKind, true>> = {
+	Polygon: true,
+	LineString: true,
+};
+
+/**
+ * Whether `value` names a geometry kind this parser can produce.
+ *
+ * Callers derive their `kinds` argument from the geometry register in
+ * `@simmer-mosquito/domain`, which speaks in shapes this parser has no arm for
+ * — a Point, for one — so they filter the register's answer through this. It
+ * doubles as the KML element-name test, because the tags KML uses for a geometry
+ * are spelled exactly as the kinds are.
+ */
+export function isImportGeometryKind(value: string): value is ImportGeometryKind {
+	return Object.hasOwn(IMPORT_GEOMETRY_KINDS, value);
+}
 
 /**
  * One source feature — a GeoJSON `Feature` or a KML `<Placemark>` — and the
@@ -411,9 +433,6 @@ export function declareMissingNamespaces(text: string): string | null {
 	return text.slice(0, rootOpen.index) + patchedTag + text.slice(rootOpen.index + openTag.length);
 }
 
-/** The KML element names this parser can turn into a geometry. */
-const KML_GEOMETRY_TAGS = new Set(['Polygon', 'LineString']);
-
 /**
  * Walk the KML tree to whatever depth Placemarks and geometries live at. KML nests
  * geometry under arbitrary `<Document>`/`<Folder>` levels and inside
@@ -436,7 +455,7 @@ function collectKmlGroups(
 				geometries,
 				skipped: geometries.length === 0,
 			});
-		} else if (KML_GEOMETRY_TAGS.has(child.tagName)) {
+		} else if (isImportGeometryKind(child.tagName)) {
 			const geometry = kmlGeometryFromNode(child, kinds);
 			out.push({
 				name: null,
@@ -470,7 +489,7 @@ function kmlGeometriesWithin(
 	const geometries: ImportGeometry[] = [];
 	const walk = (node: Element): void => {
 		for (const child of Array.from(node.children)) {
-			if (KML_GEOMETRY_TAGS.has(child.tagName)) {
+			if (isImportGeometryKind(child.tagName)) {
 				const geometry = kmlGeometryFromNode(child, kinds);
 				if (geometry !== null) {
 					geometries.push(geometry);

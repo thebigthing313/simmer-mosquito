@@ -14,7 +14,7 @@ import { OptionRow, PickerFallback } from '../../components/pickers/entity-picke
 import { useRegionFolders } from '../../hooks/queries/use-region-folders';
 import { fetchRegionGeometryOnce } from '../../hooks/use-region-geometry';
 import { regions } from '../../lib/collections/regions';
-import type { DrawGeometry } from './use-map-draw';
+import { type DrawGeometry, toDrawGeometry } from './use-map-draw';
 
 /**
  * "Use one of the agency's regions as this polygon."
@@ -238,21 +238,17 @@ function folderLabel(region: RegionOption, folderNames: ReadonlyMap<string, stri
  * member reads the same on the map, so it is unwrapped rather than refused.
  */
 function polygonFromGeoJson(geojson: GeoJsonGeometry | null): PolygonGeometry | null {
-	if (geojson === null || typeof geojson !== 'object') {
-		return null;
-	}
-	const candidate = geojson as { readonly type?: unknown; readonly coordinates?: unknown };
-	if (!Array.isArray(candidate.coordinates) || candidate.coordinates.length === 0) {
-		return null;
-	}
-	if (candidate.type === 'Polygon') {
-		return candidate as unknown as PolygonGeometry;
-	}
-	if (candidate.type === 'MultiPolygon' && candidate.coordinates.length === 1) {
+	const candidate = geojson as { readonly type?: unknown; readonly coordinates?: unknown } | null;
+	if (
+		candidate?.type === 'MultiPolygon' &&
+		Array.isArray(candidate.coordinates) &&
+		candidate.coordinates.length === 1
+	) {
 		return {
 			type: 'Polygon',
 			coordinates: candidate.coordinates[0] as PolygonGeometry['coordinates'],
 		};
 	}
-	return null;
+	const drawn = toDrawGeometry(geojson);
+	return drawn?.type === 'Polygon' ? drawn : null;
 }

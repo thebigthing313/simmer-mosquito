@@ -23,11 +23,7 @@ import { useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	POINT_DRAW_TYPES,
-} from '../../../components/map/geometry-control';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
@@ -495,10 +491,10 @@ export function CollectionFormPage({
 										)}
 									</form.AppField>
 									<GeometryControl
-										allowedTypes={POINT_DRAW_TYPES}
 										controller={draw}
 										geometry={geometry}
 										geometryType="Point"
+										geometryKind="collection"
 										label="Point"
 										required
 										onClear={location.clear}

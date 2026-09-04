@@ -9,11 +9,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { useState } from 'react';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	POINT_DRAW_TYPES,
-} from '../../../components/map/geometry-control';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry, MapDrawController } from '../../../components/map/use-map-draw';
 import {
@@ -241,10 +237,10 @@ function LocationSection({
 			title="Station location"
 		>
 			<GeometryControl
-				allowedTypes={POINT_DRAW_TYPES}
 				controller={controller}
 				geometry={geometry}
 				geometryType="Point"
+				geometryKind="weatherStation"
 				label="Location"
 				onClear={onClear}
 				onDraw={onDraw}

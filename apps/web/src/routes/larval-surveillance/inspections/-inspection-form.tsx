@@ -547,6 +547,7 @@ export function InspectionFormPage({
 										controller={draw}
 										geometry={adhocGeometry}
 										geometryType={adhocGeometryType}
+										geometryKind="inspection"
 										label="Inspected location"
 										onClear={location.clear}
 										onDraw={startAdhocDraw}

@@ -14,11 +14,7 @@ import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components
 import { useCallback, useMemo, useState } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	POINT_DRAW_TYPES,
-} from '../../../components/map/geometry-control';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry, MapDrawController } from '../../../components/map/use-map-draw';
 import type { AddressOption } from '../../../components/pickers/address-picker';
@@ -472,10 +468,10 @@ function RequestLocation({
 			</form.AppField>
 
 			<GeometryControl
-				allowedTypes={POINT_DRAW_TYPES}
 				controller={controller}
 				geometry={geometry}
 				geometryType="Point"
+				geometryKind="serviceRequest"
 				label="Point"
 				required={requireLocation}
 				onClear={onClearPoint}

@@ -15,8 +15,7 @@ import {
 	type DomainValidationIssue,
 	type GeoJsonPoint,
 	type JsonObject,
-	normalizeGeometry,
-	normalizePointGeometry,
+	normalizeOwnedGeometry,
 	type SupportedGeoJsonGeometry,
 } from '../shared.js';
 
@@ -206,7 +205,6 @@ export interface NotificationRegistrationSubscription {
 export const REQUEST_INTAKE_TYPES = ['online', 'phone', 'walk-in', 'other'] as const;
 export const NOTIFICATION_CHANNELS = ['email', 'sms', 'phone'] as const;
 export const MISSION_NOTIFICATION_STATUSES = ['pending', 'completed', 'failed', 'skipped'] as const;
-const REGISTRATION_GEOMETRY_TYPES = ['Point', 'LineString', 'Polygon'] as const;
 
 export function validateBase(
 	input: PublicEngagementCommandInput,
@@ -582,13 +580,14 @@ export function validatePhonePreferencePatch(
 	}
 }
 
+/** A Service Request's geometry, against the Service Request policy. */
 function validatePointGeometry(
 	value: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
 ): GeoJsonPoint {
 	try {
-		return normalizePointGeometry(value, path);
+		return normalizeOwnedGeometry('serviceRequest', value, path) as GeoJsonPoint;
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);
@@ -604,7 +603,7 @@ function validateRegistrationGeometry(
 	issues: DomainValidationIssue[],
 ): NotificationRegistrationGeometry {
 	try {
-		return normalizeGeometry(value, REGISTRATION_GEOMETRY_TYPES, path);
+		return normalizeOwnedGeometry('notificationRegistration', value, path);
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);

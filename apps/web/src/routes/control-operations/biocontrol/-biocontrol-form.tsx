@@ -316,6 +316,7 @@ export function BiocontrolFormPage({
 						controller={draw}
 						geometry={geometry}
 						geometryType={geometryType}
+						geometryKind="controlAction"
 						label="Geometry"
 						required={requireLocation}
 						onClear={location.clear}
