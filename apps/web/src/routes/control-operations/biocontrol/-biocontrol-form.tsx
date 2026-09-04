@@ -139,6 +139,7 @@ export function BiocontrolFormPage({
 	// geometry for context — never the action's geometry itself, which the draw
 	// layer renders.
 	const location = useDrawLocation({
+		geometryKind: 'controlAction',
 		initialGeometry,
 		missingMessage: 'Map where the agents were released.',
 		required: requireLocation,

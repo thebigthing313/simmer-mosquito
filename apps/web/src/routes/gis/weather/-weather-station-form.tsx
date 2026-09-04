@@ -98,6 +98,7 @@ export function WeatherStationFormPage({
 }: WeatherStationFormPageProps) {
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const location = useDrawLocation({
+		geometryKind: 'weatherStation',
 		initialGeometry,
 		missingMessage: 'Place the station on the map before saving.',
 	});

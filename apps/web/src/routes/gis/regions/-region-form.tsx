@@ -100,10 +100,8 @@ export function RegionFormPage({
 	onSave,
 }: RegionFormPageProps) {
 	const [saveError, setSaveError] = useState<string | null>(null);
-	// A region is an area, so the draw starts on the polygon tool rather than the
-	// point every other record starts on.
 	const location = useDrawLocation({
-		geometryType: 'Polygon',
+		geometryKind: 'region',
 		initialGeometry,
 		missingMessage: 'Draw the region boundary on the map before saving.',
 	});

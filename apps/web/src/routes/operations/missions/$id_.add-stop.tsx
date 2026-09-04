@@ -80,7 +80,10 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 	const timeZone = useOrganizationTimeZone();
 
 	const [addressId, setAddressId] = useState<string | null>(null);
-	const location = useDrawLocation({ missingMessage: 'Draw where the crew has to go.' });
+	const location = useDrawLocation({
+		geometryKind: 'missionItem',
+		missingMessage: 'Draw where the crew has to go.',
+	});
 
 	const submit = useCallback(() => {
 		if (!location.requireGeometry() || location.geometry === null) {

@@ -52,16 +52,14 @@ export const NOTIFICATION_REGISTRATION_GEOMETRY_SOURCE: OwnedGeometrySource = {
 };
 
 export interface OwnedGeometryQuery {
-	/**
-	 * The raw stored geometry, for display. Includes multi-geometries, which a
-	 * detail page can render even though the draw flow cannot edit them.
-	 */
+	/** The raw stored geometry, for display. */
 	readonly geojson: GeoJsonGeometry | null;
 	/** The stored PostGIS type (`st_polygon`), for labelling. */
 	readonly geomType: string | null;
 	/**
-	 * The same geometry narrowed to what the draw flow can edit — null for the
-	 * multi-geometries `toDrawGeometry` rejects. Edit forms use this.
+	 * The same geometry narrowed to what the draw flow can edit, which is all six
+	 * shapes now that the control draws in parts. A `GeometryCollection` is what is
+	 * left over, and it reads as null. Edit forms use this.
 	 */
 	readonly geometry: DrawGeometry | null;
 	readonly isPending: boolean;

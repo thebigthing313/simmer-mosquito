@@ -30,10 +30,11 @@ afterEach(cleanupRenderedHooks);
 function mount(options: Partial<DrawLocationOptions> = {}) {
 	const fake = createFakeMap();
 	return renderHook(useDrawLocation, {
+		geometryKind: 'trap',
 		map: fake.map as never,
 		missingMessage: 'Draw the shape on the map before saving.',
 		...options,
-	});
+	} satisfies DrawLocationOptions);
 }
 
 describe('useDrawLocation', () => {
@@ -76,6 +77,34 @@ describe('useDrawLocation', () => {
 
 	it('starts on the tool the form asked for when it opens with no shape', () => {
 		const { result } = mount({ geometryType: 'Polygon' });
+
+		expect(result.current.geometryType).toBe('Polygon');
+	});
+
+	// Opening on the first shape the register lists put every work record on
+	// Point, so drawing the area the form is for started with a tool change.
+	it('opens on the area tool where the record can store one', () => {
+		expect(mount({ geometryKind: 'habitat' }).result.current.geometryType).toBe('Polygon');
+		expect(mount({ geometryKind: 'trap' }).result.current.geometryType).toBe('Point');
+	});
+
+	it('reads a saved multi shape back as the tool that draws it', () => {
+		const { result } = mount({
+			geometryKind: 'habitat',
+			initialGeometry: {
+				type: 'MultiPolygon',
+				coordinates: [
+					[
+						[
+							[-74.4, 40.5],
+							[-74.4, 40.6],
+							[-74.3, 40.6],
+							[-74.4, 40.5],
+						],
+					],
+				],
+			},
+		});
 
 		expect(result.current.geometryType).toBe('Polygon');
 	});

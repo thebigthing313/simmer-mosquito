@@ -1,3 +1,8 @@
+import {
+	getBaseGeometryType,
+	getOwnedGeometryBaseTypes,
+	type OwnedGeometryKind,
+} from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useState } from 'react';
@@ -70,11 +75,14 @@ export interface DrawLocation {
 }
 
 export interface DrawLocationOptions {
+	/** The record kind whose geometry this captures. Its policy sets the opening tool. */
+	readonly geometryKind: OwnedGeometryKind;
 	/** The shape the record already holds. Edit forms seed it; create forms do not. */
 	readonly initialGeometry?: DrawGeometry | null;
 	/**
-	 * The tool a form with no shape yet starts on. A region is an area; every
-	 * other record starts as a point and may be widened.
+	 * The tool a form with no shape yet starts on, where the record's own policy
+	 * is not the answer. An ad-hoc inspection follows the habitat it is filed
+	 * against.
 	 */
 	readonly geometryType?: DrawGeometryType;
 	/** Context the form opens with, such as the trap a collection already names. */
@@ -99,6 +107,18 @@ export interface DrawLocationOptions {
 	readonly required?: boolean;
 }
 
+/**
+ * The tool a form opens on with nothing drawn yet.
+ *
+ * Polygon wherever the record can store one. Opening on the first shape the
+ * register lists put every work record on Point, so drawing the area a Habitat
+ * or an Application is about started with a tool change.
+ */
+function openingGeometryType(kind: OwnedGeometryKind): DrawGeometryType {
+	const bases = getOwnedGeometryBaseTypes(kind);
+	return bases.includes('Polygon') ? 'Polygon' : (bases[0] ?? 'Point');
+}
+
 export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 	const {
 		initialGeometry = null,
@@ -112,7 +132,9 @@ export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 	const map = externalMap === undefined ? ownMap : externalMap;
 	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
 	const [geometryType, setGeometryType] = useState<DrawGeometryType>(
-		initialGeometry?.type ?? options.geometryType ?? 'Point',
+		initialGeometry === null
+			? (options.geometryType ?? openingGeometryType(options.geometryKind))
+			: getBaseGeometryType(initialGeometry.type),
 	);
 	const [geometryChanged, setGeometryChanged] = useState(false);
 	const [referenceGeometry, setReferenceGeometry] = useState<GeoJsonGeometry | null>(

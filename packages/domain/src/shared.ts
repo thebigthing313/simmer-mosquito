@@ -263,6 +263,55 @@ export function isBaseGeometryType(value: unknown): value is BaseGeometryType {
 }
 
 /**
+ * The base shape behind `type`, which is the shape a user draws it as.
+ *
+ * A stored MultiPolygon reads back as a Polygon here, which is what the draw
+ * control's type toggle has to say: the toggle never offers a multi shape, and a
+ * record promotes when a second part is added rather than when a type is picked.
+ */
+export function getBaseGeometryType(type: SupportedGeometryType): BaseGeometryType {
+	return BASE_GEOMETRY_TYPE[type];
+}
+
+/**
+ * The multi shape `base` promotes to on gaining a second part.
+ *
+ * The inverse of {@link BASE_GEOMETRY_TYPE}, and a unit case walks the pair back
+ * through {@link getBaseGeometryType} so the two cannot disagree about which
+ * shape demotes to which.
+ */
+const MULTIPART_GEOMETRY_TYPE = {
+	Point: 'MultiPoint',
+	LineString: 'MultiLineString',
+	Polygon: 'MultiPolygon',
+} as const satisfies Readonly<Record<BaseGeometryType, SupportedGeometryType>>;
+
+/**
+ * The shape `base` becomes once it holds more than one part.
+ *
+ * Generic in `base` so a caller passing a literal gets the literal back, which
+ * is what lets the draw control build a `MultiPolygon` without spelling the name
+ * a second time.
+ */
+export function getMultipartGeometryType<Base extends BaseGeometryType>(
+	base: Base,
+): (typeof MULTIPART_GEOMETRY_TYPE)[Base] {
+	return MULTIPART_GEOMETRY_TYPE[base];
+}
+
+/**
+ * Whether a record of `kind` may store `base` in more than one part.
+ *
+ * What the draw control's Add piece button is gated on. It reads the register
+ * rather than naming the multi shapes, so a policy that gains or loses one moves
+ * the button with it: a Notification Registration stores Point and Polygon and
+ * neither multi form, so the button never renders there.
+ */
+export function ownedGeometryAllowsParts(kind: OwnedGeometryKind, base: BaseGeometryType): boolean {
+	return getOwnedGeometryPolicy(kind).allowedTypes.includes(MULTIPART_GEOMETRY_TYPE[base]);
+}
+
+/**
  * The shapes a user draws for `kind`, in the order the register lists them.
  *
  * `allowedTypes` normalized to base shapes and deduplicated. The derivation is

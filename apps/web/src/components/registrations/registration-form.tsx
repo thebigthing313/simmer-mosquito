@@ -208,6 +208,7 @@ export function useRegistrationLocation(
 	initialGeometry: DrawGeometry | null,
 ): DrawLocation {
 	return useDrawLocation({
+		geometryKind: 'notificationRegistration',
 		initialGeometry,
 		map,
 		missingMessage: 'Draw the place this registration covers.',

@@ -2,8 +2,11 @@ import { mapInteraction } from '@simmer-mosquito/design-tokens';
 import {
 	type BaseGeometryType,
 	geometryCoversGround,
+	getMultipartGeometryType,
 	isBaseGeometryType,
+	isSupportedGeometryType,
 } from '@simmer-mosquito/domain';
+import { boundsFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -17,31 +20,51 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
+type Position = readonly [number, number];
+type Ring = readonly Position[];
+type PolygonRings = readonly Ring[];
+
 /**
- * A geometry the habitat draw flow can produce. Mirrors the GeoJSON shape the
- * habitat command's `locationSource.geometry` expects, so a finished draft can
- * be handed straight to the optimistic mutation without translation.
+ * The shape the type toggle offers, which is the domain's base shapes.
  *
- * The type is the domain's base shapes, which is what the toggle offers and what
- * a one-part multi shape demotes to.
+ * Deliberately not `DrawGeometry['type']`. A record promotes to its multi shape
+ * on gaining a second part and demotes on losing one, so a multi shape is
+ * something the control arrives at and never something the user picks.
  */
 export type DrawGeometryType = BaseGeometryType;
 
+/**
+ * A geometry a record form can produce. Mirrors the GeoJSON shape a command's
+ * `locationSource.geometry` expects, so a finished draft can be handed straight
+ * to the optimistic mutation without translation.
+ *
+ * All six shapes, because the control draws in parts. Positions are pairs rather
+ * than the domain's optional triple: nothing here places an altitude and the
+ * point paths read `coordinates[0]` and `[1]` directly.
+ */
 export type DrawGeometry =
-	| { readonly type: 'Point'; readonly coordinates: readonly [number, number] }
-	| { readonly type: 'LineString'; readonly coordinates: readonly (readonly [number, number])[] }
-	| {
-			readonly type: 'Polygon';
-			readonly coordinates: readonly (readonly (readonly [number, number])[])[];
-	  };
+	| { readonly type: 'Point'; readonly coordinates: Position }
+	| { readonly type: 'LineString'; readonly coordinates: Ring }
+	| { readonly type: 'Polygon'; readonly coordinates: PolygonRings }
+	| { readonly type: 'MultiPoint'; readonly coordinates: Ring }
+	| { readonly type: 'MultiLineString'; readonly coordinates: PolygonRings }
+	| { readonly type: 'MultiPolygon'; readonly coordinates: readonly PolygonRings[] };
 
 /**
- * Whether `value` names a shape this controller can draw.
+ * One part of a drawn shape, carried as the single-part geometry it would be on
+ * its own.
+ *
+ * A part is a geometry rather than a bare coordinate list so that everything
+ * already written against a geometry works on one: the map renders it, the
+ * bounds reader frames it, and the part row labels it.
+ */
+export type DrawPartGeometry = Extract<DrawGeometry, { readonly type: DrawGeometryType }>;
+
+/**
+ * Whether `value` names a shape the type toggle offers.
  *
  * The domain's register is what says which shapes exist; three files used to
- * spell the same three names out by hand instead. A multi shape is not one of
- * them until the part list lands, so `toDrawGeometry` still reads one as "no
- * geometry" and the record keeps what it has.
+ * spell the same three names out by hand instead.
  */
 export function isDrawGeometryType(value: unknown): value is DrawGeometryType {
 	return isBaseGeometryType(value);
@@ -50,10 +73,10 @@ export function isDrawGeometryType(value: unknown): value is DrawGeometryType {
 /**
  * Read a stored geometry back into something the draw flow can edit.
  *
- * Anything else (a legacy multi-geometry) can't be re-drawn vertex-by-vertex, so
- * it reads as "no geometry" and the record keeps its stored shape unless the user
- * redraws. This is the one predicate for that: the three copies it replaced sat
- * in two edit routes and the region picker, and each one listed the shapes again.
+ * All six shapes now, because the part list is the affordance whose absence used
+ * to justify reading a multi shape as "no geometry" and quietly leaving the
+ * record whatever it held. A `GeometryCollection` still reads as none: it has no
+ * `coordinates`, and the parts of one are not parts of a single shape.
  */
 export function toDrawGeometry(geojson: unknown): DrawGeometry | null {
 	if (geojson === null || typeof geojson !== 'object') {
@@ -65,10 +88,67 @@ export function toDrawGeometry(geojson: unknown): DrawGeometry | null {
 	if (!Array.isArray(candidate.coordinates) || candidate.coordinates.length === 0) {
 		return null;
 	}
-	return isDrawGeometryType(candidate.type) ? (candidate as DrawGeometry) : null;
+	return isSupportedGeometryType(candidate.type) ? (candidate as DrawGeometry) : null;
 }
 
-type Position = readonly [number, number];
+/**
+ * The parts of `geometry`, in stored order, one entry for a single-part shape.
+ *
+ * The one place a multi shape is taken apart. The part list, the map draft and
+ * Remove all read it, so "how many pieces is this" has a single answer.
+ */
+export function drawParts(geometry: DrawGeometry | null): readonly DrawPartGeometry[] {
+	if (geometry === null) {
+		return [];
+	}
+	switch (geometry.type) {
+		case 'MultiPoint':
+			return geometry.coordinates.map((coordinates) => ({ type: 'Point', coordinates }));
+		case 'MultiLineString':
+			return geometry.coordinates.map((coordinates) => ({ type: 'LineString', coordinates }));
+		case 'MultiPolygon':
+			return geometry.coordinates.map((coordinates) => ({ type: 'Polygon', coordinates }));
+		default:
+			return [geometry];
+	}
+}
+
+/**
+ * The shape `parts` make: the part itself at one, the multi shape at two or more,
+ * nothing at zero.
+ *
+ * Promote and demote in place, so a one-part multi shape never leaves here. The
+ * domain demotes one on the way in as well, and the two agreeing is what lets a
+ * removed part put the record back on its base shape without a second write.
+ */
+export function geometryFromParts(parts: readonly DrawPartGeometry[]): DrawGeometry | null {
+	const first = parts[0];
+	if (first === undefined) {
+		return null;
+	}
+	if (parts.length === 1) {
+		return first;
+	}
+	switch (first.type) {
+		case 'Point':
+			return {
+				type: getMultipartGeometryType('Point'),
+				coordinates: parts.flatMap((part) => (part.type === 'Point' ? [part.coordinates] : [])),
+			};
+		case 'LineString':
+			return {
+				type: getMultipartGeometryType('LineString'),
+				coordinates: parts.flatMap((part) =>
+					part.type === 'LineString' ? [part.coordinates] : [],
+				),
+			};
+		default:
+			return {
+				type: getMultipartGeometryType('Polygon'),
+				coordinates: parts.flatMap((part) => (part.type === 'Polygon' ? [part.coordinates] : [])),
+			};
+	}
+}
 
 /**
  * The draw controller surface the form panel and the on-map toolbar both drive.
@@ -77,11 +157,24 @@ type Position = readonly [number, number];
  */
 export interface MapDrawController {
 	readonly isDrawing: boolean;
+	/** The draw in progress appends a part rather than replacing the shape. */
+	readonly isAddingPart: boolean;
 	readonly isRequestingPoint: boolean;
 	readonly drawType: DrawGeometryType | null;
 	readonly vertexCount: number;
 	readonly canFinish: boolean;
 	readonly start: (type: DrawGeometryType) => void;
+	/**
+	 * Draw one more part of the shape already committed, leaving the rest of it on
+	 * the map to draw against. A no-op with nothing committed: the first part is
+	 * `start`'s.
+	 */
+	readonly startPart: () => void;
+	/** Drop one part, demoting to the base shape at one and to nothing at zero. */
+	readonly removePart: (index: number) => void;
+	/** Pick out one part on the map, or clear the highlight with `null`. */
+	readonly highlightPart: (index: number | null) => void;
+	readonly zoomToPart: (index: number) => void;
 	readonly finish: () => void;
 	readonly cancel: () => void;
 	readonly undo: () => void;
@@ -122,6 +215,15 @@ const isLine: ExpressionSpecification = ['==', ['geometry-type'], 'LineString'];
 const isVertex: ExpressionSpecification = ['==', ['get', 'role'], 'vertex'];
 const isPoint: ExpressionSpecification = ['==', ['get', 'role'], 'point'];
 
+/**
+ * Which part the pointer is over, picked out by weight rather than by a second
+ * colour. A part is not a different kind of thing from the shape it belongs to,
+ * so hovering a row thickens and fills it instead of recolouring it.
+ */
+function whenHighlighted(highlighted: number, rest: number): ExpressionSpecification {
+	return ['case', ['boolean', ['get', 'highlighted'], false], highlighted, rest];
+}
+
 function drawLayers(): (
 	| FillLayerSpecification
 	| LineLayerSpecification
@@ -133,7 +235,7 @@ function drawLayers(): (
 			type: 'fill',
 			source: SOURCE_ID,
 			filter: isPolygon,
-			paint: { 'fill-color': draft.fill, 'fill-opacity': 0.18 },
+			paint: { 'fill-color': draft.fill, 'fill-opacity': whenHighlighted(0.42, 0.18) },
 		},
 		{
 			id: `${SOURCE_ID}-outline`,
@@ -141,7 +243,7 @@ function drawLayers(): (
 			source: SOURCE_ID,
 			filter: isPolygon,
 			layout: { 'line-join': 'round' },
-			paint: { 'line-color': draft.outline, 'line-width': 2.5 },
+			paint: { 'line-color': draft.outline, 'line-width': whenHighlighted(4.5, 2.5) },
 		},
 		{
 			id: `${SOURCE_ID}-line`,
@@ -149,7 +251,11 @@ function drawLayers(): (
 			source: SOURCE_ID,
 			filter: isLine,
 			layout: { 'line-join': 'round', 'line-cap': 'round' },
-			paint: { 'line-color': draft.line, 'line-width': 3, 'line-dasharray': [2, 1] },
+			paint: {
+				'line-color': draft.line,
+				'line-width': whenHighlighted(5, 3),
+				'line-dasharray': [2, 1],
+			},
 		},
 		{
 			id: `${SOURCE_ID}-vertex`,
@@ -170,7 +276,7 @@ function drawLayers(): (
 			filter: isPoint,
 			paint: {
 				'circle-color': draft.point,
-				'circle-radius': 8,
+				'circle-radius': whenHighlighted(11, 8),
 				'circle-stroke-color': draft.pointStroke,
 				'circle-stroke-width': 3,
 			},
@@ -180,9 +286,16 @@ function drawLayers(): (
 
 const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
+/**
+ * What a finished draw does with the parts already committed. `replace` takes
+ * every one of them, which is what "Redraw geometry" means at any part count;
+ * `part` appends.
+ */
+type DrawTarget = 'replace' | 'part';
+
 type Mode =
 	| { readonly kind: 'idle' }
-	| { readonly kind: 'draw'; readonly type: DrawGeometryType }
+	| { readonly kind: 'draw'; readonly type: DrawGeometryType; readonly target: DrawTarget }
 	| {
 			readonly kind: 'point';
 			readonly resolve: (point: DrawGeometry & { readonly type: 'Point' }) => void;
@@ -191,10 +304,15 @@ type Mode =
 
 /**
  * Binds a draft-geometry source + layers to a live map and runs a small draw
- * state machine over map clicks. Renders the committed `value` when idle, and a
- * live preview (placed vertices + a rubber-band segment to the cursor) while
+ * state machine over map clicks. Renders the committed `value` part by part, and
+ * a live preview (placed vertices + a rubber-band segment to the cursor) while
  * drawing. Point finishes on the first click; line/polygon collect vertices
  * until the caller finishes from the map toolbar (or double-click / Enter).
+ *
+ * A draw either replaces the whole shape or adds one part to it, and the parts
+ * already committed stay on the map through an add so the user draws against
+ * them. Undo pops inside the part being drawn and stops at zero vertices, so
+ * nothing it does can reopen a part that is already finished.
  */
 export function useMapDraw({
 	map,
@@ -222,6 +340,16 @@ export function useMapDraw({
 	const onChangeRef = useRef(onChange);
 	onChangeRef.current = onChange;
 
+	const {
+		applyPart,
+		highlightedPart,
+		highlightedRef,
+		highlightPart,
+		removePart,
+		startPart,
+		zoomToPart,
+	} = useDrawPartActions({ map, cursorRef, modeRef, valueRef, onChangeRef, setMode, setVertices });
+
 	const repaint = useCallback(() => {
 		if (!isMapLive(map)) {
 			return;
@@ -233,17 +361,25 @@ export function useMapDraw({
 				mode: modeRef.current,
 				vertices: verticesRef.current,
 				cursor: cursorRef.current,
+				highlighted: highlightedRef.current,
 			}),
 		);
-	}, [map]);
+	}, [map, highlightedRef]);
 
 	// What the draft source holds after a real state change — a new committed
 	// value, another vertex, a mode switch. The cursor is deliberately not a
 	// dependency: it moves every frame and rides `repaint` instead, so a
 	// mousemove repaints the rubber band without re-rendering anything.
 	const features = useMemo(
-		() => buildFeatures({ committed: value, mode, vertices, cursor: cursorRef.current }),
-		[value, mode, vertices],
+		() =>
+			buildFeatures({
+				committed: value,
+				mode,
+				vertices,
+				cursor: cursorRef.current,
+				highlighted: highlightedPart,
+			}),
+		[value, mode, vertices, highlightedPart],
 	);
 
 	// The source lifecycle — add, re-add on restyle, setData for updates, guarded
@@ -261,100 +397,32 @@ export function useMapDraw({
 
 	const finishRef = useRef<() => void>(() => {});
 
-	// Interaction wiring is active only while a mode needs the map. Keeping it in
-	// its own effect (keyed on the mode kind/type) means idle maps carry no extra
-	// click/move/key listeners and the cursor is always restored on exit.
-	useEffect(() => {
-		if (!isMapLive(map) || !isLoaded || mode.kind === 'idle') {
-			return;
-		}
-		const activeMap = map;
-		const canvas = activeMap.getCanvas();
-		const previousCursor = canvas.style.cursor;
-		canvas.style.cursor = 'crosshair';
-		const doubleClickZoomWasEnabled = activeMap.doubleClickZoom.isEnabled();
-		activeMap.doubleClickZoom.disable();
+	useDrawMapEvents({
+		map,
+		isLoaded,
+		mode,
+		modeRef,
+		cursorRef,
+		repaint,
+		applyPart,
+		finishRef,
+		setMode,
+		setVertices,
+	});
 
-		function handleClick(event: MapMouseEvent) {
-			const current = modeRef.current;
-			const position: Position = [event.lngLat.lng, event.lngLat.lat];
-			if (current.kind === 'point') {
-				current.resolve({ type: 'Point', coordinates: position });
-				setMode({ kind: 'idle' });
-				return;
-			}
-			if (current.kind !== 'draw') {
-				return;
-			}
-			if (current.type === 'Point') {
-				onChangeRef.current({ type: 'Point', coordinates: position });
-				setVertices([]);
-				cursorRef.current = null;
-				setMode({ kind: 'idle' });
-				return;
-			}
-			setVertices((previous) => [...previous, position]);
-		}
-
-		function handleMove(event: MapMouseEvent) {
-			canvas.style.cursor = 'crosshair';
-			if (modeRef.current.kind === 'draw' && modeRef.current.type !== 'Point') {
-				cursorRef.current = [event.lngLat.lng, event.lngLat.lat];
-				repaint();
-			}
-		}
-
-		function handleDoubleClick(event: MapMouseEvent) {
-			if (modeRef.current.kind === 'draw' && modeRef.current.type !== 'Point') {
-				event.preventDefault();
-				finishRef.current();
-			}
-		}
-
-		function handleKeyDown(event: KeyboardEvent) {
-			if (event.key === 'Escape') {
-				const current = modeRef.current;
-				if (current.kind === 'point') {
-					current.reject(new Error('Point selection cancelled.'));
-				}
-				cursorRef.current = null;
-				setVertices([]);
-				setMode({ kind: 'idle' });
-			} else if (event.key === 'Enter') {
-				finishRef.current();
-			}
-		}
-
-		activeMap.on('click', handleClick);
-		activeMap.on('mousemove', handleMove);
-		activeMap.on('dblclick', handleDoubleClick);
-		window.addEventListener('keydown', handleKeyDown);
-
-		return () => {
-			activeMap.off('click', handleClick);
-			activeMap.off('mousemove', handleMove);
-			activeMap.off('dblclick', handleDoubleClick);
-			window.removeEventListener('keydown', handleKeyDown);
-			try {
-				canvas.style.cursor = previousCursor;
-				if (doubleClickZoomWasEnabled) {
-					activeMap.doubleClickZoom.enable();
-				}
-			} catch {
-				// Map already torn down.
-			}
-		};
-	}, [map, isLoaded, mode, repaint]);
-
-	const start = useCallback((type: DrawGeometryType) => {
-		// Starting a fresh draw clears any prior committed geometry so the map
-		// shows exactly what the in-progress shape will become.
-		rejectPending(modeRef.current);
-		cursorRef.current = null;
-		setVertices([]);
-		onChangeRef.current(null);
-		setMode({ kind: 'draw', type });
-	}, []);
+	const start = useCallback(
+		(type: DrawGeometryType) => {
+			// Starting a fresh draw clears every committed part, at any part count, so
+			// the map shows exactly what the in-progress shape will become.
+			rejectPending(modeRef.current);
+			cursorRef.current = null;
+			setVertices([]);
+			highlightPart(null);
+			onChangeRef.current(null);
+			setMode({ kind: 'draw', type, target: 'replace' });
+		},
+		[highlightPart],
+	);
 
 	const cancel = useCallback(() => {
 		rejectPending(modeRef.current);
@@ -380,16 +448,12 @@ export function useMapDraw({
 		if (current.kind !== 'draw' || current.type === 'Point') {
 			return;
 		}
-		const cleaned = dedupeTrailing(verticesRef.current);
-		const geometry = geometryFromVertices(current.type, cleaned);
-		if (geometry === null) {
+		const part = partFromVertices(current.type, dedupeTrailing(verticesRef.current));
+		if (part === null) {
 			return;
 		}
-		cursorRef.current = null;
-		setVertices([]);
-		onChangeRef.current(geometry);
-		setMode({ kind: 'idle' });
-	}, []);
+		applyPart(current.target, part);
+	}, [applyPart]);
 	finishRef.current = finish;
 
 	const requestPoint = useCallback(
@@ -409,15 +473,20 @@ export function useMapDraw({
 
 	const drawType = mode.kind === 'draw' ? mode.type : null;
 	const canFinish =
-		mode.kind === 'draw' && geometryFromVertices(mode.type, dedupeTrailing(vertices)) !== null;
+		mode.kind === 'draw' && partFromVertices(mode.type, dedupeTrailing(vertices)) !== null;
 
 	return {
 		isDrawing: mode.kind === 'draw',
+		isAddingPart: mode.kind === 'draw' && mode.target === 'part',
 		isRequestingPoint: mode.kind === 'point',
 		drawType,
 		vertexCount: vertices.length,
 		canFinish,
 		start,
+		startPart,
+		removePart,
+		highlightPart,
+		zoomToPart,
 		finish,
 		cancel,
 		undo,
@@ -426,25 +495,286 @@ export function useMapDraw({
 	};
 }
 
+/**
+ * Ease the map to frame `geometry`.
+ *
+ * A single position has no extent to fit, so it eases to centre instead and
+ * keeps the zoom it is already at when that is closer in than 15.
+ */
+export function fitMapToGeometry(map: MapboxMap, geometry: GeoJsonGeometry): void {
+	const bounds = boundsFromGeoJson(geometry);
+	if (bounds === null) {
+		return;
+	}
+	const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
+	if (hasArea) {
+		map.fitBounds(
+			[
+				[bounds.west, bounds.south],
+				[bounds.east, bounds.north],
+			],
+			{ padding: 80, maxZoom: 17, duration: 600 },
+		);
+		return;
+	}
+	map.easeTo({ center: [bounds.west, bounds.south], zoom: Math.max(map.getZoom(), 15) });
+}
+
+/**
+ * Everything that acts on the committed parts: adding one, dropping one, and
+ * picking one out on the map.
+ *
+ * A hook of its own because the four of them share one piece of state, the
+ * highlighted index, and because the controller they hang off is already the
+ * widest thing in this file.
+ */
+function useDrawPartActions({
+	map,
+	cursorRef,
+	modeRef,
+	valueRef,
+	onChangeRef,
+	setMode,
+	setVertices,
+}: {
+	readonly map: MapboxMap | null;
+	readonly cursorRef: { current: Position | null };
+	readonly modeRef: { current: Mode };
+	readonly valueRef: { current: DrawGeometry | null };
+	readonly onChangeRef: { current: (value: DrawGeometry | null) => void };
+	readonly setMode: (next: Mode) => void;
+	readonly setVertices: (next: readonly Position[]) => void;
+}) {
+	const [highlightedPart, setHighlightedPart] = useState<number | null>(null);
+	const highlightedRef = useRef(highlightedPart);
+	highlightedRef.current = highlightedPart;
+
+	// The one place a finished draw lands. `replace` throws the committed parts
+	// away, `part` appends to them, and the shape that comes out is whatever
+	// `geometryFromParts` says the count makes it.
+	const applyPart = useCallback(
+		(target: DrawTarget, part: DrawPartGeometry) => {
+			const existing = target === 'part' ? drawParts(valueRef.current) : [];
+			cursorRef.current = null;
+			setVertices([]);
+			setMode({ kind: 'idle' });
+			onChangeRef.current(geometryFromParts([...existing, part]));
+		},
+		[cursorRef, valueRef, onChangeRef, setMode, setVertices],
+	);
+
+	// The base shape comes off the committed parts rather than off the toggle:
+	// they are the thing being added to, and a toggle change has already cleared
+	// them.
+	const startPart = useCallback(() => {
+		const base = drawParts(valueRef.current)[0]?.type;
+		if (base === undefined) {
+			return;
+		}
+		rejectPending(modeRef.current);
+		cursorRef.current = null;
+		setVertices([]);
+		setHighlightedPart(null);
+		setMode({ kind: 'draw', type: base, target: 'part' });
+	}, [cursorRef, modeRef, valueRef, setMode, setVertices]);
+
+	const removePart = useCallback(
+		(index: number) => {
+			setHighlightedPart(null);
+			onChangeRef.current(
+				geometryFromParts(drawParts(valueRef.current).filter((_, at) => at !== index)),
+			);
+		},
+		[valueRef, onChangeRef],
+	);
+
+	const zoomToPart = useCallback(
+		(index: number) => {
+			const part = drawParts(valueRef.current)[index];
+			if (part === undefined || !isMapLive(map)) {
+				return;
+			}
+			fitMapToGeometry(map, part as unknown as GeoJsonGeometry);
+		},
+		[map, valueRef],
+	);
+
+	return {
+		applyPart,
+		highlightedPart,
+		highlightedRef,
+		highlightPart: setHighlightedPart,
+		removePart,
+		startPart,
+		zoomToPart,
+	};
+}
+
+/**
+ * Map and keyboard wiring, live only while a mode needs it.
+ *
+ * Its own hook because an idle map should carry no extra click, move or key
+ * listener, and because the cursor and the double-click zoom it takes over have
+ * to be handed back on every exit, including the one where the map has already
+ * been removed.
+ */
+function useDrawMapEvents({
+	map,
+	isLoaded,
+	mode,
+	modeRef,
+	cursorRef,
+	repaint,
+	applyPart,
+	finishRef,
+	setMode,
+	setVertices,
+}: {
+	readonly map: MapboxMap | null;
+	readonly isLoaded: boolean;
+	readonly mode: Mode;
+	readonly modeRef: { current: Mode };
+	readonly cursorRef: { current: Position | null };
+	readonly repaint: () => void;
+	readonly applyPart: (target: DrawTarget, part: DrawPartGeometry) => void;
+	readonly finishRef: { current: () => void };
+	readonly setMode: (next: Mode) => void;
+	readonly setVertices: (
+		next: readonly Position[] | ((previous: readonly Position[]) => readonly Position[]),
+	) => void;
+}): void {
+	useEffect(() => {
+		if (!isMapLive(map) || !isLoaded || mode.kind === 'idle') {
+			return;
+		}
+		const activeMap = map;
+		const canvas = activeMap.getCanvas();
+		const previousCursor = canvas.style.cursor;
+		canvas.style.cursor = 'crosshair';
+		const doubleClickZoomWasEnabled = activeMap.doubleClickZoom.isEnabled();
+		activeMap.doubleClickZoom.disable();
+
+		function handleClick(event: MapMouseEvent) {
+			const current = modeRef.current;
+			const position: Position = [event.lngLat.lng, event.lngLat.lat];
+			if (current.kind === 'point') {
+				current.resolve({ type: 'Point', coordinates: position });
+				setMode({ kind: 'idle' });
+				return;
+			}
+			if (current.kind !== 'draw') {
+				return;
+			}
+			// A point piece finishes on its first click, the way a first point does.
+			if (current.type === 'Point') {
+				applyPart(current.target, { type: 'Point', coordinates: position });
+				return;
+			}
+			setVertices((previous) => [...previous, position]);
+		}
+
+		function handleMove(event: MapMouseEvent) {
+			canvas.style.cursor = 'crosshair';
+			if (isRubberBanding(modeRef.current)) {
+				cursorRef.current = [event.lngLat.lng, event.lngLat.lat];
+				repaint();
+			}
+		}
+
+		function handleDoubleClick(event: MapMouseEvent) {
+			if (isRubberBanding(modeRef.current)) {
+				event.preventDefault();
+				finishRef.current();
+			}
+		}
+
+		function handleKeyDown(event: KeyboardEvent) {
+			if (event.key === 'Enter') {
+				finishRef.current();
+				return;
+			}
+			if (event.key !== 'Escape') {
+				return;
+			}
+			const current = modeRef.current;
+			if (current.kind === 'point') {
+				current.reject(new Error('Point selection cancelled.'));
+			}
+			cursorRef.current = null;
+			setVertices([]);
+			setMode({ kind: 'idle' });
+		}
+
+		activeMap.on('click', handleClick);
+		activeMap.on('mousemove', handleMove);
+		activeMap.on('dblclick', handleDoubleClick);
+		window.addEventListener('keydown', handleKeyDown);
+
+		return () => {
+			activeMap.off('click', handleClick);
+			activeMap.off('mousemove', handleMove);
+			activeMap.off('dblclick', handleDoubleClick);
+			window.removeEventListener('keydown', handleKeyDown);
+			try {
+				canvas.style.cursor = previousCursor;
+				if (doubleClickZoomWasEnabled) {
+					activeMap.doubleClickZoom.enable();
+				}
+			} catch {
+				// Map already torn down.
+			}
+		};
+	}, [
+		map,
+		isLoaded,
+		mode,
+		modeRef,
+		cursorRef,
+		repaint,
+		applyPart,
+		finishRef,
+		setMode,
+		setVertices,
+	]);
+}
+
+/** Whether the cursor is trailing a segment, which only a line or an area does. */
+function isRubberBanding(mode: Mode): boolean {
+	return mode.kind === 'draw' && mode.type !== 'Point';
+}
+
 function rejectPending(mode: Mode): void {
 	if (mode.kind === 'point') {
 		mode.reject(new Error('A new map request replaced this one.'));
 	}
 }
 
+/**
+ * Every committed part, plus the part being drawn over the top of them.
+ *
+ * The committed parts stay on the map through an add so the user places the new
+ * one against what is already there. A replace has already cleared them, so the
+ * same code covers both.
+ */
 function buildFeatures({
 	committed,
 	mode,
 	vertices,
 	cursor,
+	highlighted,
 }: {
 	readonly committed: DrawGeometry | null;
 	readonly mode: Mode;
 	readonly vertices: readonly Position[];
 	readonly cursor: Position | null;
+	readonly highlighted: number | null;
 }): GeoJSON.FeatureCollection {
+	const features: GeoJSON.Feature[] = [];
+	drawParts(committed).forEach((part, index) => {
+		features.push(...partFeatures(part, index === highlighted));
+	});
+
 	if (mode.kind === 'draw' && mode.type !== 'Point') {
-		const features: GeoJSON.Feature[] = [];
 		const preview = cursor === null ? vertices : [...vertices, cursor];
 		if (mode.type === 'Polygon' && preview.length >= 3) {
 			features.push(geometryFeature({ type: 'Polygon', coordinates: [closeRing(preview)] }));
@@ -454,68 +784,69 @@ function buildFeatures({
 		for (const vertex of vertices) {
 			features.push(pointFeature(vertex, 'vertex'));
 		}
-		return { type: 'FeatureCollection', features };
 	}
 
-	if (committed === null) {
-		return EMPTY;
-	}
-	return { type: 'FeatureCollection', features: committedFeatures(committed) };
+	return features.length === 0 ? EMPTY : { type: 'FeatureCollection', features };
 }
 
-function committedFeatures(geometry: DrawGeometry): GeoJSON.Feature[] {
-	if (geometry.type === 'Point') {
-		return [pointFeature(geometry.coordinates, 'point')];
+function partFeatures(part: DrawPartGeometry, highlighted: boolean): GeoJSON.Feature[] {
+	if (part.type === 'Point') {
+		return [pointFeature(part.coordinates, 'point', highlighted)];
 	}
-	if (geometry.type === 'LineString') {
+	if (part.type === 'LineString') {
 		return [
-			geometryFeature(geometry),
-			...geometry.coordinates.map((position) => pointFeature(position, 'vertex')),
+			geometryFeature(part, highlighted),
+			...part.coordinates.map((position) => pointFeature(position, 'vertex', highlighted)),
 		];
 	}
-	const ring = geometry.coordinates[0] ?? [];
+	// The ring is closed, so the repeated first position is not drawn twice.
+	const ring = part.coordinates[0] ?? [];
 	return [
-		geometryFeature(geometry),
-		...ring.slice(0, -1).map((position) => pointFeature(position, 'vertex')),
+		geometryFeature(part, highlighted),
+		...ring.slice(0, -1).map((position) => pointFeature(position, 'vertex', highlighted)),
 	];
 }
 
-function geometryFeature(geometry: DrawGeometry): GeoJSON.Feature {
+function geometryFeature(geometry: DrawGeometry, highlighted = false): GeoJSON.Feature {
 	return {
 		type: 'Feature',
-		properties: {},
+		properties: { highlighted },
 		geometry: geometry as unknown as GeoJSON.Geometry,
 	};
 }
 
-function pointFeature(position: Position, role: 'vertex' | 'point'): GeoJSON.Feature {
+function pointFeature(
+	position: Position,
+	role: 'vertex' | 'point',
+	highlighted = false,
+): GeoJSON.Feature {
 	return {
 		type: 'Feature',
-		properties: { role },
+		properties: { role, highlighted },
 		geometry: { type: 'Point', coordinates: [position[0], position[1]] },
 	};
 }
 
 /**
- * The shape the drawn vertices make, or `null` while there is not one yet.
+ * The part the drawn vertices make, or `null` while there is not one yet.
  *
  * `canFinish` reads this too, so the covers-ground rule runs here rather than
  * beside the button: Finish would otherwise promise a write the server answers
  * 400. Three clicks in one spot passed `vertices.length < 3` and finished a
  * zero-area Polygon.
  */
-function geometryFromVertices(
+function partFromVertices(
 	type: DrawGeometryType,
 	vertices: readonly Position[],
-): DrawGeometry | null {
-	const geometry = shapeFromVertices(type, vertices);
-	return geometry !== null && geometryCoversGround(geometry) ? geometry : null;
+): DrawPartGeometry | null {
+	const part = shapeFromVertices(type, vertices);
+	return part !== null && geometryCoversGround(part) ? part : null;
 }
 
 function shapeFromVertices(
 	type: DrawGeometryType,
 	vertices: readonly Position[],
-): DrawGeometry | null {
+): DrawPartGeometry | null {
 	if (type === 'Point') {
 		const point = vertices[0];
 		return point === undefined ? null : { type: 'Point', coordinates: point };

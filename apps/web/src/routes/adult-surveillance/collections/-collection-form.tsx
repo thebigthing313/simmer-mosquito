@@ -269,6 +269,7 @@ export function CollectionFormPage({
 	// the first value is read, so the trap the form opens on frames the map from
 	// the first paint and later picks come through `setReferenceGeometry`.
 	const location = useDrawLocation({
+		geometryKind: 'collection',
 		initialGeometry,
 		initialReferenceGeometry: trapPoint(selectedTrap),
 		missingMessage: 'Place the collection point on the map.',

@@ -293,6 +293,7 @@ export function InspectionFormPage({
 	// `referenceGeometry` is the selected habitat's shape, shown for reference in
 	// habitat mode. Ad-hoc geometry is rendered by the draw layer instead.
 	const location = useDrawLocation({
+		geometryKind: 'inspection',
 		initialGeometry: initialAdhocGeometry,
 		initialReferenceGeometry: initialPreviewGeometry,
 		missingMessage: 'Map the area this ad-hoc inspection covers.',

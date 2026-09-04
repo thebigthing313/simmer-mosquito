@@ -3,11 +3,14 @@ import {
 	DomainValidationError,
 	type DomainValidationIssue,
 	geometryCoversGround,
+	getBaseGeometryType,
+	getMultipartGeometryType,
 	getOwnedGeometryBaseTypes,
 	getOwnedGeometryPolicy,
 	normalizeOwnedGeometry,
 	OWNED_GEOMETRY_POLICIES,
 	type OwnedGeometryKind,
+	ownedGeometryAllowsParts,
 	SUPPORTED_GEOMETRY_TYPES,
 	type SupportedGeoJsonGeometry,
 	validateGeometry,
@@ -114,6 +117,37 @@ describe('getOwnedGeometryBaseTypes', () => {
 			expect(bases.length).toBeGreaterThan(0);
 			expect(new Set(bases).size).toBe(bases.length);
 		}
+	});
+});
+
+describe('getMultipartGeometryType', () => {
+	it('promotes each base shape to the multi shape beside it', () => {
+		expect(getMultipartGeometryType('Point')).toBe('MultiPoint');
+		expect(getMultipartGeometryType('LineString')).toBe('MultiLineString');
+		expect(getMultipartGeometryType('Polygon')).toBe('MultiPolygon');
+	});
+
+	// Promote and demote are two maps written separately, and a shape that
+	// promoted to one thing and demoted to another would strand a record halfway.
+	it('round-trips every base shape back through demote', () => {
+		for (const type of SUPPORTED_GEOMETRY_TYPES) {
+			const base = getBaseGeometryType(type);
+
+			expect(getBaseGeometryType(getMultipartGeometryType(base))).toBe(base);
+		}
+	});
+});
+
+describe('ownedGeometryAllowsParts', () => {
+	it('offers parts where the register holds the multi shape', () => {
+		expect(ownedGeometryAllowsParts('habitat', 'Polygon')).toBe(true);
+		expect(ownedGeometryAllowsParts('region', 'Polygon')).toBe(true);
+	});
+
+	it('refuses parts where the register does not', () => {
+		expect(ownedGeometryAllowsParts('notificationRegistration', 'Polygon')).toBe(false);
+		expect(ownedGeometryAllowsParts('notificationRegistration', 'Point')).toBe(false);
+		expect(ownedGeometryAllowsParts('trap', 'Point')).toBe(false);
 	});
 });
 

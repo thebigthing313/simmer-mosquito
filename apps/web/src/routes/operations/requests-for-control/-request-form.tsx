@@ -101,6 +101,7 @@ export function RequestFormPage({
 }) {
 	const [saveError, setSaveError] = useState<string | null>(null);
 	const location = useDrawLocation({
+		geometryKind: 'requestedControlAction',
 		initialGeometry,
 		missingMessage: 'Map where the control work is needed.',
 	});

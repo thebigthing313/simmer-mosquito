@@ -1,9 +1,9 @@
-import { getOwnedGeometryBaseTypes, type OwnedGeometryKind } from '@simmer-mosquito/domain';
 import {
-	boundsFromGeoJson,
-	type GeoJsonGeometry,
-	isImportGeometryKind,
-} from '@simmer-mosquito/mapping';
+	getOwnedGeometryBaseTypes,
+	type OwnedGeometryKind,
+	ownedGeometryAllowsParts,
+} from '@simmer-mosquito/domain';
+import { type GeoJsonGeometry, isImportGeometryKind } from '@simmer-mosquito/mapping';
 import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -19,10 +19,14 @@ import {
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { GeometryImportDialog } from './geometry-import-dialog';
+import { describeDrawPart, GEOMETRY_TYPE_LABELS, GeometryPartList } from './geometry-parts';
 import { RegionBoundaryPicker } from './region-boundary-picker';
 import {
 	type DrawGeometry,
 	type DrawGeometryType,
+	type DrawPartGeometry,
+	drawParts,
+	fitMapToGeometry,
 	isDrawGeometryType,
 	type MapDrawController,
 } from './use-map-draw';
@@ -44,12 +48,7 @@ import {
  */
 
 const UploadIcon = iconRegistry.actions.upload.icon;
-
-const GEOMETRY_TYPE_LABELS: Readonly<Record<DrawGeometryType, string>> = {
-	Point: 'Point',
-	LineString: 'Line',
-	Polygon: 'Polygon',
-};
+const AddIcon = iconRegistry.actions.add.icon;
 
 export interface GeometryControlProps {
 	readonly controller: MapDrawController;
@@ -98,6 +97,14 @@ export function GeometryControl({
 	const [isImporting, setIsImporting] = useState(false);
 	const hasGeometry = geometry !== null;
 	const isBusy = controller.isDrawing || controller.isRequestingPoint;
+	// Read off the shape this control is showing rather than off the controller,
+	// because the address form drives the controller for its "place on map" path
+	// alone and holds its point itself.
+	const parts = drawParts(geometry);
+	// Hidden rather than disabled where the record cannot store the multi shape,
+	// so a Notification Registration never offers a piece it would refuse to save.
+	// The first piece is the draw button's, so it needs something to add to.
+	const canAddPart = hasGeometry && ownedGeometryAllowsParts(geometryKind, geometryType);
 	// Snapping to an address produces a point, so the affordance only belongs on
 	// the point tool — offering it under Line/Polygon would contradict the toggle.
 	const canMoveToAddress = onMoveToAddress !== undefined && geometryType === 'Point';
@@ -156,12 +163,22 @@ export function GeometryControl({
 				</ToggleGroup>
 			) : null}
 
-			<div className="flex items-center gap-2 rounded-md border border-border/40 bg-background/70 px-3 py-2">
-				<MapPinnedIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-				<p className="m-0 min-w-0 flex-1 truncate text-foreground text-sm">
-					{geometrySummary(geometry)}
-				</p>
-			</div>
+			{parts.length > 1 ? (
+				<GeometryPartList
+					disabled={isBusy}
+					onHighlight={controller.highlightPart}
+					onRemove={controller.removePart}
+					onZoom={controller.zoomToPart}
+					parts={parts}
+				/>
+			) : (
+				<div className="flex items-center gap-2 rounded-md border border-border/40 bg-background/70 px-3 py-2">
+					<MapPinnedIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
+					<p className="m-0 min-w-0 flex-1 truncate text-foreground text-sm">
+						{geometrySummary(parts[0])}
+					</p>
+				</div>
+			)}
 
 			<div className="flex flex-wrap gap-2">
 				<Button
@@ -178,6 +195,18 @@ export function GeometryControl({
 					)}
 					{controller.isDrawing ? 'Drawing on the Map…' : drawLabel(geometryType, hasGeometry)}
 				</Button>
+				{canAddPart ? (
+					<Button
+						disabled={isBusy}
+						onClick={controller.startPart}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						<AddIcon aria-hidden="true" data-icon="inline-start" />
+						Add piece
+					</Button>
+				) : null}
 				{canMoveToAddress ? (
 					<Button
 						disabled={isBusy}
@@ -273,7 +302,7 @@ export function DrawToolbar({
 		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
 			<div className="pointer-events-auto flex max-w-full flex-col gap-2 rounded-lg border border-border/60 bg-card/95 p-2 shadow-lg backdrop-blur-sm">
 				<p className="m-0 px-1 text-muted-foreground text-xs">
-					{drawInstruction(geometryType, controller.vertexCount)}
+					{drawInstruction(geometryType, controller.vertexCount, controller.isAddingPart)}
 				</p>
 				<div className="flex items-center gap-1.5">
 					{isPoint ? null : (
@@ -319,25 +348,12 @@ function MapPrompt({ children }: { readonly children: React.ReactNode }) {
 	);
 }
 
-function geometrySummary(geometry: DrawGeometry | null): string {
-	if (geometry === null) {
+/** The one line the control shows at a single piece. The list replaces it at two. */
+function geometrySummary(part: DrawPartGeometry | undefined): string {
+	if (part === undefined) {
 		return 'No geometry drawn yet.';
 	}
-	if (geometry.type === 'Point') {
-		const coordinates = geometry.coordinates;
-		if (!Array.isArray(coordinates) || coordinates.length < 2) {
-			return 'Point';
-		}
-		return `Point · ${coordinates[1].toFixed(5)}, ${coordinates[0].toFixed(5)}`;
-	}
-	if (geometry.type === 'LineString') {
-		const count = Array.isArray(geometry.coordinates) ? geometry.coordinates.length : 0;
-		return `Line · ${count} vertices`;
-	}
-	// The ring is closed (first === last), so the vertex the user placed last is
-	// not counted twice.
-	const ring = geometry.coordinates?.[0] ?? [];
-	return `Polygon · ${Math.max(ring.length - 1, 0)} vertices`;
+	return `${GEOMETRY_TYPE_LABELS[part.type]} · ${describeDrawPart(part)}`;
 }
 
 /** Ease the map to frame `geometry` when it changes, but never mid-draw. */
@@ -358,23 +374,7 @@ export function useFitToGeometry(
 			return;
 		}
 		lastFitRef.current = signature;
-
-		const bounds = boundsFromGeoJson(geometry);
-		if (bounds === null) {
-			return;
-		}
-		const hasArea = bounds.west !== bounds.east || bounds.south !== bounds.north;
-		if (hasArea) {
-			map.fitBounds(
-				[
-					[bounds.west, bounds.south],
-					[bounds.east, bounds.north],
-				],
-				{ padding: 80, maxZoom: 17, duration: 600 },
-			);
-		} else {
-			map.easeTo({ center: [bounds.west, bounds.south], zoom: Math.max(map.getZoom(), 15) });
-		}
+		fitMapToGeometry(map, geometry);
 	}, [map, geometry, isDrawing]);
 }
 
@@ -388,11 +388,17 @@ function drawLabel(type: DrawGeometryType, hasGeometry: boolean): string {
 	return `${verb} ${type === 'LineString' ? 'Line' : 'Polygon'}`;
 }
 
-function drawInstruction(type: DrawGeometryType, vertexCount: number): string {
+function drawInstruction(
+	type: DrawGeometryType,
+	vertexCount: number,
+	isAddingPart: boolean,
+): string {
 	if (type === 'Point') {
-		return 'Click the map to place the point.';
+		return isAddingPart
+			? 'Click the map to place another point.'
+			: 'Click the map to place the point.';
 	}
-	const noun = type === 'LineString' ? 'line' : 'area';
+	const noun = isAddingPart ? 'piece' : type === 'LineString' ? 'line' : 'area';
 	const minimum = type === 'LineString' ? 2 : 3;
 	if (vertexCount === 0) {
 		return `Click the map to start the ${noun}.`;
