@@ -13,3 +13,7 @@ Added: cancelling a continuation leaves the piece exactly as it was before you
 pressed Continue, and Undo pops only the vertices you added during it. The
 other pieces stay on the map and stay in the list throughout, and holes already
 cut into the piece stay cut.
+
+Added: a vertex that carves the outline past a hole cannot be finished. The
+shape turns red as you draw and the map toolbar says the holes have to stay
+inside the piece, the same way a hole cut outside its piece is refused.

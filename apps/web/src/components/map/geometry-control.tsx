@@ -29,10 +29,10 @@ import { GeometryImportDialog } from './geometry-import-dialog';
 import { GEOMETRY_TYPE_LABELS, GeometryPartList, GeometryPartSummary } from './geometry-parts';
 import { RegionBoundaryPicker } from './region-boundary-picker';
 import {
+	type DrawContinueDraft,
 	type DrawGeometry,
 	type DrawGeometryType,
 	type DrawHoleDraft,
-	type DrawPartTarget,
 	drawParts,
 	fitMapToGeometry,
 	isDrawGeometryType,
@@ -535,8 +535,11 @@ function holeInstruction(vertexCount: number, draft: DrawHoleDraft): string {
  * here" line to write. The piece is named once there are several, the way a hole
  * names the one it is cut into.
  */
-function continueInstruction(vertexCount: number, target: DrawPartTarget): string {
-	const named = target.partCount > 1 ? `piece ${target.partNumber}` : 'the shape';
+function continueInstruction(vertexCount: number, draft: DrawContinueDraft): string {
+	const named = draft.partCount > 1 ? `piece ${draft.partNumber}` : 'the shape';
+	if (draft.problem === 'holesEscape') {
+		return `The holes must stay inside ${named}.`;
+	}
 	const count = `${vertexCount} ${vertexCount === 1 ? 'vertex' : 'vertices'}`;
 	return `Continuing ${named} · ${count} · double-click or Finish to complete.`;
 }

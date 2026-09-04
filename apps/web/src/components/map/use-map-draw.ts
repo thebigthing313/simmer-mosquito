@@ -192,6 +192,19 @@ export interface DrawHoleDraft extends DrawPartTarget {
 }
 
 /**
+ * Why a part as continued cannot go back into the shape.
+ *
+ * `holesEscape` is a hole the part already had that the redrawn outline no
+ * longer contains, which is a polygon PostGIS calls invalid.
+ */
+export type DrawContinueProblem = 'holesEscape';
+
+/** The part being continued, and what is wrong with the outline as drawn. */
+export interface DrawContinueDraft extends DrawPartTarget {
+	readonly problem: DrawContinueProblem | null;
+}
+
+/**
  * The draw controller surface the form panel and the on-map toolbar both drive.
  * `start` is wired to the form's "Draw geometry" button; `finish`/`cancel`/`undo`
  * live on the floating map toolbar so the user exits draw mode from the map.
@@ -238,7 +251,7 @@ export interface MapDrawController {
 	 */
 	readonly continuePart: (index: number) => void;
 	/** The part being continued, or null while the draw is not one. */
-	readonly continuedPart: DrawPartTarget | null;
+	readonly continuedPart: DrawContinueDraft | null;
 	/** Drop one part, demoting to the base shape at one and to nothing at zero. */
 	readonly removePart: (index: number) => void;
 	/** Drop one hole from one part, leaving the part itself alone. */
@@ -652,10 +665,13 @@ function useDrawDrafts(
 	vertices: readonly Position[],
 ): {
 	readonly holeDraft: DrawHoleDraft | null;
-	readonly continuedPart: DrawPartTarget | null;
+	readonly continuedPart: DrawContinueDraft | null;
 } {
 	const holeDraft = useMemo(() => holeDraftOf(mode, value, vertices), [mode, value, vertices]);
-	const continuedPart = useMemo(() => continuedPartOf(mode, value), [mode, value]);
+	const continuedPart = useMemo(
+		() => continuedPartOf(mode, value, vertices),
+		[mode, value, vertices],
+	);
 	return { holeDraft, continuedPart };
 }
 
@@ -845,6 +861,10 @@ function withPart(
  * ring's repeated closing position dropped so the next click appends to the last
  * corner the user actually placed. `closeRing` puts it back on Finish.
  *
+ * The drop is conditional because `closeRing` is: a ring adopted from a file or
+ * a region is only closed if whoever wrote it closed it, and slicing one that is
+ * not would lose a real corner.
+ *
  * Null for a point, which is one position with no end to carry on from.
  */
 function continuedVertices(part: DrawPartGeometry): readonly Position[] | null {
@@ -854,7 +874,11 @@ function continuedVertices(part: DrawPartGeometry): readonly Position[] | null {
 	if (part.type === 'LineString') {
 		return part.coordinates;
 	}
-	return (part.coordinates[0] ?? []).slice(0, -1);
+	const outline = part.coordinates[0] ?? [];
+	const first = outline[0];
+	const last = outline.at(-1);
+	const closed = first !== undefined && last !== undefined && samePosition(first, last);
+	return closed ? outline.slice(0, -1) : outline;
 }
 
 /** How far Undo pops back, which is the vertices a continuation opened with. */
@@ -1077,14 +1101,20 @@ function draftFeatures(
 	if (mode.type === 'Point') {
 		return [];
 	}
-	const refused = holeDraftOf(mode, committed, vertices)?.problem != null;
+	const refused =
+		holeDraftOf(mode, committed, vertices)?.problem != null ||
+		continuedPartOf(mode, committed, vertices)?.problem != null;
 	const shape = previewShape(mode.type, cursor === null ? vertices : [...vertices, cursor]);
-	// A continuation's holes ride along with the preview, so cutting one and then
-	// extending the outline does not look like the hole has gone.
-	const preview = shape === null ? null : withHoles(shape, continuedHoles(mode, committed));
+	// A continuation's holes ride along with the preview, corners and all, so
+	// cutting one and then extending the outline does not look like the hole has
+	// gone. Each ring is closed, so its repeated first position is not drawn twice.
+	const holes = continuedHoles(mode, committed);
+	const preview = shape === null ? null : withHoles(shape, holes);
 	return [
 		...(preview === null ? [] : [geometryFeature(preview, false, refused)]),
-		...vertices.map((vertex) => pointFeature(vertex, 'vertex', false, refused)),
+		...[...vertices, ...holes.flatMap((ring) => ring.slice(0, -1))].map((vertex) =>
+			pointFeature(vertex, 'vertex', false, refused),
+		),
 	];
 }
 
@@ -1187,12 +1217,28 @@ function draftPart(
 	if (outline === null || mode.target.kind !== 'continue') {
 		return outline;
 	}
-	// An appended vertex can carve the outline inward, and a hole left outside it
-	// is a polygon PostGIS calls invalid. Finish refuses it here, the same way it
-	// refuses a hole that escapes while it is being cut.
-	const holes = continuedHoles(mode, committed);
-	const escaped = holes.some((hole) => holeProblem(outline, hole) !== null);
-	return escaped ? null : withHoles(outline, holes);
+	return continuationProblem(outline, mode, committed) === null
+		? withHoles(outline, continuedHoles(mode, committed))
+		: null;
+}
+
+/**
+ * Why the outline a continuation has drawn cannot go back into the shape.
+ *
+ * An appended vertex can carve the outline inward, and a hole left outside it is
+ * a polygon PostGIS calls invalid. The same {@link holeProblem} that refuses a
+ * hole escaping while it is cut answers this, so the two refusals are one rule
+ * read from either end.
+ */
+function continuationProblem(
+	outline: DrawPartGeometry,
+	mode: DrawMode,
+	committed: DrawGeometry | null,
+): DrawContinueProblem | null {
+	const escaped = continuedHoles(mode, committed).some(
+		(hole) => holeProblem(outline, hole) !== null,
+	);
+	return escaped ? 'holesEscape' : null;
 }
 
 /**
@@ -1233,11 +1279,26 @@ function holeDraftOf(
 	};
 }
 
-/** The part `mode` is continuing, or null while the draw is not one. */
-function continuedPartOf(mode: Mode, committed: DrawGeometry | null): DrawPartTarget | null {
-	return mode.kind === 'draw' && mode.target.kind === 'continue'
-		? partTargetOf(committed, mode.target.partIndex)
-		: null;
+/**
+ * The part `mode` is continuing, or null while the draw is not one.
+ *
+ * The map reads it to paint a refused outline red and the toolbar reads it to
+ * say what is wrong, so a red draft and an enabled Finish cannot appear
+ * together.
+ */
+function continuedPartOf(
+	mode: Mode,
+	committed: DrawGeometry | null,
+	vertices: readonly Position[],
+): DrawContinueDraft | null {
+	if (mode.kind !== 'draw' || mode.target.kind !== 'continue') {
+		return null;
+	}
+	const outline = partFromVertices(mode.type, dedupeTrailing(vertices));
+	return {
+		...partTargetOf(committed, mode.target.partIndex),
+		problem: outline === null ? null : continuationProblem(outline, mode, committed),
+	};
 }
 
 function partTargetOf(committed: DrawGeometry | null, partIndex: number): DrawPartTarget {

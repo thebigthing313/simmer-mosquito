@@ -338,7 +338,7 @@ describe('DrawToolbar', () => {
 			<DrawToolbar
 				controller={{
 					...fakeController(),
-					continuedPart: { partNumber: 2, partCount: 3 },
+					continuedPart: { partNumber: 2, partCount: 3, problem: null },
 					isDrawing: true,
 					vertexCount: 5,
 				}}
@@ -351,6 +351,22 @@ describe('DrawToolbar', () => {
 		).toBeDefined();
 	});
 
+	it('says when a continuation has pushed a hole out of its piece', () => {
+		render(
+			<DrawToolbar
+				controller={{
+					...fakeController(),
+					continuedPart: { partNumber: 1, partCount: 1, problem: 'holesEscape' },
+					isDrawing: true,
+					vertexCount: 5,
+				}}
+				geometryType="Polygon"
+			/>,
+		);
+
+		expect(screen.getByText('The holes must stay inside the shape.')).toBeDefined();
+	});
+
 	// A continuation opens with the piece's own vertices placed, so a count above
 	// zero is not what says Undo has anything to pop.
 	it('offers no Undo until a continuation has added a vertex', () => {
@@ -358,7 +374,7 @@ describe('DrawToolbar', () => {
 			<DrawToolbar
 				controller={{
 					...fakeController(),
-					continuedPart: { partNumber: 1, partCount: 1 },
+					continuedPart: { partNumber: 1, partCount: 1, problem: null },
 					isDrawing: true,
 					vertexCount: 4,
 				}}

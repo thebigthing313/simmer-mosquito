@@ -760,6 +760,18 @@ describe('useMapDraw', () => {
 		});
 	});
 
+	// A ring adopted from a file or a region is only closed if whoever wrote it
+	// closed it, and slicing one that is not would lose a corner.
+	it('keeps every corner of an unclosed ring it continues', () => {
+		const { result } = mountControlled({ type: 'Polygon', coordinates: [[...FIRST_SQUARE]] });
+
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+
+		expect(result.current.draw.vertexCount).toBe(3);
+	});
+
 	it('adds to a finished line at its end', () => {
 		const { fake, result } = mountControlled();
 
@@ -836,7 +848,11 @@ describe('useMapDraw', () => {
 		act(() => {
 			result.current.draw.continuePart(1);
 		});
-		expect(result.current.draw.continuedPart).toEqual({ partNumber: 2, partCount: 2 });
+		expect(result.current.draw.continuedPart).toEqual({
+			partNumber: 2,
+			partCount: 2,
+			problem: null,
+		});
 		act(() => {
 			fake.click(-79, 35);
 		});
@@ -976,6 +992,13 @@ describe('useMapDraw', () => {
 		});
 
 		expect(result.current.draw.canFinish).toBe(false);
+		expect(result.current.draw.continuedPart?.problem).toBe('holesEscape');
+		// Red on the map too, so the refusal is not only a greyed-out button.
+		const refused = fake
+			.featuresOf(SOURCE_ID)
+			.filter((feature) => feature.properties?.refused === true);
+		expect(refused.length).toBeGreaterThan(0);
+
 		act(() => {
 			result.current.draw.finish();
 		});
@@ -983,6 +1006,31 @@ describe('useMapDraw', () => {
 			type: 'Polygon',
 			coordinates: [closed(BLOCK), closed(POND)],
 		});
+	});
+
+	// The piece being continued is hidden and redrawn as the draft, so its holes
+	// have to come with it, corners and all.
+	it('keeps a hole and its corners on the map through a continuation', () => {
+		const { fake, result } = mountControlled({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+
+		expect(roles(fake)).toEqual([
+			'Polygon',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+		]);
 	});
 
 	it('renders the corners of a hole as vertices of its piece', () => {
