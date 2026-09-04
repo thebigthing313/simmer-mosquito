@@ -1,10 +1,5 @@
-import type { GeoJsonPolygon } from '@simmer-mosquito/mapping';
-import {
-	IMPORT_FILE_ACCEPT,
-	importPartCount,
-	importVertexCount,
-	readImportFileText,
-} from '@simmer-mosquito/mapping';
+import type { GeoJsonPolygon, ImportNote } from '@simmer-mosquito/mapping';
+import { IMPORT_FILE_ACCEPT, readImportFileText } from '@simmer-mosquito/mapping';
 import { isTxIdConfirmationTimeout } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -38,6 +33,7 @@ import {
 	ImportNotes,
 	type ImportNoun,
 	type ImportRefusalCounts,
+	importRowSummary,
 } from '../../../components/map/import-notes';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
@@ -80,6 +76,7 @@ interface ImportItem {
 	readonly id: string;
 	readonly name: string;
 	readonly geometry: RegionBoundary;
+	readonly note: ImportNote | null;
 }
 
 const NO_REFUSALS: ImportRefusalCounts = { projected: 0, multipart: 0, mixed: 0 };
@@ -148,6 +145,7 @@ function ImportRegionsRoute() {
 					id: crypto.randomUUID(),
 					name: region.name,
 					geometry: region.geometry,
+					note: region.note,
 				})),
 			);
 		} catch (error) {
@@ -509,7 +507,7 @@ function ImportRow({
 					value={item.name}
 				/>
 				<span className="truncate px-1 text-muted-foreground text-xs">
-					{describeBoundary(item.geometry)}
+					{importRowSummary(item.geometry, item.note)}
 				</span>
 			</span>
 			<Button
@@ -539,19 +537,6 @@ function ImportRow({
 			</Button>
 		</li>
 	);
-}
-
-/**
- * The line under a row's name: its pieces where it has several, its vertices.
- *
- * The piece count earns its place because it names what changed. A file that
- * used to produce three rows now produces one, and the count is what says those
- * three lots are still there rather than dissolved.
- */
-function describeBoundary(geometry: RegionBoundary): string {
-	const parts = importPartCount(geometry);
-	const vertices = `${importVertexCount(geometry)} vertices`;
-	return parts > 1 ? `${parts} pieces · ${vertices}` : vertices;
 }
 
 function delay(ms: number): Promise<void> {

@@ -4,8 +4,6 @@ import {
 	type ImportCandidate,
 	type ImportGeometryKind,
 	importCandidatesFrom,
-	importPartCount,
-	importVertexCount,
 	isWgs84Geometry,
 	readImportFileText,
 } from '@simmer-mosquito/mapping';
@@ -29,6 +27,7 @@ import {
 	type ImportRefusalCounts,
 	importNoun,
 	importNounTitle,
+	importRowSummary,
 } from './import-notes';
 import type { DrawGeometry } from './use-map-draw';
 
@@ -67,20 +66,6 @@ interface ParsedFile {
 	readonly skipped: number;
 	readonly truncated: boolean;
 	readonly refusals: ImportRefusalCounts;
-}
-
-/**
- * The line under a shape's name: its pieces where it has several, its vertices.
- *
- * A point has one vertex, so the count is spelled either way. Nothing offered
- * here could hold one before points were readable, and "1 vertices" is the sort
- * of thing a user reads as a bug in the file.
- */
-function describeShape(shape: ParsedShape): string {
-	const parts = importPartCount(shape.geometry);
-	const count = importVertexCount(shape.geometry);
-	const vertices = `${count} ${count === 1 ? 'vertex' : 'vertices'}`;
-	return parts > 1 ? `${parts} pieces · ${vertices}` : vertices;
 }
 
 export function GeometryImportDialog({
@@ -275,7 +260,7 @@ function ImportShapeList({
 						<span className="min-w-0 flex-1">
 							<span className="block truncate font-medium">{shape.name}</span>
 							<span className="block truncate text-muted-foreground text-xs">
-								{describeShape(shape)}
+								{importRowSummary(shape.geometry, shape.note)}
 							</span>
 						</span>
 						{shape.id === selectedId ? <CheckIcon aria-hidden="true" /> : null}

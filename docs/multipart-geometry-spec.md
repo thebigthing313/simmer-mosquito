@@ -1048,12 +1048,14 @@ Continuing to dissolve it contradicts one row per Feature outright.
 The blast radius is small. As this slice shipped it was a GeoJSON-only problem:
 `KML_GEOMETRY_TAGS` held only `Polygon` and `LineString`, so the common Google
 Earth Placemark carrying a label `<Point>` beside its `<Polygon>` yielded just the
-polygon. #446 added the `Point` tag, so that Placemark is now a feature holding two
-kinds and is refused as mixed, named in the preview rather than narrowed in
-silence. A GeoJSON GeometryCollection is rare in agency exports. The KML twin
-exists only because the gate widened: a
-`<MultiGeometry>` holding a LineString and a Polygon, on a record whose
-`allowedTypes` wants both. Same answer, refused and named.
+polygon. #446 added the `Point` tag, which turned that Placemark into a feature
+holding two kinds and refused it as mixed. #473 amends this: one point beside a
+shape of one other kind is that shape, the point is dropped as the label it is,
+and the row says so and still imports. Several points beside a shape are still
+refused, because nothing in the file says which of them is the label. A GeoJSON
+GeometryCollection is rare in agency exports. The KML twin exists only because
+the gate widened: a `<MultiGeometry>` holding a LineString and a Polygon, on a
+record whose `allowedTypes` wants both. Same answer, refused and named.
 
 ### The geometryType gate dies
 

@@ -10,7 +10,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GeometryImportDialog } from '../../../../components/map/geometry-import-dialog';
-import { ImportNotes } from '../../../../components/map/import-notes';
+import { ImportNotes, importRowSummary } from '../../../../components/map/import-notes';
 
 afterEach(cleanup);
 
@@ -48,6 +48,36 @@ describe('ImportNotes', () => {
 		expect(screen.getByText(/2 areas have separate pieces/)).toBeDefined();
 		expect(screen.getByText(/2 features hold mixed geometry and were skipped\./)).toBeDefined();
 		expect(screen.getByText(/3 shapes use coordinates outside/)).toBeDefined();
+	});
+});
+
+describe('importRowSummary', () => {
+	const square: [number, number][] = [
+		[0, 0],
+		[0, 1],
+		[1, 1],
+		[1, 0],
+		[0, 0],
+	];
+
+	it('counts vertices and leaves the piece count off a single-piece shape', () => {
+		expect(importRowSummary({ type: 'Polygon', coordinates: [square] }, null)).toBe('4 vertices');
+	});
+
+	it('names the pieces of a multipart shape', () => {
+		expect(
+			importRowSummary({ type: 'MultiPolygon', coordinates: [[square], [square]] }, null),
+		).toBe('2 pieces · 8 vertices');
+	});
+
+	it('says a label point was dropped, on a row that still imports', () => {
+		expect(importRowSummary({ type: 'Polygon', coordinates: [square] }, 'labelPoint')).toBe(
+			'4 vertices · label point dropped',
+		);
+	});
+
+	it('spells one vertex singular', () => {
+		expect(importRowSummary({ type: 'Point', coordinates: [0, 0] }, null)).toBe('1 vertex');
 	});
 });
 

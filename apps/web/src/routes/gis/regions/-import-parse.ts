@@ -15,6 +15,7 @@ import {
 	type ImportGeometry,
 	type ImportGeometryKind,
 	type ImportGroup,
+	type ImportNote,
 	importCandidatesFrom,
 	isImportGeometryKind,
 	isWgs84Geometry,
@@ -29,6 +30,8 @@ export type RegionBoundary = ImportArealGeometry;
 export interface ParsedRegion {
 	readonly name: string;
 	readonly geometry: RegionBoundary;
+	/** What reading the feature dropped, where it dropped something. */
+	readonly note: ImportNote | null;
 }
 
 export interface ParseResult {
@@ -99,7 +102,7 @@ function finalize(groups: readonly ImportGroup[]): ParseResult {
 	});
 	const boundaries = candidates.flatMap((candidate) =>
 		isRegionBoundary(candidate.geometry)
-			? [{ name: candidate.name, geometry: candidate.geometry }]
+			? [{ name: candidate.name, geometry: candidate.geometry, note: candidate.note }]
 			: [],
 	);
 	const regions = boundaries.filter((region) => isWgs84Geometry(region.geometry));

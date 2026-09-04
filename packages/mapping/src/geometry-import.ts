@@ -22,7 +22,9 @@
  * All six OGC shapes are read, points included, so a Trap or a Service Request
  * can be located from a file the same way a Region is. KML spells a point
  * `<Point>` and has no name for a set of them: several `<Point>` tags in one
- * `<MultiGeometry>` are the multipoint.
+ * `<MultiGeometry>` are the multipoint. A single `<Point>` beside a shape of one
+ * other kind is Google Earth placing a label, so the shape is offered and the
+ * point is dropped with a note the preview states.
  *
  * Reading a file (`readImportFileText`) is separate from parsing its text
  * (`collectImportGroups`) because only reading is asynchronous, and because the
@@ -155,15 +157,27 @@ export type ImportRefusal =
 	| 'mixed';
 
 /**
+ * What the reading left behind on a feature that is still on offer.
+ *
+ * A note is not a refusal. The shape imports; the note is what a user who opens
+ * the same file in Google Earth and counts one more thing in it reads to find
+ * out where it went.
+ */
+export type ImportNote =
+	/** A Placemark carried a point beside its shape to place the label. */
+	'labelPoint';
+
+/**
  * One source feature — a GeoJSON `Feature` or a KML `<Placemark>` — as one shape.
  *
  * Exactly one of `geometry` and `refusal` is set: a feature is either on offer or
- * refused with a reason.
+ * refused with a reason. A `note` only ever accompanies a geometry.
  */
 export interface ImportGroup {
 	readonly name: string | null;
 	readonly geometry: ImportGeometry | null;
 	readonly refusal: ImportRefusal | null;
+	readonly note: ImportNote | null;
 }
 
 export interface ImportGroupResult {
@@ -176,6 +190,7 @@ export interface ImportGroupResult {
 export interface ImportCandidate {
 	readonly name: string;
 	readonly geometry: ImportGeometry;
+	readonly note: ImportNote | null;
 }
 
 export interface ImportCandidateResult {
@@ -280,6 +295,7 @@ export function importCandidatesFrom(
 		candidates.push({
 			name: group.name ?? `${options.fallbackName} ${candidates.length + 1}`,
 			geometry: group.geometry,
+			note: group.note,
 		});
 	}
 
@@ -412,16 +428,17 @@ function importGroup(
 	name: string | null,
 	read: ImportGeometry | ImportRefusal,
 	kinds: readonly ImportGeometryKind[],
+	note: ImportNote | null = null,
 ): ImportGroup {
 	if (typeof read === 'string') {
-		return { name, geometry: null, refusal: read };
+		return { name, geometry: null, refusal: read, note: null };
 	}
 	if (kinds.includes(read.type)) {
-		return { name, geometry: read, refusal: null };
+		return { name, geometry: read, refusal: null, note };
 	}
 	const base = IMPORT_BASE_KIND[read.type];
 	const refusal = base !== read.type && kinds.includes(base) ? 'multipart' : 'unsupported';
-	return { name, geometry: null, refusal };
+	return { name, geometry: null, refusal, note: null };
 }
 
 /**
@@ -689,8 +706,8 @@ function collectKmlGroups(
 ): void {
 	for (const child of Array.from(element.children)) {
 		if (child.tagName === 'Placemark') {
-			const name = kmlPlacemarkName(child);
-			out.push(importGroup(name, combineKmlParts(kmlGeometriesWithin(child)), kinds));
+			const { read, note } = combineKmlParts(kmlGeometriesWithin(child));
+			out.push(importGroup(kmlPlacemarkName(child), read, kinds, note));
 		} else if (isKmlGeometryTag(child.tagName)) {
 			const geometry = kmlGeometryFromNode(child);
 			out.push(importGroup(null, geometry ?? 'unsupported', kinds));
@@ -700,14 +717,50 @@ function collectKmlGroups(
 	}
 }
 
+/** What a Placemark's geometry elements come to, and what reading them dropped. */
+interface KmlPlacemarkReading {
+	readonly read: ImportGeometry | ImportRefusal;
+	readonly note: ImportNote | null;
+}
+
 /**
  * A Placemark's geometry elements as the one shape it holds.
  *
  * A `<MultiGeometry>` of three polygons is one shape in three pieces, exactly as
- * a GeoJSON MultiPolygon is. One mixing an area and a line is refused: there is
- * no shape both belong to, and picking one of them is the silent drop.
+ * a GeoJSON MultiPolygon is.
+ *
+ * Points are counted apart from everything else, because Google Earth writes a
+ * polygon Placemark as a `<MultiGeometry>` holding a `<Point>` for the label and
+ * the `<Polygon>` for the shape. One point beside a shape of one other kind is
+ * that shape, and the point is dropped as the label it is, with a note the
+ * preview states.
+ *
+ * Everything else that mixes is refused. An area beside a line belongs to no one
+ * shape, and picking one of them is the silent drop. Neither does a second point
+ * beside a shape: nothing in the file says which of them is the label, so
+ * dropping either is a guess.
  */
-function combineKmlParts(parts: readonly ImportBaseGeometry[]): ImportGeometry | ImportRefusal {
+function combineKmlParts(parts: readonly ImportBaseGeometry[]): KmlPlacemarkReading {
+	const shapes = parts.filter((part) => part.type !== 'Point');
+	const pointCount = parts.length - shapes.length;
+	if (shapes.length === 0) {
+		return { read: shapeFromKmlParts(parts), note: null };
+	}
+	if (pointCount === 0) {
+		return { read: shapeFromKmlParts(shapes), note: null };
+	}
+	if (pointCount > 1) {
+		return { read: 'mixed', note: null };
+	}
+	// One label, and whatever it sits beside answers for itself: several pieces of
+	// one kind are the multi shape they make, and an area beside a line is still
+	// mixed. A refusal takes no note, because the row it would sit on is not there.
+	const read = shapeFromKmlParts(shapes);
+	return { read, note: typeof read === 'string' ? null : 'labelPoint' };
+}
+
+/** Parts of one kind as the shape they make; anything else mixes and is refused. */
+function shapeFromKmlParts(parts: readonly ImportBaseGeometry[]): ImportGeometry | ImportRefusal {
 	const first = parts[0];
 	if (first === undefined) {
 		return 'unsupported';
@@ -777,11 +830,10 @@ function kmlGeometriesWithin(element: Element): ImportBaseGeometry[] {
  *
  * Whether the caller wants this kind is not asked here. A Placemark holding an
  * area and a line is refused as mixed however narrow the ask is, so both have to
- * be read before anything is gated. That is also why a `<Point>` a Google Earth
- * export drops into a `<MultiGeometry>` beside a polygon, to place the label,
- * now refuses the Placemark rather than being passed over: the file says the
- * feature holds two kinds of thing, and picking one of them is the silent drop
- * this parser stopped doing.
+ * be read before anything is gated. The same reading is what lets
+ * `combineKmlParts` tell a Google Earth label `<Point>` from the shape it sits
+ * beside: a caller that never wanted points still has to see one to know the
+ * Placemark carries a label rather than a second shape.
  */
 function kmlGeometryFromNode(node: Element): ImportBaseGeometry | null {
 	if (node.tagName === 'Polygon') {
