@@ -4,10 +4,11 @@ What it takes for one record to hold a shape in several pieces, and for a
 polygon to hold a hole. The rule and why it was chosen are ADR 0018; this is
 what gets built.
 
-Slices 1 to 3 of the build order below are built: the register, the domain types
-and the covers-ground rule, and the columns, the widened register and region
-membership. The draw control and the import path are not. Every decision below
-was settled on the map in #415,
+All six slices of the build order below are built: the register, the domain types
+and the covers-ground rule, the columns and region membership, the draw control's
+parts and holes, and the import path. Two things it names as out of scope have
+their own issues, #445 for continuing a finished part and #446 for importing a
+point. Every decision below was settled on the map in #415,
 whose nine tickets hold the measurements and the rejected alternatives. Where a
 line says "measured", the numbers came from the local compose Postgres or from a
 production clone.

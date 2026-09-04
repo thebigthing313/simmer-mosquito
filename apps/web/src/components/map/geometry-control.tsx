@@ -1,9 +1,15 @@
 import {
+	getBaseGeometryType,
 	getOwnedGeometryBaseTypes,
+	getOwnedGeometryPolicy,
 	type OwnedGeometryKind,
 	ownedGeometryAllowsParts,
 } from '@simmer-mosquito/domain';
-import { type GeoJsonGeometry, isImportGeometryKind } from '@simmer-mosquito/mapping';
+import {
+	type GeoJsonGeometry,
+	type ImportGeometryKind,
+	isImportGeometryKind,
+} from '@simmer-mosquito/mapping';
 import { RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -113,13 +119,16 @@ export function GeometryControl({
 	// Snapping to an address produces a point, so the affordance only belongs on
 	// the point tool — offering it under Line/Polygon would contradict the toggle.
 	const canMoveToAddress = onMoveToAddress !== undefined && geometryType === 'Point';
-	// Both shortcuts produce an area or a line, so they belong to those tools
-	// only; a point is faster to place by clicking than to source from a file.
+	// A region boundary is an area, so the shortcut belongs to that tool only.
 	const canUseRegion =
 		geometryType === 'Polygon' && organizationId !== undefined && organizationId.length > 0;
-	// The file parser is what caps this, not the record's policy: it has no Point
-	// arm, and KML carries geometry only as an area or a line.
-	const canImportFile = isImportGeometryKind(geometryType);
+	// What the record stores, filtered to what the file parser can produce. The
+	// parser is the narrower of the two: it has no Point arm and KML carries
+	// geometry only as an area or a line, so a Point-only record offers no file
+	// import at all and importing a point is a capability nothing has yet.
+	const importableTypes: readonly ImportGeometryKind[] =
+		getOwnedGeometryPolicy(geometryKind).allowedTypes.filter(isImportGeometryKind);
+	const canImportFile = importableTypes.length > 0;
 
 	return (
 		<div className="grid gap-2 rounded-md border border-border/40 bg-background/70 p-3">
@@ -254,8 +263,9 @@ export function GeometryControl({
 					<span className="text-muted-foreground text-xs">Fill from</span>
 					{canUseRegion && organizationId !== undefined ? (
 						<RegionBoundaryPicker
+							allowsParts={ownedGeometryAllowsParts(geometryKind, 'Polygon')}
 							disabled={isBusy}
-							onSelect={(polygon) => controller.commit(polygon)}
+							onSelect={(boundary) => controller.commit(boundary)}
 							organizationId={organizationId}
 						/>
 					) : null}
@@ -277,9 +287,18 @@ export function GeometryControl({
 
 			{canImportFile ? (
 				<GeometryImportDialog
-					geometryType={geometryType === 'Polygon' ? 'Polygon' : 'LineString'}
+					allowedTypes={importableTypes}
 					onOpenChange={setIsImporting}
-					onSelect={(imported) => controller.commit(imported)}
+					onSelect={(imported) => {
+						// The dialog offers everything the record stores, so an adopted
+						// shape can be a kind the toggle is not on. Moving the toggle
+						// first lets its own clear land before the shape does.
+						const base = getBaseGeometryType(imported.type);
+						if (base !== geometryType) {
+							onTypeChange?.(base);
+						}
+						controller.commit(imported);
+					}}
 					open={isImporting}
 				/>
 			) : null}

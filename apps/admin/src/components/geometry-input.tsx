@@ -7,6 +7,7 @@ import {
 	type GeoJsonPoint,
 	IMPORT_FILE_ACCEPT,
 	type ImportGeometryKind,
+	importBaseGeometryKind,
 	importCandidatesFrom,
 	isWgs84Geometry,
 	readImportFileText,
@@ -69,11 +70,15 @@ export function GeometryFileInput({
 
 		const result = importCandidatesFrom(groups.groups, { limit: 1, fallbackName: fileName });
 		const [first] = result.candidates;
+		// Every feature the file held that this record cannot take, whatever the
+		// reason: the console has no room for three separate notes and the count is
+		// what tells an operator the file was read at all.
+		const others = result.skipped + result.multipart + result.mixed;
 		if (first === undefined) {
-			const wanted = kinds.join(' or ').toLowerCase();
+			const wanted = [...new Set(kinds.map(importBaseGeometryKind))].join(' or ').toLowerCase();
 			setError(
-				result.skipped > 0
-					? `No ${wanted} in ${fileName}. ${result.skipped} ${result.skipped === 1 ? 'geometry of another kind was' : 'geometries of other kinds were'} skipped.`
+				others > 0
+					? `No ${wanted} in ${fileName}. ${others} ${others === 1 ? 'feature was' : 'features were'} skipped.`
 					: `No ${wanted} found in ${fileName}.`,
 			);
 			return;
@@ -90,11 +95,7 @@ export function GeometryFileInput({
 			setError(null);
 		}
 
-		setSource(
-			result.candidates.length < result.skipped + 1 || result.truncated
-				? `${fileName} (first shape of several)`
-				: fileName,
-		);
+		setSource(others > 0 || result.truncated ? `${fileName} (first shape of several)` : fileName);
 		onChange(first.geometry as GeoJsonGeometry);
 	}
 

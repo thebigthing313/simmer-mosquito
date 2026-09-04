@@ -9,10 +9,15 @@
  * Notification Registration must never offer it: it would draw fine and refuse
  * on save.
  */
+import type { OwnedGeometryKind } from '@simmer-mosquito/domain';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DrawToolbar, GeometryControl } from '../../../../components/map/geometry-control';
-import type { DrawPartGeometry, MapDrawController } from '../../../../components/map/use-map-draw';
+import type {
+	DrawGeometryType,
+	DrawPartGeometry,
+	MapDrawController,
+} from '../../../../components/map/use-map-draw';
 import { geometryFromParts } from '../../../../components/map/use-map-draw';
 
 afterEach(cleanup);
@@ -81,9 +86,11 @@ function fakeController(): MapDrawController {
 function renderControl({
 	parts,
 	geometryKind = 'habitat',
+	geometryType = 'Polygon',
 }: {
 	readonly parts: readonly DrawPartGeometry[];
-	readonly geometryKind?: 'habitat' | 'notificationRegistration';
+	readonly geometryKind?: OwnedGeometryKind;
+	readonly geometryType?: DrawGeometryType;
 }) {
 	const controller = fakeController();
 	const geometry = geometryFromParts(parts);
@@ -92,7 +99,7 @@ function renderControl({
 			controller={controller}
 			geometry={geometry}
 			geometryKind={geometryKind}
-			geometryType="Polygon"
+			geometryType={geometryType}
 			onClear={vi.fn()}
 			onDraw={vi.fn()}
 		/>,
@@ -148,6 +155,31 @@ describe('GeometryControl', () => {
 		renderControl({ parts: [square(-90)], geometryKind: 'notificationRegistration' });
 
 		expect(screen.queryByText('Add piece')).toBeNull();
+	});
+
+	// The gate is what the record stores, not which tool is selected. A
+	// Notification Registration on the point tool still offers the file, because
+	// it stores an area too and adopting one moves the toggle.
+	it('offers the file shortcut wherever the record stores a shape a file carries', () => {
+		renderControl({
+			parts: [],
+			geometryKind: 'notificationRegistration',
+			geometryType: 'Point',
+		});
+
+		expect(
+			screen.getByLabelText('Fill this geometry from a KML, KMZ, or GeoJSON file'),
+		).toBeDefined();
+	});
+
+	// No import surface has ever produced a point, so a point-only record has
+	// nothing a file could fill.
+	it('hides the file shortcut on a record that stores only a point', () => {
+		renderControl({ parts: [], geometryKind: 'serviceRequest', geometryType: 'Point' });
+
+		expect(
+			screen.queryByLabelText('Fill this geometry from a KML, KMZ, or GeoJSON file'),
+		).toBeNull();
 	});
 
 	it('hides Add piece before the first piece is drawn', () => {

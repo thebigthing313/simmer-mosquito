@@ -45,6 +45,9 @@ export {
 	toLngLat,
 } from './geometry.js';
 export type {
+	ImportArealGeometry,
+	ImportBaseGeometry,
+	ImportBaseGeometryKind,
 	ImportCandidate,
 	ImportCandidateResult,
 	ImportGeometry,
@@ -52,15 +55,19 @@ export type {
 	ImportGroup,
 	ImportGroupResult,
 	ImportLineGeometry,
+	ImportMultiLineGeometry,
+	ImportMultiPolygonGeometry,
 	ImportPolygonGeometry,
 	ImportPosition,
+	ImportRefusal,
 } from './geometry-import.js';
 export {
 	collectImportGroups,
 	declareMissingNamespaces,
-	flattenGeometries,
 	IMPORT_FILE_ACCEPT,
+	importBaseGeometryKind,
 	importCandidatesFrom,
+	importPartCount,
 	importVertexCount,
 	isImportGeometryKind,
 	isWgs84Geometry,

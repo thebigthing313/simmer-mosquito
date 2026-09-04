@@ -1,8 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	declareMissingNamespaces,
-	flattenPolygons,
-	MAX_POLYGONS,
+	MAX_REGIONS,
 	parseGeoJson,
 	parseKmlCoordinates,
 	parseRegionsFromFile,
@@ -23,43 +22,69 @@ const square2 = [
 	[2, 2],
 ];
 
+function feature(name: string, geometry: unknown) {
+	return { type: 'Feature', properties: { name }, geometry };
+}
+
 describe('parseGeoJson', () => {
-	it('reads named polygons and flattens multipolygons, skipping non-polygons', () => {
+	it('makes one region per feature, keeping a multipart one whole', () => {
 		const geojson = JSON.stringify({
 			type: 'FeatureCollection',
 			features: [
-				{
-					type: 'Feature',
-					properties: { name: 'North' },
-					geometry: { type: 'Polygon', coordinates: [square] },
-				},
-				{
-					type: 'Feature',
-					properties: { name: 'Split' },
-					geometry: { type: 'MultiPolygon', coordinates: [[square], [square2]] },
-				},
-				{
-					type: 'Feature',
-					properties: { name: 'A point' },
-					geometry: { type: 'Point', coordinates: [5, 5] },
-				},
+				feature('North', { type: 'Polygon', coordinates: [square] }),
+				feature('Park A', { type: 'MultiPolygon', coordinates: [[square], [square2]] }),
+				feature('A point', { type: 'Point', coordinates: [5, 5] }),
 			],
 		});
 
 		const result = parseGeoJson(geojson);
 
 		expect(result.skipped).toBe(1);
-		expect(result.regions.map((r) => r.name)).toEqual(['North', 'Split (1)', 'Split (2)']);
+		expect(result.regions.map((region) => region.name)).toEqual(['North', 'Park A']);
 		expect(result.regions[0]?.geometry.type).toBe('Polygon');
-		expect(result.regions[1]?.geometry.coordinates[0]).toEqual(square);
-		expect(result.regions[2]?.geometry.coordinates[0]).toEqual(square2);
+		expect(result.regions[1]?.geometry).toEqual({
+			type: 'MultiPolygon',
+			coordinates: [[square], [square2]],
+		});
 	});
 
-	it('caps the import at MAX_POLYGONS, keeping the first ones', () => {
-		const coordinates = Array.from({ length: MAX_POLYGONS + 50 }, () => [square]);
-		const result = parseGeoJson(JSON.stringify({ type: 'MultiPolygon', coordinates }));
+	it('reads a single-lot multipolygon back as a plain polygon', () => {
+		const result = parseGeoJson(JSON.stringify({ type: 'MultiPolygon', coordinates: [[square]] }));
+
+		expect(result.regions[0]?.geometry).toEqual({ type: 'Polygon', coordinates: [square] });
+	});
+
+	it('refuses a geometry collection and counts it apart from the rest', () => {
+		const result = parseGeoJson(
+			JSON.stringify(
+				feature('Mixed', {
+					type: 'GeometryCollection',
+					geometries: [{ type: 'Polygon', coordinates: [square] }],
+				}),
+			),
+		);
+
+		expect(result.regions).toEqual([]);
+		expect(result.mixed).toBe(1);
+		expect(result.skipped).toBe(0);
+	});
+
+	it('caps the import at MAX_REGIONS features, keeping the first ones', () => {
+		const features = Array.from({ length: MAX_REGIONS + 50 }, (_, index) =>
+			feature(`Lot ${index}`, { type: 'Polygon', coordinates: [square] }),
+		);
+		const result = parseGeoJson(JSON.stringify({ type: 'FeatureCollection', features }));
+
 		expect(result.truncated).toBe(true);
-		expect(result.regions).toHaveLength(MAX_POLYGONS);
+		expect(result.regions).toHaveLength(MAX_REGIONS);
+	});
+
+	it('counts a multipart feature once against the cap', () => {
+		const coordinates = Array.from({ length: MAX_REGIONS + 50 }, () => [square]);
+		const result = parseGeoJson(JSON.stringify({ type: 'MultiPolygon', coordinates }));
+
+		expect(result.truncated).toBe(false);
+		expect(result.regions).toHaveLength(1);
 	});
 
 	it('does not flag truncation when under the cap', () => {
@@ -98,20 +123,12 @@ describe('projected coordinates', () => {
 		expect(result.projected).toBe(1);
 	});
 
-	it('offers only the WGS84 shapes from a mixed file and counts the rest', () => {
+	it('offers only the WGS84 features from a mixed file and counts the rest', () => {
 		const geojson = JSON.stringify({
 			type: 'FeatureCollection',
 			features: [
-				{
-					type: 'Feature',
-					properties: { name: 'North' },
-					geometry: { type: 'Polygon', coordinates: [square] },
-				},
-				{
-					type: 'Feature',
-					properties: { name: 'Projected' },
-					geometry: { type: 'Polygon', coordinates: [projectedSquare] },
-				},
+				feature('North', { type: 'Polygon', coordinates: [square] }),
+				feature('Projected', { type: 'Polygon', coordinates: [projectedSquare] }),
 			],
 		});
 
@@ -121,12 +138,12 @@ describe('projected coordinates', () => {
 		expect(result.projected).toBe(1);
 	});
 
-	it('counts each part of a projected multipolygon', () => {
+	it('counts a projected multipart feature once, and reads all of its pieces', () => {
 		const result = parseGeoJson(
-			JSON.stringify({ type: 'MultiPolygon', coordinates: [[projectedSquare], [projectedSquare]] }),
+			JSON.stringify({ type: 'MultiPolygon', coordinates: [[square], [projectedSquare]] }),
 		);
 		expect(result.regions).toEqual([]);
-		expect(result.projected).toBe(2);
+		expect(result.projected).toBe(1);
 	});
 
 	it('reports nothing withheld for a fully valid file', () => {
@@ -138,41 +155,6 @@ describe('projected coordinates', () => {
 	it('reports nothing withheld when the file could not be parsed', () => {
 		const result = parseRegionsFromFile('{ not json', 'broken.geojson');
 		expect(result.projected).toBe(0);
-	});
-});
-
-describe('flattenPolygons', () => {
-	it('recurses geometry collections and drops non-areal members', () => {
-		const polygons = flattenPolygons({
-			type: 'GeometryCollection',
-			geometries: [
-				{ type: 'Polygon', coordinates: [square] },
-				{
-					type: 'LineString',
-					coordinates: [
-						[0, 0],
-						[1, 1],
-					],
-				},
-				{ type: 'MultiPolygon', coordinates: [[square2]] },
-			],
-		});
-		expect(polygons).toHaveLength(2);
-		expect(polygons.every((p) => p.type === 'Polygon')).toBe(true);
-	});
-
-	it('rejects rings with too few points', () => {
-		expect(
-			flattenPolygons({
-				type: 'Polygon',
-				coordinates: [
-					[
-						[0, 0],
-						[1, 1],
-					],
-				],
-			}),
-		).toEqual([]);
 	});
 });
 

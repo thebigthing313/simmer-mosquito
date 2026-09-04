@@ -14,7 +14,7 @@ import { OptionRow, PickerFallback } from '../../components/pickers/entity-picke
 import { useRegionFolders } from '../../hooks/queries/use-region-folders';
 import { fetchRegionGeometryOnce } from '../../hooks/use-region-geometry';
 import { regions } from '../../lib/collections/regions';
-import { type DrawGeometry, toDrawGeometry } from './use-map-draw';
+import { type DrawGeometry, drawParts, toDrawGeometry } from './use-map-draw';
 
 /**
  * "Use one of the agency's regions as this polygon."
@@ -33,7 +33,11 @@ const RegionIcon = iconRegistry.entities.region.icon;
 const searchGcTimeMs = 30_000;
 const resultLimit = 8;
 
-export type PolygonGeometry = DrawGeometry & { readonly type: 'Polygon' };
+/** A Region's boundary as the draw flow holds one: one area, or several as one. */
+export type RegionBoundaryGeometry = Extract<
+	DrawGeometry,
+	{ readonly type: 'Polygon' | 'MultiPolygon' }
+>;
 
 /** A Region as this picker lists one: enough to name it and tell two apart. */
 interface RegionOption {
@@ -45,12 +49,15 @@ interface RegionOption {
 
 export function RegionBoundaryPicker({
 	organizationId,
+	allowsParts,
 	disabled = false,
 	onSelect,
 }: {
 	readonly organizationId: string;
+	/** Whether the record adopting the boundary can store one in several pieces. */
+	readonly allowsParts: boolean;
 	readonly disabled?: boolean;
-	readonly onSelect: (geometry: PolygonGeometry) => void;
+	readonly onSelect: (geometry: RegionBoundaryGeometry) => void;
 }) {
 	const queryClient = useQueryClient();
 	const [open, setOpen] = useState(false);
@@ -65,16 +72,16 @@ export function RegionBoundaryPicker({
 		setError(null);
 		try {
 			const geometry = await fetchRegionGeometryOnce(queryClient, region.id);
-			const polygon = polygonFromGeoJson(geometry?.geojson ?? null);
-			if (polygon === null) {
+			const boundary = boundaryFromGeoJson(geometry?.geojson ?? null, allowsParts);
+			if (boundary === null) {
 				setError(
 					geometry?.geojson == null
 						? `${region.name} has no boundary saved.`
-						: `${region.name} has a multi-part boundary, which can't be used as a single polygon.`,
+						: `${region.name} has separate pieces, and this record holds one area.`,
 				);
 				return;
 			}
-			onSelect(polygon);
+			onSelect(boundary);
 			setOpen(false);
 			setSearch('');
 		} catch {
@@ -233,22 +240,35 @@ function folderLabel(region: RegionOption, folderNames: ReadonlyMap<string, stri
 }
 
 /**
- * Narrow a stored region boundary to the single polygon the draw flow edits.
- * Regions are drawn and imported as single polygons, but a MultiPolygon with one
- * member reads the same on the map, so it is unwrapped rather than refused.
+ * Read a stored region boundary as the shape the adopting record can hold.
+ *
+ * A boundary in several pieces is handed over whole wherever the record stores
+ * one, which is every record kind but the Notification Registration. That one
+ * takes a single area, so a multipart boundary is refused by name rather than
+ * quietly losing its other pieces.
+ *
+ * A one-piece MultiPolygon is a Polygon either way: the draw flow demotes it on
+ * the way through `geometryFromParts`, and nothing downstream ever sees a
+ * one-piece multi shape.
  */
-function polygonFromGeoJson(geojson: GeoJsonGeometry | null): PolygonGeometry | null {
-	const candidate = geojson as { readonly type?: unknown; readonly coordinates?: unknown } | null;
-	if (
-		candidate?.type === 'MultiPolygon' &&
-		Array.isArray(candidate.coordinates) &&
-		candidate.coordinates.length === 1
-	) {
-		return {
-			type: 'Polygon',
-			coordinates: candidate.coordinates[0] as PolygonGeometry['coordinates'],
-		};
-	}
+function boundaryFromGeoJson(
+	geojson: GeoJsonGeometry | null,
+	allowsParts: boolean,
+): RegionBoundaryGeometry | null {
 	const drawn = toDrawGeometry(geojson);
-	return drawn?.type === 'Polygon' ? drawn : null;
+	if (drawn === null) {
+		return null;
+	}
+	if (drawn.type === 'Polygon') {
+		return drawn;
+	}
+	if (drawn.type !== 'MultiPolygon') {
+		return null;
+	}
+	const parts = drawParts(drawn);
+	if (parts.length === 1) {
+		const only = parts[0];
+		return only?.type === 'Polygon' ? only : null;
+	}
+	return allowsParts ? drawn : null;
 }
