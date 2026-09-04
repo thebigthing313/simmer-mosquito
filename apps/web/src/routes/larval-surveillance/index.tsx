@@ -26,7 +26,11 @@ import {
 	LifeStageStrip,
 	WetnessBadge,
 } from '../../components/larval-display';
-import type { LarvalActivityRow } from '../../hooks/queries/larval-activity-view';
+import {
+	inspectionSiteLabel,
+	inspectionTypeLabel,
+	type LarvalActivityRow,
+} from '../../hooks/queries/larval-activity-view';
 import { useHeavyLarvalActivity } from '../../hooks/queries/use-heavy-larval-activity';
 import { useLarvalActivityForDate } from '../../hooks/queries/use-larval-activity-for-date';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
@@ -128,35 +132,9 @@ function OverviewBody() {
 	);
 }
 
-/**
- * What names an inspection's site. An ad-hoc inspection has no habitat, so it is
- * titled by its coordinates instead — "Ad-hoc inspection" named the category
- * every such row already belonged to, leaving nothing to tell one row from the
- * next.
- */
-function siteName(row: LarvalActivityRow): string {
-	if (row.habitatId === null) {
-		return adhocLabel(row.latitude, row.longitude);
-	}
-	return row.habitatName ?? adhocLabel(row.latitude, row.longitude);
-}
-
-/**
- * The Habitat's type, or what to say instead.
- *
- * A row with a type id and no joined name is a Habitat pointing at a catalog entry
- * this client has not loaded — worth saying, rather than showing nothing.
- */
-function typeLabel(row: LarvalActivityRow): string | null {
-	if (row.habitatTypeId === null) {
-		return null;
-	}
-	return row.typeName ?? 'Unknown type';
-}
-
 /** Habitat name as a link to the habitat, for panels that list a day's work. */
 function HabitatLink({ row }: { readonly row: LarvalActivityRow }) {
-	const label = siteName(row);
+	const label = inspectionSiteLabel(row);
 	if (row.habitatId === null) {
 		return (
 			<span className="truncate font-medium text-foreground text-sm tabular-nums">{label}</span>
@@ -377,7 +355,7 @@ function InspectionRow({ row }: { readonly row: LarvalActivityRow }) {
 			<div className="grid min-w-0 flex-1">
 				<HabitatLink row={row} />
 				<span className="truncate text-muted-foreground text-xs">
-					{typeLabel(row) ?? 'Unassigned type'}
+					{inspectionTypeLabel(row) ?? 'Unassigned type'}
 				</span>
 			</div>
 			<div className="flex shrink-0 items-center gap-2">
@@ -618,7 +596,7 @@ function HeavyInspectionsPanel({
 									to="/larval-surveillance/inspections/$id"
 								>
 									<span className="truncate font-medium text-foreground text-sm tabular-nums group-hover:text-primary">
-										{siteName(row)}
+										{inspectionSiteLabel(row)}
 									</span>
 									<span className="truncate text-muted-foreground text-xs">
 										{row.typeName ?? 'Unassigned type'}

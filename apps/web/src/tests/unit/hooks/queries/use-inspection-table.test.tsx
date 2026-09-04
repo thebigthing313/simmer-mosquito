@@ -138,7 +138,7 @@ describe('useInspectionTable', () => {
 		 * The failure this catches is silent. `orderBy` with `limit` pages by
 		 * cursor only while the sort key is indexed on the collection being
 		 * windowed; without the index the compiler logs one warning and loads the
-		 * whole filtered set, which on a real agency's history is the hang this
+		 * whole filtered set, which on a real organization's history is the hang this
 		 * surface exists to avoid. Right rows, right order, nothing thrown. So the
 		 * warning is the assertion.
 		 */
@@ -211,9 +211,34 @@ describe('inspectionSiteLabel', () => {
 
 		expect(siteLabelOf(result.current.rows[0])).toBe('34.05213, -118.24368');
 	});
+
+	it('names an unnamed habitat by the habitat, not by the linked address', async () => {
+		// A Habitat is where the work was done, and an unnamed one is placed by its
+		// own coordinates rather than by an Address the inspection happens to link.
+		// The Address branch is for an Ad Hoc Inspection, which has no Habitat at
+		// all. The day panels read the same rule off `habitatName`.
+		seedRows(habitats, [{ id: 'h2', habitat_name: null, lat: 40.1, lng: -74.4 }]);
+		seedRows(addresses, [
+			{
+				id: 'a1',
+				display_name: 'Riverside HOA clubhouse',
+				address_line_1: null,
+				address_line_2: null,
+				locality: null,
+				region: null,
+				postal_code: null,
+			},
+		]);
+		seedRows(inspections, [inspection('i1', { habitat_id: 'h2', address_id: 'a1' })]);
+
+		const result = await renderTable(10);
+
+		expect(siteLabelOf(result.current.rows[0])).toBe('40.1, -74.4');
+	});
 });
 
 function siteLabelOf(row: InspectionTableRow | undefined): string {
 	expect(row, 'the hook returned no row to label').toBeDefined();
-	return inspectionSiteLabel(row as InspectionTableRow);
+	const found = row as InspectionTableRow;
+	return inspectionSiteLabel(found, found.address);
 }

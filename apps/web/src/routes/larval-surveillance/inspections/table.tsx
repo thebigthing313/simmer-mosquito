@@ -1,4 +1,5 @@
 import { ListEmpty, ListLoading, PageHeader } from '@simmer-mosquito/ui-web/components/page';
+import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import {
@@ -18,6 +19,7 @@ import { DensityBadge, LifeStageStrip, WetnessBadge } from '../../../components/
 import {
 	type InspectionTableRow,
 	inspectionSiteLabel,
+	inspectionTypeLabel,
 } from '../../../hooks/queries/larval-activity-view';
 import { useInspectionTable } from '../../../hooks/queries/use-inspection-table';
 import { formatListDate } from '../-overview-data';
@@ -63,6 +65,7 @@ function InspectionsTableRoute() {
 				<NoRows isError={isError} isReady={isReady} />
 			) : (
 				<LoadedRows
+					isError={isError}
 					isReady={isReady}
 					limit={limit}
 					onLoadMore={() => setLimit((current) => current + WINDOW_STEP)}
@@ -96,23 +99,32 @@ function NoRows({ isError, isReady }: { readonly isError: boolean; readonly isRe
  * A full window is the only sign there is more, since nothing here counts the
  * whole set. So the control shows while the rows fill the window, and goes when
  * a wider one comes back short.
+ *
+ * A failed read is a strip above rows that are still real rather than a state
+ * that replaces them. It also has to end the waiting: a query that errored never
+ * reports ready, so reading "not ready" as "still loading" leaves Load more
+ * disabled under a spinner that turns forever with nothing saying why.
  */
 function LoadedRows({
+	isError,
 	isReady,
 	limit,
 	onLoadMore,
 	rows,
 }: {
+	readonly isError: boolean;
 	readonly isReady: boolean;
 	readonly limit: number;
 	readonly onLoadMore: () => void;
 	readonly rows: readonly InspectionTableRow[];
 }) {
-	const hasMore = !isReady || rows.length >= limit;
+	const isLoadingMore = !(isReady || isError);
+	const hasMore = isLoadingMore || rows.length >= limit;
 	return (
 		<div className="grid gap-3">
+			{isError ? <InspectionsUnavailable /> : null}
 			<InspectionsTable rows={rows} />
-			{hasMore ? <LoadMore isLoading={!isReady} onLoadMore={onLoadMore} /> : null}
+			{hasMore ? <LoadMore isLoading={isLoadingMore} onLoadMore={onLoadMore} /> : null}
 		</div>
 	);
 }
@@ -169,7 +181,7 @@ function InspectionsTable({ rows }: { readonly rows: readonly InspectionTableRow
 
 function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 	const when = formatListDate(row.inspectionDate);
-	const site = inspectionSiteLabel(row);
+	const site = inspectionSiteLabel(row, row.address);
 	return (
 		<TableRow>
 			<TableCell className="tabular-nums">{when}</TableCell>
@@ -177,7 +189,7 @@ function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 				{site}
 			</TableCell>
 			<TableCell className="text-muted-foreground">
-				{row.habitatTypeId === null ? <EmptyValue /> : (row.typeName ?? 'Unknown type')}
+				{inspectionTypeLabel(row) ?? <EmptyValue />}
 			</TableCell>
 			<TableCell className="text-muted-foreground">
 				{row.inspectedByName ?? <EmptyValue />}
@@ -226,14 +238,13 @@ function LoadMore({
 	);
 }
 
-/** The read failed and there is nothing on screen to keep. */
+/** The read failed. Says so whether or not there are rows behind it. */
 function InspectionsUnavailable() {
 	return (
-		<p
-			className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-8 text-center text-sm"
-			role="alert"
-		>
-			Inspections could not be loaded. Reload the page to try again.
-		</p>
+		<Alert variant="destructive">
+			<AlertDescription>
+				Inspections could not be loaded. Reload the page to try again.
+			</AlertDescription>
+		</Alert>
 	);
 }
