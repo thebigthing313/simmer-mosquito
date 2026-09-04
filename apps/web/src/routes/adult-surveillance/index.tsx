@@ -12,6 +12,7 @@ import {
 	useAdultSpeciesComposition,
 } from '../../hooks/queries/use-adult-species-composition';
 import { useCollectionsAwaitingIdentification } from '../../hooks/queries/use-collections-awaiting-identification';
+import { useCollectionsOverThreshold } from '../../hooks/queries/use-collections-over-threshold';
 import {
 	type ActivityCollection,
 	useRecentCollections,
@@ -68,6 +69,9 @@ function AdultSurveillanceOverviewRoute() {
 				<div className="grid content-start gap-5 xl:col-span-5">
 					<SpeciesCompositionPanel today={today} />
 					<AwaitingIdentificationPanel since={since} />
+				</div>
+				<div className="xl:col-span-12">
+					<OverThresholdPanel since={since} />
 				</div>
 				<div className="xl:col-span-12">
 					<AttentionPanel since={since} />
@@ -379,6 +383,91 @@ function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
 							</div>
 							<span className="shrink-0 text-muted-foreground text-xs tabular-nums">
 								{collectionDayLabel(collection, timeZone)}
+							</span>
+						</li>
+					))}
+				</ul>
+			)}
+		</Panel>
+	);
+}
+
+// --- over action threshold --------------------------------------------------
+
+function OverThresholdPanel({ since }: { readonly since: string }) {
+	const timeZone = useOrganizationTimeZone();
+	const { collections, hasConfiguredThresholds, isReady, isError } = useCollectionsOverThreshold(
+		since,
+		timeZone,
+	);
+
+	return (
+		<Panel
+			count={isReady ? collections.length : undefined}
+			icon={<AlertTriangleIcon className="size-4" />}
+			title={`Over Action Threshold · Last ${ADULT_ACTIVITY_WINDOW_DAYS} Days`}
+		>
+			{isError ? (
+				<PanelMessage>Collection activity is unavailable right now.</PanelMessage>
+			) : !isReady ? (
+				<RowSkeleton count={3} />
+			) : !hasConfiguredThresholds ? (
+				// Distinct from the empty list below it. Without this an unset threshold
+				// reads as a quiet fortnight.
+				<PanelMessage>
+					No collection method sets an action threshold.{' '}
+					<Link
+						className="font-medium text-primary hover:underline"
+						to="/adult-surveillance/collection-methods"
+					>
+						Set one
+					</Link>
+					.
+				</PanelMessage>
+			) : collections.length === 0 ? (
+				<PanelMessage>
+					No collection reached its method's action threshold in the last{' '}
+					{ADULT_ACTIVITY_WINDOW_DAYS} days.
+				</PanelMessage>
+			) : (
+				<ul className="grid gap-1 p-2 sm:grid-cols-2">
+					{collections.map((collection) => (
+						<li
+							className="flex items-center gap-3 rounded-md px-2 py-2 hover:bg-muted/40"
+							key={collection.id}
+						>
+							<span className="w-11 shrink-0 text-muted-foreground text-xs tabular-nums">
+								{formatMonthDay(collectionEffectiveDate(collection, timeZone) ?? '')}
+							</span>
+							{/*
+							 * The reason to read this panel is to open the collection that ran
+							 * hot, so the row's body goes there rather than to the trap.
+							 */}
+							<Link
+								className="group grid min-w-0 flex-1 rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								params={{ id: collection.id }}
+								to="/adult-surveillance/collections/$id"
+							>
+								<span className="truncate font-medium text-foreground text-sm group-hover:text-primary">
+									{collectionPrimaryLabel(collection)}
+								</span>
+								<span className="truncate text-muted-foreground text-xs">
+									{collection.methodName}
+								</span>
+							</Link>
+							<span className="shrink-0 text-sm tabular-nums">
+								{/* A slash reads as nothing aloud, so the pair is spelled out. */}
+								<span className="sr-only">
+									{collection.total.toLocaleString()} of a threshold of{' '}
+									{collection.actionThreshold.toLocaleString()}
+								</span>
+								<span aria-hidden="true" className="font-medium text-foreground">
+									{collection.total.toLocaleString()}
+								</span>
+								<span aria-hidden="true" className="text-muted-foreground">
+									{' / '}
+									{collection.actionThreshold.toLocaleString()}
+								</span>
 							</span>
 						</li>
 					))}
