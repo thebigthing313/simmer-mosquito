@@ -1001,11 +1001,6 @@
         "count": 4
       }
     },
-    "scripts/check-command-columns.mjs": {
-      "crap_moderate": {
-        "count": 6
-      }
-    },
     "scripts/check-geometry-policies.mjs": {
       "crap_high": {
         "count": 2

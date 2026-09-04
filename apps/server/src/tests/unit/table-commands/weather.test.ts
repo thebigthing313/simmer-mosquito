@@ -16,6 +16,7 @@
 import { DomainValidationError } from '@simmer-mosquito/domain';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
+import type { CommandTable } from '../../../command-payload.js';
 import type { AgencyCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
@@ -31,7 +32,10 @@ const STATION = '44444444-4444-4444-8444-444444444444';
 
 const PIN = { type: 'Point', coordinates: [-121.49, 38.58] };
 
-function request(payload: Record<string, unknown>, timeZone = 'America/New_York'): IntentRequest {
+function request(
+	payload: Record<string, unknown>,
+	timeZone = 'America/New_York',
+): IntentRequest<CommandTable, string> {
 	return {
 		payload,
 		agency: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
@@ -46,9 +50,9 @@ function request(payload: Record<string, unknown>, timeZone = 'America/New_York'
 }
 
 function build<TCommand extends WritableCommand>(
-	spec: TableCommands<TCommand, unknown>,
+	spec: TableCommands<CommandTable, TCommand, unknown, string>,
 	intent: AgencyCommandType,
-	intentRequest: IntentRequest,
+	intentRequest: IntentRequest<CommandTable, string>,
 ): TCommand {
 	const builder = spec.intents[intent];
 	if (builder === undefined) {

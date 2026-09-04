@@ -41,7 +41,9 @@ import { type CommentRow, readDate } from '../field-work-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 
-export function commentTableCommands(db: CommandDb): TableCommands<FieldWorkCommand, CommentRow> {
+export function commentTableCommands(
+	db: CommandDb,
+): TableCommands<'comments', FieldWorkCommand, CommentRow> {
 	return {
 		table: 'comments',
 		run: {
@@ -55,7 +57,7 @@ export function commentTableCommands(db: CommandDb): TableCommands<FieldWorkComm
 				addCommentCommand({
 					...agency,
 					commentId: id,
-					target: readEntityTarget(payload),
+					target: readEntityTarget(payload.entity_type, payload.entity_id),
 					commentText: readText(payload.comment_text) ?? '',
 					commentedAt: readDate(payload.commented_at),
 				}),

@@ -58,9 +58,14 @@ import type { RegionFolderRow, RegionRow } from '../foundation-geography-command
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
+/**
+ * The boundary to store. Not a column: `geom` never syncs.
+ */
+type RegionArgument = 'geometry';
+
 export function regionFolderTableCommands(
 	db: CommandDb,
-): TableCommands<FoundationCommand, RegionFolderRow> {
+): TableCommands<'region_folders', FoundationCommand, RegionFolderRow> {
 	return {
 		table: 'region_folders',
 		run: {
@@ -82,8 +87,8 @@ export function regionFolderTableCommands(
 				updateRegionFolderCommand({
 					...agency,
 					regionFolderId: id,
-					...('name' in payload ? { name: readText(payload.name) ?? '' } : {}),
-					...('description' in payload
+					...(payload.name !== undefined ? { name: readText(payload.name) ?? '' } : {}),
+					...(payload.description !== undefined
 						? { description: readNullableText(payload.description) }
 						: {}),
 				}),
@@ -94,13 +99,15 @@ export function regionFolderTableCommands(
 				deleteRegionFolderCommand({
 					...agency,
 					regionFolderId: id,
-					acknowledgedRegionDetach: acknowledged(payload.acknowledgedRegionDetach),
+					acknowledgedRegionDetach: acknowledged(payload, 'acknowledgedRegionDetach'),
 				}),
 		},
 	};
 }
 
-export function regionTableCommands(db: CommandDb): TableCommands<FoundationCommand, RegionRow> {
+export function regionTableCommands(
+	db: CommandDb,
+): TableCommands<'regions', FoundationCommand, RegionRow, RegionArgument> {
 	return {
 		table: 'regions',
 		run: { db, write: writeRegionCommand, notFound: 'region_not_found', key: 'region' },
@@ -126,11 +133,11 @@ export function regionTableCommands(db: CommandDb): TableCommands<FoundationComm
 				updateRegionDetailsCommand({
 					...agency,
 					regionId: id,
-					...('name' in payload ? { name: readText(payload.name) ?? '' } : {}),
-					...('description' in payload
+					...(payload.name !== undefined ? { name: readText(payload.name) ?? '' } : {}),
+					...(payload.description !== undefined
 						? { description: readNullableText(payload.description) }
 						: {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 				}),
 
 			// A move is its own command, so `region_folder_id` is read here and nowhere
@@ -148,14 +155,17 @@ export function regionTableCommands(db: CommandDb): TableCommands<FoundationComm
 					...agency,
 					regionId: id,
 					geometry: payload.geometry,
-					acknowledgedRegionBoundaryChange: acknowledged(payload.acknowledgedRegionBoundaryChange),
+					acknowledgedRegionBoundaryChange: acknowledged(
+						payload,
+						'acknowledgedRegionBoundaryChange',
+					),
 				}),
 
 			'foundation.deleteRegion': ({ payload, agency, id }) =>
 				deleteRegionCommand({
 					...agency,
 					regionId: id,
-					acknowledgedRegionDelete: acknowledged(payload.acknowledgedRegionDelete),
+					acknowledgedRegionDelete: acknowledged(payload, 'acknowledgedRegionDelete'),
 				}),
 		},
 	};

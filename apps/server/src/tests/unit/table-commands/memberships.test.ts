@@ -19,6 +19,7 @@ import type { DomainValidationError } from '@simmer-mosquito/domain';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
 import { CommandError } from '../../../command-endpoint.js';
+import type { CommandTable } from '../../../command-payload.js';
 import type { MembershipAuth } from '../../../membership-commands.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import { membershipTableCommands } from '../../../table-commands/memberships.js';
@@ -498,10 +499,12 @@ describe('the staging identity interlock', () => {
 // ---------------------------------------------------------------------------
 
 const spec = membershipTableCommands(undefined as never, undefined as never) as TableCommands<
+	'memberships',
 	// biome-ignore lint/suspicious/noExplicitAny: the union is the module's, and
 	// only `payload` is read off a built command here.
 	any,
-	unknown
+	unknown,
+	string
 >;
 
 function build(
@@ -510,7 +513,7 @@ function build(
 	id: string = MEMBERSHIP,
 ): BuiltCommand {
 	const builder = spec.intents[intent as never] as
-		| ((request: IntentRequest) => BuiltCommand)
+		| ((request: IntentRequest<CommandTable, string>) => BuiltCommand)
 		| undefined;
 	if (builder === undefined) {
 		throw new Error(`memberships does not accept ${intent}.`);

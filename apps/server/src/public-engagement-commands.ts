@@ -367,8 +367,11 @@ function readNotificationTypePayload(
 			...(raw.name === undefined ? {} : { name: readRequiredText(raw.name) ?? '' }),
 			...(raw.description === undefined ? {} : { description: readOptionalText(raw.description) }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
-			acknowledgedHistoricalLabelChange: acknowledged(raw.acknowledgedHistoricalLabelChange),
-			acknowledgedActiveSubscriptionImpact: acknowledged(raw.acknowledgedActiveSubscriptionImpact),
+			acknowledgedHistoricalLabelChange: acknowledged(raw, 'acknowledgedHistoricalLabelChange'),
+			acknowledgedActiveSubscriptionImpact: acknowledged(
+				raw,
+				'acknowledgedActiveSubscriptionImpact',
+			),
 		},
 	};
 }

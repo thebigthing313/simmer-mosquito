@@ -41,7 +41,15 @@ import type { RouteRow } from '../field-work-commands/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
-export function routeTableCommands(db: CommandDb): TableCommands<FieldWorkCommand, RouteRow> {
+/**
+ * The stops a move plan names, and where it puts them. The ids are
+ * `route_items.id`, so they stay `snake_case`.
+ */
+type RouteArgument = 'route_item_ids' | 'placement';
+
+export function routeTableCommands(
+	db: CommandDb,
+): TableCommands<'routes', FieldWorkCommand, RouteRow, RouteArgument> {
 	return {
 		table: 'routes',
 		run: { db, write: writeRouteCommand, notFound: 'route_not_found', key: 'route' },
@@ -69,7 +77,7 @@ export function routeTableCommands(db: CommandDb): TableCommands<FieldWorkComman
 				deleteRouteCommand({
 					...agency,
 					routeId: id,
-					acknowledgedRouteItemDeletion: acknowledged(payload.acknowledgedRouteItemDeletion),
+					acknowledgedRouteItemDeletion: acknowledged(payload, 'acknowledgedRouteItemDeletion'),
 				}),
 
 			'fieldWork.moveRouteItems': ({ payload, agency, id }) =>

@@ -166,32 +166,63 @@ Route carries `route_id`. Those stay `snake_case`, because they are column
 names and a reader would take a `camelCase` spelling for an instruction. The
 module's own "Field names" section says which of its keys are not its columns.
 
-### The check
+### The compiler checks it
 
-`pnpm check:command-columns` reads every `snake_case` key an intent handler
-reads and requires it to be a column of that handler's table, from the generated
-row schema in `packages/sync/src/collections/tables/`. CI runs it beside
-`check:build-graph`.
+The rule above is a type. `CommandPayload<TTable, TArgument>` in
+`apps/server/src/command-payload.ts` is the body a builder is handed, and its
+keys are that table's columns, the acknowledgement vocabulary, and the keys the
+table declares. Everything else is a compile error at the property access.
 
-It exists because the client half of this is safe and the server half is not.
-A mutation's keys are `withoutServerOwnedColumns(mutation.changes)`, so they come
-off the generated row type and cannot be misspelled. A handler types its keys as
-string literals against a loose `Record<string, unknown>`, so
-`payload.region_folder_ids` compiles, reads `undefined`, and leaves the Region in
-no folder while the caller gets a 200.
+- The columns come from `SimmerDatabase` in `packages/db/src/tables.ts`, which
+  is generated from `packages/db/schema.sql` (ADR 0004).
+- The acknowledgements come from `ACKNOWLEDGEMENTS` in `packages/domain`, so
+  every table carries them and a misspelled flag does not compile.
+- Everything else is `TArgument`, a union each table names at its factory's
+  return type. That is the declaration site those keys did not have, and it is
+  where the module's "Field names" section is written down as code.
 
-Two faults, and the second is the one worth having:
+A table declares its arguments once, as a named type beside the factory:
+
+```ts
+type HabitatArgument = 'locationSource' | 'inspection_id' | 'sourceHabitatIds';
+
+export function habitatTableCommands(
+	db: CommandDb,
+): TableCommands<'habitats', LarvalSurveillanceCommand, HabitatRow, HabitatArgument> {
+```
+
+A factory serving several tables at once names the union, and `ColumnOf` is
+distributive, so it answers to every column any of them has. `org-lookups.ts` is
+the case: three catalogs, one reader, and `custom_schema` on two of them.
+
+Two faults this closes, and the second is the one worth having:
 
 1. A typo, at the moment it is written.
 2. A column a later migration renames or drops, where the handler keeps reading
-   the old name and quietly stops receiving a value.
+   the old name and quietly stops receiving a value. The migration moves
+   `schema.sql`, `pnpm generate:table-types` moves `tables.ts`, and the build
+   fails at every handler still reading the old name.
 
-The reverse direction is not checked. A handler reads only the keys its command
-takes, and a column no command writes is normal. Single-word keys are not
-checked either, because `name` and `context` are spelled the same and only one
-of them is a column. Cross-record keys are listed in the script's
-`CROSS_RECORD_KEYS` with what each names, and an entry no handler reads any more
-is itself a failure.
+**Presence is `=== undefined`, not `in`.** A body's key that is absent and one
+carrying `null` are different writes, so a partial update reads presence. `'key'
+in payload` takes any string, so it is checked by nothing; `payload.key !==
+undefined` goes through the property access the compiler checks, and answers the
+same question, because `JSON.parse` never produces `undefined`.
+
+**A reader shared by several tables takes the values, not the payload.**
+`readEntityTarget(payload.entity_type, payload.entity_id)` and
+`drawnGeometry(payload.locationSource)` are spelled in the module whose table has
+the column, which is the only place the compiler can check them.
+
+This replaced `pnpm check:command-columns`, a script that read the same
+`snake_case` keys out of the handler source and compared them against the
+generated row schemas (#426). It carried a hardcoded table count and an allowlist
+of keys naming another record, and it could see neither the `camelCase` half nor
+a reader that took a loose record. One thing it did that the type does not: it
+read the client's row schemas, which omit the server-owned columns, so it also
+refused a handler reading `payload.deleted_at` or `payload.geom` off a body.
+Nothing does, and a delete or a geometry write is a named command rather than a
+column arriving.
 
 ## Delete policy
 
@@ -231,6 +262,14 @@ A client withholds a confirmation by sending the flag as `false`. Absent means
 confirmed, which is what every endpoint did before any of them was read, so a
 client that has never heard of a flag behaves as it always did. `acknowledged`
 in `apps/server/src/command-payload.ts` is the one reading of that convention.
+
+Four flags read the other way, and the reader takes the flag's name so no call
+site chooses. `EXPLICIT_ACKNOWLEDGEMENTS` in `apps/server/src/acknowledgements.ts`
+names them with the reason for each: a duplicate trap code is a collision the
+caller could not have seen, and the three mission ones are a stop being closed
+against what the plan said. Absent is not an answer to a question the body was
+written before. A flag added to the vocabulary takes the default, so the
+exception is the thing that has to be argued for (#426).
 
 The flag on a rule is required rather than optional. A new consequence cannot
 reach the registry without someone deciding whether the agency is asked about
@@ -280,8 +319,8 @@ only one that describes a record delete. Four more raise the same 409:
   traps may legitimately share one and the collision is a question rather than a
   rule. `assertNoColliding` counts the traps already carrying the code. Kept out
   of the citation check on purpose — those rows do not read under the value,
-  they compete with it — and it is the one flag that refuses unless it is
-  explicitly `true`, because a collision cannot arrive pre-answered.
+  they compete with it — and it is one of the four that refuse unless the flag
+  is explicitly `true`, because a collision cannot arrive pre-answered.
 
 The last two mechanisms are the pure command builder, which pushes a validation
 issue unless the flag is `true` and so answers `400 invalid_command` naming the

@@ -88,7 +88,8 @@ export function registerNotificationRegistrationRoutes(
 					notificationRegistrationId: param('notificationRegistrationId'),
 					contact: payload.contact as ContactReferenceInput,
 					acknowledgedHistoricalContactChange: acknowledged(
-						payload.acknowledgedHistoricalContactChange,
+						payload,
+						'acknowledgedHistoricalContactChange',
 					),
 				}),
 			run: (context, commands) => runRegistrationCommands(context, options.db, commands),
@@ -104,7 +105,7 @@ export function registerNotificationRegistrationRoutes(
 					...ctx,
 					notificationRegistrationId: param('notificationRegistrationId'),
 					location: payload.location as NotificationRegistrationLocationInput,
-					acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
+					acknowledgedFutureOnlyChange: acknowledged(payload, 'acknowledgedFutureOnlyChange'),
 				}),
 			run: (context, commands) => runRegistrationCommands(context, options.db, commands),
 		}),
@@ -140,7 +141,7 @@ function buildRegistrationUpdateCommands(
 				notificationRegistrationId,
 				...('hasBees' in payload ? { hasBees: payload.hasBees === true } : {}),
 				...('isNoSpray' in payload ? { isNoSpray: payload.isNoSpray === true } : {}),
-				acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
+				acknowledgedFutureOnlyChange: acknowledged(payload, 'acknowledgedFutureOnlyChange'),
 			}),
 		);
 		if (!result.ok) return result;
@@ -154,7 +155,7 @@ function buildRegistrationUpdateCommands(
 				notificationRegistrationId,
 				bufferDistance: readNumberOrNull(payload.bufferDistance),
 				bufferUnitId: readNullableText(payload.bufferUnitId),
-				acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
+				acknowledgedFutureOnlyChange: acknowledged(payload, 'acknowledgedFutureOnlyChange'),
 			}),
 		);
 		if (!result.ok) return result;
@@ -168,7 +169,8 @@ function buildRegistrationUpdateCommands(
 				notificationRegistrationId,
 				contact: { kind: 'existing', contactId: readText(payload.contactId) ?? '' },
 				acknowledgedHistoricalContactChange: acknowledged(
-					payload.acknowledgedHistoricalContactChange,
+					payload,
+					'acknowledgedHistoricalContactChange',
 				),
 			}),
 		);

@@ -78,7 +78,7 @@ type InsecticideBatchResponse = NonNullable<
 
 export function insecticideTableCommands(
 	db: CommandDb,
-): TableCommands<InsecticideCommand, InsecticideResponse> {
+): TableCommands<'insecticides', InsecticideCommand, InsecticideResponse> {
 	return {
 		table: 'insecticides',
 		run: {
@@ -109,24 +109,33 @@ export function insecticideTableCommands(
 				updateInsecticideCommand({
 					...agency,
 					insecticideId: id,
-					...('trade_name' in payload ? { tradeName: readText(payload.trade_name) ?? '' } : {}),
-					...('active_ingredient' in payload
+					...(payload.trade_name !== undefined
+						? { tradeName: readText(payload.trade_name) ?? '' }
+						: {}),
+					...(payload.active_ingredient !== undefined
 						? { activeIngredient: readText(payload.active_ingredient) ?? '' }
 						: {}),
-					...('type' in payload ? { type: (readText(payload.type) ?? '') as never } : {}),
-					...('registration_number' in payload
+					...(payload.type !== undefined ? { type: (readText(payload.type) ?? '') as never } : {}),
+					...(payload.registration_number !== undefined
 						? { registrationNumber: readText(payload.registration_number) ?? '' }
 						: {}),
-					...('default_unit_id' in payload
+					...(payload.default_unit_id !== undefined
 						? { defaultUnitId: readText(payload.default_unit_id) ?? '' }
 						: {}),
 					// Present-and-null clears a label or safety-sheet link; absent leaves it.
-					...('label_url' in payload ? { labelUrl: readNullableText(payload.label_url) } : {}),
-					...('msds_url' in payload ? { msdsUrl: readNullableText(payload.msds_url) } : {}),
-					...('shorthand' in payload ? { shorthand: readNullableText(payload.shorthand) } : {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.label_url !== undefined
+						? { labelUrl: readNullableText(payload.label_url) }
+						: {}),
+					...(payload.msds_url !== undefined
+						? { msdsUrl: readNullableText(payload.msds_url) }
+						: {}),
+					...(payload.shorthand !== undefined
+						? { shorthand: readNullableText(payload.shorthand) }
+						: {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 					acknowledgedHistoricalProductChange: acknowledged(
-						payload.acknowledgedHistoricalProductChange,
+						payload,
+						'acknowledgedHistoricalProductChange',
 					),
 				}),
 
@@ -138,7 +147,8 @@ export function insecticideTableCommands(
 					...agency,
 					insecticideId: id,
 					acknowledgedDependentDeactivation: acknowledged(
-						payload.acknowledgedDependentDeactivation,
+						payload,
+						'acknowledgedDependentDeactivation',
 					),
 				}),
 
@@ -153,7 +163,7 @@ export function insecticideTableCommands(
 
 export function insecticideBatchTableCommands(
 	db: CommandDb,
-): TableCommands<InsecticideBatchCommand, InsecticideBatchResponse> {
+): TableCommands<'insecticide_batches', InsecticideBatchCommand, InsecticideBatchResponse> {
 	return {
 		table: 'insecticide_batches',
 		run: {
@@ -177,9 +187,12 @@ export function insecticideBatchTableCommands(
 				updateInsecticideBatchCommand({
 					...agency,
 					insecticideBatchId: id,
-					...('batch_name' in payload ? { batchName: readText(payload.batch_name) ?? '' } : {}),
+					...(payload.batch_name !== undefined
+						? { batchName: readText(payload.batch_name) ?? '' }
+						: {}),
 					acknowledgedHistoricalBatchLabelChange: acknowledged(
-						payload.acknowledgedHistoricalBatchLabelChange,
+						payload,
+						'acknowledgedHistoricalBatchLabelChange',
 					),
 				}),
 
@@ -197,7 +210,7 @@ export function insecticideBatchTableCommands(
 
 export function formulationTableCommands(
 	db: CommandDb,
-): TableCommands<ControlOperationsCommand, FormulationRow> {
+): TableCommands<'formulations', ControlOperationsCommand, FormulationRow> {
 	return {
 		table: 'formulations',
 		run: {
@@ -222,16 +235,16 @@ export function formulationTableCommands(
 				updateFormulationDetailsCommand({
 					...agency,
 					formulationId: id,
-					...('formulation_name' in payload
+					...(payload.formulation_name !== undefined
 						? { formulationName: readText(payload.formulation_name) ?? '' }
 						: {}),
-					...('description' in payload
+					...(payload.description !== undefined
 						? { description: readNullableText(payload.description) }
 						: {}),
-					...('batch_size' in payload
+					...(payload.batch_size !== undefined
 						? { batchSize: readNumber(payload.batch_size) ?? Number.NaN }
 						: {}),
-					...('batch_unit_id' in payload
+					...(payload.batch_unit_id !== undefined
 						? { batchUnitId: readText(payload.batch_unit_id) ?? '' }
 						: {}),
 				}),
@@ -249,7 +262,7 @@ export function formulationTableCommands(
 				deleteFormulationCommand({
 					...agency,
 					formulationId: id,
-					acknowledgedComponentDeletion: acknowledged(payload.acknowledgedComponentDeletion),
+					acknowledgedComponentDeletion: acknowledged(payload, 'acknowledgedComponentDeletion'),
 				}),
 		},
 	};
@@ -257,7 +270,7 @@ export function formulationTableCommands(
 
 export function formulationInsecticideTableCommands(
 	db: CommandDb,
-): TableCommands<ControlOperationsCommand, FormulationInsecticideRow> {
+): TableCommands<'formulation_insecticides', ControlOperationsCommand, FormulationInsecticideRow> {
 	return {
 		table: 'formulation_insecticides',
 		run: {
@@ -286,13 +299,16 @@ export function formulationInsecticideTableCommands(
 				updateFormulationInsecticideCommand({
 					...agency,
 					formulationInsecticideId: id,
-					...('insecticide_id' in payload
+					...(payload.insecticide_id !== undefined
 						? { insecticideId: readText(payload.insecticide_id) ?? '' }
 						: {}),
-					...('amount' in payload ? { amount: readNumber(payload.amount) ?? Number.NaN } : {}),
-					...('unit_id' in payload ? { unitId: readText(payload.unit_id) ?? '' } : {}),
+					...(payload.amount !== undefined
+						? { amount: readNumber(payload.amount) ?? Number.NaN }
+						: {}),
+					...(payload.unit_id !== undefined ? { unitId: readText(payload.unit_id) ?? '' } : {}),
 					acknowledgedDeactivateEmptyFormulation: acknowledged(
-						payload.acknowledgedDeactivateEmptyFormulation,
+						payload,
+						'acknowledgedDeactivateEmptyFormulation',
 					),
 				}),
 
@@ -301,7 +317,8 @@ export function formulationInsecticideTableCommands(
 					...agency,
 					formulationInsecticideId: id,
 					acknowledgedDeactivateEmptyFormulation: acknowledged(
-						payload.acknowledgedDeactivateEmptyFormulation,
+						payload,
+						'acknowledgedDeactivateEmptyFormulation',
 					),
 				}),
 		},

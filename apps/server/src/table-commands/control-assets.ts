@@ -50,7 +50,7 @@ function assetRun(db: CommandDb): RunCommandsConfig<ControlAssetCommand, AssetRe
 
 export function vehicleTableCommands(
 	db: CommandDb,
-): TableCommands<ControlAssetCommand, AssetResponse> {
+): TableCommands<'vehicles', ControlAssetCommand, AssetResponse> {
 	return {
 		table: 'vehicles',
 		run: assetRun(db),
@@ -67,12 +67,13 @@ export function vehicleTableCommands(
 				updateVehicleCommand({
 					...agency,
 					vehicleId: id,
-					...('vehicle_name' in payload
+					...(payload.vehicle_name !== undefined
 						? { vehicleName: readText(payload.vehicle_name) ?? '' }
 						: {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 					acknowledgedHistoricalVehicleLabelChange: acknowledged(
-						payload.acknowledgedHistoricalVehicleLabelChange,
+						payload,
+						'acknowledgedHistoricalVehicleLabelChange',
 					),
 				}),
 
@@ -92,7 +93,7 @@ export function vehicleTableCommands(
 
 export function equipmentTableCommands(
 	db: CommandDb,
-): TableCommands<ControlAssetCommand, AssetResponse> {
+): TableCommands<'equipment', ControlAssetCommand, AssetResponse> {
 	return {
 		table: 'equipment',
 		run: assetRun(db),
@@ -110,17 +111,18 @@ export function equipmentTableCommands(
 				updateEquipmentCommand({
 					...agency,
 					equipmentId: id,
-					...('equipment_name' in payload
+					...(payload.equipment_name !== undefined
 						? { equipmentName: readText(payload.equipment_name) ?? '' }
 						: {}),
 					// Present-and-null clears the serial number; absent leaves it. A piece
 					// of equipment can genuinely lose the label it was tracked by.
-					...('serial_number' in payload
+					...(payload.serial_number !== undefined
 						? { serialNumber: readNullableText(payload.serial_number) }
 						: {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 					acknowledgedHistoricalEquipmentLabelChange: acknowledged(
-						payload.acknowledgedHistoricalEquipmentLabelChange,
+						payload,
+						'acknowledgedHistoricalEquipmentLabelChange',
 					),
 				}),
 

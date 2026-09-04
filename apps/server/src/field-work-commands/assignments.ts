@@ -127,7 +127,8 @@ export function registerAssignmentRoutes(
 					...ctx,
 					assignmentId: param('assignmentId'),
 					acknowledgedAssignmentItemDeletion: acknowledged(
-						payload.acknowledgedAssignmentItemDeletion,
+						payload,
+						'acknowledgedAssignmentItemDeletion',
 					),
 				}),
 			run: (context, commands) => runAssignmentCommands(context, options.db, commands),

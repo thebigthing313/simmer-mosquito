@@ -32,7 +32,7 @@ import { readEntityTarget } from './shared.js';
 
 export function additionalPersonnelTableCommands(
 	db: CommandDb,
-): TableCommands<FieldWorkCommand, AdditionalPersonnelRow> {
+): TableCommands<'additional_personnel', FieldWorkCommand, AdditionalPersonnelRow> {
 	return {
 		table: 'additional_personnel',
 		run: {
@@ -46,7 +46,7 @@ export function additionalPersonnelTableCommands(
 				addAdditionalPersonnelCommand({
 					...agency,
 					additionalPersonnelId: id,
-					target: readEntityTarget(payload),
+					target: readEntityTarget(payload.entity_type, payload.entity_id),
 					personnelProfileId: readText(payload.personnel_profile_id) ?? '',
 				}),
 

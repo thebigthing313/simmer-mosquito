@@ -90,8 +90,8 @@ export function registerRequestedControlActionRoutes(
 				deleteRequestedControlActionCommand({
 					...ctx,
 					requestedControlActionId: param('requestedControlActionId'),
-					acknowledgedActionDetach: acknowledged(payload.acknowledgedActionDetach),
-					acknowledgedMissionDetach: acknowledged(payload.acknowledgedMissionDetach),
+					acknowledgedActionDetach: acknowledged(payload, 'acknowledgedActionDetach'),
+					acknowledgedMissionDetach: acknowledged(payload, 'acknowledgedMissionDetach'),
 				}),
 			run: (context, commands) => runRequestedControlActionCommands(context, options.db, commands),
 		}),

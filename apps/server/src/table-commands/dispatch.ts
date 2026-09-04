@@ -57,6 +57,7 @@ import {
 	type CommandContext,
 	readJsonObject,
 } from '../command-endpoint.js';
+import type { CommandPayload, CommandTable } from '../command-payload.js';
 import {
 	type AgencyCommandType,
 	denyUnauthorizedAgencyCommands,
@@ -69,8 +70,14 @@ import {
 	type WritableCommand,
 } from '../command-write.js';
 
-/** What every builder in a table's map is handed. */
-export interface IntentRequest {
+/**
+ * What every builder in a table's map is handed.
+ *
+ * Generic in the table, so the payload is that table's columns and nothing
+ * else. `TArgument` is the keys a table's commands read that are not its own
+ * columns, declared at the factory's return type; see {@link CommandPayload}.
+ */
+export interface IntentRequest<TTable extends CommandTable, TArgument extends string = never> {
 	/**
 	 * The body without `intents`, keyed by Postgres column name.
 	 *
@@ -79,7 +86,7 @@ export interface IntentRequest {
 	 * and a command named with nothing to change is refused by the domain, so a
 	 * caller naming one it has no fields for fails loudly rather than silently.
 	 */
-	readonly payload: Record<string, unknown>;
+	readonly payload: CommandPayload<TTable, TArgument>;
 	readonly agency: AgencyContext;
 	readonly authContext: AuthContext;
 	/**
@@ -92,7 +99,11 @@ export interface IntentRequest {
 	readonly id: string;
 }
 
-export type IntentBuilder<TCommand> = (request: IntentRequest) => TCommand;
+export type IntentBuilder<
+	TTable extends CommandTable,
+	TCommand,
+	TArgument extends string = never,
+> = (request: IntentRequest<TTable, TArgument>) => TCommand;
 
 /**
  * The commands one table accepts.
@@ -101,17 +112,24 @@ export type IntentBuilder<TCommand> = (request: IntentRequest) => TCommand;
  * and the names that come back out are already known to the permission map.
  * Partial because no table accepts the whole vocabulary.
  */
-export type IntentMap<TCommand> = Readonly<
-	Partial<Record<AgencyCommandType, IntentBuilder<TCommand>>>
->;
+export type IntentMap<
+	TTable extends CommandTable,
+	TCommand,
+	TArgument extends string = never,
+> = Readonly<Partial<Record<AgencyCommandType, IntentBuilder<TTable, TCommand, TArgument>>>>;
 
-export interface TableCommands<TCommand extends WritableCommand, TRow> {
+export interface TableCommands<
+	TTable extends CommandTable,
+	TCommand extends WritableCommand,
+	TRow,
+	TArgument extends string = never,
+> {
 	/** The Postgres table. Names the routes, and is what the client's collection id is. */
-	readonly table: string;
+	readonly table: TTable;
 	/** Omitted means `'agency'`, which is every table but the global catalogs. */
 	readonly actor?: 'agency';
 	readonly run: RunCommandsConfig<TCommand, TRow>;
-	readonly intents: IntentMap<TCommand>;
+	readonly intents: IntentMap<TTable, TCommand, TArgument>;
 }
 
 /**
@@ -122,26 +140,41 @@ export interface TableCommands<TCommand extends WritableCommand, TRow> {
  * else. `genera` and `species` have no `organization_id` and every agency reads
  * them, so an organization is not a thing a caller could sensibly supply.
  */
-export interface OperatorIntentRequest {
-	readonly payload: Record<string, unknown>;
+export interface OperatorIntentRequest<
+	TTable extends CommandTable,
+	TArgument extends string = never,
+> {
+	readonly payload: CommandPayload<TTable, TArgument>;
 	/** The SIMMER `users` row behind the operator session. */
 	readonly operatorUserId: string;
 	readonly operatorContext: OperatorAuthContext;
 	readonly id: string;
 }
 
-export interface OperatorTableCommands<TCommand extends WritableCommand, TRow> {
-	readonly table: string;
+export interface OperatorTableCommands<
+	TTable extends CommandTable,
+	TCommand extends WritableCommand,
+	TRow,
+	TArgument extends string = never,
+> {
+	readonly table: TTable;
 	readonly actor: 'operator';
 	readonly run: RunCommandsConfig<TCommand, TRow>;
 	readonly intents: Readonly<
-		Partial<Record<AgencyCommandType, (request: OperatorIntentRequest) => TCommand>>
+		Partial<
+			Record<AgencyCommandType, (request: OperatorIntentRequest<TTable, TArgument>) => TCommand>
+		>
 	>;
 }
 
-export type AnyTableCommands<TCommand extends WritableCommand, TRow> =
-	| TableCommands<TCommand, TRow>
-	| OperatorTableCommands<TCommand, TRow>;
+export type AnyTableCommands<
+	TTable extends CommandTable,
+	TCommand extends WritableCommand,
+	TRow,
+	TArgument extends string = never,
+> =
+	| TableCommands<TTable, TCommand, TRow, TArgument>
+	| OperatorTableCommands<TTable, TCommand, TRow, TArgument>;
 
 /** The names a request said it meant, or why the list could not be read. */
 type IntentsResult =
@@ -194,8 +227,13 @@ function withoutIntents(payload: Record<string, unknown>): Record<string, unknow
  * `createdStatus` is 201 on the POST and absent elsewhere, matching what the
  * existing endpoints answer.
  */
-function tableCommandHandler<TCommand extends WritableCommand, TRow>(
-	spec: TableCommands<TCommand, TRow>,
+function tableCommandHandler<
+	TTable extends CommandTable,
+	TCommand extends WritableCommand,
+	TRow,
+	TArgument extends string,
+>(
+	spec: TableCommands<TTable, TCommand, TRow, TArgument>,
 	idFrom: (context: CommandContext, payload: Record<string, unknown>) => string,
 	createdStatus?: 201,
 ): (context: CommandContext) => Promise<Response> {
@@ -222,8 +260,12 @@ function tableCommandHandler<TCommand extends WritableCommand, TRow>(
 
 		const payload = withoutIntents(parsed.payload);
 		const authContext = context.get('authContext');
-		const request: IntentRequest = {
-			payload,
+		const request: IntentRequest<TTable, TArgument> = {
+			// The one cast the surface needs. What arrives is untrusted JSON with no
+			// keys the parser can promise, and what a builder reads is the table's
+			// columns; the values stay `unknown` either way, so the cast adds no claim
+			// about them. It is here rather than at 272 call sites.
+			payload: payload as CommandPayload<TTable, TArgument>,
 			agency: agencyCommandContext(authContext),
 			authContext,
 			id: idFrom(context, payload),
@@ -232,7 +274,7 @@ function tableCommandHandler<TCommand extends WritableCommand, TRow>(
 		const commands: TCommand[] = [];
 		for (const name of names.intents) {
 			// Present by construction: `readIntents` refused any name the map lacks.
-			const build = spec.intents[name] as IntentBuilder<TCommand>;
+			const build = spec.intents[name] as IntentBuilder<TTable, TCommand, TArgument>;
 			try {
 				commands.push(build(request));
 			} catch (error) {
@@ -275,10 +317,15 @@ function assertOperatorScoped(spec: {
 	}
 }
 
-function registerOperatorRoutes<TCommand extends WritableCommand, TRow>(
+function registerOperatorRoutes<
+	TTable extends CommandTable,
+	TCommand extends WritableCommand,
+	TRow,
+	TArgument extends string,
+>(
 	app: Hono<{ Variables: AuthVariables }>,
 	operatorAuthContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>,
-	spec: OperatorTableCommands<TCommand, TRow>,
+	spec: OperatorTableCommands<TTable, TCommand, TRow, TArgument>,
 ): void {
 	assertOperatorScoped(spec);
 	const path = commandPathFor(spec.table);
@@ -315,8 +362,8 @@ function registerOperatorRoutes<TCommand extends WritableCommand, TRow>(
 			}
 
 			const payload = withoutIntents(parsed.payload);
-			const request: OperatorIntentRequest = {
-				payload,
+			const request: OperatorIntentRequest<TTable, TArgument> = {
+				payload: payload as CommandPayload<TTable, TArgument>,
 				operatorUserId: operatorContext.localIdentity.user.id,
 				operatorContext,
 				id: idFrom(context, payload),
@@ -324,7 +371,9 @@ function registerOperatorRoutes<TCommand extends WritableCommand, TRow>(
 
 			const commands: TCommand[] = [];
 			for (const name of names.intents) {
-				const build = spec.intents[name] as (r: OperatorIntentRequest) => TCommand;
+				const build = spec.intents[name] as (
+					r: OperatorIntentRequest<TTable, TArgument>,
+				) => TCommand;
 				try {
 					commands.push(build(request));
 				} catch (error) {
@@ -358,13 +407,18 @@ function registerOperatorRoutes<TCommand extends WritableCommand, TRow>(
 	);
 }
 
-export function registerTableCommandRoutes<TCommand extends WritableCommand, TRow>(
+export function registerTableCommandRoutes<
+	TTable extends CommandTable,
+	TCommand extends WritableCommand,
+	TRow,
+	TArgument extends string,
+>(
 	app: Hono<{ Variables: AuthVariables }>,
 	options: {
 		readonly authContextMiddleware: MiddlewareHandler<{ Variables: AuthVariables }>;
 		readonly operatorAuthContextMiddleware?: MiddlewareHandler<{ Variables: AuthVariables }>;
 	},
-	spec: AnyTableCommands<TCommand, TRow>,
+	spec: AnyTableCommands<TTable, TCommand, TRow, TArgument>,
 ): void {
 	if (spec.actor === 'operator') {
 		if (options.operatorAuthContextMiddleware === undefined) {

@@ -202,7 +202,7 @@ async function writeSpeciesCommand(
 
 export function genusTableCommands(
 	db: CommandDb,
-): OperatorTableCommands<FoundationCommand, GenusRow> {
+): OperatorTableCommands<'genera', FoundationCommand, GenusRow> {
 	return {
 		table: 'genera',
 		actor: 'operator',
@@ -220,11 +220,11 @@ export function genusTableCommands(
 				updateGenusCommand({
 					operatorUserId,
 					genusId: id,
-					acknowledgedTaxonomyLabelChange: acknowledged(payload.acknowledgedTaxonomyLabelChange),
-					...('abbreviation' in payload
+					acknowledgedTaxonomyLabelChange: acknowledged(payload, 'acknowledgedTaxonomyLabelChange'),
+					...(payload.abbreviation !== undefined
 						? { abbreviation: readText(payload.abbreviation) ?? '' }
 						: {}),
-					...('name' in payload ? { name: readText(payload.name) ?? '' } : {}),
+					...(payload.name !== undefined ? { name: readText(payload.name) ?? '' } : {}),
 				}),
 
 			'foundation.deleteGenus': ({ operatorUserId, id }) =>
@@ -235,7 +235,7 @@ export function genusTableCommands(
 
 export function speciesTableCommands(
 	db: CommandDb,
-): OperatorTableCommands<FoundationCommand, SpeciesRow> {
+): OperatorTableCommands<'species', FoundationCommand, SpeciesRow> {
 	return {
 		table: 'species',
 		actor: 'operator',
@@ -255,19 +255,22 @@ export function speciesTableCommands(
 				updateSpeciesCommand({
 					operatorUserId,
 					speciesId: id,
-					...('genus_id' in payload ? { genusId: readNullableText(payload.genus_id) } : {}),
-					...('epithet' in payload ? { epithet: readText(payload.epithet) ?? '' } : {}),
-					...('common_name' in payload
+					...(payload.genus_id !== undefined
+						? { genusId: readNullableText(payload.genus_id) }
+						: {}),
+					...(payload.epithet !== undefined ? { epithet: readText(payload.epithet) ?? '' } : {}),
+					...(payload.common_name !== undefined
 						? { commonName: readNullableText(payload.common_name) }
 						: {}),
-					...('display_name' in payload
+					...(payload.display_name !== undefined
 						? { displayName: readText(payload.display_name) ?? '' }
 						: {}),
 					// Nothing guards on this yet, but it is recorded on the command, and
 					// recording `false` on every edit an operator did confirm would make
 					// the audit trail say the opposite of what happened.
 					acknowledgedTaxonomyMeaningChange: acknowledged(
-						payload.acknowledgedTaxonomyMeaningChange,
+						payload,
+						'acknowledgedTaxonomyMeaningChange',
 					),
 				}),
 

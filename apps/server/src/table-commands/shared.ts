@@ -14,13 +14,11 @@ import { CommandError } from '../command-endpoint.js';
 import { readText } from '../command-payload.js';
 
 /**
- * An acknowledgement the caller did not withhold.
+ * Whether the caller has answered an acknowledgement.
  *
- * The delete and lifecycle commands take flags a client sets to `false` to say
- * "I have not confirmed this yet"; absent means confirmed, which is what the
- * existing endpoints already do. One reading rather than one per table, so a
- * map that spells it `!== false` and a map that spells it `=== true` cannot
- * both exist.
+ * Takes the flag's name and looks its posture up, so a map cannot spell one
+ * `!== false` and another `=== true` by hand. Which flags read which way is in
+ * `EXPLICIT_ACKNOWLEDGEMENTS`; see `command-payload.ts`.
  */
 export { acknowledged } from '../command-payload.js';
 
@@ -58,14 +56,20 @@ export function readIdList(value: unknown): readonly string[] {
  * `validateTarget` is what checks it, against that command's list, and names it
  * when it is wrong. Narrowing here would be a second copy of three lists, and
  * the copy that goes stale.
+ *
+ * It takes the two values rather than the payload, so `entity_type` is spelled
+ * in the module whose table has the column and the compiler checks it there.
  */
-export function readEntityTarget(payload: Record<string, unknown>): {
+export function readEntityTarget(
+	entityType: unknown,
+	entityId: unknown,
+): {
 	readonly type: never;
 	readonly id: string;
 } {
 	return {
-		type: fromDbEntityType(readText(payload.entity_type) ?? '') as never,
-		id: readText(payload.entity_id) ?? '',
+		type: fromDbEntityType(readText(entityType) ?? '') as never,
+		id: readText(entityId) ?? '',
 	};
 }
 
@@ -82,10 +86,11 @@ export function readEntityTarget(payload: Record<string, unknown>): {
  * form does not have to know which of the two commands its save will become.
  * Unwrapping it is this reader's job: the distinction is the domain's, and the
  * transport should not make every caller mirror it.
+ *
+ * It takes the source rather than the payload, so `locationSource` is spelled in
+ * the module that declares it as one of its keys.
  */
-export function drawnGeometry(payload: Record<string, unknown>): unknown {
-	const source = payload.locationSource;
-
+export function drawnGeometry(source: unknown): unknown {
 	if (typeof source !== 'object' || source === null) {
 		return undefined;
 	}

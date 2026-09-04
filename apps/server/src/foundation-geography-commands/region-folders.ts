@@ -70,7 +70,7 @@ export function registerRegionFolderRoutes(
 				deleteRegionFolderCommand({
 					...ctx,
 					regionFolderId: param('regionFolderId'),
-					acknowledgedRegionDetach: acknowledged(payload.acknowledgedRegionDetach),
+					acknowledgedRegionDetach: acknowledged(payload, 'acknowledgedRegionDetach'),
 				}),
 			run: (context, commands) => runRegionFolderCommands(context, options.db, commands),
 		}),

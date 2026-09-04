@@ -54,7 +54,7 @@ import {
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { agencyCommandContext, handleCommandError, readJsonObject } from '../command-endpoint.js';
-import { readString } from '../command-payload.js';
+import { acknowledged, readString } from '../command-payload.js';
 import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
 import { commandActor, writeCommands } from '../command-write.js';
 import { refusableWrite } from '../table-commands/shared.js';
@@ -136,8 +136,8 @@ export function registerWeatherImportRoute(
 				...agencyCommandContext(authContext),
 				weatherStationId: readString(payload.weather_source_id),
 				rows: readRows(payload.rows),
-				acknowledgedUpdates: payload.acknowledgedUpdates === true,
-				acknowledgedPartialImport: payload.acknowledgedPartialImport === true,
+				acknowledgedUpdates: acknowledged(payload, 'acknowledgedUpdates'),
+				acknowledgedPartialImport: acknowledged(payload, 'acknowledgedPartialImport'),
 			});
 		} catch (error) {
 			if (!(error instanceof DomainValidationError)) {

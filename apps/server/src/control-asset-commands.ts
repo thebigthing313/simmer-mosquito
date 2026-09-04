@@ -557,8 +557,12 @@ interface ControlAssetPayload {
  * The domain splits it back into the vehicle and equipment flags on the way in.
  */
 function readLabelAcknowledgement(raw: Record<string, unknown>): boolean {
+	const stated = raw.acknowledgedHistoricalVehicleLabelChange;
 	return acknowledged(
-		raw.acknowledgedHistoricalVehicleLabelChange ?? raw.acknowledgedHistoricalEquipmentLabelChange,
+		raw,
+		stated === undefined || stated === null
+			? 'acknowledgedHistoricalEquipmentLabelChange'
+			: 'acknowledgedHistoricalVehicleLabelChange',
 	);
 }
 

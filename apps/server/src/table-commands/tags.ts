@@ -41,7 +41,7 @@ import type { TagCommand } from '../foundation-commands/shared.js';
 import { writeFoundationTagCommand } from '../foundation-commands/tags.js';
 import type { TableCommands } from './dispatch.js';
 
-export function tagTableCommands(db: CommandDb): TableCommands<TagCommand, TagRow> {
+export function tagTableCommands(db: CommandDb): TableCommands<'tags', TagCommand, TagRow> {
 	return {
 		table: 'tags',
 		run: { db, write: writeFoundationTagCommand, notFound: 'tag_not_found', key: 'tag' },
@@ -62,11 +62,11 @@ export function tagTableCommands(db: CommandDb): TableCommands<TagCommand, TagRo
 				updateTagCommand({
 					...agency,
 					tagId: id,
-					...('tag_name' in payload ? { tagName: readText(payload.tag_name) ?? '' } : {}),
-					...('description' in payload
+					...(payload.tag_name !== undefined ? { tagName: readText(payload.tag_name) ?? '' } : {}),
+					...(payload.description !== undefined
 						? { description: readNullableText(payload.description) }
 						: {}),
-					...('color' in payload ? { color: readNullableText(payload.color) } : {}),
+					...(payload.color !== undefined ? { color: readNullableText(payload.color) } : {}),
 				}),
 
 			'fieldWork.activateTag': ({ agency, id }) => activateTagCommand({ ...agency, tagId: id }),

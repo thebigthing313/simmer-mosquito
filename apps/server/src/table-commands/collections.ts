@@ -59,6 +59,7 @@ import {
 } from '../adult-surveillance-commands/collections.js';
 import { type CollectionRow, pendingStartedAt } from '../adult-surveillance-commands/shared.js';
 import {
+	type CommandPayload,
 	readExecutionOptions,
 	readNullableText,
 	readNumber,
@@ -67,6 +68,15 @@ import {
 import { type CommandDb, readDate } from '../command-write.js';
 import type { IntentRequest, TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
+
+/**
+ * The keys a collection write reads that are not its columns: where the trap
+ * was, and the assignment stop a set or pull closes.
+ */
+type CollectionArgument = 'locationSource' | 'assignmentItemId' | 'completedAt';
+
+/** The body of a write to this module's table. */
+type CollectionPayload = CommandPayload<'collections', CollectionArgument>;
 
 /**
  * How long the trap was out, read from the six columns that record it.
@@ -80,7 +90,7 @@ import { acknowledged } from './shared.js';
  * and it is the one place `readDate`'s null return is load-bearing rather than
  * cosmetic — the timing carries the field or it does not.
  */
-function collectionTiming(payload: Record<string, unknown>): CollectionTiming {
+function collectionTiming(payload: CollectionPayload): CollectionTiming {
 	if (payload.collection_timing_mode === 'collection_date_duration') {
 		return {
 			mode: 'collection_date_duration',
@@ -105,18 +115,18 @@ function collectionTiming(payload: Record<string, unknown>): CollectionTiming {
  * Here the name is the claim, and the domain's `validateCollectedTiming` is
  * what settles it.
  */
-function collectedTiming(payload: Record<string, unknown>): CollectedCollectionTiming {
+function collectedTiming(payload: CollectionPayload): CollectedCollectionTiming {
 	return collectionTiming(payload) as CollectedCollectionTiming;
 }
 
-function hasTimingColumns(payload: Record<string, unknown>): boolean {
+function hasTimingColumns(payload: CollectionPayload): boolean {
 	return (
-		'collection_timing_mode' in payload ||
-		'started_at' in payload ||
-		'collected_at' in payload ||
-		'collection_date' in payload ||
-		'duration_amount' in payload ||
-		'duration_unit_id' in payload
+		payload.collection_timing_mode !== undefined ||
+		payload.started_at !== undefined ||
+		payload.collected_at !== undefined ||
+		payload.collection_date !== undefined ||
+		payload.duration_amount !== undefined ||
+		payload.duration_unit_id !== undefined
 	);
 }
 
@@ -126,7 +136,7 @@ function hasTimingColumns(payload: Record<string, unknown>): boolean {
  * They close an assignment stop in the same transaction that writes the
  * collection, so the work can never exist with the stop still pending.
  */
-function stopExecution({ payload, agency, id }: IntentRequest) {
+function stopExecution({ payload, agency, id }: IntentRequest<'collections', CollectionArgument>) {
 	return {
 		...agency,
 		collectionId: id,
@@ -137,7 +147,7 @@ function stopExecution({ payload, agency, id }: IntentRequest) {
 }
 
 /** The trap defaults a stop-set may override, which otherwise come from the trap. */
-function trapOverrides(payload: Record<string, unknown>) {
+function trapOverrides(payload: CollectionPayload) {
 	return {
 		// Nullable rather than absent: the stop already names a trap, so the
 		// ordinary call sends none and cannot disagree with it, and the writer falls
@@ -151,7 +161,7 @@ function trapOverrides(payload: Record<string, unknown>) {
 
 export function collectionTableCommands(
 	db: CommandDb,
-): TableCommands<CollectionCommand, CollectionRow> {
+): TableCommands<'collections', CollectionCommand, CollectionRow, CollectionArgument> {
 	return {
 		table: 'collections',
 		run: { db, write: writeCollectionCommand, notFound: 'collection_not_found', key: 'collection' },
@@ -191,7 +201,8 @@ export function collectionTableCommands(
 					collectedByProfileId: readNullableText(payload.collected_by_profile_id),
 					hasProblem: payload.has_problem === true,
 					acknowledgedPendingTrapCollection: acknowledged(
-						payload.acknowledgedPendingTrapCollection,
+						payload,
+						'acknowledgedPendingTrapCollection',
 					),
 					metadata: payload.metadata ?? null,
 				}),
@@ -262,30 +273,34 @@ export function collectionTableCommands(
 					// timestamped or dated with a duration, and half of each is not a state
 					// the row can hold. So they are read together or not at all.
 					...(hasTimingColumns(payload) ? { timing: collectionTiming(payload) } : {}),
-					...('set_by_profile_id' in payload
+					...(payload.set_by_profile_id !== undefined
 						? { setByProfileId: readNullableText(payload.set_by_profile_id) }
 						: {}),
-					...('collected_by_profile_id' in payload
+					...(payload.collected_by_profile_id !== undefined
 						? { collectedByProfileId: readNullableText(payload.collected_by_profile_id) }
 						: {}),
-					...('has_problem' in payload ? { hasProblem: payload.has_problem === true } : {}),
-					...('metadata' in payload ? { metadata: payload.metadata ?? null } : {}),
+					...(payload.has_problem !== undefined
+						? { hasProblem: payload.has_problem === true }
+						: {}),
+					...(payload.metadata !== undefined ? { metadata: payload.metadata ?? null } : {}),
 				}),
 
 			'adultSurveillance.updateAdHocCollectionConfiguration': ({ payload, agency, id }) =>
 				updateAdHocCollectionConfigurationCommand({
 					...agency,
 					collectionId: id,
-					...('collection_method_id' in payload
+					...(payload.collection_method_id !== undefined
 						? { collectionMethodId: readText(payload.collection_method_id) ?? '' }
 						: {}),
-					...('locationSource' in payload
+					...(payload.locationSource !== undefined
 						? { locationSource: payload.locationSource as AdultCollectionLocationSourceInput }
 						: {}),
-					...('collection_lure_id' in payload
+					...(payload.collection_lure_id !== undefined
 						? { collectionLureId: readNullableText(payload.collection_lure_id) }
 						: {}),
-					...('address_id' in payload ? { addressId: readNullableText(payload.address_id) } : {}),
+					...(payload.address_id !== undefined
+						? { addressId: readNullableText(payload.address_id) }
+						: {}),
 				}),
 
 			// --- The result ------------------------------------------------------
@@ -297,7 +312,8 @@ export function collectionTableCommands(
 					...agency,
 					collectionId: id,
 					acknowledgedSpeciesCountsClearance: acknowledged(
-						payload.acknowledgedSpeciesCountsClearance,
+						payload,
+						'acknowledgedSpeciesCountsClearance',
 					),
 				}),
 
@@ -317,7 +333,10 @@ export function collectionTableCommands(
 				deleteCollectionCommand({
 					...agency,
 					collectionId: id,
-					acknowledgedSpeciesCountDeletion: acknowledged(payload.acknowledgedSpeciesCountDeletion),
+					acknowledgedSpeciesCountDeletion: acknowledged(
+						payload,
+						'acknowledgedSpeciesCountDeletion',
+					),
 				}),
 		},
 	};

@@ -99,10 +99,11 @@ export function tableCommandSpecs(
 	db: CommandDb,
 	/** Only `memberships` uses it — the four commands that also settle WorkOS. */
 	auth: MembershipAuth,
-	// biome-ignore lint/suspicious/noExplicitAny: each table names its own command
-	// union and its own row type; the list is heterogeneous by construction and
-	// only the shared `table`/`run`/`intents` shape is ever read off it.
-): readonly AnyTableCommands<any, any>[] {
+	// Each table names its own table, command union, row type and argument keys, so
+	// the list is heterogeneous by construction and only the shared
+	// `table`/`run`/`intents` shape is ever read off it.
+	// biome-ignore lint/suspicious/noExplicitAny: the list is heterogeneous by construction, see above
+): readonly AnyTableCommands<any, any, any, any>[] {
 	return [
 		habitatTableCommands(db),
 		inspectionTableCommands(db),

@@ -76,7 +76,7 @@ export function registerRegionRoutes(
 				deleteRegionCommand({
 					...ctx,
 					regionId: param('regionId'),
-					acknowledgedRegionDelete: acknowledged(payload.acknowledgedRegionDelete),
+					acknowledgedRegionDelete: acknowledged(payload, 'acknowledgedRegionDelete'),
 				}),
 			run: (context, commands) => runRegionCommands(context, options.db, commands),
 		}),
@@ -123,7 +123,7 @@ function buildRegionUpdateCommands(
 				...ctx,
 				regionId,
 				geometry: payload.geometry,
-				acknowledgedRegionBoundaryChange: acknowledged(payload.acknowledgedRegionBoundaryChange),
+				acknowledgedRegionBoundaryChange: acknowledged(payload, 'acknowledgedRegionBoundaryChange'),
 			}),
 		);
 		if (!result.ok) return result;

@@ -30,7 +30,9 @@ import { writeTagItemCommand } from '../field-work-commands/tag-items.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 
-export function tagItemTableCommands(db: CommandDb): TableCommands<FieldWorkCommand, TagItemRow> {
+export function tagItemTableCommands(
+	db: CommandDb,
+): TableCommands<'tag_items', FieldWorkCommand, TagItemRow> {
 	return {
 		table: 'tag_items',
 		run: {
@@ -45,7 +47,7 @@ export function tagItemTableCommands(db: CommandDb): TableCommands<FieldWorkComm
 					...agency,
 					tagItemId: id,
 					tagId: readText(payload.tag_id) ?? '',
-					target: readEntityTarget(payload),
+					target: readEntityTarget(payload.entity_type, payload.entity_id),
 				}),
 
 			// Only the link row's id: which record the Tag was on is what the server

@@ -56,7 +56,7 @@ export function registerNotificationRegistrationTypeRoutes(
 				unsubscribeNotificationRegistrationTypeCommand({
 					...ctx,
 					notificationRegistrationTypeId: param('notificationRegistrationTypeId'),
-					acknowledgedFutureOnlyChange: acknowledged(payload.acknowledgedFutureOnlyChange),
+					acknowledgedFutureOnlyChange: acknowledged(payload, 'acknowledgedFutureOnlyChange'),
 				}),
 			run: (context, commands) => runRegistrationTypeCommands(context, options.db, commands),
 		}),

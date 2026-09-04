@@ -9,7 +9,7 @@
  *   of spaces silently created an unlabeled sample;
  * - `isZeroLarvae: true` meant `markSampleZeroLarvae` and `false` meant
  *   `clearSampleZeroLarvae`, a value read for its direction;
- * - and the rest of the PATCH was four `'field' in payload` checks.
+ * - and the rest of the PATCH was four `payload.field !== undefined` checks.
  *
  * Eight named entries below, each reading only what its own command takes.
  *
@@ -40,7 +40,7 @@ import { acknowledged } from './shared.js';
 
 export function sampleTableCommands(
 	db: CommandDb,
-): TableCommands<LarvalSurveillanceCommand, SampleRow> {
+): TableCommands<'samples', LarvalSurveillanceCommand, SampleRow> {
 	return {
 		table: 'samples',
 		run: { db, write: writeSampleCommand, notFound: 'sample_not_found', key: 'sample' },
@@ -101,7 +101,8 @@ export function sampleTableCommands(
 					...agency,
 					sampleId: id,
 					acknowledgedAssociatedRecordsDeletion: acknowledged(
-						payload.acknowledgedAssociatedRecordsDeletion,
+						payload,
+						'acknowledgedAssociatedRecordsDeletion',
 					),
 				}),
 		},

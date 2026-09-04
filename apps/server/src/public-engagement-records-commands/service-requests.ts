@@ -88,7 +88,8 @@ export function registerServiceRequestRoutes(
 					serviceRequestId: param('serviceRequestId'),
 					contact: payload.contact as ContactReferenceInput,
 					acknowledgedHistoricalContactChange: acknowledged(
-						payload.acknowledgedHistoricalContactChange,
+						payload,
+						'acknowledgedHistoricalContactChange',
 					),
 				}),
 			run: (context, commands) => runServiceRequestCommands(context, options.db, commands),
@@ -105,7 +106,8 @@ export function registerServiceRequestRoutes(
 					serviceRequestId: param('serviceRequestId'),
 					location: payload.location as ServiceRequestLocationInput,
 					acknowledgedHistoricalLocationChange: acknowledged(
-						payload.acknowledgedHistoricalLocationChange,
+						payload,
+						'acknowledgedHistoricalLocationChange',
 					),
 				}),
 			run: (context, commands) => runServiceRequestCommands(context, options.db, commands),
@@ -122,12 +124,14 @@ export function registerServiceRequestRoutes(
 					...ctx,
 					serviceRequestId: param('serviceRequestId'),
 					acknowledgedAssignmentItemDeletion: acknowledged(
-						payload.acknowledgedAssignmentItemDeletion,
+						payload,
+						'acknowledgedAssignmentItemDeletion',
 					),
 					// See the mission delete: whether the request was closed is its own
 					// state, and nothing reads this yet.
 					acknowledgedClosedRequestDeletion: acknowledged(
-						payload.acknowledgedClosedRequestDeletion,
+						payload,
+						'acknowledgedClosedRequestDeletion',
 					),
 				}),
 			run: (context, commands) => runServiceRequestCommands(context, options.db, commands),
@@ -157,7 +161,7 @@ function buildServiceRequestUpdateCommands(
 					? { receivedByProfileId: readNullableText(payload.receivedByProfileId) }
 					: {}),
 				...('details' in payload ? { details: readText(payload.details) ?? '' } : {}),
-				acknowledgedClosedRequestChange: acknowledged(payload.acknowledgedClosedRequestChange),
+				acknowledgedClosedRequestChange: acknowledged(payload, 'acknowledgedClosedRequestChange'),
 			}),
 		);
 		if (!result.ok) return result;
@@ -171,7 +175,8 @@ function buildServiceRequestUpdateCommands(
 				serviceRequestId,
 				contact: { kind: 'existing', contactId: readText(payload.contactId) ?? '' },
 				acknowledgedHistoricalContactChange: acknowledged(
-					payload.acknowledgedHistoricalContactChange,
+					payload,
+					'acknowledgedHistoricalContactChange',
 				),
 			}),
 		);

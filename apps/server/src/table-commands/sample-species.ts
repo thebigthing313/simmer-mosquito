@@ -31,7 +31,7 @@ import type { TableCommands } from './dispatch.js';
 
 export function sampleSpeciesTableCommands(
 	db: CommandDb,
-): TableCommands<LarvalSurveillanceCommand, SampleSpeciesRow> {
+): TableCommands<'sample_species', LarvalSurveillanceCommand, SampleSpeciesRow> {
 	return {
 		table: 'sample_species',
 		run: {
@@ -59,14 +59,16 @@ export function sampleSpeciesTableCommands(
 				updateSampleSpeciesCountCommand({
 					...agency,
 					sampleSpeciesId: id,
-					...('species_id' in payload ? { speciesId: readText(payload.species_id) ?? '' } : {}),
-					...('larvae_count' in payload
+					...(payload.species_id !== undefined
+						? { speciesId: readText(payload.species_id) ?? '' }
+						: {}),
+					...(payload.larvae_count !== undefined
 						? { larvaeCount: readNumber(payload.larvae_count) ?? Number.NaN }
 						: {}),
-					...('identified_by_profile_id' in payload
+					...(payload.identified_by_profile_id !== undefined
 						? { identifiedByProfileId: readNullableText(payload.identified_by_profile_id) }
 						: {}),
-					...('identified_at' in payload
+					...(payload.identified_at !== undefined
 						? { identifiedAt: readText(payload.identified_at) ?? '' }
 						: {}),
 				}),

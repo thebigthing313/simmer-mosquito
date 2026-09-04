@@ -54,13 +54,6 @@ jobs:
       - name: Build graph
         run: pnpm check:build-graph
 
-      # The other half of a command write is hand-typed. A body's `snake_case`
-      # key names a column, and `payload` is a loose record, so a misspelled one
-      # reads `undefined` and the caller still gets a 200. The reads have a
-      # drift test against the database; this is the writes' equivalent.
-      - name: Command columns
-        run: pnpm check:command-columns
-
       # A write's own agency comes from the session; the ids it references come
       # from the payload, and a foreign key cannot see whose they are. This
       # asserts every write that names one goes through the reference gate.

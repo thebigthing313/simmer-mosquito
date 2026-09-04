@@ -17,7 +17,12 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
-import { readExecutionOptions, readNullableText, readText } from '../command-payload.js';
+import {
+	acknowledged,
+	readExecutionOptions,
+	readNullableText,
+	readText,
+} from '../command-payload.js';
 import { readDate } from '../command-write.js';
 import {
 	beginExecution,
@@ -162,9 +167,11 @@ export function registerInspectionRoutes(
 				deleteInspectionCommand({
 					...ctx,
 					inspectionId: param('inspectionId'),
-					acknowledgedAssociatedRecordsDeletion:
-						payload.acknowledgedAssociatedRecordsDeletion !== false,
-					acknowledgedCrossDomainDetach: payload.acknowledgedCrossDomainDetach !== false,
+					acknowledgedAssociatedRecordsDeletion: acknowledged(
+						payload,
+						'acknowledgedAssociatedRecordsDeletion',
+					),
+					acknowledgedCrossDomainDetach: acknowledged(payload, 'acknowledgedCrossDomainDetach'),
 				}),
 			run: (context, commands) => runInspectionCommands(context, options.db, commands),
 		}),

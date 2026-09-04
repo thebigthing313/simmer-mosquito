@@ -61,7 +61,8 @@ export function registerFormulationInsecticideRoutes(
 					...('amount' in payload ? { amount: readNumber(payload.amount) ?? Number.NaN } : {}),
 					...('unitId' in payload ? { unitId: readText(payload.unitId) ?? '' } : {}),
 					acknowledgedDeactivateEmptyFormulation: acknowledged(
-						payload.acknowledgedDeactivateEmptyFormulation,
+						payload,
+						'acknowledgedDeactivateEmptyFormulation',
 					),
 				}),
 			run: (context, commands) => runFormulationInsecticideCommands(context, options.db, commands),
@@ -81,7 +82,8 @@ export function registerFormulationInsecticideRoutes(
 					...ctx,
 					formulationInsecticideId: param('formulationInsecticideId'),
 					acknowledgedDeactivateEmptyFormulation: acknowledged(
-						payload.acknowledgedDeactivateEmptyFormulation,
+						payload,
+						'acknowledgedDeactivateEmptyFormulation',
 					),
 				}),
 			run: (context, commands) => runFormulationInsecticideCommands(context, options.db, commands),

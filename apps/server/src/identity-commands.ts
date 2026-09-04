@@ -14,6 +14,7 @@
 import { type SelectedRow, sql, updateRow } from '@simmer-mosquito/db';
 import type { IdentityCommand, OrganizationDetailChanges } from '@simmer-mosquito/domain';
 import { CommandError } from './command-endpoint.js';
+import type { ColumnOf } from './command-payload.js';
 import type { CommandTransaction } from './command-write.js';
 
 const organizationReturnColumns = [
@@ -160,7 +161,7 @@ async function updateOrganizationDetails(
  * out nine times, that distinction is nine chances to write `??` instead.
  */
 export const ORGANIZATION_DETAIL_COLUMNS: readonly (readonly [
-	column: string,
+	column: ColumnOf<'organizations'>,
 	field: keyof OrganizationDetailChanges,
 ])[] = [
 	['name', 'name'],

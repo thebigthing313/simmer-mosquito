@@ -514,7 +514,7 @@ export function readCollectionMethodUpdatePayload(
 				: { customSchema: readOptionalJson(raw.customSchema) }),
 			...(raw.actionThreshold === undefined ? {} : { actionThreshold }),
 			...(raw.isActive === undefined ? {} : { isActive: raw.isActive }),
-			acknowledgedHistoricalLabelChange: acknowledged(raw.acknowledgedHistoricalLabelChange),
+			acknowledgedHistoricalLabelChange: acknowledged(raw, 'acknowledgedHistoricalLabelChange'),
 		},
 	};
 }

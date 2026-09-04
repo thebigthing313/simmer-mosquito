@@ -23,7 +23,9 @@ import type { CommandDb } from '../command-write.js';
 import { type IdentityRow, writeIdentityCommand } from '../identity-commands.js';
 import type { TableCommands } from './dispatch.js';
 
-export function profileTableCommands(db: CommandDb): TableCommands<IdentityCommand, IdentityRow> {
+export function profileTableCommands(
+	db: CommandDb,
+): TableCommands<'profiles', IdentityCommand, IdentityRow> {
 	return {
 		table: 'profiles',
 		run: { db, write: writeIdentityCommand, notFound: 'profile_not_found', key: 'profile' },
@@ -39,10 +41,10 @@ export function profileTableCommands(db: CommandDb): TableCommands<IdentityComma
 				updateProfileCommand({
 					...agency,
 					profileId: id,
-					...('display_name' in payload
+					...(payload.display_name !== undefined
 						? { displayName: readText(payload.display_name) ?? '' }
 						: {}),
-					...('is_active' in payload ? { isActive: payload.is_active === true } : {}),
+					...(payload.is_active !== undefined ? { isActive: payload.is_active === true } : {}),
 				}),
 		},
 	};
