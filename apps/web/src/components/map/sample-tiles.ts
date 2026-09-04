@@ -5,7 +5,6 @@ import {
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
-	selectedLayerIds,
 } from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
@@ -33,7 +32,6 @@ export interface SampleTileFilters extends RegionScopedTileFilters {
 }
 
 export const SAMPLE_SOURCE_ID = 'samples';
-const _SAMPLE_SOURCE_LAYER = 'samples';
 
 /**
  * Status palette. Points are colored by where a sample sits in the lab workflow —
@@ -68,8 +66,6 @@ export const SAMPLE_STATUS_COLORS: Readonly<Record<SampleStatus, string>> = {
 
 /** Layers the user can click to select a sample. Order = hit priority. */
 export const SAMPLE_INTERACTIVE_LAYER_IDS = interactiveLayerIds(SAMPLE_SOURCE_ID);
-
-const SAMPLE_SELECTED_LAYER_IDS = selectedLayerIds(SAMPLE_SOURCE_ID);
 
 export const SAMPLE_LAYER_IDS = allLayerIds(SAMPLE_SOURCE_ID);
 
@@ -127,5 +123,3 @@ function sampleTileParams(filters?: SampleTileFilters): URLSearchParams {
 export function sampleTileLayers(selectedId: string | null): GeometryTileLayer[] {
 	return geometryTileLayers(SAMPLE_SOURCE_ID, { fill: statusColor, line: statusColor }, selectedId);
 }
-
-export { SAMPLE_SELECTED_LAYER_IDS };

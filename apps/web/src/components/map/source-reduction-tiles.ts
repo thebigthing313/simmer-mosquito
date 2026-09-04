@@ -4,7 +4,6 @@ import {
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
-	selectedLayerIds,
 } from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
@@ -30,7 +29,6 @@ export interface SourceReductionTileFilters extends RegionScopedTileFilters {
 }
 
 export const SOURCE_REDUCTION_SOURCE_ID = 'source-reduction';
-const _SOURCE_REDUCTION_SOURCE_LAYER = 'source-reduction';
 
 /** Map paint colors, from the shared palette in `@simmer-mosquito/design-tokens`. */
 const colors = {
@@ -44,8 +42,6 @@ const colors = {
 export const SOURCE_REDUCTION_INTERACTIVE_LAYER_IDS = interactiveLayerIds(
 	SOURCE_REDUCTION_SOURCE_ID,
 );
-
-const SOURCE_REDUCTION_SELECTED_LAYER_IDS = selectedLayerIds(SOURCE_REDUCTION_SOURCE_ID);
 
 export const SOURCE_REDUCTION_LAYER_IDS = allLayerIds(SOURCE_REDUCTION_SOURCE_ID);
 
@@ -97,5 +93,3 @@ export function sourceReductionTileLayers(selectedId: string | null): GeometryTi
 		selectedId,
 	);
 }
-
-export { SOURCE_REDUCTION_SELECTED_LAYER_IDS };

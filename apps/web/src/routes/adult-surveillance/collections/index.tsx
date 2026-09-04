@@ -29,6 +29,7 @@ import {
 	type CollectionTileFilters,
 	MAP_CREATE_TARGETS,
 	MapCanvas,
+	type MapTileLayer,
 } from '../../../components/map';
 import { useTrapNames } from '../../../hooks/queries/use-trap-names';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
@@ -186,8 +187,16 @@ function CollectionsExplorerRoute() {
 	useFlyToSelection(map, selected);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const collectionLayer = useMemo(
-		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'collections',
+				serverUrl: getServerUrl(),
+				filters,
+				selectedId,
+				onSelectFeature: setSelectedId,
+			},
+		],
 		[filters, selectedId],
 	);
 
@@ -265,7 +274,7 @@ function CollectionsExplorerRoute() {
 						inset={panel.inset}
 						searchWidth={panel.width}
 						contextMenu={{ create: [MAP_CREATE_TARGETS.collection, MAP_CREATE_TARGETS.trap] }}
-						collectionLayer={collectionLayer}
+						layers={layers}
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						legend={legend}

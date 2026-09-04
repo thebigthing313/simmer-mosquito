@@ -84,9 +84,13 @@ function regionTileParams(filters?: RegionTileFilters): URLSearchParams {
  * id, and `promoteId` only backfills the id for feature-state / queried features
  * — a render-time layer filter still sees `feature.id === undefined`. Filtering
  * on `['id']` here would match nothing, so no region ever draws.
+ *
+ * Sorted, so that ticking a region off and back on leaves the expression it was:
+ * `useTileLayer` reapplies a layer's filter when the filter changes, and the
+ * order the ids arrive in is not a change.
  */
 function regionVisibilityFilter(visibleIds: readonly string[]): ExpressionSpecification {
-	return ['in', ['get', 'id'], ['literal', [...visibleIds]]];
+	return ['in', ['get', 'id'], ['literal', [...visibleIds].sort()]];
 }
 
 /**

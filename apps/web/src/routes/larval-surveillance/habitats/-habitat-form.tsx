@@ -155,7 +155,9 @@ export function HabitatFormPage({
 					<>
 						<MapCanvas
 							controls={{ layers: false }}
-							habitatLayer={{ serverUrl: getServerUrl(), filters: { isActive: true } }}
+							layers={[
+								{ kind: 'habitats', serverUrl: getServerUrl(), filters: { isActive: true } },
+							]}
 							onMapReady={location.onMapReady}
 							{...(editCamera === undefined ? {} : { camera: editCamera })}
 						/>

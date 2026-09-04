@@ -148,6 +148,7 @@ vi.mock('../../../../components/map/mapbox-gl-loader', () => ({
 vi.stubEnv('VITE_MAPBOX_ACCESS_TOKEN', 'pk.test');
 
 const { RouteMap } = await import('../../../../components/route-planning/route-map');
+const { MapCanvas } = await import('../../../../components/map/map-canvas');
 
 const roots: Array<{ container: HTMLElement; unmount: () => void }> = [];
 
@@ -353,5 +354,62 @@ describe('RouteMap lifecycle (issue #132)', () => {
 		});
 
 		expect(latest().removed).toBe(false);
+	});
+});
+
+/*
+ * Draw order used to be the order the eleven tile-layer props were declared in
+ * `MapCanvas`, which no caller could see or change. It is now the order of the
+ * `layers` list, and the mechanism is that each entry mounts a child: Mapbox
+ * appends layers in add order, and React runs a child's effects before its
+ * parent's. Both halves are load-bearing and neither is written down in the
+ * types, so they are asserted here.
+ */
+describe('MapCanvas layer order (issue #431)', () => {
+	async function draw(layers: Parameters<typeof MapCanvas>[0]['layers']) {
+		mount(
+			<MapCanvas
+				controls={{ search: false, basemap: false, layers: false, geolocate: false, zoom: false }}
+				geoJson={{ type: 'FeatureCollection', features: [] }}
+				{...(layers === undefined ? {} : { layers })}
+			/>,
+		);
+		await loadRuntime();
+		act(() => {
+			latest().fire('load');
+		});
+		return [...(latest().style?.layers.keys() ?? [])];
+	}
+
+	it('adds the tilesets in list order, and the GeoJSON overlay over all of them', async () => {
+		const ids = await draw([
+			{ kind: 'habitats', serverUrl: 'https://api.test' },
+			{ kind: 'addresses', serverUrl: 'https://api.test' },
+		]);
+
+		expect(ids).toContain('habitats-polygon-fill');
+		expect(ids).toContain('addresses-points');
+		expect(ids).toContain('geojson-overlay-points');
+		expect(ids.indexOf('habitats-polygon-fill')).toBeLessThan(ids.indexOf('addresses-points'));
+		expect(ids.indexOf('addresses-points')).toBeLessThan(ids.indexOf('geojson-overlay-points'));
+	});
+
+	// The inspection form draws the inspection over the habitat tiles it is being
+	// placed against, and reversing the list has to be able to reverse that.
+	it('follows the list when the same two are listed the other way round', async () => {
+		const ids = await draw([
+			{ kind: 'addresses', serverUrl: 'https://api.test' },
+			{ kind: 'habitats', serverUrl: 'https://api.test' },
+		]);
+
+		expect(ids).toContain('addresses-points');
+		expect(ids.indexOf('addresses-points')).toBeLessThan(ids.indexOf('habitats-polygon-fill'));
+	});
+
+	it('draws only the GeoJSON overlay when no tileset is listed', async () => {
+		const ids = await draw(undefined);
+
+		expect(ids.some((id) => id.startsWith('habitats-'))).toBe(false);
+		expect(ids).toContain('geojson-overlay-points');
 	});
 });

@@ -23,7 +23,12 @@ import {
 	useSelectedMapRecord,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { MAP_CREATE_TARGETS, MapCanvas, type OutreachTileFilters } from '../../../components/map';
+import {
+	MAP_CREATE_TARGETS,
+	MapCanvas,
+	type MapTileLayer,
+	type OutreachTileFilters,
+} from '../../../components/map';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 import {
@@ -170,8 +175,16 @@ function OutreachExplorerRoute() {
 	useFlyToSelection(map, selected);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const outreachLayer = useMemo(
-		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'outreach',
+				serverUrl: getServerUrl(),
+				filters,
+				selectedId,
+				onSelectFeature: setSelectedId,
+			},
+		],
 		[filters, selectedId],
 	);
 
@@ -261,8 +274,8 @@ function OutreachExplorerRoute() {
 						}}
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
+						layers={layers}
 						onMapReady={handleMapReady}
-						outreachLayer={outreachLayer}
 					/>
 					{selected === null ? null : (
 						<OutreachMapCard

@@ -6,7 +6,6 @@ import {
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
-	selectedLayerIds,
 } from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
@@ -37,7 +36,6 @@ export interface InspectionTileFilters extends RegionScopedTileFilters {
 }
 
 export const INSPECTION_SOURCE_ID = 'inspections';
-const _INSPECTION_SOURCE_LAYER = 'inspections';
 
 /**
  * Density heat ramp. Points are colored by the surveillance signal — a dry site
@@ -75,8 +73,6 @@ export const INSPECTION_DRY_COLOR = colors.dry;
 
 /** Layers the user can click to select a inspection. Order = hit priority. */
 export const INSPECTION_INTERACTIVE_LAYER_IDS = interactiveLayerIds(INSPECTION_SOURCE_ID);
-
-const INSPECTION_SELECTED_LAYER_IDS = selectedLayerIds(INSPECTION_SOURCE_ID);
 
 export const INSPECTION_LAYER_IDS = allLayerIds(INSPECTION_SOURCE_ID);
 
@@ -154,5 +150,3 @@ export function inspectionTileLayers(selectedId: string | null): GeometryTileLay
 		selectedId,
 	);
 }
-
-export { INSPECTION_SELECTED_LAYER_IDS };

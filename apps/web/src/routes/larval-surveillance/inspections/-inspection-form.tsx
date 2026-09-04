@@ -406,7 +406,9 @@ export function InspectionFormPage({
 						<MapCanvas
 							controls={{ layers: false }}
 							geoJson={previewGeometry as unknown as GeoJSON.GeoJSON | null}
-							habitatLayer={{ serverUrl: getServerUrl(), filters: { isActive: true } }}
+							layers={[
+								{ kind: 'habitats', serverUrl: getServerUrl(), filters: { isActive: true } },
+							]}
 							onMapReady={location.onMapReady}
 						/>
 						<DrawToolbar controller={draw} geometryType={adhocGeometryType} />

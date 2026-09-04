@@ -4,7 +4,6 @@ import {
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
-	selectedLayerIds,
 } from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
@@ -32,7 +31,6 @@ export interface BiocontrolTileFilters extends RegionScopedTileFilters {
 }
 
 export const BIOCONTROL_SOURCE_ID = 'biocontrol';
-const _BIOCONTROL_SOURCE_LAYER = 'biocontrol';
 
 /** Map paint colors, from the shared palette in `@simmer-mosquito/design-tokens`. */
 const colors = {
@@ -44,8 +42,6 @@ const colors = {
 
 /** Layers the user can click to select a biocontrol. Order = hit priority. */
 export const BIOCONTROL_INTERACTIVE_LAYER_IDS = interactiveLayerIds(BIOCONTROL_SOURCE_ID);
-
-const BIOCONTROL_SELECTED_LAYER_IDS = selectedLayerIds(BIOCONTROL_SOURCE_ID);
 
 export const BIOCONTROL_LAYER_IDS = allLayerIds(BIOCONTROL_SOURCE_ID);
 
@@ -94,5 +90,3 @@ export function biocontrolTileLayers(selectedId: string | null): GeometryTileLay
 		selectedId,
 	);
 }
-
-export { BIOCONTROL_SELECTED_LAYER_IDS };

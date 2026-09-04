@@ -26,7 +26,7 @@ import {
 	FilterChip,
 	useExplorerPanel,
 } from '../../../components/explorer';
-import { MapCanvas } from '../../../components/map';
+import { MapCanvas, type MapTileLayer } from '../../../components/map';
 import { WriteOnly } from '../../../components/write-only';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import {
@@ -105,16 +105,16 @@ function RegionsMap({
 	focusedId,
 	map,
 	onMapReady,
+	layers,
 	onSelect,
 	panel,
-	regionLayer,
 }: {
 	readonly focusedId: string | null;
+	readonly layers: readonly MapTileLayer[];
 	readonly map: MapboxMap | null;
 	readonly onMapReady: (instance: MapboxMap) => void;
 	readonly onSelect: (id: string | null) => void;
 	readonly panel: ReturnType<typeof useExplorerPanel>;
-	readonly regionLayer: NonNullable<Parameters<typeof MapCanvas>[0]['regionLayer']>;
 }) {
 	return (
 		<>
@@ -128,8 +128,8 @@ function RegionsMap({
 				controls={{ layers: false, measure: true, readout: true }}
 				fitToData={focusedId === null}
 				inset={panel.inset}
+				layers={layers}
 				onMapReady={onMapReady}
-				regionLayer={regionLayer}
 				searchWidth={panel.width}
 			/>
 			{focusedId === null ? null : (
@@ -417,13 +417,16 @@ function RegionsExplorerRoute() {
 
 	const visibleArray = useMemo(() => [...visibleIds], [visibleIds]);
 	const serverUrl = getServerUrl();
-	const regionLayer = useMemo(
-		() => ({
-			serverUrl,
-			visibleIds: visibleArray,
-			selectedId: focusedId,
-			onSelectFeature: (id: string | null) => setFocusedId(id),
-		}),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'regions',
+				serverUrl,
+				visibleIds: visibleArray,
+				selectedId: focusedId,
+				onSelectFeature: (id: string | null) => setFocusedId(id),
+			},
+		],
 		[serverUrl, visibleArray, focusedId],
 	);
 	const toggleRegion = useCallback(
@@ -497,11 +500,11 @@ function RegionsExplorerRoute() {
 				map={
 					<RegionsMap
 						focusedId={focusedId}
+						layers={layers}
 						map={map}
 						onMapReady={setMap}
 						onSelect={setFocusedId}
 						panel={panel}
-						regionLayer={regionLayer}
 					/>
 				}
 				panel={panel}

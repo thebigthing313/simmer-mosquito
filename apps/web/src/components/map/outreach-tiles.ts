@@ -4,7 +4,6 @@ import {
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
-	selectedLayerIds,
 } from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
@@ -29,7 +28,6 @@ export interface OutreachTileFilters extends RegionScopedTileFilters {
 }
 
 export const OUTREACH_SOURCE_ID = 'outreach';
-const _OUTREACH_SOURCE_LAYER = 'outreach';
 
 /** Map paint colors, from the shared palette in `@simmer-mosquito/design-tokens`. */
 const colors = {
@@ -41,8 +39,6 @@ const colors = {
 
 /** Layers the user can click to select a outreach action. Order = hit priority. */
 export const OUTREACH_INTERACTIVE_LAYER_IDS = interactiveLayerIds(OUTREACH_SOURCE_ID);
-
-const OUTREACH_SELECTED_LAYER_IDS = selectedLayerIds(OUTREACH_SOURCE_ID);
 
 export const OUTREACH_LAYER_IDS = allLayerIds(OUTREACH_SOURCE_ID);
 
@@ -85,5 +81,3 @@ export function outreachTileLayers(selectedId: string | null): GeometryTileLayer
 		selectedId,
 	);
 }
-
-export { OUTREACH_SELECTED_LAYER_IDS };

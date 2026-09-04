@@ -30,6 +30,7 @@ import {
 	type HabitatTileFilters,
 	MAP_CREATE_TARGETS,
 	MapCanvas,
+	type MapTileLayer,
 } from '../../../components/map';
 import type { Tag } from '../../../hooks/queries/tag-view';
 import { habitats } from '../../../lib/collections/habitats';
@@ -187,8 +188,16 @@ function HabitatsExplorerRoute() {
 	useFlyToSelection(map, selectedHabitat);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const habitatLayer = useMemo(
-		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'habitats',
+				serverUrl: getServerUrl(),
+				filters,
+				selectedId,
+				onSelectFeature: setSelectedId,
+			},
+		],
 		[filters, selectedId],
 	);
 
@@ -300,9 +309,9 @@ function HabitatsExplorerRoute() {
 						contextMenu={{ create: [MAP_CREATE_TARGETS.habitat, MAP_CREATE_TARGETS.inspection] }}
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
-						habitatLayer={habitatLayer}
-						legend={legend}
 						inset={panel.inset}
+						layers={layers}
+						legend={legend}
 						onMapReady={handleMapReady}
 						searchWidth={panel.width}
 					/>
