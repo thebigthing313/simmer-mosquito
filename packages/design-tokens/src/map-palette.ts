@@ -50,6 +50,18 @@ export const mapInteraction = {
 	measure: '#7c3aed',
 	/** The casing that keeps a measurement legible over a dark basemap. */
 	measureStroke: '#5b21b6',
+
+	/**
+	 * A shape being drawn that the control will not accept.
+	 *
+	 * Red, because it is the only state on the map that is about to be refused
+	 * rather than about to be saved. It repaints the amber draft in place instead
+	 * of adding a second shape, so what turns red is the thing the pointer is
+	 * moving, and it goes back to amber the moment the shape is drawable again.
+	 */
+	refused: '#dc2626',
+	/** The casing that keeps a refused draft legible over a dark basemap. */
+	refusedStroke: '#991b1b',
 } as const;
 
 /**

@@ -4,6 +4,7 @@ import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DrawGeometry } from '../../../../components/map/use-map-draw';
 import {
+	drawHoles,
 	drawParts,
 	geometryFromParts,
 	toDrawGeometry,
@@ -67,6 +68,27 @@ const SECOND_SQUARE = [
 	[-80, 35],
 	[-80, 36],
 	[-79, 36],
+] as const;
+/** A four-corner area with room inside it, so a hole has somewhere to go. */
+const BLOCK = [
+	[-91, 34],
+	[-91, 37],
+	[-88, 37],
+	[-88, 34],
+] as const;
+/** Well inside {@link BLOCK}. */
+const POND = [
+	[-90, 35],
+	[-90, 36],
+	[-89, 36],
+	[-89, 35],
+] as const;
+/** Two corners inside {@link BLOCK} and two outside its eastern edge. */
+const ESCAPING_POND = [
+	[-89, 35],
+	[-89, 36],
+	[-85, 36],
+	[-85, 35],
 ] as const;
 
 /** Place a ring's vertices and finish it, the way a user draws one. */
@@ -543,6 +565,195 @@ describe('useMapDraw', () => {
 		expect(shapes.map((feature) => feature.properties?.highlighted)).toEqual([false, true]);
 	});
 
+	it('cuts a hole into the piece it was told to, as a second ring', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.startHole(0);
+		});
+		expect(result.current.draw.holeDraft).toEqual({ partNumber: 1, problem: null });
+		for (const [longitude, latitude] of POND) {
+			act(() => {
+				fake.click(longitude, latitude);
+			});
+		}
+		expect(result.current.draw.canFinish).toBe(true);
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+		// Still one piece: a hole is a ring of the piece, not another piece.
+		expect(drawParts(result.current.value)).toHaveLength(1);
+	});
+
+	// The one validity rule the control buys, because the point-in-polygon test
+	// already ships. Everything else a bad ring can be is #437.
+	it('refuses to finish a hole that has left its piece', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.startHole(0);
+		});
+		for (const [longitude, latitude] of ESCAPING_POND) {
+			act(() => {
+				fake.click(longitude, latitude);
+			});
+		}
+
+		expect(result.current.draw.canFinish).toBe(false);
+		expect(result.current.draw.holeDraft).toEqual({ partNumber: 1, problem: 'escapes' });
+
+		act(() => {
+			result.current.draw.finish();
+		});
+		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(BLOCK)] });
+	});
+
+	// A vertex outside is enough, before there are three of them to close a ring,
+	// so the draft is red while the pointer is still moving.
+	it('paints a straying hole red from the first vertex outside', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.startHole(0);
+		});
+		act(() => {
+			fake.click(-70, 35.5);
+		});
+
+		expect(result.current.draw.holeDraft?.problem).toBe('escapes');
+		const drafts = fake
+			.featuresOf(SOURCE_ID)
+			.filter((feature) => feature.properties?.role === 'vertex' && feature.properties?.refused);
+		expect(drafts).toHaveLength(1);
+	});
+
+	// A hole drawn to the piece's own boundary leaves a polygon covering no
+	// ground, which the server answers 400, so Finish has to refuse it here.
+	it('refuses a hole that takes the whole piece', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.startHole(0);
+		});
+		for (const [longitude, latitude] of BLOCK) {
+			act(() => {
+				fake.click(longitude, latitude);
+			});
+		}
+
+		expect(result.current.draw.holeDraft?.problem).toBe('swallows');
+		expect(result.current.draw.canFinish).toBe(false);
+	});
+
+	// A hole cannot be cut where there is no inside to cut. The containment check
+	// would read a position pair as a ring and call every vertex escaped, so this
+	// is refused in the controller rather than by whichever button is hidden.
+	it('refuses to start a hole in a piece that is not an area', () => {
+		const { fake, result } = mountControlled();
+
+		act(() => {
+			result.current.draw.start('Point');
+		});
+		act(() => {
+			fake.click(-90, 35);
+		});
+		act(() => {
+			result.current.draw.startHole(0);
+		});
+
+		expect(result.current.draw.isDrawing).toBe(false);
+		expect(result.current.draw.holeDraft).toBeNull();
+	});
+
+	it('refuses to start a hole in a piece that is not there', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.startHole(3);
+		});
+
+		expect(result.current.draw.isDrawing).toBe(false);
+	});
+
+	it('cuts into the piece the row names, not the first one', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.startPart();
+		});
+		drawPolygon(fake, result, BLOCK);
+
+		act(() => {
+			result.current.draw.startHole(1);
+		});
+		expect(result.current.draw.holeDraft?.partNumber).toBe(2);
+		for (const [longitude, latitude] of POND) {
+			act(() => {
+				fake.click(longitude, latitude);
+			});
+		}
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'MultiPolygon',
+			coordinates: [[closed(FIRST_SQUARE)], [closed(BLOCK), closed(POND)]],
+		});
+	});
+
+	it('drops one hole and leaves the piece alone', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.startHole(0);
+		});
+		for (const [longitude, latitude] of POND) {
+			act(() => {
+				fake.click(longitude, latitude);
+			});
+		}
+		act(() => {
+			result.current.draw.finish();
+		});
+		act(() => {
+			result.current.draw.removeHole(0, 0);
+		});
+
+		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(BLOCK)] });
+	});
+
+	it('renders the corners of a hole as vertices of its piece', () => {
+		const { fake } = mount({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+
+		expect(roles(fake)).toEqual([
+			'Polygon',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+			'vertex',
+		]);
+	});
+
 	it('resolves a requested point on the next click', async () => {
 		const { fake, result } = mount();
 
@@ -585,6 +796,19 @@ describe('drawParts', () => {
 	it('reads nothing as no pieces', () => {
 		expect(drawParts(null)).toEqual([]);
 		expect(geometryFromParts([])).toBeNull();
+	});
+});
+
+describe('drawHoles', () => {
+	it('reads every ring past the outline as a hole', () => {
+		const holes = drawHoles({ type: 'Polygon', coordinates: [closed(BLOCK), closed(POND)] });
+
+		expect(holes).toEqual([closed(POND)]);
+	});
+
+	it('reads a shape that cannot hold one as holding none', () => {
+		expect(drawHoles({ type: 'Point', coordinates: [-90, 35] })).toEqual([]);
+		expect(drawHoles({ type: 'Polygon', coordinates: [closed(BLOCK)] })).toEqual([]);
 	});
 });
 

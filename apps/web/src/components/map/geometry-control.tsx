@@ -11,6 +11,7 @@ import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components
 import {
 	ArrowLeftIcon,
 	CheckIcon,
+	CircleIcon,
 	iconRegistry,
 	Loader2Icon,
 	MapPinnedIcon,
@@ -19,12 +20,12 @@ import {
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type ReactNode, useEffect, useRef, useState } from 'react';
 import { GeometryImportDialog } from './geometry-import-dialog';
-import { describeDrawPart, GEOMETRY_TYPE_LABELS, GeometryPartList } from './geometry-parts';
+import { GEOMETRY_TYPE_LABELS, GeometryPartList, GeometryPartSummary } from './geometry-parts';
 import { RegionBoundaryPicker } from './region-boundary-picker';
 import {
 	type DrawGeometry,
 	type DrawGeometryType,
-	type DrawPartGeometry,
+	type DrawHoleDraft,
 	drawParts,
 	fitMapToGeometry,
 	isDrawGeometryType,
@@ -105,6 +106,10 @@ export function GeometryControl({
 	// so a Notification Registration never offers a piece it would refuse to save.
 	// The first piece is the draw button's, so it needs something to add to.
 	const canAddPart = hasGeometry && ownedGeometryAllowsParts(geometryKind, geometryType);
+	// A hole is a ring inside a ring, so only an area has anywhere to put one. At
+	// two pieces and up it moves onto the rows, where the piece it belongs to is
+	// the row it sits on.
+	const canCutHole = parts.length === 1 && parts[0]?.type === 'Polygon';
 	// Snapping to an address produces a point, so the affordance only belongs on
 	// the point tool — offering it under Line/Polygon would contradict the toggle.
 	const canMoveToAddress = onMoveToAddress !== undefined && geometryType === 'Point';
@@ -166,18 +171,19 @@ export function GeometryControl({
 			{parts.length > 1 ? (
 				<GeometryPartList
 					disabled={isBusy}
+					onCutHole={controller.startHole}
 					onHighlight={controller.highlightPart}
 					onRemove={controller.removePart}
+					onRemoveHole={controller.removeHole}
 					onZoom={controller.zoomToPart}
 					parts={parts}
 				/>
 			) : (
-				<div className="flex items-center gap-2 rounded-md border border-border/40 bg-background/70 px-3 py-2">
-					<MapPinnedIcon aria-hidden="true" className="size-4 shrink-0 text-primary" />
-					<p className="m-0 min-w-0 flex-1 truncate text-foreground text-sm">
-						{geometrySummary(parts[0])}
-					</p>
-				</div>
+				<GeometryPartSummary
+					disabled={isBusy}
+					onRemoveHole={controller.removeHole}
+					part={parts[0]}
+				/>
 			)}
 
 			<div className="flex flex-wrap gap-2">
@@ -205,6 +211,18 @@ export function GeometryControl({
 					>
 						<AddIcon aria-hidden="true" data-icon="inline-start" />
 						Add piece
+					</Button>
+				) : null}
+				{canCutHole ? (
+					<Button
+						disabled={isBusy}
+						onClick={() => controller.startHole(0)}
+						size="sm"
+						type="button"
+						variant="outline"
+					>
+						<CircleIcon aria-hidden="true" data-icon="inline-start" />
+						Cut hole
 					</Button>
 				) : null}
 				{canMoveToAddress ? (
@@ -302,7 +320,9 @@ export function DrawToolbar({
 		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
 			<div className="pointer-events-auto flex max-w-full flex-col gap-2 rounded-lg border border-border/60 bg-card/95 p-2 shadow-lg backdrop-blur-sm">
 				<p className="m-0 px-1 text-muted-foreground text-xs">
-					{drawInstruction(geometryType, controller.vertexCount, controller.isAddingPart)}
+					{controller.holeDraft === null
+						? drawInstruction(geometryType, controller.vertexCount, controller.isAddingPart)
+						: holeInstruction(controller.vertexCount, controller.holeDraft)}
 				</p>
 				<div className="flex items-center gap-1.5">
 					{isPoint ? null : (
@@ -348,14 +368,6 @@ function MapPrompt({ children }: { readonly children: React.ReactNode }) {
 	);
 }
 
-/** The one line the control shows at a single piece. The list replaces it at two. */
-function geometrySummary(part: DrawPartGeometry | undefined): string {
-	if (part === undefined) {
-		return 'No geometry drawn yet.';
-	}
-	return `${GEOMETRY_TYPE_LABELS[part.type]} · ${describeDrawPart(part)}`;
-}
-
 /** Ease the map to frame `geometry` when it changes, but never mid-draw. */
 export function useFitToGeometry(
 	map: MapboxMap | null,
@@ -399,14 +411,39 @@ function drawInstruction(
 			: 'Click the map to place the point.';
 	}
 	const noun = isAddingPart ? 'piece' : type === 'LineString' ? 'line' : 'area';
-	const minimum = type === 'LineString' ? 2 : 3;
+	return progress(
+		vertexCount,
+		type === 'LineString' ? 2 : 3,
+		`Click the map to start the ${noun}.`,
+	);
+}
+
+/**
+ * What the toolbar says while a hole is being cut, which names the piece the
+ * moment the hole leaves it.
+ *
+ * The name is what makes the refusal actionable at several pieces: the map shows
+ * a red ring, and the number is what says which of the shapes on screen it was
+ * supposed to sit inside.
+ */
+function holeInstruction(vertexCount: number, draft: DrawHoleDraft): string {
+	if (draft.problem === 'escapes') {
+		return `The hole must stay inside piece ${draft.partNumber}.`;
+	}
+	if (draft.problem === 'swallows') {
+		return `The hole leaves nothing of piece ${draft.partNumber}.`;
+	}
+	return progress(vertexCount, 3, `Click the map to start the hole in piece ${draft.partNumber}.`);
+}
+
+/** How far along a ring or a line is, once it has a vertex on the map. */
+function progress(vertexCount: number, minimum: number, start: string): string {
 	if (vertexCount === 0) {
-		return `Click the map to start the ${noun}.`;
+		return start;
 	}
 	const count = `${vertexCount} ${vertexCount === 1 ? 'vertex' : 'vertices'}`;
 	if (vertexCount < minimum) {
-		const remaining = minimum - vertexCount;
-		return `${count} · add ${remaining} more to finish.`;
+		return `${count} · add ${minimum - vertexCount} more to finish.`;
 	}
 	return `${count} · double-click or Finish to complete.`;
 }
