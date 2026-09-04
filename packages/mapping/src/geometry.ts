@@ -284,10 +284,11 @@ export interface OwnedCentroid {
 
 /**
  * Derive the trigger-maintained centroid columns (lat, lng, geomType) from a
- * drawn GeoJSON geometry for an optimistic write. Mirrors the database
- * `set_owned_centroid()` trigger: geomType uses the lowercased PostGIS `ST_*`
- * form (e.g. `st_point`) so the optimistic row matches the synced row. Returns
- * null for empty/degenerate geometry.
+ * drawn GeoJSON geometry for an optimistic write. Follows the database
+ * `set_owned_centroid()` trigger for every shape but the two linear ones:
+ * geomType uses the lowercased PostGIS `ST_*` form (e.g. `st_point`) so the
+ * optimistic row matches the synced row. Returns null for empty/degenerate
+ * geometry.
  *
  * Areal geometry is area-weighted, holes subtracted and parts weighted by their
  * own area, which is what `st_centroid` computes. `centroidFromGeoJson` averages
@@ -296,9 +297,18 @@ export interface OwnedCentroid {
  * part and one small distant part puts a vertex-averaged marker between them,
  * and it jumps when Electric confirms the row.
  *
- * Points and lines keep the vertex average. `owned-geometry.integration.test.ts`
- * runs the corpus through `st_centroid` and is what holds the areal half here to
- * PostGIS rather than to hand-computed numbers.
+ * Points and MultiPoints agree with `st_centroid` on the average. **Lines do
+ * not, and that is a known gap rather than a decision this file can defend.**
+ * `st_centroid` weights a LineString by segment length, so a line with uneven
+ * spacing gets an optimistic marker that moves on confirmation, and a
+ * MultiLineString with one long part and one short distant part moves further.
+ * ADR 0018 kept the average for lines on the belief that PostGIS averages them
+ * too, which it does not. Nothing guards it: the integration test filters the
+ * linear shapes out.
+ *
+ * `owned-geometry.integration.test.ts` runs the corpus through `st_centroid` and
+ * is what holds the areal half here to PostGIS rather than to hand-computed
+ * numbers.
  */
 export function ownedCentroidFromGeoJson(geometry: GeoJsonGeometry): OwnedCentroid | null {
 	const centroid = arealCentroid(geometry) ?? centroidFromGeoJson(geometry);
