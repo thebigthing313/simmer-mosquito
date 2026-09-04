@@ -263,11 +263,12 @@ confirmed, which is what every endpoint did before any of them was read, so a
 client that has never heard of a flag behaves as it always did. `acknowledged`
 in `apps/server/src/command-payload.ts` is the one reading of that convention.
 
-Four flags read the other way, and the reader takes the flag's name so no call
+Six flags read the other way, and the reader takes the flag's name so no call
 site chooses. `EXPLICIT_ACKNOWLEDGEMENTS` in `apps/server/src/acknowledgements.ts`
 names them with the reason for each: a duplicate trap code is a collision the
-caller could not have seen, and the three mission ones are a stop being closed
-against what the plan said. Absent is not an answer to a question the body was
+caller could not have seen, the three mission ones are a stop being closed
+against what the plan said, and the two weather import ones answer for rows the
+caller has not seen either. Absent is not an answer to a question the body was
 written before. A flag added to the vocabulary takes the default, so the
 exception is the thing that has to be argued for (#426).
 
@@ -339,10 +340,9 @@ Which mechanism reads which flag is `ACKNOWLEDGEMENT_MECHANISMS` in
 naming the issue that will settle it. `pnpm check:acknowledgements` asserts the
 map, the vocabulary and the flags on command payloads name the same set, and
 ratchets `UNCHECKED_ACKNOWLEDGEMENTS` so a flag cannot be added without somebody
-deciding. Five remain: the two dependent-deactivation flags (#341), and three
-mission flags still labelled #316 that are in fact already read, through a
-bespoke 400 rather than the settled 409, so relabelling them alone would move
-the ratchet with no guard written.
+deciding. Three remain, all of them mission flags still labelled #316 that are
+in fact already read, through a bespoke 400 rather than the settled 409, so
+relabelling them alone would move the ratchet with no guard written.
 
 ### Catalogs are block-only
 
