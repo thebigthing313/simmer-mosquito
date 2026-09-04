@@ -7,6 +7,7 @@
  */
 
 import { createInspectionsCollection, type Inspection } from '@simmer-mosquito/sync';
+import { BasicIndex } from '@tanstack/db';
 import { declareCollection } from './registry';
 
 /**
@@ -20,4 +21,11 @@ export const inspections = declareCollection<Inspection>({
 	syncMode: 'on-demand',
 	mutations: true,
 	create: createInspectionsCollection,
+
+	// The inspections table, which windows by date. An `orderBy` with a `limit`
+	// pages lazily only while the first sort key is indexed here; without this the
+	// compiler warns once and then loads every inspection the organization has.
+	index: (collection) => {
+		collection.createIndex((row) => row.inspection_date, { indexType: BasicIndex });
+	},
 });
