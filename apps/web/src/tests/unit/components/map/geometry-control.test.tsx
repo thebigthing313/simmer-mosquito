@@ -11,7 +11,7 @@
  */
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { GeometryControl } from '../../../../components/map/geometry-control';
+import { DrawToolbar, GeometryControl } from '../../../../components/map/geometry-control';
 import type { DrawPartGeometry, MapDrawController } from '../../../../components/map/use-map-draw';
 import { geometryFromParts } from '../../../../components/map/use-map-draw';
 
@@ -31,6 +31,29 @@ function square(west: number): DrawPartGeometry {
 	};
 }
 
+/** The same area with one hole cut out of it. */
+function squareWithHole(west: number): DrawPartGeometry {
+	return {
+		type: 'Polygon',
+		coordinates: [
+			[
+				[west, 35],
+				[west, 38],
+				[west + 3, 38],
+				[west + 3, 35],
+				[west, 35],
+			],
+			[
+				[west + 1, 36],
+				[west + 1, 37],
+				[west + 2, 37],
+				[west + 2, 36],
+				[west + 1, 36],
+			],
+		],
+	};
+}
+
 function fakeController(): MapDrawController {
 	return {
 		isDrawing: false,
@@ -39,9 +62,12 @@ function fakeController(): MapDrawController {
 		drawType: null,
 		vertexCount: 0,
 		canFinish: false,
+		holeDraft: null,
 		start: vi.fn(),
 		startPart: vi.fn(),
+		startHole: vi.fn(),
 		removePart: vi.fn(),
+		removeHole: vi.fn(),
 		highlightPart: vi.fn(),
 		zoomToPart: vi.fn(),
 		finish: vi.fn(),
@@ -129,5 +155,99 @@ describe('GeometryControl', () => {
 
 		expect(screen.queryByText('Add piece')).toBeNull();
 		expect(screen.getByText('No geometry drawn yet.')).toBeDefined();
+	});
+
+	it('cuts a hole into the only piece from the control', () => {
+		const controller = renderControl({ parts: [square(-90)] });
+
+		fireEvent.click(screen.getByText('Cut hole'));
+
+		expect(controller.startHole).toHaveBeenCalledWith(0);
+	});
+
+	// At two pieces the button would have to guess which one was meant, so it
+	// moves onto the rows, where the piece is the row it sits on.
+	it('moves Cut hole onto the rows at two pieces', () => {
+		const controller = renderControl({ parts: [square(-90), square(-80)] });
+
+		expect(screen.queryByText('Cut hole')).toBeNull();
+		fireEvent.click(screen.getByLabelText('Cut a hole in piece 2'));
+
+		expect(controller.startHole).toHaveBeenCalledWith(1);
+	});
+
+	it('offers no hole on a shape that has no inside', () => {
+		render(
+			<GeometryControl
+				controller={fakeController()}
+				geometry={{ type: 'Point', coordinates: [-90, 35] }}
+				geometryKind="habitat"
+				geometryType="Point"
+				onClear={vi.fn()}
+				onDraw={vi.fn()}
+			/>,
+		);
+
+		expect(screen.queryByText('Cut hole')).toBeNull();
+	});
+
+	it('counts the holes in the line that describes a piece', () => {
+		renderControl({ parts: [squareWithHole(-90)] });
+
+		expect(screen.getByText('Polygon · 4 vertices, 1 hole')).toBeDefined();
+	});
+
+	it('lists a hole under its piece and removes it on its own', () => {
+		const controller = renderControl({ parts: [squareWithHole(-90)] });
+
+		expect(screen.getByText('Hole 1 · 4 vertices')).toBeDefined();
+		fireEvent.click(screen.getByLabelText('Remove hole 1'));
+
+		expect(controller.removeHole).toHaveBeenCalledWith(0, 0);
+	});
+
+	it('names the piece a hole belongs to once there are several', () => {
+		const controller = renderControl({ parts: [square(-95), squareWithHole(-90)] });
+
+		fireEvent.click(screen.getByLabelText('Remove hole 1 from piece 2'));
+
+		expect(controller.removeHole).toHaveBeenCalledWith(1, 0);
+	});
+});
+
+describe('DrawToolbar', () => {
+	function renderToolbar(holeDraft: MapDrawController['holeDraft'], vertexCount = 4) {
+		render(
+			<DrawToolbar
+				controller={{ ...fakeController(), holeDraft, isDrawing: true, vertexCount }}
+				geometryType="Polygon"
+			/>,
+		);
+	}
+
+	it('names the piece a hole has to stay inside', () => {
+		renderToolbar({ partNumber: 2, partCount: 3, problem: 'escapes' });
+
+		expect(screen.getByText('The hole must stay inside piece 2.')).toBeDefined();
+	});
+
+	it('says when a hole would leave nothing of its piece', () => {
+		renderToolbar({ partNumber: 2, partCount: 3, problem: 'swallows' });
+
+		expect(screen.getByText('The hole leaves nothing of piece 2.')).toBeDefined();
+	});
+
+	// At one piece there is no row list, so a piece number names nothing the user
+	// has read.
+	it('leaves the number out where there is only one piece', () => {
+		renderToolbar({ partNumber: 1, partCount: 1, problem: 'escapes' });
+
+		expect(screen.getByText('The hole must stay inside the area.')).toBeDefined();
+	});
+
+	it('prompts for the first vertex of a hole', () => {
+		renderToolbar({ partNumber: 1, partCount: 1, problem: null }, 0);
+
+		expect(screen.getByText('Click the map to start the hole.')).toBeDefined();
 	});
 });

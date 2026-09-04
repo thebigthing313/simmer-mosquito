@@ -6,7 +6,11 @@ import {
 	isBaseGeometryType,
 	isSupportedGeometryType,
 } from '@simmer-mosquito/domain';
-import { boundsFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import {
+	boundsFromGeoJson,
+	type GeoJsonGeometry,
+	geometryContainsLngLat,
+} from '@simmer-mosquito/mapping';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -151,6 +155,37 @@ export function geometryFromParts(parts: readonly DrawPartGeometry[]): DrawGeome
 }
 
 /**
+ * The holes cut out of `part`, in stored order, empty for a part that has none.
+ *
+ * A polygon's first ring is its outline and every ring after it is a hole, so
+ * the hole rows and Remove both read this rather than slicing rings by hand.
+ */
+export function drawHoles(part: DrawPartGeometry): readonly Ring[] {
+	return part.type === 'Polygon' ? part.coordinates.slice(1) : [];
+}
+
+/**
+ * Why a hole as drawn cannot be cut out of the piece it was aimed at.
+ *
+ * `escapes` is a vertex outside the piece, or inside a hole the piece already
+ * has. `swallows` is a hole that takes the whole piece, which leaves a polygon
+ * covering no ground and a write the server answers 400.
+ */
+export type DrawHoleProblem = 'escapes' | 'swallows';
+
+/** The hole being drawn: the piece it belongs to, and what is wrong with it. */
+export interface DrawHoleDraft {
+	/** The piece the hole is cut into, numbered the way its row is. */
+	readonly partNumber: number;
+	/**
+	 * How many pieces the shape has, which is what says whether the number means
+	 * anything to the user. At one piece there is no row list to have read it off.
+	 */
+	readonly partCount: number;
+	readonly problem: DrawHoleProblem | null;
+}
+
+/**
  * The draw controller surface the form panel and the on-map toolbar both drive.
  * `start` is wired to the form's "Draw geometry" button; `finish`/`cancel`/`undo`
  * live on the floating map toolbar so the user exits draw mode from the map.
@@ -170,8 +205,20 @@ export interface MapDrawController {
 	 * `start`'s.
 	 */
 	readonly startPart: () => void;
+	/**
+	 * Cut a hole into the part at `index`, leaving the rest of the shape on the
+	 * map to draw against. The part is named before the gesture starts, so nothing
+	 * is hit-tested to work out which part the hole belongs to.
+	 *
+	 * A no-op for a part that is not an area, and for an index no part holds.
+	 */
+	readonly startHole: (index: number) => void;
 	/** Drop one part, demoting to the base shape at one and to nothing at zero. */
 	readonly removePart: (index: number) => void;
+	/** Drop one hole from one part, leaving the part itself alone. */
+	readonly removeHole: (partIndex: number, holeIndex: number) => void;
+	/** The hole in progress, or null while the draw is not one. */
+	readonly holeDraft: DrawHoleDraft | null;
 	/** Pick out one part on the map, or clear the highlight with `null`. */
 	readonly highlightPart: (index: number | null) => void;
 	readonly zoomToPart: (index: number) => void;
@@ -208,6 +255,8 @@ const draft = {
 	vertexStroke: '#ffffff',
 	point: mapInteraction.selected,
 	pointStroke: '#ffffff',
+	refused: mapInteraction.refused,
+	refusedStroke: mapInteraction.refusedStroke,
 } as const;
 
 const isPolygon: ExpressionSpecification = ['==', ['geometry-type'], 'Polygon'];
@@ -224,6 +273,17 @@ function whenHighlighted(highlighted: number, rest: number): ExpressionSpecifica
 	return ['case', ['boolean', ['get', 'highlighted'], false], highlighted, rest];
 }
 
+/**
+ * The colour a draft paints in, red while the control would refuse it.
+ *
+ * Refusal is the one state that does get its own colour rather than more weight:
+ * a hole that has wandered outside its piece is not a piece of the shape being
+ * picked out, it is a shape that cannot be saved.
+ */
+function whenRefused(refused: string, rest: string): ExpressionSpecification {
+	return ['case', ['boolean', ['get', 'refused'], false], refused, rest];
+}
+
 function drawLayers(): (
 	| FillLayerSpecification
 	| LineLayerSpecification
@@ -235,7 +295,10 @@ function drawLayers(): (
 			type: 'fill',
 			source: SOURCE_ID,
 			filter: isPolygon,
-			paint: { 'fill-color': draft.fill, 'fill-opacity': whenHighlighted(0.42, 0.18) },
+			paint: {
+				'fill-color': whenRefused(draft.refused, draft.fill),
+				'fill-opacity': whenHighlighted(0.42, 0.18),
+			},
 		},
 		{
 			id: `${SOURCE_ID}-outline`,
@@ -243,7 +306,10 @@ function drawLayers(): (
 			source: SOURCE_ID,
 			filter: isPolygon,
 			layout: { 'line-join': 'round' },
-			paint: { 'line-color': draft.outline, 'line-width': whenHighlighted(4.5, 2.5) },
+			paint: {
+				'line-color': whenRefused(draft.refusedStroke, draft.outline),
+				'line-width': whenHighlighted(4.5, 2.5),
+			},
 		},
 		{
 			id: `${SOURCE_ID}-line`,
@@ -252,7 +318,7 @@ function drawLayers(): (
 			filter: isLine,
 			layout: { 'line-join': 'round', 'line-cap': 'round' },
 			paint: {
-				'line-color': draft.line,
+				'line-color': whenRefused(draft.refused, draft.line),
 				'line-width': whenHighlighted(5, 3),
 				'line-dasharray': [2, 1],
 			},
@@ -263,7 +329,7 @@ function drawLayers(): (
 			source: SOURCE_ID,
 			filter: isVertex,
 			paint: {
-				'circle-color': draft.vertex,
+				'circle-color': whenRefused(draft.refused, draft.vertex),
 				'circle-radius': 5,
 				'circle-stroke-color': draft.vertexStroke,
 				'circle-stroke-width': 2,
@@ -289,13 +355,22 @@ const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: 
 /**
  * What a finished draw does with the parts already committed. `replace` takes
  * every one of them, which is what "Redraw geometry" means at any part count;
- * `part` appends.
+ * `part` appends; `hole` cuts a ring out of the one part it names.
  */
-type DrawTarget = 'replace' | 'part';
+type DrawTarget =
+	| { readonly kind: 'replace' }
+	| { readonly kind: 'part' }
+	| { readonly kind: 'hole'; readonly partIndex: number };
+
+type DrawMode = {
+	readonly kind: 'draw';
+	readonly type: DrawGeometryType;
+	readonly target: DrawTarget;
+};
 
 type Mode =
 	| { readonly kind: 'idle' }
-	| { readonly kind: 'draw'; readonly type: DrawGeometryType; readonly target: DrawTarget }
+	| DrawMode
 	| {
 			readonly kind: 'point';
 			readonly resolve: (point: DrawGeometry & { readonly type: 'Point' }) => void;
@@ -345,10 +420,16 @@ export function useMapDraw({
 		highlightedPart,
 		highlightedRef,
 		highlightPart,
+		removeHole,
 		removePart,
+		startHole,
 		startPart,
 		zoomToPart,
 	} = useDrawPartActions({ map, cursorRef, modeRef, valueRef, onChangeRef, setMode, setVertices });
+
+	// The hole in progress, recomputed from the committed parts and the vertices
+	// placed so far, so the toolbar and the map read one answer.
+	const holeDraft = useMemo(() => holeDraftOf(mode, value, vertices), [mode, value, vertices]);
 
 	const repaint = useCallback(() => {
 		if (!isMapLive(map)) {
@@ -419,7 +500,7 @@ export function useMapDraw({
 			setVertices([]);
 			highlightPart(null);
 			onChangeRef.current(null);
-			setMode({ kind: 'draw', type, target: 'replace' });
+			setMode({ kind: 'draw', type, target: { kind: 'replace' } });
 		},
 		[highlightPart],
 	);
@@ -448,7 +529,7 @@ export function useMapDraw({
 		if (current.kind !== 'draw' || current.type === 'Point') {
 			return;
 		}
-		const part = partFromVertices(current.type, dedupeTrailing(verticesRef.current));
+		const part = draftPart(current, valueRef.current, dedupeTrailing(verticesRef.current));
 		if (part === null) {
 			return;
 		}
@@ -473,18 +554,21 @@ export function useMapDraw({
 
 	const drawType = mode.kind === 'draw' ? mode.type : null;
 	const canFinish =
-		mode.kind === 'draw' && partFromVertices(mode.type, dedupeTrailing(vertices)) !== null;
+		mode.kind === 'draw' && draftPart(mode, value, dedupeTrailing(vertices)) !== null;
 
 	return {
 		isDrawing: mode.kind === 'draw',
-		isAddingPart: mode.kind === 'draw' && mode.target === 'part',
+		isAddingPart: mode.kind === 'draw' && mode.target.kind === 'part',
 		isRequestingPoint: mode.kind === 'point',
 		drawType,
 		vertexCount: vertices.length,
 		canFinish,
 		start,
 		startPart,
+		startHole,
 		removePart,
+		removeHole,
+		holeDraft,
 		highlightPart,
 		zoomToPart,
 		finish,
@@ -550,15 +634,16 @@ function useDrawPartActions({
 	highlightedRef.current = highlightedPart;
 
 	// The one place a finished draw lands. `replace` throws the committed parts
-	// away, `part` appends to them, and the shape that comes out is whatever
-	// `geometryFromParts` says the count makes it.
+	// away, `part` appends to them, `hole` puts back the one part it names with
+	// its new ring, and the shape that comes out is whatever `geometryFromParts`
+	// says the count makes it.
 	const applyPart = useCallback(
 		(target: DrawTarget, part: DrawPartGeometry) => {
-			const existing = target === 'part' ? drawParts(valueRef.current) : [];
+			const existing = drawParts(valueRef.current);
 			cursorRef.current = null;
 			setVertices([]);
 			setMode({ kind: 'idle' });
-			onChangeRef.current(geometryFromParts([...existing, part]));
+			onChangeRef.current(geometryFromParts(withPart(existing, target, part)));
 		},
 		[cursorRef, valueRef, onChangeRef, setMode, setVertices],
 	);
@@ -575,14 +660,53 @@ function useDrawPartActions({
 		cursorRef.current = null;
 		setVertices([]);
 		setHighlightedPart(null);
-		setMode({ kind: 'draw', type: base, target: 'part' });
+		setMode({ kind: 'draw', type: base, target: { kind: 'part' } });
 	}, [cursorRef, modeRef, valueRef, setMode, setVertices]);
+
+	// Refused here rather than left to whichever button happens to be hidden. A
+	// part that is not an area has no inside, and the containment check would read
+	// its coordinate pair as a ring and call every vertex of the hole escaped.
+	const startHole = useCallback(
+		(index: number) => {
+			const part = drawParts(valueRef.current)[index];
+			if (part?.type !== 'Polygon') {
+				return;
+			}
+			rejectPending(modeRef.current);
+			cursorRef.current = null;
+			setVertices([]);
+			setHighlightedPart(null);
+			setMode({ kind: 'draw', type: 'Polygon', target: { kind: 'hole', partIndex: index } });
+		},
+		[cursorRef, modeRef, valueRef, setMode, setVertices],
+	);
 
 	const removePart = useCallback(
 		(index: number) => {
 			setHighlightedPart(null);
 			onChangeRef.current(
 				geometryFromParts(drawParts(valueRef.current).filter((_, at) => at !== index)),
+			);
+		},
+		[valueRef, onChangeRef],
+	);
+
+	// `holeIndex` counts holes, not rings, so nothing outside this file has to
+	// know that ring zero is the outline.
+	const removeHole = useCallback(
+		(partIndex: number, holeIndex: number) => {
+			const parts = drawParts(valueRef.current);
+			const part = parts[partIndex];
+			if (part?.type !== 'Polygon' || drawHoles(part)[holeIndex] === undefined) {
+				return;
+			}
+			const rings = part.coordinates.filter((_, at) => at !== holeIndex + 1);
+			onChangeRef.current(
+				geometryFromParts(
+					parts.map((at, index) =>
+						index === partIndex ? { type: 'Polygon', coordinates: rings } : at,
+					),
+				),
 			);
 		},
 		[valueRef, onChangeRef],
@@ -604,10 +728,30 @@ function useDrawPartActions({
 		highlightedPart,
 		highlightedRef,
 		highlightPart: setHighlightedPart,
+		removeHole,
 		removePart,
+		startHole,
 		startPart,
 		zoomToPart,
 	};
+}
+
+/**
+ * `parts` with a finished draw folded into them, which is the whole list for a
+ * replace, one more entry for an add, and one entry swapped for a hole.
+ */
+function withPart(
+	parts: readonly DrawPartGeometry[],
+	target: DrawTarget,
+	part: DrawPartGeometry,
+): readonly DrawPartGeometry[] {
+	if (target.kind === 'replace') {
+		return [part];
+	}
+	if (target.kind === 'part') {
+		return [...parts, part];
+	}
+	return parts.map((at, index) => (index === target.partIndex ? part : at));
 }
 
 /**
@@ -752,9 +896,9 @@ function rejectPending(mode: Mode): void {
 /**
  * Every committed part, plus the part being drawn over the top of them.
  *
- * The committed parts stay on the map through an add so the user places the new
- * one against what is already there. A replace has already cleared them, so the
- * same code covers both.
+ * The committed parts stay on the map through an add and through a hole, so the
+ * user places the new ring against what is already there. A replace has already
+ * cleared them, so the same code covers all three.
  */
 function buildFeatures({
 	committed,
@@ -774,19 +918,47 @@ function buildFeatures({
 		features.push(...partFeatures(part, index === highlighted));
 	});
 
-	if (mode.kind === 'draw' && mode.type !== 'Point') {
-		const preview = cursor === null ? vertices : [...vertices, cursor];
-		if (mode.type === 'Polygon' && preview.length >= 3) {
-			features.push(geometryFeature({ type: 'Polygon', coordinates: [closeRing(preview)] }));
-		} else if (preview.length >= 2) {
-			features.push(geometryFeature({ type: 'LineString', coordinates: preview }));
-		}
-		for (const vertex of vertices) {
-			features.push(pointFeature(vertex, 'vertex'));
-		}
+	if (mode.kind === 'draw') {
+		features.push(...draftFeatures(mode, committed, vertices, cursor));
 	}
 
 	return features.length === 0 ? EMPTY : { type: 'FeatureCollection', features };
+}
+
+/**
+ * The shape in progress: the vertices placed so far, and the rubber band running
+ * from the last of them to the cursor.
+ *
+ * A hole the control would refuse paints red, so the refusal is on the map and
+ * not only under the Finish button. A point places nothing until it is committed,
+ * so it draws none of this.
+ */
+function draftFeatures(
+	mode: DrawMode,
+	committed: DrawGeometry | null,
+	vertices: readonly Position[],
+	cursor: Position | null,
+): GeoJSON.Feature[] {
+	if (mode.type === 'Point') {
+		return [];
+	}
+	const refused = holeDraftOf(mode, committed, vertices)?.problem != null;
+	const preview = previewShape(mode.type, cursor === null ? vertices : [...vertices, cursor]);
+	return [
+		...(preview === null ? [] : [geometryFeature(preview, false, refused)]),
+		...vertices.map((vertex) => pointFeature(vertex, 'vertex', false, refused)),
+	];
+}
+
+/**
+ * What the placed vertices look like before they are a shape: an area once three
+ * of them close a ring, a line before that, and nothing at all below two.
+ */
+function previewShape(type: DrawGeometryType, preview: readonly Position[]): DrawGeometry | null {
+	if (type === 'Polygon' && preview.length >= 3) {
+		return { type: 'Polygon', coordinates: [closeRing(preview)] };
+	}
+	return preview.length < 2 ? null : { type: 'LineString', coordinates: preview };
 }
 
 function partFeatures(part: DrawPartGeometry, highlighted: boolean): GeoJSON.Feature[] {
@@ -799,18 +971,24 @@ function partFeatures(part: DrawPartGeometry, highlighted: boolean): GeoJSON.Fea
 			...part.coordinates.map((position) => pointFeature(position, 'vertex', highlighted)),
 		];
 	}
-	// The ring is closed, so the repeated first position is not drawn twice.
-	const ring = part.coordinates[0] ?? [];
+	// Every ring, so a hole's corners can be seen and counted the way the outline's
+	// are. Each ring is closed, so its repeated first position is not drawn twice.
 	return [
 		geometryFeature(part, highlighted),
-		...ring.slice(0, -1).map((position) => pointFeature(position, 'vertex', highlighted)),
+		...part.coordinates.flatMap((ring) =>
+			ring.slice(0, -1).map((position) => pointFeature(position, 'vertex', highlighted)),
+		),
 	];
 }
 
-function geometryFeature(geometry: DrawGeometry, highlighted = false): GeoJSON.Feature {
+function geometryFeature(
+	geometry: DrawGeometry,
+	highlighted = false,
+	refused = false,
+): GeoJSON.Feature {
 	return {
 		type: 'Feature',
-		properties: { highlighted },
+		properties: { highlighted, refused },
 		geometry: geometry as unknown as GeoJSON.Geometry,
 	};
 }
@@ -819,10 +997,11 @@ function pointFeature(
 	position: Position,
 	role: 'vertex' | 'point',
 	highlighted = false,
+	refused = false,
 ): GeoJSON.Feature {
 	return {
 		type: 'Feature',
-		properties: { role, highlighted },
+		properties: { role, highlighted, refused },
 		geometry: { type: 'Point', coordinates: [position[0], position[1]] },
 	};
 }
@@ -841,6 +1020,97 @@ function partFromVertices(
 ): DrawPartGeometry | null {
 	const part = shapeFromVertices(type, vertices);
 	return part !== null && geometryCoversGround(part) ? part : null;
+}
+
+/**
+ * What a finished draw commits, which is a whole part for a replace or an add
+ * and the part with one more ring in it for a hole.
+ *
+ * `canFinish` and `finish` both read it, so the button and the commit cannot
+ * disagree about whether the shape on screen is one the record can hold.
+ */
+function draftPart(
+	mode: DrawMode,
+	committed: DrawGeometry | null,
+	vertices: readonly Position[],
+): DrawPartGeometry | null {
+	if (mode.target.kind !== 'hole') {
+		return partFromVertices(mode.type, vertices);
+	}
+	const part = drawParts(committed)[mode.target.partIndex];
+	if (part === undefined || vertices.length < 3 || holeProblem(part, vertices) !== null) {
+		return null;
+	}
+	return partWithHole(part, vertices);
+}
+
+/**
+ * `part` with `vertices` cut out of it as one more ring, or null for a part that
+ * has no inside to cut.
+ *
+ * Winding order is left exactly as drawn. GeoJSON asks for none, PostGIS ignores
+ * it, and Mapbox's tessellator reads every ring past the first as a hole however
+ * it is wound, so reversing one here would be a rule invented in this file.
+ */
+function partWithHole(
+	part: DrawPartGeometry,
+	vertices: readonly Position[],
+): DrawPartGeometry | null {
+	return part.type === 'Polygon'
+		? { type: 'Polygon', coordinates: [...part.coordinates, closeRing(vertices)] }
+		: null;
+}
+
+/**
+ * The hole `mode` is drawing, or null while the draw is not one.
+ *
+ * The map reads it to paint a refused hole red and the toolbar reads it to name
+ * the part, so a red draft and an enabled Finish cannot appear together.
+ */
+function holeDraftOf(
+	mode: Mode,
+	committed: DrawGeometry | null,
+	vertices: readonly Position[],
+): DrawHoleDraft | null {
+	if (mode.kind !== 'draw' || mode.target.kind !== 'hole') {
+		return null;
+	}
+	const parts = drawParts(committed);
+	const part = parts[mode.target.partIndex];
+	return {
+		partNumber: mode.target.partIndex + 1,
+		partCount: parts.length,
+		problem: part === undefined ? null : holeProblem(part, dedupeTrailing(vertices)),
+	};
+}
+
+/**
+ * What is wrong with a hole drawn into `part`, or null while nothing is.
+ *
+ * Containment is {@link geometryContainsLngLat}, which already reads a polygon's
+ * holes as outside it, so "inside the outline and outside the other holes" is
+ * one call rather than a second point-in-polygon written here. It reports from
+ * the first stray vertex, before there are enough of them to close a ring, so
+ * the draft turns red while the pointer is still moving.
+ */
+function holeProblem(
+	part: DrawPartGeometry,
+	vertices: readonly Position[],
+): DrawHoleProblem | null {
+	if (part.type !== 'Polygon') {
+		return null;
+	}
+	const outside = vertices.some(
+		([lng, lat]) => !geometryContainsLngLat(part as unknown as GeoJsonGeometry, { lng, lat }),
+	);
+	if (outside) {
+		return 'escapes';
+	}
+	if (vertices.length < 3) {
+		return null;
+	}
+	const cut = partWithHole(part, vertices);
+	return cut !== null && geometryCoversGround(cut) ? null : 'swallows';
 }
 
 function shapeFromVertices(
