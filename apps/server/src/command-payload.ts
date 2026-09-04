@@ -15,7 +15,7 @@
  * what makes a column name a compile-time question rather than a script's.
  */
 
-import type { SimmerDatabase } from '@simmer-mosquito/db';
+import type { ServerOwnedColumns, SimmerDatabase } from '@simmer-mosquito/db';
 import type { Acknowledgement } from '@simmer-mosquito/domain';
 import { isExplicitAcknowledgement } from './acknowledgements.js';
 
@@ -25,6 +25,11 @@ export type CommandTable = keyof SimmerDatabase;
 /**
  * A column of the table, as a body spells it.
  *
+ * Not every column: `ServerOwnedColumns` comes off, so a handler reading
+ * `organization_id` fails `tsc` rather than taking tenancy off the request. The
+ * set is generated beside the table types and the rule behind it is
+ * `SERVER_OWNED` in `scripts/generate-table-types.mjs` (#478).
+ *
  * Distributive, so a factory serving several tables at once answers to the
  * union of their columns rather than the intersection. `org-lookups.ts` is why:
  * three catalogs share one reader, `custom_schema` is on two of them, and the
@@ -32,7 +37,7 @@ export type CommandTable = keyof SimmerDatabase;
  * states which of the two it has, and `org-lookups.test.ts` holds it to that.
  */
 export type ColumnOf<TTable extends CommandTable> = TTable extends CommandTable
-	? Extract<keyof SimmerDatabase[TTable], string>
+	? Exclude<Extract<keyof SimmerDatabase[TTable], string>, ServerOwnedColumns[TTable]>
 	: never;
 
 /**
@@ -43,8 +48,9 @@ export type ColumnOf<TTable extends CommandTable> = TTable extends CommandTable
  * type:
  *
  * - **`snake_case` names a column**, and the columns come from
- *   `SimmerDatabase`, generated from `packages/db/schema.sql`. A key the table
- *   has no column for does not compile, and a migration that renames a column
+ *   `SimmerDatabase`, generated from `packages/db/schema.sql`, less the ones the
+ *   server owns. A key the table has no column for does not compile, a key the
+ *   server computes does not compile, and a migration that renames a column
  *   fails the build at every handler still reading the old name.
  * - **`camelCase` names anything else**: an acknowledgement, an instruction
  *   such as `locationSource`, or an argument that becomes a different record.
