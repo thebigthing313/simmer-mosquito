@@ -1,6 +1,4 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -8,8 +6,7 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
 import { AddressSurveillanceCard } from '../../../components/address-surveillance';
@@ -17,7 +14,12 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	RecordDetailHeader,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
 import { type AddressRecord, useAddressRecord } from '../../../hooks/queries/use-address-record';
@@ -33,33 +35,27 @@ const EditIcon = iconRegistry.actions.edit.icon;
 
 const _addressGcTimeMs = 30_000;
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	mainGap: 'tight',
+	skeleton: { eyebrow: 'w-20', main: ['h-[360px]'], aside: ['h-64'] },
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
-	return <AddressDetail addressId={id} />;
-}
-
-function AddressDetail({ addressId }: { readonly addressId: string }) {
 	// addresses is on-demand; status-gated useLiveQuery (not the suspense variant)
 	// to avoid the post-unmount hang on on-demand collections.
-	const result = useAddressRecord(addressId);
-	const address = result.address;
+	const result = useAddressRecord(id);
 
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link className={backLink()} to="/gis/addresses">
-					<ArrowLeftIcon aria-hidden="true" />
-					Back to Address Book
-				</Link>
-				{!result.isReady ? (
-					<AddressDetailSkeleton />
-				) : address === undefined ? (
-					<RecordUnavailable noun="address" reason="not-found" />
-				) : (
-					<AddressDetailContent address={address} />
-				)}
-			</div>
-		</div>
+		<RecordDetailPage
+			back={{ label: 'Back to Address Book', to: '/gis/addresses' }}
+			layout={layout}
+			noun="address"
+			reading={{ isError: result.isError, isReady: result.isReady, record: result.address }}
+		>
+			{(record) => <AddressDetailContent address={record} />}
+		</RecordDetailPage>
 	);
 }
 
@@ -70,51 +66,9 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 	const addressLines = formatAddressLines(address);
 
 	return (
-		<>
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="grid gap-1.5">
-					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						<AddressIcon aria-hidden="true" className="size-3.5" />
-						Address
-					</span>
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-						{address.displayName}
-					</h1>
-					{/* Postal lines, as an envelope carries them — the header has the
-					    width, and a comma-run makes the reader find where the street
-					    ends before they can copy it. */}
-					{addressLines.length === 0 ? (
-						<p className="m-0 text-[0.95rem] text-muted-foreground">No street address</p>
-					) : (
-						addressLines.map((line) => (
-							<p className="m-0 text-[0.95rem] text-muted-foreground" key={line}>
-								{line}
-							</p>
-						))
-					)}
-				</div>
-				<WriteOnly minimum="manager">
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: address.id }} to="/gis/addresses/$id/edit">
-							<EditIcon aria-hidden="true" />
-							Edit
-						</Link>
-					</Button>
-				</WriteOnly>
-			</div>
-
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-3">
-					<AddressLocationCard
-						geojson={geometryQuery.data?.geojson ?? null}
-						isLoading={geometryQuery.isLoading}
-						lat={geometryQuery.data?.lat ?? null}
-						lng={geometryQuery.data?.lng ?? null}
-					/>
-					<RecordRegionsBand noun="address" recordId={address.id} recordType="addresses" />
-					<AddressSurveillanceCard addressId={address.id} />
-				</div>
-				<div className="grid content-start gap-5">
+		<RecordDetailColumns
+			aside={
+				<>
 					<AddressDetailsCard address={address} />
 					<DangerZoneCard
 						name={address.displayName}
@@ -124,9 +78,50 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 						recordType="address"
 						returnTo="/gis/addresses"
 					/>
-				</div>
-			</div>
-		</>
+				</>
+			}
+			header={
+				<RecordDetailHeader
+					actions={
+						<WriteOnly minimum="manager">
+							<Button asChild size="sm" variant="outline">
+								<Link params={{ id: address.id }} to="/gis/addresses/$id/edit">
+									<EditIcon aria-hidden="true" />
+									Edit
+								</Link>
+							</Button>
+						</WriteOnly>
+					}
+					eyebrow="Address"
+					icon={AddressIcon}
+					subtitle={
+						/* Postal lines, as an envelope carries them — the header has the
+						   width, and a comma-run makes the reader find where the street
+						   ends before they can copy it. */
+						addressLines.length === 0 ? (
+							<p className="m-0 text-[0.95rem] text-muted-foreground">No street address</p>
+						) : (
+							addressLines.map((line) => (
+								<p className="m-0 text-[0.95rem] text-muted-foreground" key={line}>
+									{line}
+								</p>
+							))
+						)
+					}
+					title={address.displayName}
+				/>
+			}
+			layout={layout}
+		>
+			<AddressLocationCard
+				geojson={geometryQuery.data?.geojson ?? null}
+				isLoading={geometryQuery.isLoading}
+				lat={geometryQuery.data?.lat ?? null}
+				lng={geometryQuery.data?.lng ?? null}
+			/>
+			<RecordRegionsBand noun="address" recordId={address.id} recordType="addresses" />
+			<AddressSurveillanceCard addressId={address.id} />
+		</RecordDetailColumns>
 	);
 }
 
@@ -190,20 +185,5 @@ function orDash(value: string | null): ReactNode {
 		value
 	) : (
 		<span className="text-muted-foreground">—</span>
-	);
-}
-
-function AddressDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-20" />
-				<Skeleton className="h-8 w-64" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<Skeleton className="h-[360px]" />
-				<Skeleton className="h-64" />
-			</div>
-		</>
 	);
 }

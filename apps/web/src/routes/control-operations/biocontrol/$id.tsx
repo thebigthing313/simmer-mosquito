@@ -1,6 +1,4 @@
-import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -8,14 +6,10 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -25,7 +19,12 @@ import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	RecordDetailHeader,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
@@ -46,47 +45,29 @@ export const Route = createFileRoute('/control-operations/biocontrol/$id')({
 	component: RouteComponent,
 });
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	stickyAside: true,
+	skeleton: { eyebrow: 'w-20', main: ['h-[360px]'], aside: ['h-72'] },
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
-	return <BiocontrolDetail actionId={id} />;
-}
-
-function BiocontrolDetail({ actionId }: { readonly actionId: string }) {
 	// One query for the release, its method, unit, technician and address — the
 	// lookups this page used to do for itself. `biocontrol_actions` is on-demand,
 	// so this is status-gated rather than suspending; see the hook.
-	const { action, isReady, isError } = useBiocontrolAction(actionId, {
-		gcTime: biocontrolGcTimeMs,
-	});
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so the release leaves the collection the moment the button is
-	// pressed and everything below this line unmounts before the registry's
-	// refusal comes back. This component survives it: the row going is what makes
-	// it render `RecordUnavailable` instead.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: CONTROL_ACTION_DELETE_REFUSALS,
-		ask: true,
-	});
+	const { action, isReady, isError } = useBiocontrolAction(id, { gcTime: biocontrolGcTimeMs });
 
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link className={backLink()} to="/control-operations/biocontrol">
-					<ArrowLeftIcon aria-hidden="true" />
-					Back to biocontrol
-				</Link>
-				{isError ? (
-					<RecordUnavailable noun="biocontrol action" reason="error" />
-				) : !isReady ? (
-					<BiocontrolDetailSkeleton />
-				) : action === undefined ? (
-					<RecordUnavailable noun="biocontrol action" reason="not-found" />
-				) : (
-					<BiocontrolDetailContent action={action} askDelete={run} />
-				)}
-				{dialog}
-			</div>
-		</div>
+		<RecordDetailPage
+			back={{ label: 'Back to biocontrol', to: '/control-operations/biocontrol' }}
+			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
+			layout={layout}
+			noun="biocontrol action"
+			reading={{ isError, isReady, record: action }}
+		>
+			{(record, askDelete) => <BiocontrolDetailContent action={record} askDelete={askDelete} />}
+		</RecordDetailPage>
 	);
 }
 
@@ -95,9 +76,7 @@ function BiocontrolDetailContent({
 	askDelete,
 }: {
 	readonly action: BiocontrolAction;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
 	// The roster is still read, but only for the custom-field schema the chosen
 	// method declares — the method's *name* arrives joined.
@@ -119,54 +98,9 @@ function BiocontrolDetailContent({
 	useBreadcrumbLabel(action.id, `${methodName} · ${formatActionDate(action.actionDate)}`);
 
 	return (
-		<>
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="grid gap-1.5">
-					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						<BiocontrolIcon aria-hidden="true" className="size-3.5" />
-						Biocontrol
-					</span>
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-						{methodName}
-					</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{amountLabel} released on {formatActionDate(action.actionDate)}
-					</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<ContextBadge habitatId={action.habitatId} inspectionId={action.inspectionId} />
-					<WriteOnly>
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id: action.id }} to="/control-operations/biocontrol/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Edit
-							</Link>
-						</Button>
-					</WriteOnly>
-				</div>
-			</div>
-
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<div className="grid content-start gap-3">
-						<ReleaseLocationCard action={action} habitatName={habitatName} />
-						<RecordRegionsBand
-							noun="biocontrol action"
-							recordId={action.id}
-							recordType="biocontrol_actions"
-						/>
-					</div>
-					<DangerZoneCard
-						ask={askDelete}
-						name={methodName}
-						noun="biocontrol action"
-						onDelete={(acknowledgements) => remove(action.id, acknowledgements)}
-						recordId={action.id}
-						recordType="biocontrolAction"
-						returnTo="/control-operations/biocontrol"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<BiocontrolDetailsCard
 						action={action}
 						amountLabel={amountLabel}
@@ -182,9 +116,49 @@ function BiocontrolDetailContent({
 						description="Follow-up, agent survival, and restocking notes for this release."
 						target={{ type: 'biocontrolAction', id: action.id }}
 					/>
-				</div>
+				</>
+			}
+			header={
+				<RecordDetailHeader
+					actions={
+						<>
+							<ContextBadge habitatId={action.habitatId} inspectionId={action.inspectionId} />
+							<WriteOnly>
+								<Button asChild size="sm" variant="outline">
+									<Link params={{ id: action.id }} to="/control-operations/biocontrol/$id/edit">
+										<EditIcon aria-hidden="true" />
+										Edit
+									</Link>
+								</Button>
+							</WriteOnly>
+						</>
+					}
+					eyebrow="Biocontrol"
+					icon={BiocontrolIcon}
+					subtitle={`${amountLabel} released on ${formatActionDate(action.actionDate)}`}
+					title={methodName}
+				/>
+			}
+			layout={layout}
+		>
+			<div className="grid content-start gap-3">
+				<ReleaseLocationCard action={action} habitatName={habitatName} />
+				<RecordRegionsBand
+					noun="biocontrol action"
+					recordId={action.id}
+					recordType="biocontrol_actions"
+				/>
 			</div>
-		</>
+			<DangerZoneCard
+				ask={askDelete}
+				name={methodName}
+				noun="biocontrol action"
+				onDelete={(acknowledgements) => remove(action.id, acknowledgements)}
+				recordId={action.id}
+				recordType="biocontrolAction"
+				returnTo="/control-operations/biocontrol"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -277,22 +251,5 @@ function DetailRow({ label, children }: { readonly label: string; readonly child
 			<dt className="truncate text-muted-foreground">{label}</dt>
 			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
 		</div>
-	);
-}
-
-function BiocontrolDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-20" />
-				<Skeleton className="h-8 w-64" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<Skeleton className="h-[360px]" />
-				</div>
-				<Skeleton className="h-72" />
-			</div>
-		</>
 	);
 }

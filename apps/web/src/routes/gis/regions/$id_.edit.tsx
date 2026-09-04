@@ -1,9 +1,8 @@
 import type { GeoJsonGeometry, GeoJsonPolygon } from '@simmer-mosquito/mapping';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import {
 	type RegionFolderListing,
@@ -39,7 +38,7 @@ function EditRegionRoute() {
 		return <RecordUnavailable layout="centered" noun="region" reason="error" />;
 	}
 	if (!isReady || geometryQuery.isLoading) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
 	}
 	if (region === undefined) {
 		return <RecordUnavailable layout="centered" noun="region" reason="not-found" />;
@@ -126,21 +125,4 @@ function formValuesFrom(region: RegionRecord): RegionFormValues {
 		description: region.description ?? '',
 		metadata: (region.metadata ?? null) as RegionFormValues['metadata'],
 	};
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

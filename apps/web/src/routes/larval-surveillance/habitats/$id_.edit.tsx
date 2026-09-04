@@ -1,13 +1,12 @@
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import { toDrawGeometry } from '../../../components/map/use-map-draw';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
 import {
 	type HabitatRedraw,
 	useHabitatMutations,
@@ -51,7 +50,7 @@ function EditHabitatRoute() {
 		return <RecordUnavailable layout="centered" noun="habitat" reason="error" />;
 	}
 	if (!isReady) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-32', 'h-24']} />;
 	}
 	if (habitat === undefined) {
 		return <RecordUnavailable layout="centered" noun="habitat" reason="not-found" />;
@@ -163,7 +162,7 @@ function EditHabitatLoader({
 		);
 	}
 	if (geometryQuery.isPending) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-32', 'h-24']} />;
 	}
 
 	return (
@@ -219,22 +218,4 @@ async function fetchHabitatGeometry(
 function nullableText(value: string): string | null {
 	const text = value.trim();
 	return text.length === 0 ? null : text;
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-32 w-full" />
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

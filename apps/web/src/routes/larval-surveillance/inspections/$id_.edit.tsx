@@ -1,14 +1,13 @@
 import type { ResolvedLarvalInspectionEntryPolicy } from '@simmer-mosquito/domain';
 import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import { toDrawGeometry } from '../../../components/map/use-map-draw';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
@@ -82,7 +81,7 @@ function EditInspectionRoute() {
 		return <RecordUnavailable layout="centered" noun="inspection" reason="error" />;
 	}
 	if (!isReady || !personnel.isReady) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-9', 'h-24', ['h-9', 'h-9']]} />;
 	}
 	if (inspection === undefined) {
 		return <RecordUnavailable layout="centered" noun="inspection" reason="not-found" />;
@@ -255,7 +254,7 @@ function EditInspectionLoader({
 		);
 	}
 	if (geometryQuery.isPending) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-9', 'h-24', ['h-9', 'h-9']]} />;
 	}
 
 	return (
@@ -330,21 +329,4 @@ async function fetchInspectionGeometry(
 		readonly inspection?: { readonly geojson?: unknown };
 	};
 	return (body.inspection?.geojson ?? null) as GeoJsonGeometry | null;
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-9 w-full" />
-				<Skeleton className="h-24 w-full" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

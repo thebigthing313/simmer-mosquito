@@ -1,6 +1,4 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -38,18 +36,10 @@ import {
 	TabsList,
 	TabsTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/tabs';
-import {
-	ArrowLeftIcon,
-	CheckCircle2Icon,
-	CircleIcon,
-	iconRegistry,
-} from '@simmer-mosquito/ui-web/icons/registry';
+import { CheckCircle2Icon, CircleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
@@ -62,7 +52,12 @@ import {
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	RecordDetailHeader,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
 import { compareByCollectionDateDesc } from '../../../hooks/queries/collection-view';
@@ -93,46 +88,27 @@ const CollectionIcon = iconRegistry.entities.collection.icon;
 const SpeciesIcon = iconRegistry.entities.taxonomy.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	stickyAside: true,
+	skeleton: { eyebrow: 'w-20', main: ['h-[360px]', 'h-48'], aside: ['h-72'] },
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
-	return <TrapDetail trapId={id} />;
-}
-
-function TrapDetail({ trapId }: { readonly trapId: string }) {
 	// traps is an eager collection, so this resolves without a fetch.
-	const { trap, isReady } = useTrap(trapId);
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so the trap leaves the collection the moment the button is
-	// pressed and everything below this line unmounts before the registry's
-	// refusal comes back. This component survives it: the row going is what makes
-	// it render `RecordUnavailable` instead.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: TRAP_DELETE_REFUSALS,
-		ask: true,
-	});
+	const { trap, isReady } = useTrap(id);
 
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link className={backLink()} to="/adult-surveillance/traps">
-					<ArrowLeftIcon aria-hidden="true" />
-					Back to traps
-				</Link>
-				{!isReady ? (
-					<TrapDetailSkeleton />
-				) : trap === undefined ? (
-					<>
-						<RecordUnavailable noun="trap" reason="not-found" />
-						{dialog}
-					</>
-				) : (
-					<>
-						<TrapDetailContent askDelete={run} trap={trap} />
-						{dialog}
-					</>
-				)}
-			</div>
-		</div>
+		<RecordDetailPage
+			back={{ label: 'Back to traps', to: '/adult-surveillance/traps' }}
+			deleteRefusals={TRAP_DELETE_REFUSALS}
+			layout={layout}
+			noun="trap"
+			reading={{ isReady, record: trap }}
+		>
+			{(record, askDelete) => <TrapDetailContent askDelete={askDelete} trap={record} />}
+		</RecordDetailPage>
 	);
 }
 
@@ -141,9 +117,7 @@ function TrapDetailContent({
 	askDelete,
 }: {
 	readonly trap: Trap;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
 	useBreadcrumbLabel(trap.id, trapDisplayName(trap));
 
@@ -157,57 +131,54 @@ function TrapDetailContent({
 	const lureName = trap.lureId === null ? null : (trap.lureName ?? 'Unknown lure');
 
 	return (
-		<>
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="grid gap-1.5">
-					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						<TrapIcon aria-hidden="true" className="size-3.5" />
-						Trap
-					</span>
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-						{trapDisplayName(trap)}
-					</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">{methodName}</p>
-				</div>
-				<div className="flex items-center gap-2">
-					<StatusBadge isActive={trap.isActive} />
-					<WriteOnly minimum="manager">
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id: trap.id }} to="/adult-surveillance/traps/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Edit
-							</Link>
-						</Button>
-					</WriteOnly>
-				</div>
-			</div>
-
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<div className="grid content-start gap-3">
-						<TrapLocationCard point={{ lat: trap.latitude, lng: trap.longitude }} />
-						<RecordRegionsBand noun="trap" recordId={trap.id} recordType="traps" />
-					</div>
-					<TrapCollectionsCard trapId={trap.id} />
-					<DangerZoneCard
-						ask={askDelete}
-						name={trapDisplayName(trap)}
-						noun="trap"
-						onDelete={(acknowledgements) => mutations.remove(trap.id, acknowledgements)}
-						recordId={trap.id}
-						recordType="trap"
-						returnTo="/adult-surveillance/traps"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<TrapDetailsCard lureName={lureName} methodName={methodName} trap={trap} />
 					<CommentsSection
 						description="Access notes, maintenance, and follow-up for this trap."
 						target={{ type: 'trap', id: trap.id }}
 					/>
-				</div>
+				</>
+			}
+			header={
+				<RecordDetailHeader
+					actions={
+						<>
+							<StatusBadge isActive={trap.isActive} />
+							<WriteOnly minimum="manager">
+								<Button asChild size="sm" variant="outline">
+									<Link params={{ id: trap.id }} to="/adult-surveillance/traps/$id/edit">
+										<EditIcon aria-hidden="true" />
+										Edit
+									</Link>
+								</Button>
+							</WriteOnly>
+						</>
+					}
+					eyebrow="Trap"
+					icon={TrapIcon}
+					subtitle={methodName}
+					title={trapDisplayName(trap)}
+				/>
+			}
+			layout={layout}
+		>
+			<div className="grid content-start gap-3">
+				<TrapLocationCard point={{ lat: trap.latitude, lng: trap.longitude }} />
+				<RecordRegionsBand noun="trap" recordId={trap.id} recordType="traps" />
 			</div>
-		</>
+			<TrapCollectionsCard trapId={trap.id} />
+			<DangerZoneCard
+				ask={askDelete}
+				name={trapDisplayName(trap)}
+				noun="trap"
+				onDelete={(acknowledgements) => mutations.remove(trap.id, acknowledgements)}
+				recordId={trap.id}
+				recordType="trap"
+				returnTo="/adult-surveillance/traps"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -658,24 +629,6 @@ function CollectionsEmpty({
 				<EmptyDescription>{description}</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
-	);
-}
-
-function TrapDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-20" />
-				<Skeleton className="h-8 w-64" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<Skeleton className="h-[360px]" />
-					<Skeleton className="h-48" />
-				</div>
-				<Skeleton className="h-72" />
-			</div>
-		</>
 	);
 }
 
