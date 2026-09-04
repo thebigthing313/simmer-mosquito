@@ -72,9 +72,10 @@ describe('RecordDetailPage', () => {
 	});
 
 	it('says a failed read failed, whatever the collection holds', () => {
-		render(page({ isError: true, isReady: true, record: undefined }));
+		render(page({ isError: true, isReady: true, record: { id: 'r1', name: 'North District' } }));
 
 		expect(screen.getByText('This region could not be loaded. Try again shortly.')).toBeTruthy();
+		expect(screen.queryByText('North District')).toBeNull();
 	});
 
 	// `isError` outranks readiness too. A page that reports both was reporting a
@@ -90,6 +91,18 @@ describe('RecordDetailPage', () => {
 
 		expect(screen.getByText('North District')).toBeTruthy();
 		expect(screen.queryByText(/could not be/)).toBeNull();
+	});
+
+	// A record the page already holds outranks readiness. An on-demand collection
+	// can report itself unready again while it re-subscribes, and covering a
+	// record that is on screen with a placeholder is a flash for nothing.
+	it('keeps a record it holds while the collection is still answering', () => {
+		const { container } = render(
+			page({ isReady: false, record: { id: 'r1', name: 'North District' } }),
+		);
+
+		expect(screen.getByText('North District')).toBeTruthy();
+		expect(container.querySelectorAll('[data-slot="skeleton"]')).toHaveLength(0);
 	});
 
 	it('draws the way back in every state', () => {

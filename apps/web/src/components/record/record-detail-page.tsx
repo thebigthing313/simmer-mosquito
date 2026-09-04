@@ -9,6 +9,13 @@ import { RecordDetailSkeleton } from './record-detail-skeleton';
 import { RecordUnavailable } from './record-unavailable';
 
 /**
+ * No questions. A page that declares no refusals still gets a runner, and this
+ * is what keeps it from inheriting the hook's default map, which is the mission
+ * stop's. Hoisted so the hook's callbacks keep their identity across renders.
+ */
+const NO_REFUSALS = {} as const;
+
+/**
  * Where the back link goes.
  *
  * `to` is widened to every route rather than to this page's domain, the same
@@ -38,11 +45,15 @@ interface RecordDetailBase {
 	readonly back: RecordDetailBack;
 	/** Lowercase, as it reads mid-sentence: `collection`, `weather station`. */
 	readonly noun: string;
-	/** Overrides for the unavailable state, where the derived copy is wrong. */
-	readonly unavailable?: {
-		readonly title?: string;
-		readonly description?: ReactNode;
-	};
+	/**
+	 * Heads the unavailable state where the noun does not make the right title:
+	 * a source reduction action is filed under "Source Reduction".
+	 *
+	 * The title alone, because the same override has to hold for both the failed
+	 * read and the missing record. A description would not: it says which of the
+	 * two happened, which is exactly what the frame decides.
+	 */
+	readonly unavailableTitle?: string;
 	/** Controls that belong beside the back link rather than in the header. */
 	readonly actions?: ReactNode;
 	/**
@@ -98,22 +109,21 @@ interface RecordDetailBodyProps extends RecordDetailBase {
  * may raise. A page supplies its record, its noun, its cards and its writes.
  *
  * Fourteen pages assembled this by hand and answered its questions
- * independently. Five of them read `isError` off their hook and ignored it, so
- * a read that failed rendered "could not be found, or you do not have access to
- * it" and told the reader to stop looking at a record that was there. The fork
- * lives here now, and `isError` is a prop the page passes rather than a branch
- * it remembers to write.
+ * independently. Seven of them had `isError` to hand and drew the missing-record
+ * state anyway, so a read that failed said "could not be found, or you do not
+ * have access to it" and told the reader to stop looking. The fork lives here
+ * now, and `isError` is a prop the page passes rather than a branch it remembers
+ * to write.
  */
 export function RecordDetailPage<TRecord>(
 	props: RecordDetailReadingProps<TRecord> | RecordDetailBodyProps,
 ) {
-	const { layout, back, noun, unavailable, actions, deleteRefusals } = props;
-	// An empty askable rather than the hook's default, which is the mission-stop
-	// map. With nothing askable every refusal is rethrown, so a page that declares
-	// no refusals gets exactly the behaviour it had before it had a runner at all.
+	const { layout, back, noun, unavailableTitle, actions, deleteRefusals } = props;
+	// With nothing askable every refusal is rethrown, so a page that declares no
+	// refusals gets exactly the behaviour it had before it had a runner at all.
 	const { run, dialog } = useAcknowledgedWrite(
 		deleteRefusals === undefined
-			? { askable: {}, ask: false }
+			? { askable: NO_REFUSALS, ask: false }
 			: { askable: deleteRefusals, ask: true },
 	);
 
@@ -134,7 +144,7 @@ export function RecordDetailPage<TRecord>(
 						layout={layout}
 						noun={noun}
 						reading={props.reading}
-						unavailable={unavailable}
+						unavailableTitle={unavailableTitle}
 					>
 						{props.children}
 					</Fork>
@@ -148,11 +158,13 @@ export function RecordDetailPage<TRecord>(
 }
 
 /**
- * Placeholder, unavailable, or the record.
+ * The record, a placeholder, or why there is neither.
  *
- * The order is the whole point. A record that has not synced yet is not a
- * record that is missing, so readiness is asked before presence; and a read that
- * failed is neither, so it is asked before both.
+ * The order is the whole point. A failed read is not a missing record, so it is
+ * asked first. A record the page already holds is drawn whether or not its
+ * collection has finished answering, because a placeholder over a record that
+ * is on screen is a flash for nothing. Readiness then decides the rest: not yet
+ * answered means the record may still arrive, answered means it will not.
  */
 function Fork<TRecord>({
 	askDelete,
@@ -160,25 +172,26 @@ function Fork<TRecord>({
 	layout,
 	noun,
 	reading,
-	unavailable,
+	unavailableTitle,
 }: {
 	readonly askDelete: AskAcknowledged;
 	readonly children: (record: TRecord, askDelete: AskAcknowledged) => ReactNode;
 	readonly layout: RecordDetailLayout;
 	readonly noun: string;
 	readonly reading: RecordReading<TRecord>;
-	readonly unavailable: RecordDetailBase['unavailable'];
+	readonly unavailableTitle: string | undefined;
 }) {
+	const title = unavailableTitle === undefined ? {} : { title: unavailableTitle };
 	if (reading.isError === true) {
-		return <RecordUnavailable noun={noun} reason="error" {...unavailable} />;
+		return <RecordUnavailable noun={noun} reason="error" {...title} />;
+	}
+	if (reading.record !== null && reading.record !== undefined) {
+		return children(reading.record, askDelete);
 	}
 	if (!reading.isReady) {
 		return <RecordDetailSkeleton layout={layout} />;
 	}
-	if (reading.record === null || reading.record === undefined) {
-		return <RecordUnavailable noun={noun} reason="not-found" {...unavailable} />;
-	}
-	return children(reading.record, askDelete);
+	return <RecordUnavailable noun={noun} reason="not-found" {...title} />;
 }
 
 function BackTo({ back }: { readonly back: RecordDetailBack }) {

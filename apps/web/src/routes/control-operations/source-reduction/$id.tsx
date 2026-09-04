@@ -72,7 +72,7 @@ function RouteComponent() {
 			layout={layout}
 			noun="source reduction action"
 			reading={{ isError, isReady, record: sourceReduction }}
-			unavailable={{ title: 'Source Reduction Unavailable' }}
+			unavailableTitle="Source Reduction Unavailable"
 		>
 			{(record, askDelete) => (
 				<SourceReductionDetailContent askDelete={askDelete} sourceReduction={record} />
