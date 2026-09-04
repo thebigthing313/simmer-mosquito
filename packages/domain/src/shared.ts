@@ -100,15 +100,16 @@ export const SUPPORTED_GEOMETRY_TYPES = [
  * allowed to say which record stores which shapes, and a shape list exported
  * from here is a second answer waiting to drift from it.
  *
- * `SINGLE_PART_SHAPES` is spelled out rather than read from
- * `SUPPORTED_GEOMETRY_TYPES`, which now names all six. The domain union widens
- * ahead of the database: the multi shapes join the storable sets when the nine
- * CHECK swaps and the `regions` widening land, and `check:geometry-policies` is
- * at zero, so the register cannot claim a shape the column would refuse.
+ * `EVERY_SHAPE` reads `SUPPORTED_GEOMETRY_TYPES` rather than spelling the six
+ * names again. The eight work-record tables carry
+ * `geometry(Geometry,4326)` held to all six names by their CHECK, so the
+ * storable set there is the union itself and a copy would be one more list to
+ * keep in step.
  */
 const POINT_ONLY = ['Point'] as const;
-const POLYGON_ONLY = ['Polygon'] as const;
-const SINGLE_PART_SHAPES = ['Point', 'LineString', 'Polygon'] as const;
+const POINT_OR_POLYGON = ['Point', 'Polygon'] as const;
+const AREAL_SHAPES = ['Polygon', 'MultiPolygon'] as const;
+const EVERY_SHAPE = SUPPORTED_GEOMETRY_TYPES;
 
 export type OwnedGeometryKind =
 	| 'address'
@@ -165,7 +166,7 @@ export const OWNED_GEOMETRY_POLICIES = [
 		kind: 'region',
 		domainName: 'Region Geometry',
 		tables: ['regions'],
-		allowedTypes: POLYGON_ONLY,
+		allowedTypes: AREAL_SHAPES,
 	},
 	{ kind: 'trap', domainName: 'Trap Geometry', tables: ['traps'], allowedTypes: POINT_ONLY },
 	{
@@ -178,31 +179,31 @@ export const OWNED_GEOMETRY_POLICIES = [
 		kind: 'habitat',
 		domainName: 'Habitat Geometry',
 		tables: ['habitats'],
-		allowedTypes: SINGLE_PART_SHAPES,
+		allowedTypes: EVERY_SHAPE,
 	},
 	{
 		kind: 'inspection',
 		domainName: 'Inspection Geometry',
 		tables: ['inspections'],
-		allowedTypes: SINGLE_PART_SHAPES,
+		allowedTypes: EVERY_SHAPE,
 	},
 	{
 		kind: 'controlAction',
 		domainName: 'Control Action Geometry',
 		tables: ['applications', 'source_reductions', 'outreach_actions', 'biocontrol_actions'],
-		allowedTypes: SINGLE_PART_SHAPES,
+		allowedTypes: EVERY_SHAPE,
 	},
 	{
 		kind: 'requestedControlAction',
 		domainName: 'Requested Control Action Geometry',
 		tables: ['requested_control_actions'],
-		allowedTypes: SINGLE_PART_SHAPES,
+		allowedTypes: EVERY_SHAPE,
 	},
 	{
 		kind: 'missionItem',
 		domainName: 'Mission Item Geometry',
 		tables: ['mission_items'],
-		allowedTypes: SINGLE_PART_SHAPES,
+		allowedTypes: EVERY_SHAPE,
 	},
 	{
 		kind: 'serviceRequest',
@@ -214,7 +215,7 @@ export const OWNED_GEOMETRY_POLICIES = [
 		kind: 'notificationRegistration',
 		domainName: 'Notification Registration Geometry',
 		tables: ['notification_registrations'],
-		allowedTypes: SINGLE_PART_SHAPES,
+		allowedTypes: POINT_OR_POLYGON,
 	},
 	{
 		kind: 'weatherStation',

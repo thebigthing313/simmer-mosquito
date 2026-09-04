@@ -23,15 +23,17 @@ exists (
     and rf.id is distinct from :record_id          -- only when the record is a region
     and rf.geom && :record_geom
     and case
-          when :record_geom_type = 'st_polygon'
+          when :record_geom_type in ('st_polygon', 'st_multipolygon')
             then st_relate(rf.geom, :record_geom, 'T********')
           else st_intersects(rf.geom, :record_geom)
         end
 )
 ```
 
-`regions.geom` is `geometry(Polygon, 4326)`, so only the record side varies, and
-only over three types.
+`regions.geom` takes a Polygon or a MultiPolygon, so both sides vary, over six
+types on the record side. The interior cell is symmetric, so a multipart region
+needs no second predicate. ADR 0018 and `docs/multipart-geometry-spec.md` have
+the rest.
 
 Four things about this expression are load-bearing.
 
@@ -320,9 +322,8 @@ where the two implementations are most likely to disagree:
 `polygonContainsLngLat` already treats a hole's edge as inside and a naive port
 would not.
 
-Multipart and collection geometry stay out, with the omission and its reason in
-the file header. Testing input the schema forbids invites someone to make it
-pass by relaxing the schema.
+Multipart geometry came in with ADR 0018, ten cases of it, and collection
+geometry stays out because a GeometryCollection is not a record geometry.
 
 Every boundary case is built from a coordinate that appears literally in the
 region ring. A derived point on an edge is a different double in each
@@ -353,10 +354,12 @@ data.
 The SQL half seeds and asserts in a single `it()` with one `withTestDb`, calling
 the shipped helper rather than inline SQL. `withTestDb` applies the whole
 migration set per call, about 1s against a local container and 9s against a
-remote one, so twenty-two `it()` blocks would be twenty-two migration runs.
-Seed once: one organization, one region set, one record per case in `habitats`
-(it is `geometry(Geometry, 4326)`, so it holds all three dimensions), then one
-assertion pass.
+remote one, so thirty-two `it()` blocks would be thirty-two migration runs.
+Seed once: one agency per distinct region, one record per case in `habitats` (it
+is `geometry(Geometry, 4326)` held to all six shapes, so it holds every case),
+then one assertion pass. The agencies are what scope each case to the region it
+names, since both membership reads take the region set from the record's own
+agency.
 
 The silent skip is accepted, not fought. `describeDbIntegration` is
 `describe.skip` when `TEST_DATABASE_URL` is unset so a developer without Postgres
@@ -481,7 +484,7 @@ The corpus is the gate mobile passes before it answers offline.
 ### When web and mobile disagree
 
 They can, and the first person to find out will be someone looking at the same
-record on a phone and a laptop. The corpus is twenty-two cases; agency-drawn
+record on a phone and a laptop. The corpus is thirty-two cases; agency-drawn
 polygons are not the corpus, and the failure mode of a hand-rolled overlay is a
 wrong boolean on one record with nothing to make it visible.
 
