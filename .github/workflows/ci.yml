@@ -84,6 +84,14 @@ jobs:
       - name: Geometry policies
         run: pnpm check:geometry-policies
 
+      # Seventeen Postgres enum types, one register. Larval Density alone was
+      # written out in thirteen places and nothing held any of them to any
+      # other, so a sixth band would have compiled everywhere and shown five
+      # options. This compares the register to the schema dump, ordered, and
+      # refuses a member list written anywhere else. Gated at zero.
+      - name: Column vocabularies
+        run: pnpm check:column-vocabularies
+
       # An acknowledgement is a flag a client sets to say it meant to remove
       # something. Seventy-three are declared on command payloads, and until
       # #314 nothing read any of them, because a flag lives next to the command

@@ -11,6 +11,7 @@
 		"check": "biome check .",
 		"check:acknowledgements": "node scripts/check-acknowledgements.mjs",
 		"check:build-graph": "node scripts/check-build-graph.mjs",
+		"check:column-vocabularies": "node scripts/check-column-vocabularies.mjs",
 		"check:geometry-policies": "node scripts/check-geometry-policies.mjs",
 		"check:schema-drift": "node scripts/check-schema-drift.mjs",
 		"check:search-corpus": "node scripts/check-search-corpus.mjs",

@@ -198,9 +198,12 @@ wrong is invisible until somebody loses access.
 
 ## The role ladder
 
-`SimmerRole` is declared once, in `packages/domain/src/roles.ts`. `packages/db`
-re-exports it; `packages/sync` must not import it, because a transport that knew
-the domain vocabulary would be a second place the domain is described.
+`SimmerRole` is declared once, in `packages/domain/src/column-vocabularies.ts`,
+alongside the other sixteen Postgres enum types (#432). `packages/db` re-exports
+it; `packages/sync` must not import it, because a transport that knew the domain
+vocabulary would be a second place the domain is described, so its row schema
+carries a generated `z.enum` that `pnpm check:column-vocabularies` holds to the
+register.
 
 The ordering is not domain vocabulary. Which role outranks which is an
 authorization question, and `apps/server/src/roles.ts` answers it with

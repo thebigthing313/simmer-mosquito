@@ -42,9 +42,10 @@
  * Run it with `pnpm check:geometry-policies`.
  */
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sourceFiles } from './lib/source-files.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REGISTER_SOURCE = join(workspaceRoot, 'packages/domain/src/shared.ts');
@@ -75,9 +76,6 @@ const GEOMETRY_TYPE_NAMES = [
  */
 const EXPECTED_KINDS = 12;
 const EXPECTED_TABLES = 15;
-
-/** Only the workspace's own source is scanned. */
-const SKIPPED_DIRECTORIES = new Set(['node_modules', 'dist', 'coverage', '.fallow', 'tests']);
 
 /** Generated source, which nobody edits and which owes nothing to the register. */
 const GENERATED_PATHS = [join('packages', 'ui-web', 'src', 'components', 'ui')];
@@ -195,7 +193,7 @@ function checkTablesAreUnique({ rows }) {
 
 function checkNoCopies() {
 	const failures = [];
-	for (const file of sourceFiles()) {
+	for (const file of sourceFiles(workspaceRoot, GENERATED_PATHS)) {
 		if (file === REGISTER_SOURCE) {
 			continue;
 		}
@@ -221,47 +219,6 @@ function checkNoCopies() {
 
 function lineOf(source, index) {
 	return source.slice(0, index).split('\n').length;
-}
-
-/** Every first-party TypeScript source file, generated and test files aside. */
-function* sourceFiles() {
-	for (const root of SCANNED_ROOTS) {
-		for (const project of readdirSync(join(workspaceRoot, root))) {
-			const src = join(workspaceRoot, root, project, 'src');
-			if (!isDirectory(src)) {
-				continue;
-			}
-			yield* walk(src);
-		}
-	}
-}
-
-function* walk(directory) {
-	for (const entry of readdirSync(directory, { withFileTypes: true })) {
-		const path = join(directory, entry.name);
-		if (entry.isDirectory()) {
-			if (SKIPPED_DIRECTORIES.has(entry.name)) {
-				continue;
-			}
-			if (GENERATED_PATHS.some((generated) => path.endsWith(generated))) {
-				continue;
-			}
-			yield* walk(path);
-			continue;
-		}
-		if (!/\.tsx?$/.test(entry.name) || entry.name.endsWith('.gen.ts')) {
-			continue;
-		}
-		yield path;
-	}
-}
-
-function isDirectory(path) {
-	try {
-		return statSync(path).isDirectory();
-	} catch {
-		return false;
-	}
 }
 
 main();

@@ -48,18 +48,15 @@
  * Run it with `pnpm check:column-vocabularies`.
  */
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { sourceFiles } from './lib/source-files.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REGISTER_SOURCE = join(workspaceRoot, 'packages/domain/src/column-vocabularies.ts');
 const SCHEMA_FILE = join(workspaceRoot, 'packages/db/schema.sql');
 const ROW_SCHEMAS = join(workspaceRoot, 'packages/sync/src/collections/tables');
-const SCANNED_ROOTS = ['apps', 'packages'];
-
-/** Only the workspace's own source is scanned. */
-const SKIPPED_DIRECTORIES = new Set(['node_modules', 'dist', 'coverage', '.fallow', 'tests']);
 
 /** Generated source, which nobody edits and which owes nothing to the register. */
 const GENERATED_PATHS = [
@@ -85,6 +82,10 @@ const STRING_LITERAL = /'([^'\\\n]*)'|"([^"\\\n]*)"/g;
  * coincidence, and the interleaved copy this rule exists for holds five.
  */
 const INTERLEAVED_FLOOR = 3;
+
+/** The brackets `enclosingBracket` counts, opening and closing. */
+const OPENERS = '([{';
+const CLOSERS = ')]}';
 
 function main() {
 	const register = readRegister();
@@ -160,36 +161,39 @@ function readRegister() {
 	return { arrays, derivedTypes, entries, named };
 }
 
-function checkRegisterShape({ arrays, derivedTypes, entries, named }) {
-	const failures = [];
+function* checkRegisterShape(register) {
+	yield* checkEveryArrayIsRegistered(register);
+	yield* checkEveryRegistrationIsDeclared(register);
+}
 
+/** Each `as const` array has a type derived from it and a place in the map. */
+function* checkEveryArrayIsRegistered({ arrays, derivedTypes, named }) {
 	for (const name of arrays.keys()) {
 		if (!derivedTypes.has(name)) {
-			failures.push(`${name} has no \`export type X = (typeof ${name})[number];\` beside it.`);
+			yield `${name} has no \`export type X = (typeof ${name})[number];\` beside it.`;
 		}
-	}
-	for (const name of named) {
-		if (!arrays.has(name)) {
-			failures.push(`COLUMN_VOCABULARIES names ${name}, which the register does not declare.`);
-		}
-	}
-	for (const [name, count] of countBy(named)) {
-		if (count > 1) {
-			failures.push(`COLUMN_VOCABULARIES names ${name} ${count} times.`);
-		}
-	}
-	for (const name of arrays.keys()) {
 		if (!named.includes(name)) {
-			failures.push(`${name} is declared and COLUMN_VOCABULARIES does not name it.`);
+			yield `${name} is declared and COLUMN_VOCABULARIES does not name it.`;
 		}
 	}
-	for (const [type, members] of entries) {
-		if (members.length === 0) {
-			failures.push(`${type} resolves to no members, so the register did not parse.`);
+}
+
+/** Each name in the map is declared above it, once, and parsed to something. */
+function* checkEveryRegistrationIsDeclared({ arrays, entries, named }) {
+	for (const [name, count] of countBy(named)) {
+		if (!arrays.has(name)) {
+			yield `COLUMN_VOCABULARIES names ${name}, which the register does not declare.`;
+		}
+		if (count > 1) {
+			yield `COLUMN_VOCABULARIES names ${name} ${count} times.`;
 		}
 	}
 
-	return failures;
+	for (const [type, members] of entries) {
+		if (members.length === 0) {
+			yield `${type} resolves to no members, so the register did not parse.`;
+		}
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -279,7 +283,7 @@ function checkNoCopies({ entries }) {
 	const byMembers = new Map([...entries].map(([type, members]) => [key(members), type]));
 	const failures = [];
 
-	for (const file of sourceFiles()) {
+	for (const file of sourceFiles(workspaceRoot, GENERATED_PATHS)) {
 		if (file === REGISTER_SOURCE) {
 			continue;
 		}
@@ -341,17 +345,23 @@ function* interleavedCopies(source, where, entries) {
 		if (members.length < INTERLEAVED_FLOOR) {
 			continue;
 		}
-		const wanted = new Set(members);
-		for (let start = 0; start + members.length <= literals.length; start += 1) {
-			const window = literals.slice(start, start + members.length);
-			const distinct = new Set(window.map((literal) => literal.value));
-			if (distinct.size !== members.length || !window.every((one) => wanted.has(one.value))) {
-				continue;
-			}
+		for (const window of runsOf(literals, members)) {
 			const shape = interleavedShape(source, window);
 			if (shape !== null) {
 				yield `${where}:${lineOf(source, window[0].index)} spells \`${type}\` out ${shape}.`;
 			}
+		}
+	}
+}
+
+/** Every window of consecutive string literals holding each member exactly once. */
+function* runsOf(literals, members) {
+	const wanted = key(members);
+
+	for (let start = 0; start + members.length <= literals.length; start += 1) {
+		const window = literals.slice(start, start + members.length);
+		if (key(window.map((literal) => literal.value)) === wanted) {
+			yield window;
 			start += members.length - 1;
 		}
 	}
@@ -384,25 +394,26 @@ function interleavedShape(source, window) {
  */
 function enclosingBracket(source, index) {
 	let depth = 0;
+
 	for (let at = index - 1; at >= 0; at -= 1) {
 		const character = source[at];
-		if (character === ']' || character === ')' || character === '}') {
+
+		if (CLOSERS.includes(character)) {
 			depth += 1;
-		} else if (character === '[' || character === '(' || character === '{') {
+		} else if (OPENERS.includes(character)) {
 			if (depth === 0) {
 				return character;
 			}
 			depth -= 1;
-		} else if (character === ';' && depth === 0) {
-			return null;
 		}
 	}
+
 	return null;
 }
 
 /** A member set, order-insensitive, for comparing one list against another. */
 function key(members) {
-	return [...new Set(members)].sort().join(' ');
+	return [...new Set(members)].sort().join(' ');
 }
 
 // ---------------------------------------------------------------------------
@@ -417,47 +428,6 @@ function countBy(values) {
 
 function lineOf(source, index) {
 	return source.slice(0, index).split('\n').length;
-}
-
-/** Every first-party TypeScript source file, generated and test files aside. */
-function* sourceFiles() {
-	for (const root of SCANNED_ROOTS) {
-		for (const project of readdirSync(join(workspaceRoot, root))) {
-			const src = join(workspaceRoot, root, project, 'src');
-			if (!isDirectory(src)) {
-				continue;
-			}
-			yield* walk(src);
-		}
-	}
-}
-
-function* walk(directory) {
-	for (const entry of readdirSync(directory, { withFileTypes: true })) {
-		const path = join(directory, entry.name);
-		if (entry.isDirectory()) {
-			if (SKIPPED_DIRECTORIES.has(entry.name)) {
-				continue;
-			}
-			if (GENERATED_PATHS.some((generated) => path.endsWith(generated))) {
-				continue;
-			}
-			yield* walk(path);
-			continue;
-		}
-		if (!/\.tsx?$/.test(entry.name) || entry.name.endsWith('.gen.ts')) {
-			continue;
-		}
-		yield path;
-	}
-}
-
-function isDirectory(path) {
-	try {
-		return statSync(path).isDirectory();
-	} catch {
-		return false;
-	}
 }
 
 main();

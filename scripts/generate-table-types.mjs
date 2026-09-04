@@ -144,7 +144,7 @@ function readRegister() {
 	);
 
 	return new Map(
-		[...source.matchAll(/^	(\w+): ([A-Z0-9_]+),$/gm)]
+		[...source.matchAll(/^\t(\w+): ([A-Z0-9_]+),$/gm)]
 			.map((match) => [match[1], typeOfArray.get(match[2])])
 			.filter(([, name]) => name !== undefined),
 	);
