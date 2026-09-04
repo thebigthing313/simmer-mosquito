@@ -24,6 +24,7 @@
  */
 
 import type { SimmerRole } from '@simmer-mosquito/db';
+import { SIMMER_ROLES } from '@simmer-mosquito/domain';
 
 const API = process.env.SIMMER_CHECK_API ?? 'http://localhost:3000';
 const PASSWORD = process.env.SIMMER_CHECK_PASSWORD;
@@ -270,7 +271,8 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 let passed = 0;
 const failures: string[] = [];
 
-for (const role of ['viewer', 'collector', 'manager', 'admin', 'owner'] as const) {
+// Weakest first, so the output reads as a ladder being climbed.
+for (const role of [...SIMMER_ROLES].reverse()) {
 	const email = `${EMAIL_PREFIX}${role}@${EMAIL_DOMAIN}`;
 	const cookie = await signIn(email);
 	if (cookie === null) {

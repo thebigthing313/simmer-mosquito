@@ -6,6 +6,7 @@ import {
 	updateRow,
 } from '@simmer-mosquito/db';
 import {
+	LARVAL_DENSITIES,
 	type LarvalDensity,
 	type ResolvedLarvalInspectionEntryPolicy,
 	resolveOrganizationSettings,
@@ -139,13 +140,7 @@ export function hasInspectionResultFields(payload: Record<string, unknown>): boo
  * set of bands is not something two readers should each hold a copy of.
  */
 export function readDensity(value: unknown): LarvalDensity | null {
-	return value === 'none' ||
-		value === 'light' ||
-		value === 'medium' ||
-		value === 'heavy' ||
-		value === 'very_heavy'
-		? value
-		: null;
+	return LARVAL_DENSITIES.includes(value as LarvalDensity) ? (value as LarvalDensity) : null;
 }
 
 // ---------------------------------------------------------------------------

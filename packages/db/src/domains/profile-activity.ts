@@ -1,15 +1,3 @@
-import { type Kysely, type RawBuilder, sql } from 'kysely';
-
-import type { SimmerDatabase } from '../index.js';
-import {
-	assertIanaTimeZone,
-	habitatStatusSql,
-	inspectionResultSql,
-	localDateSql,
-	trapLabelSql,
-	trapStatusSql,
-} from './record-display-sql.js';
-
 /**
  * One Profile's field work, across every record type that attributes work to a
  * person, in one round-trip.
@@ -24,51 +12,33 @@ import {
  * signal there is, and their pins mean "created this site record".
  */
 /**
- * This package depends on nothing but Kysely, so the activity vocabulary the
- * domain owns is restated here rather than imported — the same arrangement
- * `LarvalDensity` already has. `apps/server` sees both packages and pins these
- * lists equal, because a drift is a category this reader can emit that the page
- * cannot name, and nothing about that fails.
+ * The vocabulary comes from the domain, which is the one declaration of it.
+ *
+ * This package restated all four lists until #432, on the stated grounds that it
+ * depends on nothing but Kysely and cannot see `packages/domain`. That has not
+ * been true since ADR 0013: `package.json` lists the domain as a dependency and
+ * `tables.ts` imports from it. The restated copies were pinned equal by a test
+ * in `apps/server`, which was the only place that could see both; that test goes
+ * with them.
  */
-export const dbActivityCategories = [
-	'habitat',
-	'inspection',
-	'trap',
-	'collection',
-	'application',
-	'sourceReduction',
-	'biocontrol',
-	'outreach',
-	'serviceRequest',
-] as const;
+import type {
+	ActivityCategory,
+	ActivityFamily,
+	ActivityInvolvement,
+	ActivityRole,
+} from '@simmer-mosquito/domain';
+import { type Kysely, type RawBuilder, sql } from 'kysely';
+import type { SimmerDatabase } from '../index.js';
+import {
+	assertIanaTimeZone,
+	habitatStatusSql,
+	inspectionResultSql,
+	localDateSql,
+	trapLabelSql,
+	trapStatusSql,
+} from './record-display-sql.js';
 
-export type ActivityCategory = (typeof dbActivityCategories)[number];
-
-export const dbActivityFamilies = ['larval', 'adult', 'control', 'publicEngagement'] as const;
-
-export type ActivityFamily = (typeof dbActivityFamilies)[number];
-
-/** Whether the Profile is named on the record itself, or assisted on it. */
-export const dbActivityInvolvements = ['primary', 'assisting'] as const;
-
-export type ActivityInvolvement = (typeof dbActivityInvolvements)[number];
-
-/** What the Profile did to the record. */
-export const dbActivityRoles = [
-	'created',
-	'inspected',
-	'set',
-	'collected',
-	'applied',
-	'reduced',
-	'released',
-	'engaged',
-	'received',
-	'closed',
-	'assisted',
-] as const;
-
-export type ActivityRole = (typeof dbActivityRoles)[number];
+export type { ActivityCategory, ActivityFamily, ActivityInvolvement, ActivityRole };
 
 export interface ProfileActivityRow {
 	readonly category: ActivityCategory;
