@@ -77,6 +77,7 @@ import {
 	SprayCan,
 	Square,
 	Sun,
+	Table,
 	Tag,
 	Target,
 	Thermometer,
@@ -265,6 +266,7 @@ export const iconRegistry = {
 		square: icon('square', 'Rectangle', 'generic', Square),
 		success: icon('success', 'Success', 'generic', CircleCheck),
 		sun: icon('sun', 'Sun', 'generic', Sun),
+		table: icon('table', 'Table', 'generic', Table),
 	},
 } as const;
 

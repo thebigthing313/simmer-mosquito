@@ -24,7 +24,9 @@
 
 import type { Inspection } from '@simmer-mosquito/sync';
 import type { LifeStageFlags } from '../../components/larval-display';
-import type { LinkedAddress } from './address-view';
+import { addressCardLabel } from '../../lib/address-format';
+import { adhocLabel } from '../../lib/coordinate-label';
+import { type LinkedAddress, resolveLinkedAddress } from './address-view';
 
 export interface LarvalActivityRow extends LifeStageFlags {
 	readonly id: string;
@@ -84,4 +86,38 @@ export interface InspectionCard extends LarvalActivityRow {
 	readonly addressId: string | null;
 	/** Joined, not looked up — see `address-view.ts` for why it is nested here. */
 	readonly address: LinkedAddress;
+}
+
+/**
+ * One Habitat Inspection as a row of the inspections table.
+ *
+ * The activity row plus the two things the table shows and the day panels do
+ * not: the dip count, which is the effort the density band is a rate over, and
+ * the linked Address, which names an Ad Hoc Inspection made at a place the
+ * address book already holds.
+ */
+export interface InspectionTableRow extends LarvalActivityRow {
+	readonly dipCount: number | null;
+	/** Joined, not looked up. `address-view.ts` says why it is nested here. */
+	readonly address: LinkedAddress;
+}
+
+/**
+ * What the Site column shows: the Habitat, then the Address, then the centroid.
+ *
+ * An inspection has no name of its own, so it is identified by where it was
+ * made. The Habitat is the usual answer. An Ad Hoc Inspection has none, and
+ * falls back to the Address it was linked to and then to its own coordinates,
+ * which is the only thing left that tells one ad-hoc row from the next.
+ *
+ * Not a compiled `select`: the coordinate fallback rounds to five places and the
+ * address label drops its empty parts, and the expression language can do
+ * neither.
+ */
+export function inspectionSiteLabel(row: InspectionTableRow): string {
+	return (
+		row.habitatName?.trim() ||
+		addressCardLabel(resolveLinkedAddress(row.address))?.trim() ||
+		adhocLabel(row.latitude, row.longitude)
+	);
 }

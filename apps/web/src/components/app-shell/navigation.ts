@@ -198,6 +198,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						icon: iconRegistry.generic.map.icon,
 					},
 					{
+						id: 'inspections-table',
+						label: 'Table',
+						to: '/larval-surveillance/inspections/table',
+						icon: iconRegistry.generic.table.icon,
+					},
+					{
 						id: 'inspections-create',
 						label: 'Create Inspection',
 						to: '/larval-surveillance/inspections/create',
