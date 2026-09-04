@@ -739,6 +739,15 @@ comparison script opens both sessions read only before its first query. That
 constraint is #236's: the integration harness sends the whole migration set as
 one transaction, and running it against staging is the #166 outage.
 
+**The migration set it compares against is `staging`'s, not the default
+branch's.** A schedule fires only from the default branch, so the scheduled run
+checks out `develop`, and the comparison script comes from there. The migrations
+come from a second checkout of `staging` at `staging-tree`, because a push to
+`staging` is what migrated the database. Read them from `develop` instead and
+every migration waiting on a promotion reads as drift. For most of the `develop`
+to `staging` window that is at least one migration, and #498 is the false
+positive that came of it (#499).
+
 Two comparisons, both in `scripts/check-schema-drift.mjs`, which takes two
 connection URLs and runs anywhere:
 
