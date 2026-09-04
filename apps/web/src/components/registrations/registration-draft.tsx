@@ -317,9 +317,7 @@ function DraftForm({
 		},
 		onSubmit: async ({ value }: { readonly value: RegistrationFormValues }) => {
 			setSaveError(null);
-			location.clearError();
-			if (geometry === null) {
-				location.setError('Draw the place this registration covers.');
+			if (!location.requireGeometry() || geometry === null) {
 				return;
 			}
 			try {

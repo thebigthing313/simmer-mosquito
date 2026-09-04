@@ -7,7 +7,10 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import { RecordUnavailable } from '../../../components/record';
-import { useHabitatMutations } from '../../../hooks/mutations/use-habitat-mutations';
+import {
+	type HabitatRedraw,
+	useHabitatMutations,
+} from '../../../hooks/mutations/use-habitat-mutations';
 import {
 	type SchemaCatalogListing,
 	useHabitatTypeRoster,
@@ -94,12 +97,13 @@ function EditHabitatLoader({
 		async ({
 			values,
 			geometry,
+			geometryChanged,
 		}: {
 			readonly values: HabitatFormValues;
 			readonly geometry: DrawGeometry;
+			readonly geometryChanged: boolean;
 		}) => {
 			const drawn = geometry as unknown as GeoJsonGeometry;
-			const geometryChanged = JSON.stringify(geometry) !== JSON.stringify(initialGeometry);
 
 			// Prime the detail's geometry cache so it shows this geometry the moment
 			// we navigate, rather than refetching and flashing an empty state.
@@ -109,7 +113,11 @@ function EditHabitatLoader({
 				await navigate({ to: '/larval-surveillance/habitats/$id', params: { id: habitat.id } });
 			};
 
-			let redraw: Parameters<typeof mutations.save>[3] = null;
+			// The flag comes from the draw state, which is the only thing that knows.
+			// Deriving it here by serialising both shapes made an untouched save name
+			// `updateHabitatLocation`, which is manager-and-above, and a collector
+			// fixing a description was refused (#427).
+			let redraw: HabitatRedraw | null = null;
 			if (geometryChanged) {
 				const centroid = ownedCentroidFromGeoJson(drawn);
 				if (centroid === null) {
@@ -140,7 +148,7 @@ function EditHabitatLoader({
 			);
 			await done();
 		},
-		[habitat, initialGeometry, mutations, navigate, queryClient],
+		[habitat, mutations, navigate, queryClient],
 	);
 
 	if (geometryQuery.isError) {

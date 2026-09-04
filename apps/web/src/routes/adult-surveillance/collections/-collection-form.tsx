@@ -19,8 +19,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
@@ -28,10 +27,9 @@ import {
 	DrawToolbar,
 	GeometryControl,
 	POINT_DRAW_TYPES,
-	useFitToGeometry,
 } from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
-import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
@@ -140,6 +138,14 @@ function validateCollection(value: CollectionFormValues, geometry: DrawGeometry 
 /** `YYYY-MM-DD` to a Date the builder can range-check; invalid stays invalid. */
 function parseDateValue(value: string | null): Date {
 	return new Date(value ?? '');
+}
+
+/** Where the chosen trap stands, as the context outline the map draws behind the form. */
+function trapPoint(trap: TrapOption | null): GeoJsonGeometry | null {
+	if (trap === null) {
+		return null;
+	}
+	return { type: 'Point', coordinates: [trap.longitude, trap.latitude] } as GeoJsonGeometry;
 }
 
 export interface CollectionFormValues {
@@ -261,10 +267,17 @@ export function CollectionFormPage({
 	const [selectedTrap, setSelectedTrap] = useState<TrapOption | null>(
 		() => traps.find((trap) => trap.id === defaultValues.trapId) ?? null,
 	);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryChanged, setGeometryChanged] = useState(false);
 	const [saveError, setSaveError] = useState<string | null>(null);
-	const [locationError, setLocationError] = useState<string | null>(null);
+	// In trap mode the collection inherits the trap's point; in ad-hoc mode it
+	// carries its own drawn point (the address, if any, is reference only). Only
+	// the first value is read, so the trap the form opens on frames the map from
+	// the first paint and later picks come through `setReferenceGeometry`.
+	const location = useDrawLocation({
+		initialGeometry,
+		initialReferenceGeometry: trapPoint(selectedTrap),
+		missingMessage: 'Place the collection point on the map.',
+	});
+	const { addressCoord, draw, geometry, referenceGeometry } = location;
 
 	const methodOptions = useMemo(
 		() =>
@@ -281,67 +294,6 @@ export function CollectionFormPage({
 		[collectionMethods],
 	);
 
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		setGeometryChanged(true);
-		if (next !== null) {
-			setLocationError(null);
-		}
-	}, []);
-	// The draw layer renders and edits the collection's own point; the trap's point
-	// is separate reference geometry, so only it needs a map feature of its own.
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
-	});
-	const { start, requestPoint } = draw;
-	// The inline "create address" subform places its point against this form's own
-	// map, so a new address can be sited without leaving the record being filled in.
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
-
-	// In trap mode the collection inherits the trap's point; in ad-hoc mode it
-	// carries its own drawn point (the address, if any, is reference only).
-	const trapPoint = useMemo<GeoJsonGeometry | null>(
-		() =>
-			selectedTrap === null
-				? null
-				: ({
-						type: 'Point',
-						coordinates: [selectedTrap.longitude, selectedTrap.latitude],
-					} as GeoJsonGeometry),
-		[selectedTrap],
-	);
-	// The collection's own point is framed last so it wins when a trap pick and a
-	// draw land on the same render.
-	useFitToGeometry(map, trapPoint, draw.isDrawing);
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
-
-	const placeAddressPoint = useCallback((point: DrawPoint) => {
-		setGeometry(point);
-		setGeometryChanged(true);
-	}, []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
-		geometry,
-		onPlacePoint: placeAddressPoint,
-	});
-
-	const startDraw = useCallback(() => {
-		setLocationError(null);
-		start('Point');
-	}, [start]);
-
-	const clearPoint = useCallback(() => {
-		setGeometry(null);
-		setGeometryChanged(true);
-	}, []);
-
 	const form = useAppForm({
 		defaultValues,
 		validators: {
@@ -350,14 +302,13 @@ export function CollectionFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
-			setLocationError(null);
+			location.clearError();
 			const error = validate(value);
 			if (error !== null) {
 				setSaveError(error);
 				return;
 			}
-			if (value.sourceMode === 'adhoc' && geometry === null) {
-				setLocationError('Place the collection point on the map.');
+			if (value.sourceMode === 'adhoc' && !location.requireGeometry()) {
 				return;
 			}
 			try {
@@ -365,7 +316,7 @@ export function CollectionFormPage({
 					values: value,
 					trap: value.sourceMode === 'trap' ? selectedTrap : null,
 					geometry: value.sourceMode === 'adhoc' ? geometry : null,
-					geometryChanged,
+					geometryChanged: location.geometryChanged,
 				});
 			} catch (thrown) {
 				setSaveError(thrown instanceof Error ? thrown.message : 'Unable to save collection.');
@@ -385,10 +336,13 @@ export function CollectionFormPage({
 				header={header}
 				aside={
 					<>
+						{/* The draw layer renders and edits the collection's own point; the
+						    trap's point is separate reference geometry, so only it needs a map
+						    feature of its own. */}
 						<MapCanvas
 							controls={{ layers: false }}
-							geoJson={trapPoint as unknown as GeoJSON.GeoJSON | null}
-							onMapReady={handleMapReady}
+							geoJson={referenceGeometry as unknown as GeoJSON.GeoJSON | null}
+							onMapReady={location.onMapReady}
 						/>
 						<DrawToolbar
 							controller={draw}
@@ -460,7 +414,7 @@ export function CollectionFormPage({
 
 				<LocationSection
 					description="A trap collection sits where the trap sits. A one-off carries its own point; an address is optional reference, and the point can be refined off it."
-					error={locationError}
+					error={location.locationError}
 					title="Source and location"
 				>
 					<form.AppField name="sourceMode">
@@ -499,6 +453,7 @@ export function CollectionFormPage({
 												onSelect={(trap) => {
 													field.handleChange(trap?.id ?? null);
 													setSelectedTrap(trap);
+													location.setReferenceGeometry(trapPoint(trap));
 													// Derive method + lure from the trap.
 													form.setFieldValue('collectionMethodId', trap?.collectionMethodId ?? '');
 													form.setFieldValue(
@@ -527,12 +482,12 @@ export function CollectionFormPage({
 									<form.AppField name="addressId">
 										{(field) => (
 											<AddressPicker
-												create={{ requestMapPoint }}
+												create={{ requestMapPoint: location.requestMapPoint }}
 												label="Address"
 												onSelect={(address) => {
 													field.handleChange(address?.id ?? null);
-													setLocationError(null);
-													selectAddress(address);
+													location.clearError();
+													location.selectAddress(address);
 												}}
 												organizationId={organizationId}
 												value={field.state.value}
@@ -546,9 +501,9 @@ export function CollectionFormPage({
 										geometryType="Point"
 										label="Point"
 										required
-										onClear={clearPoint}
-										onDraw={startDraw}
-										{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+										onClear={location.clear}
+										onDraw={location.startDraw}
+										{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
 									/>
 								</>
 							)

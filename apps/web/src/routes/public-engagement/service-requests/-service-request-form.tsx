@@ -3,7 +3,6 @@ import {
 	REQUEST_INTAKE_TYPES,
 	type RequestIntakeType,
 } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	FormSection,
 	LocationSection,
@@ -12,7 +11,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
@@ -20,14 +18,9 @@ import {
 	DrawToolbar,
 	GeometryControl,
 	POINT_DRAW_TYPES,
-	useFitToGeometry,
 } from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
-import {
-	type DrawGeometry,
-	type MapDrawController,
-	useMapDraw,
-} from '../../../components/map/use-map-draw';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry, MapDrawController } from '../../../components/map/use-map-draw';
 import type { AddressOption } from '../../../components/pickers/address-picker';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
@@ -192,33 +185,15 @@ export function ServiceRequestFormPage({
 	submitLabel,
 	onSave,
 }: ServiceRequestFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [locationError, setLocationError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		if (next !== null) {
-			setLocationError(null);
-		}
-	}, []);
 	// The draw layer both renders the placed point and edits it, so the map needs no
 	// separate preview feature.
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
+	const location = useDrawLocation({
+		initialGeometry,
+		missingMessage: 'Place the request location on the map.',
+		required: requireLocation && !hideLocation,
 	});
-	const { start, requestPoint } = draw;
-	// The inline "create address" subform places its point against this form's own
-	// map, so a new address can be sited without leaving the record being filled in.
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
+	const { addressCoord, draw, geometry } = location;
 
 	const profileOptions = useMemo(
 		() =>
@@ -230,27 +205,14 @@ export function ServiceRequestFormPage({
 		[profiles],
 	);
 
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
-
-	const placeAddressPoint = useCallback((point: DrawPoint) => setGeometry(point), []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
-		geometry,
-		onPlacePoint: placeAddressPoint,
-	});
+	const { clearError, selectAddress } = location;
 	const handleAddressSelected = useCallback(
 		(address: AddressOption | null) => {
-			setLocationError(null);
+			clearError();
 			selectAddress(address);
 		},
-		[selectAddress],
+		[clearError, selectAddress],
 	);
-
-	const startDraw = useCallback(() => {
-		setLocationError(null);
-		start('Point');
-	}, [start]);
-
-	const clearPoint = useCallback(() => setGeometry(null), []);
 
 	const form = useAppForm({
 		defaultValues,
@@ -264,14 +226,13 @@ export function ServiceRequestFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
-			setLocationError(null);
+			location.clearError();
 			const error = validateServiceRequestForm(value, { hideLocation, disableNewContact });
 			if (error !== null) {
 				setSaveError(error);
 				return;
 			}
-			if (!hideLocation && requireLocation && geometry === null) {
-				setLocationError('Place the request location on the map.');
+			if (!location.requireGeometry()) {
 				return;
 			}
 			try {
@@ -294,7 +255,7 @@ export function ServiceRequestFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<MapCanvas controls={{ layers: false }} onMapReady={location.onMapReady} />
 						<DrawToolbar
 							controller={draw}
 							geometryType="Point"
@@ -326,13 +287,13 @@ export function ServiceRequestFormPage({
 						controller={draw}
 						form={form}
 						geometry={geometry}
-						locationError={locationError}
+						locationError={location.locationError}
 						onAddressSelected={handleAddressSelected}
-						onClearPoint={clearPoint}
-						onDrawPoint={startDraw}
-						onMoveToAddress={moveToAddress}
+						onClearPoint={location.clear}
+						onDrawPoint={location.startDraw}
+						onMoveToAddress={location.moveToAddress}
 						organizationId={organizationId}
-						requestMapPoint={requestMapPoint}
+						requestMapPoint={location.requestMapPoint}
 						requireLocation={requireLocation}
 					/>
 				)}

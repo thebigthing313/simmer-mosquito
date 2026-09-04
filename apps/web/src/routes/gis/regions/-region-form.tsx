@@ -7,16 +7,15 @@ import {
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import {
 	DrawToolbar,
 	GeometryControl,
 	POLYGON_DRAW_TYPES,
-	useFitToGeometry,
 } from '../../../components/map/geometry-control';
-import { type DrawGeometry, useMapDraw } from '../../../components/map/use-map-draw';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import type { RegionFields } from '../../../hooks/mutations/use-region-mutations';
 import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
@@ -104,30 +103,15 @@ export function RegionFormPage({
 	submitLabel,
 	onSave,
 }: RegionFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [geometryError, setGeometryError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		setGeometryChanged(true);
-		if (next !== null) {
-			setGeometryError(null);
-		}
-	}, []);
-
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
+	// A region is an area, so the draw starts on the polygon tool rather than the
+	// point every other record starts on.
+	const location = useDrawLocation({
+		geometryType: 'Polygon',
+		initialGeometry,
+		missingMessage: 'Draw the region boundary on the map before saving.',
 	});
-	const { start } = draw;
-
-	useFitToGeometry(map, geometry, draw.isDrawing);
+	const { draw, geometry } = location;
 
 	const activeFolders = useMemo(
 		() => [...regionFolders].sort((a, b) => a.name.localeCompare(b.name)),
@@ -154,27 +138,16 @@ export function RegionFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
-			if (geometry === null) {
-				setGeometryError('Draw the region boundary on the map before saving.');
+			if (!location.requireGeometry() || geometry === null) {
 				return;
 			}
 			try {
-				await onSave({ values: value, geometry, geometryChanged });
+				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 			} catch (error) {
 				setSaveError(error instanceof Error ? error.message : 'Unable to save region.');
 			}
 		},
 	});
-
-	const startDraw = useCallback(() => {
-		setGeometryError(null);
-		start('Polygon');
-	}, [start]);
-
-	const clearGeometry = useCallback(() => {
-		setGeometry(null);
-		setGeometryChanged(true);
-	}, []);
 
 	return (
 		<form.AppForm>
@@ -188,7 +161,7 @@ export function RegionFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<MapCanvas controls={{ layers: false }} onMapReady={location.onMapReady} />
 						<DrawToolbar controller={draw} geometryType="Polygon" />
 						<MapLegend mode={mode} />
 					</>
@@ -228,7 +201,7 @@ export function RegionFormPage({
 
 				<LocationSection
 					description="Draw the region's area on the map."
-					error={geometryError}
+					error={location.locationError}
 					title="Region boundary"
 				>
 					<GeometryControl
@@ -237,8 +210,8 @@ export function RegionFormPage({
 						geometry={geometry}
 						geometryType="Polygon"
 						label="Boundary"
-						onClear={clearGeometry}
-						onDraw={startDraw}
+						onClear={location.clear}
+						onDraw={location.startDraw}
 						required
 					/>
 				</LocationSection>

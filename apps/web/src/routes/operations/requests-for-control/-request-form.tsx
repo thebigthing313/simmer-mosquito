@@ -10,13 +10,13 @@ import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/com
 import { useMemo, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { lifecycleOptions } from '../../../lib/lifecycle-options';
 import { HabitatPicker } from '../../control-operations/-control-pickers';
 import { ControlTypeToggle } from '../-control-type-toggle';
-import { useDrawLocation } from '../-draw-location';
 import { LocationSection } from '../-location-section';
 import { useMethodsForControlType } from '../-operations-data';
 

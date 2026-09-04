@@ -1,5 +1,4 @@
 import { recordOutreachActionCommand } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -11,22 +10,13 @@ import {
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import type { Map as MapboxMap } from 'mapbox-gl';
-import { useCallback, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	useFitToGeometry,
-} from '../../../components/map/geometry-control';
-import { type DrawPoint, useAddressPoint } from '../../../components/map/use-address-point';
-import {
-	type DrawGeometry,
-	type DrawGeometryType,
-	useMapDraw,
-} from '../../../components/map/use-map-draw';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { useDrawLocation } from '../../../components/map/use-draw-location';
+import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
@@ -138,38 +128,13 @@ export function OutreachFormPage({
 	submitLabel,
 	onSave,
 }: OutreachFormPageProps) {
-	const [map, setMap] = useState<MapboxMap | null>(null);
-	const [geometry, setGeometry] = useState<DrawGeometry | null>(initialGeometry);
-	const [geometryType, setGeometryType] = useState<DrawGeometryType>(
-		initialGeometry?.type ?? 'Point',
-	);
-	const [geometryChanged, setGeometryChanged] = useState(false);
-	const [locationError, setLocationError] = useState<string | null>(null);
 	const [saveError, setSaveError] = useState<string | null>(null);
-
-	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const handleGeometryChange = useCallback((next: DrawGeometry | null) => {
-		setGeometry(next);
-		setGeometryChanged(true);
-		if (next !== null) {
-			setLocationError(null);
-		}
-	}, []);
-	const draw = useMapDraw({
-		map,
-		isLoaded: map !== null,
-		value: geometry,
-		onChange: handleGeometryChange,
+	const location = useDrawLocation({
+		initialGeometry,
+		missingMessage: 'Map where the outreach happened.',
+		required: requireLocation,
 	});
-	const { start, requestPoint } = draw;
-	// The inline "create address" subform places its point against this form's own
-	// map, so a new address can be sited without leaving the record being filled in.
-	const requestMapPoint = useCallback(
-		(options?: { readonly prompt?: string }) => requestPoint(options?.prompt),
-		[requestPoint],
-	);
-
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
+	const { addressCoord, draw, geometry, geometryType } = location;
 
 	const methodOptions = useMemo(
 		() =>
@@ -215,7 +180,7 @@ export function OutreachFormPage({
 		},
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
-			setLocationError(null);
+			location.clearError();
 			if (value.outreachMethodId === '') {
 				setSaveError('Select the outreach method that was used.');
 				return;
@@ -228,53 +193,16 @@ export function OutreachFormPage({
 				setSaveError('Enter the date the outreach happened.');
 				return;
 			}
-			if (requireLocation && geometry === null) {
-				setLocationError('Map where the outreach happened.');
+			if (!location.requireGeometry()) {
 				return;
 			}
 			try {
-				await onSave({ values: value, geometry, geometryChanged });
+				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 			} catch (error) {
 				setSaveError(error instanceof Error ? error.message : 'Unable to save outreach action.');
 			}
 		},
 	});
-
-	// Seeding from an address (or moving onto one) replaces the drawn shape with a
-	// point, so the tool selector follows it.
-	const placeAddressPoint = useCallback((point: DrawPoint) => {
-		setGeometry(point);
-		setGeometryType('Point');
-		setGeometryChanged(true);
-	}, []);
-	const { addressCoord, selectAddress, moveToAddress } = useAddressPoint({
-		geometry,
-		onPlacePoint: placeAddressPoint,
-	});
-
-	// Switching tools replaces the shape, so the old one is cleared rather than
-	// silently saved under the wrong type.
-	const handleTypeChange = useCallback(
-		(next: DrawGeometryType) => {
-			setGeometryType(next);
-			setGeometry(null);
-			setGeometryChanged(true);
-			if (draw.isDrawing) {
-				start(next);
-			}
-		},
-		[draw.isDrawing, start],
-	);
-
-	const startDraw = useCallback(() => {
-		setLocationError(null);
-		start(geometryType);
-	}, [geometryType, start]);
-
-	const clearGeometry = useCallback(() => {
-		setGeometry(null);
-		setGeometryChanged(true);
-	}, []);
 
 	return (
 		<form.AppForm>
@@ -288,7 +216,7 @@ export function OutreachFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={handleMapReady} />
+						<MapCanvas controls={{ layers: false }} onMapReady={location.onMapReady} />
 						<DrawToolbar controller={draw} geometryType={geometryType} />
 					</>
 				}
@@ -346,17 +274,17 @@ export function OutreachFormPage({
 
 				<LocationSection
 					description="The geometry is where the outreach happened — a point for a single stop, a line or area for a canvassed block. An address is optional reference."
-					error={locationError}
+					error={location.locationError}
 				>
 					<form.AppField name="addressId">
 						{(field) => (
 							<AddressPicker
-								create={{ requestMapPoint }}
+								create={{ requestMapPoint: location.requestMapPoint }}
 								label="Address"
 								onSelect={(address) => {
 									field.handleChange(address?.id ?? null);
-									setLocationError(null);
-									selectAddress(address);
+									location.clearError();
+									location.selectAddress(address);
 								}}
 								organizationId={organizationId}
 								value={field.state.value}
@@ -369,12 +297,12 @@ export function OutreachFormPage({
 						geometry={geometry}
 						geometryType={geometryType}
 						label="Geometry"
-						onClear={clearGeometry}
-						onDraw={startDraw}
-						onTypeChange={handleTypeChange}
+						onClear={location.clear}
+						onDraw={location.startDraw}
+						onTypeChange={location.changeType}
 						organizationId={organizationId}
 						required={requireLocation}
-						{...(addressCoord === null ? {} : { onMoveToAddress: moveToAddress })}
+						{...(addressCoord === null ? {} : { onMoveToAddress: location.moveToAddress })}
 					/>
 				</LocationSection>
 
