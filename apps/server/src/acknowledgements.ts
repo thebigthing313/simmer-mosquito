@@ -44,7 +44,7 @@
  * surface does today. That is deliberate — the alternative refuses writes that
  * work now — and #319 is the client half.
  *
- * The four in `EXPLICIT_ACKNOWLEDGEMENTS` are the exception, and that list is
+ * The six in `EXPLICIT_ACKNOWLEDGEMENTS` are the exception, and that list is
  * further down with the reason for each.
  */
 
