@@ -1,3 +1,4 @@
+import type { OwnedGeometryKind } from '@simmer-mosquito/domain';
 import { LocationSection as LocationBand } from '@simmer-mosquito/ui-web/components/form';
 import type { ReactNode } from 'react';
 import { GeometryControl } from '../../components/map/geometry-control';
@@ -16,6 +17,7 @@ import type { DrawLocation } from '../../components/map/use-draw-location';
  */
 export function LocationSection({
 	location,
+	geometryKind,
 	organizationId,
 	description,
 	label = 'Location',
@@ -23,6 +25,8 @@ export function LocationSection({
 	children,
 }: {
 	readonly location: DrawLocation;
+	/** The record kind being placed. Its policy in the register sets the toggle. */
+	readonly geometryKind: OwnedGeometryKind;
 	readonly organizationId: string;
 	readonly description: string;
 	readonly label?: string;
@@ -38,6 +42,7 @@ export function LocationSection({
 				controller={location.draw}
 				geometry={location.geometry}
 				geometryType={location.geometryType}
+				geometryKind={geometryKind}
 				label="Geometry"
 				onClear={location.clear}
 				onDraw={location.startDraw}

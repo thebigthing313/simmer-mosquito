@@ -42,9 +42,18 @@ export type SupportedGeoJsonGeometry = GeoJsonPoint | GeoJsonLineString | GeoJso
 export type FoundationGeometryInput = SupportedGeoJsonGeometry;
 
 export const SUPPORTED_GEOMETRY_TYPES = ['Point', 'LineString', 'Polygon'] as const;
-export const ADDRESS_GEOMETRY_TYPES = ['Point'] as const;
-export const REGION_GEOMETRY_TYPES = ['Polygon'] as const;
-export const LOCATABLE_GEOMETRY_TYPES = SUPPORTED_GEOMETRY_TYPES;
+
+/**
+ * The shape sets the register hands out, named for the shapes rather than for
+ * any one record kind.
+ *
+ * They are private on purpose. `OWNED_GEOMETRY_POLICIES` is the only thing
+ * allowed to say which record stores which shapes, and a shape list exported
+ * from here is a second answer waiting to drift from it.
+ */
+const POINT_ONLY = ['Point'] as const;
+const POLYGON_ONLY = ['Polygon'] as const;
+const EVERY_SHAPE = SUPPORTED_GEOMETRY_TYPES;
 
 export type OwnedGeometryKind =
 	| 'address'
@@ -63,49 +72,100 @@ export type OwnedGeometryKind =
 export interface OwnedGeometryPolicy {
 	readonly kind: OwnedGeometryKind;
 	readonly domainName: string;
+	/**
+	 * The tables that store this kind's geometry, spelled the way the database
+	 * spells them. `controlAction` alone covers four.
+	 */
+	readonly tables: readonly string[];
+	/**
+	 * The storable set, and only that. Draw modes are derived from it by
+	 * {@link getOwnedGeometryBaseTypes}; a second field for them would be two
+	 * hand-written lists on one record, which is the drift this register exists
+	 * to delete.
+	 */
 	readonly allowedTypes: readonly SupportedGeometryType[];
 }
 
+/**
+ * Which record kind stores which shapes, and in which tables.
+ *
+ * This is the register: the single place the matrix is written. It used to be
+ * decoration beside six other copies of the same facts, none of which was held
+ * to any other. `pnpm check:geometry-policies` gates the copies at zero, and a
+ * case in `owned-geometry.integration.test.ts` reads the column type and the
+ * CHECK back out of the catalog and compares them to `allowedTypes`.
+ *
+ * Keyed by kind rather than by table because the kind is what the draw control
+ * and the validators speak, and a table-keyed register would write the one
+ * control-action policy out four times.
+ */
 export const OWNED_GEOMETRY_POLICIES = [
-	{ kind: 'address', domainName: 'Address Geometry', allowedTypes: ADDRESS_GEOMETRY_TYPES },
-	{ kind: 'region', domainName: 'Region Geometry', allowedTypes: REGION_GEOMETRY_TYPES },
-	{ kind: 'trap', domainName: 'Trap Geometry', allowedTypes: ADDRESS_GEOMETRY_TYPES },
-	{ kind: 'collection', domainName: 'Collection Geometry', allowedTypes: ADDRESS_GEOMETRY_TYPES },
-	{ kind: 'habitat', domainName: 'Habitat Geometry', allowedTypes: LOCATABLE_GEOMETRY_TYPES },
+	{
+		kind: 'address',
+		domainName: 'Address Geometry',
+		tables: ['addresses'],
+		allowedTypes: POINT_ONLY,
+	},
+	{
+		kind: 'region',
+		domainName: 'Region Geometry',
+		tables: ['regions'],
+		allowedTypes: POLYGON_ONLY,
+	},
+	{ kind: 'trap', domainName: 'Trap Geometry', tables: ['traps'], allowedTypes: POINT_ONLY },
+	{
+		kind: 'collection',
+		domainName: 'Collection Geometry',
+		tables: ['collections'],
+		allowedTypes: POINT_ONLY,
+	},
+	{
+		kind: 'habitat',
+		domainName: 'Habitat Geometry',
+		tables: ['habitats'],
+		allowedTypes: EVERY_SHAPE,
+	},
 	{
 		kind: 'inspection',
 		domainName: 'Inspection Geometry',
-		allowedTypes: LOCATABLE_GEOMETRY_TYPES,
+		tables: ['inspections'],
+		allowedTypes: EVERY_SHAPE,
 	},
 	{
 		kind: 'controlAction',
 		domainName: 'Control Action Geometry',
-		allowedTypes: LOCATABLE_GEOMETRY_TYPES,
+		tables: ['applications', 'source_reductions', 'outreach_actions', 'biocontrol_actions'],
+		allowedTypes: EVERY_SHAPE,
 	},
 	{
 		kind: 'requestedControlAction',
 		domainName: 'Requested Control Action Geometry',
-		allowedTypes: LOCATABLE_GEOMETRY_TYPES,
+		tables: ['requested_control_actions'],
+		allowedTypes: EVERY_SHAPE,
 	},
 	{
 		kind: 'missionItem',
 		domainName: 'Mission Item Geometry',
-		allowedTypes: LOCATABLE_GEOMETRY_TYPES,
+		tables: ['mission_items'],
+		allowedTypes: EVERY_SHAPE,
 	},
 	{
 		kind: 'serviceRequest',
 		domainName: 'Service Request Geometry',
-		allowedTypes: ADDRESS_GEOMETRY_TYPES,
+		tables: ['service_requests'],
+		allowedTypes: POINT_ONLY,
 	},
 	{
 		kind: 'notificationRegistration',
 		domainName: 'Notification Registration Geometry',
-		allowedTypes: LOCATABLE_GEOMETRY_TYPES,
+		tables: ['notification_registrations'],
+		allowedTypes: EVERY_SHAPE,
 	},
 	{
 		kind: 'weatherStation',
 		domainName: 'Weather Station Geometry',
-		allowedTypes: ADDRESS_GEOMETRY_TYPES,
+		tables: ['weather_sources'],
+		allowedTypes: POINT_ONLY,
 	},
 ] as const satisfies readonly OwnedGeometryPolicy[];
 
@@ -117,27 +177,51 @@ export function getOwnedGeometryPolicy(kind: OwnedGeometryKind): OwnedGeometryPo
 	return policy;
 }
 
-export function normalizePointGeometry(input: unknown, path = 'geometry'): GeoJsonPoint {
-	return normalizeGeometryForTypes(input, ADDRESS_GEOMETRY_TYPES, path) as GeoJsonPoint;
+/**
+ * The base shape behind each storable one.
+ *
+ * An object keyed by the type union rather than a list, so the compiler requires
+ * an entry per shape and a shape added to the union cannot quietly miss one.
+ */
+const BASE_GEOMETRY_TYPE: Readonly<Record<SupportedGeometryType, SupportedGeometryType>> = {
+	Point: 'Point',
+	LineString: 'LineString',
+	Polygon: 'Polygon',
+};
+
+/**
+ * The shapes a user draws for `kind`, in the order the register lists them.
+ *
+ * `allowedTypes` normalized to base shapes and deduplicated. The derivation is
+ * total: every shape has exactly one base, and a record that may store a multi
+ * shape may always store the single one beside it.
+ */
+export function getOwnedGeometryBaseTypes(
+	kind: OwnedGeometryKind,
+): readonly SupportedGeometryType[] {
+	const bases: SupportedGeometryType[] = [];
+	for (const type of getOwnedGeometryPolicy(kind).allowedTypes) {
+		const base = BASE_GEOMETRY_TYPE[type];
+		if (!bases.includes(base)) {
+			bases.push(base);
+		}
+	}
+	return bases;
 }
 
-export function normalizePolygonGeometry(input: unknown, path = 'geometry'): GeoJsonPolygon {
-	return normalizeGeometryForTypes(input, REGION_GEOMETRY_TYPES, path) as GeoJsonPolygon;
-}
-
-export function normalizeLocatableGeometry(
+/**
+ * Validate a geometry against what `kind` may store, throwing on anything else.
+ *
+ * One entry point for every record kind. The three hand-picked normalizers it
+ * replaced meant the matrix was keyed by call site, so a widened policy reached
+ * a validator only if somebody remembered to change the call.
+ */
+export function normalizeOwnedGeometry(
+	kind: OwnedGeometryKind,
 	input: unknown,
 	path = 'geometry',
 ): SupportedGeoJsonGeometry {
-	return normalizeGeometryForTypes(input, LOCATABLE_GEOMETRY_TYPES, path);
-}
-
-export function normalizeGeometry(
-	input: unknown,
-	allowedTypes: readonly SupportedGeometryType[] = SUPPORTED_GEOMETRY_TYPES,
-	path = 'geometry',
-): SupportedGeoJsonGeometry {
-	return normalizeGeometryForTypes(input, allowedTypes, path);
+	return normalizeGeometryForTypes(input, getOwnedGeometryPolicy(kind).allowedTypes, path);
 }
 
 export function inferGeometryPrecisionPolicy(
@@ -269,7 +353,13 @@ function validatePosition(
 		: [Number(longitude), Number(latitude)];
 }
 
-function isSupportedGeometryType(value: unknown): value is SupportedGeometryType {
+/**
+ * Whether `value` names a shape the domain models at all.
+ *
+ * Exported for the web draw control, whose "can this row's geometry be redrawn"
+ * guard was three hand-written type comparisons in each of three files.
+ */
+export function isSupportedGeometryType(value: unknown): value is SupportedGeometryType {
 	return (
 		typeof value === 'string' && SUPPORTED_GEOMETRY_TYPES.includes(value as SupportedGeometryType)
 	);

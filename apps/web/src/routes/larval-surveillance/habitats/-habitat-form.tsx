@@ -232,6 +232,7 @@ export function HabitatFormPage({
 							controller={draw}
 							geometry={geometry}
 							geometryType={geometryType}
+							geometryKind="habitat"
 							label="Geometry"
 							required
 							onClear={location.clear}

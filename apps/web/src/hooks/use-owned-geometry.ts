@@ -2,8 +2,8 @@ import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { getServerUrl } from '../auth';
-import { toDrawGeometry } from '../components/map/geometry-control';
 import type { DrawGeometry } from '../components/map/use-map-draw';
+import { toDrawGeometry } from '../components/map/use-map-draw';
 
 /**
  * Owned geometry is deliberately excluded from the Electric sync shapes — the

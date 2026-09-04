@@ -75,6 +75,14 @@ jobs:
       - name: Search corpus
         run: pnpm check:search-corpus
 
+      # Which record kind stores which shapes was written in seven places and
+      # nothing held them to each other. Four were deleted; this asserts the
+      # register that replaced them is complete and that nobody has written an
+      # eighth copy. Gated at zero, because the seven agreed when they were
+      # collapsed and there is no backlog to ratchet.
+      - name: Geometry policies
+        run: pnpm check:geometry-policies
+
       # An acknowledgement is a flag a client sets to say it meant to remove
       # something. Seventy-three are declared on command payloads, and until
       # #314 nothing read any of them, because a flag lives next to the command

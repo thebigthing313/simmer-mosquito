@@ -12,8 +12,7 @@ import {
 	type DomainValidationIssue,
 	type GeoJsonPoint,
 	type GeoJsonPolygon,
-	normalizePointGeometry,
-	normalizePolygonGeometry,
+	normalizeOwnedGeometry,
 } from '../shared.js';
 
 export type FoundationCommandType =
@@ -128,13 +127,14 @@ export function validateOperatorIdCommand<T extends OperatorFoundationCommandInp
 	return issues;
 }
 
+/** An Address's geometry, against the Address policy in the register. */
 export function validatePointGeometry(
 	value: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
 ): GeoJsonPoint {
 	try {
-		return normalizePointGeometry(value, path);
+		return normalizeOwnedGeometry('address', value, path) as GeoJsonPoint;
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);
@@ -144,13 +144,14 @@ export function validatePointGeometry(
 	}
 }
 
+/** A Region's geometry, against the Region policy in the register. */
 export function validatePolygonGeometry(
 	value: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
 ): GeoJsonPolygon {
 	try {
-		return normalizePolygonGeometry(value, path);
+		return normalizeOwnedGeometry('region', value, path) as GeoJsonPolygon;
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);

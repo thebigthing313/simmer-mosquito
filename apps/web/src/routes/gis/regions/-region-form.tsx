@@ -9,11 +9,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { useMemo, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
-import {
-	DrawToolbar,
-	GeometryControl,
-	POLYGON_DRAW_TYPES,
-} from '../../../components/map/geometry-control';
+import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
@@ -205,10 +201,10 @@ export function RegionFormPage({
 					title="Region boundary"
 				>
 					<GeometryControl
-						allowedTypes={POLYGON_DRAW_TYPES}
 						controller={draw}
 						geometry={geometry}
 						geometryType="Polygon"
+						geometryKind="region"
 						label="Boundary"
 						onClear={location.clear}
 						onDraw={location.startDraw}

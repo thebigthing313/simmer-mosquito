@@ -190,6 +190,7 @@ export function RequestFormPage({
 				)}
 
 				<LocationSection
+					geometryKind="requestedControlAction"
 					description="A point for a single site, a line or area for a stretch. An address is optional reference."
 					location={location}
 					organizationId={organizationId}

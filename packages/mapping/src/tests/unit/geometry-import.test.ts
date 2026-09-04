@@ -2,13 +2,17 @@ import { describe, expect, it } from 'vitest';
 import {
 	collectImportGroups,
 	flattenGeometries,
+	type ImportGeometryKind,
 	type ImportPosition,
 	importCandidatesFrom,
 	importVertexCount,
+	isImportGeometryKind,
 	isWgs84Geometry,
-	LINE_KINDS,
-	POLYGON_KINDS,
 } from '../../geometry-import.js';
+
+// Spelled out here as test input, the way a caller's `kinds` argument arrives.
+const POLYGON_KINDS: readonly ImportGeometryKind[] = ['Polygon'];
+const LINE_KINDS: readonly ImportGeometryKind[] = ['LineString'];
 
 const square: ImportPosition[] = [
 	[0, 0],
@@ -161,5 +165,18 @@ describe('importVertexCount', () => {
 	it('counts a polygon ring without its closing position', () => {
 		expect(importVertexCount({ type: 'Polygon', coordinates: [square] })).toBe(4);
 		expect(importVertexCount({ type: 'LineString', coordinates: line })).toBe(3);
+	});
+});
+
+describe('isImportGeometryKind', () => {
+	it('names the kinds the parser can produce', () => {
+		expect(isImportGeometryKind('Polygon')).toBe(true);
+		expect(isImportGeometryKind('LineString')).toBe(true);
+	});
+
+	it('rejects a shape the parser has no arm for', () => {
+		expect(isImportGeometryKind('Point')).toBe(false);
+		expect(isImportGeometryKind('MultiPolygon')).toBe(false);
+		expect(isImportGeometryKind('toString')).toBe(false);
 	});
 });
