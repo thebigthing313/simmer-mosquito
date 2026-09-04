@@ -113,6 +113,17 @@ directory for the module's `*TableCommands` export.
 asserts over every table at once, that each declared intent is one its writer
 handles, so it is not a test of any one module and is not named for one.
 
+**`apps/web/src/tests/unit/hooks/mutations/` is grouped the same way**, and for a
+different reason. The suites there render a mutation hook and assert what it
+dispatched, so each file has to stub every collection its hooks import, and
+`vi.mock` hoists per file. One file per hook would write that stub block out
+forty-three times. So a file is a write surface, `larval-surveillance.test.ts`
+covers habitats, inspections, samples and species counts, and
+`dispatch-harness.ts` beside them holds what the stub blocks share. The older
+`use-*-mutations.test.ts` files in the same directory are not that: they test the
+pure exported plan functions and need no stubs, so they stay named for the module
+they cover.
+
 ### Build toolchain
 
 The workspace is on **TypeScript 7** (`typescript@7.0.2`, the native compiler), and `tsc` is the only compiler: every project's `build` is `tsc -b` and every `typecheck` is `tsc -p tsconfig.json --noEmit --pretty false`. There are no per-compiler fallback targets. The old `:ts6` (TypeScript 6 `tsc`) and `:ts7` (`tsgo` from `@typescript/native-preview`) variants, and the `typcheck:ts6` typo alias, are gone. Don't reintroduce a second compiler path; if `tsc` misbehaves, fix it or pin the version at the root.
