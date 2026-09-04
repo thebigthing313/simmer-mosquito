@@ -18,7 +18,11 @@
 
 import { describe, expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
-import { MAX_IMPORT_ROWS, parseWeatherFile } from '../../../../../routes/gis/weather/-import-parse';
+import {
+	IMPORT_COLUMNS,
+	MAX_IMPORT_ROWS,
+	parseWeatherFile,
+} from '../../../../../routes/gis/weather/-import-parse';
 
 /** A `File` holding a real workbook, so the parser is exercised end to end. */
 function workbookFile(rows: readonly (readonly unknown[])[], name = 'readings.xlsx'): File {
@@ -244,5 +248,47 @@ describe('header spellings', () => {
 
 		expect(result.unmappedColumns).toEqual([]);
 		expect(result.rows[0]).toMatchObject({ [field]: 42 });
+	});
+});
+
+/**
+ * What the upload screen offers before a file is chosen.
+ *
+ * The screen used to say none of it, so a user learned the headings by
+ * uploading a file and reading back what went unmapped. The point of the list
+ * is that it comes off the same map the parser matches with: a heading the
+ * screen offers has to be one a file can actually be named with.
+ */
+describe('the columns the upload screen names', () => {
+	it('requires the date and recommends the rest', () => {
+		expect(IMPORT_COLUMNS.required.map((column) => column.label)).toEqual(['Date']);
+		expect(IMPORT_COLUMNS.recommended.map((column) => column.label)).toEqual([
+			'End date',
+			'Minimum temperature',
+			'Maximum temperature',
+			'Precipitation',
+			'Minimum humidity',
+			'Maximum humidity',
+			'Minimum wind speed',
+			'Maximum wind speed',
+		]);
+	});
+
+	it('offers headings the parser really maps', async () => {
+		const offered = [...IMPORT_COLUMNS.required, ...IMPORT_COLUMNS.recommended];
+		expect(offered.every((column) => column.headings.length > 0)).toBe(true);
+
+		// One heading from each column, through the parser, in a file that names
+		// every column by an offered spelling.
+		const headings = offered.flatMap((column) =>
+			column.headings[0] === undefined ? [] : [column.headings[0]],
+		);
+		const result = await parseWeatherFile(
+			workbookFile([[...headings], ['2026-06-01', '2026-06-01', 54, 78, 1.25, 21, 58, 2, 11]]),
+		);
+
+		expect(result.unmappedColumns).toEqual([]);
+		expect(result.error).toBeUndefined();
+		expect(result.rows).toHaveLength(1);
 	});
 });

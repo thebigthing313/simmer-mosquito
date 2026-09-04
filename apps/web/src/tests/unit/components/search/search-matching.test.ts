@@ -1,6 +1,10 @@
 import type { SearchResult } from '@simmer-mosquito/domain';
 import { describe, expect, it } from 'vitest';
-import type { WebShellCandidate } from '../../../../components/app-shell/navigation';
+import type { AuthMe } from '../../../../auth';
+import {
+	shellSearchCandidates,
+	type WebShellCandidate,
+} from '../../../../components/app-shell/navigation';
 import {
 	bucketServerResults,
 	candidateMatches,
@@ -35,6 +39,21 @@ describe('the client-side matcher', () => {
 
 	it('matches nothing on an empty query', () => {
 		expect(candidateMatches(createHabitat, '   ')).toBe(false);
+	});
+
+	// The Weather explorer is labelled `Map`, so its own label says nothing about
+	// weather. Its keywords are the only thing left that does.
+	it('reaches an explorer whose label does not carry its noun', () => {
+		const weather = shellSearchCandidates(ownerAuth()).routes.find(
+			(candidate) => candidate.id === 'weather',
+		);
+		if (weather === undefined) {
+			throw new Error('the Weather explorer is not in the navigation');
+		}
+
+		expect(weather.label).toBe('Map');
+		expect(candidateMatches(weather, 'weather')).toBe(true);
+		expect(candidateMatches(weather, 'station')).toBe(true);
 	});
 
 	it('keeps navigation order', () => {
@@ -212,4 +231,27 @@ function actions(count: number): SearchResult[] {
 		id: `a${index}`,
 		title: `a${index}`,
 	}));
+}
+
+function ownerAuth(): AuthMe {
+	return {
+		authenticated: true,
+		user: {
+			workosUserId: 'user_1',
+			email: 'crew@example.test',
+			firstName: null,
+			lastName: null,
+			displayName: 'Crew',
+			emailVerified: true,
+			profilePictureUrl: null,
+		},
+		workosOrganizationId: 'org_1',
+		localIdentity: {
+			userId: 'user_1',
+			organizationId: 'org_1',
+			profileId: 'profile_1',
+			membershipId: 'membership_1',
+			role: 'owner',
+		},
+	};
 }

@@ -71,22 +71,33 @@ const COLUMN_ALIASES: Readonly<Record<string, readonly string[]>> = {
 };
 
 /**
- * What to call each metric when telling somebody their file is wrong.
+ * What to call each column, for somebody looking at a spreadsheet.
  *
  * The field names are the domain's, and they are the right thing to send to a
- * server and the wrong thing to show a person looking at a spreadsheet column
- * headed "Precip". A reason naming `precipitationInches` asks them to work out
- * which of their columns that is.
+ * server and the wrong thing to show a person looking at a column headed
+ * "Precip". A reason naming `precipitationInches` asks them to work out which of
+ * their columns that is.
+ *
+ * Read by both the upload screen, which names the columns before a file is
+ * chosen, and {@link metricLabel}, which names one in a refusal.
  */
-const METRIC_LABELS: Readonly<Record<string, string>> = {
-	temperatureMinF: 'The minimum temperature',
-	temperatureMaxF: 'The maximum temperature',
-	precipitationInches: 'The precipitation',
-	relativeHumidityMin: 'The minimum humidity',
-	relativeHumidityMax: 'The maximum humidity',
-	windSpeedMinMph: 'The minimum wind speed',
-	windSpeedMaxMph: 'The maximum wind speed',
+const COLUMN_LABELS: Readonly<Record<string, string>> = {
+	startDate: 'Date',
+	endDate: 'End date',
+	temperatureMinF: 'Minimum temperature',
+	temperatureMaxF: 'Maximum temperature',
+	precipitationInches: 'Precipitation',
+	relativeHumidityMin: 'Minimum humidity',
+	relativeHumidityMax: 'Maximum humidity',
+	windSpeedMinMph: 'Minimum wind speed',
+	windSpeedMaxMph: 'Maximum wind speed',
 };
+
+/** The same name, mid-sentence: "The precipitation is not a number." */
+function metricLabel(field: string): string {
+	const label = COLUMN_LABELS[field];
+	return label === undefined ? field : `The ${label.toLowerCase()}`;
+}
 
 const METRIC_FIELDS = [
 	'temperatureMinF',
@@ -97,6 +108,42 @@ const METRIC_FIELDS = [
 	'windSpeedMinMph',
 	'windSpeedMaxMph',
 ] as const;
+
+/** A column the parser can map, and every heading it answers to. */
+export interface ImportColumn {
+	readonly label: string;
+	/**
+	 * The spellings, normalized the way {@link normalizeHeader} normalizes a
+	 * header: lower case, no punctuation, no bracketed unit. So "Start Date",
+	 * "start_date" and "START DATE" are all the one entry `startdate`.
+	 */
+	readonly headings: readonly string[];
+}
+
+/**
+ * The columns the upload screen names, read off the map the parser matches with.
+ *
+ * Derived rather than retyped, so adding a spelling to {@link COLUMN_ALIASES}
+ * changes what the screen offers with no second edit. A user used to learn the
+ * headings by uploading a file and reading back what went unmapped.
+ *
+ * Only the date is required: parsing refuses a file with no mappable date, and
+ * every other column is a metric the file either carries or does not.
+ */
+export const IMPORT_COLUMNS: {
+	readonly required: readonly ImportColumn[];
+	readonly recommended: readonly ImportColumn[];
+} = {
+	required: describeColumns(['startDate']),
+	recommended: describeColumns(['endDate', ...METRIC_FIELDS]),
+};
+
+function describeColumns(fields: readonly string[]): readonly ImportColumn[] {
+	return fields.map((field) => ({
+		label: COLUMN_LABELS[field] ?? field,
+		headings: COLUMN_ALIASES[field] ?? [],
+	}));
+}
 
 /** One spreadsheet line, as the import command takes it. */
 export interface ParsedSummaryRow {
@@ -233,7 +280,7 @@ function readLine(
 
 	const metrics = readMetrics(cells, columns);
 	if (typeof metrics === 'string') {
-		return { line, reason: `${METRIC_LABELS[metrics] ?? metrics} is not a number.` };
+		return { line, reason: `${metricLabel(metrics)} is not a number.` };
 	}
 	if (METRIC_FIELDS.every((field) => metrics[field] === null)) {
 		// A line with nothing on it. The server would fail it anyway; failing it here

@@ -31,6 +31,18 @@ interface WebShellNavItem extends ShellNavItem {
 	readonly write?: MinimumRole;
 
 	/**
+	 * Extra words the palette matches this place by, never shown.
+	 *
+	 * The palette's haystack is the label and these, so a place whose label does
+	 * not carry its own noun is unreachable by that noun. The Weather group's
+	 * explorer is the case: its label is `Map`, like the other nine explorers,
+	 * and only the group heading beside it says weather. An `action` carries
+	 * keywords too, and putting them there instead would move this out of the
+	 * route list and offer a page as a verb.
+	 */
+	readonly keywords?: readonly string[];
+
+	/**
 	 * This destination is a verb, not a place, and its presence is the whole
 	 * declaration.
 	 *
@@ -668,9 +680,12 @@ export const webShellDomains: readonly WebShellDomain[] = [
 				items: [
 					{
 						id: 'weather',
-						label: 'Weather Stations',
+						label: 'Map',
 						to: '/gis/weather',
-						icon: iconRegistry.domains.weather.icon,
+						icon: iconRegistry.generic.map.icon,
+						// The group heading above already reads Weather, so the label no longer
+						// carries the noun and the palette's haystack lost it with the rename.
+						keywords: ['weather', 'station', 'gauge', 'sensor', 'rainfall'],
 					},
 					{
 						id: 'weather-create',
@@ -967,7 +982,7 @@ export function shellSearchCandidates(auth: AuthMe | null): {
 					id: item.id,
 					label: item.label,
 					to: item.to,
-					keywords: item.action?.keywords ?? [],
+					keywords: item.keywords ?? item.action?.keywords ?? [],
 					domainLabel: domain.label,
 					seedFrom: item.action?.seedFrom,
 				};

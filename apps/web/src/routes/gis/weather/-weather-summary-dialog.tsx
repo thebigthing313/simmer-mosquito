@@ -18,7 +18,10 @@ import {
 	type WeatherMetrics,
 	type WeatherSummaryFields,
 } from '../../../hooks/mutations/use-weather-summary-mutations';
-import type { WeatherSummaryListing } from '../../../hooks/queries/use-weather-summaries';
+import {
+	summaryYear,
+	type WeatherSummaryListing,
+} from '../../../hooks/queries/use-weather-summaries';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
 
@@ -54,8 +57,9 @@ function useSummaryForm(input: {
 	readonly stationId: string;
 	readonly summary: WeatherSummaryListing | null;
 	readonly onClose: () => void;
+	readonly onWriteYear: (year: number) => void;
 }) {
-	const { stationId, summary, onClose } = input;
+	const { stationId, summary, onClose, onWriteYear } = input;
 	const timeZone = useOrganizationTimeZone();
 	const today = todayInTimeZone(timeZone);
 	const mutations = useWeatherSummaryMutations();
@@ -101,6 +105,11 @@ function useSummaryForm(input: {
 		setIsSaving(true);
 		setError(null);
 		const fields: WeatherSummaryFields = { startDate, endDate, ...parsed };
+		// Before the write, not after. The card lists one year at a time, and a
+		// write into a year its live query does not cover waits out a txid that
+		// never arrives on that subset: `settleWrite` swallows the five-second
+		// timeout, so the dialog closes late over a row the user cannot see.
+		onWriteYear(summaryYear(endDate));
 		try {
 			if (summary === null) {
 				await mutations.create({
@@ -117,7 +126,7 @@ function useSummaryForm(input: {
 		} finally {
 			setIsSaving(false);
 		}
-	}, [canSave, parsed, startDate, endDate, summary, mutations, stationId, onClose]);
+	}, [canSave, parsed, startDate, endDate, summary, mutations, stationId, onClose, onWriteYear]);
 
 	return {
 		dates: { startDate, endDate, today, setStartDate: moveStart, setEndDate: moveEnd },
@@ -136,12 +145,18 @@ export function WeatherSummaryDialog({
 	stationId,
 	summary,
 	onClose,
+	onWriteYear,
 }: {
 	readonly stationId: string;
 	readonly summary: WeatherSummaryListing | null;
 	readonly onClose: () => void;
+	/**
+	 * The year the save is about to write into, so the card can move its tabs to
+	 * it. Called before the write, see {@link useSummaryForm}.
+	 */
+	readonly onWriteYear: (year: number) => void;
 }) {
-	const form = useSummaryForm({ stationId, summary, onClose });
+	const form = useSummaryForm({ stationId, summary, onClose, onWriteYear });
 	const { dates, metrics, issue, canSave, isSaving, error } = form;
 
 	const isEdit = summary !== null;
