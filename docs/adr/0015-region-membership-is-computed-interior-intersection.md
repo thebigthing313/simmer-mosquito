@@ -104,6 +104,20 @@ until a count in a report is wrong.
   reconciler and a reported disagreement is a corpus bug first.
 - GEOS is not reachable on the client, so the TypeScript half is hand-rolled
   rather than shared with the code PostGIS runs.
+- Membership does not require a valid geometry and nothing checks for one.
+  Fifteen of production's 345 Regions hold a self-intersecting ring. #417 settled
+  that such a ring stores rather than being refused on its next save, and GEOS
+  leaves the result of a relate on one undefined without raising. Measured
+  against the production clone, repairing those fifteen with `ST_MakeValid`
+  changed no answer on 9,181 region-against-record candidate pairs or on 103
+  region-against-region ones, which is why #437 left the rows alone. That is a
+  fact about where the data sits rather than a property of the predicate: a
+  record sharing an edge with an invalid ring is answered inside, where the
+  repaired region answers outside. The second `describeDbIntegration` block in
+  `packages/db/src/tests/integration/domains/region-membership.integration.test.ts`
+  seeds that pair and pins both answers, so the next person reads the measurement
+  instead of taking it again. Validity is unpoliced. The neighbouring rule, that
+  a stored geometry must cover ground, is #434's and is enforced.
 - The empty answer is a real answer. A trap in no spray zone is an operational
   fact, not a gap.
 
@@ -160,8 +174,9 @@ forbids parts that share an edge or overlap, and it warns that its functions
 assume valid input. `ST_Relate` has no repair step, so an invalid row can abort a
 tile read or answer wrongly. ADR 0018 leaves validity unpoliced, because 15 of
 345 production Regions already fail `ST_IsValid` and a gate would refuse them on
-their next save. Issue #437 carries it, and those 15 rows have a membership
-answer nobody has checked.
+their next save. #437 measured what those 15 answer and left them where they are.
+The Consequences bullet above on validity carries the numbers and names the
+guard.
 
 ### Consequences of the amendment
 
