@@ -1,10 +1,10 @@
-import type { CollectionTimingMode } from '@simmer-mosquito/sync';
+import type { AdultCollectionTimingMode } from '@simmer-mosquito/sync';
 import { getToday } from '../../../lib/get-today';
 import { operationalDayAsTimestamp } from '../../../lib/local-date';
 
 /** The timing fields a collection form holds, in either mode. */
 interface CollectionTimingValues {
-	readonly timingMode: CollectionTimingMode;
+	readonly timingMode: AdultCollectionTimingMode;
 	/** `YYYY-MM-DD` the trap was set — exact mode only, and optional there. */
 	readonly startedAt: string | null;
 	/** `YYYY-MM-DD` specimens were retrieved — exact mode. */

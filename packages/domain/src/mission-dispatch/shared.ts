@@ -157,8 +157,6 @@ export type MissionExecutionPayload = {
 	readonly metadata: JsonObject | null;
 };
 
-export const CONTROL_TYPES = ['application', 'source_reduction', 'biocontrol', 'outreach'] as const;
-
 export function validateBase(
 	input: MissionDispatchCommandInput,
 	issues: DomainValidationIssue[],

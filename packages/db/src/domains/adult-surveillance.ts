@@ -1,7 +1,7 @@
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type {
-	CollectionTimingMode,
+	AdultCollectionTimingMode,
 	DbExecutor,
 	GeoJsonGeometry,
 	OwnedGeometryInfo,
@@ -60,7 +60,7 @@ export interface CreateCollectionInput {
 	readonly collectionLureId?: string | null;
 	readonly geojson?: GeoJsonGeometry | null;
 	readonly addressId?: string | null;
-	readonly timingMode?: CollectionTimingMode;
+	readonly timingMode?: AdultCollectionTimingMode;
 	readonly collectedAt?: Date | null;
 	readonly collectedByProfileId?: string | null;
 	readonly startedAt?: Date | null;
@@ -88,7 +88,7 @@ export interface SafeCollection {
 	readonly collectedByProfileId: string | null;
 	readonly startedAt: Date | null;
 	readonly setByProfileId: string | null;
-	readonly timingMode: CollectionTimingMode;
+	readonly timingMode: AdultCollectionTimingMode;
 	readonly collectionDate: Date | null;
 	readonly durationAmount: number | null;
 	readonly durationUnitId: string | null;
@@ -288,7 +288,7 @@ async function resolveCollectionSnapshot(
 }
 
 function resolveCollectionTiming(input: CreateCollectionInput): {
-	readonly timingMode: CollectionTimingMode;
+	readonly timingMode: AdultCollectionTimingMode;
 	readonly startedAt: Date | null;
 	readonly collectedAt: Date | null;
 	readonly collectionDate: Date | null;
@@ -417,7 +417,7 @@ function toSafeCollection(row: {
 	readonly collected_by_profile_id: string | null;
 	readonly started_at: Date | null;
 	readonly set_by_profile_id: string | null;
-	readonly collection_timing_mode: CollectionTimingMode;
+	readonly collection_timing_mode: AdultCollectionTimingMode;
 	readonly collection_date: Date | null;
 	readonly duration_amount: number | null;
 	readonly duration_unit_id: string | null;
@@ -638,7 +638,7 @@ export interface SafeCollectionDisplayRow {
 	readonly collectionMethodId: string;
 	readonly collectedAt: string | null;
 	readonly collectionDate: string | null;
-	readonly collectionTimingMode: CollectionTimingMode;
+	readonly collectionTimingMode: AdultCollectionTimingMode;
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;

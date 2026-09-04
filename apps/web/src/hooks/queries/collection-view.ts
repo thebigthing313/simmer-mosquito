@@ -23,7 +23,7 @@
  */
 import type { LinkedAddress } from './address-view';
 
-export type CollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
+export type AdultCollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
 
 /**
  * An Adult Collection, as the surfaces that show one whole want it.
@@ -64,7 +64,7 @@ export interface AdultCollection {
 	readonly collectedAt: Date | null;
 	/** The day it is filed under, `YYYY-MM-DD`, or null. See the module comment. */
 	readonly collectionDate: string | null;
-	readonly collectionTimingMode: CollectionTimingMode;
+	readonly collectionTimingMode: AdultCollectionTimingMode;
 	readonly collectedByProfileId: string | null;
 	readonly startedAt: Date | null;
 	readonly setByProfileId: string | null;

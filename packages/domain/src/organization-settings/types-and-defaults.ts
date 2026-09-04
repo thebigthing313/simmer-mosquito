@@ -1,8 +1,9 @@
+import type { AdultCollectionTimingMode, LarvalDensity, UnitType } from '../column-vocabularies.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 
-export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
+export type { AdultCollectionTimingMode, LarvalDensity, UnitType };
+
 export type LarvalInspectionEntryMode = 'density_only' | 'count_and_dips_required' | 'hybrid';
-export type AdultCollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
 
 export interface LarvalDensityRange {
 	readonly minInclusive: number;
@@ -22,16 +23,6 @@ export interface LarvalInspectionEntryPolicy {
 }
 
 export type ResolvedLarvalInspectionEntryPolicy = Required<LarvalInspectionEntryPolicy>;
-
-export type UnitType =
-	| 'weight'
-	| 'distance'
-	| 'area'
-	| 'volume'
-	| 'temperature'
-	| 'duration'
-	| 'count'
-	| 'speed';
 
 export type UnitDefaults = Readonly<Record<UnitType, string>>;
 

@@ -25,7 +25,7 @@ import { and, eq, gte, isNull, or, toArray, useLiveQuery } from '@tanstack/react
 import { collection_species } from '../../lib/collections/collection_species';
 import { collections } from '../../lib/collections/collections';
 import { localDayStartAsInstant, todayInTimeZone } from '../../lib/local-date';
-import type { CollectionTimingMode } from './collection-view';
+import type { AdultCollectionTimingMode } from './collection-view';
 import { activityGcTimeMs } from './shared';
 
 /** One species line under a collection. */
@@ -42,7 +42,7 @@ export interface TrapCollection {
 	readonly id: string;
 	readonly collectedAt: Date | null;
 	readonly collectionDate: string | null;
-	readonly collectionTimingMode: CollectionTimingMode;
+	readonly collectionTimingMode: AdultCollectionTimingMode;
 	readonly hasProblem: boolean;
 	readonly isZeroResult: boolean;
 	readonly hasBycatch: boolean;

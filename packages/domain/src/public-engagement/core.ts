@@ -19,9 +19,14 @@ import {
 	type SupportedGeoJsonGeometry,
 } from '../shared.js';
 
-export type RequestIntakeType = 'online' | 'phone' | 'walk-in' | 'other';
-export type NotificationChannel = 'email' | 'sms' | 'phone';
-export type MissionNotificationStatus = 'pending' | 'completed' | 'failed' | 'skipped';
+export {
+	MISSION_NOTIFICATION_STATUSES,
+	type MissionNotificationStatus,
+	NOTIFICATION_CHANNELS,
+	type NotificationChannel,
+	REQUEST_INTAKE_TYPES,
+	type RequestIntakeType,
+} from '../column-vocabularies.js';
 export type NotificationRegistrationGeometry = SupportedGeoJsonGeometry;
 
 export type PublicEngagementCommandType =
@@ -201,10 +206,6 @@ export interface NotificationRegistrationSubscription {
 	readonly notificationRegistrationTypeId: DomainId;
 	readonly notificationTypeId: DomainId;
 }
-
-export const REQUEST_INTAKE_TYPES = ['online', 'phone', 'walk-in', 'other'] as const;
-export const NOTIFICATION_CHANNELS = ['email', 'sms', 'phone'] as const;
-export const MISSION_NOTIFICATION_STATUSES = ['pending', 'completed', 'failed', 'skipped'] as const;
 
 export function validateBase(
 	input: PublicEngagementCommandInput,

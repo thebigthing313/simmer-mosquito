@@ -1,5 +1,6 @@
 export * from './acknowledgements.js';
 export * from './adult-surveillance/index.js';
+export * from './column-vocabularies.js';
 /**
  * The clock-skew allowance, and nothing else from `command-validation.js`.
  *
@@ -26,7 +27,6 @@ export * from './mission-dispatch/index.js';
 export * from './organization-settings/index.js';
 export * from './profile-activity.js';
 export * from './public-engagement/index.js';
-export * from './roles.js';
 export * from './search/index.js';
 export * from './shared.js';
 export * from './weather/index.js';

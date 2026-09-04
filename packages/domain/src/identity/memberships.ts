@@ -24,6 +24,7 @@
  * `apps/server/src/membership-commands.ts`.
  */
 
+import { SIMMER_ROLES, type SimmerRole } from '../column-vocabularies.js';
 import {
 	createIssues,
 	requiredId as normalizeRequiredId,
@@ -32,7 +33,6 @@ import {
 	requiredUuid as requireUuid,
 	throwIfIssues,
 } from '../command-validation.js';
-import type { SimmerRole } from '../roles.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 import {
 	type AgencyIdentityCommandInput,
@@ -42,8 +42,6 @@ import {
 	validateAgencyBase,
 	validateAgencyIdCommand,
 } from './shared.js';
-
-const ROLES: readonly SimmerRole[] = ['owner', 'admin', 'manager', 'collector', 'viewer'];
 
 /**
  * A role as it arrives, which may be nothing.
@@ -230,7 +228,7 @@ function validateEmail(value: string | undefined, issues: DomainValidationIssue[
 }
 
 function validateRole(value: RoleInput, issues: DomainValidationIssue[]): SimmerRole {
-	if (value === undefined || !ROLES.includes(value)) {
+	if (value === undefined || !SIMMER_ROLES.includes(value)) {
 		issues.push({
 			path: 'role',
 			message: 'role must be owner, admin, manager, collector, or viewer.',

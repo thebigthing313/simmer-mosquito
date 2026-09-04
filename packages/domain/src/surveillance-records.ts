@@ -1,3 +1,4 @@
+import type { LarvalDensity } from './column-vocabularies.js';
 import {
 	createIssues,
 	isFutureBeyondClockSkew,
@@ -9,7 +10,6 @@ import {
 import {
 	inferLarvalDensity,
 	isLarvalDensity,
-	type LarvalDensity,
 	type LarvalInspectionEntryPolicy,
 	resolveLarvalInspectionEntryPolicy,
 } from './organization-settings/index.js';
@@ -333,8 +333,6 @@ function emptyStageFlags(): ImmatureStageFlags {
 }
 
 // --- Adult collection timing ---------------------------------------------------
-
-export type CollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
 
 export interface ExactPendingCollectionTiming {
 	readonly mode: 'exact_timestamps';
