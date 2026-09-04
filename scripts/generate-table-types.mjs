@@ -22,9 +22,18 @@
  * case. `--check` refuses a checked-in `tables.ts` that differs from the dump,
  * which is the "you edited it by hand" case.
  *
- * Everything below is derived from the dump except three declarations, which
- * are things SQL does not say: `NOT_A_KYSELY_TABLE`, `TRIGGER_MAINTAINED`, and
- * `SimmerRole` coming from `packages/domain`. Each is commented where it sits.
+ * Everything below is derived from the dump except two declarations, which are
+ * things SQL does not say: `NOT_A_KYSELY_TABLE` and `TRIGGER_MAINTAINED`. Each
+ * is commented where it sits.
+ *
+ * The enum types are not declared here at all. `packages/domain` holds all
+ * seventeen in `COLUMN_VOCABULARIES` and this file imports them, which is what
+ * keeps one value set from being a column type in one spelling and domain
+ * vocabulary in another (#432). The TypeScript name for a SQL type is read out
+ * of the register rather than derived from it, because `collection_timing_mode`
+ * is `AdultCollectionTimingMode` and nothing mechanical would guess that.
+ * `pnpm check:column-vocabularies` is what holds the register's members to this
+ * dump.
  *
  * The emitted text is piped through Biome, so `pnpm check` and this agree on the
  * file byte for byte and `--check` can compare them directly.
@@ -70,15 +79,8 @@ const TRIGGER_MAINTAINED = new Set(['lat', 'lng', 'geom_type']);
 /** The trigger function whose presence turns {@link TRIGGER_MAINTAINED} on. */
 const CENTROID_FUNCTION = 'public.set_owned_centroid()';
 
-/**
- * The one enum the database and `packages/domain` both declare.
- *
- * The role ladder is domain vocabulary before it is a column, so `SimmerRole` is
- * declared once in `packages/domain` and re-exported here, which is what keeps
- * its ~15 importers naming it the same way. The emitted file asserts the two
- * still hold the same members, so adding a role in SQL alone fails `tsc`.
- */
-const ROLE_ENUM = 'simmer_role';
+/** The register `packages/domain` keeps every enum type in. */
+const REGISTER_FILE = join(ROOT, 'packages/domain/src/column-vocabularies.ts');
 
 // ---------------------------------------------------------------------------
 // Reading the dump.
@@ -122,6 +124,51 @@ function requireDumpMatchesMigrations(sql) {
 	}
 	console.error('');
 	console.error('Apply them and re-dump: pnpm db:migrate');
+	process.exit(1);
+}
+
+/**
+ * The TypeScript name for each SQL enum type, read out of the register.
+ *
+ * `COLUMN_VOCABULARIES` keys an `as const` array by SQL type name, and each
+ * array has its type derived from it one line below. Two regexes rather than
+ * one, because the map and the declarations are in different halves of the file.
+ */
+function readRegister() {
+	const source = readFileSync(REGISTER_FILE, 'utf8').replace(/\r\n/g, '\n');
+
+	const typeOfArray = new Map(
+		[...source.matchAll(/^export type (\w+) = \(typeof ([A-Z0-9_]+)\)\[number\];$/gm)].map(
+			(match) => [match[2], match[1]],
+		),
+	);
+
+	return new Map(
+		[...source.matchAll(/^	(\w+): ([A-Z0-9_]+),$/gm)]
+			.map((match) => [match[1], typeOfArray.get(match[2])])
+			.filter(([, name]) => name !== undefined),
+	);
+}
+
+/**
+ * Refuses a dump whose enum types the register does not name.
+ *
+ * Without it a new enum type emits a column typed after a name nothing exports,
+ * and the file does not compile with no hint as to why.
+ */
+function requireRegisterNamesEveryEnum(enums, register) {
+	const missing = [...enums.keys()].filter((name) => !register.has(name));
+
+	if (missing.length === 0) {
+		return;
+	}
+
+	console.error('packages/domain/src/column-vocabularies.ts does not name every enum type.');
+	for (const name of missing) {
+		console.error(`  the database has \`${name}\` and COLUMN_VOCABULARIES does not`);
+	}
+	console.error('');
+	console.error('Add it to the register: pnpm check:column-vocabularies says the same thing.');
 	process.exit(1);
 }
 
@@ -249,14 +296,15 @@ const SQL_TYPES = [
 	{ match: /^public\.geometry\(\w+,\d+\)$/, kind: 'geometry', ts: 'string' },
 ];
 
-/** PascalCase, for both a table name and an enum type name. */
+/** PascalCase, for a table name. */
 const toPascal = (name) => name.replace(/(^|_)([a-z0-9])/g, (_, __, char) => char.toUpperCase());
 
-function baseTypeOf(table, { column, sqlType }, enums) {
+function baseTypeOf(table, { column, sqlType }, register) {
 	const enumName = sqlType.replace(/^public\./, '');
+	const registered = register.get(enumName);
 
-	if (enums.has(enumName)) {
-		return { kind: 'enum', ts: toPascal(enumName) };
+	if (registered !== undefined) {
+		return { kind: 'enum', ts: registered };
 	}
 
 	const known = SQL_TYPES.find((candidate) => candidate.match.test(sqlType));
@@ -332,8 +380,8 @@ function unionType(column, base) {
 }
 
 /** The type of one column. */
-function columnType(table, column, enums, centroidTables) {
-	const base = baseTypeOf(table, column, enums);
+function columnType(table, column, register, centroidTables) {
+	const base = baseTypeOf(table, column, register);
 
 	return (
 		databaseFilledType(table, column, base, centroidTables) ??
@@ -421,12 +469,12 @@ const HEADER = `/**
  * \`pnpm generate:schemas\`.
  */`;
 
-function emit(tables, enums, centroidTables) {
+function emit(tables, register, centroidTables) {
 	const interfaces = [...tables]
 		.sort(([a], [b]) => a.localeCompare(b))
 		.map(([table, columns]) => {
 			const lines = columns.map(
-				(column) => `\t${column.column}: ${columnType(table, column, enums, centroidTables)};`,
+				(column) => `\t${column.column}: ${columnType(table, column, register, centroidTables)};`,
 			);
 
 			return `export interface ${toPascal(table)}Table {\n${lines.join('\n')}\n}`;
@@ -443,13 +491,11 @@ function emit(tables, enums, centroidTables) {
 		),
 	);
 
-	const enumDeclarations = [...enums]
-		.filter(([name]) => name !== ROLE_ENUM)
-		.sort(([a], [b]) => a.localeCompare(b))
-		.map(
-			([name, members]) =>
-				`export type ${toPascal(name)} = ${members.map((member) => `'${member}'`).join(' | ')};`,
-		);
+	// Only the enum types a column actually uses, so the file names no import it
+	// does not need. Sorted, because Biome sorts a named import list.
+	const vocabularies = [...new Set(register.values())]
+		.filter((name) => new RegExp(`\\b${name}\\b`).test(names))
+		.sort();
 
 	const imported = [
 		'ColumnType',
@@ -466,18 +512,19 @@ function emit(tables, enums, centroidTables) {
 	return [
 		HEADER,
 		'',
-		`import type { SimmerRole } from '@simmer-mosquito/domain';`,
+		`import type { ${vocabularies.join(', ')} } from '@simmer-mosquito/domain';`,
 		`import type { ${imported.join(', ')} } from 'kysely';`,
 		'',
-		'export type { SimmerRole };',
-		'',
-		roleAssertion(enums),
+		'/**',
+		' * Re-exported so a query and the domain command behind it name one type. The',
+		' * members are not written here: `pnpm check:column-vocabularies` holds the',
+		" * register's lists to this dump, ordered.",
+		' */',
+		`export type { ${vocabularies.join(', ')} };`,
 		'',
 		ALIASES.filter((alias) => used.has(alias.name))
 			.map((alias) => alias.text)
 			.join('\n'),
-		'',
-		enumDeclarations.join('\n'),
 		'',
 		'/** A GeoJSON geometry object, as `ST_AsGeoJSON` renders one. */',
 		'export type GeoJsonGeometry = Record<string, unknown>;',
@@ -487,43 +534,6 @@ function emit(tables, enums, centroidTables) {
 		'/** The database Kysely is parameterised by. Every table, keyed by its SQL name. */',
 		`export interface SimmerDatabase {\n${databaseEntries.join('\n')}\n}`,
 		'',
-	].join('\n');
-}
-
-/**
- * Holds `packages/domain`'s role ladder to the `simmer_role` enum.
- *
- * Without it the one enum this file imports rather than declares is the one
- * enum a migration could change unnoticed.
- */
-function roleAssertion(enums) {
-	const members = enums.get(ROLE_ENUM);
-
-	if (!members) {
-		console.error(`The dump has no \`${ROLE_ENUM}\` enum, so \`SimmerRole\` stands for nothing.`);
-		process.exit(1);
-	}
-
-	return [
-		'/**',
-		' * Exact type identity, which a pair of `extends` cannot express: `A extends B,',
-		' * B extends A` is a circular constraint, and a union compares by assignability',
-		' * either way round.',
-		' */',
-		'type Equals<A, B> = (<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2',
-		'\t? true',
-		'\t: false;',
-		'',
-		'/** Errors when `T` is not `true`. */',
-		'type Assert<T extends true> = T;',
-		'',
-		'/**',
-		' * The role ladder is declared in `packages/domain` and re-exported above, so a',
-		' * migration that adds a role has to be matched there. This is what says so.',
-		' */',
-		`type _SimmerRoleMatchesDatabase = Assert<Equals<SimmerRole, ${members
-			.map((member) => `'${member}'`)
-			.join(' | ')}>>;`,
 	].join('\n');
 }
 
@@ -558,8 +568,10 @@ const sql = readFileSync(SCHEMA_FILE, 'utf8').replace(/\r\n/g, '\n');
 requireDumpMatchesMigrations(sql);
 
 const enums = readEnums(sql);
+const register = readRegister();
+requireRegisterNamesEveryEnum(enums, register);
 const tables = readTables(sql);
-const source = formatted(emit(tables, enums, readCentroidTables(sql)));
+const source = formatted(emit(tables, register, readCentroidTables(sql)));
 
 if (!CHECK) {
 	writeFileSync(OUT_FILE, source, 'utf8');
