@@ -96,13 +96,19 @@ export interface CollectionSource {
 let source: CollectionSource | null = null;
 
 /**
- * The collections built so far, keyed by table.
+ * The collections built so far, keyed by table rather than by declaration.
  *
  * Resolving twice has to return the same object: a live query dedupes by
- * collection identity, and two collections over one table would each open
- * their own shape and disagree about what is in it.
+ * collection identity, and two collections over one table would each open their
+ * own shape and disagree about what is in it.
+ *
+ * By table, because in development Vite re-executes an edited module and hands
+ * back a new declaration for the same table. Keying on the declaration would
+ * build a second collection for it, which is the thing this exists to prevent.
+ * That a table has one module is checked statically, in
+ * `collection-modules.test.ts`.
  */
-let built = new Map<string, { readonly declaration: object; readonly collection: unknown }>();
+let built = new Map<string, unknown>();
 
 /**
  * Choose how collections are built from here on.
@@ -141,16 +147,11 @@ function resolve<TRow extends SyncedRow>(
 	}
 
 	const existing = built.get(declaration.table);
-	if (existing !== undefined) {
-		if (existing.declaration !== declaration) {
-			throw new Error(`Two collections declare the table ${declaration.table}.`);
-		}
-		return existing.collection as CollectionOf<TRow>;
-	}
+	if (existing !== undefined) return existing as CollectionOf<TRow>;
 
 	const collection = source.build(declaration);
 	collection.createIndex((row) => row.id, { indexType: BasicIndex });
 	declaration.index?.(collection);
-	built.set(declaration.table, { declaration, collection });
+	built.set(declaration.table, collection);
 	return collection;
 }

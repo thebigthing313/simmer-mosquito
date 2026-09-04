@@ -2,9 +2,9 @@
  * The registry's own rules, on a declaration nothing else uses.
  *
  * `collection-modules.test.ts` beside this asserts the same things across all
- * fifty-three real tables. This covers the cases a real module cannot produce:
- * two declarations claiming one table, and a resolve with nothing installed
- * after something was.
+ * fifty-three real tables. This covers what a real module cannot produce: a
+ * second declaration over one table, which is what Vite hands back when it
+ * re-executes an edited module in development.
  */
 
 import { createCollection } from '@tanstack/db';
@@ -75,12 +75,14 @@ describe('declareCollection', () => {
 		expect(widgets()).not.toBe(first);
 	});
 
-	it('refuses two declarations over one table', () => {
+	it('answers a second declaration over one table with the collection it already built', () => {
+		// Which is what a hot reload of a collection module produces. Building a
+		// second collection for the table would put two shapes on it, each holding
+		// its own idea of what the table contains.
 		install();
 		const first = declareCollection(widgetDeclaration('widgets_twice'));
 		const second = declareCollection(widgetDeclaration('widgets_twice'));
-		first();
 
-		expect(() => second()).toThrow(/Two collections declare the table widgets_twice/);
+		expect(second()).toBe(first());
 	});
 });
