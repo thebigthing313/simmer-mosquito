@@ -1,4 +1,4 @@
-import type { AdultCollectionTimingMode } from '@simmer-mosquito/sync';
+import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import { getToday } from '../../../lib/get-today';
 import { operationalDayAsTimestamp } from '../../../lib/local-date';
 

@@ -1,4 +1,4 @@
-import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
+import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
 import { useCallback, useEffect, useRef } from 'react';
 import {
 	type CommitBaseline,

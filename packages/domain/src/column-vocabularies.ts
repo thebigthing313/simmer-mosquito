@@ -38,13 +38,12 @@
  *
  * ## What holds this to the database
  *
- * `pnpm check:column-vocabularies` compares the register to `packages/db/schema.sql`
- * and refuses a member list written anywhere else.
- * `packages/db/src/tests/integration/column-vocabularies.integration.test.ts`
- * compares it to `pg_enum` in a real database. `packages/db/src/tables.ts`
- * imports these types rather than declaring them, and the assertions its
- * generator emits fail `tsc` when a migration changes a type and the register
- * does not move with it.
+ * `pnpm check:column-vocabularies` compares the register to
+ * `packages/db/schema.sql`, ordered, and refuses a member list written anywhere
+ * else. `packages/db/src/tests/integration/column-vocabularies.integration.test.ts`
+ * compares it to `pg_enum` in a real database, which is the half that catches a
+ * stale dump. `packages/db/src/tables.ts` imports these types rather than
+ * declaring them, so a column whose type is not registered does not compile.
  */
 
 /** How an agency dates an Adult Collection, per `organization_settings`. */
@@ -80,6 +79,7 @@ export type LarvalDensity = (typeof LARVAL_DENSITIES)[number];
 export const RANGE_DENSITIES = LARVAL_DENSITIES.filter(
 	(density): density is Exclude<LarvalDensity, 'none'> => density !== 'none',
 );
+export type RangeDensity = (typeof RANGE_DENSITIES)[number];
 
 /** Whether a Membership grants access now. */
 export const MEMBERSHIP_STATUSES = ['active', 'inactive', 'invited'] as const;

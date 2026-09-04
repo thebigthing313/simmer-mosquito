@@ -10,7 +10,7 @@ import {
 } from './command-validation.js';
 import type { DomainId, DomainValidationIssue, LocalDateString } from './shared.js';
 
-export { CONTROL_TYPES, type ControlType };
+export type { ControlType };
 export type PerformedControlActionKind =
 	| 'chemicalApplication'
 	| 'sourceReduction'

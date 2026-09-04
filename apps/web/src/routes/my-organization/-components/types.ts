@@ -1,4 +1,4 @@
-import type { UnitDefaults } from '@simmer-mosquito/domain';
+import type { RangeDensity, UnitDefaults } from '@simmer-mosquito/domain';
 import type React from 'react';
 
 // Re-exported rather than re-declared: two identical unions under one name are
@@ -15,8 +15,6 @@ export type OrganizationSectionId =
 	| 'public'
 	| 'keyBindings';
 
-export type DensityRangeKey = 'light' | 'medium' | 'heavy' | 'very_heavy';
-export type LarvalDensityDisplayKey = 'none' | DensityRangeKey;
 export type ControlMethodCollectionKey =
 	| 'applicationMethods'
 	| 'sourceReductionMethods'
@@ -80,7 +78,7 @@ export interface ControlAssetListConfig {
 	readonly title: string;
 }
 
-export type DensityRangeFormValues = Readonly<Record<DensityRangeKey, DensityRangeFormValue>>;
+export type DensityRangeFormValues = Readonly<Record<RangeDensity, DensityRangeFormValue>>;
 
 export interface DensityRangeFormValue {
 	readonly minInclusive: string;

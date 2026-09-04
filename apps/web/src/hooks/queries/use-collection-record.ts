@@ -17,7 +17,7 @@
  * an on-demand collection.
  */
 
-import type { AdultCollectionTimingMode } from '@simmer-mosquito/sync';
+import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { collections } from '../../lib/collections/collections';
 import { mapCardGcTimeMs, unmatchableId } from './shared';

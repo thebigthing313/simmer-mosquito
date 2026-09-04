@@ -1,5 +1,5 @@
+import type { ControlType } from '@simmer-mosquito/domain';
 import { requestControlActionCommand } from '@simmer-mosquito/domain';
-import type { ControlType } from '@simmer-mosquito/sync';
 import {
 	FormSection,
 	type RecordFormHeader,

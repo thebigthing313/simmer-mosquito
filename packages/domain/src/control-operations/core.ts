@@ -21,7 +21,6 @@ import type { DomainId, DomainValidationIssue } from '../shared.js';
 
 export {
 	CONTROL_TYPES,
-	type ControlType,
 	INSECTICIDE_TYPES,
 	type InsecticideType,
 } from '../column-vocabularies.js';

@@ -1,4 +1,4 @@
-import type { LarvalDensity } from '@simmer-mosquito/sync';
+import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 

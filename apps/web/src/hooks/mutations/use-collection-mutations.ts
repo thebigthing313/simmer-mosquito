@@ -58,7 +58,11 @@
  *   `updateCollectionFieldDetails` with everything else the crew reported.
  */
 
-import type { MultiRowCommandType, SingleRowCommandType } from '@simmer-mosquito/domain';
+import type {
+	AdultCollectionTimingMode,
+	MultiRowCommandType,
+	SingleRowCommandType,
+} from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { type AdultCollection, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
@@ -72,7 +76,7 @@ import { lifecycleStamp, optimisticStamp } from './shared';
 
 /** How long the trap was out, in whichever of the two shapes the agency records. */
 export interface CollectionTiming {
-	readonly timingMode: 'exact_timestamps' | 'collection_date_duration';
+	readonly timingMode: AdultCollectionTimingMode;
 	/** Exact mode: when the trap went out. */
 	readonly startedAt: Date | null;
 	/** Exact mode: when it was emptied. `null` on a trap still out. */

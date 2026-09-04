@@ -21,6 +21,7 @@
  * operator is most likely looking for is the one that disappears.
  */
 
+import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
 import { and, eq, gte, isNull, or, toArray, useLiveQuery } from '@tanstack/react-db';
 import { collection_species } from '../../lib/collections/collection_species';
 import { collections } from '../../lib/collections/collections';
@@ -33,8 +34,8 @@ export interface TrapCollectionSpecies {
 	readonly id: string;
 	readonly speciesId: string;
 	readonly count: number;
-	readonly sex: 'male' | 'female' | null;
-	readonly status: 'damaged' | 'unfed' | 'bloodfed' | 'gravid' | null;
+	readonly sex: SpeciesSex | null;
+	readonly status: SpeciesStatus | null;
 }
 
 /** One collection in a trap's history, with what it caught. */

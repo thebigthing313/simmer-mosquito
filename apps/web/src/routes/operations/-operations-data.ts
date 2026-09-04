@@ -1,5 +1,5 @@
+import type { ControlType } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { ControlType } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';

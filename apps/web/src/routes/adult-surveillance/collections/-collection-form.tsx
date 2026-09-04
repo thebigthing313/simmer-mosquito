@@ -1,3 +1,4 @@
+import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import {
 	isCollectionDurationUnitType,
 	recordCollectedAdHocCollectionCommand,
@@ -6,7 +7,6 @@ import {
 	setTrapCollectionCommand,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { AdultCollectionTimingMode } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,

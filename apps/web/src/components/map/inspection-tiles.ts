@@ -1,5 +1,5 @@
 import { mapDensity, mapDomain, mapInteraction } from '@simmer-mosquito/design-tokens';
-import type { LarvalDensity } from '@simmer-mosquito/domain';
+import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import type { ExpressionSpecification } from 'mapbox-gl';
 import {
 	allLayerIds,
@@ -78,22 +78,18 @@ export const INSPECTION_LAYER_IDS = allLayerIds(INSPECTION_SOURCE_ID);
 
 // Wet sites match on density; a null/unrecorded density falls to the "none"
 // tone. A dry site is neutral regardless of density.
+//
+// The arms are built from the register rather than typed out. Written by hand
+// this was five density words interleaved with colours in one flat array, which
+// nothing type-checked: a missing arm renders the fallback colour and says so
+// nowhere.
 const densityColor: ExpressionSpecification = [
 	'case',
 	['boolean', ['get', 'isWet'], false],
 	[
 		'match',
 		['get', 'density'],
-		'very_heavy',
-		colors.veryHeavy,
-		'heavy',
-		colors.heavy,
-		'medium',
-		colors.medium,
-		'light',
-		colors.light,
-		'none',
-		colors.none,
+		...LARVAL_DENSITIES.flatMap((density) => [density, INSPECTION_DENSITY_COLORS[density]]),
 		colors.none,
 	],
 	colors.dry,

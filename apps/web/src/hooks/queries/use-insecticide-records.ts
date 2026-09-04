@@ -13,6 +13,7 @@
  * there.
  */
 
+import type { InsecticideType } from '@simmer-mosquito/domain';
 import { eq, useLiveQuery, useLiveSuspenseQuery } from '@tanstack/react-db';
 import { insecticide_batches } from '../../lib/collections/insecticide_batches';
 import { insecticides } from '../../lib/collections/insecticides';
@@ -25,7 +26,7 @@ export interface InsecticideRecord {
 	readonly id: string;
 	readonly tradeName: string;
 	readonly activeIngredient: string;
-	readonly type: 'larvicide' | 'adulticide' | 'pupicide' | 'other';
+	readonly type: InsecticideType;
 	readonly registrationNumber: string;
 	readonly defaultUnitId: string;
 	readonly labelUrl: string | null;

@@ -21,9 +21,10 @@
  * `collectedAt` is a `Date` and `collectionDate` a `YYYY-MM-DD` string, which is
  * how they are stored and what the shape streams. The helpers take both.
  */
+import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import type { LinkedAddress } from './address-view';
 
-export type AdultCollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
+export type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 
 /**
  * An Adult Collection, as the surfaces that show one whole want it.

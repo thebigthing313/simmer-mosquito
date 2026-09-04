@@ -1,8 +1,10 @@
 import type {
+	LarvalDensity,
 	LarvalDensityRange,
 	LarvalDensityRanges,
 	LarvalInspectionEntryMode,
 	OrganizationSettings,
+	RangeDensity,
 	ResolvedLarvalInspectionEntryPolicy,
 } from '@simmer-mosquito/domain';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
@@ -80,12 +82,7 @@ import {
 	watchWrite,
 } from './helpers';
 import { LookupListFrame, SettingChoiceCard } from './layout/layout';
-import type {
-	DensityRangeFormValue,
-	DensityRangeFormValues,
-	DensityRangeKey,
-	LarvalDensityDisplayKey,
-} from './types';
+import type { DensityRangeFormValue, DensityRangeFormValues } from './types';
 
 export function LarvalSurveillanceSettings({
 	canManage,
@@ -188,7 +185,7 @@ function DensityRangeTile({
 	density,
 	range,
 }: {
-	readonly density: LarvalDensityDisplayKey;
+	readonly density: LarvalDensity;
 	readonly range: LarvalDensityRange | null;
 }) {
 	const label = densityLabel(density);
@@ -343,7 +340,7 @@ function DensityRangeEditor({
 	onChange,
 	value,
 }: {
-	readonly density: DensityRangeKey;
+	readonly density: RangeDensity;
 	readonly disabled: boolean;
 	readonly onChange: (value: DensityRangeFormValue) => void;
 	readonly value: DensityRangeFormValue;

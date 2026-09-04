@@ -20,22 +20,16 @@
  * queue and the detail page agreeing about what is finished.
  */
 
-import type { ControlType } from '@simmer-mosquito/sync';
+import { CONTROL_TYPES, type ControlType } from '@simmer-mosquito/domain';
 import type { LinkedAddress } from './address-view';
 
-/**
- * The four kinds of control work a request or mission can be for.
- *
- * The column stores the snake_case `control_type` enum; these are the labels the
- * operator reads. Ordered as the domain lists them, not alphabetically.
- */
-export const CONTROL_TYPES: readonly ControlType[] = [
-	'application',
-	'source_reduction',
-	'biocontrol',
-	'outreach',
-];
+export { CONTROL_TYPES };
 
+/**
+ * What each kind of control work reads as on screen.
+ *
+ * The column stores the snake_case enum; these are the words the operator sees.
+ */
 const CONTROL_TYPE_LABELS: Readonly<Record<ControlType, string>> = {
 	application: 'Application',
 	source_reduction: 'Source Reduction',
