@@ -19,11 +19,18 @@ import { type RawBuilder, sql } from 'kysely';
  * The rule has three parts. A point is inside a region when it shares any point
  * with it, including a boundary. A line is inside when it shares any point with
  * it, so a habitat line running across a district boundary is still work in that
- * district and is not dropped for also leaving. A polygon is inside only when
- * the two *interiors* meet, so an area that shares an edge with a district and
+ * district and is not dropped for also leaving. An area is inside only when the
+ * two *interiors* meet, so an area that shares an edge with a district and
  * overlaps it nowhere is work next to the district rather than in it.
  *
- * ADR 0015 has the reasoning and the alternatives that were rejected.
+ * Area means Polygon or MultiPolygon. A MultiPolygon's interior is the union of
+ * its parts' interiors, so a record with one part interior-inside is a member and
+ * a record whose every part only abuts the boundary is not. MultiPoint and
+ * MultiLineString stay on plain intersection for the reason their single-part
+ * forms do.
+ *
+ * ADR 0015 has the reasoning and the alternatives that were rejected, and its
+ * 2026-09-03 amendment has the multipart half.
  */
 export function regionMembershipClause(input: {
 	/** The record's geometry column, e.g. ``sql`h.geom` ``. */
@@ -91,8 +98,14 @@ export function regionMembershipMatch(input: {
 	// drawn wholly inside a district, `ST_Contains` and `ST_Within` drop one
 	// straddling a boundary, and `ST_Covers` counts the boundary-only case this
 	// rule exists to exclude.
+	//
+	// The areal set is two literal names rather than a normalization. A
+	// `replace(geom_type, 'st_multi', 'st_')` is a string trick that only looks
+	// like one, and `normalizeGeomType` is not callable here: `packages/db`
+	// carries `@simmer-mosquito/mapping` as a devDependency. The set is closed at
+	// two, because GeometryCollection is not a record geometry.
 	return sql<boolean>`case
-		when ${input.geomType} = 'st_polygon'
+		when ${input.geomType} in ('st_polygon', 'st_multipolygon')
 			then st_relate(${input.regionGeom}, ${input.geom}, 'T********')
 		else st_intersects(${input.regionGeom}, ${input.geom})
 	end`;

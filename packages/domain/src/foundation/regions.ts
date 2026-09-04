@@ -7,16 +7,17 @@ import {
 	requiredUuid as requireUuid,
 	throwIfIssues,
 } from '../command-validation.js';
-import type { DomainId, GeoJsonPolygon, JsonObject } from '../shared.js';
+import type { DomainId, JsonObject } from '../shared.js';
 import {
 	type AgencyFoundationCommandInput,
 	type AgencyFoundationCommandPayload,
 	agencyPayload,
 	type FoundationDomainCommand,
 	normalizeRequiredDomainId,
+	type RegionGeometry,
 	validateAgencyBase,
 	validateAgencyIdCommand,
-	validatePolygonGeometry,
+	validateRegionGeometry,
 } from './shared.js';
 
 export interface CreateRegionFolderCommandInput extends AgencyFoundationCommandInput {
@@ -81,7 +82,7 @@ export type CreateRegionCommand = FoundationDomainCommand<
 		readonly name: string;
 		readonly description: string | null;
 		readonly metadata: JsonObject | null;
-		readonly geometry: GeoJsonPolygon;
+		readonly geometry: RegionGeometry;
 	}
 >;
 
@@ -127,7 +128,7 @@ export type UpdateRegionGeometryCommand = FoundationDomainCommand<
 	'foundation.updateRegionGeometry',
 	AgencyFoundationCommandPayload & {
 		readonly regionId: DomainId;
-		readonly geometry: GeoJsonPolygon;
+		readonly geometry: RegionGeometry;
 		readonly acknowledgedRegionBoundaryChange: true;
 	}
 >;
@@ -212,7 +213,7 @@ export function createRegionCommand(input: CreateRegionCommandInput): CreateRegi
 	const regionFolderId = normalizeOptionalUuid(input.regionFolderId, 'regionFolderId', issues);
 	const name = normalizeRequiredText(input.name, 'name', issues, 200);
 	const metadata = normalizeJsonObject(input.metadata, 'metadata', issues);
-	const geometry = validatePolygonGeometry(input.geometry, 'geometry', issues);
+	const geometry = validateRegionGeometry(input.geometry, 'geometry', issues);
 	throwIfIssues('Create region command is invalid.', issues);
 	return {
 		type: 'foundation.createRegion',
@@ -279,7 +280,7 @@ export function updateRegionGeometryCommand(
 	input: UpdateRegionGeometryCommandInput,
 ): UpdateRegionGeometryCommand {
 	const issues = validateAgencyIdCommand(input, 'regionId');
-	const geometry = validatePolygonGeometry(input.geometry, 'geometry', issues);
+	const geometry = validateRegionGeometry(input.geometry, 'geometry', issues);
 	if (input.acknowledgedRegionBoundaryChange !== true) {
 		issues.push({
 			path: 'acknowledgedRegionBoundaryChange',

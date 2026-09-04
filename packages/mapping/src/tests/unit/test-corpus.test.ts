@@ -29,9 +29,16 @@ describe('region membership corpus', () => {
 		expect(new Set(ids).size).toBe(ids.length);
 	});
 
-	it('covers all three record dimensions', () => {
-		const dimensions = new Set(REGION_MEMBERSHIP_CORPUS.map((corpusCase) => corpusCase.geomType));
-		expect([...dimensions].sort()).toEqual(['st_linestring', 'st_point', 'st_polygon']);
+	it('covers all six record shapes', () => {
+		const shapes = new Set(REGION_MEMBERSHIP_CORPUS.map((corpusCase) => corpusCase.geomType));
+		expect([...shapes].sort()).toEqual([
+			'st_linestring',
+			'st_multilinestring',
+			'st_multipoint',
+			'st_multipolygon',
+			'st_point',
+			'st_polygon',
+		]);
 	});
 
 	it('covers both branches and both answers', () => {
@@ -48,11 +55,14 @@ describe('region membership corpus', () => {
 		}
 	});
 
-	it('labels every case with the dimension of the geometry it carries', () => {
+	it('labels every case with the shape of the geometry it carries', () => {
 		const expected: Record<CorpusCase['geomType'], string> = {
 			st_point: 'Point',
 			st_linestring: 'LineString',
 			st_polygon: 'Polygon',
+			st_multipoint: 'MultiPoint',
+			st_multilinestring: 'MultiLineString',
+			st_multipolygon: 'MultiPolygon',
 		};
 		for (const corpusCase of REGION_MEMBERSHIP_CORPUS) {
 			expect(corpusCase.record.type, corpusCase.id).toBe(expected[corpusCase.geomType]);
@@ -65,12 +75,21 @@ describe('region membership corpus', () => {
 		}
 	});
 
-	it('runs every case against the shared region', () => {
+	it('runs every case against the shared region but the two that name a multipart one', () => {
 		// A case may bring its own region when the shared one cannot express it,
-		// and none needs to today. This asserts that rather than assuming it, so
-		// an added region is a decision someone made on purpose.
-		for (const corpusCase of REGION_MEMBERSHIP_CORPUS) {
-			expect(corpusRegionFor(corpusCase), corpusCase.id).toBe(CORPUS_REGION);
+		// and two do: the shared region is a single Polygon, and a multipart region
+		// cannot be built from the record side. Naming them here keeps an added
+		// region a decision someone made on purpose.
+		const named = REGION_MEMBERSHIP_CORPUS.filter(
+			(corpusCase) => corpusRegionFor(corpusCase) !== CORPUS_REGION,
+		);
+
+		expect(named.map((corpusCase) => corpusCase.id)).toEqual([
+			'multipolygon-region-record-in-one-part',
+			'multipolygon-region-record-between-parts',
+		]);
+		for (const corpusCase of named) {
+			expect(corpusRegionFor(corpusCase).type, corpusCase.id).toBe('MultiPolygon');
 		}
 	});
 

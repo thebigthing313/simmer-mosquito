@@ -152,6 +152,108 @@ describe('geometry helpers', () => {
 		expect(ownedCentroidFromGeoJson({ type: 'Polygon', coordinates: [] })).toBeNull();
 	});
 
+	it('weights an areal centroid by area rather than by vertex count', () => {
+		// A square with a redundant vertex along one edge. The area centroid is the
+		// middle of the square; a vertex average is dragged toward the crowded
+		// edge. `st_centroid` answers the first, so this is the one the optimistic
+		// row has to give.
+		const crowdedEdge = {
+			type: 'Polygon',
+			coordinates: [
+				[
+					[0, 0],
+					[1, 0],
+					[2, 0],
+					[2, 2],
+					[0, 2],
+					[0, 0],
+				],
+			],
+		} as const;
+
+		expect(ownedCentroidFromGeoJson(crowdedEdge)).toEqual({
+			lng: 1,
+			lat: 1,
+			geomType: 'st_polygon',
+		});
+		expect(centroidFromGeoJson(crowdedEdge)?.lat).toBeLessThan(1);
+	});
+
+	it('subtracts a hole from the areal centroid', () => {
+		// Outer square of area 16 centred on (2, 2), hole of area 1 centred on
+		// (3, 3). (2 * 16 - 3 * 1) / 15.
+		const withHole = {
+			type: 'Polygon',
+			coordinates: [
+				[
+					[0, 0],
+					[4, 0],
+					[4, 4],
+					[0, 4],
+					[0, 0],
+				],
+				[
+					[2.5, 2.5],
+					[2.5, 3.5],
+					[3.5, 3.5],
+					[3.5, 2.5],
+					[2.5, 2.5],
+				],
+			],
+		} as const;
+		const centroid = ownedCentroidFromGeoJson(withHole);
+
+		expect(centroid?.lng).toBeCloseTo(29 / 15, 10);
+		expect(centroid?.lat).toBeCloseTo(29 / 15, 10);
+	});
+
+	it('weights multipolygon parts by their own area', () => {
+		// A big part and a small distant one. Averaging vertices would put the
+		// marker halfway between them, because both parts carry four of them.
+		const parts = {
+			type: 'MultiPolygon',
+			coordinates: [
+				[
+					[
+						[0, 0],
+						[2, 0],
+						[2, 2],
+						[0, 2],
+						[0, 0],
+					],
+				],
+				[
+					[
+						[10, 10],
+						[11, 10],
+						[11, 11],
+						[10, 11],
+						[10, 10],
+					],
+				],
+			],
+		} as const;
+		const centroid = ownedCentroidFromGeoJson(parts);
+
+		expect(centroid?.lng).toBeCloseTo(2.9, 10);
+		expect(centroid?.lat).toBeCloseTo(2.9, 10);
+		expect(centroid?.geomType).toBe('st_multipolygon');
+	});
+
+	it('keeps the vertex average for points and lines', () => {
+		// The documented drift. `st_centroid` weights a line by length, and this
+		// keeps averaging vertices, which is what the marker has always shown.
+		expect(
+			ownedCentroidFromGeoJson({
+				type: 'MultiPoint',
+				coordinates: [
+					[0, 0],
+					[2, 4],
+				],
+			}),
+		).toEqual({ lng: 1, lat: 2, geomType: 'st_multipoint' });
+	});
+
 	it('counts GeoJSON vertices across nested geometry types', () => {
 		expect(
 			countGeoJsonVertices({

@@ -1,4 +1,6 @@
 import { OWNED_GEOMETRY_POLICIES } from '@simmer-mosquito/domain';
+import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { corpusRegionFor, REGION_MEMBERSHIP_CORPUS } from '@simmer-mosquito/mapping/test-corpus';
 import type { Kysely } from 'kysely';
 import { expect, it } from 'vitest';
 import {
@@ -14,9 +16,9 @@ import { describeDbIntegration, withTestDb } from '../../test-support/db-integra
  * in: `postgis_typmod_type` answers in mixed case and a CHECK carries the
  * upper-cased name, and the register speaks GeoJSON.
  *
- * All six are listed, including the three the register cannot yet hold, so a
- * column widened to a multi shape ahead of its policy row reads back as one and
- * fails the comparison rather than going unnoticed.
+ * All six are listed, so a column widened to a shape its policy row does not
+ * name reads back as that shape and fails the comparison rather than going
+ * unnoticed.
  */
 const SHAPE_BY_UPPER_NAME: Readonly<Record<string, string>> = {
 	POINT: 'Point',
@@ -26,6 +28,9 @@ const SHAPE_BY_UPPER_NAME: Readonly<Record<string, string>> = {
 	MULTILINESTRING: 'MultiLineString',
 	MULTIPOLYGON: 'MultiPolygon',
 };
+
+/** The two shapes whose centroid PostGIS weights by length and the client does not. */
+const LINEAR: ReadonlySet<string> = new Set(['LineString', 'MultiLineString']);
 
 /** What an unrestricted `geom` column will take. */
 const EVERY_SHAPE: readonly string[] = Object.values(SHAPE_BY_UPPER_NAME);
@@ -202,6 +207,60 @@ describeDbIntegration('owned geometry columns', () => {
 				expect(owners.get(table), `${table} is in no policy row`).toHaveLength(1);
 			}
 			expect([...storable.keys()].sort()).toEqual([...owners.keys()].sort());
+		});
+	});
+
+	/**
+	 * The optimistic centroid against the one the trigger will write.
+	 *
+	 * `ownedCentroidFromGeoJson` is what the browser puts in the optimistic row
+	 * and `st_centroid` is what `set_owned_centroid()` writes when Electric
+	 * confirms it, so a disagreement is a marker that jumps. A unit test with
+	 * hand-computed numbers would only prove the implementation matches whoever
+	 * wrote the test; the thing that has to be true is that it matches PostGIS.
+	 *
+	 * The geometries are the region-membership corpus, which is a set of shapes
+	 * somebody already chose for their awkwardness: holes, parts sharing an edge,
+	 * a part in a hole, a small part far from a big one.
+	 *
+	 * Lines are excluded, and that is the documented drift rather than an
+	 * oversight. `st_centroid` weights a line by segment length and the client
+	 * averages vertices, so the two answer differently for any line with uneven
+	 * spacing. ADR 0018 keeps the average for points and lines; only the areal
+	 * half moved.
+	 */
+	it('puts the optimistic areal centroid where st_centroid does', async () => {
+		await withTestDb(async ({ db }) => {
+			const geometries: readonly (readonly [string, GeoJsonGeometry])[] = [
+				...REGION_MEMBERSHIP_CORPUS.map(
+					(corpusCase) => [corpusCase.id, corpusCase.record] as const,
+				),
+				...[...new Set(REGION_MEMBERSHIP_CORPUS.map(corpusRegionFor))].map(
+					(region, index) => [`region-${index}`, region] as const,
+				),
+			].filter(([, geometry]) => !LINEAR.has(geometry.type));
+
+			const rows = await sql<{ id: string; lng: number; lat: number }>`
+				select
+					source.id,
+					st_x(st_centroid(st_geomfromgeojson(source.geojson))) as lng,
+					st_y(st_centroid(st_geomfromgeojson(source.geojson))) as lat
+				from (
+					select * from unnest(
+						${geometries.map(([id]) => id)}::text[],
+						${geometries.map(([, geometry]) => JSON.stringify(geometry))}::text[]
+					) as t(id, geojson)
+				) source
+			`.execute(db);
+
+			expect(rows.rows).toHaveLength(geometries.length);
+			for (const row of rows.rows) {
+				const geometry = geometries.find(([id]) => id === row.id)?.[1];
+				const optimistic = geometry === undefined ? null : ownedCentroidFromGeoJson(geometry);
+
+				expect(optimistic?.lng, row.id).toBeCloseTo(row.lng, 9);
+				expect(optimistic?.lat, row.id).toBeCloseTo(row.lat, 9);
+			}
 		});
 	});
 });

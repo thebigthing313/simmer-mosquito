@@ -79,11 +79,18 @@ describe('the owned geometry register', () => {
 
 	it('stores the shape set the matrix says', () => {
 		expect(getOwnedGeometryPolicy('address').allowedTypes).toEqual(['Point']);
-		expect(getOwnedGeometryPolicy('region').allowedTypes).toEqual(['Polygon']);
+		expect(getOwnedGeometryPolicy('region').allowedTypes).toEqual(['Polygon', 'MultiPolygon']);
+		expect(getOwnedGeometryPolicy('notificationRegistration').allowedTypes).toEqual([
+			'Point',
+			'Polygon',
+		]);
 		expect(getOwnedGeometryPolicy('missionItem').allowedTypes).toEqual([
 			'Point',
 			'LineString',
 			'Polygon',
+			'MultiPoint',
+			'MultiLineString',
+			'MultiPolygon',
 		]);
 	});
 
@@ -230,13 +237,30 @@ describe('demote', () => {
 	 * shape that lands in the column. This is the `ogr2ogr` case: a single-lot
 	 * shapefile feature arrives as a one-part MultiPolygon and stores as a Polygon.
 	 */
-	it('lets a Polygon-only kind take a one-part MultiPolygon, and refuses a two-part one', () => {
+	it('lets a kind with no multi form take a one-part MultiPolygon, and refuses a two-part one', () => {
+		// A Registration is the one kind that takes a base shape and refuses its
+		// multipart form: two places are two subscriptions, so one can be removed
+		// without the other.
 		expect(
-			normalizeOwnedGeometry('region', { type: 'MultiPolygon', coordinates: [[SQUARE]] }),
+			normalizeOwnedGeometry('notificationRegistration', {
+				type: 'MultiPolygon',
+				coordinates: [[SQUARE]],
+			}),
 		).toEqual({ type: 'Polygon', coordinates: [SQUARE] });
 		expect(() =>
-			normalizeOwnedGeometry('region', { type: 'MultiPolygon', coordinates: [[SQUARE], [HOLE]] }),
+			normalizeOwnedGeometry('notificationRegistration', {
+				type: 'MultiPolygon',
+				coordinates: [[SQUARE], [HOLE]],
+			}),
 		).toThrow(DomainValidationError);
+	});
+
+	it('lets a Region hold a MultiPolygon', () => {
+		// A county parks file where one park sits on three separated lots is one
+		// Region, not three.
+		const parts = { type: 'MultiPolygon', coordinates: [[SQUARE], [HOLE]] } as const;
+
+		expect(normalizeOwnedGeometry('region', parts)).toEqual(parts);
 	});
 
 	it('names the payload rather than the demoted shape when a part is bad', () => {

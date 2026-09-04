@@ -10,6 +10,7 @@ import {
 	type DomainId,
 	DomainValidationError,
 	type DomainValidationIssue,
+	type GeoJsonMultiPolygon,
 	type GeoJsonPoint,
 	type GeoJsonPolygon,
 	normalizeOwnedGeometry,
@@ -144,14 +145,22 @@ export function validatePointGeometry(
 	}
 }
 
+/**
+ * What a Region may store: one area, or several on the same row.
+ *
+ * Two names rather than `SupportedGeoJsonGeometry`, so a reader of
+ * `CreateRegionCommand.geometry` is told which four shapes cannot be there.
+ */
+export type RegionGeometry = GeoJsonPolygon | GeoJsonMultiPolygon;
+
 /** A Region's geometry, against the Region policy in the register. */
-export function validatePolygonGeometry(
+export function validateRegionGeometry(
 	value: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
-): GeoJsonPolygon {
+): RegionGeometry {
 	try {
-		return normalizeOwnedGeometry('region', value, path) as GeoJsonPolygon;
+		return normalizeOwnedGeometry('region', value, path) as RegionGeometry;
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);

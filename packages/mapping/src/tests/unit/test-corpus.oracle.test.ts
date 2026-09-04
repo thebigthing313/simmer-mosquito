@@ -20,7 +20,7 @@ import {
  *
  * `jsts` is a **devDependency oracle** and never ships. It is the same JTS
  * lineage PostGIS reaches through GEOS, so agreement with it is not independent
- * evidence that the *rule* is right. What it is evidence of is that the twenty-two
+ * evidence that the *rule* is right. What it is evidence of is that the thirty-two
  * hand-written booleans are the ones the rule produces, checked without Postgres
  * and without the implementation under test. When mobile's hand-rolled predicate
  * arrives, a hand-written expectation checked only by a hand-rolled
@@ -54,6 +54,19 @@ describe('region membership corpus, against the jsts oracle', () => {
 
 		expect(oracleAnswer(sharesAnEdge)).toBe(false);
 		expect(plainIntersection(sharesAnEdge)).toBe(true);
+	});
+
+	it('reads a multipart interior as the union of its parts', () => {
+		// The multipart pair, asserted directly for the same reason. The first is
+		// the case that answers wrongly today, because a MultiPolygon falls to
+		// plain intersection. The second proves the union is existential: one part
+		// inside is enough, and the other part being nowhere near does not matter.
+		const sharesAnEdge = caseById('multipolygon-all-parts-sharing-an-edge');
+		const onePartInside = caseById('multipolygon-one-part-inside');
+
+		expect(oracleAnswer(sharesAnEdge)).toBe(false);
+		expect(plainIntersection(sharesAnEdge)).toBe(true);
+		expect(oracleAnswer(onePartInside)).toBe(true);
 	});
 });
 
