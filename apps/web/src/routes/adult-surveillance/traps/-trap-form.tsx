@@ -178,7 +178,7 @@ export function TrapFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas controls={{ layers: false }} onMapReady={location.onMapReady} />
+						<MapCanvas onMapReady={location.onMapReady} />
 						<DrawToolbar
 							controller={draw}
 							geometryType="Point"

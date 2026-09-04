@@ -1,5 +1,5 @@
 /**
- * Baseline basemap catalogue and camera defaults for the GIS Data explorer map.
+ * Baseline basemap catalogue and camera defaults for every map surface.
  *
  * Framework-free on purpose: this module only knows about Mapbox style URLs and
  * the public access token, so it can be shared by the map hook, the basemap

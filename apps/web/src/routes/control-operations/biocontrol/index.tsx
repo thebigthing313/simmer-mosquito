@@ -305,7 +305,7 @@ function BiocontrolExplorerRoute() {
 						searchWidth={panel.width}
 						contextMenu={{ create: [MAP_CREATE_TARGETS.biocontrol] }}
 						layers={layers}
-						controls={{ layers: false, measure: true, readout: true }}
+						controls={{ measure: true, readout: true }}
 						fitToData
 						onMapReady={handleMapReady}
 					/>

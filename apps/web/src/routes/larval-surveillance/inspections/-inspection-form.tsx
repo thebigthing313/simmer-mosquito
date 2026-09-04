@@ -404,7 +404,6 @@ export function InspectionFormPage({
 				aside={
 					<>
 						<MapCanvas
-							controls={{ layers: false }}
 							geoJson={previewGeometry as unknown as GeoJSON.GeoJSON | null}
 							layers={[
 								{ kind: 'habitats', serverUrl: getServerUrl(), filters: { isActive: true } },

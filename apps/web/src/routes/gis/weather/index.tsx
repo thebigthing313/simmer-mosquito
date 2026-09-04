@@ -173,7 +173,7 @@ function StationMap({
 		<>
 			<MapCanvas
 				contextMenu={{}}
-				controls={{ layers: false, measure: true, readout: true }}
+				controls={{ measure: true, readout: true }}
 				fitToData={bounds}
 				geoJson={geoJson}
 				geoJsonInteraction={{ selectedId: focusedId, onSelectFeature: onSelect }}

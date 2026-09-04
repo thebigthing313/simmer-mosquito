@@ -275,7 +275,7 @@ function CollectionsExplorerRoute() {
 						searchWidth={panel.width}
 						contextMenu={{ create: [MAP_CREATE_TARGETS.collection, MAP_CREATE_TARGETS.trap] }}
 						layers={layers}
-						controls={{ layers: false, measure: true, readout: true }}
+						controls={{ measure: true, readout: true }}
 						fitToData
 						legend={legend}
 						onMapReady={handleMapReady}

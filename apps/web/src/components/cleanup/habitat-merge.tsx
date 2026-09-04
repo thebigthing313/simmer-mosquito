@@ -113,7 +113,7 @@ export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
 			<MapSplitPage
 				map={
 					<MapCanvas
-						controls={{ layers: false, measure: true, readout: true }}
+						controls={{ measure: true, readout: true }}
 						fitToData={bounds}
 						nearbyLayer={{
 							data: mapData,

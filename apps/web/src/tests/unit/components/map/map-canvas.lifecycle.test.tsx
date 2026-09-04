@@ -369,7 +369,7 @@ describe('MapCanvas layer order (issue #431)', () => {
 	async function draw(layers: Parameters<typeof MapCanvas>[0]['layers']) {
 		mount(
 			<MapCanvas
-				controls={{ search: false, basemap: false, layers: false, geolocate: false, zoom: false }}
+				controls={{ search: false, basemap: false, geolocate: false, zoom: false }}
 				geoJson={{ type: 'FeatureCollection', features: [] }}
 				{...(layers === undefined ? {} : { layers })}
 			/>,

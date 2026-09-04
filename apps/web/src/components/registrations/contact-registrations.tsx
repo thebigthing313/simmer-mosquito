@@ -92,7 +92,6 @@ export function ContactRegistrations({ contactId }: { readonly contactId: string
 			map={
 				<>
 					<MapCanvas
-						controls={{ layers: false }}
 						fitToData={coverage.features.length > 0}
 						geoJson={coverage}
 						onMapReady={setMap}

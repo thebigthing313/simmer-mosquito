@@ -304,6 +304,17 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 		],
 		elsewhere: [outreach, serviceRequests, regions],
 	},
+	'/gis/data-explorer': {
+		title: 'Data Map',
+		summary:
+			'Maps the Agency builds: choose which records draw, filter each layer, and save the result.',
+		willLand: [
+			'Any of the mapped record types drawn together, each with its own filters',
+			'Draw order and visibility set per layer',
+			'Saved maps, reopened and shared across the Agency',
+		],
+		elsewhere: [regions, habitats, traps],
+	},
 	'/gis/weather/stats': {
 		title: 'Weather Statistics',
 		summary:

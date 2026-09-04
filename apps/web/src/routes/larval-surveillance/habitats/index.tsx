@@ -307,7 +307,7 @@ function HabitatsExplorerRoute() {
 				<>
 					<MapCanvas
 						contextMenu={{ create: [MAP_CREATE_TARGETS.habitat, MAP_CREATE_TARGETS.inspection] }}
-						controls={{ layers: false, measure: true, readout: true }}
+						controls={{ measure: true, readout: true }}
 						fitToData
 						inset={panel.inset}
 						layers={layers}

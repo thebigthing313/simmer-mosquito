@@ -222,7 +222,7 @@ export function AddressFormPage({
 		<MapSplitPage
 			map={
 				<>
-					<MapCanvas controls={{ layers: false }} geoJson={geoJson} onMapReady={handleMapReady} />
+					<MapCanvas geoJson={geoJson} onMapReady={handleMapReady} />
 					{draw.isRequestingPoint ? (
 						<MapPrompt>
 							<MapPinnedIcon aria-hidden="true" className="size-4 text-primary" />

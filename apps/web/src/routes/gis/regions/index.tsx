@@ -125,7 +125,7 @@ function RegionsMap({
 			 */}
 			<MapCanvas
 				contextMenu={{}}
-				controls={{ layers: false, measure: true, readout: true }}
+				controls={{ measure: true, readout: true }}
 				fitToData={focusedId === null}
 				inset={panel.inset}
 				layers={layers}

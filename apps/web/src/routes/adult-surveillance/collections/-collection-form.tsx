@@ -337,7 +337,6 @@ export function CollectionFormPage({
 						    trap's point is separate reference geometry, so only it needs a map
 						    feature of its own. */}
 						<MapCanvas
-							controls={{ layers: false }}
 							geoJson={referenceGeometry as unknown as GeoJSON.GeoJSON | null}
 							onMapReady={location.onMapReady}
 						/>

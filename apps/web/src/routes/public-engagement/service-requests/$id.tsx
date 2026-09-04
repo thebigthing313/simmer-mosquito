@@ -377,7 +377,6 @@ function ContextMap({
 	return (
 		<>
 			<MapCanvas
-				controls={{ layers: false }}
 				nearbyLayer={{
 					data: mapData,
 					selectedIds: selectedId === null ? [] : [selectedId],

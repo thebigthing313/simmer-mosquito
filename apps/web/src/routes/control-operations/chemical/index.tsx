@@ -305,7 +305,7 @@ function ApplicationsExplorerRoute() {
 						searchWidth={panel.width}
 						contextMenu={{ create: [MAP_CREATE_TARGETS.chemical] }}
 						layers={layers}
-						controls={{ layers: false, measure: true, readout: true }}
+						controls={{ measure: true, readout: true }}
 						fitToData
 						onMapReady={handleMapReady}
 					/>
