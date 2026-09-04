@@ -94,6 +94,14 @@ alter table notification_registrations
 -- the output plugin sees them: 0 decoded messages and 0 bytes on the wire at
 -- 345 rows and again at 200,000. What it does cost is reorder buffer, linear in
 -- heap bytes, 1.42 MB at production size with no spill.
+--
+-- The new CHECK is not optional. After the widening the typmod stops being the
+-- constraint and a bare Point inserts happily, with the trigger stamping
+-- geom_type = 'st_point'. geometry(Polygon,4326) was the only guard.
+-- geometrytype(), not st_geometrytype(): the two share no vocabulary, since
+-- geometrytype() returns bare uppercase POLYGON and st_geometrytype() returns
+-- ST_Polygon. A GeometryCollection of polygons cannot slip the two-name list
+-- either, because geometrytype() reports the container.
 drop trigger regions_centroid on regions;
 
 alter table regions
@@ -106,16 +114,6 @@ alter table regions
 create trigger regions_centroid
   before insert or update of geom on regions
   for each row execute function set_owned_centroid();
-
--- The CHECK is not optional. After the widening the typmod stops being the
--- constraint and a bare Point inserts happily, with the trigger stamping
--- geom_type = 'st_point'. geometry(Polygon,4326) was the only guard.
---
--- geometrytype(), not st_geometrytype(). The two share no vocabulary:
--- geometrytype() returns bare uppercase POLYGON and st_geometrytype() returns
--- ST_Polygon, so neither list is usable in the other place. A GeometryCollection
--- of polygons cannot slip the two-name list either, because geometrytype()
--- reports the container.
 
 -- The type change drops geom's pg_stats row. Without this the GiST scan
 -- estimates 1 row where 43 come back.
