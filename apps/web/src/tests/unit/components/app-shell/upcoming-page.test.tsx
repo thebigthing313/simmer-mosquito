@@ -21,6 +21,14 @@ const FALLBACK = 'The shell, navigation, and routing are wired.';
 
 afterEach(cleanup);
 
+/**
+ * The page a wired-but-unbuilt section renders.
+ *
+ * Its copy is keyed by route path, and a key that does not match its route is
+ * not an error: the page falls back to a generic line under whatever the
+ * sidebar calls the item, and looks finished. So both tests here are about the
+ * key matching, one for the Data Map and one for every stub at once.
+ */
 describe('UpcomingPage', () => {
 	it('names what the Data Map will do and where to work meanwhile', () => {
 		renderAt('/gis/data-explorer');
