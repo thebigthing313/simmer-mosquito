@@ -62,6 +62,7 @@ import { useCallback } from 'react';
 import { habitats } from '../../lib/collections/habitats';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { useAuthSnapshot } from '../use-auth-snapshot';
+import { metadataChanged } from './performed-action-writes';
 import { newRecordId, optimisticStamp } from './shared';
 
 /** Where a habitat sits, as the form holds it before the row is built. */
@@ -341,17 +342,4 @@ export function useHabitatMutations(): HabitatMutations {
 		remove,
 		canWrite: organizationId !== null && actorProfileId !== null,
 	};
-}
-
-/**
- * Whether the custom fields differ.
- *
- * Compared by serialization because `metadata` is an opaque object the form
- * rebuilds on every render — a reference check would name
- * `updateHabitatDetails` on every save, including the ones that changed only the
- * address, and the domain would refuse the details command for having nothing in
- * it.
- */
-function metadataChanged(before: unknown, after: unknown): boolean {
-	return JSON.stringify(before ?? null) !== JSON.stringify(after ?? null);
 }

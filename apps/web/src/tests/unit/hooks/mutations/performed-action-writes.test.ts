@@ -83,27 +83,66 @@ describe('whether a custom-field bag moved', () => {
 
 describe('the commands one edit means', () => {
 	it('names nothing when nothing moved, which means there is no write', () => {
-		expect(actionEditIntents(false, false, FIELDS_INTENT, PLACEMENT_INTENT)).toEqual([]);
+		expect(
+			actionEditIntents({
+				fieldsMoved: false,
+				fieldsIntent: FIELDS_INTENT,
+				placementMoved: false,
+				placementIntent: PLACEMENT_INTENT,
+			}),
+		).toEqual([]);
 	});
 
 	it('names the field-details command alone when only the measurements moved', () => {
-		expect(actionEditIntents(true, false, FIELDS_INTENT, PLACEMENT_INTENT)).toEqual([
-			FIELDS_INTENT,
-		]);
+		expect(
+			actionEditIntents({
+				fieldsMoved: true,
+				fieldsIntent: FIELDS_INTENT,
+				placementMoved: false,
+				placementIntent: PLACEMENT_INTENT,
+			}),
+		).toEqual([FIELDS_INTENT]);
 	});
 
 	it('names the location-and-context command alone when only the placement moved', () => {
-		expect(actionEditIntents(false, true, FIELDS_INTENT, PLACEMENT_INTENT)).toEqual([
-			PLACEMENT_INTENT,
-		]);
+		expect(
+			actionEditIntents({
+				fieldsMoved: false,
+				fieldsIntent: FIELDS_INTENT,
+				placementMoved: true,
+				placementIntent: PLACEMENT_INTENT,
+			}),
+		).toEqual([PLACEMENT_INTENT]);
 	});
 
 	it('names both in order, field details first', () => {
 		// The server builds and runs the commands in the order the list gives, so
 		// the order is part of the request rather than an accident of this array.
-		expect(actionEditIntents(true, true, FIELDS_INTENT, PLACEMENT_INTENT)).toEqual([
-			FIELDS_INTENT,
-			PLACEMENT_INTENT,
-		]);
+		expect(
+			actionEditIntents({
+				fieldsMoved: true,
+				fieldsIntent: FIELDS_INTENT,
+				placementMoved: true,
+				placementIntent: PLACEMENT_INTENT,
+			}),
+		).toEqual([FIELDS_INTENT, PLACEMENT_INTENT]);
+	});
+
+	it('refuses the two names swapped', () => {
+		// The mistake the helper exists to prevent, and the one nothing at runtime
+		// can see. The server accepts the write, the wrong builder reads none of the
+		// fields it was handed, and the save answers 200 having written nothing. So
+		// the two directives are the assertion, and the call below returns the wrong
+		// list quite happily to show why they have to be.
+		expect(
+			actionEditIntents({
+				fieldsMoved: true,
+				// @ts-expect-error the placement command is not a field-details one
+				fieldsIntent: PLACEMENT_INTENT,
+				placementMoved: true,
+				// @ts-expect-error the field-details command is not a placement one
+				placementIntent: FIELDS_INTENT,
+			}),
+		).toEqual([PLACEMENT_INTENT, FIELDS_INTENT]);
 	});
 });

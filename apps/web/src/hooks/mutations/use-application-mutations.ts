@@ -278,12 +278,12 @@ export function useApplicationMutations(): ApplicationMutations {
 				return;
 			}
 
-			const intent = actionEditIntents(
+			const intent = actionEditIntents({
 				fieldsMoved,
+				fieldsIntent: 'controlOperations.updateChemicalApplicationFieldDetails',
 				placementMoved,
-				'controlOperations.updateChemicalApplicationFieldDetails',
-				'controlOperations.updateChemicalApplicationLocationAndContext',
-			);
+				placementIntent: 'controlOperations.updateChemicalApplicationLocationAndContext',
+			});
 
 			const now = optimisticStamp();
 			await settleWrite(
