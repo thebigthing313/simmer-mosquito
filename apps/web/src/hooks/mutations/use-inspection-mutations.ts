@@ -382,6 +382,11 @@ export function stopInspectionRequestBody(
 ): Record<string, unknown> {
 	return {
 		...requestColumns(row),
+		// Restated over the spread, which does carry the column, and today the one
+		// caller filled it from this same argument. It stays because the row's copy
+		// is `string | null`, the same shape an ad hoc inspection with no stop is
+		// built in, and this body is only ever the stop one. The argument is what
+		// says which stop, so a row assembled any other way cannot send a null.
 		assignment_item_id: placement.assignmentItemId,
 		// Nullable: the stop already names a habitat, so the ordinary call sends
 		// none and cannot disagree with it.

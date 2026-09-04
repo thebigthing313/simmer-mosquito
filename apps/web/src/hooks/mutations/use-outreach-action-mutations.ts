@@ -168,12 +168,12 @@ export function useOutreachActionMutations(): OutreachActionMutations {
 				return;
 			}
 
-			const intent = actionEditIntents(
+			const intent = actionEditIntents({
 				fieldsMoved,
+				fieldsIntent: 'controlOperations.updateOutreachActionFieldDetails',
 				placementMoved,
-				'controlOperations.updateOutreachActionFieldDetails',
-				'controlOperations.updateOutreachActionLocationAndContext',
-			);
+				placementIntent: 'controlOperations.updateOutreachActionLocationAndContext',
+			});
 
 			const now = optimisticStamp();
 			await settleWrite(

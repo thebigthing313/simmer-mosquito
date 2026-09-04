@@ -191,12 +191,12 @@ export function useSourceReductionMutations(): SourceReductionMutations {
 				return;
 			}
 
-			const intent = actionEditIntents(
+			const intent = actionEditIntents({
 				fieldsMoved,
+				fieldsIntent: 'controlOperations.updateSourceReductionFieldDetails',
 				placementMoved,
-				'controlOperations.updateSourceReductionFieldDetails',
-				'controlOperations.updateSourceReductionLocationAndContext',
-			);
+				placementIntent: 'controlOperations.updateSourceReductionLocationAndContext',
+			});
 
 			const now = optimisticStamp();
 			await settleWrite(

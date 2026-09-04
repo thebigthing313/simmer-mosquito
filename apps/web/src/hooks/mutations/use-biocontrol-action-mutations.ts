@@ -159,12 +159,12 @@ export function useBiocontrolActionMutations(): BiocontrolActionMutations {
 				return;
 			}
 
-			const intent = actionEditIntents(
+			const intent = actionEditIntents({
 				fieldsMoved,
+				fieldsIntent: 'controlOperations.updateBiocontrolActionFieldDetails',
 				placementMoved,
-				'controlOperations.updateBiocontrolActionFieldDetails',
-				'controlOperations.updateBiocontrolActionLocationAndContext',
-			);
+				placementIntent: 'controlOperations.updateBiocontrolActionLocationAndContext',
+			});
 
 			const now = optimisticStamp();
 			await settleWrite(

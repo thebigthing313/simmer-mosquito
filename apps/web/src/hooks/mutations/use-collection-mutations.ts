@@ -72,6 +72,7 @@ import { collections } from '../../lib/collections/collections';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { commandTransaction } from '../../lib/collections/transact';
 import { useAuthSnapshot } from '../use-auth-snapshot';
+import { metadataChanged } from './performed-action-writes';
 import { lifecycleStamp, optimisticStamp } from './shared';
 
 /** How long the trap was out, in whichever of the two shapes the agency records. */
@@ -645,15 +646,4 @@ function timingMoved(next: CollectionTiming, current: CollectionTiming): boolean
 		next.durationAmount !== current.durationAmount ||
 		next.durationUnitId !== current.durationUnitId
 	);
-}
-
-/**
- * Whether the custom fields differ.
- *
- * Compared by serialization because `metadata` is an opaque object the form
- * rebuilds on every render — a reference check would name the field-details
- * command on every save, including the ones that changed only the method.
- */
-function metadataChanged(before: unknown, after: unknown): boolean {
-	return JSON.stringify(before ?? null) !== JSON.stringify(after ?? null);
 }
