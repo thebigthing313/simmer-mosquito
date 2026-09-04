@@ -27,6 +27,15 @@
  * builder. Sending both names over one body is what keeps that one write: TanStack
  * DB merges two updates to a key and keeps only the last `metadata`, so as two
  * calls the first command's fields would arrive under the second's name.
+ *
+ * ## The requester is not an audit stamp
+ *
+ * `requested_by_profile_id` and `resolved_by_profile_id` are the domain answer to
+ * who asked and who closed it out, which the resolution worklist and the record
+ * header both read. The server takes both off the body rather than deriving them,
+ * so a write sent before the auth snapshot resolves a profile stores a null
+ * nothing fills in later. Raising, editing and closing out refuse until it is in
+ * hand.
  */
 
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
@@ -94,7 +103,7 @@ export function useRequestedControlActionMutations(): RequestMutations {
 
 	const create = useCallback(
 		async (requestId: string, fields: RequestFields, geometry: GeoJsonGeometry) => {
-			if (organizationId === null) {
+			if (organizationId === null || actorProfileId === null) {
 				throw new Error('Your profile is still loading.');
 			}
 
@@ -148,6 +157,10 @@ export function useRequestedControlActionMutations(): RequestMutations {
 			current: RequestFields,
 			geometry: GeoJsonGeometry | null,
 		) => {
+			if (actorProfileId === null) {
+				throw new Error('Your profile is still loading.');
+			}
+
 			const centroid = geometry === null ? null : ownedCentroidFromGeoJson(geometry);
 			if (geometry !== null && centroid === null) {
 				throw new Error('Unable to determine the requested location.');
@@ -213,6 +226,10 @@ export function useRequestedControlActionMutations(): RequestMutations {
 
 	const resolve = useCallback(
 		async (requestId: string) => {
+			if (actorProfileId === null) {
+				throw new Error('Your profile is still loading.');
+			}
+
 			await settleWrite(
 				mutateCollection(requested_control_actions(), {
 					operation: 'update',
