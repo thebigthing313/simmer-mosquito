@@ -18,11 +18,10 @@
  */
 
 import type { RequestIntakeType } from '@simmer-mosquito/domain';
-
-export type { RequestIntakeType };
-
 import type { LinkedAddress } from './address-view';
 import type { LinkedContact } from './contact-view';
+
+export type { RequestIntakeType };
 
 /** A Service Request, as the surfaces that show one whole want it. */
 export interface ServiceRequest {

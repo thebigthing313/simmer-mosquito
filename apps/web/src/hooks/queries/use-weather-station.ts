@@ -16,7 +16,7 @@ import { eq, useLiveQuery } from '@tanstack/react-db';
 import { weather_sources } from '../../lib/collections/weather_sources';
 import { mapCardGcTimeMs, unmatchableId } from './shared';
 
-export type { WeatherSourceType } from '@simmer-mosquito/domain';
+export type { WeatherSourceType };
 
 export interface WeatherStation {
 	readonly id: string;

@@ -24,7 +24,7 @@
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import type { LinkedAddress } from './address-view';
 
-export type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
+export type { AdultCollectionTimingMode };
 
 /**
  * An Adult Collection, as the surfaces that show one whole want it.

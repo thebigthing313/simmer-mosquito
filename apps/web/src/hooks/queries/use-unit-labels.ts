@@ -43,7 +43,7 @@ export interface UnitLabel {
 	readonly unitSystem: UnitSystem;
 }
 
-export type { UnitType } from '@simmer-mosquito/domain';
+export type { UnitType };
 
 export function useUnitLabels(): {
 	readonly all: readonly UnitLabel[];
