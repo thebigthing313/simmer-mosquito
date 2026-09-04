@@ -107,7 +107,7 @@ describe('RecordDetailPage', () => {
 	 * The placement the delete needs. A delete is optimistic, so the record leaves
 	 * its collection the moment the button is pressed and the danger zone unmounts
 	 * before a refusal lands. The hook has to sit in whatever survives that, which
-	 * is the frame — it is what renders the unavailable state in the content's
+	 * is the frame, which is what renders the unavailable state in the content's
 	 * place.
 	 */
 	it('holds the runner a questioned delete answers through', async () => {
