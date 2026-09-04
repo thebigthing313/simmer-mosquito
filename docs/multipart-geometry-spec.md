@@ -7,9 +7,9 @@ what gets built.
 All six slices of the build order below are built: the register, the domain types
 and the covers-ground rule, the columns and region membership, the draw control's
 parts and holes, and the import path. Two things it names as out of scope have
-their own issues: #445, continuing a finished part, which is built, and #446,
-importing a point, which is not. Every decision below was settled on the map in
-#415, whose nine tickets hold the measurements and the rejected alternatives.
+their own issues: #445, continuing a finished part, and #446, importing a point.
+Both are built. Every decision below was settled on the map in #415, whose nine
+tickets hold the measurements and the rejected alternatives.
 Where a line says "measured", the numbers came from the local compose Postgres or
 from a production clone.
 
@@ -1045,11 +1045,13 @@ rather than folded into it.
 Taking its first member is the silent drop this whole effort exists to delete.
 Continuing to dissolve it contradicts one row per Feature outright.
 
-The blast radius is small. This is a GeoJSON-only problem: `KML_GEOMETRY_TAGS`
-holds only `Polygon` and `LineString`, so the common Google Earth Placemark
-carrying a label `<Point>` beside its `<Polygon>` already yields just the polygon
-today and stays a plain Polygon under per-Feature. A GeoJSON GeometryCollection is
-rare in agency exports. The KML twin exists only because the gate widened: a
+The blast radius is small. As this slice shipped it was a GeoJSON-only problem:
+`KML_GEOMETRY_TAGS` held only `Polygon` and `LineString`, so the common Google
+Earth Placemark carrying a label `<Point>` beside its `<Polygon>` yielded just the
+polygon. #446 added the `Point` tag, so that Placemark is now a feature holding two
+kinds and is refused as mixed, named in the preview rather than narrowed in
+silence. A GeoJSON GeometryCollection is rare in agency exports. The KML twin
+exists only because the gate widened: a
 `<MultiGeometry>` holding a LineString and a Polygon, on a record whose
 `allowedTypes` wants both. Same answer, refused and named.
 
@@ -1069,19 +1071,21 @@ filter is `allowedTypes`, so the base-kind reading is the register read twice.
 produce" rather than the current
 `geometryType === 'Polygon' || geometryType === 'LineString'`.
 
-### The parser stays at areas and lines
+### The parser stays at areas and lines, then does not
 
-`allowedTypes` is the gate, but the parser caps what can reach it.
-`flattenGeometries` has no Point arm and `KML_GEOMETRY_TAGS` holds only `Polygon`
-and `LineString`, so Point and MultiPoint Features stay in the generic skipped
-count exactly as today. The hole is invisible now because `canImportFile` is false
-for Point, and it becomes visible only once the gate is `allowedTypes`, which
-admits Point and MultiPoint on the eight work-record tables.
+`allowedTypes` is the gate, but the parser caps what can reach it. As this slice
+shipped, `flattenGeometries` had no Point arm and `KML_GEOMETRY_TAGS` held only
+`Polygon` and `LineString`, so Point and MultiPoint Features stayed in the generic
+skipped count. The hole was invisible while `canImportFile` was false for Point,
+and became visible once the gate was `allowedTypes`, which admits Point and
+MultiPoint on the eight work-record tables.
 
-This is stated out loud rather than fixed, because "the gate is `allowedTypes`"
+It was stated out loud rather than fixed, because "the gate is `allowedTypes`"
 and "you cannot import a point" are both true and read as a contradiction
-otherwise. Point import is a capability that has never existed and no part of it is
-a multipart problem, so it is out of scope and filed as a follow-up.
+otherwise. Point import was a capability that had never existed and no part of it
+is a multipart problem, so it was filed as #446 and built there. The parser now
+reads all six shapes, `isImportGeometryKind` drops nothing the register names, and
+the five Point-only records offer the file import like every other one.
 
 ### The caps count Features
 

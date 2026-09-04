@@ -1,4 +1,8 @@
-import { type ImportGeometryKind, importBaseGeometryKind } from '@simmer-mosquito/mapping';
+import {
+	type ImportBaseGeometryKind,
+	type ImportGeometryKind,
+	importBaseGeometryKind,
+} from '@simmer-mosquito/mapping';
 
 /**
  * What an import surface calls one of the shapes it is offering, and what it
@@ -15,24 +19,32 @@ export interface ImportNoun {
 }
 
 const GEOMETRY: ImportNoun = { one: 'geometry', many: 'geometries' };
-const POLYGON: ImportNoun = { one: 'polygon', many: 'polygons' };
-const LINE: ImportNoun = { one: 'line', many: 'lines' };
+
+/**
+ * The word for each single-piece kind, keyed by the kind so the compiler asks
+ * for one per kind rather than letting a new kind fall through to the general
+ * word.
+ */
+const BASE_NOUN = {
+	Point: { one: 'point', many: 'points' },
+	LineString: { one: 'line', many: 'lines' },
+	Polygon: { one: 'polygon', many: 'polygons' },
+} as const satisfies Readonly<Record<ImportBaseGeometryKind, ImportNoun>>;
 
 /**
  * The word for one shape a record of these types can store.
  *
  * The specific one wherever the record stores a single kind of thing, so a
- * Region import still reads "Import a Polygon". Where a record takes areas and
- * lines alike there is no specific word, and the general one is Geometry: it is
- * what `GeometryControl` is already labelled and what the register's own names
- * say. "Shape" would be a second name for something already named once.
+ * Region import still reads "Import a Polygon" and a Trap reads "Import a
+ * Point". Where a record takes areas and lines alike there is no specific word,
+ * and the general one is Geometry: it is what `GeometryControl` is already
+ * labelled and what the register's own names say. "Shape" would be a second name
+ * for something already named once.
  */
 export function importNoun(allowedTypes: readonly ImportGeometryKind[]): ImportNoun {
 	const bases = new Set(allowedTypes.map(importBaseGeometryKind));
-	if (bases.size !== 1) {
-		return GEOMETRY;
-	}
-	return bases.has('Polygon') ? POLYGON : LINE;
+	const [only] = bases;
+	return bases.size === 1 && only !== undefined ? BASE_NOUN[only] : GEOMETRY;
 }
 
 /** The noun as a title reads it: "Import a Polygon", "Use This Geometry". */

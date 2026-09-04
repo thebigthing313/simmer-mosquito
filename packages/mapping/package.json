@@ -24,6 +24,7 @@
 	},
 	"types": "./dist/index.d.ts",
 	"devDependencies": {
+		"jsdom": "^30.0.1",
 		"jsts": "^2.12.1"
 	}
 }

@@ -17,6 +17,8 @@ import {
 const AREA_KINDS: readonly ImportGeometryKind[] = ['Polygon', 'MultiPolygon'];
 const ONE_AREA_KIND: readonly ImportGeometryKind[] = ['Polygon'];
 const LINE_KINDS: readonly ImportGeometryKind[] = ['LineString', 'MultiLineString'];
+const POINT_KINDS: readonly ImportGeometryKind[] = ['Point', 'MultiPoint'];
+const ONE_POINT_KIND: readonly ImportGeometryKind[] = ['Point'];
 
 const square: ImportPosition[] = [
 	[0, 0],
@@ -96,6 +98,42 @@ describe('one row per feature', () => {
 		expect(groups[0]?.geometry?.type).toBe('Polygon');
 	});
 
+	it('reads a point feature', () => {
+		const groups = parse(feature('Trap 12', { type: 'Point', coordinates: [5, 6] }), POINT_KINDS);
+
+		expect(groups[0]?.name).toBe('Trap 12');
+		expect(groups[0]?.geometry).toEqual({ type: 'Point', coordinates: [5, 6] });
+	});
+
+	it('reads a multipoint feature as one shape per position', () => {
+		const groups = parse(
+			{
+				type: 'MultiPoint',
+				coordinates: [
+					[5, 6],
+					[7, 8],
+				],
+			},
+			POINT_KINDS,
+		);
+
+		expect(groups[0]?.geometry?.type).toBe('MultiPoint');
+		expect(importPartCount(groups[0]?.geometry as never)).toBe(2);
+	});
+
+	it('demotes a one-position multipoint to a plain point', () => {
+		const groups = parse({ type: 'MultiPoint', coordinates: [[5, 6]] }, POINT_KINDS);
+
+		expect(groups[0]?.geometry).toEqual({ type: 'Point', coordinates: [5, 6] });
+	});
+
+	it('refuses a point whose position is malformed', () => {
+		const groups = parse(feature('Bad', { type: 'Point', coordinates: ['5', 6] }), POINT_KINDS);
+
+		expect(groups[0]?.geometry).toBeNull();
+		expect(groups[0]?.refusal).toBe('unsupported');
+	});
+
 	it('refuses a line of one position', () => {
 		const groups = parse({ type: 'LineString', coordinates: [line[0]] }, LINE_KINDS);
 
@@ -124,10 +162,25 @@ describe('refusals', () => {
 		expect(groups[0]?.refusal).toBe('unsupported');
 	});
 
-	it('refuses a point, which no parser arm reads', () => {
+	it('leaves a point generic on a caller that stores areas', () => {
 		const groups = parse(feature('A point', { type: 'Point', coordinates: [5, 5] }));
 
 		expect(groups[0]?.refusal).toBe('unsupported');
+	});
+
+	it('names a multipoint the caller cannot store', () => {
+		const groups = parse(
+			feature('Basins', {
+				type: 'MultiPoint',
+				coordinates: [
+					[5, 6],
+					[7, 8],
+				],
+			}),
+			ONE_POINT_KIND,
+		);
+
+		expect(groups[0]?.refusal).toBe('multipart');
 	});
 
 	it('refuses a geometry collection by name rather than dissolving it', () => {
@@ -222,6 +275,20 @@ describe('isWgs84Geometry', () => {
 		).toBe(false);
 	});
 
+	it('reads a point the same way it reads a ring', () => {
+		expect(isWgs84Geometry({ type: 'Point', coordinates: [-121.5, 38.6] })).toBe(true);
+		expect(isWgs84Geometry({ type: 'Point', coordinates: [6_012_345, 1_876_543] })).toBe(false);
+		expect(
+			isWgs84Geometry({
+				type: 'MultiPoint',
+				coordinates: [
+					[-121.5, 38.6],
+					[6_012_345, 1_876_543],
+				],
+			}),
+		).toBe(false);
+	});
+
 	it('reads every piece of a multipart shape', () => {
 		const projected: ImportPosition[] = [
 			[6_012_345, 1_876_543],
@@ -253,25 +320,49 @@ describe('importVertexCount', () => {
 	it('leaves holes out, the way the draw control does', () => {
 		expect(importVertexCount({ type: 'Polygon', coordinates: [square, square2] })).toBe(4);
 	});
+
+	it('counts a point as one and a multipoint as its positions', () => {
+		expect(importVertexCount({ type: 'Point', coordinates: [5, 6] })).toBe(1);
+		expect(
+			importVertexCount({
+				type: 'MultiPoint',
+				coordinates: [
+					[5, 6],
+					[7, 8],
+				],
+			}),
+		).toBe(2);
+	});
 });
 
 describe('importPartCount', () => {
 	it('reads one for a plain shape and the piece count for a multi one', () => {
 		expect(importPartCount({ type: 'Polygon', coordinates: [square] })).toBe(1);
 		expect(importPartCount({ type: 'MultiPolygon', coordinates: [[square], [square2]] })).toBe(2);
+		expect(importPartCount({ type: 'Point', coordinates: [5, 6] })).toBe(1);
+		expect(
+			importPartCount({
+				type: 'MultiPoint',
+				coordinates: [
+					[5, 6],
+					[7, 8],
+				],
+			}),
+		).toBe(2);
 	});
 });
 
 describe('isImportGeometryKind', () => {
-	it('names the kinds the parser can produce', () => {
+	it('names every shape the register can ask for', () => {
+		expect(isImportGeometryKind('Point')).toBe(true);
+		expect(isImportGeometryKind('MultiPoint')).toBe(true);
 		expect(isImportGeometryKind('Polygon')).toBe(true);
 		expect(isImportGeometryKind('MultiPolygon')).toBe(true);
 		expect(isImportGeometryKind('MultiLineString')).toBe(true);
 	});
 
-	it('rejects a shape the parser has no arm for', () => {
-		expect(isImportGeometryKind('Point')).toBe(false);
-		expect(isImportGeometryKind('MultiPoint')).toBe(false);
+	it('rejects a name that is not a shape at all', () => {
+		expect(isImportGeometryKind('GeometryCollection')).toBe(false);
 		expect(isImportGeometryKind('toString')).toBe(false);
 	});
 });
@@ -280,5 +371,6 @@ describe('importBaseGeometryKind', () => {
 	it('reads the single-piece kind behind a multi one', () => {
 		expect(importBaseGeometryKind('MultiPolygon')).toBe('Polygon');
 		expect(importBaseGeometryKind('LineString')).toBe('LineString');
+		expect(importBaseGeometryKind('MultiPoint')).toBe('Point');
 	});
 });
