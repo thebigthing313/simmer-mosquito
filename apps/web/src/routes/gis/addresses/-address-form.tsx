@@ -99,7 +99,27 @@ export function AddressFormPage({
 	const [isSaving, setIsSaving] = useState(false);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const draw = useMapDraw({ map, isLoaded: map !== null, value: null, onChange: () => undefined });
+	/*
+	 * This form holds the address point itself and draws it through `geoJson`, so
+	 * the controller's own value stays null and nothing renders twice. A commit
+	 * still has to land: the file import is the one path that hands the controller
+	 * a shape instead of going through this form's state. A null is the start of a
+	 * fresh draw rather than a clear, which is what `clearPoint` is for.
+	 */
+	const adoptDrawnPoint = useCallback((next: DrawGeometry | null) => {
+		if (next === null || next.type !== 'Point') {
+			return;
+		}
+		setGeometry({ type: 'Point', coordinates: [next.coordinates[0], next.coordinates[1]] });
+		setGeometryChanged(true);
+		setLocationError(null);
+	}, []);
+	const draw = useMapDraw({
+		map,
+		isLoaded: map !== null,
+		value: null,
+		onChange: adoptDrawnPoint,
+	});
 	const { requestPoint } = draw;
 
 	useCenterOnPoint(map, geometry);

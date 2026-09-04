@@ -70,6 +70,13 @@ describe('GeometryImportDialog', () => {
 		expect(screen.getByText('Use This Polygon')).toBeDefined();
 	});
 
+	it('names a point where the record stores one, which is most of them', () => {
+		open(['Point']);
+
+		expect(screen.getByText('Import a Point')).toBeDefined();
+		expect(screen.getByText('Use This Point')).toBeDefined();
+	});
+
 	it('falls back to Geometry where it stores areas and lines alike', () => {
 		open(['Polygon', 'MultiPolygon', 'LineString', 'MultiLineString']);
 

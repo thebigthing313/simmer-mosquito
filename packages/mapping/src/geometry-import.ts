@@ -19,15 +19,31 @@
  * turns every feature in the file into a region) and the record forms' "fill
  * geometry from a file" convenience, which lets the user pick one shape.
  *
+ * All six OGC shapes are read, points included, so a Trap or a Service Request
+ * can be located from a file the same way a Region is. KML spells a point
+ * `<Point>` and has no name for a set of them: several `<Point>` tags in one
+ * `<MultiGeometry>` are the multipoint.
+ *
  * Reading a file (`readImportFileText`) is separate from parsing its text
  * (`collectImportGroups`) because only reading is asynchronous, and because the
  * pasted-GeoJSON path in `apps/admin` has text and no file. Only `parseKmlGroups`
- * touches the DOM; the GeoJSON path and the helpers are pure and unit-tested.
+ * touches the DOM, which is why its cases sit in `geometry-import.kml.test.ts`
+ * under jsdom and the rest run on bare Node.
  */
 
 import { extractKmlFromKmz, isZipArchive } from './kmz.js';
 
 export type ImportPosition = [number, number];
+
+export interface ImportPointGeometry {
+	readonly type: 'Point';
+	readonly coordinates: ImportPosition;
+}
+
+export interface ImportMultiPointGeometry {
+	readonly type: 'MultiPoint';
+	readonly coordinates: ImportPosition[];
+}
 
 export interface ImportPolygonGeometry {
 	readonly type: 'Polygon';
@@ -52,11 +68,13 @@ export interface ImportMultiLineGeometry {
 }
 
 /** A shape carrying exactly one piece, which is what a piece is on its own. */
-export type ImportBaseGeometry = ImportPolygonGeometry | ImportLineGeometry;
+export type ImportBaseGeometry = ImportPointGeometry | ImportPolygonGeometry | ImportLineGeometry;
 
 export type ImportGeometry =
+	| ImportPointGeometry
 	| ImportPolygonGeometry
 	| ImportLineGeometry
+	| ImportMultiPointGeometry
 	| ImportMultiPolygonGeometry
 	| ImportMultiLineGeometry;
 
@@ -73,8 +91,10 @@ export type ImportGeometryKind = ImportGeometry['type'];
  * with what the parser actually reads.
  */
 const IMPORT_BASE_KIND = {
+	Point: 'Point',
 	Polygon: 'Polygon',
 	LineString: 'LineString',
+	MultiPoint: 'Point',
 	MultiPolygon: 'Polygon',
 	MultiLineString: 'LineString',
 } as const satisfies Readonly<Record<ImportGeometryKind, ImportGeometryKind>>;
@@ -85,8 +105,12 @@ export type ImportBaseGeometryKind = ImportBaseGeometry['type'];
  * Whether `value` names a geometry kind this parser can produce.
  *
  * Callers derive their `kinds` argument from the geometry register in
- * `@simmer-mosquito/domain`, which speaks in shapes this parser has no arm for
- * — a Point, for one — so they filter the register's answer through this.
+ * `@simmer-mosquito/domain` and filter the register's answer through this. The
+ * two unions hold the same six names today, so nothing is dropped, but they are
+ * separate types on separate packages: mapping is dependency-free and takes no
+ * dependency on the domain. This is the seam between the register's vocabulary
+ * and the parser's, and it is what a shape the parser cannot read would fall out
+ * of.
  */
 export function isImportGeometryKind(value: string): value is ImportGeometryKind {
 	return Object.hasOwn(IMPORT_BASE_KIND, value);
@@ -273,10 +297,14 @@ export function importCandidatesFrom(
  *
  * The one place a shape is taken apart here, so "does this land on earth" and
  * "how big is it" cannot disagree about what the shape holds. A line is one ring
- * for this purpose: an open one, but a list of positions all the same.
+ * for this purpose: an open one, but a list of positions all the same. So is a
+ * multipoint, whose positions never join up at all.
  */
 function importRings(geometry: ImportGeometry): readonly (readonly ImportPosition[])[] {
 	switch (geometry.type) {
+		case 'Point':
+			return [[geometry.coordinates]];
+		case 'MultiPoint':
 		case 'LineString':
 			return [geometry.coordinates];
 		case 'MultiLineString':
@@ -289,6 +317,7 @@ function importRings(geometry: ImportGeometry): readonly (readonly ImportPositio
 /** The pieces `geometry` holds: one for a plain shape, however many a multi has. */
 export function importPartCount(geometry: ImportGeometry): number {
 	switch (geometry.type) {
+		case 'MultiPoint':
 		case 'MultiPolygon':
 		case 'MultiLineString':
 			return geometry.coordinates.length;
@@ -321,16 +350,18 @@ export function isWgs84Geometry(geometry: ImportGeometry): boolean {
  * A polygon's closing position is not counted twice, and a hole is not counted
  * at all: the draw control's piece rows count the outline and name holes
  * separately, and one number for the same shape in two places has to mean the
- * same thing in both.
+ * same thing in both. An area is the only shape with either, so it is the arm
+ * that reads pieces and everything else counts the positions it holds: a point
+ * has one, a multipoint one per piece.
  */
 export function importVertexCount(geometry: ImportGeometry): number {
-	if (IMPORT_BASE_KIND[geometry.type] === 'LineString') {
-		return importRings(geometry).reduce((total, ring) => total + ring.length, 0);
+	if (IMPORT_BASE_KIND[geometry.type] === 'Polygon') {
+		return arealParts(geometry).reduce(
+			(total, rings) => total + Math.max((rings[0]?.length ?? 0) - 1, 0),
+			0,
+		);
 	}
-	return arealParts(geometry).reduce(
-		(total, rings) => total + Math.max((rings[0]?.length ?? 0) - 1, 0),
-		0,
-	);
+	return importRings(geometry).reduce((total, ring) => total + ring.length, 0);
 }
 
 /** The `[outer ring, ...holes]` list of each piece of an areal shape. */
@@ -410,21 +441,35 @@ function readGeoJsonGeometry(geometry: unknown): ImportGeometry | ImportRefusal 
 	if (!isRecord(geometry) || typeof geometry.type !== 'string') {
 		return 'unsupported';
 	}
-	switch (geometry.type) {
-		case 'Polygon':
-			return polygonFromParts(normalizedParts([geometry.coordinates], normalizeRings));
-		case 'MultiPolygon':
-			return polygonFromParts(normalizedParts(geometry.coordinates, normalizeRings));
-		case 'LineString':
-			return lineFromParts(normalizedParts([geometry.coordinates], normalizeLine));
-		case 'MultiLineString':
-			return lineFromParts(normalizedParts(geometry.coordinates, normalizeLine));
-		case 'GeometryCollection':
-			return 'mixed';
-		default:
-			return 'unsupported';
+	if (geometry.type === 'GeometryCollection') {
+		return 'mixed';
 	}
+	return isImportGeometryKind(geometry.type)
+		? READ_GEOJSON_COORDINATES[geometry.type](geometry.coordinates)
+		: 'unsupported';
 }
+
+/**
+ * How each kind's raw `coordinates` are read, keyed by the kind.
+ *
+ * A table rather than a switch, so the compiler asks for an arm per kind: a
+ * missing case in a switch reads as the default and a feature of that kind comes
+ * back unsupported, which looks exactly like a file the caller did not want.
+ *
+ * Each pair runs one normalizer. The plain kind wraps its coordinates as the one
+ * piece they are and the multi kind already holds a list of pieces, so what the
+ * two arms differ by is the wrapping and nothing else.
+ */
+const READ_GEOJSON_COORDINATES = {
+	Point: (coordinates) => pointFromParts(normalizedParts([coordinates], normalizePosition)),
+	MultiPoint: (coordinates) => pointFromParts(normalizedParts(coordinates, normalizePosition)),
+	Polygon: (coordinates) => polygonFromParts(normalizedParts([coordinates], normalizeRings)),
+	MultiPolygon: (coordinates) => polygonFromParts(normalizedParts(coordinates, normalizeRings)),
+	LineString: (coordinates) => lineFromParts(normalizedParts([coordinates], normalizeLine)),
+	MultiLineString: (coordinates) => lineFromParts(normalizedParts(coordinates, normalizeLine)),
+} as const satisfies Readonly<
+	Record<ImportGeometryKind, (coordinates: unknown) => ImportGeometry | ImportRefusal>
+>;
 
 /** Every piece a raw coordinate list yields, the ones that read as nothing dropped. */
 function normalizedParts<TPart>(
@@ -438,6 +483,17 @@ function normalizedParts<TPart>(
 		const normalized = normalize(part);
 		return normalized === null ? [] : [normalized];
 	});
+}
+
+/** A point feature's pieces as one shape: Point at one, MultiPoint above. */
+function pointFromParts(parts: readonly ImportPosition[]): ImportGeometry | ImportRefusal {
+	const first = parts[0];
+	if (first === undefined) {
+		return 'unsupported';
+	}
+	return parts.length === 1
+		? { type: 'Point', coordinates: first }
+		: { type: 'MultiPoint', coordinates: [...parts] };
 }
 
 /** An areal feature's pieces as one shape: Polygon at one, MultiPolygon above. */
@@ -500,6 +556,23 @@ function normalizeRings(coordinates: unknown): ImportPosition[][] | null {
 	return rings.length === 0 ? null : rings;
 }
 
+/**
+ * Coerce one raw position into an `[lng, lat]` pair; null if it is malformed.
+ *
+ * Altitude, which GeoJSON allows as a third number, is dropped: nothing this
+ * app stores reads one, and PostGIS would keep it on the geometry.
+ */
+function normalizePosition(coordinates: unknown): ImportPosition | null {
+	if (!Array.isArray(coordinates)) {
+		return null;
+	}
+	const [lng, lat] = coordinates as unknown[];
+	if (typeof lng !== 'number' || typeof lat !== 'number') {
+		return null;
+	}
+	return Number.isFinite(lng) && Number.isFinite(lat) ? [lng, lat] : null;
+}
+
 /** Coerce a raw position array into `[lng, lat]` pairs; null if any is malformed. */
 function normalizeLine(coordinates: unknown): ImportPosition[] | null {
 	if (!Array.isArray(coordinates)) {
@@ -507,16 +580,11 @@ function normalizeLine(coordinates: unknown): ImportPosition[] | null {
 	}
 	const positions: ImportPosition[] = [];
 	for (const point of coordinates) {
-		if (
-			!Array.isArray(point) ||
-			typeof point[0] !== 'number' ||
-			typeof point[1] !== 'number' ||
-			!Number.isFinite(point[0]) ||
-			!Number.isFinite(point[1])
-		) {
+		const position = normalizePosition(point);
+		if (position === null) {
 			return null;
 		}
-		positions.push([point[0], point[1]]);
+		positions.push(position);
 	}
 	return positions.length < 2 ? null : positions;
 }
@@ -647,11 +715,27 @@ function combineKmlParts(parts: readonly ImportBaseGeometry[]): ImportGeometry |
 	if (parts.some((part) => part.type !== first.type)) {
 		return 'mixed';
 	}
-	return first.type === 'Polygon'
-		? polygonFromParts(parts.flatMap((part) => (part.type === 'Polygon' ? [part.coordinates] : [])))
-		: lineFromParts(
-				parts.flatMap((part) => (part.type === 'LineString' ? [part.coordinates] : [])),
-			);
+	switch (first.type) {
+		case 'Point':
+			return pointFromParts(sameKind(parts, first).map((part) => part.coordinates));
+		case 'Polygon':
+			return polygonFromParts(sameKind(parts, first).map((part) => part.coordinates));
+		default:
+			return lineFromParts(sameKind(parts, first).map((part) => part.coordinates));
+	}
+}
+
+/**
+ * `parts` as the kind `first` is, which every one of them already is.
+ *
+ * The check above proved it; this is what tells the compiler, so each arm reads
+ * its own `coordinates` shape rather than the union's.
+ */
+function sameKind<TPart extends ImportBaseGeometry>(
+	parts: readonly ImportBaseGeometry[],
+	first: TPart,
+): TPart[] {
+	return parts.filter((part): part is TPart => part.type === first.type);
 }
 
 function kmlPlacemarkName(placemark: Element): string | null {
@@ -688,11 +772,16 @@ function kmlGeometriesWithin(element: Element): ImportBaseGeometry[] {
 }
 
 /**
- * Turn one `<Polygon>`/`<LineString>` element into a geometry, or null if unusable.
+ * Turn one `<Point>`/`<Polygon>`/`<LineString>` element into a geometry, or null
+ * if unusable.
  *
  * Whether the caller wants this kind is not asked here. A Placemark holding an
  * area and a line is refused as mixed however narrow the ask is, so both have to
- * be read before anything is gated.
+ * be read before anything is gated. That is also why a `<Point>` a Google Earth
+ * export drops into a `<MultiGeometry>` beside a polygon, to place the label,
+ * now refuses the Placemark rather than being passed over: the file says the
+ * feature holds two kinds of thing, and picking one of them is the silent drop
+ * this parser stopped doing.
  */
 function kmlGeometryFromNode(node: Element): ImportBaseGeometry | null {
 	if (node.tagName === 'Polygon') {
@@ -706,12 +795,22 @@ function kmlGeometryFromNode(node: Element): ImportBaseGeometry | null {
 		}
 		return { type: 'Polygon', coordinates: rings };
 	}
-	const coordinates = Array.from(node.getElementsByTagName('coordinates'))[0];
-	if (coordinates === undefined) {
-		return null;
+	const positions = parseKmlCoordinates(coordinatesText(node));
+	if (node.tagName === 'Point') {
+		const first = positions[0];
+		return first === undefined ? null : { type: 'Point', coordinates: first };
 	}
-	const positions = parseKmlCoordinates(coordinates.textContent ?? '');
 	return positions.length < 2 ? null : { type: 'LineString', coordinates: positions };
+}
+
+/**
+ * The text of the first `<coordinates>` under `element`, empty when it has none.
+ *
+ * An element with no coordinates and one holding whitespace say the same thing,
+ * so the callers read the parsed positions rather than the element.
+ */
+function coordinatesText(element: Element): string {
+	return Array.from(element.getElementsByTagName('coordinates'))[0]?.textContent ?? '';
 }
 
 function firstRingCoordinates(polygon: Element, boundaryTag: string): ImportPosition[] | null {
@@ -719,22 +818,14 @@ function firstRingCoordinates(polygon: Element, boundaryTag: string): ImportPosi
 	if (boundary === undefined) {
 		return null;
 	}
-	const coordinates = Array.from(boundary.getElementsByTagName('coordinates'))[0];
-	if (coordinates === undefined) {
-		return null;
-	}
-	const ring = closeRing(parseKmlCoordinates(coordinates.textContent ?? ''));
+	const ring = closeRing(parseKmlCoordinates(coordinatesText(boundary)));
 	return ring.length >= 4 ? ring : null;
 }
 
 function allRingCoordinates(polygon: Element, boundaryTag: string): ImportPosition[][] {
 	const rings: ImportPosition[][] = [];
 	for (const boundary of Array.from(polygon.getElementsByTagName(boundaryTag))) {
-		const coordinates = Array.from(boundary.getElementsByTagName('coordinates'))[0];
-		if (coordinates === undefined) {
-			continue;
-		}
-		const ring = closeRing(parseKmlCoordinates(coordinates.textContent ?? ''));
+		const ring = closeRing(parseKmlCoordinates(coordinatesText(boundary)));
 		if (ring.length >= 4) {
 			rings.push(ring);
 		}

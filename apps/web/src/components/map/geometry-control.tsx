@@ -49,10 +49,11 @@ import {
  * `OWNED_GEOMETRY_POLICIES` in `packages/domain/src/shared.ts`. A kind allowing
  * one shape renders without its type toggle.
  *
- * Areas and lines can also be filled from a shape the agency already has — one of
- * its regions, or a KML/KMZ/GeoJSON file — instead of being traced by hand. Those
- * shortcuts commit through the same draw controller, so an adopted shape behaves
- * exactly like a drawn one and can be redrawn or cleared.
+ * A geometry can also be filled from a shape the agency already has instead of
+ * being traced by hand: a KML, KMZ or GeoJSON file on any record, and one of the
+ * agency's own regions where the record stores an area. Those shortcuts commit
+ * through the same draw controller, so an adopted shape behaves exactly like a
+ * drawn one and can be redrawn or cleared.
  */
 
 const UploadIcon = iconRegistry.actions.upload.icon;
@@ -304,9 +305,10 @@ function GeometrySources({
 			? organizationId
 			: null;
 	// What the record stores, filtered to what the file parser can produce. The
-	// parser is the narrower of the two: it has no Point arm and KML carries
-	// geometry only as an area or a line, so a Point-only record offers no file
-	// import at all and importing a point is a capability nothing has yet.
+	// parser reads all six shapes, so the filter drops nothing today and every
+	// record offers the file import. It stays because the register and the parser
+	// are two packages with two unions, and a shape one of them gains ahead of the
+	// other has to fall out here rather than be offered and then refused.
 	const importableTypes: readonly ImportGeometryKind[] =
 		getOwnedGeometryPolicy(geometryKind).allowedTypes.filter(isImportGeometryKind);
 	const canImportFile = importableTypes.length > 0;

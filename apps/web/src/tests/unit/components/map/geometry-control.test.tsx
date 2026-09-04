@@ -175,14 +175,15 @@ describe('GeometryControl', () => {
 		).toBeDefined();
 	});
 
-	// No import surface has ever produced a point, so a point-only record has
-	// nothing a file could fill.
-	it('hides the file shortcut on a record that stores only a point', () => {
+	// A Service Request is one of the five Point-only records, and the file import
+	// used to be hidden on all of them: the parser had no Point arm, so the offer
+	// was capped to nothing and the button never rendered.
+	it('offers the file shortcut on a record that stores only a point', () => {
 		renderControl({ parts: [], geometryKind: 'serviceRequest', geometryType: 'Point' });
 
-		expect(
-			screen.queryByLabelText('Fill this geometry from a KML, KMZ, or GeoJSON file'),
-		).toBeNull();
+		fireEvent.click(screen.getByLabelText('Fill this geometry from a KML, KMZ, or GeoJSON file'));
+
+		expect(screen.getByText('Import a Point')).toBeDefined();
 	});
 
 	it('hides Add piece before the first piece is drawn', () => {

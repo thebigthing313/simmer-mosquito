@@ -376,6 +376,9 @@ importers:
 
   packages/mapping:
     devDependencies:
+      jsdom:
+        specifier: ^30.0.1
+        version: 30.0.1
       jsts:
         specifier: ^2.12.1
         version: 2.12.1

@@ -35,11 +35,12 @@ import type { DrawGeometry } from './use-map-draw';
 /**
  * "Fill this geometry from a file."
  *
- * Agencies receive boundaries and routes as KML, KMZ, or GeoJSON from GIS staff
- * and partner agencies; this reads one in, lists every shape this record can
- * store, and lets the user adopt one as the drawn geometry. A feature holding
- * several pieces is one shape and stays whole; pruning a piece off it happens
- * afterwards in the draw control, whose piece list already offers Remove.
+ * Agencies receive boundaries, routes, and trap and basin locations as KML, KMZ,
+ * or GeoJSON from GIS staff and partner agencies; this reads one in, lists every
+ * shape this record can store, and lets the user adopt one as the drawn
+ * geometry. A feature holding several pieces is one shape and stays whole;
+ * pruning a piece off it happens afterwards in the draw control, whose piece list
+ * already offers Remove.
  *
  * What it offers is the record's own storable shapes, filtered to what the
  * parser can produce, so a record that takes areas and lines alike is offered
@@ -68,10 +69,17 @@ interface ParsedFile {
 	readonly refusals: ImportRefusalCounts;
 }
 
-/** The line under a shape's name: its pieces where it has several, its vertices. */
+/**
+ * The line under a shape's name: its pieces where it has several, its vertices.
+ *
+ * A point has one vertex, so the count is spelled either way. Nothing offered
+ * here could hold one before points were readable, and "1 vertices" is the sort
+ * of thing a user reads as a bug in the file.
+ */
 function describeShape(shape: ParsedShape): string {
 	const parts = importPartCount(shape.geometry);
-	const vertices = `${importVertexCount(shape.geometry)} vertices`;
+	const count = importVertexCount(shape.geometry);
+	const vertices = `${count} ${count === 1 ? 'vertex' : 'vertices'}`;
 	return parts > 1 ? `${parts} pieces · ${vertices}` : vertices;
 }
 
