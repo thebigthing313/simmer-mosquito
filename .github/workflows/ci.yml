@@ -100,6 +100,16 @@ jobs:
       - name: Acknowledgements
         run: pnpm check:acknowledgements
 
+      # `packages/db/src/tables.ts` is generated from `packages/db/schema.sql`,
+      # the schema dbmate dumps on migrate. This runs the generator and fails on
+      # any difference, which covers both a hand edit and a migration whose
+      # regeneration nobody ran. It also refuses a dump whose applied versions
+      # are not the migration files on disk, which is the stale-dump case that
+      # would otherwise make every check below green against a schema that does
+      # not exist.
+      - name: Table types
+        run: pnpm check:table-types
+
       - name: Typecheck
         run: pnpm typecheck
 
