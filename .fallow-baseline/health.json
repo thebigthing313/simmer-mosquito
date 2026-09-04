@@ -341,9 +341,6 @@
       },
       "crap_critical": {
         "count": 1
-      },
-      "crap_high": {
-        "count": 1
       }
     },
     "apps/web/src/components/map/map-search.tsx": {
@@ -946,11 +943,6 @@
         "count": 1
       }
     },
-    "packages/mapping/src/geometry-import.ts": {
-      "complexity_moderate": {
-        "count": 2
-      }
-    },
     "packages/ui-web/src/components/ui/autocomplete.tsx": {
       "complexity_high": {
         "count": 1
@@ -1068,20 +1060,19 @@
     "apps/web/src/components/map/map-canvas.tsx:complexity",
     "apps/web/src/components/comments-section.tsx:complexity",
     "apps/web/src/routes/control-operations/biocontrol/index.tsx:complexity",
-    "apps/web/src/components/map/geometry-control.tsx:complexity",
-    "apps/web/src/components/map/record-location-card.tsx:complexity",
     "apps/web/src/routes/gis/addresses/-address-form.tsx:complexity",
+    "apps/web/src/components/map/record-location-card.tsx:complexity",
     "apps/web/src/routes/operations/assignments/index.tsx:complexity",
     "apps/web/src/routes/control-operations/chemical/-application-form.tsx:complexity",
     "apps/web/src/routes/operations/assignments/create.tsx:complexity",
     "packages/auth/src/index.ts:complexity",
-    "apps/web/src/routes/adult-surveillance/traps/index.tsx:complexity",
     "apps/server/src/public-engagement-records-commands/contacts.ts:complexity",
     "apps/web/src/routes/gis/regions/index.tsx:complexity",
+    "apps/web/src/routes/adult-surveillance/traps/index.tsx:complexity",
     "apps/web/src/routes/adult-surveillance/collections/$id.tsx:complexity",
     "apps/web/src/routes/public-engagement/service-requests/index.tsx:complexity",
-    "apps/web/src/routes/gis/regions/import.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/habitats/routes/$id_.edit.tsx:complexity",
+    "apps/web/src/routes/gis/regions/import.tsx:complexity",
     "apps/server/src/mission-dispatch-commands/missions.ts:complexity",
     "apps/web/src/routes/larval-surveillance/samples/$id.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/habitats/index.tsx:complexity",

@@ -5,7 +5,6 @@ import {
 	type GeometryTileLayer,
 	geometryTileLayers,
 	interactiveLayerIds,
-	selectedLayerIds,
 } from './geometry-tiles';
 import {
 	type RegionScopedTileFilters,
@@ -28,7 +27,6 @@ export interface HabitatTileFilters extends RegionScopedTileFilters {
 }
 
 export const HABITAT_SOURCE_ID = 'habitats';
-const _HABITAT_SOURCE_LAYER = 'habitats';
 
 /**
  * What each habitat status paints, and the only place it is written down.
@@ -54,8 +52,6 @@ const colors = {
 
 /** Layers the user can click to select a habitat. Order = hit priority. */
 export const HABITAT_INTERACTIVE_LAYER_IDS = interactiveLayerIds(HABITAT_SOURCE_ID);
-
-const HABITAT_SELECTED_LAYER_IDS = selectedLayerIds(HABITAT_SOURCE_ID);
 
 export const HABITAT_LAYER_IDS = allLayerIds(HABITAT_SOURCE_ID);
 
@@ -111,5 +107,3 @@ export function habitatTileLayers(selectedId: string | null): GeometryTileLayer[
 		selectedId,
 	);
 }
-
-export { HABITAT_SELECTED_LAYER_IDS };

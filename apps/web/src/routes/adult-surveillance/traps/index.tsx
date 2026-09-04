@@ -25,6 +25,7 @@ import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
+	type MapTileLayer,
 	TRAP_STATUS_COLORS,
 	type TrapTileFilters,
 } from '../../../components/map';
@@ -163,8 +164,16 @@ function TrapsExplorerRoute() {
 	useFlyToSelection(map, selected);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const trapLayer = useMemo(
-		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'traps',
+				serverUrl: getServerUrl(),
+				filters,
+				selectedId,
+				onSelectFeature: setSelectedId,
+			},
+		],
 		[filters, selectedId],
 	);
 
@@ -273,10 +282,10 @@ function TrapsExplorerRoute() {
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						inset={panel.inset}
+						layers={layers}
 						legend={legend}
 						onMapReady={handleMapReady}
 						searchWidth={panel.width}
-						trapLayer={trapLayer}
 					/>
 					{selected === null ? null : (
 						<TrapMapCard id={selected.id} inset={panel.inset} onClose={() => setSelectedId(null)} />

@@ -42,6 +42,7 @@ import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
+	type MapTileLayer,
 	SAMPLE_STATUS_COLORS,
 	type SampleTileFilters,
 } from '../../../components/map';
@@ -217,8 +218,16 @@ function SamplesExplorerRoute() {
 	useFlyToSelection(map, selected);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const sampleLayer = useMemo(
-		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'samples',
+				serverUrl: getServerUrl(),
+				filters,
+				selectedId,
+				onSelectFeature: setSelectedId,
+			},
+		],
 		[filters, selectedId],
 	);
 
@@ -301,9 +310,9 @@ function SamplesExplorerRoute() {
 						contextMenu={{ create: [MAP_CREATE_TARGETS.inspection] }}
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
+						layers={layers}
 						legend={legend}
 						onMapReady={handleMapReady}
-						sampleLayer={sampleLayer}
 					/>
 					{selected === null ? null : (
 						<SampleMapCard

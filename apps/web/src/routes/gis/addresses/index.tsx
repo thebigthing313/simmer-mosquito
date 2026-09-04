@@ -16,7 +16,7 @@ import {
 	useRegionOptions,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
+import { MAP_CREATE_TARGETS, MapCanvas, type MapTileLayer } from '../../../components/map';
 import {
 	type AddressListing,
 	useOrganizationAddresses,
@@ -116,16 +116,19 @@ function AddressesExplorerRoute() {
 	// points and the list stay in lockstep as the query changes.
 	const serverUrl = getServerUrl();
 	const trimmedSearch = search.trim();
-	const addressLayer = useMemo(
-		() => ({
-			serverUrl,
-			selectedId: focusedId,
-			filters: {
-				...(trimmedSearch.length > 0 ? { search: trimmedSearch } : {}),
-				...(regionKey.length > 0 ? { regionIds: regionKey.split(',') } : {}),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'addresses',
+				serverUrl,
+				selectedId: focusedId,
+				filters: {
+					...(trimmedSearch.length > 0 ? { search: trimmedSearch } : {}),
+					...(regionKey.length > 0 ? { regionIds: regionKey.split(',') } : {}),
+				},
+				onSelectFeature: (id: string | null) => setFocusedId(id),
 			},
-			onSelectFeature: (id: string | null) => setFocusedId(id),
-		}),
+		],
 		[serverUrl, focusedId, trimmedSearch, regionKey],
 	);
 	const clearAll = useCallback(() => {
@@ -195,11 +198,11 @@ function AddressesExplorerRoute() {
 			map={
 				<>
 					<MapCanvas
-						addressLayer={addressLayer}
 						contextMenu={{ create: [MAP_CREATE_TARGETS.address] }}
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						inset={panel.inset}
+						layers={layers}
 						onMapReady={setMap}
 						searchWidth={panel.width}
 					/>

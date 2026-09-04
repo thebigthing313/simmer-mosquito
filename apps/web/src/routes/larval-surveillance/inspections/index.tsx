@@ -39,6 +39,7 @@ import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
 	type MapLegendEntry,
+	type MapTileLayer,
 } from '../../../components/map';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
@@ -349,8 +350,16 @@ function InspectionsExplorerRoute() {
 	const { paged, selected } = useInspectionResults({ filters, map, selectedId });
 	const { rows, total, isLoading, isError, retry, page, pageCount, setPage } = paged;
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const inspectionLayer = useMemo(
-		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'inspections',
+				serverUrl: getServerUrl(),
+				filters,
+				selectedId,
+				onSelectFeature: setSelectedId,
+			},
+		],
 		[filters, selectedId],
 	);
 	const legend = useMemo(() => inspectionLegend(wetness, densities), [wetness, densities]);
@@ -390,7 +399,7 @@ function InspectionsExplorerRoute() {
 			heading={inspectionsHeading(total, isLoading)}
 			map={
 				<InspectionMap
-					inspectionLayer={inspectionLayer}
+					layers={layers}
 					legend={legend}
 					onSelect={setSelectedId}
 					onMapReady={handleMapReady}
@@ -420,16 +429,14 @@ function InspectionsExplorerRoute() {
 
 /** The map, and the card for whichever inspection is selected. */
 function InspectionMap({
-	inspectionLayer,
+	layers,
 	legend,
 	onSelect,
 	onMapReady,
 	panel,
 	selected,
 }: {
-	readonly inspectionLayer:
-		| NonNullable<Parameters<typeof MapCanvas>[0]['inspectionLayer']>
-		| undefined;
+	readonly layers: readonly MapTileLayer[];
 	readonly legend: readonly MapLegendEntry[] | undefined;
 	readonly onSelect: (id: string | null) => void;
 	readonly onMapReady: (map: MapboxMap) => void;
@@ -443,7 +450,7 @@ function InspectionMap({
 				controls={{ layers: false, measure: true, readout: true }}
 				fitToData
 				inset={panel.inset}
-				{...(inspectionLayer === undefined ? {} : { inspectionLayer })}
+				layers={layers}
 				{...(legend === undefined ? {} : { legend })}
 				onMapReady={onMapReady}
 				searchWidth={panel.width}

@@ -26,6 +26,7 @@ import { ExplorerPagination } from '../../../components/explorer-pagination';
 import {
 	MAP_CREATE_TARGETS,
 	MapCanvas,
+	type MapTileLayer,
 	type SourceReductionTileFilters,
 } from '../../../components/map';
 import { useHabitatNames } from '../../../hooks/queries/use-habitat-names';
@@ -186,8 +187,16 @@ function SourceReductionExplorerRoute() {
 	useFlyToSelection(map, selected);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const sourceReductionLayer = useMemo(
-		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'source-reduction',
+				serverUrl: getServerUrl(),
+				filters,
+				selectedId,
+				onSelectFeature: setSelectedId,
+			},
+		],
 		[filters, selectedId],
 	);
 
@@ -280,8 +289,8 @@ function SourceReductionExplorerRoute() {
 						contextMenu={{ create: [MAP_CREATE_TARGETS.sourceReduction] }}
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
+						layers={layers}
 						onMapReady={handleMapReady}
-						sourceReductionLayer={sourceReductionLayer}
 					/>
 					{selected === null ? null : (
 						<SourceReductionMapCard

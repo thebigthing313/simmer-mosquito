@@ -24,7 +24,12 @@ import {
 	useSelectedMapRecord,
 } from '../../../components/explorer';
 import { ExplorerPagination } from '../../../components/explorer-pagination';
-import { type ChemicalTileFilters, MAP_CREATE_TARGETS, MapCanvas } from '../../../components/map';
+import {
+	type ChemicalTileFilters,
+	MAP_CREATE_TARGETS,
+	MapCanvas,
+	type MapTileLayer,
+} from '../../../components/map';
 import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
@@ -188,8 +193,16 @@ function ApplicationsExplorerRoute() {
 	useFlyToSelection(map, selected);
 
 	const handleMapReady = useCallback((instance: MapboxMap) => setMap(instance), []);
-	const chemicalLayer = useMemo(
-		() => ({ serverUrl: getServerUrl(), filters, selectedId, onSelectFeature: setSelectedId }),
+	const layers = useMemo(
+		(): readonly MapTileLayer[] => [
+			{
+				kind: 'chemical',
+				serverUrl: getServerUrl(),
+				filters,
+				selectedId,
+				onSelectFeature: setSelectedId,
+			},
+		],
 		[filters, selectedId],
 	);
 
@@ -291,7 +304,7 @@ function ApplicationsExplorerRoute() {
 						inset={panel.inset}
 						searchWidth={panel.width}
 						contextMenu={{ create: [MAP_CREATE_TARGETS.chemical] }}
-						chemicalLayer={chemicalLayer}
+						layers={layers}
 						controls={{ layers: false, measure: true, readout: true }}
 						fitToData
 						onMapReady={handleMapReady}

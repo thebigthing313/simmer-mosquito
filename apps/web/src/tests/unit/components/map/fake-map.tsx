@@ -14,7 +14,7 @@ import { vi } from 'vitest';
  * source is holding, after an add, a restyle, and a teardown.
  */
 export function createFakeMap() {
-	const sources = new Map<string, { data: GeoJSON.GeoJSON }>();
+	const sources = new Map<string, { data: GeoJSON.GeoJSON; tiles?: readonly string[] }>();
 	const sourceSpecs = new Map<string, Record<string, unknown>>();
 	const layers = new Map<string, LayerSpecification>();
 	const handlers = new Map<string, Set<(event: unknown) => void>>();
@@ -23,6 +23,7 @@ export function createFakeMap() {
 	// A flat 0.001 degrees per pixel from the origin: enough for a test to say
 	// which pixels were unprojected, which is the whole question.
 	const DEGREES_PER_PIXEL = 0.001;
+	const filterCalls: string[] = [];
 	let removed = false;
 	let doubleClickZoomEnabled = true;
 
@@ -42,11 +43,17 @@ export function createFakeMap() {
 						setData(data: GeoJSON.GeoJSON) {
 							source.data = data;
 						},
+						setTiles(tiles: readonly string[]) {
+							source.tiles = tiles;
+						},
 					};
 		},
-		addSource(id: string, spec: { data: GeoJSON.GeoJSON }) {
+		addSource(id: string, spec: { data: GeoJSON.GeoJSON; tiles?: readonly string[] }) {
 			assertLive();
-			sources.set(id, { data: spec.data });
+			sources.set(id, {
+				data: spec.data,
+				...(spec.tiles === undefined ? {} : { tiles: spec.tiles }),
+			});
 			sourceSpecs.set(id, spec as Record<string, unknown>);
 		},
 		removeSource(id: string) {
@@ -64,6 +71,15 @@ export function createFakeMap() {
 		removeLayer(id: string) {
 			assertLive();
 			layers.delete(id);
+		},
+		setFilter(id: string, filter: unknown) {
+			assertLive();
+			const layer = layers.get(id);
+			if (layer === undefined) {
+				return;
+			}
+			layers.set(id, { ...layer, filter } as LayerSpecification);
+			filterCalls.push(id);
 		},
 		getCanvas: () => canvas,
 		getZoom: () => 10,
@@ -126,6 +142,12 @@ export function createFakeMap() {
 		cameraCalls: cameraCalls as readonly CameraCall[],
 		queryRenderedFeatures: map.queryRenderedFeatures,
 		isDoubleClickZoomEnabled: () => doubleClickZoomEnabled,
+		/** The layer ids added, in add order, which is the order they draw in. */
+		layerIds: () => [...layers.keys()],
+		/** The tile templates a vector source is currently pointed at. */
+		tilesOf: (sourceId: string) => sources.get(sourceId)?.tiles,
+		/** Every `setFilter` call, in order, for asserting what was re-scoped. */
+		filterCalls: filterCalls as readonly string[],
 		listenerCount: (event: string) => handlers.get(event)?.size ?? 0,
 		/** The data the source is currently holding, as a feature collection. */
 		featuresOf(sourceId: string): readonly GeoJSON.Feature[] {

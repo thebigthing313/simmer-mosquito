@@ -75,6 +75,14 @@ jobs:
       - name: Search corpus
         run: pnpm check:search-corpus
 
+      # `/map/tiles/:tileset` is one endpoint with a name in the path, and the
+      # name lives in three places: the client's layer table, the source id its
+      # URL builder puts in the path, and the server's tileset registry. A name
+      # that disagrees 404s every tile and draws an empty map with nothing on
+      # screen to say why.
+      - name: Tileset keys
+        run: pnpm check:tileset-keys
+
       # Which record kind stores which shapes was written in seven places and
       # nothing held them to each other. Four were deleted; this asserts the
       # register that replaced them is complete and that nobody has written an

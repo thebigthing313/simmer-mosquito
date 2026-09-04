@@ -3,14 +3,8 @@ import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef, useState } from 'react';
-import { buildAddressExtentUrl } from './address-tiles';
 import { BasemapSwitcher } from './basemap-switcher';
-import { buildBiocontrolExtentUrl } from './biocontrol-tiles';
-import { buildChemicalExtentUrl } from './chemical-tiles';
-import { buildCollectionExtentUrl } from './collection-tiles';
 import { GeolocateControl } from './geolocate-control';
-import { buildHabitatExtentUrl } from './habitat-tiles';
-import { buildInspectionExtentUrl } from './inspection-tiles';
 import { MapContextMenu, type MapContextMenuConfig } from './map-context-menu';
 import { MapFallback } from './map-fallback';
 import { type MapInset, NO_MAP_INSET } from './map-inset';
@@ -22,43 +16,17 @@ import { type BasemapId, DEFAULT_BASEMAP_ID, type MapCamera } from './map-styles
 import { MapZoomControls } from './map-zoom-controls';
 import { MeasureControl, MeasureControlButton } from './measure-control';
 import { NorthControl } from './north-control';
-import { buildOutreachExtentUrl } from './outreach-tiles';
-import { buildRegionExtentUrl } from './region-tiles';
-import { buildSampleExtentUrl } from './sample-tiles';
-import { buildSourceReductionExtentUrl } from './source-reduction-tiles';
-import { buildTrapExtentUrl } from './trap-tiles';
+import { type MapTileLayer, tileLayerExtentUrl } from './tile-layers';
 import { type ActivityLayerConfig, useActivityLayer } from './use-activity-layer';
-import { type AddressTileLayerConfig, useAddressTileLayer } from './use-address-tile-layer';
-import {
-	type BiocontrolTileLayerConfig,
-	useBiocontrolTileLayer,
-} from './use-biocontrol-tile-layer';
-import { type ChemicalTileLayerConfig, useChemicalTileLayer } from './use-chemical-tile-layer';
-import {
-	type CollectionTileLayerConfig,
-	useCollectionTileLayer,
-} from './use-collection-tile-layer';
 import { useContextGeoJsonLayer } from './use-context-geojson-layer';
 import { type GeoJsonLayerInteraction, useGeoJsonLayer } from './use-geojson-layer';
-import { type HabitatTileLayerConfig, useHabitatTileLayer } from './use-habitat-tile-layer';
-import {
-	type InspectionTileLayerConfig,
-	useInspectionTileLayer,
-} from './use-inspection-tile-layer';
 import { type MapExtentFitSource, useMapExtentFit } from './use-map-extent-fit';
 import { useMapMeasure } from './use-map-measure';
 import { useMapPadding } from './use-map-padding';
 import { isMapLive, useMapboxMap } from './use-mapbox-map';
 import { type NearbyLayerConfig, useNearbyLayer } from './use-nearby-layer';
-import { type OutreachTileLayerConfig, useOutreachTileLayer } from './use-outreach-tile-layer';
-import { type RegionTileLayerConfig, useRegionTileLayer } from './use-region-tile-layer';
 import { type RouteLayerConfig, useRouteLayer } from './use-route-layer';
-import { type SampleTileLayerConfig, useSampleTileLayer } from './use-sample-tile-layer';
-import {
-	type SourceReductionTileLayerConfig,
-	useSourceReductionTileLayer,
-} from './use-source-reduction-tile-layer';
-import { type TrapTileLayerConfig, useTrapTileLayer } from './use-trap-tile-layer';
+import { useTileLayer } from './use-tile-layer';
 
 /**
  * Which on-map controls to render. Every control defaults to on; a consuming
@@ -96,17 +64,7 @@ export function MapCanvas({
 	inset,
 	searchWidth,
 	contextMenu,
-	habitatLayer,
-	regionLayer,
-	addressLayer,
-	inspectionLayer,
-	sampleLayer,
-	chemicalLayer,
-	sourceReductionLayer,
-	biocontrolLayer,
-	outreachLayer,
-	trapLayer,
-	collectionLayer,
+	layers,
 	routeLayer,
 	nearbyLayer,
 	activityLayer,
@@ -142,28 +100,15 @@ export function MapCanvas({
 	 * and a second way to place a point would only compete with it.
 	 */
 	readonly contextMenu?: MapContextMenuConfig;
-	/** Mount the habitat vector-tile layer with these filters + selection wiring. */
-	readonly habitatLayer?: HabitatTileLayerConfig;
-	/** Mount the region (polygon) vector-tile layer with these filters + selection wiring. */
-	readonly regionLayer?: RegionTileLayerConfig;
-	/** Mount the address (point) vector-tile layer with these filters + selection wiring. */
-	readonly addressLayer?: AddressTileLayerConfig;
-	/** Mount the inspection vector-tile layer with these filters + selection wiring. */
-	readonly inspectionLayer?: InspectionTileLayerConfig;
-	/** Mount the sample vector-tile layer with these filters + selection wiring. */
-	readonly sampleLayer?: SampleTileLayerConfig;
-	/** Mount the chemical-application vector-tile layer with filters + selection wiring. */
-	readonly chemicalLayer?: ChemicalTileLayerConfig;
-	/** Mount the source-reduction vector-tile layer with filters + selection wiring. */
-	readonly sourceReductionLayer?: SourceReductionTileLayerConfig;
-	/** Mount the biocontrol vector-tile layer with filters + selection wiring. */
-	readonly biocontrolLayer?: BiocontrolTileLayerConfig;
-	/** Mount the outreach vector-tile layer with filters + selection wiring. */
-	readonly outreachLayer?: OutreachTileLayerConfig;
-	/** Mount the trap vector-tile layer with filters + selection wiring. */
-	readonly trapLayer?: TrapTileLayerConfig;
-	/** Mount the collection vector-tile layer with filters + selection wiring. */
-	readonly collectionLayer?: CollectionTileLayerConfig;
+	/**
+	 * The record tilesets this canvas draws, each with its own filters and
+	 * selection wiring. Earlier entries are added first, so a later one draws over
+	 * them; the GeoJSON overlays below are added after all of them. One entry per
+	 * kind: a tileset is one GL source, and two entries naming the same one would
+	 * be two configurations of it. See {@link MapTileLayer} for the kinds, and
+	 * `tile-layers.ts` for what each one builds.
+	 */
+	readonly layers?: readonly MapTileLayer[];
 	/** Draw an ordered route: numbered stop pins + connecting path + selection sync. */
 	readonly routeLayer?: RouteLayerConfig;
 	/** Draw a service-request proximity ring + center marker + family-colored nearby records. */
@@ -216,43 +161,19 @@ export function MapCanvas({
 
 	const measure = useMapMeasure({ map, isLoaded: isLoaded && show.measure });
 
-	useHabitatTileLayer(map, isLoaded, habitatLayer);
-	useRegionTileLayer(map, isLoaded, regionLayer);
-	useAddressTileLayer(map, isLoaded, addressLayer);
-	useInspectionTileLayer(map, isLoaded, inspectionLayer);
-	useSampleTileLayer(map, isLoaded, sampleLayer);
-	useChemicalTileLayer(map, isLoaded, chemicalLayer);
-	useSourceReductionTileLayer(map, isLoaded, sourceReductionLayer);
-	useBiocontrolTileLayer(map, isLoaded, biocontrolLayer);
-	useOutreachTileLayer(map, isLoaded, outreachLayer);
-	useTrapTileLayer(map, isLoaded, trapLayer);
-	useCollectionTileLayer(map, isLoaded, collectionLayer);
+	// The tile layers are mounted as children (see TileLayerMount). Everything
+	// here runs after them: Mapbox appends layers in add order and a child's
+	// effects run before its parent's, so the route, the proximity ring, the
+	// activity cloud and the two GeoJSON overlays all draw over the tiles.
 	useRouteLayer(map, isLoaded, routeLayer);
 	useNearbyLayer(map, isLoaded, nearbyLayer);
 	useActivityLayer(map, isLoaded, activityLayer);
-	// Before useGeoJsonLayer: Mapbox appends layers in add order and effects run
-	// in hook order, so registering context first is what puts the record on top.
+	// Before useGeoJsonLayer, for the same reason: registering context first is
+	// what puts the record on top of it.
 	useContextGeoJsonLayer(map, isLoaded, contextGeoJson ?? null);
 	useGeoJsonLayer(map, isLoaded, geoJson ?? null, geoJsonInteraction);
 	useMapPadding(map, isLoaded, clear);
-	useMapExtentFit(
-		map,
-		isLoaded,
-		resolveExtentFitSource(fitToData, {
-			habitatLayer,
-			regionLayer,
-			addressLayer,
-			inspectionLayer,
-			sampleLayer,
-			chemicalLayer,
-			sourceReductionLayer,
-			biocontrolLayer,
-			outreachLayer,
-			trapLayer,
-			collectionLayer,
-		}),
-		clear,
-	);
+	useMapExtentFit(map, isLoaded, resolveExtentFitSource(fitToData, layers), clear);
 
 	const onMapReadyRef = useRef(onMapReady);
 	onMapReadyRef.current = onMapReady;
@@ -275,6 +196,15 @@ export function MapCanvas({
 
 	return (
 		<div className={cn('relative size-full overflow-hidden bg-muted', className)}>
+			{/*
+			 * One child per entry, because React forbids a variable number of hook
+			 * calls and `layers.map(useTileLayer)` is exactly that. They draw nothing
+			 * of their own; mounting one adds its source and layers, unmounting one
+			 * takes them away.
+			 */}
+			{(layers ?? []).map((layer) => (
+				<TileLayerMount isLoaded={isLoaded} key={layer.kind} layer={layer} map={map} />
+			))}
 			{/*
 			 * Explicit size-full (not just inset-0): Mapbox adds `.mapboxgl-map`,
 			 * whose stylesheet sets `position: relative` and can win over Tailwind's
@@ -403,29 +333,29 @@ export function MapCanvas({
 
 /** Gap (px) between a floating control group and the map edge, matching `*-4`. */
 const EDGE = 16;
-/** The tile layers a canvas can frame, in the order a shared canvas resolves them. */
-interface ExtentFitLayers {
-	readonly habitatLayer: HabitatTileLayerConfig | undefined;
-	readonly regionLayer: RegionTileLayerConfig | undefined;
-	readonly addressLayer: AddressTileLayerConfig | undefined;
-	readonly inspectionLayer: InspectionTileLayerConfig | undefined;
-	readonly sampleLayer: SampleTileLayerConfig | undefined;
-	readonly chemicalLayer: ChemicalTileLayerConfig | undefined;
-	readonly sourceReductionLayer: SourceReductionTileLayerConfig | undefined;
-	readonly biocontrolLayer: BiocontrolTileLayerConfig | undefined;
-	readonly outreachLayer: OutreachTileLayerConfig | undefined;
-	readonly trapLayer: TrapTileLayerConfig | undefined;
-	readonly collectionLayer: CollectionTileLayerConfig | undefined;
+
+/** Holds one entry of the `layers` list on the map for as long as it is listed. */
+function TileLayerMount({
+	isLoaded,
+	layer,
+	map,
+}: {
+	readonly isLoaded: boolean;
+	readonly layer: MapTileLayer;
+	readonly map: MapboxMap | null;
+}) {
+	useTileLayer(map, isLoaded, layer);
+	return null;
 }
 
 /**
  * Turn the `fitToData` prop into a frame source. An explicit box wins; `true`
- * derives the extent endpoint from whichever tile layer is mounted, so the
- * camera always frames the same filters the tiles draw.
+ * frames the first listed layer, so the camera and the tiles read the same
+ * filters and a canvas drawing several says which one it is framing.
  */
 function resolveExtentFitSource(
 	fitToData: boolean | BoundingBox | null | undefined,
-	layers: ExtentFitLayers,
+	layers: readonly MapTileLayer[] | undefined,
 ): MapExtentFitSource | null {
 	if (fitToData === undefined || fitToData === false) {
 		return null;
@@ -434,65 +364,10 @@ function resolveExtentFitSource(
 		return { bounds: fitToData };
 	}
 
-	const url = resolveExtentUrl(layers);
+	const first = layers?.[0];
+	if (first === undefined) {
+		return null;
+	}
+	const url = tileLayerExtentUrl(first);
 	return url === null ? null : { url };
-}
-
-function resolveExtentUrl(layers: ExtentFitLayers): string | null {
-	const {
-		habitatLayer,
-		regionLayer,
-		addressLayer,
-		inspectionLayer,
-		sampleLayer,
-		chemicalLayer,
-		sourceReductionLayer,
-		biocontrolLayer,
-		outreachLayer,
-		trapLayer,
-		collectionLayer,
-	} = layers;
-
-	if (habitatLayer !== undefined) {
-		return buildHabitatExtentUrl(habitatLayer.serverUrl, habitatLayer.filters);
-	}
-	if (regionLayer !== undefined) {
-		// Regions stream whole and hide client-side, so only the ticked ones are
-		// on screen — an empty set draws nothing and leaves the camera alone.
-		const ids = regionLayer.visibleIds ?? [];
-		return ids.length === 0
-			? null
-			: buildRegionExtentUrl(regionLayer.serverUrl, { ...regionLayer.filters, ids });
-	}
-	if (addressLayer !== undefined) {
-		return buildAddressExtentUrl(addressLayer.serverUrl, addressLayer.filters);
-	}
-	if (inspectionLayer !== undefined) {
-		return buildInspectionExtentUrl(inspectionLayer.serverUrl, inspectionLayer.filters);
-	}
-	if (sampleLayer !== undefined) {
-		return buildSampleExtentUrl(sampleLayer.serverUrl, sampleLayer.filters);
-	}
-	if (chemicalLayer !== undefined) {
-		return buildChemicalExtentUrl(chemicalLayer.serverUrl, chemicalLayer.filters);
-	}
-	if (sourceReductionLayer !== undefined) {
-		return buildSourceReductionExtentUrl(
-			sourceReductionLayer.serverUrl,
-			sourceReductionLayer.filters,
-		);
-	}
-	if (biocontrolLayer !== undefined) {
-		return buildBiocontrolExtentUrl(biocontrolLayer.serverUrl, biocontrolLayer.filters);
-	}
-	if (outreachLayer !== undefined) {
-		return buildOutreachExtentUrl(outreachLayer.serverUrl, outreachLayer.filters);
-	}
-	if (trapLayer !== undefined) {
-		return buildTrapExtentUrl(trapLayer.serverUrl, trapLayer.filters);
-	}
-	if (collectionLayer !== undefined) {
-		return buildCollectionExtentUrl(collectionLayer.serverUrl, collectionLayer.filters);
-	}
-	return null;
 }

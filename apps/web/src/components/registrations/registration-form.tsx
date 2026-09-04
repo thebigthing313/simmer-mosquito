@@ -13,7 +13,6 @@ import { useId, useMemo, useState } from 'react';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../forms/domain-validation';
 import type { UnitLabel } from '../../hooks/queries/use-unit-labels';
 import { unitOptions } from '../../lib/unit-options';
-import { MapCanvas } from '../map';
 import { DrawToolbar, GeometryControl } from '../map/geometry-control';
 import { type DrawLocation, useDrawLocation } from '../map/use-draw-location';
 import type { DrawGeometry, DrawGeometryType, MapDrawController } from '../map/use-map-draw';
