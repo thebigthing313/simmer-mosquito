@@ -118,7 +118,7 @@ Who owns which leg:
   migrations, key extraction, the collection factory, and the write path that
   turns a mutation into a named domain command.
 - `apps/server` owns authenticated shape proxy routes and forces table,
-  columns, and tenant scope server-side.
+  columns, and organization scope server-side.
 - `apps/web` owns the fifty-three collection declarations under
   `src/lib/collections`, their `syncMode`, and the surface-shaped read hooks
   under `src/hooks/queries` that join them. Route components read hooks, not
@@ -230,7 +230,7 @@ See `docs/deployment.md`, "Local development".
   restart, or cleared `electric-data` volume to avoid confusing a smoke test.
 - The baseline seed can populate multiple organizations by setting
   `SIMMER_SYNC_BASELINE_ORGANIZATION_ID`. Use this to verify selected-org shapes
-  do not leak org-owned rows across tenants. Global tables such as `units`,
+  do not leak one org's rows into another. Global tables such as `units`,
   `genera`, and `species` intentionally return the same rows for every org.
 - The applied migrations are the source of truth for every synced column, and
   the row schemas are generated from them by

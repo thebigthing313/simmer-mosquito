@@ -4,10 +4,10 @@ SIMMER is the Strategic Integrated Mosquito Management Enterprise Resources
 platform. The product serves mosquito control agencies with a web management
 console and a field-focused mobile app.
 
-The architecture is Postgres-centered, sync-native, and multi-tenant. Railway is
-the primary operational home for deployed services. WorkOS owns authentication
-identity. SIMMER owns agency data, authorization decisions, domain workflows,
-and historical attribution.
+The architecture is Postgres-centered and sync-native. Railway is the primary
+operational home for deployed services. WorkOS owns authentication identity.
+SIMMER owns agency data, authorization decisions, domain workflows, and
+historical attribution.
 
 ## Product shape
 
@@ -23,7 +23,7 @@ follow once the foundation is settled.
 
 ## Deployment shape
 
-Production is one shared multi-tenant deployment serving many agencies.
+Production is one shared deployment serving many organizations.
 
 Railway hosts:
 
@@ -74,7 +74,7 @@ the panel/search primitives are all shared packages, and each app supplies only
 its own navigation model, identity wiring, and routes. Reads follow the same
 split as the web app: `useLiveQuery` over Electric-backed collections for the
 global catalogs, `useQuery` for the operator-scoped `/admin/*` JSON endpoints,
-which are not tenant-scoped and so have no shape to authorize. The console
+which are not organization-scoped and so have no shape to authorize. The console
 deliberately carries no map: geometry for the foundation endpoints comes from
 KML/KMZ/GeoJSON files and typed coordinates, keeping `mapbox-gl` out of its
 bundle.
@@ -308,11 +308,12 @@ Agency work; inviting, changing a role, removing access, resetting a password,
 signing up and creating an Agency do not. See ADR 0017 before changing anything
 that calls WorkOS.
 
-## Tenancy
+## Organization scope
 
-`organization_id` is stored on tenant-owned parent/root records. Child records
-derive tenant through foreign keys. Add `organization_id` to child tables only
-when query, sync, lifecycle, or indexing pressure proves it useful.
+`organization_id` is stored on organization-owned parent/root records. Child
+records derive their organization through foreign keys. Add `organization_id`
+to child tables only when query, sync, lifecycle, or indexing pressure proves
+it useful.
 
 This is an intentional departure from RLS-driven schemas that require
 `organization_id` everywhere.
@@ -326,7 +327,7 @@ that proves it is worth the indirection.
 
 Keep three concepts separate:
 
-- Tenant ownership: `organization_id`.
+- Organization ownership: `organization_id`.
 - Domain performer: `inspected_by_profile_id`, `collected_by_profile_id`,
   `applied_by_profile_id`, `received_by_profile_id`, and similar verb-shaped
   fields.
