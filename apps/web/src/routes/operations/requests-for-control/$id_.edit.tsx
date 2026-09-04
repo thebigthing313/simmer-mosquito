@@ -1,8 +1,7 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import {
 	type RequestRecord,
@@ -46,7 +45,7 @@ function EditRequestRoute() {
 		return isReady ? (
 			<RecordUnavailable layout="centered" noun="request" reason="not-found" />
 		) : (
-			<EditFormSkeleton />
+			<EditFormSkeleton rows={['h-32', 'h-9', 'h-24']} />
 		);
 	}
 	return <EditRequestLoader request={request} />;
@@ -113,7 +112,7 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 		);
 	}
 	if (geometryQuery.isPending) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={['h-32', 'h-9', 'h-24']} />;
 	}
 
 	return (
@@ -144,18 +143,4 @@ function defaultsFromRequest(request: RequestRecord): RequestFormValues {
 		addressId: request.addressId,
 		habitatId: request.habitatId,
 	};
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<Skeleton className="h-32 w-full" />
-				<Skeleton className="h-9 w-full" />
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

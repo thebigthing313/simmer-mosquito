@@ -1,7 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Sample } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -25,7 +24,6 @@ import { NumberInput } from '@simmer-mosquito/ui-web/components/ui/number-input'
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
 import {
-	ArrowLeftIcon,
 	CalendarIcon,
 	iconRegistry,
 	KeyboardIcon,
@@ -38,16 +36,17 @@ import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useEffect, useId, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { useSpeciesOptions as useAdoptedSpeciesOptions } from '../../../components/explorer';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
 import {
 	type SampleSpeciesFields,
@@ -66,9 +65,39 @@ export const Route = createFileRoute('/larval-surveillance/samples/$id')({
 	component: RouteComponent,
 });
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	padding: 'trailing',
+	stickyAside: true,
+	skeleton: {
+		eyebrow: 'w-28',
+		subtitle: 'w-48',
+		main: ['h-[320px]', 'h-64'],
+		aside: ['h-96'],
+	},
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
-	return <SampleDetail sampleId={id} />;
+	const query = useSampleGeoContext(id);
+
+	return (
+		<RecordDetailPage
+			actions={
+				<SampleSourceButtons
+					habitatId={query.data?.habitatId ?? null}
+					inspectionId={query.data?.inspectionId ?? null}
+				/>
+			}
+			back={{ label: 'Back to samples', to: '/larval-surveillance/samples' }}
+			deleteRefusals={SAMPLE_DELETE_REFUSALS}
+			layout={layout}
+			noun="sample"
+			reading={{ isError: query.isError, isReady: !query.isPending, record: query.data }}
+		>
+			{(record, askDelete) => <SampleDetailContent askDelete={askDelete} geo={record} />}
+		</RecordDetailPage>
+	);
 }
 
 const SampleIcon = iconRegistry.entities.sample.icon;
@@ -170,43 +199,8 @@ interface SampleGeoRow {
 	readonly updatedAt: string;
 }
 
-function SampleDetail({ sampleId }: { readonly sampleId: string }) {
-	const query = useSampleGeoContext(sampleId);
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so everything below this line can unmount before the
-	// registry's refusal comes back, and state set there would be set on a
-	// component that is gone.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: SAMPLE_DELETE_REFUSALS,
-		ask: true,
-	});
-
-	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'trailing' })}>
-				<SampleTopBar
-					habitatId={query.data?.habitatId ?? null}
-					inspectionId={query.data?.inspectionId ?? null}
-				/>
-				{query.isPending ? (
-					<SampleDetailSkeleton />
-				) : query.isError || query.data == null ? (
-					<>
-						<RecordUnavailable noun="sample" reason="not-found" />
-						{dialog}
-					</>
-				) : (
-					<>
-						<SampleDetailContent askDelete={run} geo={query.data} />
-						{dialog}
-					</>
-				)}
-			</div>
-		</div>
-	);
-}
-
-function SampleTopBar({
+/** The inspection this sample was taken on, and the site that inspection was at. */
+function SampleSourceButtons({
 	habitatId,
 	inspectionId,
 }: {
@@ -214,33 +208,24 @@ function SampleTopBar({
 	readonly inspectionId: string | null;
 }) {
 	return (
-		<div className="flex items-center justify-between gap-3">
-			<Link
-				className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-				to="/larval-surveillance/samples"
-			>
-				<ArrowLeftIcon aria-hidden="true" />
-				Back to samples()
-			</Link>
-			<div className="flex flex-wrap items-center gap-2">
-				{inspectionId === null ? null : (
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: inspectionId }} to="/larval-surveillance/inspections/$id">
-							<InspectionIcon aria-hidden="true" />
-							View inspection
-						</Link>
-					</Button>
-				)}
-				{habitatId === null ? null : (
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
-							<HabitatIcon aria-hidden="true" />
-							View habitat
-						</Link>
-					</Button>
-				)}
-			</div>
-		</div>
+		<>
+			{inspectionId === null ? null : (
+				<Button asChild size="sm" variant="outline">
+					<Link params={{ id: inspectionId }} to="/larval-surveillance/inspections/$id">
+						<InspectionIcon aria-hidden="true" />
+						View inspection
+					</Link>
+				</Button>
+			)}
+			{habitatId === null ? null : (
+				<Button asChild size="sm" variant="outline">
+					<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
+						<HabitatIcon aria-hidden="true" />
+						View habitat
+					</Link>
+				</Button>
+			)}
+		</>
 	);
 }
 
@@ -249,9 +234,7 @@ function SampleDetailContent({
 	askDelete,
 }: {
 	readonly geo: SampleGeoRow;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
 	useBreadcrumbLabel(geo.id, breadcrumbLabel(geo));
 
@@ -264,36 +247,31 @@ function SampleDetailContent({
 	const sampleMutations = useSampleMutations();
 
 	return (
-		<>
-			<SampleHeader canManage={canManage} geo={geo} />
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<SampleLocationCard geometry={geo.geojson} geomType={geo.geomType} />
-					<IdentificationCard
-						canManage={canManage}
-						identity={identity}
-						sampleId={geo.id}
-						seed={geo}
-					/>
-					<DangerZoneCard
-						ask={askDelete}
-						name={breadcrumbLabel(geo)}
-						noun="sample"
-						onDelete={(acknowledgements) => sampleMutations.remove(geo.id, acknowledgements)}
-						recordId={geo.id}
-						recordType="sample"
-						returnTo="/larval-surveillance/samples"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<ContextCard geo={geo} />
 					<CommentsSection
 						description="Lab notes, identification context, and follow-up for this sample."
 						target={{ type: 'sample', id: geo.id }}
 					/>
-				</div>
-			</div>
-		</>
+				</>
+			}
+			header={<SampleHeader canManage={canManage} geo={geo} />}
+			layout={layout}
+		>
+			<SampleLocationCard geometry={geo.geojson} geomType={geo.geomType} />
+			<IdentificationCard canManage={canManage} identity={identity} sampleId={geo.id} seed={geo} />
+			<DangerZoneCard
+				ask={askDelete}
+				name={breadcrumbLabel(geo)}
+				noun="sample"
+				onDelete={(acknowledgements) => sampleMutations.remove(geo.id, acknowledgements)}
+				recordId={geo.id}
+				recordType="sample"
+				returnTo="/larval-surveillance/samples"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -1175,25 +1153,6 @@ function ResultsUnavailable() {
 				</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
-	);
-}
-
-function SampleDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-28" />
-				<Skeleton className="h-8 w-64" />
-				<Skeleton className="h-4 w-48" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<Skeleton className="h-[320px]" />
-					<Skeleton className="h-64" />
-				</div>
-				<Skeleton className="h-96" />
-			</div>
-		</>
 	);
 }
 

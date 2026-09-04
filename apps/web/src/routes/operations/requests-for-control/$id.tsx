@@ -1,5 +1,3 @@
-import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -11,14 +9,11 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
-import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo } from 'react';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
@@ -26,7 +21,12 @@ import { useControlMethodNames } from '../../../components/explorer';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	RecordDetailHeader,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import {
@@ -64,6 +64,12 @@ export const Route = createFileRoute('/operations/requests-for-control/$id')({
 	component: RequestDetailRoute,
 });
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	stickyAside: true,
+	skeleton: { eyebrow: 'w-32', main: ['h-[360px]', 'h-40'], aside: ['h-72'] },
+};
+
 /**
  * One request for control: what was asked for, where, and what came of it.
  *
@@ -73,39 +79,23 @@ export const Route = createFileRoute('/operations/requests-for-control/$id')({
  */
 function RequestDetailRoute() {
 	const { id } = Route.useParams();
-	const { request, isReady } = useRequestedControlAction(id);
+	const { request, isError, isReady } = useRequestedControlAction(id);
 
 	const subject = request === undefined ? null : requestDisplayName(request);
 	useBreadcrumbLabel(id, subject);
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so the request leaves the collection the moment the button is
-	// pressed and the content below unmounts before the registry's refusal comes
-	// back. This component survives it: the row going is what makes it render
-	// `RecordUnavailable` instead.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: CONTROL_REQUEST_DELETE_REFUSALS,
-		ask: true,
-	});
 
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link className={backLink()} to="/operations/requests-for-control">
-					<ArrowLeftIcon aria-hidden="true" />
-					Back to requests for control
-				</Link>
-				{request === undefined ? (
-					isReady ? (
-						<RecordUnavailable noun="request" reason="not-found" />
-					) : (
-						<RequestDetailSkeleton />
-					)
-				) : (
-					<RequestDetailContent askDelete={run} request={request} subject={subject ?? ''} />
-				)}
-				{dialog}
-			</div>
-		</div>
+		<RecordDetailPage
+			back={{ label: 'Back to requests for control', to: '/operations/requests-for-control' }}
+			deleteRefusals={CONTROL_REQUEST_DELETE_REFUSALS}
+			layout={layout}
+			noun="request"
+			reading={{ isError, isReady, record: request }}
+		>
+			{(record, askDelete) => (
+				<RequestDetailContent askDelete={askDelete} request={record} subject={subject ?? ''} />
+			)}
+		</RecordDetailPage>
 	);
 }
 
@@ -116,9 +106,7 @@ function RequestDetailContent({
 }: {
 	readonly request: RequestRecord;
 	readonly subject: string;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
 	const auth = useAuthSnapshot();
 	const _actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
@@ -137,50 +125,52 @@ function RequestDetailContent({
 	}, [request.status, request.id, requestWrites, run]);
 
 	return (
-		<>
-			<RequestHeader
-				busy={busy}
-				onToggleResolved={toggleResolved}
-				request={request}
-				subject={subject}
-			/>
-
-			{error === null ? null : (
-				<Alert variant="destructive">
-					<AlertDescription>{error}</AlertDescription>
-				</Alert>
-			)}
-
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<div className="grid content-start gap-3">
-						<RequestLocationCard habitatName={habitatName} request={request} />
-						<RecordRegionsBand
-							noun="request"
-							recordId={request.id}
-							recordType="requested_control_actions"
-						/>
-					</div>
-					<RequestMissionsCard requestId={request.id} />
-					<DangerZoneCard
-						ask={askDelete}
-						name={subject}
-						noun="request for control"
-						onDelete={(acknowledgements) => requestWrites.remove(request.id, acknowledgements)}
-						recordId={request.id}
-						recordType="requestedControlAction"
-						returnTo="/operations/requests-for-control"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<RequestDetailsCard habitatName={habitatName} request={request} />
 					<CommentsSection
 						description="Why this was raised, what was found, and how it was settled."
 						target={{ type: 'requestedControlAction', id: request.id }}
 					/>
-				</div>
+				</>
+			}
+			header={
+				<>
+					<RequestHeader
+						busy={busy}
+						onToggleResolved={toggleResolved}
+						request={request}
+						subject={subject}
+					/>
+					{error === null ? null : (
+						<Alert variant="destructive">
+							<AlertDescription>{error}</AlertDescription>
+						</Alert>
+					)}
+				</>
+			}
+			layout={layout}
+		>
+			<div className="grid content-start gap-3">
+				<RequestLocationCard habitatName={habitatName} request={request} />
+				<RecordRegionsBand
+					noun="request"
+					recordId={request.id}
+					recordType="requested_control_actions"
+				/>
 			</div>
-		</>
+			<RequestMissionsCard requestId={request.id} />
+			<DangerZoneCard
+				ask={askDelete}
+				name={subject}
+				noun="request for control"
+				onDelete={(acknowledgements) => requestWrites.remove(request.id, acknowledgements)}
+				recordId={request.id}
+				recordType="requestedControlAction"
+				returnTo="/operations/requests-for-control"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -206,47 +196,42 @@ function RequestHeader({
 	const timeZone = useOrganizationTimeZone();
 
 	return (
-		<div className="flex flex-wrap items-start justify-between gap-3">
-			<div className="grid gap-1.5">
-				<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					<RequestIcon aria-hidden="true" className="size-3.5" />
-					Request for Control
-				</span>
-				<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">{subject}</h1>
-				<p className="m-0 text-[0.95rem] text-muted-foreground">
-					{controlTypeLabel(request.controlType)} · raised{' '}
-					{formatScheduledStart(request.requestedAt, timeZone)}
-				</p>
-			</div>
-			<div className="flex flex-wrap items-center gap-2">
-				<RequestStatusBadge status={request.status} />
-				{/*
-				 * Editing is `OWN_REQUESTED_ACTION` — the author or a manager. The
-				 * browser cannot tell authorship apart, so the button shows at the
-				 * write line and the server settles the rest.
-				 */}
-				<WriteOnly>
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: request.id }} to="/operations/requests-for-control/$id/edit">
-							<EditIcon aria-hidden="true" />
-							Edit
-						</Link>
-					</Button>
-				</WriteOnly>
-				{/* Resolving is a manager call: it takes work off the queue. */}
-				<WriteOnly minimum="manager">
-					<Button
-						disabled={busy}
-						onClick={onToggleResolved}
-						size="sm"
-						variant={isOpen ? 'default' : 'outline'}
-					>
-						{busy ? <Spinner /> : null}
-						{isOpen ? 'Mark Resolved' : 'Reopen Request'}
-					</Button>
-				</WriteOnly>
-			</div>
-		</div>
+		<RecordDetailHeader
+			actions={
+				<>
+					<RequestStatusBadge status={request.status} />
+					{/*
+					 * Editing is `OWN_REQUESTED_ACTION` — the author or a manager. The
+					 * browser cannot tell authorship apart, so the button shows at the
+					 * write line and the server settles the rest.
+					 */}
+					<WriteOnly>
+						<Button asChild size="sm" variant="outline">
+							<Link params={{ id: request.id }} to="/operations/requests-for-control/$id/edit">
+								<EditIcon aria-hidden="true" />
+								Edit
+							</Link>
+						</Button>
+					</WriteOnly>
+					{/* Resolving is a manager call: it takes work off the queue. */}
+					<WriteOnly minimum="manager">
+						<Button
+							disabled={busy}
+							onClick={onToggleResolved}
+							size="sm"
+							variant={isOpen ? 'default' : 'outline'}
+						>
+							{busy ? <Spinner /> : null}
+							{isOpen ? 'Mark Resolved' : 'Reopen Request'}
+						</Button>
+					</WriteOnly>
+				</>
+			}
+			eyebrow="Request for Control"
+			icon={RequestIcon}
+			subtitle={`${controlTypeLabel(request.controlType)} · raised ${formatScheduledStart(request.requestedAt, timeZone)}`}
+			title={subject}
+		/>
 	);
 }
 
@@ -486,22 +471,4 @@ function DetailRow({ label, children }: { readonly label: string; readonly child
 
 function NotSet({ children }: { readonly children: ReactNode }) {
 	return <span className="text-muted-foreground">{children}</span>;
-}
-
-function RequestDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-32" />
-				<Skeleton className="h-8 w-64" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<Skeleton className="h-[360px]" />
-					<Skeleton className="h-40" />
-				</div>
-				<Skeleton className="h-72" />
-			</div>
-		</>
-	);
 }

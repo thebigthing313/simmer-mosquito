@@ -5,7 +5,6 @@ import {
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
 import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -39,13 +38,12 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import {
 	AlertTriangleIcon,
-	ArrowLeftIcon,
 	CheckCircle2Icon,
 	iconRegistry,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { type CSSProperties, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
-import { type Acknowledgements, useAcknowledgedWrite } from '../components/acknowledged-write';
+import type { AskAcknowledged } from '../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
 import { CustomFieldsList } from '../components/custom-fields-card';
@@ -56,7 +54,13 @@ import { DensityBadge, LifeStageStrip } from '../components/larval-display';
 import { LinkedAddressValueById } from '../components/linked-address';
 import { RecordLocationCard } from '../components/map/record-location-card';
 import { RecordRegionsBand } from '../components/map/record-regions-band';
-import { RecordUnavailable } from '../components/record';
+import {
+	RecordDetailColumns,
+	type RecordDetailLayout,
+	RecordDetailPage,
+	RecordDetailSkeleton,
+	RecordUnavailable,
+} from '../components/record';
 import { WriteOnly } from '../components/write-only';
 import { useHabitatMutations } from '../hooks/mutations/use-habitat-mutations';
 import type { Habitat } from '../hooks/queries/habitat-view';
@@ -100,85 +104,86 @@ interface HabitatDetailProps {
 
 const MergeIcon = iconRegistry.actions.merge.icon;
 
+/**
+ * The habitat's readiness is a Suspense boundary rather than a flag, so this
+ * page hands the frame a body. The placeholder is still the frame's, and so is
+ * the unavailable state — the loader below reports it, because nothing outside
+ * a suspended tree can find out there is no record.
+ */
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	padding: 'trailing',
+	stickyAside: true,
+	skeleton: {
+		title: 'w-64',
+		main: [['h-[460px]', 'h-[460px]'], 'h-64'],
+		aside: ['h-96'],
+	},
+};
+
 export function HabitatDetail({
 	habitatId,
 	backTo = '/larval-surveillance/habitats',
 }: HabitatDetailProps) {
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'trailing' })}>
-				<div className="flex items-center justify-between gap-3">
-					<Link
-						className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
-						to={backTo}
-					>
-						<ArrowLeftIcon aria-hidden="true" />
-						Back to habitats
-					</Link>
-					{backTo === '/larval-surveillance/habitats' ? (
-						<div className="flex items-center gap-2">
-							{/*
-							 * Merging is reached from a habitat rather than from a list of
-							 * proposals, because two records for one catch basin agree about
-							 * nothing except where they are. The habitat somebody is already
-							 * looking at is the one that survives, which is the choice a
-							 * cleanup page has to make with a radio and get wrong in silence.
-							 */}
-							<WriteOnly minimum="manager">
-								<Button asChild size="sm" variant="outline">
-									<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/merge">
-										<MergeIcon aria-hidden="true" />
-										Merge duplicates
-									</Link>
-								</Button>
-							</WriteOnly>
-							<WriteOnly>
-								<Button asChild size="sm" variant="outline">
-									<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/edit">
-										Edit Habitat
-									</Link>
-								</Button>
-							</WriteOnly>
-						</div>
-					) : null}
-				</div>
-				<Suspense fallback={<HabitatDetailSkeleton />}>
-					<HabitatDetailLoader habitatId={habitatId} />
+		<RecordDetailPage
+			actions={
+				backTo === '/larval-surveillance/habitats' ? (
+					<>
+						{/*
+						 * Merging is reached from a habitat rather than from a list of
+						 * proposals, because two records for one catch basin agree about
+						 * nothing except where they are. The habitat somebody is already
+						 * looking at is the one that survives, which is the choice a
+						 * cleanup page has to make with a radio and get wrong in silence.
+						 */}
+						<WriteOnly minimum="manager">
+							<Button asChild size="sm" variant="outline">
+								<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/merge">
+									<MergeIcon aria-hidden="true" />
+									Merge duplicates
+								</Link>
+							</Button>
+						</WriteOnly>
+						<WriteOnly>
+							<Button asChild size="sm" variant="outline">
+								<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/edit">
+									Edit Habitat
+								</Link>
+							</Button>
+						</WriteOnly>
+					</>
+				) : undefined
+			}
+			back={{ label: 'Back to habitats', to: backTo }}
+			body={(askDelete) => (
+				<Suspense fallback={<RecordDetailSkeleton layout={layout} />}>
+					<HabitatDetailLoader askDelete={askDelete} habitatId={habitatId} />
 				</Suspense>
-			</div>
-		</div>
+			)}
+			deleteRefusals={HABITAT_DELETE_REFUSALS}
+			layout={layout}
+			noun="habitat"
+		/>
 	);
 }
 
-function HabitatDetailLoader({ habitatId }: { readonly habitatId: string }) {
+function HabitatDetailLoader({
+	habitatId,
+	askDelete,
+}: {
+	readonly habitatId: string;
+	readonly askDelete: AskAcknowledged;
+}) {
 	// Record fields stream live from the synced (on-demand) habitats collection,
 	// so detail edits propagate without a manual refetch.
 	const habitat = useHabitatSuspense(habitatId);
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so the habitat leaves the collection the moment the button is
-	// pressed and everything below this line unmounts before the registry's
-	// refusal comes back. This component survives it: the row going is what makes
-	// it render `RecordUnavailable` instead.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: HABITAT_DELETE_REFUSALS,
-		ask: true,
-	});
 
 	if (habitat === undefined) {
-		return (
-			<>
-				<RecordUnavailable noun="habitat" reason="not-found" />
-				{dialog}
-			</>
-		);
+		return <RecordUnavailable noun="habitat" reason="not-found" />;
 	}
 
-	return (
-		<>
-			<HabitatDetailContent askDelete={run} habitat={habitat} />
-			{dialog}
-		</>
-	);
+	return <HabitatDetailContent askDelete={askDelete} habitat={habitat} />;
 }
 
 function HabitatDetailContent({
@@ -186,9 +191,7 @@ function HabitatDetailContent({
 	askDelete,
 }: {
 	readonly habitat: Habitat;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
 	// Surface the habitat's name in the breadcrumb trail in place of its uuid.
 	useBreadcrumbLabel(habitat.id, habitat.name);
@@ -201,45 +204,45 @@ function HabitatDetailContent({
 	const mutations = useHabitatMutations();
 
 	return (
-		<>
-			<HabitatDetailHeader habitat={habitat} />
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					{/* The only page whose map card is half the main column, so the band
-					    goes under the pair rather than inside the left half: the spec
-					    puts it at the full width of the main column, and at 328px a
-					    folder row wraps where six chips are meant to fit on one line. */}
-					<div className="grid gap-5 lg:grid-cols-2">
-						<HabitatLocationCard geometry={resolvedGeometry} isPending={isGeometryPending} />
-						<HabitatDetailsCard
-							geometry={resolvedGeometry}
-							habitat={habitat}
-							isGeometryPending={isGeometryPending}
-						/>
-					</div>
-					<RecordRegionsBand noun="habitat" recordId={habitat.id} recordType="habitats" />
-					<Suspense fallback={<HistorySkeleton />}>
-						<HabitatHistoryCard habitatId={habitat.id} />
-					</Suspense>
-					<DangerZoneCard
-						ask={askDelete}
-						name={habitat.name}
-						noun="habitat"
-						onDelete={(acknowledgements) => mutations.remove(habitat.id, acknowledgements)}
-						recordId={habitat.id}
-						recordType="habitat"
-						returnTo="/larval-surveillance/habitats"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<HabitatInspectionStats habitatId={habitat.id} />
 					<CommentsSection
 						description="Field notes, access details, and status updates for this habitat."
 						target={{ type: 'habitat', id: habitat.id }}
 					/>
-				</div>
+				</>
+			}
+			header={<HabitatDetailHeader habitat={habitat} />}
+			layout={layout}
+		>
+			{/* The only page whose map card is half the main column, so the band
+			    goes under the pair rather than inside the left half: the spec
+			    puts it at the full width of the main column, and at 328px a
+			    folder row wraps where six chips are meant to fit on one line. */}
+			<div className="grid gap-5 lg:grid-cols-2">
+				<HabitatLocationCard geometry={resolvedGeometry} isPending={isGeometryPending} />
+				<HabitatDetailsCard
+					geometry={resolvedGeometry}
+					habitat={habitat}
+					isGeometryPending={isGeometryPending}
+				/>
 			</div>
-		</>
+			<RecordRegionsBand noun="habitat" recordId={habitat.id} recordType="habitats" />
+			<Suspense fallback={<HistorySkeleton />}>
+				<HabitatHistoryCard habitatId={habitat.id} />
+			</Suspense>
+			<DangerZoneCard
+				ask={askDelete}
+				name={habitat.name}
+				noun="habitat"
+				onDelete={(acknowledgements) => mutations.remove(habitat.id, acknowledgements)}
+				recordId={habitat.id}
+				recordType="habitat"
+				returnTo="/larval-surveillance/habitats"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -933,31 +936,6 @@ function usePagedRows<T>(rows: readonly T[], pageSize: number) {
 		pageRows: rows.slice(start, start + pageSize),
 		setPage,
 	};
-}
-
-function HabitatDetailSkeleton() {
-	return (
-		<>
-			<Skeleton className="h-8 w-64" />
-			<div className="grid gap-5 lg:grid-cols-2">
-				<Skeleton className="h-[460px]" />
-				<DetailCardSkeleton />
-			</div>
-			<HistorySkeleton />
-		</>
-	);
-}
-
-function DetailCardSkeleton() {
-	return (
-		<Card variant="surface">
-			<CardContent padding="default" className="grid gap-3">
-				<Skeleton className="h-5 w-24" />
-				<Skeleton className="h-16 w-full" />
-				<Skeleton className="h-40 w-full" />
-			</CardContent>
-		</Card>
-	);
 }
 
 function HistorySkeleton() {

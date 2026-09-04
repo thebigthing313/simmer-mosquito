@@ -38,7 +38,11 @@ import { MapCanvas } from '../../../components/map';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import { NEARBY_FAMILY_COLORS } from '../../../components/map/use-nearby-layer';
 import { ReasonDialog } from '../../../components/reason-dialog';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	type RecordDetailLayout,
+	RecordDetailSkeleton,
+	RecordUnavailable,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
 import type { Contact } from '../../../hooks/queries/contact-view';
@@ -92,9 +96,21 @@ const RequestIcon = iconRegistry.entities.serviceRequest.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const ALL_FAMILIES: readonly NearbyFamily[] = ['infrastructure', 'surveillance', 'control'];
 
+/**
+ * The placeholder, in the frame's shape rather than one written here.
+ *
+ * The rest of `RecordDetailPage` does not fit this page: what a ready service
+ * request renders is a map split across the whole stage, not a column inside
+ * the page measure. The skeleton and the unavailable state are the parts that
+ * do, so those are shared and the fork stays.
+ */
+const layout: RecordDetailLayout = {
+	skeleton: { eyebrow: 'w-28', title: 'w-56', main: ['h-40', 'h-56'] },
+};
+
 function ServiceRequestDetailRoute() {
 	const { id } = Route.useParams();
-	const { request, isReady } = useServiceRequestRecord(id);
+	const { request, isError, isReady } = useServiceRequestRecord(id);
 	// Held here rather than in the danger zone, and rendered here too. The delete
 	// is optimistic, so the request leaves the collection the moment the button is
 	// pressed and the content below unmounts before the registry's refusal comes
@@ -105,20 +121,32 @@ function ServiceRequestDetailRoute() {
 		ask: true,
 	});
 
+	// Ahead of readiness and ahead of presence, for the reason the frame states:
+	// a read that failed is not a record that is missing, and telling the reader
+	// to stop looking is the wrong answer to a transient failure.
+	if (isError) {
+		return (
+			<ServiceRequestStatePage>
+				<RecordUnavailable noun="request" reason="error" title="Service Request Unavailable" />
+			</ServiceRequestStatePage>
+		);
+	}
 	if (!isReady) {
-		return <ServiceRequestStatePage>{<ServiceRequestDetailSkeleton />}</ServiceRequestStatePage>;
+		return (
+			<ServiceRequestStatePage>
+				<RecordDetailSkeleton layout={layout} />
+			</ServiceRequestStatePage>
+		);
 	}
 	if (request === undefined) {
 		return (
 			<>
 				<ServiceRequestStatePage>
-					{
-						<RecordUnavailable
-							noun="request"
-							reason="not-found"
-							title="Service Request Unavailable"
-						/>
-					}
+					<RecordUnavailable
+						noun="request"
+						reason="not-found"
+						title="Service Request Unavailable"
+					/>
 				</ServiceRequestStatePage>
 				{dialog}
 			</>
@@ -984,18 +1012,5 @@ function DetailRow({ label, children }: { readonly label: string; readonly child
 			<dt className="truncate text-muted-foreground">{label}</dt>
 			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
 		</div>
-	);
-}
-
-function ServiceRequestDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-28" />
-				<Skeleton className="h-8 w-56" />
-			</div>
-			<Skeleton className="h-40" />
-			<Skeleton className="h-56" />
-		</>
 	);
 }

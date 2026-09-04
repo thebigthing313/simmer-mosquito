@@ -1,6 +1,4 @@
-import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -8,14 +6,10 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import type { ReactNode } from 'react';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -25,7 +19,12 @@ import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	RecordDetailHeader,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
@@ -45,45 +44,29 @@ export const Route = createFileRoute('/public-engagement/outreach/$id')({
 	component: RouteComponent,
 });
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	stickyAside: true,
+	skeleton: { eyebrow: 'w-20', main: ['h-[360px]'], aside: ['h-72'] },
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
-	return <OutreachDetail actionId={id} />;
-}
-
-function OutreachDetail({ actionId }: { readonly actionId: string }) {
 	// One query for the action, its method, technician and address — the lookups
 	// this page used to do for itself. `outreach_actions` is on-demand, so this is
 	// status-gated rather than suspending; see the hook.
-	const { action, isReady, isError } = useOutreachAction(actionId, { gcTime: outreachGcTimeMs });
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so the action leaves the collection the moment the button is
-	// pressed and everything below this line unmounts before the registry's
-	// refusal comes back. This component survives it: the row going is what makes
-	// it render `RecordUnavailable` instead.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: CONTROL_ACTION_DELETE_REFUSALS,
-		ask: true,
-	});
+	const { action, isReady, isError } = useOutreachAction(id, { gcTime: outreachGcTimeMs });
 
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link className={backLink()} to="/public-engagement/outreach">
-					<ArrowLeftIcon aria-hidden="true" />
-					Back to outreach
-				</Link>
-				{isError ? (
-					<RecordUnavailable noun="outreach action" reason="error" />
-				) : !isReady ? (
-					<OutreachDetailSkeleton />
-				) : action === undefined ? (
-					<RecordUnavailable noun="outreach action" reason="not-found" />
-				) : (
-					<OutreachDetailContent action={action} askDelete={run} />
-				)}
-				{dialog}
-			</div>
-		</div>
+		<RecordDetailPage
+			back={{ label: 'Back to outreach', to: '/public-engagement/outreach' }}
+			deleteRefusals={CONTROL_ACTION_DELETE_REFUSALS}
+			layout={layout}
+			noun="outreach action"
+			reading={{ isError, isReady, record: action }}
+		>
+			{(record, askDelete) => <OutreachDetailContent action={record} askDelete={askDelete} />}
+		</RecordDetailPage>
 	);
 }
 
@@ -92,9 +75,7 @@ function OutreachDetailContent({
 	askDelete,
 }: {
 	readonly action: OutreachAction;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
 	// The roster is still read, but only for the custom-field schema the chosen
 	// method declares — the method's *name* arrives joined.
@@ -107,51 +88,9 @@ function OutreachDetailContent({
 	useBreadcrumbLabel(action.id, `${methodName} · ${formatActionDate(action.outreachDate)}`);
 
 	return (
-		<>
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="grid gap-1.5">
-					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						<OutreachIcon aria-hidden="true" className="size-3.5" />
-						Outreach
-					</span>
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-						{methodName}
-					</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{formatReach(action.reach)} reached on {formatActionDate(action.outreachDate)}
-					</p>
-				</div>
-				<WriteOnly>
-					<Button asChild size="sm" variant="outline">
-						<Link params={{ id: action.id }} to="/public-engagement/outreach/$id/edit">
-							<EditIcon aria-hidden="true" />
-							Edit
-						</Link>
-					</Button>
-				</WriteOnly>
-			</div>
-
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<div className="grid content-start gap-3">
-						<OutreachLocationCard action={action} />
-						<RecordRegionsBand
-							noun="outreach action"
-							recordId={action.id}
-							recordType="outreach_actions"
-						/>
-					</div>
-					<DangerZoneCard
-						ask={askDelete}
-						name={methodName}
-						noun="outreach action"
-						onDelete={(acknowledgements) => remove(action.id, acknowledgements)}
-						recordId={action.id}
-						recordType="outreachAction"
-						returnTo="/public-engagement/outreach"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<OutreachDetailsCard
 						action={action}
 						methodName={methodName}
@@ -165,9 +104,46 @@ function OutreachDetailContent({
 						description="Follow-up, materials, and response notes for this outreach."
 						target={{ type: 'outreachAction', id: action.id }}
 					/>
-				</div>
+				</>
+			}
+			header={
+				<RecordDetailHeader
+					actions={
+						<WriteOnly>
+							<Button asChild size="sm" variant="outline">
+								<Link params={{ id: action.id }} to="/public-engagement/outreach/$id/edit">
+									<EditIcon aria-hidden="true" />
+									Edit
+								</Link>
+							</Button>
+						</WriteOnly>
+					}
+					eyebrow="Outreach"
+					icon={OutreachIcon}
+					subtitle={`${formatReach(action.reach)} reached on ${formatActionDate(action.outreachDate)}`}
+					title={methodName}
+				/>
+			}
+			layout={layout}
+		>
+			<div className="grid content-start gap-3">
+				<OutreachLocationCard action={action} />
+				<RecordRegionsBand
+					noun="outreach action"
+					recordId={action.id}
+					recordType="outreach_actions"
+				/>
 			</div>
-		</>
+			<DangerZoneCard
+				ask={askDelete}
+				name={methodName}
+				noun="outreach action"
+				onDelete={(acknowledgements) => remove(action.id, acknowledgements)}
+				recordId={action.id}
+				recordType="outreachAction"
+				returnTo="/public-engagement/outreach"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -241,22 +217,5 @@ function DetailRow({ label, children }: { readonly label: string; readonly child
 			<dt className="truncate text-muted-foreground">{label}</dt>
 			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
 		</div>
-	);
-}
-
-function OutreachDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-20" />
-				<Skeleton className="h-8 w-64" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<Skeleton className="h-[360px]" />
-				</div>
-				<Skeleton className="h-72" />
-			</div>
-		</>
 	);
 }

@@ -1,7 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { ControlType, LarvalDensity } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -19,15 +18,12 @@ import {
 	EmptyTitle,
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ArrowLeftIcon, CalendarIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { CalendarIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, Suspense } from 'react';
 import { getServerUrl } from '../../../auth';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -42,7 +38,11 @@ import {
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import {
@@ -68,9 +68,34 @@ export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
 	component: RouteComponent,
 });
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	padding: 'trailing',
+	stickyAside: true,
+	skeleton: {
+		eyebrow: 'w-28',
+		subtitle: 'w-48',
+		main: [['h-[420px]', 'h-[420px]'], 'h-48'],
+		aside: ['h-96'],
+	},
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
-	return <InspectionDetail inspectionId={id} />;
+	const query = useInspectionDetail(id);
+
+	return (
+		<RecordDetailPage
+			actions={<ViewHabitatButton habitatId={query.data?.habitatId ?? null} />}
+			back={{ label: 'Back to inspections', to: '/larval-surveillance/inspections' }}
+			deleteRefusals={INSPECTION_DELETE_REFUSALS}
+			layout={layout}
+			noun="inspection"
+			reading={{ isError: query.isError, isReady: !query.isPending, record: query.data }}
+		>
+			{(record, askDelete) => <InspectionDetailContent askDelete={askDelete} inspection={record} />}
+		</RecordDetailPage>
+	);
 }
 
 const InspectionIcon = iconRegistry.entities.inspection.icon;
@@ -132,58 +157,18 @@ interface SampleEntry {
 	readonly species: readonly SampleSpeciesEntry[];
 }
 
-function InspectionDetail({ inspectionId }: { readonly inspectionId: string }) {
-	const query = useInspectionDetail(inspectionId);
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so everything below this line can unmount before the
-	// registry's refusal comes back, and state set there would be set on a
-	// component that is gone.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: INSPECTION_DELETE_REFUSALS,
-		ask: true,
-	});
-
+/** The site this inspection was filed against, beside the way back to the list. */
+function ViewHabitatButton({ habitatId }: { readonly habitatId: string | null }) {
+	if (habitatId === null) {
+		return null;
+	}
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'trailing' })}>
-				<InspectionTopBar habitatId={query.data?.habitatId ?? null} />
-				{query.isPending ? (
-					<InspectionDetailSkeleton />
-				) : query.isError || query.data == null ? (
-					<>
-						<RecordUnavailable noun="inspection" reason="not-found" />
-						{dialog}
-					</>
-				) : (
-					<>
-						<InspectionDetailContent askDelete={run} inspection={query.data} />
-						{dialog}
-					</>
-				)}
-			</div>
-		</div>
-	);
-}
-
-function InspectionTopBar({ habitatId }: { readonly habitatId: string | null }) {
-	return (
-		<div className="flex items-center justify-between gap-3">
-			<Link
-				className="inline-flex items-center gap-1.5 text-muted-foreground text-sm hover:text-foreground"
-				to="/larval-surveillance/inspections"
-			>
-				<ArrowLeftIcon aria-hidden="true" />
-				Back to inspections
+		<Button asChild size="sm" variant="outline">
+			<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
+				<HabitatIcon aria-hidden="true" />
+				View habitat
 			</Link>
-			{habitatId === null ? null : (
-				<Button asChild size="sm" variant="outline">
-					<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id">
-						<HabitatIcon aria-hidden="true" />
-						View habitat
-					</Link>
-				</Button>
-			)}
-		</div>
+		</Button>
 	);
 }
 
@@ -192,48 +177,42 @@ function InspectionDetailContent({
 	askDelete,
 }: {
 	readonly inspection: InspectionDetailRow;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
 	// Surface the inspection date in the breadcrumb trail in place of its uuid.
 	useBreadcrumbLabel(inspection.id, breadcrumbLabel(inspection));
 	const mutations = useInspectionMutations();
 
 	return (
-		<>
-			<InspectionHeader inspection={inspection} />
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<div className="grid content-start gap-3">
-						<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
-						<RecordRegionsBand
-							noun="inspection"
-							recordId={inspection.id}
-							recordType="inspections"
-						/>
-					</div>
-					<InspectionSamplesCard inspectionId={inspection.id} isWet={inspection.isWet} />
-					<LinkedControlActionsCard inspectionId={inspection.id} />
-					<DangerZoneCard
-						ask={askDelete}
-						name={breadcrumbLabel(inspection)}
-						noun="inspection"
-						onDelete={(acknowledgements) => mutations.remove(inspection.id, acknowledgements)}
-						recordId={inspection.id}
-						recordType="inspection"
-						returnTo="/larval-surveillance/inspections"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<ContextCard inspection={inspection} />
 					<CommentsSection
 						description="Access notes, conditions, and follow-up for this inspection."
 						target={{ type: 'inspection', id: inspection.id }}
 					/>
-				</div>
+				</>
+			}
+			header={<InspectionHeader inspection={inspection} />}
+			layout={layout}
+		>
+			<div className="grid content-start gap-3">
+				<InspectionLocationCard geometry={inspection.geojson} geomType={inspection.geomType} />
+				<RecordRegionsBand noun="inspection" recordId={inspection.id} recordType="inspections" />
 			</div>
-		</>
+			<InspectionSamplesCard inspectionId={inspection.id} isWet={inspection.isWet} />
+			<LinkedControlActionsCard inspectionId={inspection.id} />
+			<DangerZoneCard
+				ask={askDelete}
+				name={breadcrumbLabel(inspection)}
+				noun="inspection"
+				onDelete={(acknowledgements) => mutations.remove(inspection.id, acknowledgements)}
+				recordId={inspection.id}
+				recordType="inspection"
+				returnTo="/larval-surveillance/inspections"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -865,28 +844,6 @@ function SamplesEmpty({
 				<EmptyDescription>{description}</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
-	);
-}
-
-function InspectionDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-28" />
-				<Skeleton className="h-8 w-64" />
-				<Skeleton className="h-4 w-48" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<div className="grid gap-5 lg:grid-cols-2">
-						<Skeleton className="h-[420px]" />
-						<Skeleton className="h-[420px]" />
-					</div>
-					<Skeleton className="h-48" />
-				</div>
-				<Skeleton className="h-96" />
-			</div>
-		</>
 	);
 }
 

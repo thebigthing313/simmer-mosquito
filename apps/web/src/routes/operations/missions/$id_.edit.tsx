@@ -1,8 +1,7 @@
 import { createMissionCommand } from '@simmer-mosquito/domain';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
 import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
@@ -37,7 +36,7 @@ function EditMissionRoute() {
 		return isReady ? (
 			<RecordUnavailable layout="centered" noun="mission" reason="not-found" />
 		) : (
-			<EditFormSkeleton />
+			<EditFormSkeleton frame="pane" rows={['h-24', ['h-9', 'h-9'], 'h-24']} />
 		);
 	}
 	return <EditMissionForm mission={mission} />;
@@ -112,19 +111,5 @@ function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {
 			submitLabel="Save Changes"
 			validate={validate}
 		/>
-	);
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 content-start gap-5 px-5 py-5">
-			<Skeleton className="h-6 w-40" />
-			<Skeleton className="h-24 w-full" />
-			<div className="grid grid-cols-2 gap-4">
-				<Skeleton className="h-9 w-full" />
-				<Skeleton className="h-9 w-full" />
-			</div>
-			<Skeleton className="h-24 w-full" />
-		</div>
 	);
 }

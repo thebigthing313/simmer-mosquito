@@ -1,8 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
-import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
-import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -38,13 +36,10 @@ import {
 	TableHeader,
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
-import { ArrowLeftIcon, iconRegistry, KeyboardIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry, KeyboardIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useMemo, useState } from 'react';
-import {
-	type Acknowledgements,
-	useAcknowledgedWrite,
-} from '../../../components/acknowledged-write';
+import { type AskAcknowledged, useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CollectCollectionDialog } from '../../../components/collect-collection-dialog';
@@ -55,7 +50,12 @@ import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	RecordDetailHeader,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
@@ -112,57 +112,32 @@ const collectionGcTimeMs = 30_000;
 // edits, or additions (mirrors the comments thread's read-only gate).
 const READ_ONLY_ROLES = new Set(['viewer']);
 
+const layout: RecordDetailLayout = {
+	aside: 'wide',
+	stickyAside: true,
+	skeleton: { eyebrow: 'w-24', main: ['h-[360px]', 'h-64'], aside: ['h-72'] },
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
 	const { auth } = Route.useRouteContext();
 	const snapshot = auth.snapshot?.authenticated === true ? auth.snapshot : null;
 	const role = snapshot?.localIdentity.role ?? null;
 	const canEdit = snapshot !== null && !(role !== null && READ_ONLY_ROLES.has(role));
-	return <CollectionDetail canEdit={canEdit} collectionId={id} />;
-}
-
-function CollectionDetail({
-	collectionId,
-	canEdit,
-}: {
-	readonly collectionId: string;
-	readonly canEdit: boolean;
-}) {
-	const { collection, isReady } = useAdultCollection(collectionId, {
-		gcTime: collectionGcTimeMs,
-	});
-	// Held here rather than in the danger zone, and rendered here too. The delete
-	// is optimistic, so the record leaves its collection the moment the button is
-	// pressed and everything below this line unmounts before the registry's
-	// refusal comes back. This component survives it: the row going is what makes
-	// it render `RecordUnavailable` instead.
-	const { run, dialog } = useAcknowledgedWrite({
-		askable: COLLECTION_DELETE_REFUSALS,
-		ask: true,
-	});
+	const { collection, isReady } = useAdultCollection(id, { gcTime: collectionGcTimeMs });
 
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className={pageContainer({ gap: 'detail', padding: 'detail' })}>
-				<Link className={backLink()} to="/adult-surveillance/collections">
-					<ArrowLeftIcon aria-hidden="true" />
-					Back to collections
-				</Link>
-				{!isReady ? (
-					<CollectionDetailSkeleton />
-				) : collection === undefined ? (
-					<>
-						<RecordUnavailable noun="collection" reason="not-found" />
-						{dialog}
-					</>
-				) : (
-					<>
-						<CollectionDetailContent askDelete={run} canEdit={canEdit} collection={collection} />
-						{dialog}
-					</>
-				)}
-			</div>
-		</div>
+		<RecordDetailPage
+			back={{ label: 'Back to collections', to: '/adult-surveillance/collections' }}
+			deleteRefusals={COLLECTION_DELETE_REFUSALS}
+			layout={layout}
+			noun="collection"
+			reading={{ isReady, record: collection }}
+		>
+			{(record, askDelete) => (
+				<CollectionDetailContent askDelete={askDelete} canEdit={canEdit} collection={record} />
+			)}
+		</RecordDetailPage>
 	);
 }
 
@@ -173,9 +148,7 @@ function CollectionDetailContent({
 }: {
 	readonly collection: AdultCollection;
 	readonly canEdit: boolean;
-	readonly askDelete: (
-		write: (acknowledgements: Acknowledgements) => Promise<void>,
-	) => Promise<void>;
+	readonly askDelete: AskAcknowledged;
 }) {
 	const titleTimeZone = useOrganizationTimeZone();
 	const title = collectionTitle(collection, titleTimeZone);
@@ -202,64 +175,9 @@ function CollectionDetailContent({
 	);
 
 	return (
-		<>
-			<div className="flex flex-wrap items-start justify-between gap-3">
-				<div className="grid gap-1.5">
-					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						<CollectionIcon aria-hidden="true" className="size-3.5" />
-						Collection
-					</span>
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">{title}</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">
-						{collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} ·{' '}
-						{methodName}
-					</p>
-				</div>
-				<div className="flex flex-wrap items-center gap-2">
-					<CollectionFlagBadges
-						className="flex flex-wrap items-center gap-1.5"
-						collection={collection}
-					/>
-					{canEdit && isPendingCollection(collection) ? (
-						<WriteOnly>
-							<CollectCollectionButton collection={collection} />
-						</WriteOnly>
-					) : null}
-					{canEdit ? (
-						<WriteOnly>
-							<Button asChild size="sm" variant="outline">
-								<Link params={{ id: collection.id }} to="/adult-surveillance/collections/$id/edit">
-									<EditIcon aria-hidden="true" />
-									Edit
-								</Link>
-							</Button>
-						</WriteOnly>
-					) : null}
-				</div>
-			</div>
-
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<div className="grid content-start gap-3">
-						<CollectionLocationCard collection={collection} />
-						<RecordRegionsBand
-							noun="collection"
-							recordId={collection.id}
-							recordType="collections"
-						/>
-					</div>
-					<ResultsCard canEdit={canEdit} collection={collection} />
-					<DangerZoneCard
-						ask={askDelete}
-						name={title}
-						noun="collection"
-						onDelete={(acknowledgements) => mutations.remove(collection.id, acknowledgements)}
-						recordId={collection.id}
-						recordType="collection"
-						returnTo="/adult-surveillance/collections"
-					/>
-				</div>
-				<div className="grid content-start gap-5 xl:sticky xl:top-0 xl:self-start">
+		<RecordDetailColumns
+			aside={
+				<>
 					<DetailsCard
 						collection={collection}
 						lureName={lureName}
@@ -274,9 +192,59 @@ function CollectionDetailContent({
 						description="Field notes, identification remarks, and follow-up for this collection."
 						target={{ type: 'collection', id: collection.id }}
 					/>
-				</div>
+				</>
+			}
+			header={
+				<RecordDetailHeader
+					actions={
+						<>
+							<CollectionFlagBadges
+								className="flex flex-wrap items-center gap-1.5"
+								collection={collection}
+							/>
+							{canEdit && isPendingCollection(collection) ? (
+								<WriteOnly>
+									<CollectCollectionButton collection={collection} />
+								</WriteOnly>
+							) : null}
+							{canEdit ? (
+								<WriteOnly>
+									<Button asChild size="sm" variant="outline">
+										<Link
+											params={{ id: collection.id }}
+											to="/adult-surveillance/collections/$id/edit"
+										>
+											<EditIcon aria-hidden="true" />
+											Edit
+										</Link>
+									</Button>
+								</WriteOnly>
+							) : null}
+						</>
+					}
+					eyebrow="Collection"
+					icon={CollectionIcon}
+					subtitle={`${collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} · ${methodName}`}
+					title={title}
+				/>
+			}
+			layout={layout}
+		>
+			<div className="grid content-start gap-3">
+				<CollectionLocationCard collection={collection} />
+				<RecordRegionsBand noun="collection" recordId={collection.id} recordType="collections" />
 			</div>
-		</>
+			<ResultsCard canEdit={canEdit} collection={collection} />
+			<DangerZoneCard
+				ask={askDelete}
+				name={title}
+				noun="collection"
+				onDelete={(acknowledgements) => mutations.remove(collection.id, acknowledgements)}
+				recordId={collection.id}
+				recordType="collection"
+				returnTo="/adult-surveillance/collections"
+			/>
+		</RecordDetailColumns>
 	);
 }
 
@@ -938,21 +906,3 @@ function DetailRow({ label, children }: { readonly label: string; readonly child
 }
 
 // --- states + helpers --------------------------------------------------------
-
-function CollectionDetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-24" />
-				<Skeleton className="h-8 w-64" />
-			</div>
-			<div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_22rem]">
-				<div className="grid content-start gap-5">
-					<Skeleton className="h-[360px]" />
-					<Skeleton className="h-64" />
-				</div>
-				<Skeleton className="h-72" />
-			</div>
-		</>
-	);
-}

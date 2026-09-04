@@ -1,10 +1,9 @@
 import type { GeoJsonPoint } from '@simmer-mosquito/mapping';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
-import { RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { STATION_REFUSALS } from '../../../lib/acknowledgement-copy';
@@ -38,7 +37,7 @@ function EditWeatherStationRoute() {
 	const { station, isReady } = useWeatherStation(id);
 
 	if (!isReady) {
-		return <EditFormSkeleton />;
+		return <EditFormSkeleton rows={[['h-9', 'h-9'], 'h-24']} />;
 	}
 	if (station === undefined) {
 		return <RecordUnavailable layout="centered" noun="weather station" reason="not-found" />;
@@ -142,20 +141,4 @@ function pointFrom(station: WeatherStation): DrawGeometry | null {
 		type: 'Point',
 		coordinates: [station.longitude, station.latitude],
 	} as unknown as DrawGeometry;
-}
-
-function EditFormSkeleton() {
-	return (
-		<div className="grid h-full min-h-0 w-full grid-cols-[2fr_3fr] overflow-hidden">
-			<div className="grid content-start gap-5 overflow-y-auto px-5 py-5">
-				<Skeleton className="h-6 w-40" />
-				<div className="grid grid-cols-2 gap-4">
-					<Skeleton className="h-9 w-full" />
-					<Skeleton className="h-9 w-full" />
-				</div>
-				<Skeleton className="h-24 w-full" />
-			</div>
-			<Skeleton className="h-full w-full rounded-none border-border/40 border-l" />
-		</div>
-	);
 }

@@ -1,5 +1,4 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -17,15 +16,19 @@ import {
 	CardHeader,
 	CardTitle,
 } from '@simmer-mosquito/ui-web/components/ui/card';
-import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
-import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { type ReactNode, useCallback, useState } from 'react';
-import { type AskAcknowledged, useAcknowledgedWrite } from '../../../components/acknowledged-write';
+import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
-import { RecordUnavailable } from '../../../components/record';
+import {
+	RecordDetailColumns,
+	RecordDetailHeader,
+	type RecordDetailLayout,
+	RecordDetailPage,
+} from '../../../components/record';
 import { WriteOnly } from '../../../components/write-only';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
@@ -43,37 +46,26 @@ const WeatherIcon = iconRegistry.domains.weather.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
+const layout: RecordDetailLayout = {
+	aside: 'narrow',
+	skeleton: { eyebrow: 'w-24', title: 'w-56', main: ['h-64'], aside: ['h-48'] },
+};
+
 function RouteComponent() {
 	const { id } = Route.useParams();
-	return <WeatherStationDetail stationId={id} />;
-}
-
-function WeatherStationDetail({ stationId }: { readonly stationId: string }) {
 	// Stations are eager, so this resolves without a fetch.
-	const { station, isReady } = useWeatherStation(stationId);
-	// Held here rather than in the lifecycle card. The delete is optimistic, so
-	// the station leaves the collection the moment the button is pressed and the
-	// card is gone before the refusal arrives. This component survives it: the row
-	// going is what makes it render `RecordUnavailable` instead.
-	const { run, dialog } = useAcknowledgedWrite({ askable: STATION_DELETE_REFUSALS, ask: true });
+	const { station, isReady } = useWeatherStation(id);
 
 	return (
-		<div className="h-full min-h-0 overflow-y-auto">
-			<div className="mx-auto grid w-full max-w-[1000px] content-start gap-5 px-4 py-6 pb-10 md:px-8">
-				<Link className={backLink()} to="/gis/weather">
-					<ArrowLeftIcon aria-hidden="true" />
-					Back to Weather Stations
-				</Link>
-				{!isReady ? (
-					<DetailSkeleton />
-				) : station === undefined ? (
-					<RecordUnavailable noun="weather station" reason="not-found" />
-				) : (
-					<WeatherStationContent askDelete={run} station={station} />
-				)}
-				{dialog}
-			</div>
-		</div>
+		<RecordDetailPage
+			back={{ label: 'Back to Weather Stations', to: '/gis/weather' }}
+			deleteRefusals={STATION_DELETE_REFUSALS}
+			layout={layout}
+			noun="weather station"
+			reading={{ isReady, record: station }}
+		>
+			{(record, askDelete) => <WeatherStationContent askDelete={askDelete} station={record} />}
+		</RecordDetailPage>
 	);
 }
 
@@ -91,30 +83,30 @@ function WeatherStationContent({
 	const isOwned = station.sourceType === 'organization' && station.organizationId !== null;
 
 	return (
-		<>
-			<StationHeader isOwned={isOwned} station={station} />
-			<div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
-				<div className="grid min-w-0 content-start gap-5">
-					<div className="grid content-start gap-3">
-						<StationLocationCard station={station} />
-						<RecordRegionsBand
-							noun="weather station"
-							recordId={station.id}
-							recordType="weather_sources"
-						/>
-					</div>
-					<WeatherSummariesCard isStationActive={station.isActive} stationId={station.id} />
-				</div>
-				<div className="grid content-start gap-5">
+		<RecordDetailColumns
+			aside={
+				<>
 					<StationDetailsCard station={station} />
 					{isOwned ? (
 						<WriteOnly minimum="manager">
 							<StationLifecycleCard askDelete={askDelete} station={station} />
 						</WriteOnly>
 					) : null}
-				</div>
+				</>
+			}
+			header={<StationHeader isOwned={isOwned} station={station} />}
+			layout={layout}
+		>
+			<div className="grid content-start gap-3">
+				<StationLocationCard station={station} />
+				<RecordRegionsBand
+					noun="weather station"
+					recordId={station.id}
+					recordType="weather_sources"
+				/>
 			</div>
-		</>
+			<WeatherSummariesCard isStationActive={station.isActive} stationId={station.id} />
+		</RecordDetailColumns>
 	);
 }
 
@@ -154,33 +146,27 @@ function StationHeader({
 	readonly isOwned: boolean;
 }) {
 	return (
-		<div className="flex flex-wrap items-start justify-between gap-3">
-			<div className="grid gap-1.5">
-				<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-					<WeatherIcon aria-hidden="true" className="size-3.5" />
-					Weather station
-				</span>
-				<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-					{station.name}
-				</h1>
-				<p className="m-0 text-[0.95rem] text-muted-foreground">
-					{weatherSourceTypeLabel(station.sourceType)}
-				</p>
-			</div>
-			<div className="flex items-center gap-2">
-				<StationStatusBadge isActive={station.isActive} />
-				{isOwned ? (
-					<WriteOnly minimum="manager">
-						<Button asChild size="sm" variant="outline">
-							<Link params={{ id: station.id }} to="/gis/weather/$id/edit">
-								<EditIcon aria-hidden="true" />
-								Edit
-							</Link>
-						</Button>
-					</WriteOnly>
-				) : null}
-			</div>
-		</div>
+		<RecordDetailHeader
+			actions={
+				<>
+					<StationStatusBadge isActive={station.isActive} />
+					{isOwned ? (
+						<WriteOnly minimum="manager">
+							<Button asChild size="sm" variant="outline">
+								<Link params={{ id: station.id }} to="/gis/weather/$id/edit">
+									<EditIcon aria-hidden="true" />
+									Edit
+								</Link>
+							</Button>
+						</WriteOnly>
+					) : null}
+				</>
+			}
+			eyebrow="Weather station"
+			icon={WeatherIcon}
+			subtitle={weatherSourceTypeLabel(station.sourceType)}
+			title={station.name}
+		/>
 	);
 }
 
@@ -316,20 +302,5 @@ function DetailRow({ label, children }: { readonly label: string; readonly child
 			<dt className="truncate text-muted-foreground">{label}</dt>
 			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
 		</div>
-	);
-}
-
-function DetailSkeleton() {
-	return (
-		<>
-			<div className="grid gap-2">
-				<Skeleton className="h-4 w-24" />
-				<Skeleton className="h-8 w-56" />
-			</div>
-			<div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_18rem]">
-				<Skeleton className="h-64" />
-				<Skeleton className="h-48" />
-			</div>
-		</>
 	);
 }
