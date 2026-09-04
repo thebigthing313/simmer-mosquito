@@ -212,7 +212,7 @@ export function useServiceRequestMutations(): ServiceRequestMutations {
 			}
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(service_requests, {
+				mutateCollection(service_requests(), {
 					operation: 'insert',
 					intent: 'publicEngagement.createServiceRequest',
 					row: {
@@ -266,7 +266,7 @@ export function useServiceRequestMutations(): ServiceRequestMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(service_requests, {
+				mutateCollection(service_requests(), {
 					operation: 'update',
 					intent: plan.intents,
 					key: input.requestId,
@@ -286,7 +286,7 @@ export function useServiceRequestMutations(): ServiceRequestMutations {
 	const close = useCallback(
 		async (requestId: string, resolutionSummary: string) => {
 			await settleWrite(
-				mutateCollection(service_requests, {
+				mutateCollection(service_requests(), {
 					operation: 'update',
 					intent: 'publicEngagement.closeServiceRequest',
 					key: requestId,
@@ -308,7 +308,7 @@ export function useServiceRequestMutations(): ServiceRequestMutations {
 	const reopen = useCallback(
 		async (requestId: string, reopenReason: string) => {
 			await settleWrite(
-				mutateCollection(service_requests, {
+				mutateCollection(service_requests(), {
 					operation: 'update',
 					intent: 'publicEngagement.reopenServiceRequest',
 					key: requestId,
@@ -332,7 +332,7 @@ export function useServiceRequestMutations(): ServiceRequestMutations {
 	const remove = useCallback(
 		async (requestId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(service_requests, {
+				mutateCollection(service_requests(), {
 					operation: 'delete',
 					intent: 'publicEngagement.deleteServiceRequest',
 					key: requestId,

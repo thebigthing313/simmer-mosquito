@@ -31,7 +31,7 @@ export function useSpeciesOptions(): {
 	const catalog = useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ taxon: species })
+				.from({ taxon: species() })
 				.orderBy(({ taxon }) => taxon.display_name, 'asc')
 				.select(({ taxon }) => ({ id: taxon.id, label: taxon.display_name })),
 		[],
@@ -40,7 +40,7 @@ export function useSpeciesOptions(): {
 	const adopted = useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ adoption: organization_species })
+				.from({ adoption: organization_species() })
 				.select(({ adoption }) => ({ speciesId: adoption.species_id })),
 		[],
 	);

@@ -48,16 +48,20 @@ export function useCollectionsAwaitingIdentification(
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ collection: collections })
+					.from({ collection: collections() })
 					.where(({ collection }) =>
 						or(
 							gte(collection.collected_at, sinceInstant),
 							gte(collection.collection_date, sinceDate),
 						),
 					)
-					.join({ trap: traps }, ({ collection, trap }) => eq(collection.trap_id, trap.id), 'left')
 					.join(
-						{ method: collection_methods },
+						{ trap: traps() },
+						({ collection, trap }) => eq(collection.trap_id, trap.id),
+						'left',
+					)
+					.join(
+						{ method: collection_methods() },
 						({ collection, method }) => eq(collection.collection_method_id, method.id),
 						'left',
 					)
@@ -73,7 +77,7 @@ export function useCollectionsAwaitingIdentification(
 						isZeroResult: collection.is_zero_result,
 						species: toArray(
 							query
-								.from({ identification: collection_species })
+								.from({ identification: collection_species() })
 								.where(({ identification }) => eq(identification.collection_id, collection.id))
 								.select(({ identification }) => ({ id: identification.id })),
 						),

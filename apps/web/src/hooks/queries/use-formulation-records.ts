@@ -40,7 +40,7 @@ export function useFormulationRecords(): readonly FormulationRecord[] {
 	return useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ row: formulations })
+				.from({ row: formulations() })
 				.orderBy(({ row }) => row.is_active, 'desc')
 				.orderBy(({ row }) => row.formulation_name, 'asc')
 				.select(({ row }) => ({
@@ -62,7 +62,7 @@ export function useFormulationComponents(): ReadonlyMap<
 > {
 	const rows = useLiveSuspenseQuery(
 		(query) =>
-			query.from({ row: formulation_insecticides }).select(({ row }) => ({
+			query.from({ row: formulation_insecticides() }).select(({ row }) => ({
 				id: row.id,
 				formulationId: row.formulation_id,
 				insecticideId: row.insecticide_id,

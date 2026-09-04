@@ -168,7 +168,7 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 			}
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(weather_sources, {
+				mutateCollection(weather_sources(), {
 					operation: 'insert',
 					intent: 'weather.createWeatherStation',
 					row: {
@@ -213,7 +213,7 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 				return;
 			}
 			await settleWrite(
-				mutateCollection(weather_sources, {
+				mutateCollection(weather_sources(), {
 					operation: 'update',
 					intent: plan.intents,
 					key: input.weatherStationId,
@@ -233,7 +233,7 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 	const setActive = useCallback(
 		async (weatherStationId: string, isActive: boolean) => {
 			await settleWrite(
-				mutateCollection(weather_sources, {
+				mutateCollection(weather_sources(), {
 					operation: 'update',
 					// `is_active` is a column the client can see, so which direction a
 					// write means has to be said rather than read off the value.
@@ -255,7 +255,7 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 	const remove = useCallback(
 		async (weatherStationId: string, acknowledgedSummaryDeletion: boolean) => {
 			await settleWrite(
-				mutateCollection(weather_sources, {
+				mutateCollection(weather_sources(), {
 					operation: 'delete',
 					intent: 'weather.deleteWeatherStation',
 					key: weatherStationId,

@@ -38,7 +38,7 @@ export function useAdultSpeciesComposition(sinceDate: string): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ identification: collection_species })
+					.from({ identification: collection_species() })
 					.where(({ identification }) => gte(identification.identified_date, sinceDate))
 					.select(({ identification }) => ({
 						speciesId: identification.species_id,

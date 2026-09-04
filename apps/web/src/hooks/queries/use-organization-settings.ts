@@ -35,7 +35,7 @@ export function useOrganizationSettings(): OrganizationSettings {
 	const result = useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ organization: organizations })
+				.from({ organization: organizations() })
 				.select(({ organization }) => ({ settings: organization.settings })),
 		[],
 	);

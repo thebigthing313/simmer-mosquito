@@ -81,7 +81,7 @@ export function useCollectionSpeciesMutations(): CollectionSpeciesMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(collection_species, {
+				mutateCollection(collection_species(), {
 					operation: 'insert',
 					intent: 'adultSurveillance.addCollectionSpeciesCount',
 					row: {
@@ -128,7 +128,7 @@ export function useCollectionSpeciesMutations(): CollectionSpeciesMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(collection_species, {
+				mutateCollection(collection_species(), {
 					operation: 'update',
 					intent: 'adultSurveillance.updateCollectionSpeciesCount',
 					key: collectionSpeciesId,
@@ -145,7 +145,7 @@ export function useCollectionSpeciesMutations(): CollectionSpeciesMutations {
 
 	const remove = useCallback(async (collectionSpeciesId: string) => {
 		await settleWrite(
-			mutateCollection(collection_species, {
+			mutateCollection(collection_species(), {
 				operation: 'delete',
 				intent: 'adultSurveillance.deleteCollectionSpeciesCount',
 				key: collectionSpeciesId,

@@ -42,33 +42,33 @@ export function useApplication(
 			gcTime: options?.gcTime ?? mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ application: applications })
+					.from({ application: applications() })
 					.where(({ application }) => eq(application.id, applicationId ?? unmatchableId))
 					// `left` throughout: an application need not name a method or an
 					// applicator, and most name no address. An `inner` join would drop the
 					// row entirely rather than leave a field blank.
 					.join(
-						{ product: insecticides },
+						{ product: insecticides() },
 						({ application, product }) => eq(application.insecticide_id, product.id),
 						'left',
 					)
 					.join(
-						{ method: application_methods },
+						{ method: application_methods() },
 						({ application, method }) => eq(application.application_method_id, method.id),
 						'left',
 					)
 					.join(
-						{ unit: units },
+						{ unit: units() },
 						({ application, unit }) => eq(application.application_unit_id, unit.id),
 						'left',
 					)
 					.join(
-						{ applicator: profiles },
+						{ applicator: profiles() },
 						({ application, applicator }) => eq(application.applicator_profile_id, applicator.id),
 						'left',
 					)
 					.join(
-						{ address: addresses },
+						{ address: addresses() },
 						({ application, address }) => eq(application.address_id, address.id),
 						'left',
 					)
@@ -76,12 +76,12 @@ export function useApplication(
 					// catalogs are eager, so joining them costs nothing either surface was
 					// not already paying.
 					.join(
-						{ vehicle: vehicles },
+						{ vehicle: vehicles() },
 						({ application, vehicle }) => eq(application.vehicle_id, vehicle.id),
 						'left',
 					)
 					.join(
-						{ rig: equipmentCollection },
+						{ rig: equipmentCollection() },
 						({ application, rig }) => eq(application.equipment_id, rig.id),
 						'left',
 					)

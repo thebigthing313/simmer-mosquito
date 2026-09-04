@@ -27,11 +27,11 @@ export function useSampleIdentifications(sampleId: string): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ identification: sample_species })
+					.from({ identification: sample_species() })
 					.where(({ identification }) => eq(identification.sample_id, sampleId))
 					// `inner`: an identification names a species that exists. A row whose
 					// species had vanished from the taxonomy would be a count of nothing.
-					.join({ taxon: species }, ({ identification, taxon }) =>
+					.join({ taxon: species() }, ({ identification, taxon }) =>
 						eq(identification.species_id, taxon.id),
 					)
 					.orderBy(({ identification }) => identification.larvae_count, 'desc')

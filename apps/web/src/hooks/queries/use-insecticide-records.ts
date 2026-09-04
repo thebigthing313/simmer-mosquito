@@ -48,7 +48,7 @@ export function useInsecticideRecords(): readonly InsecticideRecord[] {
 	return useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ row: insecticides })
+				.from({ row: insecticides() })
 				.orderBy(({ row }) => row.is_active, 'desc')
 				.orderBy(({ row }) => row.trade_name, 'asc')
 				.select(({ row }) => ({
@@ -78,7 +78,7 @@ export function useInsecticideBatches(insecticideId: string): {
 			gcTime: batchesGcTimeMs,
 			query: (query) =>
 				query
-					.from({ batch: insecticide_batches })
+					.from({ batch: insecticide_batches() })
 					.where(({ batch }) => eq(batch.insecticide_id, insecticideId))
 					.orderBy(({ batch }) => batch.is_active, 'desc')
 					.orderBy(({ batch }) => batch.batch_name, 'asc')

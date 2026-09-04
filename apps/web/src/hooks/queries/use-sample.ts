@@ -28,15 +28,15 @@ export function useSample(sampleId: string): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ sample: samples })
+					.from({ sample: samples() })
 					.where(({ sample }) => eq(sample.id, sampleId))
 					.join(
-						{ inspection: inspections },
+						{ inspection: inspections() },
 						({ sample, inspection }) => eq(sample.inspection_id, inspection.id),
 						'left',
 					)
 					.join(
-						{ habitat: habitats },
+						{ habitat: habitats() },
 						({ inspection, habitat }) => eq(inspection.habitat_id, habitat.id),
 						'left',
 					)

@@ -162,7 +162,7 @@ export function useInsecticideMutations(): InsecticideMutations {
 				created_at: now,
 				updated_at: now,
 			} satisfies Insecticide;
-			await createCatalogRow(insecticides, insecticideCommands, row);
+			await createCatalogRow(insecticides(), insecticideCommands, row);
 			return row.id;
 		},
 		[organizationId, actorProfileId],
@@ -178,7 +178,7 @@ export function useInsecticideMutations(): InsecticideMutations {
 			const identity = insecticideIdentityChanges(fields, current);
 			const identityMoved = Object.keys(identity).length > 0;
 
-			await saveCatalogRow(insecticides, insecticideCommands, id, {
+			await saveCatalogRow(insecticides(), insecticideCommands, id, {
 				changes: { ...identity, ...insecticideReferenceChanges(fields, current) },
 				isActive: fields.isActive,
 				wasActive: current.isActive,
@@ -199,8 +199,8 @@ export function useInsecticideMutations(): InsecticideMutations {
 		create,
 		save,
 		setActive: (id, isActive) =>
-			setCatalogRowActive(insecticides, insecticideCommands, id, isActive),
-		remove: (id) => deleteCatalogRow(insecticides, insecticideCommands, id),
+			setCatalogRowActive(insecticides(), insecticideCommands, id, isActive),
+		remove: (id) => deleteCatalogRow(insecticides(), insecticideCommands, id),
 		canWrite: organizationId !== null && actorProfileId !== null,
 	};
 }
@@ -259,7 +259,7 @@ export function useInsecticideBatchMutations(): InsecticideBatchMutations {
 				created_at: now,
 				updated_at: now,
 			} satisfies InsecticideBatch;
-			await createCatalogRow(insecticide_batches, batchCommands, row);
+			await createCatalogRow(insecticide_batches(), batchCommands, row);
 			return row.id;
 		},
 		[organizationId, actorProfileId],
@@ -279,7 +279,7 @@ export function useInsecticideBatchMutations(): InsecticideBatchMutations {
 			if (fields.batchName !== current.batchName) {
 				changes.batch_name = fields.batchName;
 			}
-			await saveCatalogRow(insecticide_batches, batchCommands, id, {
+			await saveCatalogRow(insecticide_batches(), batchCommands, id, {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
@@ -302,8 +302,8 @@ export function useInsecticideBatchMutations(): InsecticideBatchMutations {
 		create,
 		save,
 		setActive: (id, isActive) =>
-			setCatalogRowActive(insecticide_batches, batchCommands, id, isActive),
-		remove: (id) => deleteCatalogRow(insecticide_batches, batchCommands, id),
+			setCatalogRowActive(insecticide_batches(), batchCommands, id, isActive),
+		remove: (id) => deleteCatalogRow(insecticide_batches(), batchCommands, id),
 		canWrite: organizationId !== null && actorProfileId !== null,
 	};
 }

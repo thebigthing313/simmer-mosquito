@@ -48,7 +48,7 @@ export function useTrapRoutes(): {
 	const result = useLiveQuery(
 		(query) =>
 			query
-				.from({ route: routes })
+				.from({ route: routes() })
 				.where(({ route }) => eq(route.route_type, 'trap'))
 				.orderBy(({ route }) => route.route_name, 'asc')
 				.select(({ route }) => ({ id: route.id, routeName: route.route_name })),
@@ -68,7 +68,7 @@ export function useRouteStopCounts(): {
 			gcTime: routeItemsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: route_items })
+					.from({ item: route_items() })
 					.where(({ item }) => eq(item.entity_type, 'trap'))
 					.select(({ item }) => ({ routeId: item.route_id })),
 		},
@@ -108,7 +108,7 @@ export function useRouteStops(routeId: string | null): {
 			gcTime: routeItemsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: route_items })
+					.from({ item: route_items() })
 					.where(({ item }) =>
 						and(
 							// An unmatchable id keeps the hook order stable while no route is
@@ -121,7 +121,7 @@ export function useRouteStops(routeId: string | null): {
 					)
 					// `left`: a stop whose Trap has not streamed in yet still belongs in the
 					// itinerary, drawn as resolving rather than dropped.
-					.join({ trap: traps }, ({ item, trap }) => eq(item.entity_id, trap.id), 'left')
+					.join({ trap: traps() }, ({ item, trap }) => eq(item.entity_id, trap.id), 'left')
 					.orderBy(({ item }) => item.position, 'asc')
 					.select(({ item, trap }) => ({
 						routeItemId: item.id,

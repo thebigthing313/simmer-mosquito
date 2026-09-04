@@ -101,7 +101,7 @@ function ImportRegionsRoute() {
 	// connects, forcing a deterministic per-row confirmation timeout. Subscribing
 	// here guarantees the stream is connected and up-to-date before the first insert.
 	// The rows themselves are unused; we only need the subscription.
-	useLiveQuery({ query: (query) => query.from({ region: regions }) }, []);
+	useLiveQuery({ query: (query) => query.from({ region: regions() }) }, []);
 
 	const [items, setItems] = useState<readonly ImportItem[]>([]);
 	const [skipped, setSkipped] = useState(0);
@@ -421,14 +421,14 @@ function ImportRegionsRoute() {
 								{pendingSync === 0 ? null : (
 									<Alert>
 										<AlertTitle>
-											{pendingSync} {pendingSync === 1 ? 'region was' : 'regions were'} saved,
+											{pendingSync} {pendingSync === 1 ? 'region was' : 'regions() were'} saved,
 											awaiting sync
 										</AlertTitle>
 										<AlertDescription className="grid gap-2">
 											<span>
 												The server accepted {pendingSync === 1 ? 'it' : 'them'} but hasn't confirmed
 												the sync yet. {pendingSync === 1 ? 'It' : 'They'} should appear on the
-												regions list shortly.
+												regions() list shortly.
 											</span>
 											<Button asChild className="w-fit" size="sm" type="button" variant="outline">
 												<Link to="/gis/regions">Go to Regions</Link>
@@ -440,7 +440,7 @@ function ImportRegionsRoute() {
 								{progress === null ? null : (
 									<div aria-live="polite" className="grid gap-1.5">
 										<div className="flex items-center justify-between text-muted-foreground text-xs">
-											<span>Importing regions…</span>
+											<span>Importing regions()…</span>
 											<span>
 												{progress.done} of {progress.total}
 											</span>

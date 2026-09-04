@@ -19,8 +19,9 @@
 
 import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
 import { renderHook } from '@testing-library/react';
-import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { getServerUrl } from '../../../../auth';
+import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -31,18 +32,6 @@ const SPECIES = '55555555-5555-4555-8555-555555555555';
 vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
-});
-vi.mock('../../../../lib/collections/memberships', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { memberships: stubCollection('memberships') };
-});
-vi.mock('../../../../lib/collections/profiles', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { profiles: stubCollection('profiles') };
-});
-vi.mock('../../../../lib/collections/organizations', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { organizations: stubCollection('organizations') };
 });
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => ({
@@ -60,10 +49,10 @@ const {
 	lastWrite,
 	requests,
 	resetDispatches,
-	seedRows,
 	stubApi,
 	stubApiRefusal,
 } = await import('./dispatch-harness');
+const { organizations } = await import('../../../../lib/collections/organizations');
 const { CommandError } = await import('@simmer-mosquito/sync');
 const { useMembershipMutations } = await import(
 	'../../../../hooks/mutations/use-membership-mutations'
@@ -123,11 +112,9 @@ function stubApiStamping(updatedAt: string): void {
 	});
 }
 
-beforeAll(() => {
-	seedRows('organizations', [AGENCY]);
-});
-
 beforeEach(() => {
+	installMemoryCollections();
+	seedRows(organizations, [AGENCY]);
 	resetDispatches();
 	answered.length = 0;
 	stubApi();

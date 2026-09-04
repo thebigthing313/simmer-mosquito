@@ -26,10 +26,10 @@ export function useApplicationBatchNames(applicationId: string | null): readonly
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ entry: application_batches })
+					.from({ entry: application_batches() })
 					.where(({ entry }) => eq(entry.application_id, applicationId ?? unmatchableId))
 					.join(
-						{ batch: insecticide_batches },
+						{ batch: insecticide_batches() },
 						({ entry, batch }) => eq(entry.insecticide_batch_id, batch.id),
 						'inner',
 					)

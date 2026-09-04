@@ -62,7 +62,7 @@ export function useCollectionRecord(collectionId: string | null | undefined): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ collection: collections })
+					.from({ collection: collections() })
 					.where(({ collection }) => eq(collection.id, id))
 					.select(({ collection }) => ({
 						id: collection.id,

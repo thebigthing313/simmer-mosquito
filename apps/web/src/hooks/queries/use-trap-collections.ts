@@ -75,7 +75,7 @@ export function useTrapCollections(
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ collection: collections })
+					.from({ collection: collections() })
 					.where(({ collection }) =>
 						sinceDate === null || sinceInstant === null
 							? eq(collection.trap_id, trapId)
@@ -98,7 +98,7 @@ export function useTrapCollections(
 						hasBycatch: collection.has_bycatch,
 						species: toArray(
 							query
-								.from({ identification: collection_species })
+								.from({ identification: collection_species() })
 								.where(({ identification }) => eq(identification.collection_id, collection.id))
 								.select(({ identification }) => ({
 									id: identification.id,

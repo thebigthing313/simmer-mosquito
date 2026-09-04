@@ -40,7 +40,7 @@ function useVehicleHalf(isActive: boolean): readonly ControlAssetRecord[] {
 	return useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ row: vehicles })
+				.from({ row: vehicles() })
 				.where(({ row }) => eq(row.is_active, isActive))
 				.orderBy(({ row }) => row.vehicle_name, 'asc')
 				.select(({ row }) => ({
@@ -67,7 +67,7 @@ function useEquipmentHalf(isActive: boolean): readonly ControlAssetRecord[] {
 	return useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ row: equipment })
+				.from({ row: equipment() })
 				.where(({ row }) => eq(row.is_active, isActive))
 				.orderBy(({ row }) => row.equipment_name, 'asc')
 				.select(({ row }) => ({

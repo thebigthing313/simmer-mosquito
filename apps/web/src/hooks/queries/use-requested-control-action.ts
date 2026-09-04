@@ -33,7 +33,7 @@ export function useRequestedControlAction(requestId: string | null): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ request: requested_control_actions })
+					.from({ request: requested_control_actions() })
 					.where(({ request }) => eq(request.id, requestId ?? unmatchableId))
 					.select(({ request }) => ({
 						id: request.id,

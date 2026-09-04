@@ -41,7 +41,7 @@ export function useTrapOptions(): {
 } {
 	const result = useLiveQuery(
 		(query) =>
-			query.from({ trap: traps }).select(({ trap }) => ({
+			query.from({ trap: traps() }).select(({ trap }) => ({
 				id: trap.id,
 				trapName: trap.trap_name,
 				trapCode: trap.trap_code,

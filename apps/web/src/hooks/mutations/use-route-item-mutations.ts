@@ -66,7 +66,7 @@ export function useRouteItemMutations(): RouteItemMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(route_items, {
+				mutateCollection(route_items(), {
 					operation: 'insert',
 					intent: 'fieldWork.addRouteItem',
 					row: {
@@ -92,7 +92,7 @@ export function useRouteItemMutations(): RouteItemMutations {
 		async (routeItemId: string, directions: string) => {
 			const trimmed = directions.trim();
 			await settleWrite(
-				mutateCollection(route_items, {
+				mutateCollection(route_items(), {
 					operation: 'update',
 					intent: 'fieldWork.updateRouteItem',
 					key: routeItemId,
@@ -109,7 +109,7 @@ export function useRouteItemMutations(): RouteItemMutations {
 
 	const removeStop = useCallback(async (routeItemId: string) => {
 		await settleWrite(
-			mutateCollection(route_items, {
+			mutateCollection(route_items(), {
 				operation: 'delete',
 				intent: 'fieldWork.removeRouteItem',
 				key: routeItemId,

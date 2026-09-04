@@ -34,6 +34,7 @@ import type {
 	ChemicalApplication,
 	SourceReduction,
 } from '../../../../hooks/queries/control-action-view';
+import { installMemoryCollections } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -55,34 +56,6 @@ const LINK_B = '12121212-1212-4212-8212-121212121212';
 vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
-});
-vi.mock('../../../../lib/collections/applications', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { applications: stubCollection('applications') };
-});
-vi.mock('../../../../lib/collections/application_batches', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { application_batches: stubCollection('application_batches') };
-});
-vi.mock('../../../../lib/collections/source_reductions', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { source_reductions: stubCollection('source_reductions') };
-});
-vi.mock('../../../../lib/collections/biocontrol_actions', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { biocontrol_actions: stubCollection('biocontrol_actions') };
-});
-vi.mock('../../../../lib/collections/requested_control_actions', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { requested_control_actions: stubCollection('requested_control_actions') };
-});
-vi.mock('../../../../lib/collections/formulations', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { formulations: stubCollection('formulations') };
-});
-vi.mock('../../../../lib/collections/formulation_insecticides', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { formulation_insecticides: stubCollection('formulation_insecticides') };
 });
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => ({
@@ -140,6 +113,7 @@ const DRAWN: ActionLocation = {
 const UNMOVED: ActionLocation = { lat: 38.58, lng: -121.49, geomType: 'st_point' };
 
 beforeEach(() => {
+	installMemoryCollections();
 	resetDispatches();
 	stubApi();
 });

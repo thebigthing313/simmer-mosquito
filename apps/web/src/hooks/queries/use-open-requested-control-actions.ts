@@ -28,7 +28,7 @@ export function useOpenRequestedControlActions(): {
 		gcTime: activityGcTimeMs,
 		query: (query) =>
 			query
-				.from({ request: requested_control_actions })
+				.from({ request: requested_control_actions() })
 				.where(({ request }) => isNull(request.resolved_at))
 				.orderBy(({ request }) => request.requested_at, 'desc')
 				.select(({ request }) => ({

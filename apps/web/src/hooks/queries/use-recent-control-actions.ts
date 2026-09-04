@@ -48,20 +48,20 @@ export function useRecentSourceReductions(sinceDate: string): RecentResult {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ action: source_reductions })
+					.from({ action: source_reductions() })
 					.where(({ action }) => gte(action.source_reduction_date, sinceDate))
 					.join(
-						{ method: source_reduction_methods },
+						{ method: source_reduction_methods() },
 						({ action, method }) => eq(action.source_reduction_method_id, method.id),
 						'left',
 					)
 					.join(
-						{ unit: units },
+						{ unit: units() },
 						({ action, unit }) => eq(action.sources_eliminated_unit_id, unit.id),
 						'left',
 					)
 					.join(
-						{ technician: profiles },
+						{ technician: profiles() },
 						({ action, technician }) => eq(action.technician_profile_id, technician.id),
 						'left',
 					)
@@ -96,16 +96,20 @@ export function useRecentBiocontrolActions(sinceDate: string): RecentResult {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ action: biocontrol_actions })
+					.from({ action: biocontrol_actions() })
 					.where(({ action }) => gte(action.biocontrol_date, sinceDate))
 					.join(
-						{ method: biocontrol_methods },
+						{ method: biocontrol_methods() },
 						({ action, method }) => eq(action.biocontrol_method_id, method.id),
 						'left',
 					)
-					.join({ unit: units }, ({ action, unit }) => eq(action.release_unit_id, unit.id), 'left')
 					.join(
-						{ technician: profiles },
+						{ unit: units() },
+						({ action, unit }) => eq(action.release_unit_id, unit.id),
+						'left',
+					)
+					.join(
+						{ technician: profiles() },
 						({ action, technician }) => eq(action.technician_profile_id, technician.id),
 						'left',
 					)

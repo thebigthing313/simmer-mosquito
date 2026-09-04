@@ -928,7 +928,7 @@ function InsecticideBatchOptions({
 			gcTime: batchOptionsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ batch: insecticide_batches })
+					.from({ batch: insecticide_batches() })
 					.where(({ batch }) => eq(batch.insecticide_id, insecticideId))
 					.orderBy(({ batch }) => batch.batch_name, 'asc'),
 		},

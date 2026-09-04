@@ -40,7 +40,7 @@ export function useEntityTags(
 			gcTime: TAG_ITEMS_GC_MS,
 			query: (query) =>
 				query
-					.from({ item: tag_items })
+					.from({ item: tag_items() })
 					.where(({ item }) =>
 						and(
 							eq(item.entity_type, entityType),
@@ -49,7 +49,7 @@ export function useEntityTags(
 							inArray(item.entity_id, uniqueIds.length > 0 ? uniqueIds : [unmatchableId]),
 						),
 					)
-					.join({ tag: tags }, ({ item, tag }) => eq(item.tag_id, tag.id))
+					.join({ tag: tags() }, ({ item, tag }) => eq(item.tag_id, tag.id))
 					.orderBy(({ tag }) => tag.tag_name, 'asc')
 					// Coalesced for the reason recorded in `use-record-tags.ts`: a joined
 					// column types as possibly absent, and `item.tag_id` is the same uuid.

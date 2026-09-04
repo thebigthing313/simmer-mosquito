@@ -45,12 +45,12 @@ export function useActiveTraps(): {
 	const result = useLiveQuery(
 		(query) =>
 			query
-				.from({ trap: traps })
+				.from({ trap: traps() })
 				.where(({ trap }) => eq(trap.is_active, true))
 				// `left`: a method that has been retired out from under a trap should not
 				// take the trap off the screen with it.
 				.join(
-					{ method: collection_methods },
+					{ method: collection_methods() },
 					({ trap, method }) => eq(trap.collection_method_id, method.id),
 					'left',
 				)

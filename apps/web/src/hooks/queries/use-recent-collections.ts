@@ -67,7 +67,7 @@ export function useRecentCollections(
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ collection: collections })
+					.from({ collection: collections() })
 					.where(({ collection }) =>
 						or(
 							gte(collection.collected_at, sinceInstant),
@@ -76,14 +76,18 @@ export function useRecentCollections(
 					)
 					// `left` throughout: an ad-hoc collection names no trap and nobody need
 					// have been recorded as collector.
-					.join({ trap: traps }, ({ collection, trap }) => eq(collection.trap_id, trap.id), 'left')
 					.join(
-						{ method: collection_methods },
+						{ trap: traps() },
+						({ collection, trap }) => eq(collection.trap_id, trap.id),
+						'left',
+					)
+					.join(
+						{ method: collection_methods() },
 						({ collection, method }) => eq(collection.collection_method_id, method.id),
 						'left',
 					)
 					.join(
-						{ collector: profiles },
+						{ collector: profiles() },
 						({ collection, collector }) => eq(collection.collected_by_profile_id, collector.id),
 						'left',
 					)

@@ -6,7 +6,7 @@ import { organizations } from '../lib/collections/organizations';
 import { canManageCatalogs, canManageOperationalCatalogs, readOrgRole } from '../lib/write-access';
 
 export function useOrganizationWorkspace(auth: AuthMe | null) {
-	const result = useLiveSuspenseQuery((query) => query.from({ organization: organizations }), []);
+	const result = useLiveSuspenseQuery((query) => query.from({ organization: organizations() }), []);
 	const organization: Organization | null = result.data[0] ?? null;
 	if (organization === null) {
 		throw new Error('Unable to resolve active organization for this workspace.');

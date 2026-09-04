@@ -42,7 +42,7 @@ export function useWeatherStation(stationId: string | null): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ source: weather_sources })
+					.from({ source: weather_sources() })
 					.where(({ source }) => eq(source.id, stationId ?? unmatchableId))
 					.select(({ source }) => ({
 						id: source.id,

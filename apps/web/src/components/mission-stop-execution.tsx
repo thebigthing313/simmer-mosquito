@@ -142,7 +142,7 @@ export function useMissionStopExecution(search: {
 			gcTime: missionStopGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: mission_items })
+					.from({ item: mission_items() })
 					.where(({ item }) => eq(item.id, missionItemId ?? UNMATCHABLE_ID))
 					.select(({ item }) => ({
 						lat: item.lat,

@@ -69,8 +69,8 @@ function usePersonGroup(group: PersonGroup): readonly PersonListing[] {
 	const result = useLiveSuspenseQuery(
 		(query) => {
 			const joined = query
-				.from({ profile: profiles })
-				.leftJoin({ membership: memberships }, ({ profile, membership }) =>
+				.from({ profile: profiles() })
+				.leftJoin({ membership: memberships() }, ({ profile, membership }) =>
 					eq(profile.id, membership.profile_id),
 				);
 

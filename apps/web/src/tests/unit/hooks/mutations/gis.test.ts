@@ -25,6 +25,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { installMemoryCollections } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -35,18 +36,6 @@ const OTHER_FOLDER = '55555555-5555-4555-8555-555555555555';
 vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
-});
-vi.mock('../../../../lib/collections/regions', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { regions: stubCollection('regions') };
-});
-vi.mock('../../../../lib/collections/region_folders', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { region_folders: stubCollection('region_folders') };
-});
-vi.mock('../../../../lib/collections/addresses', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { addresses: stubCollection('addresses') };
 });
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => ({
@@ -94,6 +83,7 @@ function renderRegions() {
 }
 
 beforeEach(() => {
+	installMemoryCollections();
 	resetDispatches();
 	stubApi();
 });

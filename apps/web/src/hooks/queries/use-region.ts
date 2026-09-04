@@ -20,12 +20,12 @@ export function useRegion(
 			gcTime: options?.gcTime ?? mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ region: regions })
+					.from({ region: regions() })
 					.where(({ region }) => eq(region.id, regionId ?? unmatchableId))
 					// `left`: a Region need not sit in a folder, and an `inner` join would
 					// make a top-level one disappear from its own card.
 					.join(
-						{ folder: region_folders },
+						{ folder: region_folders() },
 						({ region, folder }) => eq(region.region_folder_id, folder.id),
 						'left',
 					)

@@ -159,7 +159,7 @@ function RegionResults({
 				// No organization predicate: the shape is scoped to the agency
 				// server-side, so re-stating it here is redundant — and a stale column
 				// spelling in one is what empties a list rather than narrowing it.
-				const base = query.from({ region: regions });
+				const base = query.from({ region: regions() });
 				const filtered =
 					normalized.length === 0
 						? base

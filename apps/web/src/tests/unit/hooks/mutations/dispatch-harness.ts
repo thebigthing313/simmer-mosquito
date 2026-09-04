@@ -2,9 +2,8 @@
  * What a mutation hook dispatched, per write surface.
  *
  * Not a suite. The suites beside it are grouped by surface because `vi.mock`
- * hoists per file, so each one declares its own stub block and each one pays for
- * the same three pieces: somewhere to record what `mutateCollection` was handed,
- * a collection a hook can write to, and an API that answers.
+ * hoists per file, so each one declares its own stub block: somewhere to record
+ * what `mutateCollection` was handed, and an API that answers.
  *
  * ## Two seams, because there are two write paths
  *
@@ -19,23 +18,19 @@
  * `writeThroughRest` and the hooks that call `sessionFetch` directly are the
  * same, since both go through the global.
  *
- * ## Why the collections are real
+ * ## Where the collections come from
  *
- * The transaction path only sends when the library recorded a mutation, so a
- * collection stubbed as `{}` would post nothing and every assertion would be
- * about a request that was never made. These are ordinary TanStack DB
- * collections with their sync controls held open, so a test can seed the rows an
- * `apply` callback updates.
+ * `installMemoryCollections` in `tests/unit/lib/collections`, one call per
+ * suite, which replaced a `vi.mock` block per table. They are ordinary TanStack
+ * DB collections, because the transaction path only sends when the library
+ * recorded a mutation: a collection stubbed as `{}` posts nothing, and every
+ * assertion would then be about a request nobody made.
  */
 
-import { createCollection } from '@tanstack/db';
 import { renderHook } from '@testing-library/react';
 import { expect, vi } from 'vitest';
 import { getServerUrl } from '../../../../auth';
 import { useAcknowledgedWrite } from '../../../../components/acknowledged-write';
-
-/** A row as a collection holds one. Keyed by `id`, like every SIMMER table. */
-type StubRow = Record<string, unknown> & { readonly id: string };
 
 /** What a hook handed `mutateCollection`, and which collection it named. */
 export interface DispatchedWrite {
@@ -184,56 +179,4 @@ export function firstAttempt(
 ): Promise<void> {
 	const { result } = renderHook(() => useAcknowledgedWrite({ askable, ask: true }));
 	return result.current.run(write);
-}
-
-/** The sync controls a stub collection holds open, so rows can be seeded after it is built. */
-interface SyncControls {
-	readonly begin: () => void;
-	readonly write: (message: { readonly type: 'insert'; readonly value: StubRow }) => void;
-	readonly commit: () => void;
-}
-
-const seeders = new Map<string, SyncControls>();
-
-/**
- * A collection a hook can write to, standing in for one that opens a shape.
- *
- * Writable in all three directions, because the read-only guard in
- * `sendCommandTransaction` reads the handlers off the config and a collection
- * missing one is refused before the request is built.
- */
-export function stubCollection(id: string) {
-	return createCollection<StubRow>({
-		id,
-		getKey: (row) => row.id,
-		// Eagerly, so the controls are registered before a test seeds through them.
-		startSync: true,
-		sync: {
-			sync: (controls) => {
-				seeders.set(id, controls as unknown as SyncControls);
-				controls.markReady();
-			},
-		},
-		onInsert: () => Promise.resolve(),
-		onUpdate: () => Promise.resolve(),
-		onDelete: () => Promise.resolve(),
-	});
-}
-
-/**
- * Put rows in a stub collection as though they had synced.
- *
- * An `apply` callback that updates a row needs the row to be there: TanStack DB
- * refuses an update to a key it does not hold, so a stop a test never seeded
- * fails on the update rather than on the assertion it was written for.
- */
-export function seedRows(id: string, rows: readonly StubRow[]): void {
-	const controls = seeders.get(id);
-	expect(controls, `collection ${id} was never synced`).toBeDefined();
-	const open = controls as SyncControls;
-	open.begin();
-	for (const row of rows) {
-		open.write({ type: 'insert', value: row });
-	}
-	open.commit();
 }

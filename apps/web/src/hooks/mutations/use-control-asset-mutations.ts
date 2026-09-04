@@ -88,7 +88,7 @@ export function useVehicleMutations(): ControlAssetMutations {
 				created_at: now,
 				updated_at: now,
 			} satisfies Vehicle;
-			await createCatalogRow(vehicles, vehicleCommands, row);
+			await createCatalogRow(vehicles(), vehicleCommands, row);
 			return row.id;
 		},
 		[organizationId, actorProfileId],
@@ -108,7 +108,7 @@ export function useVehicleMutations(): ControlAssetMutations {
 			if (fields.metadata !== current.metadata) {
 				changes.metadata = fields.metadata;
 			}
-			await saveCatalogRow(vehicles, vehicleCommands, id, {
+			await saveCatalogRow(vehicles(), vehicleCommands, id, {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
@@ -131,8 +131,8 @@ export function useVehicleMutations(): ControlAssetMutations {
 	return {
 		create,
 		save,
-		setActive: (id, isActive) => setCatalogRowActive(vehicles, vehicleCommands, id, isActive),
-		remove: (id) => deleteCatalogRow(vehicles, vehicleCommands, id),
+		setActive: (id, isActive) => setCatalogRowActive(vehicles(), vehicleCommands, id, isActive),
+		remove: (id) => deleteCatalogRow(vehicles(), vehicleCommands, id),
 		canWrite: organizationId !== null && actorProfileId !== null,
 	};
 }
@@ -166,7 +166,7 @@ export function useEquipmentMutations(): ControlAssetMutations {
 				created_at: now,
 				updated_at: now,
 			} satisfies Equipment;
-			await createCatalogRow(equipment, equipmentCommands, row);
+			await createCatalogRow(equipment(), equipmentCommands, row);
 			return row.id;
 		},
 		[organizationId, actorProfileId],
@@ -189,7 +189,7 @@ export function useEquipmentMutations(): ControlAssetMutations {
 			if (fields.metadata !== current.metadata) {
 				changes.metadata = fields.metadata;
 			}
-			await saveCatalogRow(equipment, equipmentCommands, id, {
+			await saveCatalogRow(equipment(), equipmentCommands, id, {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
@@ -211,8 +211,8 @@ export function useEquipmentMutations(): ControlAssetMutations {
 	return {
 		create,
 		save,
-		setActive: (id, isActive) => setCatalogRowActive(equipment, equipmentCommands, id, isActive),
-		remove: (id) => deleteCatalogRow(equipment, equipmentCommands, id),
+		setActive: (id, isActive) => setCatalogRowActive(equipment(), equipmentCommands, id, isActive),
+		remove: (id) => deleteCatalogRow(equipment(), equipmentCommands, id),
 		canWrite: organizationId !== null && actorProfileId !== null,
 	};
 }

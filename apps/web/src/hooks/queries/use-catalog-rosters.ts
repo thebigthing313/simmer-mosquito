@@ -47,37 +47,37 @@ export interface SchemaCatalogListing extends CatalogListing {
 }
 
 export function useHabitatTypeRoster(): readonly SchemaCatalogListing[] {
-	return useSchemaCatalogRoster(habitat_types);
+	return useSchemaCatalogRoster(habitat_types());
 }
 
 export function useCollectionMethodRoster(): readonly SchemaCatalogListing[] {
-	return useSchemaCatalogRoster(collection_methods);
+	return useSchemaCatalogRoster(collection_methods());
 }
 
 export function useApplicationMethodRoster(): readonly SchemaCatalogListing[] {
-	return useSchemaCatalogRoster(application_methods);
+	return useSchemaCatalogRoster(application_methods());
 }
 
 export function useSourceReductionMethodRoster(): readonly SchemaCatalogListing[] {
-	return useSchemaCatalogRoster(source_reduction_methods);
+	return useSchemaCatalogRoster(source_reduction_methods());
 }
 
 export function useBiocontrolMethodRoster(): readonly SchemaCatalogListing[] {
-	return useSchemaCatalogRoster(biocontrol_methods);
+	return useSchemaCatalogRoster(biocontrol_methods());
 }
 
 export function useOutreachMethodRoster(): readonly SchemaCatalogListing[] {
-	return useSchemaCatalogRoster(outreach_methods);
+	return useSchemaCatalogRoster(outreach_methods());
 }
 
 /** Lures carry no custom schema — the one catalog on the plain shape. */
 export function useCollectionLureRoster(): readonly CatalogListing[] {
-	return usePlainCatalogRoster(collection_lures);
+	return usePlainCatalogRoster(collection_lures());
 }
 
 /** Nor do notification types — the mission form picks one to notify residents by. */
 export function useNotificationTypeRoster(): readonly CatalogListing[] {
-	return usePlainCatalogRoster(notification_types);
+	return usePlainCatalogRoster(notification_types());
 }
 
 /**
@@ -86,7 +86,9 @@ export function useNotificationTypeRoster(): readonly CatalogListing[] {
  * `collection_lures` and `notification_types` have identical columns, so their
  * row types are the same type and one query covers both.
  */
-function usePlainCatalogRoster(collection: typeof collection_lures): readonly CatalogListing[] {
+function usePlainCatalogRoster(
+	collection: ReturnType<typeof collection_lures>,
+): readonly CatalogListing[] {
 	const result = useLiveSuspenseQuery(
 		(query) =>
 			query.from({ row: collection }).select(({ row }) => ({

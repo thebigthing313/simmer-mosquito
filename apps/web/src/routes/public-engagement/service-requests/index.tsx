@@ -566,7 +566,7 @@ function useRequestIdsForTags(selectedTagIds: ReadonlySet<string>): ReadonlySet<
 			gcTime: requestsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: tag_items })
+					.from({ item: tag_items() })
 					.where(({ item }) => inArray(item.tag_id, queryIds))
 					.select(({ item }) => ({ entityId: item.entity_id })),
 		},

@@ -29,7 +29,7 @@ export function useContact(contactId: string | null | undefined): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ contact: contacts })
+					.from({ contact: contacts() })
 					.where(({ contact }) => eq(contact.id, id))
 					.select(({ contact }) => ({
 						id: contact.id,

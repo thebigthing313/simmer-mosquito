@@ -17,7 +17,7 @@ export function useWeatherStations(): {
 	const result = useLiveQuery(
 		(query) =>
 			query
-				.from({ source: weather_sources })
+				.from({ source: weather_sources() })
 				.orderBy(({ source }) => source.source_name, 'asc')
 				.select(({ source }) => ({
 					id: source.id,

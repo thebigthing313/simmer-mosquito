@@ -54,7 +54,7 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 	const membershipResult = useLiveQuery(
 		(query) =>
 			query
-				.from({ membership: memberships })
+				.from({ membership: memberships() })
 				.where(({ membership }) => eq(membership.id, membershipId ?? ''))
 				.findOne(),
 		[membershipId],

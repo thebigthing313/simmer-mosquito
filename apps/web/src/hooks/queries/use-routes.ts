@@ -35,7 +35,7 @@ export function useRouteCatalog(): {
 	const result = useLiveQuery(
 		(query) =>
 			query
-				.from({ route: routes })
+				.from({ route: routes() })
 				.orderBy(({ route }) => route.route_name, 'asc')
 				.select(({ route }) => ({
 					id: route.id,
@@ -64,7 +64,7 @@ export function useRouteStopCounts(): {
 			gcTime: routeItemsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: route_items })
+					.from({ item: route_items() })
 					.groupBy(({ item }) => item.route_id)
 					.select(({ item }) => ({ routeId: item.route_id, stops: count(item.id) })),
 		},

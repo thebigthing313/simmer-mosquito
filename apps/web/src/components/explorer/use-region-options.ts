@@ -30,7 +30,7 @@ export function useRegionOptions(): {
 			gcTime: regionsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ region: regions })
+					.from({ region: regions() })
 					.where(({ region }) => eq(region.organization_id, organizationId))
 					.orderBy(({ region }) => region.name, 'asc')
 					.select(({ region }) => ({ id: region.id, label: region.name })),

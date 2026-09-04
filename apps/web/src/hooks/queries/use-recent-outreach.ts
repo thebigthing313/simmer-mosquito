@@ -34,15 +34,15 @@ export function useRecentOutreachActions(sinceDate: string): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ action: outreach_actions })
+					.from({ action: outreach_actions() })
 					.where(({ action }) => gte(action.outreach_date, sinceDate))
 					.join(
-						{ method: outreach_methods },
+						{ method: outreach_methods() },
 						({ action, method }) => eq(action.outreach_method_id, method.id),
 						'left',
 					)
 					.join(
-						{ technician: profiles },
+						{ technician: profiles() },
 						({ action, technician }) => eq(action.technician_profile_id, technician.id),
 						'left',
 					)

@@ -21,8 +21,14 @@ import '@fontsource/poppins/latin-ext-800.css';
 import { OutletContentFallback } from '@simmer-mosquito/ui-web/components/app-shell';
 import { RouteErrorPage } from '@simmer-mosquito/ui-web/components/error-report';
 import { appAuthController } from './app-auth';
+import { installSyncCollections } from './lib/collections/sync-source';
 import { routeTree } from './routeTree.gen';
 import './styles.css';
+
+// Before the first render, because a route's read hooks resolve their
+// collections as they run and a collection module builds nothing on its own.
+// See `lib/collections/registry.ts`.
+installSyncCollections();
 
 const queryClient = new QueryClient({
 	defaultOptions: {

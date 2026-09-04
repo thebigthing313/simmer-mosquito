@@ -7,36 +7,17 @@
  */
 
 import { type BiocontrolMethod, createBiocontrolMethodsCollection } from '@simmer-mosquito/sync';
-import { BasicIndex, type Collection } from '@tanstack/db';
-import { syncClientOptions } from './client-options';
+import { declareCollection } from './registry';
 
 /**
  * `eager`: A method catalogue an agency has dozens of rows of.
  *
  * This app writes biocontrol_methods, so the collection carries the three
  * mutation handlers and every write through it names the command it means.
- *
- * The type is written here rather than inferred because a `Collection<…>`
- * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
- * Naming it on this side instantiates it where it resolves.
  */
-export const biocontrol_methods: Collection<BiocontrolMethod, string | number> =
-	createBiocontrolMethodsCollection({
-		...syncClientOptions,
-		syncMode: 'eager',
-		mutations: true,
-	});
-
-/**
- * The join index.
- *
- * A live query that joins this table loads it lazily — it collects the join keys
- * the driving side produces and asks for exactly those rows. It can only do that
- * when the join column is indexed. Without this it says so in a console warning
- * and loads the whole table instead, which on an on-demand collection is the one
- * thing the mode exists to avoid.
- *
- * Always `id`: every table is joined by its primary key, because that is what the
- * foreign keys point at.
- */
-biocontrol_methods.createIndex((row) => row.id, { indexType: BasicIndex });
+export const biocontrol_methods = declareCollection<BiocontrolMethod>({
+	table: 'biocontrol_methods',
+	syncMode: 'eager',
+	mutations: true,
+	create: createBiocontrolMethodsCollection,
+});

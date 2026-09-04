@@ -197,7 +197,7 @@ export function useCollectionMethodMutations(): CatalogMutations {
 				action_threshold: fields.actionThreshold ?? null,
 				is_active: fields.isActive,
 			} satisfies CollectionMethod;
-			await createCatalogRow(collection_methods, collectionMethodCommands, row);
+			await createCatalogRow(collection_methods(), collectionMethodCommands, row);
 			return row.id;
 		},
 		[organizationId, actorProfileId],
@@ -223,7 +223,7 @@ export function useCollectionMethodMutations(): CatalogMutations {
 			if (fields.actionThreshold !== current.actionThreshold) {
 				changes.action_threshold = fields.actionThreshold ?? null;
 			}
-			await saveCatalogRow(collection_methods, collectionMethodCommands, id, {
+			await saveCatalogRow(collection_methods(), collectionMethodCommands, id, {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
@@ -236,7 +236,7 @@ export function useCollectionMethodMutations(): CatalogMutations {
 		[],
 	);
 
-	return catalogMutations(collection_methods, collectionMethodCommands, CATALOG_SAVE_REFUSALS, {
+	return catalogMutations(collection_methods(), collectionMethodCommands, CATALOG_SAVE_REFUSALS, {
 		create,
 		save,
 		canWrite: organizationId !== null && actorProfileId !== null,
@@ -265,7 +265,7 @@ export function useCollectionLureMutations(): CatalogMutations {
 				description: fields.description ?? null,
 				is_active: fields.isActive,
 			} satisfies CollectionLure;
-			await createCatalogRow(collection_lures, collectionLureCommands, row);
+			await createCatalogRow(collection_lures(), collectionLureCommands, row);
 			return row.id;
 		},
 		[organizationId, actorProfileId],
@@ -285,7 +285,7 @@ export function useCollectionLureMutations(): CatalogMutations {
 			if (fields.description !== current.description) {
 				changes.description = fields.description ?? null;
 			}
-			await saveCatalogRow(collection_lures, collectionLureCommands, id, {
+			await saveCatalogRow(collection_lures(), collectionLureCommands, id, {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
@@ -298,7 +298,7 @@ export function useCollectionLureMutations(): CatalogMutations {
 		[],
 	);
 
-	return catalogMutations(collection_lures, collectionLureCommands, CATALOG_SAVE_REFUSALS, {
+	return catalogMutations(collection_lures(), collectionLureCommands, CATALOG_SAVE_REFUSALS, {
 		create,
 		save,
 		canWrite: organizationId !== null && actorProfileId !== null,
@@ -328,7 +328,7 @@ export function useHabitatTypeMutations(): CatalogMutations {
 				custom_schema: fields.customSchema ?? null,
 				is_active: fields.isActive,
 			} satisfies HabitatType;
-			await createCatalogRow(habitat_types, habitatTypeCommands, row);
+			await createCatalogRow(habitat_types(), habitatTypeCommands, row);
 			return row.id;
 		},
 		[organizationId, actorProfileId],
@@ -351,7 +351,7 @@ export function useHabitatTypeMutations(): CatalogMutations {
 			if (fields.customSchema !== current.customSchema) {
 				changes.custom_schema = fields.customSchema ?? null;
 			}
-			await saveCatalogRow(habitat_types, habitatTypeCommands, id, {
+			await saveCatalogRow(habitat_types(), habitatTypeCommands, id, {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
@@ -364,7 +364,7 @@ export function useHabitatTypeMutations(): CatalogMutations {
 		[],
 	);
 
-	return catalogMutations(habitat_types, habitatTypeCommands, CATALOG_SAVE_REFUSALS, {
+	return catalogMutations(habitat_types(), habitatTypeCommands, CATALOG_SAVE_REFUSALS, {
 		create,
 		save,
 		canWrite: organizationId !== null && actorProfileId !== null,
@@ -393,7 +393,7 @@ export function useNotificationTypeMutations(): CatalogMutations {
 				description: fields.description ?? null,
 				is_active: fields.isActive,
 			} satisfies NotificationType;
-			await createCatalogRow(notification_types, notificationTypeCommands, row);
+			await createCatalogRow(notification_types(), notificationTypeCommands, row);
 			return row.id;
 		},
 		[organizationId, actorProfileId],
@@ -413,7 +413,7 @@ export function useNotificationTypeMutations(): CatalogMutations {
 			if (fields.description !== current.description) {
 				changes.description = fields.description ?? null;
 			}
-			await saveCatalogRow(notification_types, notificationTypeCommands, id, {
+			await saveCatalogRow(notification_types(), notificationTypeCommands, id, {
 				changes,
 				isActive: fields.isActive,
 				wasActive: current.isActive,
@@ -431,7 +431,7 @@ export function useNotificationTypeMutations(): CatalogMutations {
 	);
 
 	return catalogMutations(
-		notification_types,
+		notification_types(),
 		notificationTypeCommands,
 		NOTIFICATION_TYPE_SAVE_REFUSALS,
 		{
@@ -443,7 +443,7 @@ export function useNotificationTypeMutations(): CatalogMutations {
 }
 
 export function useApplicationMethodMutations(): CatalogMutations {
-	return useControlMethodMutations(application_methods, {
+	return useControlMethodMutations(application_methods(), {
 		create: 'controlOperations.createApplicationMethod',
 		update: 'controlOperations.updateApplicationMethod',
 		deactivate: 'controlOperations.deactivateApplicationMethod',
@@ -453,7 +453,7 @@ export function useApplicationMethodMutations(): CatalogMutations {
 }
 
 export function useSourceReductionMethodMutations(): CatalogMutations {
-	return useControlMethodMutations(source_reduction_methods, {
+	return useControlMethodMutations(source_reduction_methods(), {
 		create: 'controlOperations.createSourceReductionMethod',
 		update: 'controlOperations.updateSourceReductionMethod',
 		deactivate: 'controlOperations.deactivateSourceReductionMethod',
@@ -463,7 +463,7 @@ export function useSourceReductionMethodMutations(): CatalogMutations {
 }
 
 export function useOutreachMethodMutations(): CatalogMutations {
-	return useControlMethodMutations(outreach_methods, {
+	return useControlMethodMutations(outreach_methods(), {
 		create: 'controlOperations.createOutreachMethod',
 		update: 'controlOperations.updateOutreachMethod',
 		deactivate: 'controlOperations.deactivateOutreachMethod',
@@ -473,7 +473,7 @@ export function useOutreachMethodMutations(): CatalogMutations {
 }
 
 export function useBiocontrolMethodMutations(): CatalogMutations {
-	return useControlMethodMutations(biocontrol_methods, {
+	return useControlMethodMutations(biocontrol_methods(), {
 		create: 'controlOperations.createBiocontrolMethod',
 		update: 'controlOperations.updateBiocontrolMethod',
 		deactivate: 'controlOperations.deactivateBiocontrolMethod',
@@ -492,7 +492,7 @@ export function useBiocontrolMethodMutations(): CatalogMutations {
  * commands a given hook slot runs never changes between renders.
  */
 function useControlMethodMutations(
-	collection: typeof application_methods,
+	collection: ReturnType<typeof application_methods>,
 	names: CatalogCommandNames,
 ): CatalogMutations {
 	const { organizationId, actorProfileId } = useWriterIdentity();

@@ -135,7 +135,7 @@ export function useAssignmentMutations(): AssignmentMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(assignments, {
+				mutateCollection(assignments(), {
 					operation: 'insert',
 					intent: 'fieldWork.createAssignment',
 					row: newAssignmentRow(assignmentId, details),
@@ -187,9 +187,9 @@ export function useAssignmentMutations(): AssignmentMutations {
 						},
 					},
 					apply: () => {
-						assignments.insert(assignment);
+						assignments().insert(assignment);
 						stops.forEach((stop, index) => {
-							assignment_items.insert({
+							assignment_items().insert({
 								id: stop.assignmentItemId,
 								organization_id: organizationId,
 								assignment_id: assignmentId,
@@ -218,7 +218,7 @@ export function useAssignmentMutations(): AssignmentMutations {
 	const updateDetails = useCallback(
 		async (assignmentId: string, details: AssignmentDetails) => {
 			await settleWrite(
-				mutateCollection(assignments, {
+				mutateCollection(assignments(), {
 					operation: 'update',
 					intent: 'fieldWork.updateAssignmentDetails',
 					key: assignmentId,
@@ -239,7 +239,7 @@ export function useAssignmentMutations(): AssignmentMutations {
 	const start = useCallback(
 		async (assignmentId: string) => {
 			await settleWrite(
-				mutateCollection(assignments, {
+				mutateCollection(assignments(), {
 					operation: 'update',
 					intent: 'fieldWork.startAssignment',
 					key: assignmentId,
@@ -257,7 +257,7 @@ export function useAssignmentMutations(): AssignmentMutations {
 	const complete = useCallback(
 		async (assignmentId: string) => {
 			await settleWrite(
-				mutateCollection(assignments, {
+				mutateCollection(assignments(), {
 					operation: 'update',
 					intent: 'fieldWork.completeAssignment',
 					key: assignmentId,
@@ -275,7 +275,7 @@ export function useAssignmentMutations(): AssignmentMutations {
 	const cancel = useCallback(
 		async (assignmentId: string, cancellationReason: string | null) => {
 			await settleWrite(
-				mutateCollection(assignments, {
+				mutateCollection(assignments(), {
 					operation: 'update',
 					intent: 'fieldWork.cancelAssignment',
 					key: assignmentId,
@@ -294,7 +294,7 @@ export function useAssignmentMutations(): AssignmentMutations {
 	const reopen = useCallback(
 		async (assignmentId: string) => {
 			await settleWrite(
-				mutateCollection(assignments, {
+				mutateCollection(assignments(), {
 					operation: 'update',
 					intent: 'fieldWork.reopenAssignment',
 					key: assignmentId,
@@ -318,7 +318,7 @@ export function useAssignmentMutations(): AssignmentMutations {
 	const remove = useCallback(
 		async (assignmentId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(assignments, {
+				mutateCollection(assignments(), {
 					operation: 'delete',
 					intent: 'fieldWork.deleteAssignment',
 					key: assignmentId,
@@ -351,9 +351,9 @@ export function useAssignmentMutations(): AssignmentMutations {
 				// request would never leave the browser. A move always rewrites at least
 				// the row it moved, which is why that cannot happen here.
 				apply: () => {
-					const positions = planStopPositions(plan, (id) => assignment_items.get(id)?.position);
+					const positions = planStopPositions(plan, (id) => assignment_items().get(id)?.position);
 					for (const [assignmentItemId, position] of positions) {
-						assignment_items.update(assignmentItemId, (draft) => {
+						assignment_items().update(assignmentItemId, (draft) => {
 							draft.position = position;
 						});
 					}

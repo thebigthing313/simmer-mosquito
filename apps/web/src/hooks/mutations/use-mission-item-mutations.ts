@@ -135,7 +135,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(mission_items, {
+				mutateCollection(mission_items(), {
 					operation: 'insert',
 					intent: 'missionDispatch.addMissionItemFromRequestedControlAction',
 					// No location source: the command names where the ground comes from,
@@ -178,7 +178,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(mission_items, {
+				mutateCollection(mission_items(), {
 					operation: 'insert',
 					intent: 'missionDispatch.addMissionItem',
 					row: newStopRow({
@@ -199,7 +199,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 
 	const removeStop = useCallback(async (missionItemId: string) => {
 		await settleWrite(
-			mutateCollection(mission_items, {
+			mutateCollection(mission_items(), {
 				operation: 'delete',
 				intent: 'missionDispatch.removeMissionItem',
 				key: missionItemId,
@@ -210,7 +210,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 	const complete = useCallback(
 		async (missionItemId: string) => {
 			await settleWrite(
-				mutateCollection(mission_items, {
+				mutateCollection(mission_items(), {
 					operation: 'update',
 					intent: 'missionDispatch.completeMissionItem',
 					key: missionItemId,
@@ -236,7 +236,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 	const reopen = useCallback(
 		async (missionItemId: string) => {
 			await settleWrite(
-				mutateCollection(mission_items, {
+				mutateCollection(mission_items(), {
 					operation: 'update',
 					intent: 'missionDispatch.reopenMissionItem',
 					key: missionItemId,
@@ -255,7 +255,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 	const skip = useCallback(
 		async (missionItemId: string, skipReason: string) => {
 			await settleWrite(
-				mutateCollection(mission_items, {
+				mutateCollection(mission_items(), {
 					operation: 'update',
 					intent: 'missionDispatch.skipMissionItem',
 					key: missionItemId,
@@ -278,7 +278,7 @@ export function useMissionItemMutations(): MissionItemMutations {
 	const unskip = useCallback(
 		async (missionItemId: string) => {
 			await settleWrite(
-				mutateCollection(mission_items, {
+				mutateCollection(mission_items(), {
 					operation: 'update',
 					intent: 'missionDispatch.unskipMissionItem',
 					key: missionItemId,

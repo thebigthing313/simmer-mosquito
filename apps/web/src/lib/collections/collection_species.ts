@@ -7,8 +7,7 @@
  */
 
 import { type CollectionSpecies, createCollectionSpeciesCollection } from '@simmer-mosquito/sync';
-import { BasicIndex, type Collection } from '@tanstack/db';
-import { syncClientOptions } from './client-options';
+import { declareCollection } from './registry';
 
 /**
  * `on-demand`: One row per species counted in a collection, so it grows faster than the
@@ -16,28 +15,10 @@ import { syncClientOptions } from './client-options';
  *
  * This app writes collection_species, so the collection carries the three
  * mutation handlers and every write through it names the command it means.
- *
- * The type is written here rather than inferred because a `Collection<…>`
- * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
- * Naming it on this side instantiates it where it resolves.
  */
-export const collection_species: Collection<CollectionSpecies, string | number> =
-	createCollectionSpeciesCollection({
-		...syncClientOptions,
-		syncMode: 'on-demand',
-		mutations: true,
-	});
-
-/**
- * The join index.
- *
- * A live query that joins this table loads it lazily — it collects the join keys
- * the driving side produces and asks for exactly those rows. It can only do that
- * when the join column is indexed. Without this it says so in a console warning
- * and loads the whole table instead, which on an on-demand collection is the one
- * thing the mode exists to avoid.
- *
- * Always `id`: every table is joined by its primary key, because that is what the
- * foreign keys point at.
- */
-collection_species.createIndex((row) => row.id, { indexType: BasicIndex });
+export const collection_species = declareCollection<CollectionSpecies>({
+	table: 'collection_species',
+	syncMode: 'on-demand',
+	mutations: true,
+	create: createCollectionSpeciesCollection,
+});

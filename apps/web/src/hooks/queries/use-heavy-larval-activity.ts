@@ -44,7 +44,7 @@ export function useHeavyLarvalActivity(sinceDate: string): {
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ inspection: inspections })
+					.from({ inspection: inspections() })
 					.where(({ inspection }) =>
 						and(
 							gte(inspection.inspection_date, sinceDate),
@@ -55,7 +55,7 @@ export function useHeavyLarvalActivity(sinceDate: string): {
 					// `inner` join would drop every one of them — which on this panel would
 					// hide standing water found away from a known site.
 					.join(
-						{ habitat: habitats },
+						{ habitat: habitats() },
 						({ inspection, habitat }) => eq(inspection.habitat_id, habitat.id),
 						'left',
 					)
@@ -64,12 +64,12 @@ export function useHeavyLarvalActivity(sinceDate: string): {
 					// the query for the same reason the Habitat is: the row should arrive
 					// whole.
 					.join(
-						{ inspector: profiles },
+						{ inspector: profiles() },
 						({ inspection, inspector }) => eq(inspection.inspected_by_profile_id, inspector.id),
 						'left',
 					)
 					.join(
-						{ type: habitat_types },
+						{ type: habitat_types() },
 						({ inspection, type }) => eq(inspection.habitat_type_id, type.id),
 						'left',
 					)

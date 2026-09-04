@@ -16,6 +16,7 @@
 
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -27,26 +28,6 @@ const SPECIES = '66666666-6666-4666-8666-666666666666';
 vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
-});
-vi.mock('../../../../lib/collections/habitats', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { habitats: stubCollection('habitats') };
-});
-vi.mock('../../../../lib/collections/inspections', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { inspections: stubCollection('inspections') };
-});
-vi.mock('../../../../lib/collections/assignment_items', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { assignment_items: stubCollection('assignment_items') };
-});
-vi.mock('../../../../lib/collections/samples', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { samples: stubCollection('samples') };
-});
-vi.mock('../../../../lib/collections/sample_species', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { sample_species: stubCollection('sample_species') };
 });
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => ({
@@ -65,9 +46,9 @@ const {
 	lastWrite,
 	requests,
 	resetDispatches,
-	seedRows,
 	stubApi,
 } = await import('./dispatch-harness');
+const { assignment_items } = await import('../../../../lib/collections/assignment_items');
 const { HABITAT_DELETE_REFUSALS, INSPECTION_DELETE_REFUSALS, SAMPLE_DELETE_REFUSALS } =
 	await import('../../../../lib/acknowledgement-copy');
 const { useHabitatMutations } = await import('../../../../hooks/mutations/use-habitat-mutations');
@@ -83,6 +64,7 @@ const SHAPE = { type: 'Point', coordinates: [-121.49, 38.58] } as const;
 const CENTROID = { lat: 38.58, lng: -121.49, geomType: 'st_point' };
 
 beforeEach(() => {
+	installMemoryCollections();
 	resetDispatches();
 	stubApi();
 });
@@ -247,7 +229,7 @@ describe('an inspection write', () => {
 		// ADR 0012. Without `assignment_item_id` the server takes the ordinary
 		// branch, answers 201, and sync drops the closed stop a moment later with
 		// nothing thrown.
-		seedRows('assignment_items', [{ id: STOP }]);
+		seedRows(assignment_items, [{ id: STOP }]);
 		const { result } = renderHook(() => useInspectionMutations());
 
 		await result.current.record({
@@ -273,7 +255,7 @@ describe('an inspection write', () => {
 	it('keeps the server-owned columns out of the posted body', async () => {
 		// The centroid is snapshotted from the habitat at commit and the stamps are
 		// the server's, so a client value for any of them reads as an intention.
-		seedRows('assignment_items', [{ id: STOP }]);
+		seedRows(assignment_items, [{ id: STOP }]);
 		const { result } = renderHook(() => useInspectionMutations());
 
 		await result.current.record({

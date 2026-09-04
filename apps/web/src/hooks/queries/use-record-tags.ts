@@ -27,11 +27,11 @@ export function useRecordTags(entityId: string): readonly Tag[] {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: tag_items })
+					.from({ item: tag_items() })
 					.where(({ item }) => eq(item.entity_id, entityId))
 					// `inner`: an assignment names a tag that exists. A row whose tag had been
 					// deleted is not a blank chip, it is nothing to show.
-					.join({ tag: tags }, ({ item, tag }) => eq(item.tag_id, tag.id))
+					.join({ tag: tags() }, ({ item, tag }) => eq(item.tag_id, tag.id))
 					.orderBy(({ tag }) => tag.tag_name, 'asc')
 					// Coalesced even though the join is `inner`: the builder types every
 					// joined column as possibly absent, which is honest — the catalog row can

@@ -7,8 +7,7 @@
  */
 
 import { type BiocontrolAction, createBiocontrolActionsCollection } from '@simmer-mosquito/sync';
-import { BasicIndex, type Collection } from '@tanstack/db';
-import { syncClientOptions } from './client-options';
+import { declareCollection } from './registry';
 
 /**
  * `on-demand`: One row per action taken, so the explorers ask for a date window rather than
@@ -16,28 +15,10 @@ import { syncClientOptions } from './client-options';
  *
  * This app writes biocontrol_actions, so the collection carries the three
  * mutation handlers and every write through it names the command it means.
- *
- * The type is written here rather than inferred because a `Collection<…>`
- * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
- * Naming it on this side instantiates it where it resolves.
  */
-export const biocontrol_actions: Collection<BiocontrolAction, string | number> =
-	createBiocontrolActionsCollection({
-		...syncClientOptions,
-		syncMode: 'on-demand',
-		mutations: true,
-	});
-
-/**
- * The join index.
- *
- * A live query that joins this table loads it lazily — it collects the join keys
- * the driving side produces and asks for exactly those rows. It can only do that
- * when the join column is indexed. Without this it says so in a console warning
- * and loads the whole table instead, which on an on-demand collection is the one
- * thing the mode exists to avoid.
- *
- * Always `id`: every table is joined by its primary key, because that is what the
- * foreign keys point at.
- */
-biocontrol_actions.createIndex((row) => row.id, { indexType: BasicIndex });
+export const biocontrol_actions = declareCollection<BiocontrolAction>({
+	table: 'biocontrol_actions',
+	syncMode: 'on-demand',
+	mutations: true,
+	create: createBiocontrolActionsCollection,
+});

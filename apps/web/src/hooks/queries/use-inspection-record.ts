@@ -60,7 +60,7 @@ export function useInspectionRecord(inspectionId: string | null | undefined): {
 			gcTime: mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ inspection: inspections })
+					.from({ inspection: inspections() })
 					.where(({ inspection }) => eq(inspection.id, id))
 					.select(({ inspection }) => ({
 						id: inspection.id,

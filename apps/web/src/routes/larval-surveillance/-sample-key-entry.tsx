@@ -49,7 +49,7 @@ export function SampleKeyEntryDialog({
 		{
 			query: (query) =>
 				query
-					.from({ sampleSpecies: sample_species })
+					.from({ sampleSpecies: sample_species() })
 					.where(({ sampleSpecies }) => eq(sampleSpecies.sample_id, sampleId))
 					.select(({ sampleSpecies }) => ({
 						id: sampleSpecies.id,

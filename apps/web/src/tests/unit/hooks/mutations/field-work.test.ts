@@ -18,6 +18,7 @@
 
 import { renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
 const PROFILE = '22222222-2222-4222-8222-222222222222';
@@ -35,26 +36,6 @@ const SOURCE_REDUCTION = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
-});
-vi.mock('../../../../lib/collections/routes', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { routes: stubCollection('routes') };
-});
-vi.mock('../../../../lib/collections/route_items', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { route_items: stubCollection('route_items') };
-});
-vi.mock('../../../../lib/collections/assignments', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { assignments: stubCollection('assignments') };
-});
-vi.mock('../../../../lib/collections/assignment_items', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { assignment_items: stubCollection('assignment_items') };
-});
-vi.mock('../../../../lib/collections/additional_personnel', async () => {
-	const { stubCollection } = await import('./dispatch-harness');
-	return { additional_personnel: stubCollection('additional_personnel') };
 });
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => ({
@@ -74,9 +55,10 @@ const {
 	lastWrite,
 	requests,
 	resetDispatches,
-	seedRows,
 	stubApi,
 } = await import('./dispatch-harness');
+const { assignment_items } = await import('../../../../lib/collections/assignment_items');
+const { route_items } = await import('../../../../lib/collections/route_items');
 const { ASSIGNMENT_DELETE_REFUSALS, ROUTE_DELETE_REFUSALS } = await import(
 	'../../../../lib/acknowledgement-copy'
 );
@@ -95,6 +77,7 @@ const { useAdditionalPersonnelMutations } = await import(
 );
 
 beforeEach(() => {
+	installMemoryCollections();
 	resetDispatches();
 	stubApi();
 });
@@ -148,7 +131,7 @@ describe('a route write', () => {
 
 describe('reordering a route', () => {
 	it('posts one command on the route, naming the stop moved and where it lands', async () => {
-		seedRows('route_items', [
+		seedRows(route_items, [
 			{ id: 'route-a', position: 0 },
 			{ id: 'route-b', position: 1 },
 			{ id: 'route-c', position: 2 },
@@ -179,7 +162,7 @@ describe('reordering a route', () => {
 		// precision, so the plan renumbers all four rows rather than subdividing.
 		// Four optimistic mutations, still one command: the request count is what
 		// separates a command on the parent from a loop over the stops.
-		seedRows('route_items', [
+		seedRows(route_items, [
 			{ id: 'gap-a', position: 0 },
 			{ id: 'gap-b', position: 1 },
 			{ id: 'gap-c', position: 1 + Number.EPSILON },
@@ -204,7 +187,7 @@ describe('reordering a route', () => {
 		// Positions well away from their index, so an implementation that renumbered
 		// the list rather than planning the move would have a row to write and this
 		// would see a request.
-		seedRows('route_items', [
+		seedRows(route_items, [
 			{ id: 'held-a', position: 5 },
 			{ id: 'held-b', position: 9 },
 		]);
@@ -402,7 +385,7 @@ describe('an assignment write', () => {
 
 describe('reordering a worklist', () => {
 	it('posts one command on the assignment, naming the stop moved and where it lands', async () => {
-		seedRows('assignment_items', [
+		seedRows(assignment_items, [
 			{ id: 'work-a', position: 0 },
 			{ id: 'work-b', position: 1 },
 			{ id: 'work-c', position: 2 },
@@ -432,7 +415,7 @@ describe('reordering a worklist', () => {
 		// Same gap as the route case: `work-gap-b` and `work-gap-c` are adjacent at
 		// double precision, so the plan renumbers all four rows. Four optimistic
 		// mutations, still one command.
-		seedRows('assignment_items', [
+		seedRows(assignment_items, [
 			{ id: 'work-gap-a', position: 0 },
 			{ id: 'work-gap-b', position: 1 },
 			{ id: 'work-gap-c', position: 1 + Number.EPSILON },
@@ -453,7 +436,7 @@ describe('reordering a worklist', () => {
 	it('sends an end placement with nothing but its kind', async () => {
 		// Top and Bottom have no anchor, so an anchor key on one would be this layer
 		// naming a stop the move does not depend on.
-		seedRows('assignment_items', [
+		seedRows(assignment_items, [
 			{ id: 'ends-a', position: 0 },
 			{ id: 'ends-b', position: 1 },
 		]);
@@ -469,7 +452,7 @@ describe('reordering a worklist', () => {
 	});
 
 	it('sends nothing when the plan names a stop the worklist does not hold', async () => {
-		seedRows('assignment_items', [
+		seedRows(assignment_items, [
 			{ id: 'kept-a', position: 5 },
 			{ id: 'kept-b', position: 9 },
 		]);

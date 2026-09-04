@@ -73,7 +73,7 @@ function EditInspectionRoute() {
 		{
 			gcTime: inspectionGcTimeMs,
 			query: (query) =>
-				query.from({ sample: samples }).where(({ sample }) => eq(sample.inspection_id, id)),
+				query.from({ sample: samples() }).where(({ sample }) => eq(sample.inspection_id, id)),
 		},
 		[id],
 	);

@@ -34,23 +34,27 @@ export function useBiocontrolAction(
 			gcTime: options?.gcTime ?? mapCardGcTimeMs,
 			query: (query) =>
 				query
-					.from({ action: biocontrol_actions })
+					.from({ action: biocontrol_actions() })
 					.where(({ action }) => eq(action.id, actionId ?? unmatchableId))
 					// `left` throughout: a release need not record a technician and most
 					// name no address.
 					.join(
-						{ method: biocontrol_methods },
+						{ method: biocontrol_methods() },
 						({ action, method }) => eq(action.biocontrol_method_id, method.id),
 						'left',
 					)
-					.join({ unit: units }, ({ action, unit }) => eq(action.release_unit_id, unit.id), 'left')
 					.join(
-						{ technician: profiles },
+						{ unit: units() },
+						({ action, unit }) => eq(action.release_unit_id, unit.id),
+						'left',
+					)
+					.join(
+						{ technician: profiles() },
 						({ action, technician }) => eq(action.technician_profile_id, technician.id),
 						'left',
 					)
 					.join(
-						{ address: addresses },
+						{ address: addresses() },
 						({ action, address }) => eq(action.address_id, address.id),
 						'left',
 					)

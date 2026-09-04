@@ -260,11 +260,11 @@ export function useCollectionMutations(): CollectionMutations {
 							body: stopCollectionRequestBody(row, placement, acknowledgements),
 						},
 						apply: () => {
-							collections.insert(row);
+							collections().insert(row);
 							// The stop the technician was sent to, closed by the visit that
 							// was the reason for it. Backdated like every lifecycle stamp, so
 							// a fast browser clock cannot have it refused as future.
-							assignment_items.update(placement.assignmentItemId, (draft) => {
+							assignment_items().update(placement.assignmentItemId, (draft) => {
 								draft.completed_at = lifecycleStamp();
 								draft.completed_by_profile_id = actorProfileId;
 								draft.skipped_at = null;
@@ -280,7 +280,7 @@ export function useCollectionMutations(): CollectionMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(collections, {
+				mutateCollection(collections(), {
 					operation: 'insert',
 					intent: createIntentFor(placement.kind, isCollected),
 					row,
@@ -349,7 +349,7 @@ export function useCollectionMutations(): CollectionMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(collections, {
+				mutateCollection(collections(), {
 					operation: 'update',
 					intent: intents,
 					key: collectionId,
@@ -389,7 +389,7 @@ export function useCollectionMutations(): CollectionMutations {
 
 			if (assignmentItemId == null) {
 				await settleWrite(
-					mutateCollection(collections, {
+					mutateCollection(collections(), {
 						operation: 'update',
 						intent: 'adultSurveillance.collectCollection',
 						key: collectionId,
@@ -413,11 +413,11 @@ export function useCollectionMutations(): CollectionMutations {
 						),
 					},
 					apply: () => {
-						collections.update(collectionId, (draft) => {
+						collections().update(collectionId, (draft) => {
 							Object.assign(draft, changes);
 							draft.collected_assignment_item_id = assignmentItemId;
 						});
-						assignment_items.update(assignmentItemId, (draft) => {
+						assignment_items().update(assignmentItemId, (draft) => {
 							draft.completed_at = lifecycleStamp();
 							draft.completed_by_profile_id = actorProfileId;
 							draft.skipped_at = null;
@@ -440,7 +440,7 @@ export function useCollectionMutations(): CollectionMutations {
 			acknowledgements: Readonly<Record<string, boolean>> = {},
 		) => {
 			await settleWrite(
-				mutateCollection(collections, {
+				mutateCollection(collections(), {
 					operation: 'update',
 					intent: isZeroResult
 						? 'adultSurveillance.markCollectionZeroResult'
@@ -464,7 +464,7 @@ export function useCollectionMutations(): CollectionMutations {
 	const setBycatch = useCallback(
 		async (collectionId: string, hasBycatch: boolean) => {
 			await settleWrite(
-				mutateCollection(collections, {
+				mutateCollection(collections(), {
 					operation: 'update',
 					intent: 'adultSurveillance.setCollectionBycatch',
 					key: collectionId,
@@ -482,7 +482,7 @@ export function useCollectionMutations(): CollectionMutations {
 	const setProblem = useCallback(
 		async (collectionId: string, hasProblem: boolean) => {
 			await settleWrite(
-				mutateCollection(collections, {
+				mutateCollection(collections(), {
 					operation: 'update',
 					intent: 'adultSurveillance.updateCollectionFieldDetails',
 					key: collectionId,
@@ -500,7 +500,7 @@ export function useCollectionMutations(): CollectionMutations {
 	const remove = useCallback(
 		async (collectionId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(collections, {
+				mutateCollection(collections(), {
 					operation: 'delete',
 					intent: 'adultSurveillance.deleteCollection',
 					key: collectionId,

@@ -291,7 +291,7 @@ function useRequestAddresses(requests: readonly OpenServiceRequest[]): ReadonlyM
 			gcTime: addressGcTimeMs,
 			query: (query) =>
 				query
-					.from({ address: addresses })
+					.from({ address: addresses() })
 					.where(({ address }) =>
 						inArray(address.id, addressIds.length > 0 ? addressIds : [UNMATCHABLE_ID]),
 					)

@@ -85,7 +85,7 @@ export function useSampleSpeciesMutations(): SampleSpeciesMutations {
 
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(sample_species, {
+				mutateCollection(sample_species(), {
 					operation: 'insert',
 					intent: 'larvalSurveillance.addSampleSpeciesCount',
 					row: {
@@ -128,7 +128,7 @@ export function useSampleSpeciesMutations(): SampleSpeciesMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(sample_species, {
+				mutateCollection(sample_species(), {
 					operation: 'update',
 					intent: 'larvalSurveillance.updateSampleSpeciesCount',
 					key: sampleSpeciesId,
@@ -145,7 +145,7 @@ export function useSampleSpeciesMutations(): SampleSpeciesMutations {
 
 	const remove = useCallback(async (sampleSpeciesId: string) => {
 		await settleWrite(
-			mutateCollection(sample_species, {
+			mutateCollection(sample_species(), {
 				operation: 'delete',
 				// No acknowledgement: nothing hangs off a count, so removing one takes
 				// nothing with it.

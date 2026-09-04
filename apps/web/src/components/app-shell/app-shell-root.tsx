@@ -57,7 +57,7 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	// so a cold organization/profile shape never holds the entire workspace
 	// behind a full-screen fallback. Route content suspends into the boundary
 	// around `Outlet` below instead.
-	const organizationResult = useLiveQuery((query) => query.from({ row: organizations }), []);
+	const organizationResult = useLiveQuery((query) => query.from({ row: organizations() }), []);
 	const profileNameById = useProfileNames();
 	const timeZone = useOrganizationTimeZone();
 

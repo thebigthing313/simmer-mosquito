@@ -360,7 +360,7 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 						},
 					},
 					apply: () => {
-						notification_registrations.insert({
+						notification_registrations().insert({
 							id: input.registrationId,
 							organization_id: organizationId,
 							contact_id: input.contactId,
@@ -380,7 +380,7 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 						} satisfies NotificationRegistration);
 
 						for (const subscription of input.subscriptions) {
-							notification_registration_types.insert({
+							notification_registration_types().insert({
 								id: subscription.notificationRegistrationTypeId,
 								organization_id: organizationId,
 								notification_registration_id: input.registrationId,
@@ -413,7 +413,7 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 			}
 
 			await settleWrite(
-				mutateCollection(notification_registrations, {
+				mutateCollection(notification_registrations(), {
 					operation: 'update',
 					intent: plan.intents,
 					key: input.registrationId,
@@ -433,7 +433,7 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 	const setActive = useCallback(
 		async (registrationId: string, isActive: boolean) => {
 			await settleWrite(
-				mutateCollection(notification_registrations, {
+				mutateCollection(notification_registrations(), {
 					operation: 'update',
 					intent: isActive
 						? 'publicEngagement.reactivateNotificationRegistration'
@@ -461,7 +461,7 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 
 	const remove = useCallback(async (registrationId: string) => {
 		await settleWrite(
-			mutateCollection(notification_registrations, {
+			mutateCollection(notification_registrations(), {
 				operation: 'delete',
 				intent: 'publicEngagement.deleteNotificationRegistration',
 				key: registrationId,
@@ -476,7 +476,7 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 			}
 			const now = optimisticStamp();
 			await settleWrite(
-				mutateCollection(notification_registration_types, {
+				mutateCollection(notification_registration_types(), {
 					operation: 'insert',
 					intent: 'publicEngagement.subscribeNotificationRegistrationType',
 					row: {
@@ -498,7 +498,7 @@ export function useNotificationRegistrationMutations(): NotificationRegistration
 	const unsubscribe = useCallback(
 		async (subscriptionId: string, acknowledgedFutureOnlyChange: boolean) => {
 			await settleWrite(
-				mutateCollection(notification_registration_types, {
+				mutateCollection(notification_registration_types(), {
 					operation: 'delete',
 					intent: 'publicEngagement.unsubscribeNotificationRegistrationType',
 					key: subscriptionId,

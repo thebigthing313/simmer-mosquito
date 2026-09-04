@@ -56,14 +56,14 @@ export function useComments(target: CommentTarget): CommentsResult {
 			gcTime: commentsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ comment: comments })
+					.from({ comment: comments() })
 					.where(({ comment }) =>
 						and(eq(comment.entity_type, entityType), eq(comment.entity_id, target.id)),
 					)
 					// `left`: a comment whose author's Profile has not arrived is still a
 					// comment. An `inner` join would drop it from the thread entirely.
 					.join(
-						{ author: profiles },
+						{ author: profiles() },
 						({ comment, author }) => eq(comment.commented_by_profile_id, author.id),
 						'left',
 					)

@@ -89,7 +89,7 @@ export function useHabitatRoutes(): {
 	const result = useLiveQuery(
 		(query) =>
 			query
-				.from({ route: routes })
+				.from({ route: routes() })
 				.where(({ route }) => eq(route.route_type, 'habitat'))
 				.orderBy(({ route }) => route.route_name, 'asc')
 				.select(({ route }) => ({ id: route.id, routeName: route.route_name })),
@@ -113,7 +113,7 @@ export function useRouteStopCounts(): {
 			gcTime: routeItemsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: route_items })
+					.from({ item: route_items() })
 					.where(({ item }) => eq(item.entity_type, 'habitat'))
 					.select(({ item }) => ({ routeId: item.route_id })),
 		},
@@ -162,7 +162,7 @@ export function useRouteStops(routeId: string | null): {
 			gcTime: routeItemsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: route_items })
+					.from({ item: route_items() })
 					.where(({ item }) =>
 						and(
 							// An unmatchable id keeps the hook order stable while no route is
@@ -176,12 +176,12 @@ export function useRouteStops(routeId: string | null): {
 					// `left` throughout: a stop whose Habitat has not streamed in yet still
 					// belongs in the itinerary, drawn as resolving rather than dropped.
 					.join(
-						{ habitat: habitats },
+						{ habitat: habitats() },
 						({ item, habitat }) => eq(item.entity_id, habitat.id),
 						'left',
 					)
 					.join(
-						{ address: addresses },
+						{ address: addresses() },
 						({ habitat, address }) => eq(habitat.address_id, address.id),
 						'left',
 					)

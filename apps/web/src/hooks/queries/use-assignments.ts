@@ -43,7 +43,7 @@ export function useAssignments(
 			gcTime: activityGcTimeMs,
 			query: (query) =>
 				query
-					.from({ assignment: assignments })
+					.from({ assignment: assignments() })
 					.where(({ assignment }) =>
 						and(
 							gte(assignment.assignment_date, fromBound),

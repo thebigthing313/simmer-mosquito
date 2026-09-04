@@ -49,7 +49,7 @@ export function useInspectionSamples(inspectionId: string): {
 			gcTime: samplesGcTimeMs,
 			query: (query) =>
 				query
-					.from({ sample: samples })
+					.from({ sample: samples() })
 					.where(({ sample }) => eq(sample.inspection_id, inspectionId))
 					.orderBy(({ sample }) => sample.created_at, 'asc')
 					.select(({ sample }) => ({
@@ -60,7 +60,7 @@ export function useInspectionSamples(inspectionId: string): {
 						unidentifiableReason: sample.unidentifiable_reason,
 						species: toArray(
 							query
-								.from({ species: sample_species })
+								.from({ species: sample_species() })
 								.where(({ species }) => eq(species.sample_id, sample.id))
 								.select(({ species }) => ({
 									id: species.id,

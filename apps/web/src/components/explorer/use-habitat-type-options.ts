@@ -25,7 +25,7 @@ export function useHabitatTypeOptions(): {
 	const result = useLiveSuspenseQuery(
 		(query) =>
 			query
-				.from({ type: habitat_types })
+				.from({ type: habitat_types() })
 				.orderBy(({ type }) => type.name, 'asc')
 				.select(({ type }) => ({ id: type.id, label: type.name })),
 		[],

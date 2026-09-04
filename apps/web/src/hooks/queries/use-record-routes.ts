@@ -46,13 +46,13 @@ export function useRecordRoutes(target: {
 			gcTime: routeItemsGcTimeMs,
 			query: (query) =>
 				query
-					.from({ item: route_items })
+					.from({ item: route_items() })
 					.where(({ item }) =>
 						and(eq(item.entity_type, target.type), eq(item.entity_id, target.id)),
 					)
 					// `inner`: a stop whose Route is not in the catalog is a deleted one, and
 					// there is nothing on screen for it to be a link to.
-					.join({ route: routes }, ({ item, route }) => eq(item.route_id, route.id))
+					.join({ route: routes() }, ({ item, route }) => eq(item.route_id, route.id))
 					.orderBy(({ route }) => route.route_name, 'asc')
 					.select(({ item, route }) => ({
 						routeItemId: item.id,

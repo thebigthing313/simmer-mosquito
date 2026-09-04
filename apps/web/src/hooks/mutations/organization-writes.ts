@@ -132,7 +132,7 @@ export async function writeOrganization(input: {
 	readonly apply: () => void;
 }): Promise<OrganizationWriteResult | null> {
 	const committed = await writeThroughRest({
-		collection: organizations,
+		collection: organizations(),
 		url: input.url,
 		method: 'PATCH',
 		body: input.body,

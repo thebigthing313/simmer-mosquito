@@ -7,8 +7,7 @@
  */
 
 import { createOrganizationsCollection, type Organization } from '@simmer-mosquito/sync';
-import { BasicIndex, type Collection } from '@tanstack/db';
-import { syncClientOptions } from './client-options';
+import { declareCollection } from './registry';
 
 /**
  * `eager`: The agency's own record. One row, and the shell reads it before anything
@@ -20,28 +19,10 @@ import { syncClientOptions } from './client-options';
  * `organizationSettings.*` commands writing a JSON document, so which of the
  * seven a write means cannot be read off a column diff and each keeps its own
  * route. `hooks/mutations/organization-writes.ts` is what carries those.
- *
- * The type is written here rather than inferred because a `Collection<…>`
- * instantiated inside `packages/sync` arrives as `any`, with no error to say so.
- * Naming it on this side instantiates it where it resolves.
  */
-export const organizations: Collection<Organization, string | number> =
-	createOrganizationsCollection({
-		...syncClientOptions,
-		syncMode: 'eager',
-		mutations: true,
-	});
-
-/**
- * The join index.
- *
- * A live query that joins this table loads it lazily — it collects the join keys
- * the driving side produces and asks for exactly those rows. It can only do that
- * when the join column is indexed. Without this it says so in a console warning
- * and loads the whole table instead, which on an on-demand collection is the one
- * thing the mode exists to avoid.
- *
- * Always `id`: every table is joined by its primary key, because that is what the
- * foreign keys point at.
- */
-organizations.createIndex((row) => row.id, { indexType: BasicIndex });
+export const organizations = declareCollection<Organization>({
+	table: 'organizations',
+	syncMode: 'eager',
+	mutations: true,
+	create: createOrganizationsCollection,
+});

@@ -219,7 +219,7 @@ export function useHabitatMutations(): HabitatMutations {
 			const now = optimisticStamp();
 			const habitatId = newRecordId();
 			await settleWrite(
-				mutateCollection(habitats, {
+				mutateCollection(habitats(), {
 					operation: 'insert',
 					intent: 'larvalSurveillance.createHabitat',
 					row: {
@@ -261,7 +261,7 @@ export function useHabitatMutations(): HabitatMutations {
 			}
 
 			await settleWrite(
-				mutateCollection(habitats, {
+				mutateCollection(habitats(), {
 					operation: 'update',
 					intent: plan.intents,
 					key: habitatId,
@@ -280,7 +280,7 @@ export function useHabitatMutations(): HabitatMutations {
 	const setInaccessible = useCallback(
 		async (habitatId: string, isInaccessible: boolean) => {
 			await settleWrite(
-				mutateCollection(habitats, {
+				mutateCollection(habitats(), {
 					operation: 'update',
 					intent: isInaccessible
 						? 'larvalSurveillance.markHabitatInaccessible'
@@ -300,7 +300,7 @@ export function useHabitatMutations(): HabitatMutations {
 	const setActive = useCallback(
 		async (habitatId: string, isActive: boolean) => {
 			await settleWrite(
-				mutateCollection(habitats, {
+				mutateCollection(habitats(), {
 					operation: 'update',
 					intent: isActive
 						? 'larvalSurveillance.reactivateHabitat'
@@ -320,7 +320,7 @@ export function useHabitatMutations(): HabitatMutations {
 	const remove = useCallback(
 		async (habitatId: string, acknowledgements: Readonly<Record<string, boolean>> = {}) => {
 			await settleWrite(
-				mutateCollection(habitats, {
+				mutateCollection(habitats(), {
 					operation: 'delete',
 					intent: 'larvalSurveillance.deleteHabitat',
 					key: habitatId,
