@@ -124,6 +124,12 @@ Who owns which leg:
   under `src/hooks/queries` that join them. Route components read hooks, not
   collections.
 
+Writes take the mirror path. A mutation applied optimistically to a collection
+carries the domain command it means; the server validates that command, commits
+it in one Kysely transaction, and returns `pg_current_xact_id()` from the same
+transaction so Electric can confirm the optimistic write. The server never
+infers the command from which fields changed.
+
 ### Where a collection comes from
 
 A module in `apps/web/src/lib/collections` names the factory from
@@ -133,12 +139,6 @@ first render, and the registry builds each collection the first time a hook asks
 for it, so importing a hook opens no shape stream and needs no server URL. A
 test installs a memory-backed source instead, which is how `apps/web` tests a
 read at all. See `lib/collections/registry.ts`.
-
-Writes take the mirror path. A mutation applied optimistically to a collection
-carries the domain command it means; the server validates that command, commits
-it in one Kysely transaction, and returns `pg_current_xact_id()` from the same
-transaction so Electric can confirm the optimistic write. The server never
-infers the command from which fields changed.
 
 ## Mutation confirmation and transaction IDs
 
