@@ -50,8 +50,8 @@ export interface MapControlsConfig {
 
 /**
  * The map surface every map-bearing route draws on. Owns the GL instance and
- * basemap choice, then arranges the floating controls — search, basemap switch,
- * measure, geolocate, zoom — around the map without crowding it. Routes choose
+ * basemap choice, then arranges the floating controls around the map without
+ * crowding it: search, basemap switch, measure, geolocate, zoom. Routes choose
  * which controls appear through {@link MapControlsConfig}, and which records
  * draw through the `layers` list.
  */
