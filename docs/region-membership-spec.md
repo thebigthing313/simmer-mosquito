@@ -114,7 +114,7 @@ column, read from the generated row schemas rather than a hand-kept copy.
 once. Without it the sixteenth geom table answers "inside no regions" forever,
 and nobody notices, because it looks like data.
 
-### Tenancy
+### Organization scope
 
 The record is looked up with the caller's `organization_id` before it is read at
 all, and the region set scopes to the **caller's** `organization_id`, so a region
@@ -125,8 +125,8 @@ which is what the shipped `regionMembershipClause` scopes to. The fifteenth is
 why the two are written down separately rather than treated as one.
 
 All 15 tables carry `organization_id`, `deleted_at`, `geom_type` and `geom`
-directly, read off production's `information_schema`. None derive tenancy
-through a foreign key, so the gate is one shape.
+directly, read off production's `information_schema`. None derive their
+organization through a foreign key, so the gate is one shape.
 
 **One exception.** `weather_sources` is the only one of the 15 whose
 `organization_id` is nullable, and the null rows are the shared provider

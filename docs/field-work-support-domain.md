@@ -179,8 +179,8 @@ use this registry instead of hand-rolling polymorphic comment checks.
 
 `comments.organization_id` is derived, denormalized data and stays that way.
 Even when normal loading is target-scoped, the column earns its place in
-authorization prefiltering, indexing, exports, moderation, and tenant-scoped
-cleanup jobs.
+authorization prefiltering, indexing, exports, moderation, and
+organization-scoped cleanup jobs.
 
 `comments_entity_idx` is the target-scoped active-comment index and stays:
 
@@ -343,7 +343,7 @@ it. Deactivate used tags instead.
 `tag_items.organization_id` exists as derived, denormalized data. The server
 derives it from the resolved tag and target organization and verifies both
 match. Keeping the organization id on the association row makes target-scoped
-and tenant-scoped queries cheaper, and mirrors `comments` and
+and organization-scoped queries cheaper, and mirrors `comments` and
 `additional_personnel`.
 
 Tag names are unique per agency through a soft-delete-aware, lower-trim index:
