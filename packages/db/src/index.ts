@@ -1,11 +1,11 @@
-import { Kysely, PostgresDialect } from 'kysely';
+import { Kysely, PostgresDialect, type Transaction } from 'kysely';
 import pg from 'pg';
 
 import type { GeoJsonGeometry, SimmerDatabase } from './tables.js';
 
 const { Pool } = pg;
 
-export type { Kysely, RawBuilder, Transaction } from 'kysely';
+export type { Kysely, RawBuilder, SelectType, Transaction } from 'kysely';
 export { sql } from 'kysely';
 export * from './domains/adult-surveillance.js';
 export * from './domains/control-operations-map.js';
@@ -30,6 +30,19 @@ export * from './domains/search.js';
 export * from './domains/service-request-nearby.js';
 export * from './domains/write-references.js';
 export * from './tables.js';
+
+/**
+ * Anything that can run a query: the pool-backed instance or a transaction on it.
+ *
+ * Every reader and writer in `domains/` and `seeds/` takes one of these so the
+ * same function works inside a server-authorized transaction and standalone.
+ * It was declared identically in eight modules before living here, which made it
+ * a private type in each of their exported signatures, so callers could pass one
+ * but could not name it.
+ *
+ * It sits here rather than in `tables.ts` because that file is generated.
+ */
+export type DbExecutor = Kysely<SimmerDatabase> | Transaction<SimmerDatabase>;
 
 export interface CreateDbOptions {
 	readonly databaseUrl: string;

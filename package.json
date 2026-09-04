@@ -15,6 +15,7 @@
 		"check:geometry-policies": "node scripts/check-geometry-policies.mjs",
 		"check:schema-drift": "node scripts/check-schema-drift.mjs",
 		"check:search-corpus": "node scripts/check-search-corpus.mjs",
+		"check:table-types": "node scripts/generate-table-types.mjs --check",
 		"check:tileset-keys": "node scripts/check-tileset-keys.mjs",
 		"check:write-references": "node scripts/check-write-references.mjs",
 		"check:write": "biome check --write .",
@@ -40,7 +41,8 @@
 		"release:version": "node scripts/release-version.mjs",
 		"test": "nx run-many -t test",
 		"typecheck": "nx run-many -t typecheck",
-		"generate:schemas": "node scripts/generate-table-schemas.mjs"
+		"generate:schemas": "node scripts/generate-table-schemas.mjs",
+		"generate:table-types": "node scripts/generate-table-types.mjs"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.4.14",

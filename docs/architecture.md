@@ -346,9 +346,22 @@ A separate deleted-data audit table is not part of the initial design.
 ## Schema and types
 
 SQL migrations are the source of truth. dbmate applies migrations. Kysely is the
-server query builder. `kysely-codegen` should generate database table types from
-the migrated database once the schema grows beyond the initial hand-written
-slice.
+server query builder.
+
+`pnpm db:migrate` applies the migrations and dumps the realised schema to
+`packages/db/schema.sql`, which is checked in. `pnpm generate:table-types` reads
+that dump and writes `packages/db/src/tables.ts`: the `SimmerDatabase` interface,
+one interface per table, and the enum unions behind the Postgres enum types. It
+needs no database, because the dump is the database's own answer. Nothing in that
+file is hand-maintained, and `pnpm check:table-types` in CI's `verify` job fails
+on a difference between it and the dump.
+
+The client's half of the same columns is the row schemas in `packages/sync`,
+written by `pnpm generate:schemas` and then owned by hand. What holds the two
+together is the type-level drift check in
+`packages/sync/src/tests/unit/collections/tables/drift.test.ts`, which fails
+`tsc` when a table has a column no schema covers, a schema has a field no column
+covers, or the two disagree about a column's type.
 
 These legacy tables from the old system are deliberately absent until a
 workflow needs them: `deleted_data`, `roles`, `tag_groups`, `species_groups`,

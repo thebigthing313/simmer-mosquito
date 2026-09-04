@@ -139,10 +139,8 @@
 	// into `node_modules/.bin`, which is what makes `--type-aware` runnable on
 	// Windows — see scripts/fallow.mjs. Keep its version in lockstep with fallow.
 	//
-	// `kysely-codegen` and `@tanstack/react-query-devtools` are run by hand, not
-	// imported: the first regenerates the DB types after a migration, the second
-	// is mounted ad hoc while debugging a query. Both were reported as unused and
-	// both are deliberately kept.
+	// `@tanstack/react-query-devtools` is mounted ad hoc while debugging a query
+	// rather than imported, so it reads as unused and is deliberately kept.
 	//
 	// The two React Native entries are the same category as `@tanstack/db` — a
 	// version pin rather than an import. `react-native-gesture-handler` is a peer
@@ -155,7 +153,6 @@
 		"@tanstack/db",
 		"@tanstack/react-query-devtools",
 		"fallow-type-aware",
-		"kysely-codegen",
 		"react-native-gesture-handler",
 		"react-native-worklets"
 	],

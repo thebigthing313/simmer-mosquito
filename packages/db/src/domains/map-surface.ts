@@ -1,6 +1,6 @@
 import { type RawBuilder, sql } from 'kysely';
 
-import type { DbExecutor } from '../tables.js';
+import type { DbExecutor } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
 import { readMapTile } from './map-tile.js';
 
