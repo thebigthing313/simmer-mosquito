@@ -117,6 +117,18 @@ describe('shellDomainsForRole', () => {
 		]);
 	});
 
+	it('labels the weather explorer the way every other explorer is labelled', () => {
+		const weather = shellDomainsForRole(authWithRole('owner'))
+			.flatMap((domain) => domain.groups)
+			.find((group) => group.id === 'gis-weather');
+
+		expect(weather?.items.map((item) => item.label)).toEqual([
+			'Map',
+			'Add Weather Station',
+			'Statistics',
+		]);
+	});
+
 	it('drops no group or domain to an empty heading', () => {
 		for (const role of ['owner', 'manager', 'collector', 'viewer'] as const) {
 			for (const domain of shellDomainsForRole(authWithRole(role))) {

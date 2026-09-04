@@ -25,7 +25,7 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordUnavailable } from '../../../components/record';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
-import { useWeatherSummaries } from '../../../hooks/queries/use-weather-summaries';
+import { useAllWeatherSummaries } from '../../../hooks/queries/use-weather-summaries';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { IMPORT_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { todayInTimeZone } from '../../../lib/local-date';
@@ -37,7 +37,9 @@ import {
 	type WeatherImportRowResult,
 } from './-import-commit';
 import {
+	IMPORT_COLUMNS,
 	IMPORT_FILE_ACCEPT,
+	type ImportColumn,
 	MAX_IMPORT_ROWS,
 	type ParseResult,
 	parseWeatherFile,
@@ -99,10 +101,11 @@ function useWeatherUpload(stationId: string) {
 	// The agency's calendar day, so the review and the server agree about which
 	// rows are dated in the future.
 	const today = todayInTimeZone(useOrganizationTimeZone());
-	// The station's readings, which the assessment compares the file against. The
-	// detail page this was opened from is already querying them, which is what
-	// keeps the on-demand subset warm.
-	const { summaries, isReady } = useWeatherSummaries(stationId);
+	// Every reading the station holds, not the year the detail page was showing.
+	// The assessment answers insert, update, no change or fail per row against
+	// what is already stored, so a narrower window would report a row overwriting
+	// a 2019 reading as an insert.
+	const { summaries, isReady } = useAllWeatherSummaries(stationId);
 	const { run, dialog } = useAcknowledgedWrite({ askable: IMPORT_REFUSALS, ask: true });
 
 	const [fileName, setFileName] = useState<string | null>(null);
@@ -257,11 +260,72 @@ function FilePickerCard({
 					type="file"
 				/>
 				<p className="m-0 text-muted-foreground text-xs">
-					The first row names the columns. A date column is required; readings are read in °F,
-					inches, percent and mph. Up to {MAX_IMPORT_ROWS.toLocaleString()} rows.
+					Readings are read in °F, inches, percent and mph. Up to {MAX_IMPORT_ROWS.toLocaleString()}{' '}
+					rows.
 				</p>
+				<ColumnGuide />
 			</CardContent>
 		</Card>
+	);
+}
+
+/**
+ * The headings a file may name its columns with, before one is chosen.
+ *
+ * Every spelling comes off the parser's own map, so this cannot drift from what
+ * a file is actually matched against. Without it a user learned the headings by
+ * uploading a file and reading back the list of columns that went unmapped.
+ */
+function ColumnGuide() {
+	return (
+		<div className="grid gap-2">
+			<p className="m-0 text-muted-foreground text-xs">
+				The first row names the columns. Case, spaces, punctuation and a bracketed unit are ignored,
+				so "Start Date" and "start_date" are the same heading.
+			</p>
+			<div className="overflow-x-auto rounded-md border border-border/40">
+				<Table>
+					<TableHeader>
+						<TableRow className="hover:bg-transparent">
+							<TableHead className="w-[13rem]">Column</TableHead>
+							<TableHead>Headings</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{IMPORT_COLUMNS.required.map((column) => (
+							<ColumnGuideRow column={column} isRequired key={column.label} />
+						))}
+						{IMPORT_COLUMNS.recommended.map((column) => (
+							<ColumnGuideRow column={column} isRequired={false} key={column.label} />
+						))}
+					</TableBody>
+				</Table>
+			</div>
+		</div>
+	);
+}
+
+function ColumnGuideRow({
+	column,
+	isRequired,
+}: {
+	readonly column: ImportColumn;
+	readonly isRequired: boolean;
+}) {
+	return (
+		<TableRow>
+			<TableCell className="font-medium text-foreground">
+				<span className="flex flex-wrap items-center gap-1.5">
+					{column.label}
+					{isRequired ? (
+						<Badge tone="info" variant="outline">
+							Required
+						</Badge>
+					) : null}
+				</span>
+			</TableCell>
+			<TableCell className="text-muted-foreground">{column.headings.join(', ')}</TableCell>
+		</TableRow>
 	);
 }
 

@@ -16,7 +16,11 @@
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
-import { useWeatherSummaries } from '../../../../hooks/queries/use-weather-summaries';
+import {
+	useAllWeatherSummaries,
+	useWeatherSummaries,
+	useWeatherSummaryYears,
+} from '../../../../hooks/queries/use-weather-summaries';
 import { weather_summaries } from '../../../../lib/collections/weather_summaries';
 import {
 	installMemoryCollections,
@@ -48,7 +52,7 @@ beforeEach(() => {
 	installMemoryCollections();
 });
 
-describe('useWeatherSummaries', () => {
+describe('useAllWeatherSummaries', () => {
 	it('reads the newest period first', async () => {
 		seedRows(weather_summaries, [
 			summary('w1', '2026-08-04'),
@@ -56,7 +60,7 @@ describe('useWeatherSummaries', () => {
 			summary('w3', '2026-08-11'),
 		]);
 
-		const { result } = await renderRead(() => useWeatherSummaries(STATION));
+		const { result } = await renderRead(() => useAllWeatherSummaries(STATION));
 
 		expect(result.current.summaries.map((row) => row.endDate)).toEqual([
 			'2026-08-19',
@@ -68,7 +72,7 @@ describe('useWeatherSummaries', () => {
 	it('keeps the dates as the strings the column holds', async () => {
 		seedRows(weather_summaries, [summary('w1', '2026-08-04')]);
 
-		const { result } = await renderRead(() => useWeatherSummaries(STATION));
+		const { result } = await renderRead(() => useAllWeatherSummaries(STATION));
 
 		expect(result.current.summaries[0]?.endDate).toBe('2026-08-04');
 	});
@@ -79,7 +83,7 @@ describe('useWeatherSummaries', () => {
 			summary('w2', '2026-08-19', OTHER_STATION),
 		]);
 
-		const { result } = await renderRead(() => useWeatherSummaries(STATION));
+		const { result } = await renderRead(() => useAllWeatherSummaries(STATION));
 
 		expect(result.current.summaries.map((row) => row.id)).toEqual(['w1']);
 	});
@@ -87,7 +91,7 @@ describe('useWeatherSummaries', () => {
 	it('is empty and ready for a station with nothing recorded', async () => {
 		markSynced(weather_summaries);
 
-		const { result } = await renderRead(() => useWeatherSummaries(STATION));
+		const { result } = await renderRead(() => useAllWeatherSummaries(STATION));
 
 		expect(result.current.summaries).toEqual([]);
 		expect(result.current.isReady).toBe(true);
@@ -98,9 +102,97 @@ describe('useWeatherSummaries', () => {
 		// only `summaries` shows "no weather recorded" over a station that has some.
 		installMemoryCollections({ ready: false });
 
-		const { result } = await renderRead(() => useWeatherSummaries(STATION));
+		const { result } = await renderRead(() => useAllWeatherSummaries(STATION));
 
 		expect(result.current.summaries).toEqual([]);
 		expect(result.current.isReady).toBe(false);
+	});
+});
+
+/**
+ * The year bound, which is what keeps the detail card from rendering ten years
+ * of daily readings into one table.
+ *
+ * The bound is on `end_date`, so a bucket that crosses new year is filed under
+ * the year it ends in and appears once. Comparing `date` strings is comparing
+ * dates, because the column is fixed-width and zero-padded.
+ */
+describe('useWeatherSummaries', () => {
+	it('reads one year and leaves the rest', async () => {
+		seedRows(weather_summaries, [
+			summary('w1', '2024-08-04'),
+			summary('w2', '2025-01-02'),
+			summary('w3', '2025-12-31'),
+			summary('w4', '2026-03-01'),
+		]);
+
+		const { result } = await renderRead(() => useWeatherSummaries(STATION, 2025));
+
+		expect(result.current.summaries.map((row) => row.id)).toEqual(['w3', 'w2']);
+	});
+
+	it('files a bucket that crosses new year under the year it ends in', async () => {
+		seedRows(weather_summaries, [{ ...summary('w1', '2026-01-02'), start_date: '2025-12-30' }]);
+
+		const forEnding = await renderRead(() => useWeatherSummaries(STATION, 2026));
+		expect(forEnding.result.current.summaries.map((row) => row.id)).toEqual(['w1']);
+
+		const forStarting = await renderRead(() => useWeatherSummaries(STATION, 2025));
+		expect(forStarting.result.current.summaries).toEqual([]);
+	});
+
+	it('reads nothing for a station with no year to show', async () => {
+		seedRows(weather_summaries, [summary('w1', '2026-08-04')]);
+
+		const { result } = await renderRead(() => useWeatherSummaries(STATION, null));
+
+		expect(result.current.summaries).toEqual([]);
+	});
+
+	it('answers about the station it was asked about', async () => {
+		seedRows(weather_summaries, [
+			summary('w1', '2026-08-04'),
+			summary('w2', '2026-08-19', OTHER_STATION),
+		]);
+
+		const { result } = await renderRead(() => useWeatherSummaries(STATION, 2026));
+
+		expect(result.current.summaries.map((row) => row.id)).toEqual(['w1']);
+	});
+});
+
+/** The tabs. One per year the station has readings in, newest first. */
+describe('useWeatherSummaryYears', () => {
+	it('names each year once, newest first', async () => {
+		seedRows(weather_summaries, [
+			summary('w1', '2024-08-04'),
+			summary('w2', '2026-03-01'),
+			summary('w3', '2024-09-09'),
+			summary('w4', '2025-01-02'),
+		]);
+
+		const { result } = await renderRead(() => useWeatherSummaryYears(STATION));
+
+		expect(result.current.years).toEqual([2026, 2025, 2024]);
+	});
+
+	it('is empty and ready for a station with nothing recorded', async () => {
+		markSynced(weather_summaries);
+
+		const { result } = await renderRead(() => useWeatherSummaryYears(STATION));
+
+		expect(result.current.years).toEqual([]);
+		expect(result.current.isReady).toBe(true);
+	});
+
+	it('counts only the station it was asked about', async () => {
+		seedRows(weather_summaries, [
+			summary('w1', '2026-08-04'),
+			summary('w2', '2019-08-19', OTHER_STATION),
+		]);
+
+		const { result } = await renderRead(() => useWeatherSummaryYears(STATION));
+
+		expect(result.current.years).toEqual([2026]);
 	});
 });
