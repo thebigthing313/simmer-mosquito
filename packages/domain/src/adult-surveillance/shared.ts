@@ -22,7 +22,6 @@ import { validateOperationalDate } from '../surveillance-records.js';
 export type {
 	CollectedCollectionTiming,
 	CollectionTiming,
-	CollectionTimingMode,
 	DateDurationCollectionTiming,
 	ExactCollectedCollectionTiming,
 	ExactPendingCollectionTiming,

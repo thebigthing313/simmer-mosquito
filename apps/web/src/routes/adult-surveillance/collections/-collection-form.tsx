@@ -1,3 +1,4 @@
+import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import {
 	isCollectionDurationUnitType,
 	recordCollectedAdHocCollectionCommand,
@@ -6,7 +7,6 @@ import {
 	setTrapCollectionCommand,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { CollectionTimingMode } from '@simmer-mosquito/sync';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -154,7 +154,7 @@ export interface CollectionFormValues {
 	readonly collectionMethodId: string;
 	/** `noLureValue` or a lure id. */
 	readonly collectionLureId: string;
-	readonly timingMode: CollectionTimingMode;
+	readonly timingMode: AdultCollectionTimingMode;
 	/** `YYYY-MM-DD` the trap was set (exact mode, optional). */
 	readonly startedAt: string | null;
 	/** `YYYY-MM-DD` specimens were retrieved (exact mode, required). */
@@ -221,7 +221,7 @@ export function defaultCollectionFormValues(
 	today: string,
 	trapId: string | null,
 	/** The agency's default timing mode, from organization settings. */
-	timingMode: CollectionTimingMode,
+	timingMode: AdultCollectionTimingMode,
 ): CollectionFormValues {
 	return {
 		sourceMode: 'trap',
@@ -640,7 +640,7 @@ function TimingSection({
 					pending: isPendingCollection(state.values),
 				})}
 			>
-				{({ timingMode, pending }: { timingMode: CollectionTimingMode; pending: boolean }) =>
+				{({ timingMode, pending }: { timingMode: AdultCollectionTimingMode; pending: boolean }) =>
 					timingMode === 'exact_timestamps' ? (
 						<div className="grid gap-5 sm:grid-cols-2">
 							<form.AppField name="startedAt">

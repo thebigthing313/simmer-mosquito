@@ -1,4 +1,4 @@
-import type { SimmerRole } from '@simmer-mosquito/domain';
+import { SIMMER_ROLES, type SimmerRole } from '@simmer-mosquito/domain';
 import type { AuthMe } from '../auth';
 
 /**
@@ -15,13 +15,7 @@ import type { AuthMe } from '../auth';
  * called from route `beforeLoad` guards, which run before any component does.
  */
 
-const ORG_ROLES: ReadonlySet<string> = new Set<SimmerRole>([
-	'owner',
-	'admin',
-	'manager',
-	'collector',
-	'viewer',
-]);
+const ORG_ROLES: ReadonlySet<string> = new Set<SimmerRole>(SIMMER_ROLES);
 
 /**
  * The signed-in membership's role, defaulting to `viewer`.
@@ -155,7 +149,7 @@ function readMembershipId(auth: AuthMe | null): string | null {
 	return auth?.authenticated === true ? auth.localIdentity.membershipId : null;
 }
 
-const ORG_ROLE_ORDER: readonly SimmerRole[] = ['owner', 'admin', 'manager', 'collector', 'viewer'];
+const ORG_ROLE_ORDER: readonly SimmerRole[] = SIMMER_ROLES;
 
 /**
  * Whether this membership manages the catalogs that are part of running work

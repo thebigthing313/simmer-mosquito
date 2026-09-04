@@ -13,6 +13,7 @@
  * practice are codes and zone numbers.
  */
 
+import type { RouteType } from '@simmer-mosquito/domain';
 import { count, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import type { RouteSummary } from '../../components/route-planning/route-summary';
@@ -25,7 +26,7 @@ const routeItemsGcTimeMs = 30_000;
 
 /** A route, with the kind of record its stops point at. */
 export interface RouteCatalogEntry extends RouteSummary {
-	readonly routeType: 'habitat' | 'trap';
+	readonly routeType: RouteType;
 }
 
 export function useRouteCatalog(): {

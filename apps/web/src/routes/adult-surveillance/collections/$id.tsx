@@ -1,5 +1,5 @@
+import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';

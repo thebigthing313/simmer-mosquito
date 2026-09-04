@@ -5,7 +5,14 @@ import {
 	type SelectedRow,
 	updateRow,
 } from '@simmer-mosquito/db';
-import type { CollectionTiming } from '@simmer-mosquito/domain';
+import {
+	type AdultCollectionTimingMode,
+	type CollectionTiming,
+	SPECIES_SEXES,
+	SPECIES_STATUSES,
+	type SpeciesSex,
+	type SpeciesStatus,
+} from '@simmer-mosquito/domain';
 import {
 	agencyCommandContext,
 	type CommandContext,
@@ -206,7 +213,7 @@ export type TrapUpdateColumns = {
 };
 
 export type CollectionTimingColumns = {
-	collection_timing_mode: 'exact_timestamps' | 'collection_date_duration';
+	collection_timing_mode: AdultCollectionTimingMode;
 	started_at: Date | null;
 	collected_at: Date | null;
 	collection_date: ReturnType<typeof localDateColumn> | null;
@@ -254,16 +261,12 @@ export interface CollectionInsertInput {
 	readonly collectedAssignmentItemId?: string | null;
 }
 
-export function readSpeciesSex(value: unknown): 'male' | 'female' | null {
-	return value === 'male' || value === 'female' ? value : null;
+export function readSpeciesSex(value: unknown): SpeciesSex | null {
+	return SPECIES_SEXES.includes(value as SpeciesSex) ? (value as SpeciesSex) : null;
 }
 
-export function readSpeciesStatus(
-	value: unknown,
-): 'damaged' | 'unfed' | 'bloodfed' | 'gravid' | null {
-	return value === 'damaged' || value === 'unfed' || value === 'bloodfed' || value === 'gravid'
-		? value
-		: null;
+export function readSpeciesStatus(value: unknown): SpeciesStatus | null {
+	return SPECIES_STATUSES.includes(value as SpeciesStatus) ? (value as SpeciesStatus) : null;
 }
 
 /**

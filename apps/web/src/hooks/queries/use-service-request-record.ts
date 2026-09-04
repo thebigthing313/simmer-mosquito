@@ -15,7 +15,7 @@
 
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { service_requests } from '../../lib/collections/service_requests';
-import type { IntakeType } from './service-request-view';
+import type { RequestIntakeType } from './service-request-view';
 import { mapCardGcTimeMs, unmatchableId } from './shared';
 
 /** A Service Request as its own surfaces hold one. */
@@ -24,7 +24,7 @@ export interface ServiceRequestRecord {
 	readonly organizationId: string;
 	/** The sequential number the server assigns after the write commits. */
 	readonly displayName: number | null;
-	readonly intakeType: IntakeType;
+	readonly intakeType: RequestIntakeType;
 	/** `YYYY-MM-DD`. The day the public reported it. */
 	readonly requestDate: string;
 	readonly details: string;

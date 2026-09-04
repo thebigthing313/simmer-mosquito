@@ -1,4 +1,4 @@
-import type { LarvalDensity } from '@simmer-mosquito/sync';
+import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute } from '@tanstack/react-router';
@@ -108,9 +108,6 @@ const WETNESS_OPTIONS: readonly { readonly value: WetFilter; readonly label: str
 	{ value: 'wet', label: 'Wet' },
 	{ value: 'dry', label: 'Dry' },
 ];
-
-// Ordered low → high so the filter chips read as the map's heat ramp legend.
-const DENSITY_ORDER: readonly LarvalDensity[] = ['none', 'light', 'medium', 'heavy', 'very_heavy'];
 
 /**
  * The window the surface opens on, in the agency's zone.
@@ -622,7 +619,7 @@ function DensityFilter({
 			<span className="w-14 shrink-0 pt-1 font-medium text-muted-foreground text-xs">Density</span>
 			<fieldset className="m-0 flex min-w-0 flex-1 flex-wrap gap-1.5 border-0 p-0">
 				<legend className="sr-only">Filter by larval density</legend>
-				{DENSITY_ORDER.map((value) => {
+				{LARVAL_DENSITIES.map((value) => {
 					const isSelected = selected.has(value);
 					return (
 						<button
@@ -705,7 +702,7 @@ function ActiveFilters({
 					onRemove={onClearWetness}
 				/>
 			) : null}
-			{DENSITY_ORDER.filter((value) => densities.has(value)).map((value) => (
+			{LARVAL_DENSITIES.filter((value) => densities.has(value)).map((value) => (
 				<FilterChip
 					color={INSPECTION_DENSITY_COLORS[value]}
 					key={`density-${value}`}

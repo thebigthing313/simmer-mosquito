@@ -1,3 +1,4 @@
+import type { SpeciesSex, SpeciesStatus } from '../column-vocabularies.js';
 import {
 	actorDefaultProfileId as normalizeActorDefaultProfileId,
 	requiredId as normalizeRequiredId,
@@ -15,16 +16,13 @@ import {
 	validateSpeciesCountBase,
 } from './shared.js';
 
-export type CollectionSpeciesSex = 'male' | 'female';
-export type CollectionSpeciesStatus = 'damaged' | 'unfed' | 'bloodfed' | 'gravid';
-
 export interface AddCollectionSpeciesCountCommandInput extends AdultCommandInput {
 	readonly collectionSpeciesId: DomainId;
 	readonly collectionId: DomainId;
 	readonly speciesId: DomainId;
 	readonly count: number;
-	readonly sex?: CollectionSpeciesSex | null;
-	readonly status?: CollectionSpeciesStatus | null;
+	readonly sex?: SpeciesSex | null;
+	readonly status?: SpeciesStatus | null;
 	readonly identifiedByProfileId?: DomainId | null;
 	readonly identifiedDate: LocalDateString;
 }
@@ -34,8 +32,8 @@ export interface CollectionSpeciesCountPayload extends AdultCommandPayload {
 	readonly collectionId: DomainId;
 	readonly speciesId: DomainId;
 	readonly count: number;
-	readonly sex: CollectionSpeciesSex | null;
-	readonly status: CollectionSpeciesStatus | null;
+	readonly sex: SpeciesSex | null;
+	readonly status: SpeciesStatus | null;
 	readonly identifiedByProfileId: DomainId;
 	readonly identifiedDate: LocalDateString;
 }
@@ -49,8 +47,8 @@ export interface UpdateCollectionSpeciesCountCommandInput extends AdultCommandIn
 	readonly collectionSpeciesId: DomainId;
 	readonly count?: number;
 	readonly speciesId?: DomainId;
-	readonly sex?: CollectionSpeciesSex | null;
-	readonly status?: CollectionSpeciesStatus | null;
+	readonly sex?: SpeciesSex | null;
+	readonly status?: SpeciesStatus | null;
 	readonly identifiedByProfileId?: DomainId | null;
 	readonly identifiedDate?: LocalDateString;
 }
@@ -60,8 +58,8 @@ export interface UpdateCollectionSpeciesCountCommandPayload extends AdultCommand
 	readonly changes: Readonly<{
 		readonly count?: number;
 		readonly speciesId?: DomainId;
-		readonly sex?: CollectionSpeciesSex | null;
-		readonly status?: CollectionSpeciesStatus | null;
+		readonly sex?: SpeciesSex | null;
+		readonly status?: SpeciesStatus | null;
 		readonly identifiedByProfileId?: DomainId;
 		readonly identifiedDate?: LocalDateString;
 	}>;

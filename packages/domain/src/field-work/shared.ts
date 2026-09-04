@@ -1,3 +1,4 @@
+import { ROUTE_TYPES, type RouteType } from '../column-vocabularies.js';
 import {
 	createIssues,
 	isFutureBeyondClockSkew,
@@ -6,6 +7,8 @@ import {
 	validateAgencyCommandContext,
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
+
+export { ROUTE_TYPES, type RouteType };
 
 export type CommentTargetType =
 	| 'address'
@@ -42,9 +45,9 @@ export type AdditionalPersonnelTargetType =
 	| 'outreachAction'
 	| 'biocontrolAction';
 
-export type RouteItemTargetType = 'trap' | 'habitat';
-export type RouteType = RouteItemTargetType;
-export type AssignmentItemTargetType = 'trap' | 'habitat' | 'serviceRequest';
+/** A Route Item points at a stop of its Route's own kind. */
+export type RouteItemTargetType = RouteType;
+export type AssignmentItemTargetType = RouteType | 'serviceRequest';
 
 export type FieldWorkCommandType =
 	| 'fieldWork.addComment'
@@ -171,9 +174,8 @@ export const ADDITIONAL_PERSONNEL_TARGET_TYPES = [
 	'biocontrolAction',
 ] as const;
 
-export const ROUTE_ITEM_TARGET_TYPES = ['trap', 'habitat'] as const;
-export const ASSIGNMENT_ITEM_TARGET_TYPES = ['trap', 'habitat', 'serviceRequest'] as const;
-export const ROUTE_TYPES = ['trap', 'habitat'] as const;
+export const ROUTE_ITEM_TARGET_TYPES = ROUTE_TYPES;
+export const ASSIGNMENT_ITEM_TARGET_TYPES = [...ROUTE_TYPES, 'serviceRequest'] as const;
 
 /**
  * Polymorphic tables (`comments`, `tag_items`, `assignment_items`, …) store the

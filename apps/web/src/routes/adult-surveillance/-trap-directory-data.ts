@@ -1,4 +1,4 @@
-import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
+import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
 import { useMemo } from 'react';
 import { compareByCollectionDateDesc } from '../../hooks/queries/collection-view';
 import { trapDisplayName } from '../../hooks/queries/trap-view';

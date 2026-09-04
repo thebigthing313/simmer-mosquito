@@ -1,3 +1,4 @@
+import { CONTROL_TYPES, type ControlType } from './column-vocabularies.js';
 import {
 	actorDefaultProfileId,
 	nullableText,
@@ -9,7 +10,7 @@ import {
 } from './command-validation.js';
 import type { DomainId, DomainValidationIssue, LocalDateString } from './shared.js';
 
-export type ControlType = 'application' | 'source_reduction' | 'biocontrol' | 'outreach';
+export type { ControlType };
 export type PerformedControlActionKind =
 	| 'chemicalApplication'
 	| 'sourceReduction'

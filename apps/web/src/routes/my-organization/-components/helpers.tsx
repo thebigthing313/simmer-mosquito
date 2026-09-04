@@ -1,8 +1,10 @@
 import type {
 	AdultCollectionTimingMode,
+	LarvalDensity,
 	LarvalDensityRange,
 	LarvalDensityRanges,
 	OrganizationSettings,
+	RangeDensity,
 	ServiceRequestContextSettings,
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
@@ -18,8 +20,6 @@ import type {
 	AgencyDetailsFormValues,
 	DensityRangeFormValue,
 	DensityRangeFormValues,
-	DensityRangeKey,
-	LarvalDensityDisplayKey,
 	PublicSettingsFormValues,
 	SelectOption,
 	SelectSettingField,
@@ -313,7 +313,7 @@ function densityRangeFromFormValue(
 }
 
 function validateDensityRangesForUi(ranges: LarvalDensityRanges): void {
-	const sequence: Array<readonly [DensityRangeKey, LarvalDensityRange]> = [
+	const sequence: Array<readonly [RangeDensity, LarvalDensityRange]> = [
 		['light', ranges.light],
 		['medium', ranges.medium],
 		['heavy', ranges.heavy],
@@ -346,11 +346,11 @@ function requiredFiniteNumber(value: string, label: string): number {
 	return numberValue;
 }
 
-export function densityKeyForSettings(density: DensityRangeKey): keyof LarvalDensityRanges {
+export function densityKeyForSettings(density: RangeDensity): keyof LarvalDensityRanges {
 	return density === 'very_heavy' ? 'veryHeavy' : density;
 }
 
-export function densityLabel(density: LarvalDensityDisplayKey | string): string {
+export function densityLabel(density: LarvalDensity | string): string {
 	return density === 'very_heavy'
 		? 'Very heavy'
 		: density.charAt(0).toUpperCase() + density.slice(1);

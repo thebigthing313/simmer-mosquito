@@ -1,3 +1,4 @@
+import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
@@ -107,21 +108,10 @@ export async function listSamplesAwaitingIdentification(
 // events that carry their own owned geometry (usually inherited from the parent
 // habitat), so they are spatially queryable exactly like habitats.
 
-/** A larval-density enum value as stored on `inspections.density`. */
-export type InspectionDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
-
-export const inspectionDensityValues: readonly InspectionDensity[] = [
-	'none',
-	'light',
-	'medium',
-	'heavy',
-	'very_heavy',
-];
-
 export interface InspectionMvtTileFilters {
 	readonly isWet?: boolean;
 	/** Match inspections recorded at any of these larval densities. */
-	readonly densities?: readonly InspectionDensity[];
+	readonly densities?: readonly LarvalDensity[];
 	/** Only inspections where at least one life stage (eggs → pupae) was found. */
 	readonly positiveOnly?: boolean;
 	readonly habitatTypeIds?: readonly string[];
@@ -166,7 +156,7 @@ export interface SafeInspectionDisplayRow {
 	readonly inspectionDate: string;
 	readonly isWet: boolean;
 	readonly dipCount: number | null;
-	readonly density: InspectionDensity | null;
+	readonly density: LarvalDensity | null;
 	readonly larvaeCount: number | null;
 	readonly hasEggs: boolean;
 	readonly hasFirstInstar: boolean;

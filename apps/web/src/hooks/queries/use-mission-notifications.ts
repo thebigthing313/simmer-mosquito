@@ -10,6 +10,7 @@
  * navigation unmount over an on-demand collection.
  */
 
+import type { MissionNotificationStatus, NotificationChannel } from '@simmer-mosquito/domain';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { mission_notifications } from '../../lib/collections/mission_notifications';
 import { mapCardGcTimeMs, unmatchableId } from './shared';
@@ -19,9 +20,9 @@ export interface MissionNotificationRecord {
 	readonly id: string;
 	readonly contactId: string;
 	readonly notificationRegistrationId: string;
-	readonly channel: 'email' | 'sms' | 'phone';
+	readonly channel: NotificationChannel;
 	readonly destination: string | null;
-	readonly status: 'pending' | 'completed' | 'failed' | 'skipped';
+	readonly status: MissionNotificationStatus;
 	readonly createdAt: Date;
 }
 

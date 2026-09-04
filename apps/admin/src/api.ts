@@ -1,5 +1,10 @@
 import { createAuthClient } from '@simmer-mosquito/auth/browser';
-import type { SimmerRole } from '@simmer-mosquito/domain';
+import type {
+	MembershipStatus,
+	OrganizationBillingMode,
+	OrganizationSubscriptionStatus,
+	SimmerRole,
+} from '@simmer-mosquito/domain';
 import { sessionFetch } from '@simmer-mosquito/sync/session-fetch';
 
 const DEFAULT_SERVER_URL = 'http://localhost:3000';
@@ -72,16 +77,15 @@ export function isOperatorNotConfiguredError(error: unknown): boolean {
 }
 
 /** One declaration, in `packages/domain`; re-exported for this app's call sites. */
-export type { SimmerRole } from '@simmer-mosquito/domain';
-export type MembershipStatus = 'active' | 'inactive' | 'invited';
+export type { MembershipStatus, SimmerRole } from '@simmer-mosquito/domain';
 export interface AdminAgency {
 	readonly id: string;
 	readonly workosOrganizationId: string | null;
 	readonly name: string;
 	readonly slug: string | null;
 	readonly subscription: {
-		readonly subscriptionStatus: 'trial' | 'active' | 'suspended' | 'canceled';
-		readonly billingMode: 'manual_invoice';
+		readonly subscriptionStatus: OrganizationSubscriptionStatus;
+		readonly billingMode: OrganizationBillingMode;
 		readonly billingContactName: string | null;
 		readonly billingContactEmail: string | null;
 		readonly subscriptionNotes: string | null;

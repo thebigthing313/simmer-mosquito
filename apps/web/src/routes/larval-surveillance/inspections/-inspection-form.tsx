@@ -1,10 +1,11 @@
-import type { ResolvedLarvalInspectionEntryPolicy } from '@simmer-mosquito/domain';
 import {
+	LARVAL_DENSITIES,
+	type LarvalDensity,
+	type ResolvedLarvalInspectionEntryPolicy,
 	recordAdHocInspectionCommand,
 	recordHabitatInspectionCommand,
 } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import type { LarvalDensity } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import {
 	FormSection,
@@ -62,15 +63,6 @@ export type InspectionLocationMode = 'habitat' | 'adhoc';
 /** Non-empty sentinels: Radix Select forbids empty-string item values. */
 export const unsetDensityValue = 'unset';
 export const noHabitatTypeValue = 'none';
-
-// Ordered low -> high so the density select reads as an escalating scale.
-const DENSITY_OPTIONS: readonly LarvalDensity[] = [
-	'none',
-	'light',
-	'medium',
-	'heavy',
-	'very_heavy',
-];
 
 const LIFE_STAGE_SEGMENTS: readonly {
 	readonly key: keyof LifeStageFlags;
@@ -1094,7 +1086,7 @@ function emptyLifeStages(): LifeStageFlags {
 function densityOptions() {
 	return [
 		{ label: 'Not recorded', value: unsetDensityValue },
-		...DENSITY_OPTIONS.map((density) => ({ label: densityLabel(density), value: density })),
+		...LARVAL_DENSITIES.map((density) => ({ label: densityLabel(density), value: density })),
 	];
 }
 

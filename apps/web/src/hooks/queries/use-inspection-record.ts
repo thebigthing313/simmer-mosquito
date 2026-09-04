@@ -18,7 +18,7 @@
  * an on-demand collection.
  */
 
-import type { LarvalDensity } from '@simmer-mosquito/sync';
+import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { inspections } from '../../lib/collections/inspections';
 import { mapCardGcTimeMs, unmatchableId } from './shared';

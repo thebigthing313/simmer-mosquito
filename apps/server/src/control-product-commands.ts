@@ -23,6 +23,7 @@ import {
 	deactivateInsecticideCommand,
 	deleteInsecticideBatchCommand,
 	deleteInsecticideCommand,
+	INSECTICIDE_TYPES,
 	type InsecticideType,
 	type ReactivateInsecticideBatchCommand,
 	type ReactivateInsecticideCommand,
@@ -831,12 +832,7 @@ function readInsecticideBatchPayload(
 }
 
 function readInsecticideType(value: unknown): InsecticideType | null {
-	return value === 'larvicide' ||
-		value === 'adulticide' ||
-		value === 'pupicide' ||
-		value === 'other'
-		? value
-		: null;
+	return INSECTICIDE_TYPES.includes(value as InsecticideType) ? (value as InsecticideType) : null;
 }
 
 function readRequiredText(value: unknown): string | null {

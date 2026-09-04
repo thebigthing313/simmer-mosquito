@@ -1,3 +1,4 @@
+import { CONTROL_TYPES, type ControlType } from '../column-vocabularies.js';
 import {
 	createIssues,
 	nullableText as normalizeNullableText,
@@ -7,11 +8,9 @@ import {
 	requiredUuid as requireUuid,
 	throwIfIssues,
 } from '../command-validation.js';
-import type { ControlType } from '../performed-control-actions.js';
 import type { DomainId, LocalDateString } from '../shared.js';
 import {
 	basePayload,
-	CONTROL_TYPES,
 	type MissionDispatchCommandInput,
 	type MissionDispatchCommandPayload,
 	type MissionDispatchDomainCommand,

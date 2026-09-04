@@ -70,12 +70,40 @@ for (const file of readdirSync(join(ROOT, 'packages/db/migrations'))) {
 // A name used for both is not safe to assume.
 for (const name of textColumns) uuidColumns.delete(name);
 
+// ---------------------------------------------------------------------------
+// The enum types come from `packages/domain`, not from `tables.ts`.
+//
+// This used to regex `export type X = 'a' | 'b';` out of `tables.ts`, which
+// worked until a type moved to the domain: an imported type is invisible to that
+// pattern, so the generator printed `UNMAPPED memberships: role: SimmerRole` and
+// emitted no field for the column. `SimmerRole` sat hand-typed and ungenerated
+// for that reason, and #432 moved the other sixteen the same way. Reading the
+// register instead means a type's home does not decide whether a column gets a
+// schema.
+//
+// `packages/sync` cannot import `packages/domain` (ADR 0007), so the members are
+// copied into the emitted `z.enum`. That copy is generated rather than written,
+// and `pnpm check:column-vocabularies` holds it to the register, ordered.
+// ---------------------------------------------------------------------------
+const registerSrc = readFileSync(
+	join(ROOT, 'packages/domain/src/column-vocabularies.ts'),
+	'utf8',
+).replace(/\r\n/g, '\n');
+
 const enums = new Map();
-for (const m of tablesSrc.matchAll(/export type (\w+) =\s*((?:\s*\|?\s*'[^']*')+);/g)) {
-	enums.set(
-		m[1],
-		[...m[2].matchAll(/'([^']*)'/g)].map((x) => x[1]),
+{
+	const members = new Map(
+		[...registerSrc.matchAll(/^export const ([A-Z0-9_]+) = (\[[^\]]*\]) as const;$/gm)].map((m) => [
+			m[1],
+			[...m[2].matchAll(/'([^']*)'/g)].map((x) => x[1]),
+		]),
 	);
+	for (const m of registerSrc.matchAll(
+		/^export type (\w+) = \(typeof ([A-Z0-9_]+)\)\[number\];$/gm,
+	)) {
+		const declared = members.get(m[2]);
+		if (declared !== undefined) enums.set(m[1], declared);
+	}
 }
 
 // ---------------------------------------------------------------------------

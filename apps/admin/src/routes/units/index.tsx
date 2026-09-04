@@ -1,3 +1,4 @@
+import { UNIT_TYPES } from '@simmer-mosquito/domain';
 import { ListEmpty } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -36,19 +37,10 @@ export const Route = createFileRoute('/units/')({
 	component: UnitsRoute,
 });
 
-/** The quantities SIMMER measures. Order is the reading order of the page. */
-const UNIT_TYPES: readonly UnitType[] = [
-	'area',
-	'count',
-	'distance',
-	'duration',
-	'speed',
-	'temperature',
-	'volume',
-	'weight',
-];
+/** The quantities SIMMER measures, alphabetical, which is how the page reads them. */
+const UNIT_TYPE_OPTIONS: readonly UnitType[] = [...UNIT_TYPES].sort();
 
-const UNIT_SYSTEMS: readonly { readonly value: UnitSystem; readonly label: string }[] = [
+const UNIT_SYSTEM_OPTIONS: readonly { readonly value: UnitSystem; readonly label: string }[] = [
 	{ value: 'si', label: 'SI' },
 	{ value: 'imperial', label: 'Imperial' },
 	{ value: 'us_customary', label: 'US customary' },
@@ -100,7 +92,7 @@ function UnitsRoute() {
 				unit.code.toLowerCase().includes(query) ||
 				unit.abbreviation.toLowerCase().includes(query),
 		);
-		return UNIT_TYPES.map((unitType) => ({
+		return UNIT_TYPE_OPTIONS.map((unitType) => ({
 			unitType,
 			units: rows.filter((unit) => unit.unitType === unitType),
 		})).filter((group) => group.units.length > 0);
@@ -286,7 +278,7 @@ function titleCase(value: string): string {
 }
 
 function systemLabel(system: string): string {
-	return UNIT_SYSTEMS.find((entry) => entry.value === system)?.label ?? system;
+	return UNIT_SYSTEM_OPTIONS.find((entry) => entry.value === system)?.label ?? system;
 }
 
 function UnitForm({
@@ -355,7 +347,7 @@ function UnitForm({
 						onChange={(event) => setValues({ ...draft, unitType: event.target.value as UnitType })}
 						value={draft.unitType}
 					>
-						{UNIT_TYPES.map((unitType) => (
+						{UNIT_TYPE_OPTIONS.map((unitType) => (
 							<option key={unitType} value={unitType}>
 								{titleCase(unitType)}
 							</option>
@@ -371,7 +363,7 @@ function UnitForm({
 						}
 						value={draft.unitSystem}
 					>
-						{UNIT_SYSTEMS.map((system) => (
+						{UNIT_SYSTEM_OPTIONS.map((system) => (
 							<option key={system.value} value={system.value}>
 								{system.label}
 							</option>

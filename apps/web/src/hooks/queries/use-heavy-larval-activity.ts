@@ -13,6 +13,7 @@
  * working around it.
  */
 
+import type { LarvalDensity } from '@simmer-mosquito/domain';
 import {
 	and,
 	caseWhen,
@@ -32,7 +33,7 @@ import type { LarvalActivityRow } from './larval-activity-view';
 import { activityGcTimeMs } from './shared';
 
 /** What this panel means by heavy. The two top bands of the density scale. */
-const heavyDensities = ['heavy', 'very_heavy'];
+const heavyDensities: LarvalDensity[] = ['heavy', 'very_heavy'];
 
 export function useHeavyLarvalActivity(sinceDate: string): {
 	readonly rows: readonly LarvalActivityRow[];

@@ -1,3 +1,4 @@
+import { ADULT_COLLECTION_TIMING_MODES, UNIT_TYPES } from '../column-vocabularies.js';
 import {
 	createIssues,
 	requiredId as normalizeRequiredId,
@@ -31,18 +32,6 @@ import {
 	type UpdateUnitDefaultsCommand,
 	type UpdateUnitDefaultsCommandInput,
 } from './types-and-defaults.js';
-
-const ADULT_COLLECTION_TIMING_MODES = ['exact_timestamps', 'collection_date_duration'] as const;
-const UNIT_TYPES = [
-	'weight',
-	'distance',
-	'area',
-	'volume',
-	'temperature',
-	'duration',
-	'count',
-	'speed',
-] as const;
 
 interface OrganizationSettingsCommandInput {
 	readonly organizationId: DomainId;

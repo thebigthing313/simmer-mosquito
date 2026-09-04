@@ -30,12 +30,17 @@
  */
 
 import {
+	UNIT_SYSTEMS,
+	UNIT_TYPES,
+	type UnitSystem,
+	type UnitType,
+} from '../column-vocabularies.js';
+import {
 	createIssues,
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
 	throwIfIssues,
 } from '../command-validation.js';
-import type { UnitType } from '../organization-settings/types-and-defaults.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 import {
 	type FoundationDomainCommand,
@@ -47,28 +52,7 @@ import {
 	validateOperatorIdCommand,
 } from './shared.js';
 
-/**
- * Which system of measurement a unit belongs to.
- *
- * Declared here rather than imported from `packages/db`: the domain owns its own
- * vocabulary, and a package that cannot import the database should not learn an
- * enum from it. `UnitType` is already the domain's own, in
- * `organization-settings`, so that one is imported rather than restated.
- */
-export type UnitSystem = 'si' | 'imperial' | 'us_customary';
-
-export const UNIT_TYPES: readonly UnitType[] = [
-	'weight',
-	'distance',
-	'area',
-	'volume',
-	'temperature',
-	'duration',
-	'count',
-	'speed',
-];
-
-export const UNIT_SYSTEMS: readonly UnitSystem[] = ['si', 'imperial', 'us_customary'];
+export { UNIT_SYSTEMS, UNIT_TYPES, type UnitSystem, type UnitType };
 
 export interface CreateUnitCommandInput extends OperatorFoundationCommandInput {
 	readonly unitId: DomainId;

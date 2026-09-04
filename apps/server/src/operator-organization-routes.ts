@@ -23,6 +23,7 @@ import {
 	type SimmerDatabase,
 	upsertOperatorOrganization,
 } from '@simmer-mosquito/db';
+import { ORGANIZATION_SUBSCRIPTION_STATUSES } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
@@ -214,8 +215,8 @@ function readSubscriptionStatus(value: unknown): OrganizationSubscriptionStatus 
 		return 'trial';
 	}
 
-	if (value === 'trial' || value === 'active' || value === 'suspended' || value === 'canceled') {
-		return value;
+	if (ORGANIZATION_SUBSCRIPTION_STATUSES.includes(value as OrganizationSubscriptionStatus)) {
+		return value as OrganizationSubscriptionStatus;
 	}
 
 	return null;

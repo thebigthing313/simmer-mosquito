@@ -17,6 +17,7 @@
  * passes its own last position plus one, which is the same number.
  */
 
+import type { RouteType } from '@simmer-mosquito/domain';
 import { type RouteItem as RouteItemRow, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
@@ -26,7 +27,7 @@ import { newRecordId, optimisticStamp } from './shared';
 
 /** The record a stop sends a crew to. */
 export interface RouteStopTarget {
-	readonly type: 'habitat' | 'trap';
+	readonly type: RouteType;
 	readonly id: string;
 }
 

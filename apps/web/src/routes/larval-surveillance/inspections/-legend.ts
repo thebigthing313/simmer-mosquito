@@ -1,4 +1,4 @@
-import type { LarvalDensity } from '@simmer-mosquito/domain';
+import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import { densityLabel } from '../../../components/larval-display';
 import {
 	INSPECTION_DENSITY_COLORS,
@@ -8,8 +8,6 @@ import {
 
 /** What the Water filter can be set to. Mirrors the segmented control's options. */
 export type WetFilter = 'all' | 'wet' | 'dry';
-
-const DENSITY_ORDER: readonly LarvalDensity[] = ['none', 'light', 'medium', 'heavy', 'very_heavy'];
 
 /**
  * What a band reads as in the key.
@@ -46,7 +44,7 @@ export function inspectionLegend(
 /** The bands the density filter leaves on the map, in ramp order. */
 function shownDensities(densities: ReadonlySet<LarvalDensity>): readonly MapLegendEntry[] {
 	const shown =
-		densities.size === 0 ? DENSITY_ORDER : DENSITY_ORDER.filter((d) => densities.has(d));
+		densities.size === 0 ? LARVAL_DENSITIES : LARVAL_DENSITIES.filter((d) => densities.has(d));
 	return shown.map((density) => ({
 		color: INSPECTION_DENSITY_COLORS[density],
 		label: legendLabel(density),

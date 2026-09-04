@@ -34,6 +34,7 @@ import {
 	endMembershipCommand,
 	inviteCommand,
 	reinviteCommand,
+	SIMMER_ROLES,
 } from '@simmer-mosquito/domain';
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
@@ -84,8 +85,6 @@ export function membershipTableCommands(
 	};
 }
 
-const ROLES: readonly string[] = ['owner', 'admin', 'manager', 'collector', 'viewer'];
-
 /**
  * A role off an untrusted body.
  *
@@ -95,5 +94,7 @@ const ROLES: readonly string[] = ['owner', 'admin', 'manager', 'collector', 'vie
  * error rather than as the 400 it is.
  */
 function readRole(value: unknown): SimmerRole | undefined {
-	return typeof value === 'string' && ROLES.includes(value) ? (value as SimmerRole) : undefined;
+	return typeof value === 'string' && SIMMER_ROLES.includes(value as SimmerRole)
+		? (value as SimmerRole)
+		: undefined;
 }

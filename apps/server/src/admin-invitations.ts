@@ -6,6 +6,7 @@ import {
 	StageOrganizationInvitationError,
 	stageOrganizationInvitation,
 } from '@simmer-mosquito/db';
+import { SIMMER_ROLES } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables, createOperatorAuthContextMiddleware } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
@@ -361,17 +362,7 @@ async function readInvitePayload(request: {
 }
 
 function readRole(value: unknown): SimmerRole | null {
-	if (
-		value === 'owner' ||
-		value === 'admin' ||
-		value === 'manager' ||
-		value === 'collector' ||
-		value === 'viewer'
-	) {
-		return value;
-	}
-
-	return null;
+	return SIMMER_ROLES.includes(value as SimmerRole) ? (value as SimmerRole) : null;
 }
 
 function readRequiredText(value: unknown): string | null {

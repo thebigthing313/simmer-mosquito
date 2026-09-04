@@ -1,4 +1,5 @@
 import { sql } from '@simmer-mosquito/db';
+import type { MissionNotificationStatus } from '@simmer-mosquito/domain';
 import {
 	completeMissionNotificationCommand,
 	failMissionNotificationCommand,
@@ -75,7 +76,7 @@ export async function writeMissionNotificationCommand(
 	trx: PublicEngagementTransaction,
 	command: PublicEngagementCommand,
 ): Promise<MissionNotificationRow | null> {
-	const statusByType: Record<string, 'completed' | 'failed' | 'skipped' | 'pending'> = {
+	const statusByType: Record<string, MissionNotificationStatus> = {
 		'publicEngagement.completeMissionNotification': 'completed',
 		'publicEngagement.failMissionNotification': 'failed',
 		'publicEngagement.skipMissionNotification': 'skipped',

@@ -1,18 +1,5 @@
-import {
-	ACTIVITY_PERSONNEL_ENTITY_TYPES,
-	dbActivityCategories,
-	dbActivityFamilies,
-	dbActivityInvolvements,
-	dbActivityRoles,
-} from '@simmer-mosquito/db';
-import {
-	ACTIVITY_CATEGORIES,
-	ACTIVITY_FAMILIES,
-	ACTIVITY_INVOLVEMENTS,
-	ACTIVITY_ROLES,
-	ADDITIONAL_PERSONNEL_TARGET_TYPES,
-	toDbEntityType,
-} from '@simmer-mosquito/domain';
+import { ACTIVITY_PERSONNEL_ENTITY_TYPES } from '@simmer-mosquito/db';
+import { ADDITIONAL_PERSONNEL_TARGET_TYPES, toDbEntityType } from '@simmer-mosquito/domain';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { describe, expect, it, vi } from 'vitest';
@@ -1059,28 +1046,6 @@ describe('additional-personnel entity types', () => {
 		);
 	});
 });
-
-/**
- * The activity vocabulary is declared twice for the same reason: `packages/db`
- * depends on nothing but Kysely, so it cannot import the domain's unions and
- * restates them, exactly as it already restates `LarvalDensity`. `apps/server`
- * is the one place that sees both.
- *
- * A drift here is a category the reader can emit and the page cannot name, or a
- * role the page renders raw. Neither fails; both just read wrong.
- */
-describe('activity vocabulary', () => {
-	it('is the same in packages/db as in the domain', () => {
-		expectSameMembers<string>(dbActivityCategories, ACTIVITY_CATEGORIES);
-		expectSameMembers<string>(dbActivityFamilies, ACTIVITY_FAMILIES);
-		expectSameMembers<string>(dbActivityRoles, ACTIVITY_ROLES);
-		expectSameMembers<string>(dbActivityInvolvements, ACTIVITY_INVOLVEMENTS);
-	});
-});
-
-function expectSameMembers<T>(first: readonly T[], second: readonly T[]): void {
-	expect([...first].sort()).toEqual([...second].sort());
-}
 
 /**
  * An app whose routes read from fakes.

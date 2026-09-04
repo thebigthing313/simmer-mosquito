@@ -1001,9 +1001,14 @@
         "count": 4
       }
     },
+    "scripts/check-column-vocabularies.mjs": {
+      "crap_moderate": {
+        "count": 6
+      }
+    },
     "scripts/check-geometry-policies.mjs": {
       "crap_high": {
-        "count": 2
+        "count": 1
       },
       "crap_moderate": {
         "count": 3
@@ -1031,6 +1036,11 @@
     "scripts/generate-table-types.mjs": {
       "crap_moderate": {
         "count": 4
+      }
+    },
+    "scripts/lib/source-files.mjs": {
+      "crap_high": {
+        "count": 1
       }
     },
     "scripts/map-style/build.mjs": {
@@ -1072,13 +1082,13 @@
     "apps/web/src/routes/adult-surveillance/collections/$id.tsx:complexity",
     "apps/web/src/routes/public-engagement/service-requests/index.tsx:complexity",
     "apps/web/src/routes/gis/regions/import.tsx:complexity",
-    "apps/web/src/routes/larval-surveillance/habitats/routes/$id_.edit.tsx:complexity",
     "apps/web/src/routes/larval-surveillance/habitats/index.tsx:complexity",
-    "apps/server/src/mission-dispatch-commands/missions.ts:complexity",
     "apps/web/src/routes/larval-surveillance/samples/$id.tsx:complexity",
+    "apps/web/src/routes/larval-surveillance/habitats/routes/$id_.edit.tsx:complexity",
+    "apps/server/src/mission-dispatch-commands/missions.ts:complexity",
     "packages/ui-web/src/components/ui/autocomplete.tsx:complexity",
-    "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",
     "apps/web/src/routes/operations/assignments/$id.tsx:complexity",
+    "apps/web/src/components/key-entry/key-entry-dialog.tsx:complexity",
     "apps/web/src/routes/operations/assignments/$id_.edit.tsx:complexity",
     "apps/web/src/routes/operations/missions/index.tsx:complexity"
   ]

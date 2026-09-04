@@ -17,10 +17,11 @@
  * note on `apps/server` for why (#125).
  */
 
+import type { RequestIntakeType } from '@simmer-mosquito/domain';
 import type { LinkedAddress } from './address-view';
 import type { LinkedContact } from './contact-view';
 
-export type IntakeType = 'online' | 'phone' | 'walk-in' | 'other';
+export type { RequestIntakeType };
 
 /** A Service Request, as the surfaces that show one whole want it. */
 export interface ServiceRequest {
@@ -31,7 +32,7 @@ export interface ServiceRequest {
 	 * `serviceRequestTitle` falls back to a short id for exactly that window.
 	 */
 	readonly displayName: number | null;
-	readonly intakeType: IntakeType;
+	readonly intakeType: RequestIntakeType;
 	/** `YYYY-MM-DD`. The day it was reported. See the module comment. */
 	readonly requestDate: string;
 	readonly details: string;

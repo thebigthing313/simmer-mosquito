@@ -28,7 +28,7 @@
  * shape the query language cannot return.
  */
 
-import type { LarvalDensity } from '@simmer-mosquito/sync';
+import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import { applications } from '../../lib/collections/applications';

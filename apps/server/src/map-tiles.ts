@@ -62,11 +62,9 @@ import {
 	type HabitatSiteDisplayRow,
 	type HabitatTypeUsageRow,
 	type InspectionByIdInput,
-	type InspectionDensity,
 	type InspectionDisplayPageResult,
 	type InspectionMvtTileFilters,
 	type InspectionMvtTileInput,
-	inspectionDensityValues,
 	type Kysely,
 	listApplicationDisplayRowsPage,
 	listBiocontrolDisplayRowsPage,
@@ -115,7 +113,11 @@ import {
 	type TrapPageInput,
 	type TrapPageResult,
 } from '@simmer-mosquito/db';
-import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
+import {
+	LARVAL_DENSITIES,
+	type LarvalDensity,
+	resolveOrganizationSettings,
+} from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 
@@ -1344,13 +1346,13 @@ function parseOptionalTextFilter(
 	return { ok: true, value: trimmed };
 }
 
-const inspectionDensitySet = new Set<string>(inspectionDensityValues);
+const inspectionDensitySet = new Set<string>(LARVAL_DENSITIES);
 
 function parseOptionalDensityListFilter(
 	searchParams: URLSearchParams,
 	param: string,
 ):
-	| { readonly ok: true; readonly value: readonly InspectionDensity[] | undefined }
+	| { readonly ok: true; readonly value: readonly LarvalDensity[] | undefined }
 	| { readonly ok: false; readonly reason: string } {
 	const values = searchParams
 		.getAll(param)
@@ -1368,12 +1370,12 @@ function parseOptionalDensityListFilter(
 		if (!inspectionDensitySet.has(value)) {
 			return {
 				ok: false,
-				reason: `${param} must be one of: ${inspectionDensityValues.join(', ')}.`,
+				reason: `${param} must be one of: ${LARVAL_DENSITIES.join(', ')}.`,
 			};
 		}
 	}
 
-	return { ok: true, value: [...new Set(values)] as InspectionDensity[] };
+	return { ok: true, value: [...new Set(values)] as LarvalDensity[] };
 }
 
 const isoDatePattern = /^\d{4}-\d{2}-\d{2}$/;

@@ -1,4 +1,9 @@
-import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/sync';
+import {
+	SPECIES_SEXES,
+	SPECIES_STATUSES,
+	type SpeciesSex,
+	type SpeciesStatus,
+} from '@simmer-mosquito/domain';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { todayInTimeZone } from '../../lib/local-date';
 import { formatDate, formatWeekdayDate } from './-overview-data';
@@ -138,12 +143,16 @@ export function SpeciesStatusBadge({ status }: { readonly status: SpeciesStatus 
 	);
 }
 
-/** Ordered option lists, low → high salience, for form selects. */
-export const SPECIES_SEX_VALUES: readonly SpeciesSex[] = ['female', 'male'];
+/**
+ * Ordered option lists for form selects, low to high salience, which is not the
+ * order the column stores.
+ *
+ * Female first because a male is not what a count is usually after, and
+ * `damaged` last because it is the outcome rather than a physiological state.
+ */
+export const SPECIES_SEX_VALUES: readonly SpeciesSex[] = [...SPECIES_SEXES].reverse();
 export const SPECIES_STATUS_VALUES: readonly SpeciesStatus[] = [
-	'unfed',
-	'bloodfed',
-	'gravid',
+	...SPECIES_STATUSES.filter((status) => status !== 'damaged'),
 	'damaged',
 ];
 

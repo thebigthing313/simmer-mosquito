@@ -14,6 +14,7 @@
  * an on-demand collection.
  */
 
+import type { RouteType } from '@simmer-mosquito/domain';
 import { and, coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { route_items } from '../../lib/collections/route_items';
 import { routes } from '../../lib/collections/routes';
@@ -38,7 +39,7 @@ export interface RecordRoutesResult {
 }
 
 export function useRecordRoutes(target: {
-	readonly type: 'habitat' | 'trap';
+	readonly type: RouteType;
 	readonly id: string;
 }): RecordRoutesResult {
 	const result = useLiveQuery(

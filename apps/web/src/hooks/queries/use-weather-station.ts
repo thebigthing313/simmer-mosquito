@@ -11,11 +11,12 @@
  * agency's own stations and the public ones it reads.
  */
 
+import type { WeatherSourceType } from '@simmer-mosquito/domain';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { weather_sources } from '../../lib/collections/weather_sources';
 import { mapCardGcTimeMs, unmatchableId } from './shared';
 
-export type WeatherSourceType = 'organization' | 'nws';
+export type { WeatherSourceType };
 
 export interface WeatherStation {
 	readonly id: string;

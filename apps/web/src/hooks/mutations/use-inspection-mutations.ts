@@ -45,9 +45,9 @@
  * syncs back.
  */
 
-import type { MultiRowCommandType } from '@simmer-mosquito/domain';
+import type { LarvalDensity, MultiRowCommandType } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { type Inspection, type LarvalDensity, settleWrite } from '@simmer-mosquito/sync';
+import { type Inspection, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
 import type { StopAcknowledgements } from '../../lib/acknowledgements';
 import { assignment_items } from '../../lib/collections/assignment_items';

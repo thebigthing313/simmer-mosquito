@@ -44,13 +44,13 @@ import { type ServiceRequest, settleWrite } from '@simmer-mosquito/sync';
 import { useCallback } from 'react';
 import { mutateCollection } from '../../lib/collections/mutate';
 import { service_requests } from '../../lib/collections/service_requests';
-import type { IntakeType } from '../queries/service-request-view';
+import type { RequestIntakeType } from '../queries/service-request-view';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import { lifecycleStamp, newRecordId, optimisticStamp } from './shared';
 
 /** A Service Request as its form holds one, before the parties and the point. */
 export interface ServiceRequestFields {
-	readonly intakeType: IntakeType;
+	readonly intakeType: RequestIntakeType;
 	/** `YYYY-MM-DD` — the day the public reported it, not the day it was keyed in. */
 	readonly requestDate: string;
 	readonly details: string;

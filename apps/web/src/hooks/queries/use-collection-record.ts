@@ -17,7 +17,7 @@
  * an on-demand collection.
  */
 
-import type { CollectionTimingMode } from '@simmer-mosquito/sync';
+import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { collections } from '../../lib/collections/collections';
 import { mapCardGcTimeMs, unmatchableId } from './shared';
@@ -32,7 +32,7 @@ export interface CollectionRecord {
 	readonly collectionLureId: string | null;
 	/** Ad hoc only — a trap collection takes the trap's. */
 	readonly addressId: string | null;
-	readonly collectionTimingMode: CollectionTimingMode;
+	readonly collectionTimingMode: AdultCollectionTimingMode;
 	/** Exact mode: when the trap went out. */
 	readonly startedAt: Date | null;
 	/** Exact mode: when it was emptied. `null` on a trap still out. */

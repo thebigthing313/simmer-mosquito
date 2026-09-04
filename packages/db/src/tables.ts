@@ -15,29 +15,51 @@
  * `pnpm generate:schemas`.
  */
 
-import type { SimmerRole } from '@simmer-mosquito/domain';
+import type {
+	AdultCollectionTimingMode,
+	ControlType,
+	InsecticideType,
+	LarvalDensity,
+	MembershipStatus,
+	MissionNotificationStatus,
+	NotificationChannel,
+	OrganizationBillingMode,
+	OrganizationSubscriptionStatus,
+	RequestIntakeType,
+	RouteType,
+	SimmerRole,
+	SpeciesSex,
+	SpeciesStatus,
+	UnitSystem,
+	UnitType,
+	WeatherSourceType,
+} from '@simmer-mosquito/domain';
 import type { ColumnType, Generated, RawBuilder } from 'kysely';
 
-export type { SimmerRole };
-
 /**
- * Exact type identity, which a pair of `extends` cannot express: `A extends B,
- * B extends A` is a circular constraint, and a union compares by assignability
- * either way round.
+ * Re-exported so a query and the domain command behind it name one type. The
+ * members are not written here: `pnpm check:column-vocabularies` holds the
+ * register's lists to this dump, ordered.
  */
-type Equals<A, B> =
-	(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
-
-/** Errors when `T` is not `true`. */
-type Assert<T extends true> = T;
-
-/**
- * The role ladder is declared in `packages/domain` and re-exported above, so a
- * migration that adds a role has to be matched there. This is what says so.
- */
-type _SimmerRoleMatchesDatabase = Assert<
-	Equals<SimmerRole, 'owner' | 'admin' | 'manager' | 'collector' | 'viewer'>
->;
+export type {
+	AdultCollectionTimingMode,
+	ControlType,
+	InsecticideType,
+	LarvalDensity,
+	MembershipStatus,
+	MissionNotificationStatus,
+	NotificationChannel,
+	OrganizationBillingMode,
+	OrganizationSubscriptionStatus,
+	RequestIntakeType,
+	RouteType,
+	SimmerRole,
+	SpeciesSex,
+	SpeciesStatus,
+	UnitSystem,
+	UnitType,
+	WeatherSourceType,
+};
 
 type TimestampWithDefault = ColumnType<Date, Date | undefined, Date | undefined>;
 type NullableTimestampWithDefault = ColumnType<
@@ -64,31 +86,6 @@ type GeometryColumn = ColumnType<
 	string | RawBuilder<string> | undefined,
 	string | RawBuilder<string> | undefined
 >;
-
-export type CollectionTimingMode = 'exact_timestamps' | 'collection_date_duration';
-export type ControlType = 'application' | 'source_reduction' | 'biocontrol' | 'outreach';
-export type InsecticideType = 'larvicide' | 'adulticide' | 'pupicide' | 'other';
-export type LarvalDensity = 'none' | 'light' | 'medium' | 'heavy' | 'very_heavy';
-export type MembershipStatus = 'active' | 'inactive' | 'invited';
-export type MissionNotificationStatus = 'pending' | 'completed' | 'failed' | 'skipped';
-export type NotificationChannel = 'email' | 'sms' | 'phone';
-export type OrganizationBillingMode = 'manual_invoice';
-export type OrganizationSubscriptionStatus = 'trial' | 'active' | 'suspended' | 'canceled';
-export type RequestIntakeType = 'online' | 'phone' | 'walk-in' | 'other';
-export type RouteType = 'habitat' | 'trap';
-export type SpeciesSex = 'male' | 'female';
-export type SpeciesStatus = 'damaged' | 'unfed' | 'bloodfed' | 'gravid';
-export type UnitSystem = 'si' | 'imperial' | 'us_customary';
-export type UnitType =
-	| 'weight'
-	| 'distance'
-	| 'area'
-	| 'volume'
-	| 'temperature'
-	| 'duration'
-	| 'count'
-	| 'speed';
-export type WeatherSourceType = 'organization' | 'nws';
 
 /** A GeoJSON geometry object, as `ST_AsGeoJSON` renders one. */
 export type GeoJsonGeometry = Record<string, unknown>;
@@ -340,7 +337,7 @@ export interface CollectionsTable {
 	updated_at: TimestampWithDefault;
 	deleted_at: NullableTimestampWithDefault;
 	deleted_by_profile_id: string | null;
-	collection_timing_mode: Generated<CollectionTimingMode>;
+	collection_timing_mode: Generated<AdultCollectionTimingMode>;
 	collection_date: NullableDateColumn;
 	duration_amount: number | null;
 	duration_unit_id: string | null;

@@ -19,7 +19,11 @@ import {
 import type { ControlActionContext } from '../performed-control-actions.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 
-export type InsecticideType = 'larvicide' | 'adulticide' | 'pupicide' | 'other';
+export {
+	CONTROL_TYPES,
+	INSECTICIDE_TYPES,
+	type InsecticideType,
+} from '../column-vocabularies.js';
 
 export type ControlOperationsCommandType =
 	| 'controlOperations.createApplicationMethod'
@@ -113,8 +117,6 @@ export interface ControlCommandPayload {
 	readonly actorProfileId: DomainId;
 }
 
-export const CONTROL_TYPES = ['application', 'source_reduction', 'biocontrol', 'outreach'] as const;
-export const INSECTICIDE_TYPES = ['larvicide', 'adulticide', 'pupicide', 'other'] as const;
 export const SOURCE_REDUCTION_UNIT_TYPES = ['count', 'distance', 'area', 'volume'] as const;
 export const BIOCONTROL_UNIT_TYPES = ['count', 'volume', 'weight'] as const;
 

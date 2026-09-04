@@ -1,3 +1,4 @@
+import { UNIT_TYPES } from '../column-vocabularies.js';
 import { createIssues } from '../command-validation.js';
 import type { DomainValidationIssue } from '../shared.js';
 import { resolveLarvalInspectionEntryPolicy } from './larval-inspection-policy.js';
@@ -20,17 +21,6 @@ import {
 	type UnitDefaults,
 	type UnitType,
 } from './types-and-defaults.js';
-
-const UNIT_TYPES = [
-	'weight',
-	'distance',
-	'area',
-	'volume',
-	'temperature',
-	'duration',
-	'count',
-	'speed',
-] as const;
 
 export function resolveOrganizationSettings(raw: unknown): ResolvedOrganizationSettings {
 	const issues = createIssues();
