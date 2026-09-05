@@ -7,7 +7,7 @@ import { ACTIVITY_FAMILY_LABELS, type ActivityEntry } from '../-activity-monitor
  *
  * The four dots used to sit in the filter card beside a count apiece, which read
  * as a control and was not one. On the map they are what the pins mean, and a
- * family the day recorded nothing in draws no pin — so listing it would be a key
+ * family the day recorded nothing in draws no pin, so listing it would be a key
  * to something that is not there.
  *
  * Colours come from `mapFamily`, which is what the layer paints with, per

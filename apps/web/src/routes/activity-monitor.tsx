@@ -79,12 +79,15 @@ function ActivityMonitorRoute() {
 	const { view } = selection;
 	const counts = useMemo(() => countActivityByFamily(view.items), [view.items]);
 	const reach = activityReach(activity.data, view.items.length);
-	const panelState = activityPanelState({
-		hasProfile: filters.window.profileId !== null,
-		isLoading: activity.isLoading,
-		error: activity.error,
-		isEmpty: view.days.length === 0,
-	});
+	const panelState = activityPanelState(
+		{
+			hasProfile: filters.window.profileId !== null,
+			isLoading: activity.isLoading,
+			error: activity.error,
+			isEmpty: view.days.length === 0,
+		},
+		ACTIVITY_RANGE_COPY,
+	);
 
 	// The person picker and the date window are this page, not a way of cutting
 	// it down, so the card they live in opens with it.

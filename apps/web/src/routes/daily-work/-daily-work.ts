@@ -7,7 +7,7 @@ import type { ActivityCopy } from '../-activity-monitor-data';
 /**
  * The day the page shows.
  *
- * `today` is already the agency's today rather than the browser's, so a
+ * `today` is already the organization's today rather than the browser's, so a
  * supervisor two zones away opens the same day a collector on the road does.
  * A future day is pulled back to today: the picker refuses to select one, and a
  * hand-typed or stale URL must land on a day that can hold work rather than on
@@ -43,8 +43,8 @@ const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
  *
  * Ids are UUIDs, so anything else is a mistyped or truncated link and is worth
  * saying so before a read goes out for it. It is only the cheap half: the page
- * still has to find the id among the agency's own profiles, because a valid
- * UUID belonging to another agency is the same wrong link.
+ * still has to find the id among this organization's own profiles, because a
+ * valid UUID belonging to another organization is the same wrong link.
  */
 export function isProfileId(value: string): boolean {
 	return UUID.test(value);
@@ -58,4 +58,5 @@ export const DAILY_WORK_COPY: ActivityCopy = {
 	},
 	refusalTitle: 'That day was not read',
 	truncationAdvice: null,
+	loadFailureBody: 'The read failed. Try again in a moment.',
 };

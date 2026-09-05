@@ -21,8 +21,10 @@ import { useInsecticideRecords } from './../hooks/queries/use-insecticide-record
 import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import { formatAmount, insecticideDisplayName } from './control-operations/-control-display';
 
-// Data + display helpers for the Activity Monitor: one Profile's field work over
-// a date range. Dash-prefixed so TanStack Router ignores this file as a route.
+// Data + display helpers for one Profile's field work: the response shape, the
+// grouping, and the wording each surface differs by. The Activity Monitor reads
+// it over a range of days and Daily Work over one.
+// Dash-prefixed so TanStack Router ignores this file as a route.
 
 export interface ActivityEntry {
 	readonly category: ActivityCategory;
@@ -281,8 +283,8 @@ export function useActivityLookups(): {
 /**
  * The wording one surface differs from the other by.
  *
- * Two pages read the same log — the Activity Monitor over a window of days and
- * Daily Work over one — and every difference between them is a sentence about
+ * Two pages read the same log, the Activity Monitor over a window of days and
+ * Daily Work over one, and every difference between them is a sentence about
  * dates. Collected here so a page states its wording once instead of the shared
  * parts spelling "range" at a reader who chose a single day.
  */
@@ -293,6 +295,8 @@ export interface ActivityCopy {
 	readonly refusalTitle: string;
 	/** What to do about a capped log, where there is anything to do. */
 	readonly truncationAdvice: string | null;
+	/** The read failed for no reason the server gave. What to try, in this page's terms. */
+	readonly loadFailureBody: string;
 }
 
 /** The Activity Monitor's wording: a window with two ends the reader can move. */
@@ -303,6 +307,7 @@ export const ACTIVITY_RANGE_COPY: ActivityCopy = {
 	},
 	refusalTitle: 'That range was not read',
 	truncationAdvice: 'Narrow the dates to see all of them.',
+	loadFailureBody: 'The read failed. Try again, or narrow the range.',
 };
 
 /**
@@ -321,7 +326,7 @@ export function activityPanelMessage(
 		readonly error: Error | null;
 		readonly isEmpty: boolean;
 	},
-	copy: ActivityCopy = ACTIVITY_RANGE_COPY,
+	copy: ActivityCopy,
 ): { readonly title: string; readonly body: string } | 'loading' | null {
 	if (!state.hasProfile) {
 		return { title: 'Choose a person', body: 'Pick someone to see their field work.' };
@@ -337,10 +342,7 @@ export function activityPanelMessage(
 	if (state.error !== null) {
 		return isRefusal(state.error)
 			? { title: copy.refusalTitle, body: state.error.message }
-			: {
-					title: 'Activity could not be loaded',
-					body: 'The read failed. Try again in a moment.',
-				};
+			: { title: 'Activity could not be loaded', body: copy.loadFailureBody };
 	}
 	if (state.isEmpty) {
 		return copy.empty;
@@ -364,7 +366,7 @@ export function activityPanelState(
 		readonly error: Error | null;
 		readonly isEmpty: boolean;
 	},
-	copy: ActivityCopy = ACTIVITY_RANGE_COPY,
+	copy: ActivityCopy,
 ): {
 	/** The frame draws its empty state, or its placeholder rows if still loading. */
 	readonly isEmpty: boolean;

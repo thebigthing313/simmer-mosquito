@@ -15,7 +15,7 @@ import {
 // a wrong answer that shows nothing and says nothing about why.
 
 describe('dailyWorkDay', () => {
-	it('falls back to the agency’s today when the URL carries no day', () => {
+	it('falls back to the organization’s today when the URL carries no day', () => {
 		expect(dailyWorkDay('', '2026-09-04')).toBe('2026-09-04');
 	});
 
@@ -86,6 +86,20 @@ describe('DAILY_WORK_COPY', () => {
 	// One day has no second end to move, so there is nothing to advise.
 	it('offers no advice about narrowing a capped log', () => {
 		expect(DAILY_WORK_COPY.truncationAdvice).toBeNull();
+	});
+
+	// Same reason: the Activity Monitor tells a reader to narrow the range after a
+	// failed read, and this page has no range to narrow.
+	it('does not tell a reader to narrow a range after a failed read', () => {
+		const state = activityPanelState(
+			{ hasProfile: true, isLoading: false, error: new Error('boom'), isEmpty: true },
+			DAILY_WORK_COPY,
+		);
+
+		expect(state.message).toEqual({
+			title: 'Activity could not be loaded',
+			body: 'The read failed. Try again in a moment.',
+		});
 	});
 });
 

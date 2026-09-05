@@ -10,7 +10,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { ArrowLeftIcon, ContactIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { ExplorerMapPage, useExplorerPanel, usePersonnelOptions } from '../../components/explorer';
 import { MapCanvas } from '../../components/map';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
@@ -181,10 +181,20 @@ function useDailyWorkDay(today: string): {
 		DAILY_WORK_FILTER_CODECS,
 		DAILY_WORK_FILTER_COUNTING,
 	);
+	const day = dailyWorkDay(filters.date, today);
+
+	// A stale or hand-typed future day is drawn as today, so the address has to
+	// say today as well. Left alone, the link is one that names a day it does not
+	// show, and it stays wrong every time it is opened or copied.
+	useEffect(() => {
+		if (filters.date !== day) {
+			setFilters({ date: day });
+		}
+	}, [filters.date, day, setFilters]);
 
 	return {
 		activeCount,
-		day: dailyWorkDay(filters.date, today),
+		day,
 		setDay: useCallback(
 			(next: string) => setFilters({ date: next === '' ? today : next }),
 			[setFilters, today],
