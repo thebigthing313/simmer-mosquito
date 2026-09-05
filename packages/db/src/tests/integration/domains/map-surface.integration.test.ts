@@ -80,9 +80,9 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
 // --- what the map surfaces actually answer -----------------------------------
 //
 // `map-surface-sql.test.ts` compiles all forty-one map reads and pins the SQL,
-// which proves ADR 0008's tenancy and soft-delete predicates are written. It
-// pins text, not execution: no read in this package has ever been run against
-// Postgres, so a predicate on the wrong alias, a join that outlives its
+// which proves ADR 0008's organization and soft-delete predicates are written.
+// It pins text, not execution: no read in this package has ever been run
+// against Postgres, so a predicate on the wrong alias, a join that outlives its
 // parent's delete, or an envelope that frames the wrong corner would keep that
 // suite green and hand one organization another organization's records.
 //

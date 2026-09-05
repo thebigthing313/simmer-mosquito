@@ -465,8 +465,8 @@ const sampleDisplayColumns = sql`
 const sampleSurface = mapRecordSurface<SampleListFilters, SafeSampleDisplayRow>({
 	layer: 'samples',
 	from: sql`samples s join inspections i on i.id = s.inspection_id`,
-	// Tenancy is the sample's; the geometry is its parent inspection's, which is
-	// why the two aliases differ here and nowhere else.
+	// The organization scope is the sample's; the geometry is its parent
+	// inspection's, which is why the two aliases differ here and nowhere else.
 	alias: 's',
 	geom: sql`i.geom`,
 	properties: [sql`s.id`, sql`(${sampleStatusExpression}) as "status"`],

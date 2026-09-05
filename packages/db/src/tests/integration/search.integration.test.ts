@@ -433,10 +433,10 @@ describeDbIntegration('search documents reader', () => {
 	});
 
 	/*
-	 * `weather_sources` is the one corpus table whose tenancy column is nullable,
-	 * and the one place the migration deliberately leaves a corpus row out of the
-	 * index. A null `organization_id` is a platform-owned station, which is
-	 * nobody's Organization record.
+	 * `weather_sources` is the one corpus table whose organization column is
+	 * nullable, and the one place the migration deliberately leaves a corpus row
+	 * out of the index. A null `organization_id` is a platform-owned station,
+	 * which is nobody's Organization record.
 	 *
 	 * #279 settled that it stays out once provider stations land: an Organization
 	 * will see only the stations it has subscribed to through
@@ -446,7 +446,7 @@ describeDbIntegration('search documents reader', () => {
 	 * over.
 	 *
 	 * The reader takes an `organizationId`, so it cannot tell "no document" from
-	 * "a document the tenancy filter dropped". Both directions are read off
+	 * "a document the organization filter dropped". Both directions are read off
 	 * `search_documents` itself.
 	 */
 	it('indexes an organization station and leaves a platform-owned one out', async () => {

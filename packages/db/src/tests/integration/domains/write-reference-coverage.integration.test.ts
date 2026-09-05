@@ -180,21 +180,21 @@ async function columnsOf(db: Kysely<SimmerDatabase>, table: string): Promise<Rea
  *
  * The registry is hand-written and a hand-written list cannot notice what it
  * omits — the same argument the catalog coverage test above makes, asked of the
- * other half. A column added by a later migration that points at a tenant-owned
- * record would otherwise take its id from the payload with nothing checking
- * whose it was, which is #200 all over again.
+ * other half. A column added by a later migration that points at an
+ * organization-owned record would otherwise take its id from the payload with
+ * nothing checking whose it was, which is #200 all over again.
  *
  * Four kinds of column are exempt, and each is exempt for a reason a query can
  * see rather than by name:
  *
- * - a parent with no `organization_id`, so there is no tenancy to check;
+ * - a parent with no `organization_id`, so there is no organization to check;
  * - a parent that is a catalog, gated by name at the writer with `is_active`;
  * - the three attribution columns, written from the session, never a payload;
  * - the two weather tables, whose nullable `organization_id` this gate's
  *   predicate would read as "belongs to nobody, so refuse".
  */
 describeDbIntegration('record reference registry coverage', () => {
-	it('has an entry for every foreign key pointing at a tenant-owned record', async () => {
+	it('has an entry for every foreign key pointing at an organization-owned record', async () => {
 		await withTestDb(async ({ db }) => {
 			const catalogs = new Set(
 				catalogRecordTypes().map((catalog) => deletableRecordTable(catalog)),
@@ -210,7 +210,7 @@ describeDbIntegration('record reference registry coverage', () => {
 			const unregistered: string[] = [];
 			const misdirected: string[] = [];
 
-			for (const reference of await tenantOwnedReferences(db)) {
+			for (const reference of await orgOwnedReferences(db)) {
 				if (
 					catalogs.has(reference.parent) ||
 					attribution.has(reference.column) ||
@@ -238,16 +238,16 @@ describeDbIntegration('record reference registry coverage', () => {
 	});
 });
 
-interface TenantOwnedReference {
+interface OrgOwnedReference {
 	readonly child: string;
 	readonly column: string;
 	readonly parent: string;
 }
 
 /** Every foreign key whose parent table carries an `organization_id`. */
-async function tenantOwnedReferences(
+async function orgOwnedReferences(
 	db: Kysely<SimmerDatabase>,
-): Promise<readonly TenantOwnedReference[]> {
+): Promise<readonly OrgOwnedReference[]> {
 	const result = await sql<{
 		readonly child: string;
 		readonly column: string;

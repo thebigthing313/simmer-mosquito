@@ -46,10 +46,10 @@ export function regionMembershipClause(input: {
 	 */
 	readonly geomType: RawBuilder<unknown>;
 	/**
-	 * The record's tenancy column, e.g. ``sql`h.organization_id` ``. The region
-	 * set is scoped to the record's own organization rather than to a separately
-	 * passed id, so a region id belonging to another organization can never widen
-	 * a filtered read.
+	 * The record's organization column, e.g. ``sql`h.organization_id` ``. The
+	 * region set is scoped to the record's own organization rather than to a
+	 * separately passed id, so a region id belonging to another organization can
+	 * never widen a filtered read.
 	 */
 	readonly organizationId: RawBuilder<unknown>;
 	readonly regionIds: readonly string[];

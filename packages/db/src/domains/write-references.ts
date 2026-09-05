@@ -60,14 +60,15 @@ export function catalogRecordTypes(): readonly CatalogRecordType[] {
 /**
  * The tables a command body may name an id in, other than the catalogs.
  *
- * Every one is tenant-owned and soft-deleting, which is what makes the same
- * two-column query answer for it. `write-reference-coverage.integration.test.ts`
- * asks the live schema to confirm both, so a table added here without an
- * `organization_id` fails rather than gating on a column that is not there.
+ * Every one is organization-owned and soft-deleting, which is what makes the
+ * same two-column query answer for it.
+ * `write-reference-coverage.integration.test.ts` asks the live schema to
+ * confirm both, so a table added here without an `organization_id` fails rather
+ * than gating on a column that is not there.
  *
  * Global tables are deliberately absent. `species`, `genera` and `units` have
  * no `organization_id` and are shared by every organization, so there is no
- * tenancy question to ask of them.
+ * organization question to ask of them.
  *
  * So are the two weather tables, for a subtler reason. `weather_sources` and
  * `weather_summaries` carry a *nullable* `organization_id`, kept that way for a
@@ -109,8 +110,9 @@ export function referencedRecordTables(): readonly ReferencedRecordTable[] {
  *
  * Keyed by column rather than by table because the writers hand this the row
  * they are about to write, and a column is what a row has. The schema allows
- * that: no column name in it points at two different tenant-owned tables, which
- * `write-reference-coverage.integration.test.ts` asks Postgres to confirm.
+ * that: no column name in it points at two different organization-owned tables,
+ * which `write-reference-coverage.integration.test.ts` asks Postgres to
+ * confirm.
  *
  * The three attribution columns are deliberately absent. `created_by_profile_id`,
  * `updated_by_profile_id` and `deleted_by_profile_id` are written from the

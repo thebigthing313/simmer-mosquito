@@ -6,7 +6,7 @@ import type { DbExecutor } from '../index.js';
  * must never come back.
  *
  * `map-surface-sql.test.ts` pins the SQL every map read emits, which proves the
- * tenancy and soft-delete predicates are *written*. It cannot prove they
+ * organization and soft-delete predicates are *written*. It cannot prove they
  * **work** — a predicate against the wrong alias, or a join that resurrects a
  * deleted parent, compiles to text that passes every assertion there and still
  * hands one organization another's habitats. Nothing runs these reads.
@@ -460,11 +460,11 @@ async function seedSurfaceRows(db: DbExecutor): Promise<void> {
 		)
 		.execute();
 
-	// A sample's tenancy is its own and its geometry is its inspection's, so each
-	// sample hangs off the inspection in the matching state — plus one live sample
-	// on the deleted inspection, which only the join's own predicate excludes.
-	// The soft-deleted sample sits on the *live* inspection, so what excludes it is
-	// its own delete rather than its parent's.
+	// A sample's organization is its own and its geometry is its inspection's, so
+	// each sample hangs off the inspection in the matching state — plus one live
+	// sample on the deleted inspection, which only the join's own predicate
+	// excludes. The soft-deleted sample sits on the *live* inspection, so what
+	// excludes it is its own delete rather than its parent's.
 	await db
 		.insertInto('samples')
 		.values([

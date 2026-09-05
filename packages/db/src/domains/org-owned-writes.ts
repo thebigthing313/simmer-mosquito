@@ -5,16 +5,16 @@ import type { GeoJsonGeometry, SimmerDatabase } from '../tables.js';
 import { assertWriteReferences, recordReferencesIn } from './write-references.js';
 
 /**
- * Every table a tenant owns rows in directly: it carries the tenant column, and
- * it is soft-deleted rather than removed.
+ * Every table an organization owns rows in directly: it carries the
+ * organization column, and it is soft-deleted rather than removed.
  *
  * Derived from the schema rather than listed, because a hand-written list is
- * only as safe as the file that wrote it. Seven command families each kept their
- * own `WriteTable` union, and `control-operations` alone kept two that disagreed
- * — `updateActionRow` named five tables, its neighbouring `softDelete` named
- * eight. Passing a table without `organization_id` is now a build error instead
- * of something each union had to remember, which is how ADR 0008's tenant-scope
- * rule becomes checkable.
+ * only as safe as the file that wrote it. Seven command families each kept
+ * their own `WriteTable` union, and `control-operations` alone kept two that
+ * disagreed — `updateActionRow` named five tables, its neighbouring
+ * `softDelete` named eight. Passing a table without `organization_id` is now a
+ * build error instead of something each union had to remember, which is how ADR
+ * 0008's organization-scope rule becomes checkable.
  */
 export type OrgOwnedTable = {
 	[K in keyof SimmerDatabase]: SimmerDatabase[K] extends {
@@ -72,8 +72,8 @@ export type SelectedRow<
 > = Pick<Selectable<SimmerDatabase[TTable]>, TColumns[number]>;
 
 /**
- * Update one row a tenant owns, scoped so it cannot reach another tenant's or a
- * deleted one.
+ * Update one row an organization owns, scoped so it cannot reach another
+ * organization's or a deleted one.
  *
  * Returns `null` rather than throwing when nothing matched: whether that means
  * "not yours" or "not there" is not a distinction this layer can draw, and the
@@ -115,7 +115,7 @@ export async function updateRow<
 }
 
 /**
- * Retire a row the tenant owns, recording who did it.
+ * Retire a row the organization owns, recording who did it.
  *
  * The same `deleted_at is null` guard as `updateRow` makes this idempotent: a
  * second delete matches nothing and answers `null`.
@@ -187,12 +187,12 @@ function unwrapFeature(geojson: unknown): unknown {
 }
 
 /**
- * The geometry of another row the same tenant owns.
+ * The geometry of another row the same organization owns.
  *
- * Answers `undefined` when the row is absent, another tenant's, or deleted —
- * the 404 that fact becomes is `apps/server`'s to raise, so that this package
- * stays free of HTTP vocabulary. The tenancy predicate was re-typed in three
- * families before living here.
+ * Answers `undefined` when the row is absent, another organization's, or
+ * deleted — the 404 that fact becomes is `apps/server`'s to raise, so that this
+ * package stays free of HTTP vocabulary. The organization predicate was
+ * re-typed in three families before living here.
  */
 export async function loadGeojson(
 	trx: Transaction<SimmerDatabase>,
