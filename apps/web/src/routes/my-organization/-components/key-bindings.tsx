@@ -123,9 +123,7 @@ export function KeyBindingsSettings({
 						<SpeciesIcon aria-hidden="true" />
 					</EmptyMedia>
 					<EmptyTitle>No Species Adopted</EmptyTitle>
-					<EmptyDescription>
-						Adopt species for this agency before assigning keys to them.
-					</EmptyDescription>
+					<EmptyDescription>Adopt species before assigning keys to them.</EmptyDescription>
 				</EmptyHeader>
 			</Empty>
 		);

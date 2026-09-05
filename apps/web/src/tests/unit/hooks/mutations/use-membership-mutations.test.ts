@@ -19,7 +19,7 @@ describe('an invitation body', () => {
 	it('attaches the login to the Profile the dialog picked', () => {
 		const body = inviteCommandBody(
 			{
-				email: 'crew@agency.test',
+				email: 'crew@example.test',
 				displayName: 'Sam Rivera',
 				role: 'collector',
 				profileId: PICKED_PROFILE,
@@ -31,7 +31,7 @@ describe('an invitation body', () => {
 			intents: ['identity.invite'],
 			id: 'minted-1',
 			profile_id: PICKED_PROFILE,
-			invited_email: 'crew@agency.test',
+			invited_email: 'crew@example.test',
 			display_name: 'Sam Rivera',
 			role: 'collector',
 		});
@@ -39,7 +39,7 @@ describe('an invitation body', () => {
 
 	it('mints a Profile id when the invite is for somebody new', () => {
 		const body = inviteCommandBody(
-			{ email: 'crew@agency.test', displayName: '', role: 'viewer', profileId: null },
+			{ email: 'crew@example.test', displayName: '', role: 'viewer', profileId: null },
 			minter(),
 		);
 
@@ -51,7 +51,7 @@ describe('an invitation body', () => {
 	// answers 400 for a field the dialog did supply.
 	it('names the columns rather than the dialog fields', () => {
 		const body = inviteCommandBody(
-			{ email: 'crew@agency.test', displayName: 'Sam', role: 'viewer', profileId: null },
+			{ email: 'crew@example.test', displayName: 'Sam', role: 'viewer', profileId: null },
 			minter(),
 		);
 

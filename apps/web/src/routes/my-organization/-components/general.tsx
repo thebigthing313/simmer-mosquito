@@ -97,17 +97,17 @@ export function GeneralOrganizationSection({
 		<>
 			<DomainSection
 				canManage={canManage}
-				editDescription="Update the agency profile details available to organization members."
+				editDescription="Update the organization details every member can see."
 				editAction={
 					<EditOrganizationDetailsSheet
 						defaultValues={organizationDetailsFormValues(organization, settings)}
-						description="Update the agency profile details available to organization members."
+						description="Update the organization details every member can see."
 						title={`Edit ${organizationName}`}
 					/>
 				}
 				fields={organizationFields}
-				id="agency"
-				meta="Current agency details"
+				id="organization"
+				meta="Current organization details"
 				setupItems={[]}
 				title={organizationName}
 			>
@@ -547,7 +547,7 @@ function EditOrganizationDetailsSheet({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () => (canWrite ? undefined : 'Agency details are still loading.'),
+			onSubmit: () => (canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
 			try {
@@ -556,7 +556,7 @@ function EditOrganizationDetailsSheet({
 				// that did.
 				const fields = organizationDetailsFieldsFrom(value);
 				setOpen(false);
-				watchWrite(saveOrganizationDetails(fields), 'Unable to save agency details.');
+				watchWrite(saveOrganizationDetails(fields), 'Unable to save organization details.');
 			} catch (saveError) {
 				toast.error(errorMessageForSave(saveError));
 			}
@@ -673,7 +673,7 @@ function EditUnitDefaultsSheet({
 	const form = useAppForm({
 		defaultValues,
 		validators: {
-			onSubmit: () => (canWrite ? undefined : 'Agency details are still loading.'),
+			onSubmit: () => (canWrite ? undefined : 'Organization details are still loading.'),
 		},
 		onSubmit: ({ value }) => {
 			try {

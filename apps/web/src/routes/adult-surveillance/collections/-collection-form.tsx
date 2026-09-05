@@ -565,7 +565,7 @@ export function CollectionFormPage({
 								>
 									{(field) => (
 										<field.MetadataField
-											description="Extra details your agency collects for this method."
+											description="Extra details you collect for this method."
 											mode={{ kind: 'schema', schema }}
 										/>
 									)}

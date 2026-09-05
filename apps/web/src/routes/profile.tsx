@@ -115,12 +115,12 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 
 				<Card variant="surface">
 					<CardHeader className="px-4 py-4">
-						<CardTitle>Agency</CardTitle>
+						<CardTitle>Organization</CardTitle>
 						<CardDescription>How your work is attributed.</CardDescription>
 					</CardHeader>
 					<CardContent padding="compact">
 						<dl className="grid gap-2.5">
-							<DetailRow label="Agency">
+							<DetailRow label="Organization">
 								{orNotSet(localIdentity.organizationName ?? null)}
 							</DetailRow>
 							<DetailRow label="Role">
@@ -159,7 +159,7 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 			</div>
 
 			<p className="m-0 text-muted-foreground text-sm">
-				Your name and role are set by your agency. Ask an owner to change them.
+				Your name and role are set by your organization. Ask an owner to change them.
 			</p>
 		</>
 	);

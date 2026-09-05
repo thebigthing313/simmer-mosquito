@@ -537,9 +537,7 @@ function PressSurface({
 			)}
 		>
 			{!hasBindings ? (
-				<span className="text-muted-foreground text-sm">
-					No keys are set up for this agency yet.
-				</span>
+				<span className="text-muted-foreground text-sm">No keys are set up yet.</span>
 			) : unknownKey !== null ? (
 				<>
 					<Kbd>{unknownKey}</Kbd>

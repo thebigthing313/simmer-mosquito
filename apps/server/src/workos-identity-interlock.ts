@@ -71,7 +71,7 @@ export const WORKOS_IDENTITY_WRITES_DISABLED = 'workos_identity_writes_disabled'
  * environment banner repeats it word for word, so it is read before it is met.
  */
 export const WORKOS_IDENTITY_WRITES_DISABLED_MESSAGE =
-	'Staging does not allow changes to sign-in accounts, Memberships, roles, Agencies, or invitations.';
+	'Staging does not allow changes to sign-in accounts, Memberships, roles, Organizations, or invitations.';
 
 /** The 403 body, in the `error` / `reason` shape every other refusal uses. */
 export function workOsIdentityWritesDisabledBody(): {

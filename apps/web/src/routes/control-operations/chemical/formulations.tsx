@@ -146,7 +146,7 @@ function FormulationsRoute() {
 					application can be entered as the amount of mix that went out.
 					{canManage
 						? ' Add your first mix to get started.'
-						: ' An owner or admin can add mixes for your agency.'}
+						: ' An owner or admin can add mixes for you.'}
 				</>
 			}
 			emptyTitle="No Formulations Yet"

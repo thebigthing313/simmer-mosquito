@@ -66,8 +66,8 @@ const SETTINGS = resolveOrganizationSettings(null).settings;
 const STAMP = '2026-08-18T00:00:00.000Z';
 const TIMEZONE = SETTINGS.timezone;
 
-/** The agency row every settings write reads its stamp and its document off. */
-const AGENCY = {
+/** The organization row every settings write reads its stamp and its document off. */
+const ORGANIZATION_ROW = {
 	id: ORGANIZATION,
 	workos_organization_id: 'org_01',
 	name: 'Coastal MAD',
@@ -114,7 +114,7 @@ function stubApiStamping(updatedAt: string): void {
 
 beforeEach(() => {
 	installMemoryCollections();
-	seedRows(organizations, [AGENCY]);
+	seedRows(organizations, [ORGANIZATION_ROW]);
 	resetDispatches();
 	answered.length = 0;
 	stubApi();
@@ -132,7 +132,7 @@ describe('a membership write', () => {
 		const { result } = renderHook(() => useMembershipMutations());
 
 		await result.current.invite({
-			email: 'crew@agency.test',
+			email: 'crew@example.test',
 			displayName: 'Sam Rivera',
 			role: 'collector',
 			profileId: null,
@@ -144,7 +144,7 @@ describe('a membership write', () => {
 		expect(lastRequest().method).toBe('POST');
 		expect(lastRequest().body).toMatchObject({
 			intents: ['identity.invite'],
-			invited_email: 'crew@agency.test',
+			invited_email: 'crew@example.test',
 			display_name: 'Sam Rivera',
 			role: 'collector',
 		});
@@ -157,7 +157,7 @@ describe('a membership write', () => {
 		const { result } = renderHook(() => useMembershipMutations());
 
 		await result.current.invite({
-			email: 'crew@agency.test',
+			email: 'crew@example.test',
 			displayName: '',
 			role: 'viewer',
 			profileId: null,
@@ -176,7 +176,7 @@ describe('a membership write', () => {
 		const { result } = renderHook(() => useMembershipMutations());
 
 		await result.current.invite({
-			email: 'crew@agency.test',
+			email: 'crew@example.test',
 			displayName: 'Sam Rivera',
 			role: 'collector',
 			profileId: HISTORICAL_PROFILE,
@@ -205,7 +205,7 @@ describe('a membership write', () => {
 		expect(requests()).toHaveLength(0);
 	});
 
-	it('clears the default agency when access ends, and keeps the row', async () => {
+	it('clears the default organization when access ends, and keeps the row', async () => {
 		// The Membership is the only record that access was ever held, so this is an
 		// update and not a delete. `is_default` left set points at the one agency
 		// this person can no longer enter, and their next sign-in has nowhere to go.
@@ -258,20 +258,20 @@ describe('a profile write', () => {
 
 function organizationFields(overrides: Record<string, unknown> = {}) {
 	return {
-		name: AGENCY.name,
-		mainContactEmail: AGENCY.main_contact_email,
-		phoneNumber: AGENCY.phone_number,
-		mailingAddressLine1: AGENCY.mailing_address_line_1,
-		mailingAddressLine2: AGENCY.mailing_address_line_2,
-		mailingLocality: AGENCY.mailing_locality,
-		mailingRegion: AGENCY.mailing_region,
-		mailingPostalCode: AGENCY.mailing_postal_code,
+		name: ORGANIZATION_ROW.name,
+		mainContactEmail: ORGANIZATION_ROW.main_contact_email,
+		phoneNumber: ORGANIZATION_ROW.phone_number,
+		mailingAddressLine1: ORGANIZATION_ROW.mailing_address_line_1,
+		mailingAddressLine2: ORGANIZATION_ROW.mailing_address_line_2,
+		mailingLocality: ORGANIZATION_ROW.mailing_locality,
+		mailingRegion: ORGANIZATION_ROW.mailing_region,
+		mailingPostalCode: ORGANIZATION_ROW.mailing_postal_code,
 		timezone: TIMEZONE,
 		...overrides,
 	};
 }
 
-describe('an agency details write', () => {
+describe('an organization details write', () => {
 	it('sends nothing at all when the sheet was opened and closed', async () => {
 		const { result } = renderHook(() => useOrganizationSettingsMutations());
 

@@ -802,7 +802,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'organization',
 		label: 'Organization',
-		summary: 'Agency setup, people, and the catalogs behind every record',
+		summary: 'Setup, people, and the catalogs behind every record',
 		icon: iconRegistry.generic.settings.icon,
 		groups: [
 			{

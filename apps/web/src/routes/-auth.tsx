@@ -258,7 +258,7 @@ export function SignInPage({ redirectTo }: { readonly redirectTo: string }) {
 	return (
 		<AuthShell
 			title="Sign In to Your Workspace"
-			description="Welcome back. Enter your details to reach your agency."
+			description="Welcome back. Enter your details to reach your organization."
 			footer={
 				<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
 					<span>

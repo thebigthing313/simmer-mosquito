@@ -185,7 +185,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 			next: (settings: OrganizationSettings) => OrganizationSettings,
 		) => {
 			if (row === undefined) {
-				throw new Error('Agency details are still loading.');
+				throw new Error('Organization details are still loading.');
 			}
 
 			const organizationId = row.id;
@@ -211,7 +211,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 	const saveOrganizationDetails = useCallback(
 		async (fields: OrganizationDetailsFields) => {
 			if (row === undefined) {
-				throw new Error('Agency details are still loading.');
+				throw new Error('Organization details are still loading.');
 			}
 
 			const organizationId = row.id;

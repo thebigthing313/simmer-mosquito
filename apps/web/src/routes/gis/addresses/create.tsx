@@ -81,7 +81,7 @@ function CreateAddressRoute() {
 			defaultValues={defaultAddressFormValues()}
 			header={{
 				title: 'Create Address',
-				description: 'Add a geocoded address to the agency address book.',
+				description: 'Add a geocoded address to the address book.',
 				backTo: '/gis/addresses',
 				backLabel: 'Address Book',
 			}}

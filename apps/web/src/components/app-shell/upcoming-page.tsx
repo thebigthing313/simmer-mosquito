@@ -84,7 +84,7 @@ const insecticides: Elsewhere = {
 };
 const regions: Elsewhere = {
 	label: 'Regions',
-	description: 'The boundaries the agency works and reports by',
+	description: 'The boundaries you work and report by',
 	to: '/gis/regions',
 	icon: iconRegistry.entities.region.icon,
 };
@@ -96,7 +96,7 @@ const weatherStations: Elsewhere = {
 };
 const habitats: Elsewhere = {
 	label: 'Habitats',
-	description: 'The sites your agency inspects, on the map',
+	description: 'The sites you inspect, on the map',
 	to: '/larval-surveillance/habitats',
 	icon: iconRegistry.generic.droplet.icon,
 };
@@ -150,7 +150,7 @@ const habitatTypes: Elsewhere = {
 };
 const collectionMethods: Elsewhere = {
 	label: 'Collection Methods',
-	description: 'The trap types your agency runs',
+	description: 'The trap types you run',
 	to: '/adult-surveillance/collection-methods',
 	icon: iconRegistry.generic.component.icon,
 };
@@ -167,7 +167,7 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 	'/': {
 		title: 'Dashboard',
 		summary:
-			'A single view of where agency work stands: recent field activity, records that need a decision, and the operational picture across surveillance and control.',
+			'A single view of where the work stands: recent field activity, records that need a decision, and the operational picture across surveillance and control.',
 		willLand: [
 			'Cross-domain activity for the current period',
 			'Records flagged for attention, each linking straight to the record',
@@ -306,12 +306,11 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 	},
 	'/gis/data-explorer': {
 		title: 'Data Map',
-		summary:
-			'Maps the Agency builds: choose which records draw, filter each layer, and save the result.',
+		summary: 'Maps you build: choose which records draw, filter each layer, and save the result.',
 		willLand: [
 			'Any of the mapped record types drawn together, each with its own filters',
 			'Draw order and visibility set per layer',
-			'Saved maps, reopened and shared across the Agency',
+			'Saved maps, reopened and shared across your organization',
 		],
 		elsewhere: [regions, habitats, traps],
 	},

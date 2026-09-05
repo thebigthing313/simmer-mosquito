@@ -72,7 +72,7 @@ describe('assignmentDisplayName', () => {
 describe('formatDueAt', () => {
 	const instant = new Date('2026-08-04T20:30:00Z');
 
-	it('reads a due time on the agency clock, not the browser one', () => {
+	it('reads a due time on the organization clock, not the browser one', () => {
 		// 20:30 UTC is 4:30pm in New York and 1:30pm in Los Angeles. Two zones far
 		// enough apart that a helper ignoring the argument would agree with itself.
 		expect(formatDueAt(instant, 'America/New_York')).toContain('4:30');

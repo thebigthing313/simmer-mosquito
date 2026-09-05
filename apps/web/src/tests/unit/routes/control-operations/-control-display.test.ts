@@ -44,7 +44,7 @@ describe('usageTotal', () => {
 
 	// The point of #91's third item: 12 gal · 128 fl oz is a true answer to a
 	// question nobody asked.
-	it('totals two units of the same quantity into the agency default', () => {
+	it('totals two units of the same quantity into the organization default', () => {
 		const result = total([
 			[GALLON, 12],
 			[FLUID_OUNCE, 128],

@@ -7,7 +7,7 @@ import { regionsEmptyState } from '../../../../../routes/gis/regions/index';
 // that cannot work, which is the same failure the frame's failure state was
 // added for.
 describe('regionsEmptyState', () => {
-	it('asks for a first Region when the agency has none', () => {
+	it('asks for a first Region when the organization has none', () => {
 		expect(regionsEmptyState({ hasDirectory: false, hasMatches: false, query: '' })).toEqual({
 			isEmpty: true,
 			emptyTitle: 'No regions yet',

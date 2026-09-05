@@ -81,11 +81,11 @@ function CollectionMethodsRoute() {
 			description="Collection methods describe how your crews catch adult mosquitoes — light traps with and without attractant, gravid traps, resting traps, and emergence traps. Manage the labels, action thresholds, and any custom fields recorded against them."
 			emptyDescription={
 				<>
-					Every trap records the method that caught its mosquitoes, so your agency needs at least
-					one before crews can add traps.
+					Every trap records the method that caught its mosquitoes, so you need at least one before
+					crews can add traps.
 					{canManage
 						? ' Add your first method to get started.'
-						: ' An owner or admin can add collection methods for your agency.'}
+						: ' An owner or admin can add collection methods for you.'}
 				</>
 			}
 			emptyTitle="No Collection Methods Yet"

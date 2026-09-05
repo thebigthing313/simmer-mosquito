@@ -317,7 +317,7 @@ function folderFields(overrides: Record<string, unknown> = {}) {
 }
 
 describe('a region folder write', () => {
-	it('names the create and files it under the acting agency', async () => {
+	it('names the create and files it under the acting organization', async () => {
 		const { result } = renderHook(() => useRegionFolderMutations());
 
 		await result.current.create(RECORD, folderFields());

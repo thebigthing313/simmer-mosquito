@@ -119,7 +119,7 @@ describe('localDayStartAsTimestamp', () => {
 
 	// The whole point of the zone argument: the same requested day has to mean the
 	// same instant to every reader, not whichever midnight their laptop is on.
-	it('starts the day where the agency does, not where the browser does', () => {
+	it('starts the day where the organization does, not where the browser does', () => {
 		// 2026-07-24 in New York is UTC-4 in July, so its midnight is 04:00Z.
 		expect(localDayStartAsTimestamp('2026-07-24', 'America/New_York')).toBe(
 			'2026-07-24 04:00:00+00',
@@ -170,7 +170,7 @@ describe('localDayStartAsTimestamp', () => {
 		expect(local).toBe('2026-09-06');
 	});
 
-	it('falls back to the browser when the agency zone has not streamed yet', () => {
+	it('falls back to the browser when the organization zone has not streamed yet', () => {
 		expect(localDayStartAsTimestamp('2026-07-24', undefined)).toBe(
 			localDayStartAsTimestamp('2026-07-24', ''),
 		);
@@ -178,7 +178,7 @@ describe('localDayStartAsTimestamp', () => {
 });
 
 describe('localTimeAsInstant', () => {
-	it('names the instant a wall time falls on in the agency zone', () => {
+	it('names the instant a wall time falls on in the organization zone', () => {
 		// 09:30 on 4 August is 13:30Z in New York, which is UTC-4 in August.
 		expect(localTimeAsInstant('2026-08-04', '09:30', 'America/New_York')).toBe(
 			'2026-08-04T13:30:00.000Z',
@@ -200,7 +200,7 @@ describe('operationalDayAsInstant', () => {
 	/** Well clear of every day these tests stamp, so nothing clamps. */
 	const LONG_AFTER = new Date('2027-01-01T00:00:00.000Z');
 
-	it('stamps midday where the agency is, not midday UTC', () => {
+	it('stamps midday where the organization is, not midday UTC', () => {
 		// New Zealand is UTC+12 in August, so its midday on the 4th is midnight UTC
 		// that same morning. Stamped at noon UTC instead, the row is 01:00 on the
 		// 5th in Auckland and every surface reads it back as the wrong day.
@@ -233,7 +233,7 @@ describe('operationalDayAsInstant', () => {
 });
 
 describe('localTimeOfDay', () => {
-	it('reads an instant back on the agency clock, not the browser one', () => {
+	it('reads an instant back on the organization clock, not the browser one', () => {
 		// The inverse of `localTimeAsInstant`: 13:30Z is 09:30 in New York in
 		// August. A form that hydrates in the browser's zone and saves in the
 		// agency's shows a due time nobody set the moment the two differ.
