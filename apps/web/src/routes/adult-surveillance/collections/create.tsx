@@ -30,6 +30,7 @@ import {
 	type CollectionSaveInput,
 	collectionFieldsFrom,
 	defaultCollectionFormValues,
+	isCollectionLocation,
 } from './-collection-form';
 
 const createCollectionSearchSchema = z.object({
@@ -120,7 +121,7 @@ function CreateCollectionRoute() {
 				const centroid =
 					isTrap && trap !== null
 						? { lat: trap.latitude, lng: trap.longitude, geomType: 'point' }
-						: geometry !== null && geometry.type === 'Point'
+						: geometry !== null && isCollectionLocation(geometry)
 							? {
 									lat: geometry.coordinates[1],
 									lng: geometry.coordinates[0],

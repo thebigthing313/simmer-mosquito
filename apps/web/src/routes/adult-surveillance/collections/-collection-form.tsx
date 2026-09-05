@@ -1,12 +1,13 @@
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
 import {
+	getOwnedGeometryPolicy,
 	isCollectionDurationUnitType,
 	recordCollectedAdHocCollectionCommand,
 	recordCollectedTrapCollectionCommand,
 	setAdHocCollectionCommand,
 	setTrapCollectionCommand,
 } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import type { GeoJsonGeometry, GeoJsonPoint } from '@simmer-mosquito/mapping';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -47,6 +48,26 @@ export type CollectionSourceMode = 'trap' | 'adhoc';
 /** Non-empty sentinels: Radix Select forbids empty-string item values. */
 export const noLureValue = 'none';
 export const noUnitValue = 'none';
+
+/** What a collection stores, read off the register rather than named here. */
+const COLLECTION_LOCATION_SHAPES = getOwnedGeometryPolicy('collection').allowedTypes;
+
+/**
+ * Whether a placed shape is one an ad hoc collection stores.
+ *
+ * `useDrawLocation` below takes the same `collection` policy and offers nothing
+ * else, so this narrows what the two routes hold to what the optimistic centroid
+ * takes rather than gating a second time. It reads `allowedTypes` for the same
+ * reason the station and Region predicates do: both routes used to ask
+ * `type === 'Point'`, a copy of the matrix that goes stale the day the policy
+ * widens, and on Regions that copy refused a boundary the user could see on the
+ * map.
+ */
+export function isCollectionLocation(
+	geometry: DrawGeometry,
+): geometry is Extract<DrawGeometry, GeoJsonPoint> {
+	return COLLECTION_LOCATION_SHAPES.includes(geometry.type);
+}
 
 /**
  * Domain issue path → the form field holding it. Timing issues nest under the
