@@ -20,6 +20,8 @@ import {
 	DEFAULT_INSPECTION_SORT,
 	INSPECTION_SORT_KEYS,
 	type InspectionSort,
+	type InspectionTableFilters,
+	inspectionWindowKey,
 	nextSort,
 	SORT_DIRECTIONS,
 	useInspectionTable,
@@ -29,8 +31,24 @@ import { habitat_types } from '../../../../lib/collections/habitat_types';
 import { habitats } from '../../../../lib/collections/habitats';
 import { inspections } from '../../../../lib/collections/inspections';
 import { profiles } from '../../../../lib/collections/profiles';
-import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
+import {
+	installMemoryCollections,
+	seedRows,
+	subsetPredicate,
+	subsetRequests,
+} from '../../lib/collections/memory-collections';
 import { renderRead } from './read-harness';
+
+/** Every filter off: the whole set, in the sort's order. */
+const NO_FILTERS: InspectionTableFilters = {
+	dateFrom: '',
+	dateTo: '',
+	isWet: null,
+	densities: new Set(),
+	larvaeFound: false,
+	habitatTypeIds: new Set(),
+	inspectedByProfileIds: new Set(),
+};
 
 function inspection(
 	id: string,
@@ -42,8 +60,15 @@ function inspection(
 		readonly address_id?: string | null;
 		readonly inspected_by_profile_id?: string | null;
 		readonly is_wet?: boolean;
+		readonly density?: string | null;
 		readonly dip_count?: number | null;
 		readonly larvae_count?: number | null;
+		readonly has_eggs?: boolean;
+		readonly has_first_instar?: boolean;
+		readonly has_second_instar?: boolean;
+		readonly has_third_instar?: boolean;
+		readonly has_fourth_instar?: boolean;
+		readonly has_pupae?: boolean;
 		readonly lat?: number;
 		readonly lng?: number;
 	} = {},
@@ -82,9 +107,19 @@ beforeEach(() => {
 	seedRows(profiles, [{ id: 'p1', display_name: 'Rosa Lam' }]);
 });
 
-async function renderTable(limit: number, sort: InspectionSort = DEFAULT_INSPECTION_SORT) {
-	const { result } = await renderRead(() => useInspectionTable(sort, limit));
+async function renderTable(
+	limit: number,
+	sort: InspectionSort = DEFAULT_INSPECTION_SORT,
+	filters: InspectionTableFilters = NO_FILTERS,
+) {
+	const { result } = await renderRead(() => useInspectionTable(sort, limit, filters));
 	return result;
+}
+
+/** The ids left after `filters`, in the default order. */
+async function filteredIds(filters: Partial<InspectionTableFilters>): Promise<string[]> {
+	const result = await renderTable(50, DEFAULT_INSPECTION_SORT, { ...NO_FILTERS, ...filters });
+	return result.current.rows.map((row) => row.id);
 }
 
 /** The ids the hook returned, which is what every ordering case is about. */
@@ -163,7 +198,20 @@ describe('useInspectionTable', () => {
 		const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
 		seedRows(inspections, [inspection('i1')]);
 
+		// With filters set as well as without: a `where` is the other thing that
+		// can cost the cursor, and every filter here names a column of
+		// `inspections` precisely so it does not.
 		await renderTable(10, sort);
+		await renderTable(10, sort, {
+			...NO_FILTERS,
+			dateFrom: '2026-08-01',
+			dateTo: '2026-08-31',
+			densities: new Set(['light']),
+			habitatTypeIds: new Set(['t1']),
+			inspectedByProfileIds: new Set(['p1']),
+			isWet: true,
+			larvaeFound: true,
+		});
 
 		const complaints = warn.mock.calls
 			.map((call) => String(call[0]))
@@ -361,3 +409,263 @@ function siteLabelOf(row: InspectionTableRow | undefined): string {
 	const found = row as InspectionTableRow;
 	return inspectionSiteLabel(found, found.address);
 }
+
+/** A visit that found nothing, for the cases about the life-stage columns. */
+const NO_STAGES = {
+	has_eggs: false,
+	has_first_instar: false,
+	has_second_instar: false,
+	has_third_instar: false,
+	has_fourth_instar: false,
+	has_pupae: false,
+} as const;
+
+describe('useInspectionTable filtering', () => {
+	beforeEach(() => {
+		seedRows(habitat_types, [{ id: 't2', name: 'Tyre pile' }]);
+		seedRows(profiles, [{ id: 'p2', display_name: 'Dan Ortiz' }]);
+	});
+
+	it('bounds the window at both ends of the inspection date', async () => {
+		seedRows(inspections, [
+			inspection('before', { inspection_date: '2026-07-31' }),
+			inspection('inside', { inspection_date: '2026-08-05' }),
+			inspection('after', { inspection_date: '2026-09-01' }),
+		]);
+
+		expect(await filteredIds({ dateFrom: '2026-08-01', dateTo: '2026-08-31' })).toEqual(['inside']);
+		// A bound left blank is no bound at that end, which is what All time is.
+		expect(await filteredIds({ dateFrom: '2026-08-01' })).toEqual(['after', 'inside']);
+		expect(await filteredIds({ dateTo: '2026-08-31' })).toEqual(['inside', 'before']);
+	});
+
+	it('takes both ends of the date range inclusively', async () => {
+		// An operator asking for August means the first and the last of it.
+		seedRows(inspections, [
+			inspection('first', { inspection_date: '2026-08-01' }),
+			inspection('last', { inspection_date: '2026-08-31' }),
+		]);
+
+		expect(await filteredIds({ dateFrom: '2026-08-01', dateTo: '2026-08-31' })).toEqual([
+			'last',
+			'first',
+		]);
+	});
+
+	it('separates wet from dry', async () => {
+		seedRows(inspections, [
+			inspection('wet', { inspection_date: '2026-08-12', is_wet: true }),
+			inspection('dry', { inspection_date: '2026-08-11', is_wet: false }),
+		]);
+
+		expect(await filteredIds({ isWet: true })).toEqual(['wet']);
+		expect(await filteredIds({ isWet: false })).toEqual(['dry']);
+		expect(await filteredIds({ isWet: null })).toEqual(['wet', 'dry']);
+	});
+
+	it('takes any of the densities selected', async () => {
+		seedRows(inspections, [
+			inspection('quiet', { density: 'none', inspection_date: '2026-08-12' }),
+			inspection('light', { density: 'light', inspection_date: '2026-08-11' }),
+			inspection('heavy', { density: 'heavy', inspection_date: '2026-08-10' }),
+		]);
+
+		expect(await filteredIds({ densities: new Set(['light', 'heavy']) })).toEqual([
+			'light',
+			'heavy',
+		]);
+	});
+
+	it('keeps a visit that found any one of the six stages', async () => {
+		// Six boolean columns or'd, not a count: a visit that found one pupa and
+		// nothing else is a positive one.
+		seedRows(inspections, [
+			inspection('eggs', { ...NO_STAGES, has_eggs: true }),
+			inspection('pupae', { ...NO_STAGES, has_pupae: true }),
+			inspection('nothing', NO_STAGES),
+		]);
+
+		expect(await filteredIds({ larvaeFound: true })).toEqual(['eggs', 'pupae']);
+	});
+
+	it('filters habitat type and inspector by id', async () => {
+		// By id rather than by the name the table draws. The name is on a joined
+		// collection, and a predicate over that would be applied after the window
+		// had already been cut.
+		seedRows(inspections, [
+			inspection('basin', { habitat_type_id: 't1', inspected_by_profile_id: 'p1' }),
+			inspection('tyres', { habitat_type_id: 't2', inspected_by_profile_id: 'p2' }),
+		]);
+
+		expect(await filteredIds({ habitatTypeIds: new Set(['t2']) })).toEqual(['tyres']);
+		expect(await filteredIds({ inspectedByProfileIds: new Set(['p1']) })).toEqual(['basin']);
+	});
+
+	it('narrows by every filter at once', async () => {
+		seedRows(inspections, [
+			inspection('wanted', {
+				density: 'heavy',
+				habitat_type_id: 't2',
+				inspected_by_profile_id: 'p2',
+				inspection_date: '2026-08-10',
+				is_wet: true,
+			}),
+			inspection('wrong-type', {
+				density: 'heavy',
+				habitat_type_id: 't1',
+				inspected_by_profile_id: 'p2',
+				inspection_date: '2026-08-10',
+				is_wet: true,
+			}),
+			inspection('wrong-date', {
+				density: 'heavy',
+				habitat_type_id: 't2',
+				inspected_by_profile_id: 'p2',
+				inspection_date: '2026-06-10',
+				is_wet: true,
+			}),
+		]);
+
+		expect(
+			await filteredIds({
+				dateFrom: '2026-08-01',
+				dateTo: '2026-08-31',
+				densities: new Set(['heavy']),
+				habitatTypeIds: new Set(['t2']),
+				inspectedByProfileIds: new Set(['p2']),
+				isWet: true,
+				larvaeFound: true,
+			}),
+		).toEqual(['wanted']);
+	});
+
+	it('windows the filtered set rather than filtering a window', async () => {
+		// The failure this catches is the one the whole arrangement exists to
+		// avoid: a limit of one over a filter that excludes the newest row returns
+		// the newest matching row, not an empty table.
+		seedRows(inspections, [
+			inspection('newest-dry', { inspection_date: '2026-08-20', is_wet: false }),
+			inspection('older-wet', { inspection_date: '2026-08-10', is_wet: true }),
+		]);
+
+		const result = await renderTable(1, DEFAULT_INSPECTION_SORT, { ...NO_FILTERS, isWet: true });
+
+		expect(result.current.rows.map((row) => row.id)).toEqual(['older-wet']);
+	});
+});
+
+describe('the inspections table pushes its filters down', () => {
+	/*
+	 * The acceptance criterion nothing above can answer. Every case up to here
+	 * runs against collections that hold every seeded row, so a predicate applied
+	 * in the browser and one answered by Postgres return the same rows and read
+	 * the same in a test. This installs the collections in the mode the app runs
+	 * them in and records what the query handed the sync layer, which is the tree
+	 * `compileSQL` turns into the shape request's `where`. A filter that is not in
+	 * a recorded request is one the browser applied to rows it had already been
+	 * sent.
+	 */
+	beforeEach(() => {
+		installMemoryCollections({ recordSubsets: true });
+		seedRows(habitat_types, [{ id: 't1', name: 'Catch basin' }]);
+		seedRows(profiles, [{ id: 'p1', display_name: 'Rosa Lam' }]);
+		seedRows(inspections, [inspection('i1')]);
+	});
+
+	/** Every predicate the inspections collection was asked to load under. */
+	async function requestedPredicates(filters: Partial<InspectionTableFilters>) {
+		await renderTable(50, DEFAULT_INSPECTION_SORT, { ...NO_FILTERS, ...filters });
+		return subsetRequests(inspections).map(subsetPredicate);
+	}
+
+	it.each([
+		{
+			name: 'date range',
+			filters: { dateFrom: '2026-08-01', dateTo: '2026-08-31' },
+			expected: ['inspection_date >= 2026-08-01', 'inspection_date <= 2026-08-31'],
+		},
+		{ name: 'water', filters: { isWet: true }, expected: ['is_wet = true'] },
+		{
+			name: 'density',
+			filters: { densities: new Set(['light', 'heavy'] as const) },
+			expected: ['density = ANY [light, heavy]'],
+		},
+		{
+			name: 'larvae found',
+			filters: { larvaeFound: true },
+			expected: [
+				'(has_eggs = true or has_first_instar = true or has_second_instar = true or has_third_instar = true or has_fourth_instar = true or has_pupae = true)',
+			],
+		},
+		{
+			name: 'habitat type',
+			filters: { habitatTypeIds: new Set(['t1']) },
+			expected: ['habitat_type_id = ANY [t1]'],
+		},
+		{
+			name: 'inspector',
+			filters: { inspectedByProfileIds: new Set(['p1']) },
+			expected: ['inspected_by_profile_id = ANY [p1]'],
+		},
+	])('sends the $name predicate to the server', async ({ filters, expected }) => {
+		const predicates = await requestedPredicates(filters);
+
+		expect(predicates.length).toBeGreaterThan(0);
+		for (const fragment of expected) {
+			expect(predicates.some((predicate) => predicate.includes(fragment))).toBe(true);
+		}
+	});
+
+	it('sends the order and the window size with the predicate', async () => {
+		// All three travel together or none of them narrows anything: a `where`
+		// with no `limit` is the whole filtered history in the browser.
+		await renderTable(50, DEFAULT_INSPECTION_SORT, { ...NO_FILTERS, isWet: true });
+
+		const requests = subsetRequests(inspections);
+		expect(requests.some((request) => request.orderBy !== undefined)).toBe(true);
+		expect(requests.some((request) => request.limit !== undefined)).toBe(true);
+	});
+
+	it('names bare columns, which is what the compiler can turn into SQL', async () => {
+		// `compileSQL` throws on a reference with more than one path segment, so a
+		// predicate that reached it as `inspection.is_wet` would fail the shape
+		// request rather than narrow it.
+		const predicates = await requestedPredicates({
+			dateFrom: '2026-08-01',
+			habitatTypeIds: new Set(['t1']),
+			isWet: true,
+		});
+
+		expect(predicates.join(' ')).not.toContain('inspection.');
+	});
+});
+
+describe('inspectionWindowKey', () => {
+	it('changes when the sort or a filter changes', () => {
+		const opening = inspectionWindowKey(DEFAULT_INSPECTION_SORT, NO_FILTERS);
+
+		expect(inspectionWindowKey(DEFAULT_INSPECTION_SORT, { ...NO_FILTERS, isWet: true })).not.toBe(
+			opening,
+		);
+		expect(
+			inspectionWindowKey(DEFAULT_INSPECTION_SORT, { ...NO_FILTERS, dateFrom: '2026-08-01' }),
+		).not.toBe(opening);
+		expect(inspectionWindowKey({ key: 'dips', direction: 'desc' }, NO_FILTERS)).not.toBe(opening);
+	});
+
+	it('reads two orderings of the same selection as one window', () => {
+		// The URL's array order is whatever order the reader ticked boxes in.
+		// Resetting the window on that would throw the loaded rows away for
+		// nothing.
+		const first = inspectionWindowKey(DEFAULT_INSPECTION_SORT, {
+			...NO_FILTERS,
+			habitatTypeIds: new Set(['t2', 't1']),
+		});
+		const second = inspectionWindowKey(DEFAULT_INSPECTION_SORT, {
+			...NO_FILTERS,
+			habitatTypeIds: new Set(['t1', 't2']),
+		});
+
+		expect(first).toBe(second);
+	});
+});

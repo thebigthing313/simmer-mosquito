@@ -5,9 +5,7 @@ import {
 	INSPECTION_DRY_COLOR,
 	type MapLegendEntry,
 } from '../../../components/map';
-
-/** What the Water filter can be set to. Mirrors the segmented control's options. */
-export type WetFilter = 'all' | 'wet' | 'dry';
+import type { WaterFilterValue } from '../-inspections-search';
 
 /**
  * What a band reads as in the key.
@@ -33,7 +31,7 @@ function legendLabel(density: LarvalDensity): string {
  * appear, so all five are listed.
  */
 export function inspectionLegend(
-	wetness: WetFilter,
+	wetness: WaterFilterValue,
 	densities: ReadonlySet<LarvalDensity>,
 ): readonly MapLegendEntry[] {
 	const wet = wetness === 'dry' ? [] : shownDensities(densities);
