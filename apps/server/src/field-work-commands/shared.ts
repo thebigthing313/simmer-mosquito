@@ -1,4 +1,4 @@
-import { localDateColumn, type SelectedRow, softDelete, sql, updateRow } from '@simmer-mosquito/db';
+import { localDateColumn, type SelectedRow, softDelete, updateRow } from '@simmer-mosquito/db';
 import type {
 	AssignmentItemPlacement,
 	FieldWorkCommand,

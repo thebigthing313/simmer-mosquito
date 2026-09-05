@@ -64,7 +64,7 @@ export function OrganizationSessionGate({
 	const inside = useInsideOrganization(organizationId);
 
 	return inside ? (
-		<>{children}</>
+		children
 	) : (
 		<OrganizationEntry
 			name={organizationName ?? 'this agency'}

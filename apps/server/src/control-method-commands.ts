@@ -21,7 +21,6 @@ import {
 	type DeleteBiocontrolMethodCommand,
 	type DeleteOutreachMethodCommand,
 	type DeleteSourceReductionMethodCommand,
-	DomainValidationError,
 	deactivateApplicationMethodCommand,
 	deactivateBiocontrolMethodCommand,
 	deactivateOutreachMethodCommand,

@@ -1,4 +1,4 @@
-import { CONTROL_TYPES, type ControlType } from './column-vocabularies.js';
+import type { ControlType } from './column-vocabularies.js';
 import {
 	actorDefaultProfileId,
 	nullableText,

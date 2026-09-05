@@ -3,7 +3,6 @@ import {
 	assertRecordDeletable,
 	assertWriteReferences,
 	type Kysely,
-	type MutationWriteResult,
 	type SelectedRow,
 	type SimmerDatabase,
 	sql,
@@ -18,7 +17,6 @@ import {
 	type DeactivateInsecticideCommand,
 	type DeleteInsecticideBatchCommand,
 	type DeleteInsecticideCommand,
-	DomainValidationError,
 	deactivateInsecticideBatchCommand,
 	deactivateInsecticideCommand,
 	deleteInsecticideBatchCommand,
@@ -39,17 +37,14 @@ import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import {
 	type CommandContext,
-	CommandError,
 	type CommandsResult,
 	commandEndpoint,
 	createCommand,
-	handleCommandError,
 	invalidUpdate,
 	organizationCommandContext,
 	type PayloadResult,
 } from './command-endpoint.js';
-import { acknowledged, isRecord } from './command-payload.js';
-import { denyUnauthorizedOrganizationCommands } from './command-permissions.js';
+import { acknowledged } from './command-payload.js';
 import { runCommands } from './command-write.js';
 import { assertCitedHistoryAcknowledged } from './record-history.js';
 

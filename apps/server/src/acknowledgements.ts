@@ -48,7 +48,6 @@
  * further down with the reason for each.
  */
 
-import type { DeleteImpactEntry } from '@simmer-mosquito/db';
 import type { Acknowledgement } from '@simmer-mosquito/domain';
 
 /**

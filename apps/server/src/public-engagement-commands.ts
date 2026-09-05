@@ -1,7 +1,6 @@
 import {
 	assertRecordDeletable,
 	type Kysely,
-	type MutationWriteResult,
 	type SelectedRow,
 	type SimmerDatabase,
 	sql,
@@ -12,7 +11,6 @@ import {
 	createNotificationTypeCommand,
 	type DeactivateNotificationTypeCommand,
 	type DeleteNotificationTypeCommand,
-	DomainValidationError,
 	deactivateNotificationTypeCommand,
 	deleteNotificationTypeCommand,
 	type ReactivateNotificationTypeCommand,
@@ -32,7 +30,7 @@ import {
 	organizationCommandContext,
 	type PayloadResult,
 } from './command-endpoint.js';
-import { acknowledged, isRecord } from './command-payload.js';
+import { acknowledged } from './command-payload.js';
 import { runCommands } from './command-write.js';
 import { assertCitedHistoryAcknowledged } from './record-history.js';
 

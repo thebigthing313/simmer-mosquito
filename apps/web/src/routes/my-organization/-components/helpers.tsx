@@ -9,7 +9,6 @@ import type {
 	UnitDefaults,
 } from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
-import { settleWrite } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
 import type { OrganizationDetailsFields } from '../../../hooks/mutations/use-organization-settings-mutations';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';

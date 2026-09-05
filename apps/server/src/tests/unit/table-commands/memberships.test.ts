@@ -500,8 +500,7 @@ describe('the staging identity interlock', () => {
 
 const spec = membershipTableCommands(undefined as never, undefined as never) as TableCommands<
 	'memberships',
-	// biome-ignore lint/suspicious/noExplicitAny: the union is the module's, and
-	// only `payload` is read off a built command here.
+	// biome-ignore lint/suspicious/noExplicitAny: the union is the module's, and only `payload` is read off a built command here.
 	any,
 	unknown,
 	string

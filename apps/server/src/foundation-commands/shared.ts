@@ -25,7 +25,6 @@ import {
 	type DeleteCollectionMethodCommand,
 	type DeleteHabitatTypeCommand,
 	type DeleteTagCommand,
-	DomainValidationError,
 	deactivateCollectionLureCommand,
 	deactivateCollectionMethodCommand,
 	deactivateHabitatTypeCommand,

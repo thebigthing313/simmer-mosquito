@@ -88,6 +88,7 @@ describe('control method catalogs', () => {
 		// which no per-catalog test would catch on its own.
 		const built = METHOD_CATALOGS.map((catalog) => ({
 			table: catalog.spec.table,
+			idKey: catalog.idKey,
 			command: build(
 				catalog.spec,
 				catalog.create as OrganizationCommandType,
@@ -97,9 +98,11 @@ describe('control method catalogs', () => {
 
 		expect(built.map((b) => b.table)).toEqual(METHOD_CATALOGS.map((c) => c.table));
 		expect(built.map((b) => b.command.type)).toEqual(METHOD_CATALOGS.map((c) => c.create));
-		// Each builder holds its own id argument's name.
-		for (const [index, b] of built.entries()) {
-			expect(b.command.payload).toHaveProperty(METHOD_CATALOGS[index]!.idKey, ROW);
+		// Each builder holds its own id argument's name. The key is carried through
+		// the map rather than looked up by index, so the row and the key it is
+		// checked against cannot come apart.
+		for (const b of built) {
+			expect(b.command.payload).toHaveProperty(b.idKey, ROW);
 		}
 	});
 
