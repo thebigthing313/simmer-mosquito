@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	DomainValidationError,
 	type DomainValidationIssue,
+	type GeoJsonPoint,
 	geometryCoversGround,
 	getBaseGeometryType,
 	getMultipartGeometryType,
@@ -9,6 +10,7 @@ import {
 	getOwnedGeometryPolicy,
 	normalizeOwnedGeometry,
 	OWNED_GEOMETRY_POLICIES,
+	type OwnedGeoJsonGeometryFor,
 	type OwnedGeometryKind,
 	type OwnedGeometryTypeFor,
 	ownedGeometryAllowsParts,
@@ -131,6 +133,57 @@ describe('OwnedGeometryTypeFor', () => {
 
 		expect(getOwnedGeometryPolicy('region').allowedTypes).not.toContain(refusedByRegion);
 		expect(getOwnedGeometryPolicy('address').allowedTypes).not.toContain(refusedByAddress);
+	});
+});
+
+/**
+ * The same lookup at the level of whole geometries, and the return it gives
+ * {@link normalizeOwnedGeometry}.
+ *
+ * `tsc` is the assertion here too. The third case is the one this exists for:
+ * four validators used to cast that return down to a shape they had written out
+ * by hand, so the register and the name were never compared and a widened policy
+ * moved one without the other. The `@ts-expect-error` fails the moment the
+ * return goes back to answering `SupportedGeoJsonGeometry`.
+ */
+describe('OwnedGeoJsonGeometryFor', () => {
+	/** A closed ring, held as tuples so it reads as GeoJSON positions. */
+	const RING = [
+		[0, 0],
+		[0, 2],
+		[2, 2],
+		[0, 0],
+	] as const;
+	const POINT = { type: 'Point', coordinates: [1, 1] } as const;
+	const AREA = { type: 'Polygon', coordinates: [RING] } as const;
+
+	it('answers with the geometries a policy stores', () => {
+		const boundary: OwnedGeoJsonGeometryFor<'region'> = AREA;
+		const placed: OwnedGeoJsonGeometryFor<'address'> = POINT;
+
+		expect(boundary.type).toBe('Polygon');
+		expect(placed.type).toBe('Point');
+	});
+
+	it('refuses a geometry the policy leaves out', () => {
+		// One line each: `@ts-expect-error` covers the line below it, and an object
+		// literal spread over three puts the error on a line the directive misses.
+		// @ts-expect-error A Region stores areas, so its lookup holds no Point.
+		const noPoint: OwnedGeoJsonGeometryFor<'region'> = POINT;
+		// @ts-expect-error An Address stores one point, so its lookup holds no ring.
+		const noRing: OwnedGeoJsonGeometryFor<'address'> = AREA;
+
+		expect(noPoint.type).toBe('Point');
+		expect(noRing.type).toBe('Polygon');
+	});
+
+	it('is what the normalizer answers, so a hand-written return type is checked', () => {
+		const placed: GeoJsonPoint = normalizeOwnedGeometry('address', POINT);
+		// @ts-expect-error A Region stores areas, so its normalizer answers with no Point.
+		const refused: GeoJsonPoint = normalizeOwnedGeometry('region', AREA);
+
+		expect(placed.type).toBe('Point');
+		expect(refused.type).toBe('Polygon');
 	});
 });
 

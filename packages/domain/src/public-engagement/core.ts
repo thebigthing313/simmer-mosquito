@@ -14,9 +14,9 @@ import {
 	DomainValidationError,
 	type DomainValidationIssue,
 	type GeoJsonPoint,
+	type GeoJsonPolygon,
 	type JsonObject,
 	normalizeOwnedGeometry,
-	type SupportedGeoJsonGeometry,
 } from '../shared.js';
 
 export {
@@ -27,7 +27,16 @@ export {
 	REQUEST_INTAKE_TYPES,
 	type RequestIntakeType,
 } from '../column-vocabularies.js';
-export type NotificationRegistrationGeometry = SupportedGeoJsonGeometry;
+/**
+ * Where a Registration is placed: one point, or one area.
+ *
+ * Two names rather than `SupportedGeoJsonGeometry`, so a reader of
+ * `CreateNotificationRegistrationCommand.geometry` is told which four shapes
+ * cannot be there. `validateRegistrationGeometry` is what holds the pair to the
+ * register, because its return no longer fits this name the day the policy
+ * moves.
+ */
+export type NotificationRegistrationGeometry = GeoJsonPoint | GeoJsonPolygon;
 
 export type PublicEngagementCommandType =
 	| 'publicEngagement.createContact'
@@ -588,7 +597,7 @@ function validatePointGeometry(
 	issues: DomainValidationIssue[],
 ): GeoJsonPoint {
 	try {
-		return normalizeOwnedGeometry('serviceRequest', value, path) as GeoJsonPoint;
+		return normalizeOwnedGeometry('serviceRequest', value, path);
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);
