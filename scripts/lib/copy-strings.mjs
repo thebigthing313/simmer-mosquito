@@ -61,23 +61,74 @@ export function copyStrings(source) {
 }
 
 /**
+ * A run of JSX text: the `>` that closed a tag, and the `<` that opens the next
+ * one.
+ *
+ * Both ends are checked, and that is the whole of #588. A bare `>` used to open
+ * a run, so an arrow function did too: `.find((person) => person.id === id)`
+ * opened at the `=>` and closed at whatever `<` came next, often a generic
+ * argument several lines down, and the code in between was read as a sentence.
+ * That was written off as free, because "a run is only reported when it holds an
+ * avoided word, and an arithmetic comparison does not". It held while the words
+ * were `agency` and `tenant`. It stops holding the moment a common English word
+ * joins, and `user` is one: two of its four findings were arrow functions.
+ *
+ * So a `>` after an `=` opens nothing, and the `<` that closes a run has to open
+ * a tag: a letter, the `/` of a closing tag, or the `>` of a fragment, which is
+ * also what takes `c < d` out. The `>` gets no matching rule of its own, because
+ * what precedes it in `<button\n\t\t\t>` is a newline and two tabs, the shape
+ * Biome gives every multi-line tag, and a rule tight enough to refuse `a > b`
+ * refuses those too.
+ */
+const JSX_TEXT = /(?<!=)>([^<>{}]+)<(?=[A-Za-z/>])/g;
+
+/**
  * Text between a closing and an opening angle bracket, which is how JSX writes a
  * sentence.
  *
  * Read off the masked source, so a bracket inside a comment or a string cannot
  * open a run. A run holding a brace is dropped: that is an interpolation, and
  * its pieces are read on their own.
- *
- * This also matches things that are not JSX, `a > b && c < d` among them. That
- * costs nothing. A run is only reported when it holds an avoided word, and an
- * arithmetic comparison does not.
  */
 function* jsxText(masked) {
-	for (const match of masked.matchAll(/>([^<>{}]+)</g)) {
+	for (const match of masked.matchAll(JSX_TEXT)) {
 		if (/[A-Za-z]/.test(match[1])) {
 			yield { text: match[1], index: match.index + 1 };
 		}
 	}
+}
+
+/**
+ * Every comment this file writes into JSX children, as `{ end, index }` spans.
+ *
+ * JSX children are text. `//` opens no comment there and `/* *\/` opens none
+ * either, so both render on screen, and `masked-source.mjs` has no idea: it
+ * blanks them like any other comment, which takes the line out of the copy scan
+ * as well as putting it in front of a user. #552 found the second half of that
+ * on its own, because a `// vocabulary-ignore` typed into children counts as a
+ * marker while a page renders it.
+ *
+ * Neither half is worth guessing at, so `check-vocabulary.mjs` refuses the shape
+ * instead. A comment is in children when it sits inside a run of JSX text that
+ * masking left entirely blank, which is a comment on lines of its own between
+ * two tags. The run has to be blank because a generic argument opens runs too:
+ * `ReadonlySet<Foo>` to the `<` of the next one spans whatever declarations lie
+ * between, doc comments included, and 75 of those come out of the app roots
+ * against 0 of these.
+ *
+ * What that costs is a `//` in children sharing its run with anything else: text
+ * that renders beside it, or a `{...}` on the line above, which ends the run
+ * before the comment starts. Both stay unread.
+ */
+export function commentsInJsxText(source) {
+	const { comments, masked } = scan(source);
+	const runs = [...masked.matchAll(JSX_TEXT)]
+		.filter((match) => match[1].trim() === '')
+		.map((match) => ({ from: match.index + 1, to: match.index + 1 + match[1].length }));
+
+	return comments.filter((comment) =>
+		runs.some((run) => comment.index >= run.from && comment.end <= run.to),
+	);
 }
 
 /**

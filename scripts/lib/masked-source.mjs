@@ -44,7 +44,7 @@ const COMMENT_END = {
 };
 
 /**
- * One pass over the file, as `{ literals, masked }`.
+ * One pass over the file, as `{ comments, literals, masked }`.
  *
  * `masked` is built by code unit rather than by code point, so an index into it
  * is an index into the source and a line count still works either side of an
@@ -52,14 +52,19 @@ const COMMENT_END = {
  * opening delimiter, which is how a caller tells a module specifier or a
  * `className=` from a sentence.
  *
+ * `comments` is every span this blanked as a comment, delimiters included. The
+ * walk has no idea what JSX is, so a `//` between two tags is blanked here and
+ * renders on screen in the browser; `copy-strings.mjs` reads the spans back to
+ * find that (#588).
+ *
  * @param {string} source File contents, LF-normalized by the caller.
  */
 export function scan(source) {
-	const state = { source, literals: [], masked: source.split(''), lastCode: '\n' };
+	const state = { source, comments: [], literals: [], masked: source.split(''), lastCode: '\n' };
 	for (let at = 0; at < source.length; ) {
 		at = step(state, at);
 	}
-	return { literals: state.literals, masked: state.masked.join('') };
+	return { comments: state.comments, literals: state.literals, masked: state.masked.join('') };
 }
 
 /** Just the masked copy, for a caller with no use for the literals. */
@@ -81,7 +86,13 @@ const significant = (character, previous) => (/\S|\n/.test(character) ? characte
 
 /** A comment or a regex literal, both of which are blanked and neither of which is copy. */
 function readSlash(state, at) {
-	const end = COMMENT_END[state.source[at + 1]]?.(state.source, at) ?? regexEnd(state, at);
+	const comment = COMMENT_END[state.source[at + 1]]?.(state.source, at);
+	if (comment !== undefined) {
+		state.comments.push({ index: at, end: comment });
+		return blankThrough(state, at, comment, '/');
+	}
+
+	const end = regexEnd(state, at);
 	return end === null ? null : blankThrough(state, at, end, '/');
 }
 
