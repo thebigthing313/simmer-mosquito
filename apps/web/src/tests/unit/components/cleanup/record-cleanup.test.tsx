@@ -100,6 +100,44 @@ function record(
 	};
 }
 
+/**
+ * A contact, which has no geometry.
+ *
+ * The `contacts` table carries no `lat`, so the read sends a contact none and a
+ * contact row shows no coordinates. Spelling that out here keeps the address
+ * fixture's pair off a row that could never hold one.
+ */
+function contactRecord(
+	id: string,
+	label: string,
+	createdAt: string,
+	fields: Readonly<Record<string, string | null>> = {},
+) {
+	return {
+		...record(id, label, createdAt),
+		lat: null,
+		lng: null,
+		fields: { contact_name: label, ...fields },
+	};
+}
+
+/** One candidate row, found by the name on its radio. */
+function rowFor(name: string): HTMLElement {
+	const row = screen.getByRole('radio', { name }).closest('[data-slot="item"]');
+	if (row === null) {
+		throw new Error(`No candidate row for ${name}`);
+	}
+	return row as HTMLElement;
+}
+
+/** What the row says, as label and value pairs in the order it says them. */
+function labelledValues(row: HTMLElement): readonly (readonly [string, string])[] {
+	return [...row.querySelectorAll('dt')].map((term) => [
+		term.textContent ?? '',
+		term.nextElementSibling?.textContent ?? '',
+	]);
+}
+
 function renderPage(recordType: 'address' | 'contact' = 'address') {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
 	return render(
@@ -441,6 +479,134 @@ describe('RecordCleanup', () => {
 		// applied is what makes an empty page an answer.
 		expect(screen.getByText('No duplicate addresses found')).toBeTruthy();
 		expect(screen.getByText(/share a display name, a street address/)).toBeTruthy();
+	});
+
+	it('shows a contact row every column a merge can carry, under its own label', () => {
+		// The judgement happens on the row. A row that showed a name and a joined
+		// line made "are these one person" a question you answered by opening both
+		// records in new tabs, which is the page you were working through, gone.
+		groups = [
+			{
+				key: 'same_email:m.alvarez@example.com',
+				reason: 'same_email',
+				value: 'm.alvarez@example.com',
+				records: [
+					contactRecord(OLDEST, 'Maria Alvarez', '2024-03-01T00:00:00.000Z', {
+						company: 'Alvarez Property Mgmt',
+						department: 'Operations',
+						title: 'Manager',
+						email: 'm.alvarez@example.com',
+						preferred_phone: '(555) 214-8890',
+						alternate_phone: '(555) 900-4417',
+					}),
+					contactRecord(MIDDLE, 'M. Alvarez', '2025-06-11T00:00:00.000Z', {
+						email: 'm.alvarez@example.com',
+					}),
+				],
+			},
+		];
+		renderPage('contact');
+
+		// Labelled, so a preferred number and an alternate are not two bare numbers
+		// side by side. The email is here as well as in the heading: every row then
+		// reads the same way whatever grouped it.
+		expect(labelledValues(rowFor('Maria Alvarez'))).toEqual([
+			['Company', 'Alvarez Property Mgmt'],
+			['Department', 'Operations'],
+			['Title', 'Manager'],
+			['Email', 'm.alvarez@example.com'],
+			['Preferred phone', '(555) 214-8890'],
+			['Alternate phone', '(555) 900-4417'],
+		]);
+		// The name is the row's title, and the body does not repeat it.
+		expect(labelledValues(rowFor('M. Alvarez'))).toEqual([['Email', 'm.alvarez@example.com']]);
+	});
+
+	it('shows an address row its own columns and the point that grouped it', () => {
+		groups = [
+			{
+				key: 'same_coordinates:35.5, -90.5',
+				reason: 'same_coordinates',
+				value: '35.5, -90.5',
+				records: [
+					record(OLDEST, '412 Oak St', '2024-03-01T00:00:00.000Z', {
+						address_line_1: '412 Oak St',
+						locality: 'Marion',
+						region: 'AR',
+						postal_code: '72364',
+					}),
+					record(MIDDLE, '412 Oak Street', '2025-06-11T00:00:00.000Z'),
+				],
+			},
+		];
+		renderPage();
+
+		// One code path, a different register, and no branch on the record type: the
+		// coordinates are here because the record has them, and a contact has none.
+		expect(labelledValues(rowFor('412 Oak St'))).toEqual([
+			['Address line 1', '412 Oak St'],
+			['Locality', 'Marion'],
+			['Region', 'AR'],
+			['Postal code', '72364'],
+			['Coordinates', '35.5, -90.5'],
+		]);
+	});
+
+	it('lets a row wrap rather than clipping what it holds', () => {
+		// The line this replaced was one truncating row, so appending values to it
+		// cut off exactly what a reader had come for. jsdom has no layout, so the
+		// assertion is over the classes: a `truncate` or an `overflow-hidden` back
+		// on these cells is the regression, and it is invisible in review.
+		groups = [
+			{
+				key: 'same_email:m.alvarez@example.com',
+				reason: 'same_email',
+				value: 'm.alvarez@example.com',
+				records: [
+					contactRecord(OLDEST, 'Maria Alvarez', '2024-03-01T00:00:00.000Z', {
+						company: 'Alvarez Property Management and Landscaping Services of West Memphis',
+						email: 'm.alvarez@example.com',
+					}),
+					contactRecord(MIDDLE, 'M. Alvarez', '2025-06-11T00:00:00.000Z', {
+						email: 'm.alvarez@example.com',
+					}),
+				],
+			},
+		];
+		renderPage('contact');
+
+		const row = rowFor('Maria Alvarez');
+		const clipping = [
+			...row.querySelectorAll('dl, dt, dd, [data-slot="item-content"], [data-slot="item-title"]'),
+		].filter((element) => /truncate|overflow-hidden|text-ellipsis/.test(element.className));
+
+		expect(clipping.map((element) => element.className)).toEqual([]);
+		expect(labelledValues(row)[0]?.[1]).toBe(
+			'Alvarez Property Management and Landscaping Services of West Memphis',
+		);
+	});
+
+	it('still names a record that fills none of them in, with its date and its actions', () => {
+		groups = [
+			{
+				key: 'same_name:maria alvarez',
+				reason: 'same_name',
+				value: 'maria alvarez',
+				records: [
+					contactRecord(OLDEST, 'Maria Alvarez', '2024-03-01T00:00:00.000Z'),
+					contactRecord(MIDDLE, 'M. Alvarez', '2025-06-11T00:00:00.000Z'),
+				],
+			},
+		];
+		renderPage('contact');
+
+		// No blank line, no stray separator, no "not recorded" standing in for an
+		// answer nobody gave. The row is its name, its date and what to do about it.
+		const row = rowFor('Maria Alvarez');
+		expect(labelledValues(row)).toEqual([]);
+		expect(row.textContent).toMatch(/Added \w+ \d+, \d{4}/);
+		expect(within(row).getByText('Open')).toBeTruthy();
+		expect(within(row).getByRole('button', { name: 'Not a duplicate' })).toBeTruthy();
 	});
 
 	it('offers a retry rather than an empty state when the read failed', () => {

@@ -64,6 +64,15 @@ export interface MergeField {
 	 */
 	readonly required?: boolean;
 	/**
+	 * The column the record is named by, which a row shows as its own title.
+	 *
+	 * Marked here rather than worked out from the label, because the column is a
+	 * different one on each record type and nothing else about it says so. A
+	 * summary that opened by repeating the name would spend its first line saying
+	 * what the line above it says.
+	 */
+	readonly isRecordName?: boolean;
+	/**
 	 * Fields whose values are interchangeable, so each offers the others'.
 	 *
 	 * Named on the field rather than inferred, because interchangeable is a domain
@@ -88,6 +97,7 @@ const MERGE_FIELDS: Record<MergeableRecordType, readonly MergeField[]> = {
 			label: 'Name',
 			intent: 'foundation.updateAddressDetails',
 			required: true,
+			isRecordName: true,
 		},
 		{
 			column: 'address_line_1',
@@ -106,7 +116,12 @@ const MERGE_FIELDS: Record<MergeableRecordType, readonly MergeField[]> = {
 		{ column: 'postal_code', label: 'Postal code', intent: 'foundation.updateAddressDetails' },
 	],
 	habitat: [
-		{ column: 'habitat_name', label: 'Name', intent: 'larvalSurveillance.updateHabitatDetails' },
+		{
+			column: 'habitat_name',
+			label: 'Name',
+			intent: 'larvalSurveillance.updateHabitatDetails',
+			isRecordName: true,
+		},
 		{
 			column: 'description',
 			label: 'Description',
@@ -115,7 +130,12 @@ const MERGE_FIELDS: Record<MergeableRecordType, readonly MergeField[]> = {
 		},
 	],
 	contact: [
-		{ column: 'contact_name', label: 'Name', intent: 'publicEngagement.updateContactDetails' },
+		{
+			column: 'contact_name',
+			label: 'Name',
+			intent: 'publicEngagement.updateContactDetails',
+			isRecordName: true,
+		},
 		{ column: 'company', label: 'Company', intent: 'publicEngagement.updateContactDetails' },
 		{ column: 'department', label: 'Department', intent: 'publicEngagement.updateContactDetails' },
 		{ column: 'title', label: 'Title', intent: 'publicEngagement.updateContactDetails' },
@@ -134,6 +154,41 @@ const MERGE_FIELDS: Record<MergeableRecordType, readonly MergeField[]> = {
 		},
 	],
 };
+
+/** One column of one record, ready to read: the register's label and the value. */
+export interface MergeFieldValue {
+	readonly column: string;
+	readonly label: string;
+	readonly value: string;
+}
+
+/**
+ * What one record says, in the columns a merge can carry.
+ *
+ * A cleanup row reads this so its columns, their order and their labels are the
+ * register's rather than a second list beside it. Add a column to a merge and it
+ * appears on the row the merge is judged from, with no second edit.
+ *
+ * The row is where the judgement happens. A row that showed a name and a joined
+ * line made "are these the same person" a question you answered by opening both
+ * records in new tabs, which is the page you were reading, gone.
+ *
+ * Two things are left out. The name, because it is the row's title, and a fact
+ * list that opened by repeating it would push the columns that decide the answer
+ * down a line. And a column the record leaves empty, because a blank is not an
+ * answer and a labelled blank reads like one.
+ */
+export function mergeFieldSummary(
+	recordType: MergeableRecordType,
+	record: DuplicateRecord,
+): readonly MergeFieldValue[] {
+	return MERGE_FIELDS[recordType].flatMap((field) => {
+		const value = fieldValue(record, field.column);
+		return field.isRecordName === true || value === null
+			? []
+			: [{ column: field.column, label: field.label, value }];
+	});
+}
 
 /** One value a field offers, and where in the set it comes from. */
 export interface MergeSuggestion {
