@@ -5,15 +5,15 @@ file when implementing or reviewing command builders, command handlers, sync
 mutation adapters, or offline/mobile replay behavior. Load the specific
 `docs/*-domain.md` file only for domain-specific vocabulary and exceptions.
 
-**Every agency write to Postgres is a command.** One model covers every
+**Every organization write to Postgres is a command.** One model covers every
 operation: *this is what I intended to do*, and the server decides whether to do
 it. A client never states which tables a write touches, in what order, or
 whether a second system is involved.
 
-Identity is there. ADR 0013 decided that profiles, memberships and the agency's
-own details become commands too, and every one of them is: three that touch
-Postgres and nothing else, and four on `/commands/memberships` that also settle
-WorkOS. One surface is still REST and always will be —
+Identity is there. ADR 0013 decided that profiles, memberships and the
+organization's own details become commands too, and every one of them is: three
+that touch Postgres and nothing else, and four on `/commands/memberships` that
+also settle WorkOS. One surface is still REST and always will be —
 `people.listMemberships`, which is a read behind a POST.
 
 ## Command shape
@@ -48,8 +48,8 @@ Server command handlers validate context-dependent rules:
 
 ## The write surface
 
-An agency write goes to one endpoint per table, and the body names the commands
-it means.
+An organization write goes to one endpoint per table, and the body names the
+commands it means.
 
 ```
 POST   /commands/habitats        { intents: ['larvalSurveillance.createHabitat'], … }
@@ -135,7 +135,7 @@ transaction, so a table served by both cannot disagree with itself, but only one
 of them lets a client say what it meant.
 
 `apps/web` posts nothing to the older surface. What remains on it is
-`apps/admin`, which seeds a new agency's geography and lookups through
+`apps/admin`, which seeds a new organization's geography and lookups through
 `/foundation/*` and `/adult-surveillance/traps`. Do not add to it.
 
 ## Column names in a command body
@@ -296,10 +296,10 @@ command vocabulary spell them the same way.
 
 The refusal is `409 acknowledgement_required`, with the flag that would let the
 delete through and the same entry shape the impact read returns. It is not
-`delete_blocked`: a blocked delete cannot proceed until the agency deals with
-the referring records, while this one proceeds the moment the request arrives
-again with the flag set. One flag per refusal, because a form asks one question
-at a time.
+`delete_blocked`: a blocked delete cannot proceed until the organization deals
+with the referring records, while this one proceeds the moment the request
+arrives again with the flag set. One flag per refusal, because a form asks one
+question at a time.
 
 A client withholds a confirmation by sending the flag as `false`. Absent means
 confirmed, which is what every endpoint did before any of them was read, so a
@@ -316,9 +316,9 @@ written before. A flag added to the vocabulary takes the default, so the
 exception is the thing that has to be argued for (#426).
 
 The flag on a rule is required rather than optional. A new consequence cannot
-reach the registry without someone deciding whether the agency is asked about
-it, which is the hole #165 describes: fifty-nine flags were declared, carried
-into the write, and read by nothing.
+reach the registry without someone deciding whether the organization is asked
+about it, which is the hole #165 describes: fifty-nine flags were declared,
+carried into the write, and read by nothing.
 
 ### The other mechanisms, and the map
 
@@ -346,11 +346,11 @@ only one that describes a record delete. Four more raise the same 409:
   carries the whole answer. The client keys its wording off `flag`, which it has
   to do anyway: two counted refusals under one code need two different
   sentences.
-- **A citation.** Rows that already read under the value being changed: the
-  four hundred collections behind a renamed collection method, the summaries
-  behind a moved weather station, every agency's counts behind a renamed
-  species. Nothing in the schema snapshots a label onto the rows that use it, so
-  a rename is retroactive. `assertHistoryAcknowledged` in
+- **A citation.** Rows that already read under the value being changed: the four
+  hundred collections behind a renamed collection method, the summaries behind a
+  moved weather station, every organization's counts behind a renamed species.
+  Nothing in the schema snapshots a label onto the rows that use it, so a rename
+  is retroactive. `assertHistoryAcknowledged` in
   `packages/db/src/domains/record-history.ts` counts and refuses; the citing
   tables come from `citingRules`, which reads them out of the delete registry,
   so there is no second table map. **Any citing row asks, and there is no time
@@ -392,8 +392,8 @@ relabelling them alone would move the ratchet with no guard written.
 The registry covers the catalogs as well as the operational records, and every
 catalog rule is a `block`. None cascades, none detaches. Delete means the record
 should never have existed, so a live referrer is proof that it did and the
-agency wanted Deactivate. The block reaches catalog children too: an Insecticide
-with a Batch needs the Batch deleted first.
+organization wanted Deactivate. The block reaches catalog children too: an
+Insecticide with a Batch needs the Batch deleted first.
 
 Catalog deletes call `assertRecordDeletable` rather than `applyRecordDeletion`,
 which is the same check without the cascade and detach writes there is nothing
@@ -402,8 +402,8 @@ call it without being retyped.
 
 The three operator-global catalogs (Unit, Genus, Species) cannot use the
 registry, because every query in it scopes by `organization_id` and those rows
-have none. Their block counts across every agency, reports one total, and names
-no agency. `units` also carries a hand-written check against
+have none. Their block counts across every organization, reports one total, and
+names no organization. `units` also carries a hand-written check against
 `organizations.settings -> 'unitDefaults'`, because that reference is a code
 string in a JSON document and a rule that counts rows cannot see it.
 
@@ -417,8 +417,8 @@ and shares the first's registry, so a catalog gets both directions or neither.
 `{ error: 'reference_refused', reason, reference, message }`, where `reason` is
 `missing` or `inactive` and `reference` names the catalog record type or the
 table. Missing answers 404 and inactive 409; missing does not distinguish
-"another agency's" from "no such row", because telling them apart would make the
-refusal a way to probe for ids.
+"another organization's" from "no such row", because telling them apart would
+make the refusal a way to probe for ids.
 
 Pass `write: { kind: 'update', table, recordId }` on an update and
 `{ kind: 'create' }` on a create. The stored row is read once and any reference
@@ -445,9 +445,9 @@ Inspection, a Profile arrive the same way, and until #200 nothing checked whose
 they were: a foreign key is satisfied by the row existing anywhere, so org A
 could file a Chemical Application against org B's Equipment and get a 201.
 
-A **record** reference qualifies when the row belongs to the writing agency and
-is not soft-deleted. There is no third condition, because there is no
-`is_active` on an operational record and no meaning for one.
+A **record** reference qualifies when the row belongs to the writing
+organization and is not soft-deleted. There is no third condition, because there
+is no `is_active` on an operational record and no meaning for one.
 
 Writers do not list these. They come off the row being written:
 
@@ -522,7 +522,7 @@ a command that never happened.
   different id, is two admins asking for the same thing at once, and the server
   refuses it and names who holds it. For an invitation that rule is
   `memberships_organization_invited_email_unique`, which is one live invitation
-  per address per agency.
+  per address per organization.
 
 - **An overwrite is its own command.** Where a second call is sometimes a retry
   to swallow and sometimes a deliberate redo, no key can tell them apart.
@@ -539,17 +539,17 @@ a command that never happened.
   (#218), because the only rows the command is offered on are the rows holding an
   invitation. So the revoke goes first.
 
-  What that costs is a window where the person holds no grant at all: the old one
-  is gone and the new one has not issued. Nothing closes it. A restore is another
-  call that can fail the same way, and the failure it is restoring from is usually
-  the second system being unreachable. What is owed instead is two things. The row
-  must end saying only what the second system actually finished, which for a
-  re-invitation means clearing `workos_invitation_id` the moment the revoke lands,
-  so a retry finds nothing to revoke and the Membership never names a dead link.
-  And the failure must be legible: one server log line naming the row, the agency
-  and the grant that was revoked, because no screen shows the difference between
-  "the re-invitation failed" and "the re-invitation failed and took their link
-  with it".
+  What that costs is a window where the person holds no grant at all: the old
+  one is gone and the new one has not issued. Nothing closes it. A restore is
+  another call that can fail the same way, and the failure it is restoring from
+  is usually the second system being unreachable. What is owed instead is two
+  things. The row must end saying only what the second system actually finished,
+  which for a re-invitation means clearing `workos_invitation_id` the moment the
+  revoke lands, so a retry finds nothing to revoke and the Membership never
+  names a dead link. And the failure must be legible: one server log line naming
+  the row, the organization and the grant that was revoked, because no screen
+  shows the difference between "the re-invitation failed" and "the re-invitation
+  failed and took their link with it".
 
 - **No optimistic row for the half the client cannot see.** Apply optimistically
   to what the command fully determines; never invent a status only the second

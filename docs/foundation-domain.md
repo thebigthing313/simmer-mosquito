@@ -12,15 +12,15 @@ routes live in `apps/server/src/table-commands/`.
 
 ## Command shape
 
-Foundation agency commands use the `foundation.*` namespace and carry command
-context for optimistic UI, offline logs, and command replay:
+Foundation organization commands use the `foundation.*` namespace and carry
+command context for optimistic UI, offline logs, and command replay:
 
 - `organizationId`
 - `actorProfileId`
 
 Server `AuthContext` remains authoritative and must verify both IDs. SIMMER
 operator taxonomy commands are separate operator workflows and carry
-`operatorUserId` instead of agency context.
+`operatorUserId` instead of organization context.
 
 Commands carry domain intent, not DB-shaped patches. Foundation address and
 region catalog commands carry explicit GeoJSON `geometry` because they define
@@ -118,10 +118,10 @@ Regions are manager-and-above and Polygon-only in v1. Uncategorized regions are
 allowed with `regionFolderId = null`. Regions do not have active/inactive
 lifecycle state.
 
-Region names and geometries may duplicate. SIMMER does not own agency GIS data
-integrity in v1. The app may warn on duplicate normalized names or same
-geometry within the same folder, including the uncategorized bucket, but
-does not block. Topology validation is limited to PostGIS geometry validity.
+Region names and geometries may duplicate. SIMMER does not own organization GIS
+data integrity in v1. The app may warn on duplicate normalized names or same
+geometry within the same folder, including the uncategorized bucket, but does
+not block. Topology validation is limited to PostGIS geometry validity.
 
 `updateRegionGeometry` requires acknowledgement that region boundaries may
 change future reporting. It stores the command geometry directly on the region.
@@ -130,9 +130,9 @@ change future reporting. It stores the command geometry directly on the region.
 soft-deletes direct region comments/tags. There is no v1 region merge command.
 
 `deleteRegionFolder` unfiles the regions in the folder rather than deleting
-them: a folder is filing, and the regions are the agency's map. It requires
-`acknowledgedRegionDetach` when the folder still holds any, and refuses with
-`409 acknowledgement_required` naming how many. An unfiled region is
+them: a folder is filing, and the regions are the organization's map. It
+requires `acknowledgedRegionDetach` when the folder still holds any, and refuses
+with `409 acknowledgement_required` naming how many. An unfiled region is
 present with `regionFolderId = null`.
 
 ## Region membership
@@ -182,8 +182,8 @@ Commands:
 - `deleteUnit`
 
 Units of measure are SIMMER-operator-only, like the taxonomy, and for the same
-reason: there is no `organization_id`, and every agency records amounts against
-them. Commands require a client-generated `unitId`.
+reason: there is no `organization_id`, and every organization records amounts
+against them. Commands require a client-generated `unitId`.
 
 `code`, `unitName` and `abbreviation` are each unique globally. Uniqueness is
 checked by the server inside the write transaction, not by the builders, because
@@ -208,7 +208,7 @@ Commands:
 - `selectOrganizationSpecies`
 - `unselectOrganizationSpecies`
 
-These are owner/admin agency workflows. Selecting a species requires
+These are owner/admin organization workflows. Selecting a species requires
 `organizationSpeciesId` and `speciesId`. If the organization previously
 unselected the same species, selection restores the existing row and preserves
 its ID. Unselecting soft-deletes the row and is idempotent.

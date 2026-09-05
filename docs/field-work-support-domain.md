@@ -346,7 +346,8 @@ match. Keeping the organization id on the association row makes target-scoped
 and organization-scoped queries cheaper, and mirrors `comments` and
 `additional_personnel`.
 
-Tag names are unique per agency through a soft-delete-aware, lower-trim index:
+Tag names are unique per organization through a soft-delete-aware, lower-trim
+index:
 
 ```sql
 create unique index tags_organization_normalized_name_unique
@@ -666,7 +667,8 @@ anchors, uniqueness, and command invariants when queued commands replay.
 
 ## Route schema
 
-Route names are unique per agency through a soft-delete-aware, lower-trim index:
+Route names are unique per organization through a soft-delete-aware, lower-trim
+index:
 
 ```sql
 create unique index routes_organization_normalized_name_unique
@@ -1612,7 +1614,7 @@ Require client-generated IDs for commands that create rows:
 - `assignmentId`
 - `assignmentItemId`
 
-Date-only fields use `LocalDateString` because they represent agency-local
+Date-only fields use `LocalDateString` because they represent organization-local
 calendar dates, not instants:
 
 - `assignmentDate`

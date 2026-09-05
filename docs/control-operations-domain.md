@@ -319,7 +319,7 @@ historical context.
 
 ## Insecticides
 
-`insecticides` are the agency product catalog.
+`insecticides` are the organization product catalog.
 
 Create requires:
 
@@ -358,9 +358,9 @@ case folding among non-deleted insecticides. Duplicate trade names alone may
 warn in UI but do not block.
 
 `registrationNumber` and `activeIngredient` are required non-empty text. If an
-agency has a product without a formal registration number, it may intentionally
-use an explicit value such as `N/A` according to local policy; blank values are
-not stored.
+organization has a product without a formal registration number, it may
+intentionally use an explicit value such as `N/A` according to local policy;
+blank values are not stored.
 
 `labelUrl` and `msdsUrl` use lightweight validation:
 
@@ -1332,7 +1332,7 @@ Outreach actions have no direct `habitat_id`, and v1 does not want one.
 
 ### Normalized uniqueness
 
-Catalog identity is unique per agency, case-insensitively and
+Catalog identity is unique per organization, case-insensitively and
 soft-delete-aware:
 
 ```sql

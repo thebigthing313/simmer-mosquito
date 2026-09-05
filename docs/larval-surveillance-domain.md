@@ -77,7 +77,7 @@ Adjacent shared domains own:
 ## Important semantics
 
 `habitats` are stable, reusable larval surveillance sources or locations that an
-agency may return to: catch basins, ditch segments, tire piles, ponds,
+organization may return to: catch basins, ditch segments, tire piles, ponds,
 wetlands, containers, stormwater structures, and similar sources. Habitats are
 catalog records, not inspections.
 
