@@ -45,7 +45,7 @@ interface Refusal {
 
 const NOT_AN_OPERATOR: Refusal = {
 	title: 'Not an Operator Account',
-	body: 'This account is not a member of the SIMMER organization, which is what operator access is. Agency work happens in the SIMMER web app.',
+	body: 'This account is not a member of the SIMMER organization, which is what operator access is. Your own work happens in the SIMMER web app.',
 };
 
 function AuthShell({
@@ -125,7 +125,7 @@ export function OperatorSignInPage({ redirectTo }: { readonly redirectTo: string
 		if (operatorOrganizationId === null) {
 			setRefusal({
 				title: 'Console Not Configured',
-				body: 'This console has no SIMMER organization configured, so it cannot tell an operator from an agency member. Set VITE_SIMMER_OPERATOR_ORG_ID on the admin service and redeploy.',
+				body: 'This console has no SIMMER organization configured, so it cannot tell an operator from anyone else. Set VITE_SIMMER_OPERATOR_ORG_ID on the admin service and redeploy.',
 			});
 			return;
 		}
@@ -211,7 +211,7 @@ export function OperatorSignInPage({ redirectTo }: { readonly redirectTo: string
 
 	return (
 		<AuthShell
-			description="Sign in with your SIMMER operator account to manage agencies, taxonomy, and units."
+			description="Sign in with your SIMMER operator account to manage organizations, taxonomy, and units."
 			title="Operator Sign In"
 		>
 			<form onSubmit={handleCredentials}>

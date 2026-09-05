@@ -97,7 +97,7 @@ function GeneraRoute() {
 					Add Genus
 				</Button>
 			}
-			description="Mosquito genera, shared by every agency. Species are recorded against one, so a genus in use cannot be removed."
+			description="Mosquito genera, shared by everyone. Species are recorded against one, so a genus in use cannot be removed."
 			icon={GenusIcon}
 			title="Genera"
 		>
@@ -136,9 +136,9 @@ function GeneraRoute() {
 			</CatalogBody>
 
 			<CatalogDialog
-				createDescription="Added to the global list every agency identifies against."
+				createDescription="Added to the global list everyone identifies against."
 				createTitle="Add Genus"
-				editDescription="Changes apply to every agency using this genus."
+				editDescription="Changes apply to everyone using this genus."
 				editTitle={(genus) => `Edit ${genus.name}`}
 				onClose={() => setDialog(null)}
 				state={dialog}
@@ -180,7 +180,7 @@ function GenusListRow({
 					<DeleteRecordButton
 						consequence={
 							speciesCount === 0
-								? `${genus.name} is not used by any species and will be removed for every agency.`
+								? `${genus.name} is not used by any species and will be removed for everyone.`
 								: `${genus.name} has ${speciesCount} ${speciesCount === 1 ? 'species' : 'species entries'} recorded against it. The server will refuse this while they exist.`
 						}
 						onDelete={onDelete}

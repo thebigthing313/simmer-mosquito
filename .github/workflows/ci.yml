@@ -127,11 +127,11 @@ jobs:
       # `CONTEXT.md` names every domain term and, beside it, the words that are
       # not that term. Nothing read those Avoid lists until this, which is how
       # agency and organization ended up in one sentence on one screen. It reads
-      # user-facing copy only, string literals and JSX text in the two app
-      # roots, because about 2,100 comments here say agency and a gate that read
-      # them would fail on history. Two words, `agency` and `tenant`, which are
-      # the ones with no second sense in this product. `apps/web` is at zero;
-      # the allowance is the `apps/admin` copy still to fix in #533.
+      # user-facing copy only, string literals and JSX text in the three app
+      # roots that ship screens, because about 2,100 comments here say agency
+      # and a gate that read them would fail on history. Two words, `agency` and
+      # `tenant`, which are the ones with no second sense in this product. All
+      # three roots are at zero since #533 and the allowance is empty.
       - name: Vocabulary
         run: pnpm check:vocabulary
 

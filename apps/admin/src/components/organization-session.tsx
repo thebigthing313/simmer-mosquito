@@ -67,7 +67,7 @@ export function OrganizationSessionGate({
 		children
 	) : (
 		<OrganizationEntry
-			name={organizationName ?? 'this agency'}
+			name={organizationName ?? 'this organization'}
 			workosOrganizationId={workosOrganizationId}
 		/>
 	);
@@ -93,7 +93,7 @@ function OrganizationEntry({
 				<EmptyDescription>
 					{unlinked
 						? `${name} has no WorkOS organization yet, so there is nothing to enter. Link it first.`
-						: `Records are written as a member of the agency that owns them, so this page needs your session to be inside ${name}. You need an admin membership there.`}
+						: `Records are written as a member of the organization that owns them, so this page needs your session to be inside ${name}. You need an admin membership there.`}
 				</EmptyDescription>
 			</EmptyHeader>
 			<EmptyContent>

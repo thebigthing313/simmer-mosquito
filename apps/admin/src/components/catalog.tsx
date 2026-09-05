@@ -158,7 +158,7 @@ export function CatalogBody({
 	/** Rows before filtering — decides empty-catalog vs no-matches. */
 	readonly total: number;
 	readonly shown: number;
-	/** Plural, lowercase: "genera", "units", "agencies". */
+	/** Plural, lowercase: "genera", "units", "organizations". */
 	readonly noun: string;
 	readonly search: string;
 	readonly onSearchChange: (next: string) => void;

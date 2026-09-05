@@ -31,7 +31,7 @@ export default function HomeScreen() {
 			</View>
 
 			<View style={styles.card}>
-				<Row label="Agency" value={localIdentity.organizationName} empty="None selected" />
+				<Row label="Organization" value={localIdentity.organizationName} empty="None selected" />
 				<Row label="Role" value={localIdentity.role} empty="None" />
 				<Row label="Profile" value={localIdentity.profileId} empty="None" />
 			</View>

@@ -24,7 +24,7 @@ function OrganizationDetailRoute() {
 
 	if (error !== null) {
 		return (
-			<AdminPage icon={OrganizationIcon} title="Agency">
+			<AdminPage icon={OrganizationIcon} title="Organization">
 				<AdminError error={error} />
 			</AdminPage>
 		);
@@ -32,7 +32,7 @@ function OrganizationDetailRoute() {
 
 	if (isPending) {
 		return (
-			<AdminPage icon={OrganizationIcon} title="Agency">
+			<AdminPage icon={OrganizationIcon} title="Organization">
 				<ListLoading rows={3} />
 			</AdminPage>
 		);
@@ -41,12 +41,12 @@ function OrganizationDetailRoute() {
 	if (organization === undefined) {
 		return (
 			<AdminPage
-				description="This agency is not on the platform."
+				description="This organization is not on the platform."
 				icon={OrganizationIcon}
-				title="Agency Not Found"
+				title="Organization Not Found"
 			>
 				<Button asChild variant="outline">
-					<Link to="/organizations">Back to agencies</Link>
+					<Link to="/organizations">Back to organizations</Link>
 				</Button>
 			</AdminPage>
 		);
@@ -68,7 +68,7 @@ function OrganizationDetailRoute() {
 					</Button>
 				</>
 			}
-			description="Support metadata for this agency. Operational records belong to the agency and live in the SIMMER web app."
+			description="Support metadata for this organization. Operational records belong to it and live in the SIMMER web app."
 			icon={OrganizationIcon}
 			title={organization.name}
 		>
@@ -76,7 +76,7 @@ function OrganizationDetailRoute() {
 				<Panel icon={<OrganizationIcon aria-hidden="true" />} title="Identity">
 					<FactList
 						facts={[
-							{ label: 'Agency id', value: organization.id, mono: true },
+							{ label: 'Organization id', value: organization.id, mono: true },
 							{
 								label: 'WorkOS organization',
 								value: organization.workosOrganizationId,

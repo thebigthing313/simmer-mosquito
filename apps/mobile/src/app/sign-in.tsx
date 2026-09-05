@@ -36,7 +36,7 @@ export default function SignInScreen() {
 		<Screen>
 			<View style={styles.header}>
 				<Text style={styles.title}>SIMMER</Text>
-				<Text style={styles.subtitle}>Sign in to your agency.</Text>
+				<Text style={styles.subtitle}>Sign in to your organization.</Text>
 			</View>
 
 			<View style={styles.form}>
@@ -93,7 +93,7 @@ function describe(outcome: Exclude<SignInOutcome, { status: 'authenticated' }>):
 		case 'verification_required':
 			return 'Your email needs verifying. Finish signing in on the SIMMER web app, then come back.';
 		case 'organization_selection_required':
-			return 'Your account covers more than one agency. Choose one on the SIMMER web app, then come back.';
+			return 'Your account covers more than one organization. Choose one on the SIMMER web app, then come back.';
 		default:
 			return outcome.reason;
 	}

@@ -24,8 +24,8 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 export const adminShellDomains: readonly ShellDomain[] = [
 	{
 		id: 'organizations',
-		label: 'Agencies',
-		summary: 'Mosquito control agencies on the platform, and the people in them',
+		label: 'Organizations',
+		summary: 'Mosquito control organizations on the platform, and the people in them',
 		icon: iconRegistry.entities.organization.icon,
 		groups: [
 			{
@@ -39,7 +39,7 @@ export const adminShellDomains: readonly ShellDomain[] = [
 					},
 					{
 						id: 'organizations-create',
-						label: 'Create Agency',
+						label: 'Create Organization',
 						to: '/organizations/create',
 						icon: iconRegistry.actions.add.icon,
 					},
@@ -50,7 +50,7 @@ export const adminShellDomains: readonly ShellDomain[] = [
 	{
 		id: 'taxonomy',
 		label: 'Mosquito Taxonomy',
-		summary: 'The global genus and species list every agency identifies against',
+		summary: 'The global genus and species list everyone identifies against',
 		icon: iconRegistry.entities.taxonomy.icon,
 		groups: [
 			{

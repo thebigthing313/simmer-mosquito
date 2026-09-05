@@ -6,9 +6,10 @@ import { useOrganizations } from './-organization-data';
  * The layout every agency drill-down sits under.
  *
  * Its only job is the breadcrumb: without it a deep agency URL renders as
- * "Agencies › #a1b2c3…", because the shell can only title-case what is in the
- * path. Registering the name here means the header reads "Agencies › Directory ›
- * Coastal MAD › Members" on every child page, resolved once rather than per page.
+ * "Organizations › #a1b2c3…", because the shell can only title-case what is in
+ * the path. Registering the name here means the header reads "Organizations ›
+ * Directory › Coastal MAD › Members" on every child page, resolved once rather
+ * than per page.
  */
 export const Route = createFileRoute('/organizations/$organizationId')({
 	component: OrganizationLayoutRoute,

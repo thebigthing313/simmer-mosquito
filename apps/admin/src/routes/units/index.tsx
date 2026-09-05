@@ -139,7 +139,7 @@ function UnitsRoute() {
 					Add Unit
 				</Button>
 			}
-			description="Units of measure available to every agency, grouped by the quantity they measure."
+			description="Units of measure available to everyone, grouped by the quantity they measure."
 			icon={UnitIcon}
 			title="Units"
 		>
@@ -178,9 +178,9 @@ function UnitsRoute() {
 			</CatalogBody>
 
 			<CatalogDialog
-				createDescription="Added to the global list every agency measures in."
+				createDescription="Added to the global list everyone measures in."
 				createTitle="Add Unit"
-				editDescription="Changes apply to every agency using this unit."
+				editDescription="Changes apply to everyone using this unit."
 				editTitle={(unit) => `Edit ${unit.unitName}`}
 				onClose={() => setDialog(null)}
 				state={dialog}
@@ -245,7 +245,7 @@ function UnitTypeSection({
 							<>
 								<EditRecordButton label={`Edit ${unit.unitName}`} onClick={() => onEdit(unit)} />
 								<DeleteRecordButton
-									consequence={`${unit.unitName} will be removed for every agency. The server will refuse this while any record measures in it.`}
+									consequence={`${unit.unitName} will be removed for everyone. The server will refuse this while any record measures in it.`}
 									onDelete={() => void onDelete(unit)}
 									recordLabel={unit.unitName}
 								/>
