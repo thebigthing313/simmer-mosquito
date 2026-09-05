@@ -77,8 +77,9 @@ describe('missionDisplayName', () => {
 			'America/New_York',
 		);
 		expect(name).toContain('Source Reduction');
-		// 15:00 UTC is 11am in New York. The fallback carries the agency's zone, so
-		// two dispatchers in different zones name the same mission the same way.
+		// 15:00 UTC is 11am in New York. The fallback carries the organization's
+		// zone, so two dispatchers in different zones name the same mission the
+		// same way.
 		expect(name).toContain('11:00');
 	});
 });

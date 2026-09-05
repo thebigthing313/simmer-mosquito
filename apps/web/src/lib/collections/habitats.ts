@@ -11,8 +11,8 @@ import { BasicIndex } from '@tanstack/db';
 import { declareCollection } from './registry';
 
 /**
- * `on-demand`: An agency's habitats grow without bound, so live queries fetch the subsets
- * they ask for rather than the table streaming whole before first paint.
+ * `on-demand`: An organization's habitats grow without bound, so live queries fetch the
+ * subsets they ask for rather than the table streaming whole before first paint.
  *
  * This app writes habitats, so the collection carries the three mutation
  * handlers and every write through it names the command it means.

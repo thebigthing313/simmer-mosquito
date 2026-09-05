@@ -3,10 +3,10 @@ import type { AdminOrganization, MembershipStatus, SimmerRole } from '../api';
 /**
  * Badge tones for the three enums the console shows repeatedly.
  *
- * These live together because they are read together — an agency row shows a
- * subscription tone beside a member's role and status — and because a colour
- * scheme that disagrees with itself between two pages reads as a bug in the
- * data rather than in the styling.
+ * These live together because they are read together — an organization row
+ * shows a subscription tone beside a member's role and status — and because a
+ * colour scheme that disagrees with itself between two pages reads as a bug in
+ * the data rather than in the styling.
  */
 export type Tone = 'catalog' | 'danger' | 'info' | 'neutral' | 'success' | 'warning';
 

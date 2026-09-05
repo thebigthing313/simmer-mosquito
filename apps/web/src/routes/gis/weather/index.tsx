@@ -42,7 +42,7 @@ const STATUS_VALUES: readonly StatusFilter[] = ['all', 'active', 'inactive'];
 /*
  * Active by default, matching Traps. A retired station keeps its readings and
  * stays reportable, so it is history rather than work, and a map that opens on
- * every station an agency ever ran is a map nobody can read.
+ * every station an organization ever ran is a map nobody can read.
  */
 const STATION_FILTER_DEFAULTS: StationFilters = { search: '', status: 'active' };
 const STATION_FILTER_CODECS: FilterCodecs<StationFilters> = {
@@ -124,10 +124,11 @@ function WeatherStationsRoute() {
 			panel={panel}
 			results={{
 				rows: stations,
-				// Whether a filter emptied the rail, or the agency has no stations. The
-				// unfiltered count answers it exactly, and the filter count does not:
-				// Status defaults to Active and counts nothing, so an agency whose
-				// stations are all retired would be told to add its first one.
+				// Whether a filter emptied the rail, or the organization has no
+				// stations. The unfiltered count answers it exactly, and the filter
+				// count does not: Status defaults to Active and counts nothing, so an
+				// organization whose stations are all retired would be told to add its
+				// first one.
 				...emptyState(rows.length > 0),
 				renderRow: (station) => (
 					<StationRowItem

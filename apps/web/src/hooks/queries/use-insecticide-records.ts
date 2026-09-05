@@ -1,5 +1,6 @@
 /**
- * The agency's insecticides and their batches, as the chemical catalog needs them.
+ * The organization's insecticides and their batches, as the chemical catalog
+ * needs them.
  *
  * Two reads with different sync modes behind them. Products are eager — every
  * application form picks one — so the list is one query over the whole table.

@@ -48,7 +48,7 @@ export interface RecordRegionGroup {
 export interface RecordRegions {
 	readonly recordType: RegionMembershipRecordType;
 	readonly recordId: string;
-	/** False when the record is missing, another agency's, or already deleted. */
+	/** False when the record is missing, another organization's, or already deleted. */
 	readonly found: boolean;
 	readonly groups: readonly RecordRegionGroup[];
 }

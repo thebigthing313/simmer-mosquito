@@ -435,7 +435,7 @@ export function validateGeometry(
  * measure, and the position rule already rejects an empty coordinate list.
  *
  * Strictly greater than zero, with no epsilon. A threshold would be a claim
- * about the smallest area an agency treats and nobody has that number.
+ * about the smallest area an organization treats and nobody has that number.
  *
  * Planar, on raw degrees. The question is whether the shape encloses anything
  * rather than how much, so metres are not the unit of the answer: a ring walked

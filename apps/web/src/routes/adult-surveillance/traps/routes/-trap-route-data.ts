@@ -94,8 +94,8 @@ export function useRouteStopCounts(): {
  * ## One query, not two
  *
  * This read the whole eager `traps` table into a `Map` and looked each stop's
- * trap up in it. The join does the same work without materialising every trap the
- * agency runs to name the twenty on this route.
+ * trap up in it. The join does the same work without materialising every trap
+ * the organization runs to name the twenty on this route.
  */
 export function useRouteStops(routeId: string | null): {
 	readonly stops: readonly RouteStopView[];

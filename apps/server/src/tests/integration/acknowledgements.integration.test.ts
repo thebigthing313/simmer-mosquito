@@ -506,8 +506,8 @@ describeDbIntegration('acknowledgement refusals', () => {
 				.select(['region_folder_id', 'deleted_at'])
 				.where('id', '=', regionId)
 				.executeTakeFirstOrThrow();
-			// Unfiled, not deleted. The regions are the agency's map; the folder was
-			// only where they were kept.
+			// Unfiled, not deleted. The regions are the organization's map; the
+			// folder was only where they were kept.
 			expect(region.region_folder_id).toBeNull();
 			expect(region.deleted_at).toBeNull();
 		});
@@ -601,7 +601,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 		});
 	});
 
-	it('deactivates the formulation once the agency confirms the recipe goes empty', async () => {
+	it('deactivates the formulation once the organization confirms the recipe goes empty', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'empty_formulation_confirmed');
 			const actor = await createProfile(db, org);

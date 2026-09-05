@@ -214,10 +214,10 @@ describeDbIntegration('history and collision refusals', () => {
 	});
 
 	// -----------------------------------------------------------------------
-	// The taxonomy, whose count is every agency's at once
+	// The taxonomy, whose count is every organization's at once
 	// -----------------------------------------------------------------------
 
-	it('refuses a species rename and counts across every agency', async () => {
+	it('refuses a species rename and counts across every organization', async () => {
 		await withTestDb(async ({ db }) => {
 			const first = await createOrganization(db, 'taxon_first');
 			const second = await createOrganization(db, 'taxon_second');
@@ -240,8 +240,9 @@ describeDbIntegration('history and collision refusals', () => {
 			await expect(response.json()).resolves.toMatchObject({
 				error: 'acknowledgement_required',
 				flag: 'acknowledgedTaxonomyMeaningChange',
-				// Two agencies, one number. The operator already reads every agency,
-				// so the total leaks nothing, and a breakdown is a report.
+				// Two organizations, one number. The operator already reads every
+				// organization, so the total leaks nothing, and a breakdown is a
+				// report.
 				consequences: [
 					{ key: 'speciesOrganizationLists', count: 2, singular: 'organization species list' },
 				],
@@ -283,7 +284,7 @@ describeDbIntegration('history and collision refusals', () => {
 				}),
 			});
 
-			// Case and spacing aside: the agency reads them as one code, so the
+			// Case and spacing aside: the organization reads them as one code, so the
 			// question is asked on the reading rather than on the bytes.
 			expect(response.status).toBe(409);
 			await expect(response.json()).resolves.toMatchObject({
@@ -345,7 +346,7 @@ function authMiddleware(organizationId: string, profileId: string) {
 	});
 }
 
-/** The operator door, which carries a SIMMER user id and no agency at all. */
+/** The operator door, which carries a SIMMER user id and no organization at all. */
 function operatorMiddleware(userId: string) {
 	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
 		context.set('operatorContext', {

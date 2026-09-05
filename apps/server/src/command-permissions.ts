@@ -1,5 +1,5 @@
 /**
- * Who may issue which agency command.
+ * Who may issue which organization command.
  *
  * The domain docs state these rules per command ("route and route item
  * management is manager-and-above", "lookup management is owner/admin only",
@@ -30,7 +30,7 @@ import type {
 } from '@simmer-mosquito/domain';
 import { type ForbiddenBody, forbidden, hasAtLeastRole, type MinimumRole } from './roles.js';
 
-/** Every command type an agency membership can send. */
+/** Every command type an organization membership can send. */
 export type OrganizationCommandType =
 	| AdultSurveillanceCommandType
 	| ControlOperationsCommandType
@@ -125,19 +125,20 @@ export type CommandPermission =
 	/** A role floor and nothing else. */
 	| { readonly kind: 'role'; readonly minimum: MinimumRole }
 	/**
-	 * SIMMER itself, and no agency role however high.
+	 * SIMMER itself, and no organization role however high.
 	 *
-	 * The role ladder cannot express this. Operators hold an ordinary agency
-	 * membership so that their work is attributable (ADR 0011), and they join as
-	 * `admin` — so `admin` is exactly the floor that does *not* separate an
-	 * operator from the agency administrator sitting next to them.
+	 * The role ladder cannot express this. Operators hold an ordinary
+	 * organization membership so that their work is attributable (ADR 0011), and
+	 * they join as `admin` — so `admin` is exactly the floor that does *not*
+	 * separate an operator from the organization administrator sitting next to
+	 * them.
 	 *
 	 * It exists for the global catalogs: `genera` and `species` have no
-	 * `organization_id`, and every agency reads them. While the only way to write
-	 * one was `/admin/*` behind the operator middleware, the distinction lived in
-	 * the routing. Now that a table's commands are reachable through the shared
-	 * `/commands/{table}` surface, the distinction has to live where every other
-	 * authorization decision does, which is here.
+	 * `organization_id`, and every organization reads them. While the only way to
+	 * write one was `/admin/*` behind the operator middleware, the distinction
+	 * lived in the routing. Now that a table's commands are reachable through the
+	 * shared `/commands/{table}` surface, the distinction has to live where every
+	 * other authorization decision does, which is here.
 	 */
 	| { readonly kind: 'operator' }
 	/** Manager-and-above, or the collector the named record is assigned to. */
@@ -369,19 +370,20 @@ const MISSION_DISPATCH_PERMISSIONS: Record<MissionDispatchCommandType, CommandPe
  * Addresses are the one foundation table a collector touches: "createAddress is
  * collector-and-above so mobile collectors can create ad hoc address book
  * entries while entering field records. Update, delete, and merge are
- * manager-and-above." Everything else here configures the agency — regions and
- * folders are manager-and-above, lookups and species curation are owner/admin.
+ * manager-and-above." Everything else here configures the organization —
+ * regions and folders are manager-and-above, lookups and species curation are
+ * owner/admin.
  *
  * The taxonomy commands are operator-side: `genera` and `species` have no
- * `organization_id` and every agency reads them, so writing one is SIMMER's
- * job. They used to be mapped to `admin` — a placeholder, chosen so that "an
- * agency route added later inherits a floor instead of a hole", while the real
- * check lived in `/admin/*`'s operator middleware.
+ * `organization_id` and every organization reads them, so writing one is
+ * SIMMER's job. They used to be mapped to `admin` — a placeholder, chosen so
+ * that "an organization route added later inherits a floor instead of a hole",
+ * while the real check lived in `/admin/*`'s operator middleware.
  *
  * That later route is `/commands/{table}`, and `admin` turned out to be the
- * wrong floor for it: operators join an agency as `admin` themselves, so it
- * separates nobody. They are `OPERATOR` now, which is a rule the map can state
- * and every surface reads the same way.
+ * wrong floor for it: operators join an organization as `admin` themselves, so
+ * it separates nobody. They are `OPERATOR` now, which is a rule the map can
+ * state and every surface reads the same way.
  */
 const FOUNDATION_PERMISSIONS: Record<FoundationCommandType, CommandPermission> = {
 	'foundation.createAddress': COLLECTOR,
@@ -705,10 +707,10 @@ const ORGANIZATION_SETTINGS_PERMISSIONS: Record<
  * obstacle to work around.
  *
  * Manager rather than admin because a station and its summaries are operational
- * records, not agency configuration: the same floor the trap catalog and the
- * route catalog sit at. The domain doc says so directly, and adds that a SIMMER
- * operator gets here through an agency membership like anyone else, so no arm of
- * this map is `operator`.
+ * records, not organization configuration: the same floor the trap catalog and
+ * the route catalog sit at. The domain doc says so directly, and adds that a
+ * SIMMER operator gets here through an organization membership like anyone
+ * else, so no arm of this map is `operator`.
  */
 const WEATHER_PERMISSIONS: Record<WeatherCommandType, CommandPermission> = {
 	'weather.createWeatherStation': MANAGER,
@@ -732,11 +734,11 @@ const WEATHER_PERMISSIONS: Record<WeatherCommandType, CommandPermission> = {
  * because this map is exhaustive, where the old one was a convention each handler
  * had to remember to consult.
  *
- * The people floor is admin, not owner: an agency delegates onboarding, and an
- * office manager adding a seasonal crew is the ordinary case. Handing out a role
- * is the separate question, and `identity.changeRole` is the only `owner` floor
- * in the whole map — a settable role is a self-promotable one, so an admin who
- * could set a role could set their own.
+ * The people floor is admin, not owner: an organization delegates onboarding,
+ * and an office manager adding a seasonal crew is the ordinary case. Handing
+ * out a role is the separate question, and `identity.changeRole` is the only
+ * `owner` floor in the whole map — a settable role is a self-promotable one, so
+ * an admin who could set a role could set their own.
  *
  * Inviting and re-inviting name a role too, and sit at admin anyway. A floor
  * compares the actor to a rung; what stops an admin minting an owner compares the
@@ -791,9 +793,9 @@ export type CommandDecision = 'allow' | 'deny' | 'ownership';
 /**
  * Who is asking, as far as a floor is concerned.
  *
- * Two facts rather than one, because `admin` is a height on the agency ladder
- * and "is SIMMER" is not on that ladder at all — see the `operator` arm of
- * {@link CommandPermission}.
+ * Two facts rather than one, because `admin` is a height on the organization
+ * ladder and "is SIMMER" is not on that ladder at all — see the `operator` arm
+ * of {@link CommandPermission}.
  */
 export interface CommandScope {
 	readonly role: SimmerRole;
@@ -812,8 +814,8 @@ export function decideCommand(scope: CommandScope, permission: CommandPermission
 	switch (permission.kind) {
 		case 'unmapped':
 			return 'deny';
-		// No agency role passes this, and no agency role is required to: an
-		// operator's own membership role is beside the point.
+		// No organization role passes this, and no organization role is required
+		// to: an operator's own membership role is beside the point.
 		case 'operator':
 			return scope.isOperator ? 'allow' : 'deny';
 		// A plain floor is settled by the ladder alone, at whichever of the three
@@ -859,7 +861,7 @@ function deniedReason(
 	permission: CommandPermission,
 	type: OrganizationCommandType,
 ): string {
-	// Naming the role would be actively misleading here: an agency owner is
+	// Naming the role would be actively misleading here: an organization owner is
 	// refused `createSpecies` however high they are, and telling them their role
 	// is too low invites them to go looking for a higher one.
 	if (permission.kind === 'operator') {
@@ -876,7 +878,7 @@ function scopeOf(authContext: { readonly role: SimmerRole; readonly isOperator?:
 }
 
 /**
- * The route-boundary check, for any agency command endpoint.
+ * The route-boundary check, for any organization command endpoint.
  *
  * Lives here rather than in a per-domain `shared.ts` so that the modules which
  * never had a check — every one outside field work — reach for the same

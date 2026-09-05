@@ -4,11 +4,11 @@ import { createAuthClient } from '@simmer-mosquito/auth/browser';
  * This app's binding to the shared browser auth client.
  *
  * The client itself — the `/auth/*` calls and their outcome unions — lives in
- * `@simmer-mosquito/auth/browser`, because the operator console signs in through
- * the same endpoints and two hand-written copies of the outcome parsing drifted
- * as soon as they both existed. What stays here is genuinely this app's: which
- * origins it talks to, the agency-side types, and the re-exports its ~44 call
- * sites read.
+ * `@simmer-mosquito/auth/browser`, because the operator console signs in
+ * through the same endpoints and two hand-written copies of the outcome parsing
+ * drifted as soon as they both existed. What stays here is genuinely this
+ * app's: which origins it talks to, the organization-side types, and the
+ * re-exports its ~44 call sites read.
  */
 
 const DEFAULT_SERVER_URL = 'http://localhost:3000';

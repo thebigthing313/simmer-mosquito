@@ -51,9 +51,9 @@ export interface NearbyRecordsInput {
 	/** Inclusive upper bound on the temporal kinds' dates (`YYYY-MM-DD`). */
 	readonly dateTo: string;
 	/**
-	 * The agency's IANA timezone, which decides the calendar day a collection's
-	 * `collected_at` instant fell on. The other six kinds are dated by plain
-	 * `date` columns and need no conversion.
+	 * The organization's IANA timezone, which decides the calendar day a
+	 * collection's `collected_at` instant fell on. The other six kinds are dated
+	 * by plain `date` columns and need no conversion.
 	 */
 	readonly timeZone: string;
 	/** Safety cap on total rows returned across all categories. */
@@ -75,9 +75,9 @@ export async function listNearbyRecords(
 	const { organizationId: org, radiusMeters, dateFrom, dateTo } = input;
 	const limit = input.limit ?? DEFAULT_NEARBY_LIMIT;
 	// A collection is dated by an instant or by a plain date, depending on the
-	// agency's timing mode. The instant becomes a day in the agency's zone, not
-	// the database server's — otherwise an evening's collection reads as, and
-	// filters as, the next day. See localDateSql.
+	// organization's timing mode. The instant becomes a day in the organization's
+	// zone, not the database server's — otherwise an evening's collection reads
+	// as, and filters as, the next day. See localDateSql.
 	const collectionDate = sql.raw(
 		`coalesce(${localDateSql('c.collected_at', assertIanaTimeZone(input.timeZone))}, c.collection_date)`,
 	);

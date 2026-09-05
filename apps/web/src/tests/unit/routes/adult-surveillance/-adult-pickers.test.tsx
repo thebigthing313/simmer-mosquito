@@ -38,9 +38,10 @@ const RUNNING = {
 };
 
 /**
- * Retired, and the shape says nothing about it: `PickableTrap` no longer carries
- * `isActive`, so a caller cannot hand the picker a lifecycle to act on even by
- * accident. The trap is retired in the agency's data; this is the row for it.
+ * Retired, and the shape says nothing about it: `PickableTrap` no longer
+ * carries `isActive`, so a caller cannot hand the picker a lifecycle to act on
+ * even by accident. The trap is retired in the organization's data; this is the
+ * row for it.
  */
 const RETIRED = {
 	id: '22222222-2222-4222-8222-222222222222',

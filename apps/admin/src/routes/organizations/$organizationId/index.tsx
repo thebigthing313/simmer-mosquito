@@ -82,8 +82,8 @@ function OrganizationDetailRoute() {
 								value: organization.workosOrganizationId,
 								mono: true,
 								/*
-								 * Without this link nobody in the agency can sign in, so an
-								 * absent value is a blocking condition rather than a blank —
+								 * Without this link nobody in the organization can sign in, so
+								 * an absent value is a blocking condition rather than a blank —
 								 * it says so instead of rendering an em dash.
 								 */
 								missing: 'Not linked — nobody can sign in yet',

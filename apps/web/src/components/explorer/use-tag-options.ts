@@ -5,14 +5,14 @@ import { tags } from '../../lib/collections/tags';
 import type { FilterOption } from './multi-select-filter';
 
 /**
- * The agency's Tags, as filter options and as an id→Tag lookup.
+ * The organization's Tags, as filter options and as an id→Tag lookup.
  *
  * The lookup is the whole Tag rather than its name, because a removable filter
  * chip is tinted with the tag's own colour — a tag filter that lost the colour
  * would read as a different thing from the chips on the rows below it.
  *
- * Inactive tags are included. An explorer filters records that were tagged in the
- * past, and a tag the agency has since retired is still on them.
+ * Inactive tags are included. An explorer filters records that were tagged in
+ * the past, and a tag the organization has since retired is still on them.
  */
 export function useTagOptions(): {
 	readonly options: readonly FilterOption[];

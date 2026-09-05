@@ -42,11 +42,11 @@ const NEARBY_LIMIT = 100;
  * Folding the habitats standing in one spot into the one that stays.
  *
  * Not a cleanup list, which is what addresses and contacts get. Two records for
- * one catch basin agree about nothing except where they are: the crew that filed
- * the second gave it their own handle and their own description, so a
+ * one catch basin agree about nothing except where they are: the crew that
+ * filed the second gave it their own handle and their own description, so a
  * shared-value search finds neither pair. The only evidence is proximity, and a
  * page that listed every pair of habitats within a radius of each other would
- * propose most of an agency's inspection sites.
+ * propose most of an organization's inspection sites.
  *
  * So the question is asked the other way round. Somebody is already looking at a
  * habitat, presses an action on it, and this asks what else is standing there.
@@ -63,9 +63,10 @@ const NEARBY_LIMIT = 100;
  * place.
  *
  * The radius is a filter rather than a constant because how far apart the two
- * records landed depends on how each was filed. A GPS fix under tree cover and a
- * point dropped on an aerial can be tens of metres apart for one ditch, and an
- * agency that maps culverts every hundred feet needs a tighter one than that.
+ * records landed depends on how each was filed. A GPS fix under tree cover and
+ * a point dropped on an aerial can be tens of metres apart for one ditch, and
+ * an organization that maps culverts every hundred feet needs a tighter one
+ * than that.
  */
 export function HabitatMerge({ habitatId }: { readonly habitatId: string }) {
 	const [isConfirming, setIsConfirming] = useState(false);
@@ -247,10 +248,10 @@ function CandidateList({
 /**
  * The search this page is: a radius, what came back, and what the map draws.
  *
- * Its own hook so the component stays about what it shows. The radius is held in
- * the agency's units and converted once, here, because the buttons say feet and
- * `st_dwithin` over geography takes metres, and a page that converted at the call
- * site would be one refactor away from sending 250 metres.
+ * Its own hook so the component stays about what it shows. The radius is held
+ * in the organization's units and converted once, here, because the buttons say
+ * feet and `st_dwithin` over geography takes metres, and a page that converted
+ * at the call site would be one refactor away from sending 250 metres.
  */
 function useMergeSearch(habitatId: string) {
 	const unit = proximitySearchUnit(useOrganizationSettings().unitDefaults.distance);
@@ -361,7 +362,7 @@ function KeptHabitat({ target }: { readonly target: DuplicateRecord | undefined 
 }
 
 /**
- * How wide to look, in the agency's own units.
+ * How wide to look, in the organization's own units.
  *
  * Fixed steps rather than a free number, because the useful answers here are a
  * short list and every one of them is a judgement about how the records were

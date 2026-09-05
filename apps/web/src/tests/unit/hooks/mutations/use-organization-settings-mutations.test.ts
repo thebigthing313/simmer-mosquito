@@ -1,5 +1,5 @@
 /**
- * What one press of Save on the agency details sheet means.
+ * What one press of Save on the organization details sheet means.
  *
  * The sheet is the only one in the workspace that spans two write vocabularies.
  * Eight of its fields are columns on `organizations` and the ninth, the timezone,
@@ -107,8 +107,8 @@ describe('organizationDetailsPlan', () => {
 
 	it('fills a mailing country the stored row never had', () => {
 		// There is no country field: the address is US-shaped, so the plan states
-		// `US` and compares it. An agency whose row predates that gets it written
-		// on the next save rather than staying null forever.
+		// `US` and compares it. An organization whose row predates that gets it
+		// written on the next save rather than staying null forever.
 		const plan = organizationDetailsPlan(fields(), { ...STORED, mailing_country: null }, TIMEZONE);
 
 		expect(plan.details?.mailingCountry).toBe('US');

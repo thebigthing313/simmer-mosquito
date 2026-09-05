@@ -195,9 +195,9 @@ export function registerAuthUserRoutes(
 	 *
 	 * Unlike `/auth/select-organization`, which resolves a pending sign-in, this
 	 * takes a session that is already good and re-seals it against a different
-	 * agency (ADR 0011). It is what lets a SIMMER Operator holding an `admin`
-	 * membership do an agency's foundation work through the ordinary agency
-	 * routes instead of a second write path.
+	 * organization (ADR 0011). It is what lets a SIMMER Operator holding an
+	 * `admin` membership do an organization's foundation work through the
+	 * ordinary organization routes instead of a second write path.
 	 *
 	 * Deliberately not behind `authContextMiddleware`: the caller may currently be
 	 * in an organization with no SIMMER identity at all, which that middleware

@@ -36,10 +36,10 @@ export function deleteBlockedBody(error: RecordDeleteBlockedError): DeleteBlocke
  * The refusal a write gets when it withheld a confirmation.
  *
  * Its own error rather than a `delete_blocked`, because the two ask the client
- * for different things. A blocked delete cannot proceed at all until the agency
- * deals with the referring records; this one proceeds the moment the same
- * request arrives with `flag` set. A form that could not tell them apart would
- * have to guess whether to offer a Confirm button.
+ * for different things. A blocked delete cannot proceed at all until the
+ * organization deals with the referring records; this one proceeds the moment
+ * the same request arrives with `flag` set. A form that could not tell them
+ * apart would have to guess whether to offer a Confirm button.
  *
  * `consequences` carries the same entries as `/records/:type/:id/delete-impact`,
  * so the sentence is the client's to write and the counts are the server's.
@@ -93,9 +93,9 @@ export function acknowledgementRequiredBody(error: {
  * registry data in `@simmer-mosquito/db`, so a per-domain endpoint would only
  * be the same call under a different path.
  *
- * A record the caller's agency does not own answers `found: false` rather than
- * 404 — same as one that never existed, so the endpoint cannot be used to probe
- * for another agency's ids.
+ * A record the caller's organization does not own answers `found: false` rather
+ * than 404 — same as one that never existed, so the endpoint cannot be used to
+ * probe for another organization's ids.
  */
 export function registerRecordDeletionRoutes(
 	app: Hono<{ Variables: AuthVariables }>,

@@ -52,7 +52,7 @@ describe('updateOrganizationDetailsCommand', () => {
 		);
 	});
 
-	it('refuses a blank name rather than writing an agency with none', () => {
+	it('refuses a blank name rather than writing an organization with none', () => {
 		expect(() => updateOrganizationDetailsCommand({ ...organization, name: '   ' })).toThrow(
 			DomainValidationError,
 		);

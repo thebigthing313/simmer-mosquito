@@ -21,12 +21,12 @@ import type { BaseFieldProps } from './text-field';
  * Editor for a record's `metadata` JSON column.
  *
  * Two modes. `manual` is a free-form key/value editor. `schema` renders the
- * typed fields an agency declared on the record's method or type (a lookup
- * row's `customSchema`) — collection methods, habitat types, source reduction
- * methods, and so on. Schema fields keep their declared key verbatim; any value
- * whose key the schema does not declare still renders (as an ad-hoc row) so a
- * method change surfaces its orphans instead of silently keeping or dropping
- * them.
+ * typed fields an organization declared on the record's method or type (a
+ * lookup row's `customSchema`) — collection methods, habitat types, source
+ * reduction methods, and so on. Schema fields keep their declared key verbatim;
+ * any value whose key the schema does not declare still renders (as an ad-hoc
+ * row) so a method change surfaces its orphans instead of silently keeping or
+ * dropping them.
  */
 
 export type MetadataMode =

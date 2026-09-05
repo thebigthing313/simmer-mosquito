@@ -160,8 +160,8 @@ describe('registerAdminInvitationRoutes', () => {
 		});
 	});
 
-	// #202: the row is written first, so a WorkOS refusal can never leave somebody
-	// holding a link to an agency with no row for them.
+	// #202: the row is written first, so a WorkOS refusal can never leave
+	// somebody holding a link to an organization with no row for them.
 	it('writes the Membership before WorkOS is called', async () => {
 		const calls: string[] = [];
 		dbMock.stageOrganizationInvitation.mockImplementation(async () => {
@@ -307,7 +307,7 @@ describe('registerAdminInvitationRoutes', () => {
 		});
 		// The Membership stays, with no invitation id on it. That is the failure
 		// #202 chose: an operator can invite again, where the other order left a
-		// live link to an agency with no row for it.
+		// live link to an organization with no row for it.
 		expect(dbMock.stageOrganizationInvitation).toHaveBeenCalledOnce();
 		expect(dbMock.stampOrganizationInvitation).not.toHaveBeenCalled();
 	});

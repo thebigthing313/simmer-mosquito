@@ -10,8 +10,8 @@ import type { ReactNode } from 'react';
  * work surfaces, not announcements; `max-w-[60ch]` keeps the description a
  * readable measure however wide the outlet gets.
  *
- * This owns the header and nothing around it. The agency workspace and the
- * operator console both mount it inside their own page frame, so the layout
+ * This owns the header and nothing around it. The organization workspace and
+ * the operator console both mount it inside their own page frame, so the layout
  * that decides padding and section rhythm stays the caller's.
  */
 export function PageHeader({

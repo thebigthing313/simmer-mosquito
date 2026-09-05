@@ -351,7 +351,7 @@ export function RequestStopPicker({
 	const [selected, setSelected] = useState<OpenRequest | null>(null);
 	const anchorRef = useRef<HTMLDivElement>(null);
 
-	// No organization argument: the shape is scoped to the caller's agency
+	// No organization argument: the shape is scoped to the caller's organization
 	// server-side, so a client-side predicate on it is redundant.
 	const { requests, isReady } = useOpenRequestedControlActions();
 	const matches = useRequestMatches(requests, existingRequestIds, search);

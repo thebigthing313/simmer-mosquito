@@ -10,8 +10,9 @@ import {
 } from './tags.js';
 
 /**
- * Foundation command endpoints: the agency address book plus the org-scoped
- * lookup catalogs (collection methods, collection lures, habitat types) and tags.
+ * Foundation command endpoints: the organization address book plus the
+ * org-scoped lookup catalogs (collection methods, collection lures, habitat
+ * types) and tags.
  *
  * The lookup and tag writers stay injectable so tests can drive the handlers
  * without a database — one command's write at a time, since the transaction and

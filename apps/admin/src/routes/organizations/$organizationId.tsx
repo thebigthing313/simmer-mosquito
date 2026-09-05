@@ -3,9 +3,9 @@ import { createFileRoute, Outlet } from '@tanstack/react-router';
 import { useOrganizations } from './-organization-data';
 
 /**
- * The layout every agency drill-down sits under.
+ * The layout every organization drill-down sits under.
  *
- * Its only job is the breadcrumb: without it a deep agency URL renders as
+ * Its only job is the breadcrumb: without it a deep organization URL renders as
  * "Organizations › #a1b2c3…", because the shell can only title-case what is in
  * the path. Registering the name here means the header reads "Organizations ›
  * Directory › Coastal MAD › Members" on every child page, resolved once rather
@@ -17,8 +17,8 @@ export const Route = createFileRoute('/organizations/$organizationId')({
 
 function OrganizationLayoutRoute() {
 	const { organizationId } = Route.useParams();
-	// Reads the directory's cache rather than fetching the agency again — the
-	// operator arrived through that list, so it is already warm.
+	// Reads the directory's cache rather than fetching the organization again —
+	// the operator arrived through that list, so it is already warm.
 	const { data } = useOrganizations();
 	const organization = (data ?? []).find((row) => row.id === organizationId);
 

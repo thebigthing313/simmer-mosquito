@@ -29,9 +29,9 @@
  * ## Units
  *
  * Values are taken as already canonical, Fahrenheit, inches, percent, miles per
- * hour, because that is what a US agency's gauge and station exports carry. A
- * file in Celsius or millimetres is out of scope for v1 and would need a unit
- * picker in the review step rather than a guess here.
+ * hour, because that is what a US organization's gauge and station exports
+ * carry. A file in Celsius or millimetres is out of scope for v1 and would need
+ * a unit picker in the review step rather than a guess here.
  */
 
 /** The header spellings that map to each canonical field. */

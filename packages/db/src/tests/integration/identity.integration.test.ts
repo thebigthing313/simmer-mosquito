@@ -212,7 +212,7 @@ describeDbIntegration('ending an organization membership', () => {
 		});
 	});
 
-	it('leaves another agency’s membership alone', async () => {
+	it('leaves another organization’s membership alone', async () => {
 		await withTestDb(async ({ db }) => {
 			const organization = await db
 				.insertInto('organizations')

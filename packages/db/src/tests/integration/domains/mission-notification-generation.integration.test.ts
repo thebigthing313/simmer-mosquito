@@ -169,8 +169,9 @@ describeDbIntegration('mission notification generation', () => {
 				reason: 'buffer_unit_not_convertible',
 				// Names the unit to fix, not the uuid holding it.
 				unitCodes: ['mile'],
-				// And the row holding it, because nothing lists registrations across
-				// an agency: the contact is the only place the buffer can be changed.
+				// And the row holding it, because nothing lists registrations across an
+				// organization: the contact is the only place the buffer can be
+				// changed.
 				registrations: [
 					{
 						registrationId: registration,
@@ -443,7 +444,7 @@ describeDbIntegration('mission notification generation', () => {
 		});
 	});
 
-	it('does not see a mission belonging to another agency', async () => {
+	it('does not see a mission belonging to another organization', async () => {
 		await withTestDb(async ({ db }) => {
 			const world = await seedWorld(db, 'mn_owner');
 			const other = await seedWorld(db, 'mn_other');
@@ -512,7 +513,7 @@ function byChannel(left: { channel: string }, right: { channel: string }): numbe
 	return left.channel.localeCompare(right.channel);
 }
 
-/** An agency with one scheduled mission, a notification type, and two units. */
+/** An organization with one scheduled mission, a notification type, and two units. */
 async function seedWorld(db: Db, slug: string): Promise<World> {
 	const organization = await db
 		.insertInto('organizations')
@@ -550,7 +551,7 @@ async function seedWorld(db: Db, slug: string): Promise<World> {
  * A unit row, found or created.
  *
  * `units` is global and `units_code_unique` is global with it, so a test that
- * seeds two agencies cannot insert `meter` twice. The code is the real one
+ * seeds two organizations cannot insert `meter` twice. The code is the real one
  * because that is what `packages/domain` prices, and it is what
  * `readRegistrationBufferUnits` hands back for pricing.
  */

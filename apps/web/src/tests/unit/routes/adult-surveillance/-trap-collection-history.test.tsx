@@ -51,10 +51,10 @@ function collection(overrides: Partial<DirectoryCollection> = {}): DirectoryColl
 	};
 }
 
-// The agency's zone, handed in the way the pane hands it down. A US zone rather
-// than UTC so a fixture collected in the evening lands on a different day in the
-// two, which is what lets the date assertions below fail if the row ever goes
-// back to reading a raw timestamp's UTC prefix.
+// The organization's zone, handed in the way the pane hands it down. A US zone
+// rather than UTC so a fixture collected in the evening lands on a different
+// day in the two, which is what lets the date assertions below fail if the row
+// ever goes back to reading a raw timestamp's UTC prefix.
 const ORGANIZATION_TIME_ZONE = 'America/New_York';
 
 function renderRow(row: DirectoryCollection) {

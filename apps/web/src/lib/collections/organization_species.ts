@@ -13,8 +13,8 @@ import {
 import { declareCollection } from './registry';
 
 /**
- * `eager`: Which species an agency actually records — a short list, and the one that
- * orders every key-entry grid.
+ * `eager`: Which species an organization actually records — a short list, and the
+ * one that orders every key-entry grid.
  *
  * This app writes organization_species, so the collection carries the three
  * mutation handlers and every write through it names the command it means.

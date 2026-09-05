@@ -1,5 +1,5 @@
 /**
- * The folders an agency files its regions under.
+ * The folders an organization files its regions under.
  *
  * `region_folders` is eager — the tree cannot draw a partial folder list, which
  * is why the collection loads whole — so this is a plain read with no subset

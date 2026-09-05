@@ -298,10 +298,11 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 		 *
 		 * Organization selection already happens at sign-in, but only there — a
 		 * session is bound to one organization for its whole life, and a user in
-		 * more than one agency could otherwise only reach the second by signing out.
-		 * WorkOS models the move as a refresh carrying an explicit organization, so
-		 * the switch costs one round-trip and yields a session indistinguishable
-		 * from one that had been signed into that organization directly.
+		 * more than one organization could otherwise only reach the second by
+		 * signing out. WorkOS models the move as a refresh carrying an explicit
+		 * organization, so the switch costs one round-trip and yields a session
+		 * indistinguishable from one that had been signed into that organization
+		 * directly.
 		 *
 		 * A refusal here is WorkOS's: the refresh fails when the user has no
 		 * membership in the organization asked for. That is the authorization, not
@@ -331,8 +332,8 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 				// everything else — and "not a member of that organization", the
 				// refusal this endpoint exists to produce, is not one of the three. So
 				// the ordinary case arrived here as a throw and left as a 500, and an
-				// operator asking to enter an agency they have no membership in was
-				// told "unable to switch" rather than what was wrong.
+				// operator asking to enter an organization they have no membership in
+				// was told "unable to switch" rather than what was wrong.
 				const refusal = asSwitchRefusal(error);
 				if (refusal === null) {
 					throw error;
@@ -721,9 +722,9 @@ export function createWorkOsAuth(config: WorkOsAuthConfig) {
 		 *
 		 * Asked before an invitation is sent, because `sendInvitation` refuses an
 		 * address that is already a member and does so by throwing — so without
-		 * this, the one case ADR 0011 makes routine (an operator who is already
-		 * inside the agency's WorkOS organization, needing only the SIMMER role)
-		 * is the one case the invitation route cannot serve.
+		 * this, the one case ADR 0011 makes routine (an operator already inside the
+		 * WorkOS organization, needing only the SIMMER role) is the one case the
+		 * invitation route cannot serve.
 		 *
 		 * Two calls rather than one: WorkOS lists memberships by user id, and an
 		 * invitation names an email.

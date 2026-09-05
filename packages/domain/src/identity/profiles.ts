@@ -16,7 +16,7 @@ import {
 } from './shared.js';
 
 /**
- * Adding somebody the agency records work against.
+ * Adding somebody the organization records work against.
  *
  * A Profile created this way is **historical**: no login behind it, `user_id`
  * null. Attaching a login is an invitation, which is a different floor and a

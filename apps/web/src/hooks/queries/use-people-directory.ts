@@ -1,20 +1,20 @@
 /**
- * The agency's people, in the three groups the People section draws.
+ * The organization's people, in the three groups the People section draws.
  *
  * A **Profile** is who work is attributed to; a **Membership** is the access
  * that links a login to it. The two are separate records on purpose — a Profile
- * outlives the access, which is what lets an agency end somebody's login without
- * detaching every inspection they ever recorded — so this is a left join and the
- * membership half is genuinely optional.
+ * outlives the access, which is what lets an organization end somebody's login
+ * without detaching every inspection they ever recorded — so this is a left
+ * join and the membership half is genuinely optional.
  *
  * The groups are what the section shows, not a filter a caller passes:
  *
  * - **activeLinked** — a login, still working.
  * - **inactiveLinked** — a login, no longer working. Their records stay attributed.
- * - **historical** — no login at all. Somebody the agency records work against
- *   who never signed in, or left before SIMMER. Active ones first, because an
- *   inactive historical Profile is the deepest end of the list and the least
- *   likely to be wanted.
+ * - **historical** — no login at all. Somebody the organization records work
+ *   against who never signed in, or left before SIMMER. Active ones first,
+ *   because an inactive historical Profile is the deepest end of the list and
+ *   the least likely to be wanted.
  *
  * Each group is its own query rather than one query grouped in JavaScript,
  * because the predicates and the sort differ and both push down.

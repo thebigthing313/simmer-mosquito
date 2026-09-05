@@ -27,9 +27,9 @@ import { appAuthController } from '../app-auth';
  * lead somewhere that refuses them one step later.
  *
  * WorkOS can still interrupt before it will mint a session: with a verification
- * code, or with an organization choice when the account belongs to more than one
- * — which operators routinely do, since `createAdminOrganization`'s
- * `linkRequesterAsOwner` makes them the new agency's first owner.
+ * code, or with an organization choice when the account belongs to more than
+ * one — which operators routinely do, since `createAdminOrganization`'s
+ * `linkRequesterAsOwner` makes them the new organization's first owner.
  *
  * The code is collected. The organization is not: see `resolveOrganization`.
  */
@@ -113,8 +113,8 @@ export function OperatorSignInPage({ redirectTo }: { readonly redirectTo: string
 	 *
 	 * There is no picker. Being in the SIMMER organization *is* the operator
 	 * boundary, so an account that is not in it has no business here whichever
-	 * agency it would otherwise have chosen — offering a list would be asking a
-	 * question where the only acceptable answer is already known.
+	 * organization it would otherwise have chosen — offering a list would be
+	 * asking a question where the only acceptable answer is already known.
 	 */
 	async function resolveOrganization(
 		token: string,

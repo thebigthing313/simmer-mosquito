@@ -44,8 +44,9 @@ export interface CorsSurface {
  * the client cannot use one syllable of that body without them: it errors the
  * collection, marks it ready so `.preload()` is not blocked forever, and the
  * app sees a table that synced successfully with no rows in it. In `apps/web`
- * that surfaced as the shell throwing `Unable to resolve active organization for
- * this workspace` over an agency whose row was sitting in the response.
+ * that surfaced as the shell throwing `Unable to resolve active organization
+ * for this workspace` over an organization whose row was sitting in the
+ * response.
  *
  * Cross-origin, a header the server does not name here is invisible to the
  * browser. The SPA and the API are different origins in every deployed
@@ -100,9 +101,9 @@ export const CORS_SURFACES: readonly CorsSurface[] = [
 	// its own origin — so without this the palette's fetch fails in the browser
 	// and nowhere else.
 	{ prefix: '/search', methods: READ_METHODS },
-	// The per-table command surface. One prefix for all of it, agency tables and
-	// operator tables alike — CORS is about which origin may ask, and the door a
-	// table sits behind is decided by its middleware, not by its path.
+	// The per-table command surface. One prefix for all of it, organization
+	// tables and operator tables alike — CORS is about which origin may ask, and
+	// the door a table sits behind is decided by its middleware, not by its path.
 	{ prefix: '/commands/*', methods: WRITE_METHODS },
 	{ prefix: '/foundation/*', methods: WRITE_METHODS },
 	{ prefix: '/control-methods/*', methods: WRITE_METHODS },

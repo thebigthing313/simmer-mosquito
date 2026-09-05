@@ -34,12 +34,12 @@
 export const WITHHELD = {
 	memberships: {
 		reason:
-			'an invited address and the handle on a live WorkOS invitation, and the `memberships` shape is eager for every signed-in agency user down to a viewer. The shape is eager because of the role ladder, which is a reason for `role`, `status` and `profile_id` and not for these two: an invited address is the private contact detail of somebody who has not accepted yet, and `workos_invitation_id` is a handle on a grant in the second system. The handlers that need them read them server-side inside the transaction, and the operator console reads them over REST',
+			'an invited address and the handle on a live WorkOS invitation, and the `memberships` shape is eager for every signed-in organization user down to a viewer. The shape is eager because of the role ladder, which is a reason for `role`, `status` and `profile_id` and not for these two: an invited address is the private contact detail of somebody who has not accepted yet, and `workos_invitation_id` is a handle on a grant in the second system. The handlers that need them read them server-side inside the transaction, and the operator console reads them over REST',
 		columns: ['invited_email', 'workos_invitation_id'],
 	},
 	organizations: {
 		reason:
-			"the operator's view of an agency rather than the agency's own record. They are written and read in the operator console (`apps/admin`), which reaches them over REST; `subscription_notes` in particular is what operators write *about* an agency. An agency that should see its own subscription state is a product decision to make deliberately, not a column to leave streaming by default",
+			"the operator's view of an organization rather than the organization's own record. They are written and read in the operator console (`apps/admin`), which reaches them over REST; `subscription_notes` in particular is what operators write *about* an organization. An organization that should see its own subscription state is a product decision to make deliberately, not a column to leave streaming by default",
 		columns: [
 			'subscription_status',
 			'billing_mode',

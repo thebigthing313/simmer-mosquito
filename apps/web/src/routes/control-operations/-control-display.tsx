@@ -12,8 +12,9 @@ interface MeasureUnit {
 // need the same handful of name lookups.
 
 /**
- * Insecticides display by trade name everywhere. `shorthand` is an agency's
- * internal abbreviation for data entry, not a name operators should have to read.
+ * Insecticides display by trade name everywhere. `shorthand` is an
+ * organization's internal abbreviation for data entry, not a name operators
+ * should have to read.
  */
 export function insecticideDisplayName(insecticide: { readonly tradeName: string }): string {
 	return insecticide.tradeName;
@@ -109,10 +110,10 @@ export function ContextBadge({
  *
  * The same product can be recorded in gallons on one job and fluid ounces on
  * the next, and `12 gal · 128 fl oz` is a true answer to a question nobody
- * asked. Where the units convert, they are totalled into whichever the agency
- * has chosen for that kind of quantity (`settings.unitDefaults`) and the
- * originals are named, so an operator who recorded ounces can tell why the
- * screen says gallons.
+ * asked. Where the units convert, they are totalled into whichever the
+ * organization has chosen for that kind of quantity (`settings.unitDefaults`)
+ * and the originals are named, so an operator who recorded ounces can tell why
+ * the screen says gallons.
  *
  * Where they do not convert — a larvicide applied both as pouches and by
  * weight — the separated list stands. Nothing is lost and nothing is invented.

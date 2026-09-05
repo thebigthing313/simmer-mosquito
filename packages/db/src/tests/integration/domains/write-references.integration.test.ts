@@ -12,14 +12,14 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
  * The forward half of the delete registry's question, against real tables.
  *
  * Three of these could not be asked without Postgres. A foreign key is
- * satisfied by the row existing anywhere, so "belongs to another agency" and
- * "is soft-deleted" both compile and both insert; only a query knows. The
+ * satisfied by the row existing anywhere, so "belongs to another organization"
+ * and "is soft-deleted" both compile and both insert; only a query knows. The
  * fourth, the unchanged-value case on an update, is the one a writer breaks by
  * gating on the payload id without reading what is stored, and it stays
  * invisible until something is deactivated.
  */
 describeDbIntegration('catalog reference gate', () => {
-	it('allows a live, active row of the writing agency', async () => {
+	it('allows a live, active row of the writing organization', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'gate_allow');
 			const methodId = await createCollectionMethod(db, org, true);
@@ -45,7 +45,7 @@ describeDbIntegration('catalog reference gate', () => {
 		});
 	});
 
-	it('refuses a soft-deleted row and another agency’s row alike', async () => {
+	it('refuses a soft-deleted row and another organization’s row alike', async () => {
 		await withTestDb(async ({ db }) => {
 			const mine = await createOrganization(db, 'gate_mine');
 			const theirs = await createOrganization(db, 'gate_theirs');
@@ -59,7 +59,7 @@ describeDbIntegration('catalog reference gate', () => {
 			const otherOrganization = await createCollectionMethod(db, theirs, true);
 
 			// The two answer alike on purpose: a refusal that told them apart would
-			// be a way to probe for another agency's ids.
+			// be a way to probe for another organization's ids.
 			expect((await capture(db, mine, deleted))?.reason).toBe('missing');
 			expect((await capture(db, mine, otherOrganization))?.reason).toBe('missing');
 		});
@@ -125,11 +125,11 @@ describeDbIntegration('catalog reference gate', () => {
  * The record half, which #200 is about.
  *
  * A record reference asks the first two questions only. There is no `is_active`
- * on an Address, so the third has nothing to read and no meaning: an agency
- * does not retire an Address from use, it stops referring to it.
+ * on an Address, so the third has nothing to read and no meaning: an
+ * organization does not retire an Address from use, it stops referring to it.
  */
 describeDbIntegration('record reference gate', () => {
-	it('allows a live row of the writing agency', async () => {
+	it('allows a live row of the writing organization', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'record_allow');
 			const addressId = await createAddress(db, org);
@@ -144,7 +144,7 @@ describeDbIntegration('record reference gate', () => {
 		});
 	});
 
-	it('refuses another agency’s row', async () => {
+	it('refuses another organization’s row', async () => {
 		await withTestDb(async ({ db }) => {
 			const mine = await createOrganization(db, 'record_mine');
 			const theirs = await createOrganization(db, 'record_theirs');
@@ -158,7 +158,7 @@ describeDbIntegration('record reference gate', () => {
 		});
 	});
 
-	it('refuses a soft-deleted row of its own agency', async () => {
+	it('refuses a soft-deleted row of its own organization', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'record_deleted');
 			const addressId = await createAddress(db, org);
@@ -261,7 +261,7 @@ async function createOrganization(db: Db, slug: string): Promise<string> {
 	return row.id;
 }
 
-/** `name` is unique per agency, so each row in a test needs its own. */
+/** `name` is unique per organization, so each row in a test needs its own. */
 async function createCollectionMethod(
 	db: Db,
 	organizationId: string,

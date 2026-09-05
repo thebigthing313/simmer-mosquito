@@ -13,7 +13,7 @@ import {
 import { declareCollection } from './registry';
 
 /**
- * `eager`: A method catalogue an agency has dozens of rows of.
+ * `eager`: A method catalogue an organization has dozens of rows of.
  *
  * This app writes source_reduction_methods, so the collection carries the
  * three mutation handlers and every write through it names the command it

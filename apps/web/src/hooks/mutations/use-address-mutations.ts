@@ -1,5 +1,6 @@
 /**
- * The agency address book: adding a place, correcting one, moving its pin.
+ * The organization address book: adding a place, correcting one, moving its
+ * pin.
  *
  * ## The pin was unreachable
  *

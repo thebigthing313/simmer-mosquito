@@ -14,7 +14,7 @@ import { declareCollection } from './registry';
 
 /**
  * `on-demand`: One row per place somebody asked to be warned about, so it grows
- * with the public rather than with the agency, and only the registrations
+ * with the public rather than with the organization, and only the registrations
  * pages read it.
  *
  * This app writes notification_registrations, so the collection carries the

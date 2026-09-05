@@ -9,7 +9,7 @@ import { registerControlProductCommandRoutes } from '../../control-product-comma
 
 /**
  * The bug (#119): `POST /control-products/insecticide-batches` with an
- * `insecticideId` belonging to another agency answered **500**.
+ * `insecticideId` belonging to another organization answered **500**.
  *
  * `createInsecticideBatch` refuses that id from inside
  * `db.transaction().execute`, and no route in this file had a `catch`, so the
@@ -23,7 +23,7 @@ import { registerControlProductCommandRoutes } from '../../control-product-comma
  * and `command-authorization.integration.test.ts` argues the point), but the
  * predicate is not what regressed here. The error mapping is.
  */
-describe('insecticide batch writes against an insecticide the agency does not own', () => {
+describe('insecticide batch writes against an insecticide the organization does not own', () => {
 	it('answers 404, not 500, when the insecticide id resolves to nothing', async () => {
 		const response = await postBatch('admin', {
 			id: '9c2f1a70-4d31-4d61-9a7b-6b0d5d2a1f31',
@@ -44,9 +44,9 @@ describe('insecticide batch writes against an insecticide the agency does not ow
 	});
 
 	// The cases answer alike on purpose. A refusal that distinguished "another
-	// agency's insecticide" from "no such insecticide" would let a caller probe
-	// for ids across tenants — the same argument `readAssigneeOwnership` makes
-	// for collapsing `elsewhere` and `deleted` into one `missing`.
+	// organization's insecticide" from "no such insecticide" would let a caller
+	// probe for ids across tenants — the same argument `readAssigneeOwnership`
+	// makes for collapsing `elsewhere` and `deleted` into one `missing`.
 	it('answers a foreign id and an unknown id identically', async () => {
 		const foreign = await postBatch('admin', {
 			id: '2b7c9e41-5a82-4f13-b6d0-8e1f4c3a7b52',

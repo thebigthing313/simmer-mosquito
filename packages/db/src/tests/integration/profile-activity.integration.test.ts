@@ -10,11 +10,12 @@ import { describeDbIntegration, withTestDb } from '../../test-support/db-integra
 
 // --- what one Profile's activity log actually answers -------------------------
 //
-// Every case here is a way this read returns a **plausible wrong answer** rather
-// than failing: an assisting join that matches nothing, a collection dated by
-// the column its agency does not use, a visit collapsed into another visit, a
-// record counted because someone typed it in the evening. All of them look like
-// "that person had a quiet week", which is a conclusion a supervisor will act on.
+// Every case here is a way this read returns a **plausible wrong answer**
+// rather than failing: an assisting join that matches nothing, a collection
+// dated by the column its organization does not use, a visit collapsed into
+// another visit, a record counted because someone typed it in the evening. All
+// of them look like "that person had a quiet week", which is a conclusion a
+// supervisor will act on.
 //
 // The window is one month, and every seeded date sits inside it, so a row that
 // is missing is missing because a predicate excluded it.
@@ -22,7 +23,7 @@ import { describeDbIntegration, withTestDb } from '../../test-support/db-integra
 const DATE_FROM = '2026-08-01';
 const DATE_TO = '2026-08-31';
 /** A zone five hours behind UTC in August, so a UTC/local disagreement shows up. */
-const AGENCY_TIME_ZONE = 'America/New_York';
+const ORGANIZATION_TIME_ZONE = 'America/New_York';
 
 describeDbIntegration('profile activity', () => {
 	it('counts field attribution, not data entry', async () => {
@@ -64,7 +65,8 @@ describeDbIntegration('profile activity', () => {
 
 	// `collections_timing_shape` admits an exact-timestamp shape or a date +
 	// duration shape and nothing in between, so reading either column alone
-	// silently empties adult surveillance for every agency on the other mode.
+	// silently empties adult surveillance for every organization on the other
+	// mode.
 	it('dates collections in both timing modes, and splits the two visits', async () => {
 		await withTestDb(async ({ db }) => {
 			const world = await seedActivityWorld(db);
@@ -105,13 +107,13 @@ describeDbIntegration('profile activity', () => {
 		});
 	});
 
-	it('leaves another agency’s records unreachable', async () => {
+	it('leaves another organization’s records unreachable', async () => {
 		await withTestDb(async ({ db }) => {
 			const world = await seedActivityWorld(db);
 
-			// The neighbouring agency's inspection exists, is inside the window, and
-			// is attributed to the Profile being asked about — the agency scope is
-			// the only thing standing between it and this log.
+			// The neighbouring organization's inspection exists, is inside the
+			// window, and is attributed to the Profile being asked about — the
+			// organization scope is the only thing standing between it and this log.
 			const rows = await activityFor(db, world.ownOrganizationId, world.otherProfileId);
 
 			expect(rows).toEqual([]);
@@ -162,10 +164,10 @@ describeDbIntegration('profile activity', () => {
 	});
 
 	// A `timestamptz` becomes a calendar date in whichever zone does the
-	// converting, and the database server's is not the agency's. An evening's
-	// work filed under tomorrow is missing from the day it was done — and, at the
-	// edge of a range, missing from the log entirely.
-	it('dates timestamped work in the agency’s timezone, not the server’s', async () => {
+	// converting, and the database server's is not the organization's. An
+	// evening's work filed under tomorrow is missing from the day it was done —
+	// and, at the edge of a range, missing from the log entirely.
+	it('dates timestamped work in the organization’s timezone, not the server’s', async () => {
 		await withTestDb(async ({ db }) => {
 			const world = await seedActivityWorld(db);
 
@@ -197,7 +199,7 @@ describeDbIntegration('profile activity', () => {
 				profileId: world.danaProfileId,
 				dateFrom: DATE_FROM,
 				dateTo: DATE_TO,
-				timeZone: AGENCY_TIME_ZONE,
+				timeZone: ORGANIZATION_TIME_ZONE,
 				limit: 2,
 			});
 			const total = await countProfileActivity(db, {
@@ -205,7 +207,7 @@ describeDbIntegration('profile activity', () => {
 				profileId: world.danaProfileId,
 				dateFrom: DATE_FROM,
 				dateTo: DATE_TO,
-				timeZone: AGENCY_TIME_ZONE,
+				timeZone: ORGANIZATION_TIME_ZONE,
 			});
 
 			expect(capped).toHaveLength(2);
@@ -238,7 +240,7 @@ function activityFor(
 	db: Parameters<typeof listProfileActivity>[0],
 	organizationId: string,
 	profileId: string,
-	timeZone: string = AGENCY_TIME_ZONE,
+	timeZone: string = ORGANIZATION_TIME_ZONE,
 ): Promise<ProfileActivityRow[]> {
 	return listProfileActivity(db, {
 		organizationId,
@@ -329,7 +331,7 @@ function calendarDate(date: string): Date {
 }
 
 /**
- * One agency's August, plus a neighbouring agency's.
+ * One organization's August, plus a neighbouring organization's.
  *
  * Timestamps are mid-day UTC on purpose: a `timestamptz` becomes a date in the
  * session's timezone, and a midnight-adjacent moment would make this suite pass
@@ -440,7 +442,7 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 		createdBy: dana,
 		deleted: true,
 	});
-	// The neighbouring agency's own work, attributed to its own person.
+	// The neighbouring organization's own work, attributed to its own person.
 	await insertInspection(db, {
 		organizationId: other,
 		date: '2026-08-08',

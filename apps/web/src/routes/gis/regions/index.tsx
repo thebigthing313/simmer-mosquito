@@ -362,8 +362,8 @@ function useRegionEdits(
 function RegionsExplorerRoute() {
 	// `region_folders` is eager but no longer preloaded at boot — it left the
 	// baseline bundle with its webCollections entry — so the tree waits for both
-	// halves. Drawn on the regions alone, an agency that files everything would
-	// flash "No Regions Yet" for as long as the folder list took to arrive.
+	// halves. Drawn on the regions alone, an organization that files everything
+	// would flash "No Regions Yet" for as long as the folder list took to arrive.
 	const { folders, isReady: foldersReady } = useRegionFolders();
 	const { regions, isReady: regionsReady } = useRegionDirectory();
 	const isReady = foldersReady && regionsReady;
@@ -892,17 +892,17 @@ function RegionRenameField({
 /**
  * Which of the two empty readings the tree is in, and the copy for it.
  *
- * An agency that has never drawn a region and a search that matched none of
- * hundreds are both an empty panel, and the way out of them is opposite: draw
- * or import one, or clear the search. Exported so the pair is tested without
- * standing a tree up.
+ * An organization that has never drawn a region and a search that matched none
+ * of hundreds are both an empty panel, and the way out of them is opposite:
+ * draw or import one, or clear the search. Exported so the pair is tested
+ * without standing a tree up.
  *
  * Not knowing yet reads as empty here, which is what the frame wants: while the
  * two collections load the heading is still `isLoading`, and the frame draws
  * placeholder rows rather than either of these.
  */
 export function regionsEmptyState(input: {
-	/** The agency has at least one Region or one folder. */
+	/** The organization has at least one Region or one folder. */
 	readonly hasDirectory: boolean;
 	/** The search left something in the tree. */
 	readonly hasMatches: boolean;

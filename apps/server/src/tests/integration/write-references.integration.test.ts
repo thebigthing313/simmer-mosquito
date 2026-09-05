@@ -10,18 +10,18 @@ import { writeTrapCommand } from '../../adult-surveillance-commands/traps.js';
 import { writeInspectionCommand } from '../../larval-surveillance-commands/inspections.js';
 
 /**
- * A write may not name another agency's record (#200).
+ * A write may not name another organization's record (#200).
  *
- * The agency a write lands in comes from the session, so a new row is never
- * mis-filed. The ids it *refers* to came off the payload, and the only thing
- * behind them was the Postgres foreign key, which is satisfied by the row
+ * The organization a write lands in comes from the session, so a new row is
+ * never mis-filed. The ids it *refers* to came off the payload, and the only
+ * thing behind them was the Postgres foreign key, which is satisfied by the row
  * existing anywhere. Org A could create a Trap standing at org B's Address and
  * get a 201.
  *
  * These run against Postgres because the claim is a query's. A fake transaction
  * would show the gate being called; only a real database shows that the
- * predicate finds nothing across agencies and that no row is left behind when
- * it refuses.
+ * predicate finds nothing across organizations and that no row is left behind
+ * when it refuses.
  *
  * Two writers rather than thirty, chosen for the two seams every writer reaches
  * the gate through: an insert wrapped in `checkedValues` and an update through
@@ -29,8 +29,8 @@ import { writeInspectionCommand } from '../../larval-surveillance-commands/inspe
  * `pnpm check:write-references`'s claim, made statically over the whole tree,
  * which is a stronger reading than thirty near-identical fixtures would be.
  */
-describeDbIntegration('cross-agency references', () => {
-	it('refuses a create naming another agency’s address, and writes nothing', async () => {
+describeDbIntegration('cross-organization references', () => {
+	it('refuses a create naming another organization’s address, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
 			const mine = await seedOrganization(db, 'refs_create_mine');
 			const theirs = await seedOrganization(db, 'refs_create_theirs');
@@ -63,7 +63,7 @@ describeDbIntegration('cross-agency references', () => {
 		});
 	});
 
-	it('names the address in the refusal rather than saying which agency owns it', async () => {
+	it('names the address in the refusal rather than saying which organization owns it', async () => {
 		await withTestDb(async ({ db }) => {
 			const mine = await seedOrganization(db, 'refs_reason_mine');
 			const theirs = await seedOrganization(db, 'refs_reason_theirs');
@@ -74,14 +74,14 @@ describeDbIntegration('cross-agency references', () => {
 			);
 
 			expect(refusal?.reference).toBe('addresses');
-			// `missing`, not `elsewhere`: telling "another agency's" apart from "no
-			// such row" would make the refusal a way to probe for ids.
+			// `missing`, not `elsewhere`: telling "another organization's" apart from
+			// "no such row" would make the refusal a way to probe for ids.
 			expect(refusal?.reason).toBe('missing');
 			expect(refusal?.message).toBe('That address is not available.');
 		});
 	});
 
-	it('refuses an update that repoints a record at another agency’s address', async () => {
+	it('refuses an update that repoints a record at another organization’s address', async () => {
 		await withTestDb(async ({ db }) => {
 			const mine = await seedOrganization(db, 'refs_update_mine');
 			const theirs = await seedOrganization(db, 'refs_update_theirs');
@@ -111,13 +111,14 @@ describeDbIntegration('cross-agency references', () => {
 		});
 	});
 
-	it('refuses a create naming another agency’s profile as the inspector', async () => {
+	it('refuses a create naming another organization’s profile as the inspector', async () => {
 		await withTestDb(async ({ db }) => {
 			const mine = await seedOrganization(db, 'refs_profile_mine');
 			const theirs = await seedOrganization(db, 'refs_profile_theirs');
 
 			// A Profile rather than an Address, because a profile id is the one an
-			// operator moving between agencies is most likely to still be holding.
+			// operator moving between organizations is most likely to still be
+			// holding.
 			const command = recordAdHocInspectionCommand({
 				organizationId: mine.organizationId,
 				actorProfileId: mine.profileId,

@@ -48,7 +48,8 @@ export const Route = createFileRoute('/adult-surveillance/trap-directory')({
 const RESULT_NOUN = { one: 'trap', many: 'traps' };
 
 /**
- * Every trap the agency is currently running, and what each one has caught.
+ * Every trap the organization is currently running, and what each one has
+ * caught.
  *
  * The explorer answers "where are the traps"; this answers "what has this trap
  * been doing", which is a question about time rather than place — so it spends
@@ -125,8 +126,8 @@ function TrapDirectoryRoute() {
 }
 
 /**
- * The method strip. Absent entirely when the agency has no active traps — an
- * "All" tab over nothing is a control that cannot do anything.
+ * The method strip. Absent entirely when the organization has no active traps —
+ * an "All" tab over nothing is a control that cannot do anything.
  */
 function MethodTabs({ tabs }: { readonly tabs: readonly MethodTab[] }) {
 	if (tabs.length === 0) {
@@ -251,9 +252,9 @@ function TrapListRow({
  * The right half with no trap in it.
  *
  * Only two states reach here. The pane holds whichever trap the list has
- * anchored to, so it is empty exactly when the list is — either the agency runs
- * no active traps, or the filters hid every one of them. There is no third
- * "nothing picked yet" state: the directory selects for you.
+ * anchored to, so it is empty exactly when the list is — either the
+ * organization runs no active traps, or the filters hid every one of them.
+ * There is no third "nothing picked yet" state: the directory selects for you.
  */
 function NoSelection({ hasTraps }: { readonly hasTraps: boolean }) {
 	return (

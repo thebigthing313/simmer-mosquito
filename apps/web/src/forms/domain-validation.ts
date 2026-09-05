@@ -12,10 +12,10 @@ import { DomainValidationError } from '@simmer-mosquito/domain';
  * field to fix. Running the builder on submit turns that into a message on the
  * field, before anything is sent.
  *
- * Context-dependent rules (does this id belong to your agency, is the row still
- * open, is the name unique) stay server-side by design — see the validation
- * boundary in `docs/domain-command-contract.md`. Those still surface as form
- * errors, they just cannot be checked here.
+ * Context-dependent rules (does this id belong to your organization, is the row
+ * still open, is the name unique) stay server-side by design — see the
+ * validation boundary in `docs/domain-command-contract.md`. Those still surface
+ * as form errors, they just cannot be checked here.
  */
 
 /**

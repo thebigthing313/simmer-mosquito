@@ -1,5 +1,5 @@
 /**
- * Writing the agency's vehicles and equipment.
+ * Writing the organization's vehicles and equipment.
  *
  * The same five commands the lookup catalogs answer to, so the writes themselves
  * come from `catalog-writes.ts`; only the columns differ. A vehicle is a name and
@@ -11,7 +11,8 @@
  *
  * These sit at the `MANAGER` floor, unlike the lookup catalogs — every one of
  * `controlOperations.createVehicle` through `deleteEquipment`. Vehicles and
- * equipment are part of running the work rather than configuring the agency.
+ * equipment are part of running the work rather than configuring the
+ * organization.
  */
 
 import type { Equipment, Vehicle } from '@simmer-mosquito/sync';

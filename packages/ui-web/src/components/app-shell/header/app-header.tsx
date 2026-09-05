@@ -29,7 +29,7 @@ export function AppHeader() {
 	});
 	const [home] = domains;
 	const homeDestination = home ? firstDestination(home) : null;
-	// The header's date names the agency's operational day, so a supervisor
+	// The header's date names the organization's operational day, so a supervisor
 	// checking in at 11pm from a zone ahead of the yard does not see tomorrow.
 	const today = new Intl.DateTimeFormat(undefined, {
 		weekday: 'short',

@@ -2,7 +2,7 @@ import { SIMMER_ROLES, type SimmerRole } from '@simmer-mosquito/domain';
 import type { AuthMe } from '../auth';
 
 /**
- * Whether the signed-in membership may create or change agency records.
+ * Whether the signed-in membership may create or change organization records.
  *
  * Viewers are the read-only role, and read-only has to mean it on both sides of
  * a control: hiding the "Record Application" button but leaving
@@ -72,12 +72,12 @@ export function canPlanWork(auth: AuthMe | null): boolean {
 }
 
 /**
- * Whether this membership configures the agency.
+ * Whether this membership configures the organization.
  *
  * Owner/admin: the lookup catalogs (collection methods, lures, habitat types),
  * species curation, control methods, insecticides and formulations, and the
- * notification type catalog. A manager runs the agency's work with these; only
- * an owner or admin decides what they are.
+ * notification type catalog. A manager runs the organization's work with these;
+ * only an owner or admin decides what they are.
  */
 export function canManageCatalogs(auth: AuthMe | null): boolean {
 	return hasAtLeastRole(auth, 'admin');
@@ -85,10 +85,10 @@ export function canManageCatalogs(auth: AuthMe | null): boolean {
 
 /**
  * Whether this membership manages people: invitations, and the profiles the
- * agency attributes work to.
+ * organization attributes work to.
  *
- * Owner/admin, so an agency can delegate onboarding rather than routing every
- * new crew member through one person. Handing out a *role* is a different
+ * Owner/admin, so an organization can delegate onboarding rather than routing
+ * every new crew member through one person. Handing out a *role* is a different
  * question — see {@link canManageRoles}.
  */
 export function canManagePeople(auth: AuthMe | null): boolean {
@@ -153,7 +153,7 @@ const ORG_ROLE_ORDER: readonly SimmerRole[] = SIMMER_ROLES;
 
 /**
  * Whether this membership manages the catalogs that are part of running work
- * rather than part of configuring the agency.
+ * rather than part of configuring the organization.
  *
  * Manager-and-above: tags, vehicles, equipment, and *editing* an existing
  * control method (its name and its custom fields). Adding or retiring a method

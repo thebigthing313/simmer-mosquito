@@ -58,7 +58,7 @@ describeDbIntegration('command authorization reads', () => {
 		});
 	});
 
-	it('hides another agency’s assignment and a deleted one behind the same “missing”', async () => {
+	it('hides another organization’s assignment and a deleted one behind the same “missing”', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'assignee_scope');
 			const otherOrg = await createOrganization(db, 'assignee_other');
@@ -70,7 +70,8 @@ describeDbIntegration('command authorization reads', () => {
 
 			await db.transaction().execute(async (trx) => {
 				// Answered as missing rather than not_owner: a refusal that
-				// distinguished them would let a caller probe for ids in other agencies.
+				// distinguished them would let a caller probe for ids in other
+				// organizations.
 				expect(await readAssigneeOwnership(trx, 'assignments', elsewhere, org, collector)).toBe(
 					'missing',
 				);
@@ -123,7 +124,7 @@ describeDbIntegration('command authorization reads', () => {
 		});
 	});
 
-	it('excludes a deleted comment and another agency’s from the authorship read', async () => {
+	it('excludes a deleted comment and another organization’s from the authorship read', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'comment_scope');
 			const otherOrg = await createOrganization(db, 'comment_scope_other');
@@ -247,7 +248,7 @@ describeDbIntegration('command authorization reads', () => {
 		});
 	});
 
-	it('does not find another agency’s assignment or a deleted one', async () => {
+	it('does not find another organization’s assignment or a deleted one', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'snapshot_scope');
 			const otherOrg = await createOrganization(db, 'snapshot_scope_other');

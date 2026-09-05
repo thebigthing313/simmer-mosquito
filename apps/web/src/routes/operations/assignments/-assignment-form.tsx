@@ -38,14 +38,14 @@ export function defaultAssignmentDetails(today: string): AssignmentDetailValues 
 }
 
 /**
- * `dueAt` is an instant, but an assignment covers one agency-local day, so the
- * form asks for a time and anchors it to that day rather than making the operator
- * key a second date that would have to match the first.
+ * `dueAt` is an instant, but an assignment covers one organization-local day,
+ * so the form asks for a time and anchors it to that day rather than making the
+ * operator key a second date that would have to match the first.
  *
- * Which day, and which 4pm, is the agency's to say. Anchored to the *browser's*
- * clock this read back through `formatDueAt` — which has always shown the
- * agency's — as a time nobody set, and the further the dispatcher is from the
- * yard the further off it is.
+ * Which day, and which 4pm, is the organization's to say. Anchored to the
+ * *browser's* clock this read back through `formatDueAt` — which has always
+ * shown the organization's — as a time nobody set, and the further the
+ * dispatcher is from the yard the further off it is.
  */
 export function toDueAt(values: AssignmentDetailValues, timeZone: string): Date | null {
 	const instant = localTimeAsInstant(values.assignmentDate, values.dueTime, timeZone);

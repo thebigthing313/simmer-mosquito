@@ -68,7 +68,7 @@ export interface DuplicateGroup {
 }
 
 /**
- * The duplicate sets this agency's records suggest.
+ * The duplicate sets this organization's records suggest.
  *
  * Live data, and a merge is irreversible, so this refetches on focus for the
  * same reason `useDeleteImpact` does: a cleanup page left open over lunch would

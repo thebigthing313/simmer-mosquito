@@ -126,9 +126,9 @@ function pgError(code: string): Error {
  * A query chain that fails, whichever builder shape the writer reaches for.
  *
  * `selectFrom` is separate and does not fail, because the unit delete reads
- * every agency's `unitDefaults` before it deletes (#131). `chosen` is what that
- * read finds: false lets the delete statement run and raise the error under
- * test, true is an agency holding the unit as a default.
+ * every organization's `unitDefaults` before it deletes (#131). `chosen` is
+ * what that read finds: false lets the delete statement run and raise the error
+ * under test, true is an organization holding the unit as a default.
  */
 function failingTransaction(error: unknown, chosen = false): CommandTransaction {
 	const chain = {
@@ -223,16 +223,17 @@ describe('a unit write the database refuses', () => {
 });
 
 /**
- * #131: a unit an agency has merely *chosen* has no foreign key to refuse it.
- * Nine columns reference `units` by key and all nine are records; the agency's
- * `unitDefaults` holds unit **codes in a JSON document**, so Postgres cannot
- * help and the delete used to succeed with the agency's default naming nothing.
+ * #131: a unit an organization has merely *chosen* has no foreign key to refuse
+ * it. Nine columns reference `units` by key and all nine are records; the
+ * organization's `unitDefaults` holds unit **codes in a JSON document**, so
+ * Postgres cannot help and the delete used to succeed with the organization's
+ * default naming nothing.
  *
  * The stub answers the settings read, so these test which answer the read
  * produces rather than the SQL that produces it. The SQL is covered against
  * Postgres by the delete-policy integration suite.
  */
-describe('deleting a unit an agency has chosen as a default', () => {
+describe('deleting a unit an organization has chosen as a default', () => {
 	it('answers 409 before the delete statement runs', async () => {
 		const command = build(units, 'foundation.deleteUnit', request({}));
 
@@ -256,7 +257,7 @@ describe('deleting a unit an agency has chosen as a default', () => {
 		expect(chosen.body).toEqual(referenced.body);
 	});
 
-	it('lets the delete through when no agency has chosen it', async () => {
+	it('lets the delete through when no organization has chosen it', async () => {
 		const command = build(units, 'foundation.deleteUnit', request({}));
 
 		// `refusal` hands the delete a failure, so reaching it at all is the

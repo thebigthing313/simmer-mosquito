@@ -75,11 +75,11 @@ describe('createOperatorAuthContextMiddleware', () => {
 		await expect(response.json()).resolves.toEqual({ organizationId: SIMMER_ORG });
 	});
 
-	it('refuses the same person while they are inside an agency', async () => {
-		// The case an email allowlist got wrong. An operator may hold an agency
-		// membership (ADR 0011), and while their session is that agency's they are
-		// acting as a member of it — the console is not theirs to reach until they
-		// switch back.
+	it('refuses the same person while they are inside an organization', async () => {
+		// The case an email allowlist got wrong. An operator may hold an
+		// organization membership (ADR 0011), and while their session is that
+		// organization's they are acting as a member of it — the console is not
+		// theirs to reach until they switch back.
 		const response = await operatorApp({ workosOrganizationId: 'org_an_organization' }).request(
 			'/admin/organizations',
 		);
@@ -166,7 +166,7 @@ describe('refresh authority', () => {
 		};
 	}
 
-	it('verifies only, on the agency middleware', async () => {
+	it('verifies only, on the organization middleware', async () => {
 		const { provider, asked } = recordingProvider();
 		const app = new Hono<{ Variables: AuthVariables }>();
 		app.use(

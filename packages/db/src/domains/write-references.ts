@@ -15,18 +15,18 @@ import { type DeletableRecordType, deletableRecordTable } from './record-deletio
  * Two kinds of reference, one rule apart:
  *
  * - A **catalog** reference qualifies when the row belongs to the writing
- *   agency, is not soft-deleted, and is active.
+ *   organization, is not soft-deleted, and is active.
  * - A **record** reference qualifies on the first two. There is no `is_active`
  *   on an Inspection or an Address, and no meaning for one: an operational
- *   record is not something an agency retires from use.
+ *   record is not something an organization retires from use.
  *
- * The agency half used to be nobody's job for either. A foreign key satisfies
- * itself on the row existing anywhere, so it cannot see `organization_id` and
- * cannot see `deleted_at`. #123 closed that for the catalogs, because its
- * forward gate had to load the row to read `is_active` and refusing another
- * agency's id cost nothing once it had it. #200 is the rest: an Address, a
- * Habitat, a Profile, a Contact still took their id from the payload with
- * nothing checking whose it was.
+ * The organization half used to be nobody's job for either. A foreign key
+ * satisfies itself on the row existing anywhere, so it cannot see
+ * `organization_id` and cannot see `deleted_at`. #123 closed that for the
+ * catalogs, because its forward gate had to load the row to read `is_active`
+ * and refusing another organization's id cost nothing once it had it. #200 is
+ * the rest: an Address, a Habitat, a Profile, a Contact still took their id
+ * from the payload with nothing checking whose it was.
  */
 
 /** The catalogs, as data: the coverage test walks this list. */
@@ -66,12 +66,12 @@ export function catalogRecordTypes(): readonly CatalogRecordType[] {
  * `organization_id` fails rather than gating on a column that is not there.
  *
  * Global tables are deliberately absent. `species`, `genera` and `units` have
- * no `organization_id` and are shared by every agency, so there is no tenancy
- * question to ask of them.
+ * no `organization_id` and are shared by every organization, so there is no
+ * tenancy question to ask of them.
  *
  * So are the two weather tables, for a subtler reason. `weather_sources` and
  * `weather_summaries` carry a *nullable* `organization_id`, kept that way for a
- * provider-owned station with no agency behind it. `organization_id = $1`
+ * provider-owned station with no organization behind it. `organization_id = $1`
  * compares unequal to null, so this gate would refuse a global station rather
  * than allow it. `weather-commands/shared.ts` writes that predicate out itself
  * and every weather writer reads its station through it.
@@ -199,7 +199,7 @@ export function recordReferencesIn(values: Record<string, unknown>): RecordRefer
 }
 
 /**
- * The values, once every record id in them is one this agency may name.
+ * The values, once every record id in them is one this organization may name.
  *
  * Wraps an insert's own object rather than sitting on the line above it, so the
  * gate and the row it guards cannot drift apart:
@@ -364,9 +364,9 @@ function referenceKey(reference: WriteReference): string {
 /**
  * Which of the references already hold the value stored on the record.
  *
- * One read by primary key. A record that is missing or another agency's returns
- * nothing, so every reference counts as changed and the check runs; the write
- * itself is scoped by `organization_id` and will find no row to update.
+ * One read by primary key. A record that is missing or another organization's
+ * returns nothing, so every reference counts as changed and the check runs; the
+ * write itself is scoped by `organization_id` and will find no row to update.
  */
 async function readStoredReferences(
 	db: DbExecutor,

@@ -38,10 +38,11 @@ export interface ServiceRequestContextSettings {
 }
 
 /**
- * One key press records one species. Sex and physiological status are not bound to
- * the key — the adult entry modal carries a sticky mode that every press inherits —
- * so an agency needs one key per species rather than one per species/sex/status
- * combination, and the same binding set serves adult and larval identification.
+ * One key press records one species. Sex and physiological status are not bound
+ * to the key — the adult entry modal carries a sticky mode that every press
+ * inherits — so an organization needs one key per species rather than one per
+ * species/sex/status combination, and the same binding set serves adult and
+ * larval identification.
  */
 export interface SpeciesKeyBinding {
 	readonly key: string;
@@ -222,7 +223,7 @@ export const DEFAULT_SERVICE_REQUEST_CONTEXT: ServiceRequestContextSettings = {
 	},
 } as const;
 
-/** No bindings until an agency sets them up; key entry stays unavailable until then. */
+/** No bindings until an organization sets them up; key entry stays unavailable until then. */
 export const DEFAULT_SPECIES_KEY_BINDINGS: SpeciesKeyBindings = {
 	bindings: [],
 } as const;

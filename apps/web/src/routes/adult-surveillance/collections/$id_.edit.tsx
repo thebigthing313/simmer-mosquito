@@ -219,15 +219,15 @@ function formValuesFrom(
 }
 
 /**
- * A stored instant back as the `YYYY-MM-DD` a date field holds, on the agency's
- * clock.
+ * A stored instant back as the `YYYY-MM-DD` a date field holds, on the
+ * organization's clock.
  *
  * The zone is the point. `collectionEffectiveDate` reads these same columns in
- * the agency's zone everywhere else, so taking the UTC prefix here — which is
- * what the route this replaces did — showed a trap emptied at 10:30pm under the
- * next day in its own edit form while its detail page showed the day the crew
- * worked. Two halves of one record disagreeing, and a save then wrote the form's
- * answer back.
+ * the organization's zone everywhere else, so taking the UTC prefix here —
+ * which is what the route this replaces did — showed a trap emptied at 10:30pm
+ * under the next day in its own edit form while its detail page showed the day
+ * the crew worked. Two halves of one record disagreeing, and a save then wrote
+ * the form's answer back.
  */
 function operationalDay(value: Date | null, timeZone: string): string | null {
 	return value === null ? null : todayInTimeZone(timeZone, value);

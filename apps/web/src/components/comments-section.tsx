@@ -559,8 +559,8 @@ function initialsFor(name: string | null): string {
  *
  * The durations — "3m ago", "2d ago" — are zone-free by construction: an
  * elapsed span is the same number wherever it is read. Past a week this falls
- * back to naming the day, and a named day does need a zone, so the agency's is
- * the one that names it.
+ * back to naming the day, and a named day does need a zone, so the
+ * organization's is the one that names it.
  */
 function relativeTime(value: Date, timeZone: string | undefined): string {
 	const then = value.getTime();
@@ -584,9 +584,9 @@ function relativeTime(value: Date, timeZone: string | undefined): string {
 		return `${days}d ago`;
 	}
 	// The year is dropped inside the current one. Which year each falls in is
-	// itself a zone question, so both are read in the agency's — otherwise a
-	// comment left on New Year's Eve is "in this year" to one reader and not the
-	// other.
+	// itself a zone question, so both are read in the organization's — otherwise
+	// a comment left on New Year's Eve is "in this year" to one reader and not
+	// the other.
 	const zone = timeZone === undefined ? {} : { timeZone };
 	const yearOf = (at: number): string =>
 		new Intl.DateTimeFormat('en-US', { ...zone, year: 'numeric' }).format(at);
@@ -598,7 +598,7 @@ function relativeTime(value: Date, timeZone: string | undefined): string {
 	}).format(then);
 }
 
-/** The full timestamp behind {@link relativeTime}, on the agency's clock. */
+/** The full timestamp behind {@link relativeTime}, on the organization's clock. */
 function absoluteTime(value: Date, timeZone: string | undefined): string {
 	const date = value;
 	if (Number.isNaN(date.getTime())) {

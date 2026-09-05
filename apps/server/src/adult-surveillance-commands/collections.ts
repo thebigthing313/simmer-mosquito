@@ -578,8 +578,8 @@ export async function writeCollectionCommand(
 		case 'adultSurveillance.markCollectionZeroResult': {
 			// Zero result means nothing was caught, so the counts already recorded
 			// against the collection are being said to be wrong. They go, and the
-			// agency is told how many. A collection with none is marked without a
-			// question.
+			// organization is told how many. A collection with none is marked without
+			// a question.
 			await assertClearanceAcknowledged(trx, {
 				acknowledgement: 'acknowledgedSpeciesCountsClearance',
 				acknowledged: command.payload.acknowledgedSpeciesCountsClearance,

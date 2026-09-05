@@ -24,29 +24,30 @@ type AdminFoundationDb = Parameters<typeof getOperatorOrganization>[0];
 
 // --- what the operator control plane still owns ------------------------------
 //
-// **Reads, and nothing else.** Two of them: one agency's foundations, so an
-// operator can see whether it is ready to work without joining it, and its traps.
-// Reading is not the problem #120 found; writing behind a second set of rules
-// was.
+// **Reads, and nothing else.** Two of them: one organization's foundations, so
+// an operator can see whether it is ready to work without joining it, and its
+// traps. Reading is not the problem #120 found; writing behind a second set of
+// rules was.
 //
 // Every write this module had is gone, in three passes.
 //
-// Six agency tables went first — addresses, region folders, regions, the
+// Six organization tables went first — addresses, region folders, regions, the
 // organization lookups, organization species, traps. They were created here
 // without a domain builder in sight, so a region created by an operator and a
-// region created by an agency were validated differently and only one of them
-// could say who made it. An operator who is going to write those rows now joins
-// the agency and posts to `/foundation/*` and `/adult-surveillance/*` like
-// anyone else.
+// region created by an organization were validated differently and only one of
+// them could say who made it. An operator who is going to write those rows now
+// joins the organization and posts to `/foundation/*` and
+// `/adult-surveillance/*` like anyone else.
 //
 // Then the three global catalogs: genera, species, units. These *are*
-// operator-owned by nature — no `organization_id`, no agency membership relevant
-// to them — so the question was never who may write them but through what.
-// `createGenusWithTxid` and its siblings were called straight from a route, so a
-// row written here was validated by a hand-rolled payload reader, attributed to
-// nobody, and checked against no permission map, while `/commands/genera` wrote
-// the same row through a domain command behind the operator floor. Two doors
-// with different checks is the thing that surface exists to remove.
+// operator-owned by nature — no `organization_id`, no organization membership
+// relevant to them — so the question was never who may write them but through
+// what. `createGenusWithTxid` and its siblings were called straight from a
+// route, so a row written here was validated by a hand-rolled payload reader,
+// attributed to nobody, and checked against no permission map, while
+// `/commands/genera` wrote the same row through a domain command behind the
+// operator floor. Two doors with different checks is the thing that surface
+// exists to remove.
 //
 // `/commands/{table}` serves all three now (`table-commands/taxonomy.ts` and
 // `table-commands/units.ts`). The `*WithTxid` helpers went with the routes,

@@ -201,7 +201,8 @@ describe('buildElectricShapeUrl', () => {
  */
 const orgScopedWhere = 'organization_id = $1 and deleted_at is null';
 const shapeWhereByTable: Readonly<Record<string, string | null>> = {
-	// Global reference data every agency reads — no tenant predicate at all.
+	// Global reference data every organization reads — no tenant predicate at
+	// all.
 	units: null,
 	genera: null,
 	species: null,
@@ -236,8 +237,8 @@ function recordingApp(requests: string[]): Hono<{ Variables: AuthVariables }> {
 }
 
 /**
- * The app as an operator meets it: the agency middleware refuses, the operator
- * one admits.
+ * The app as an operator meets it: the organization middleware refuses, the
+ * operator one admits.
  */
 function refusingOrganizationApp(requests: string[]): Hono<{ Variables: AuthVariables }> {
 	const app = new Hono<{ Variables: AuthVariables }>();
@@ -280,8 +281,8 @@ describe('registerSyncShapeRoutes', () => {
 	});
 
 	it('serves no shape for a table the scope map withholds', async () => {
-		// `users` has no predicate that could scope it to an agency, so it has no
-		// route at all rather than one that streams every login.
+		// `users` has no predicate that could scope it to an organization, so it
+		// has no route at all rather than one that streams every login.
 		const app = new Hono<{ Variables: AuthVariables }>();
 
 		registerSyncShapeRoutes(app, {
@@ -329,17 +330,18 @@ describe('registerSyncShapeRoutes', () => {
 		expect(response.status).toBe(200);
 		expect(upstream.searchParams.get('table')).toBe(table);
 		// The highest-privilege path in the file: the global catalogs, no `where`.
-		// Being signed in — as an agency member or as SIMMER — is the only thing
-		// standing in front of it.
+		// Being signed in — as an organization member or as SIMMER — is the only
+		// thing standing in front of it.
 		expect(upstream.searchParams.get('where')).toBeNull();
 		expect(upstream.searchParams.get('params[1]')).toBeNull();
 	});
 
 	/*
 	 * These three were registered a second time under `/admin`, behind the
-	 * operator middleware, because `apps/admin` could not reach the ordinary path.
-	 * The prefix is gone; the ordinary path admits either identity, because a
-	 * `global` shape forces no predicate and its handler reads no agency context.
+	 * operator middleware, because `apps/admin` could not reach the ordinary
+	 * path. The prefix is gone; the ordinary path admits either identity, because
+	 * a `global` shape forces no predicate and its handler reads no organization
+	 * context.
 	 *
 	 * A 404 rather than a 403 is the point: the routes do not exist, so nothing
 	 * can be reached through them if the wider door on the ordinary path is ever
@@ -356,11 +358,11 @@ describe('registerSyncShapeRoutes', () => {
 	});
 
 	/**
-	 * The whole reason the prefix could go: an operator session has no agency
-	 * context, so it fails the agency middleware, and a `global` shape does not
-	 * need one.
+	 * The whole reason the prefix could go: an operator session has no
+	 * organization context, so it fails the organization middleware, and a
+	 * `global` shape does not need one.
 	 */
-	it('admits an operator on a global shape the agency middleware refuses', async () => {
+	it('admits an operator on a global shape the organization middleware refuses', async () => {
 		const requests: string[] = [];
 		const response = await refusingOrganizationApp(requests).request('/sync/shapes/genera');
 
@@ -370,7 +372,7 @@ describe('registerSyncShapeRoutes', () => {
 
 	/*
 	 * And the half that keeps it safe. A tenant-scoped shape reached without an
-	 * agency context would not fail loudly — `shapeScopeFilter` would read
+	 * organization context would not fail loudly — `shapeScopeFilter` would read
 	 * `undefined` — so the wider door must not be on it at all. The scope decides
 	 * which middleware a route gets, so this is structural rather than a list
 	 * someone maintains.

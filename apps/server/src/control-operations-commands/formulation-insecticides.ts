@@ -111,13 +111,13 @@ async function runFormulationInsecticideCommands(
 }
 
 /**
- * Refuse taking the last thing out of a live recipe, unless the agency said to,
- * and report the formulation that is about to be emptied (#341).
+ * Refuse taking the last thing out of a live recipe, unless the organization
+ * said to, and report the formulation that is about to be emptied (#341).
  *
  * A formulation with no ingredients cannot be mixed and nothing can be applied
- * under it, while the row sits there looking like a product the agency still
- * has. That is a fact about one formulation rather than a count of what is
- * affected, so the sentence is the whole answer and `consequences` is empty.
+ * under it, while the row sits there looking like a product the organization
+ * still has. That is a fact about one formulation rather than a count of what
+ * is affected, so the sentence is the whole answer and `consequences` is empty.
  *
  * Only an active formulation asks. `docs/control-operations-domain.md` allows a
  * draft with zero components on purpose, so emptying an inactive one is the

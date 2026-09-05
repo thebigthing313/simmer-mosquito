@@ -7,10 +7,10 @@
 /**
  * The region narrowing every record tileset accepts.
  *
- * Regions are the agency's own operational geography, so "only this district" is
- * asked of habitats, traps, applications, and everything else alike. One shape
- * and one param name across every tileset keeps a region deep link into one
- * explorer readable by the next.
+ * Regions are the organization's own operational geography, so "only this
+ * district" is asked of habitats, traps, applications, and everything else
+ * alike. One shape and one param name across every tileset keeps a region deep
+ * link into one explorer readable by the next.
  */
 export interface RegionScopedTileFilters {
 	/** Show only records falling inside these regions. Empty means every region. */

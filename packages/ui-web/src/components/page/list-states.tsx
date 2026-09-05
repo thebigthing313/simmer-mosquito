@@ -16,9 +16,10 @@ import type { ReactNode } from 'react';
  *
  * None of them carry domain content, which is why they live here rather than in
  * either app: "nothing matches this filter" is the same statement whether the
- * filter is over an agency's habitat types or the platform's global genera. The
- * failure state is deliberately absent — the operator console answers a refused
- * read with its own allowlist branch, and that is not shareable.
+ * filter is over an organization's habitat types or the platform's global
+ * genera. The failure state is deliberately absent — the operator console
+ * answers a refused read with its own allowlist branch, and that is not
+ * shareable.
  */
 
 /**

@@ -18,10 +18,10 @@ import type { FilterOption } from './multi-select-filter';
  * ids rather than names.
  *
  * Retired methods stay in the lists, for the reason they do in
- * `useHabitatTypeOptions`: an explorer looks backwards, and a season's work done
- * with a method the agency has since dropped is exactly what an operator
- * filtering by it is asking for. The pickers on the forms are the surfaces that
- * should offer only what is current.
+ * `useHabitatTypeOptions`: an explorer looks backwards, and a season's work
+ * done with a method the organization has since dropped is exactly what an
+ * operator filtering by it is asking for. The pickers on the forms are the
+ * surfaces that should offer only what is current.
  *
  * The catalogs are eager and small, so these suspend rather than drawing a
  * pending state: they are loaded before an explorer can be reached.
@@ -85,9 +85,10 @@ export function useControlMethodNames(): ReadonlyMap<string, string> {
 /**
  * Insecticides, by trade name.
  *
- * Its own hook rather than a fourth call to {@link useNamedCatalog}, because the
- * column is `trade_name` rather than `name` — `shorthand` is an agency's internal
- * abbreviation for data entry, not a name an operator should have to read.
+ * Its own hook rather than a fourth call to {@link useNamedCatalog}, because
+ * the column is `trade_name` rather than `name` — `shorthand` is an
+ * organization's internal abbreviation for data entry, not a name an operator
+ * should have to read.
  */
 export function useInsecticideOptions(): CatalogOptions {
 	const result = useLiveSuspenseQuery(

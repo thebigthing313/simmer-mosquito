@@ -52,11 +52,11 @@ import {
  * `OWNED_GEOMETRY_POLICIES` in `packages/domain/src/shared.ts`. A kind allowing
  * one shape renders without its type toggle.
  *
- * A geometry can also be filled from a shape the agency already has instead of
- * being traced by hand: a KML, KMZ or GeoJSON file on any record, and one of the
- * agency's own regions where the record stores an area. Those shortcuts commit
- * through the same draw controller, so an adopted shape behaves exactly like a
- * drawn one and can be redrawn or cleared.
+ * A geometry can also be filled from a shape the organization already has
+ * instead of being traced by hand: a KML, KMZ or GeoJSON file on any record,
+ * and one of the organization's own regions where the record stores an area.
+ * Those shortcuts commit through the same draw controller, so an adopted shape
+ * behaves exactly like a drawn one and can be redrawn or cleared.
  */
 
 const UploadIcon = iconRegistry.actions.upload.icon;
@@ -82,8 +82,8 @@ export interface GeometryControlProps {
 	/** Snap the geometry back to the selected address; hidden when omitted. */
 	readonly onMoveToAddress?: () => void;
 	/**
-	 * The agency whose regions may be reused as a polygon. Pass it on any form
-	 * that captures areas — without it the "fill from a region" shortcut is
+	 * The organization whose regions may be reused as a polygon. Pass it on any
+	 * form that captures areas — without it the "fill from a region" shortcut is
 	 * hidden, since there is no org to search.
 	 */
 	readonly organizationId?: string;
@@ -294,8 +294,8 @@ export function GeometryControl({
 }
 
 /**
- * The shapes an agency already holds: one of its regions, or a KML, KMZ or
- * GeoJSON file from GIS staff.
+ * The shapes an organization already holds: one of its regions, or a KML, KMZ
+ * or GeoJSON file from GIS staff.
  *
  * Both beat re-tracing a boundary by hand, so they sit beside the draw tool
  * rather than replacing it. Both commit through the same draw controller, so
@@ -317,8 +317,8 @@ function GeometrySources({
 	readonly organizationId: string | undefined;
 }) {
 	const [isImporting, setIsImporting] = useState(false);
-	// A region boundary is an area, so the shortcut belongs to that tool only, and
-	// there has to be an agency to search.
+	// A region boundary is an area, so the shortcut belongs to that tool only,
+	// and there has to be an organization to search.
 	const regionOrganizationId =
 		geometryType === 'Polygon' && organizationId !== undefined && organizationId.length > 0
 			? organizationId

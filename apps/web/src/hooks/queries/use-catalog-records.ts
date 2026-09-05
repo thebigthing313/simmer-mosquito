@@ -1,5 +1,5 @@
 /**
- * The agency's lookup catalogs, as their management pages need them.
+ * The organization's lookup catalogs, as their management pages need them.
  *
  * The wider read behind `use-catalog-rosters.ts`. A roster answers "what may this
  * field be set to" and returns three columns; these pages are where the catalog is
@@ -46,7 +46,7 @@ export interface CollectionMethodRecord extends SchemaCatalogRecord {
 	readonly actionThreshold: number | null;
 }
 
-/** A control method is a name and whatever extra fields the agency attached. */
+/** A control method is a name and whatever extra fields the organization attached. */
 export interface ControlMethodRecord extends NamedCatalogRecord {
 	readonly customSchema: unknown;
 }

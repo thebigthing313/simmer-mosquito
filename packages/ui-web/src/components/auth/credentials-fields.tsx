@@ -8,12 +8,13 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
  * Email and password, the way both front doors ask for them.
  *
  * The caller owns the `<form>` and its submit handler — this is the fieldset
- * inside it, so the agency workspace and the operator console can disagree about
- * everything around the credentials (their shells, their footers, what they do
- * with the outcome) while agreeing about the credentials themselves. The
- * autofill hints are the reason that agreement matters: `autoComplete="email"`
- * and `current-password` are what let a password manager fill the form, and a
- * second copy of the fieldset is a second chance to get them wrong.
+ * inside it, so the organization workspace and the operator console can
+ * disagree about everything around the credentials (their shells, their
+ * footers, what they do with the outcome) while agreeing about the credentials
+ * themselves. The autofill hints are the reason that agreement matters:
+ * `autoComplete="email"` and `current-password` are what let a password manager
+ * fill the form, and a second copy of the fieldset is a second chance to get
+ * them wrong.
  */
 export function CredentialsFields({
 	email,

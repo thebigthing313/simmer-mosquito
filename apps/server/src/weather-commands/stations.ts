@@ -1,11 +1,12 @@
 /**
  * The six station commands, against `weather_sources`.
  *
- * A weather station is a named point an agency reads weather at. The rows are
- * small, the writes are rare, and almost all of the work here is the four checks
- * the domain cannot make because they turn on what is stored: does the agency
- * own this station, has it changed since the client loaded it, does it already
- * hold summaries, and does the name collide with another of the agency's.
+ * A weather station is a named point an organization reads weather at. The rows
+ * are small, the writes are rare, and almost all of the work here is the four
+ * checks the domain cannot make because they turn on what is stored: does the
+ * organization own this station, has it changed since the client loaded it,
+ * does it already hold summaries, and does the name collide with another of the
+ * organization's.
  *
  * ## What the acknowledgements are for
  *
@@ -136,8 +137,8 @@ async function createStation(
 					id: payload.weatherStationId,
 					organization_id: payload.organizationId,
 					geom: geojsonToGeom(payload.geometry),
-					// v1 agency stations are always their own source. The `nws` type and
-					// `provider_source_id` are plumbing no command writes.
+					// v1 organization stations are always their own source. The `nws`
+					// type and `provider_source_id` are plumbing no command writes.
 					source_type: 'organization',
 					source_name: payload.stationName,
 					source_code: payload.stationCode,
@@ -287,9 +288,9 @@ async function deleteStation(
  * The station a mutation names, checked for ownership and staleness in one step.
  *
  * `null` rather than a throw for a missing row, because `runCommands` already
- * turns a null tail into the 404 named after the entity, and "not this agency's"
- * and "not there" are the same answer, deliberately, so that probing ids tells a
- * caller nothing.
+ * turns a null tail into the 404 named after the entity, and "not this
+ * organization's" and "not there" are the same answer, deliberately, so that
+ * probing ids tells a caller nothing.
  */
 async function requireStation(
 	trx: WeatherTransaction,

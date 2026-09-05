@@ -1,10 +1,10 @@
 /**
  * The identity writes that are commands.
  *
- * Three of the seven ADR 0013 names: the agency's own details, and creating and
- * editing a Profile. All three write Postgres and nothing else, so they need no
- * part of the spanning contract. The writer takes the transaction the command
- * runner opened, like every other domain's.
+ * Three of the seven ADR 0013 names: the organization's own details, and
+ * creating and editing a Profile. All three write Postgres and nothing else, so
+ * they need no part of the spanning contract. The writer takes the transaction
+ * the command runner opened, like every other domain's.
  *
  * The four that are still REST live in `organization-commands.ts` and
  * `profile-commands.ts` with their floors in `IDENTITY_FLOORS`. They stay there
@@ -97,8 +97,9 @@ export async function writeIdentityCommand(
 }
 
 /**
- * The agency's own row, which is not org-owned in the sense `updateRow` means:
- * its tenant column *is* its `id`, so the scope predicate is written out here.
+ * The organization's own row, which is not org-owned in the sense `updateRow`
+ * means: its tenant column *is* its `id`, so the scope predicate is written out
+ * here.
  *
  * The conflict check is the one thing this write has that the other two do not.
  * `expectedUpdatedAt` is what the editor was looking at, and a row that has
@@ -127,7 +128,7 @@ async function updateOrganizationDetails(
 	) {
 		throw new CommandError(409, {
 			error: 'organization_conflict',
-			reason: 'Somebody else changed this agency while you were editing.',
+			reason: 'Somebody else changed this organization while you were editing.',
 		});
 	}
 
@@ -147,7 +148,8 @@ async function updateOrganizationDetails(
 }
 
 /**
- * Each agency detail as the column it is and the command field it becomes.
+ * Each organization detail as the column it is and the command field it
+ * becomes.
  *
  * One list, read in both directions: `table-commands/organizations.ts` walks it
  * to turn a request body into command input, and `detailColumns` below walks it

@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { regionsEmptyState } from '../../../../../routes/gis/regions/index';
 
 // Two empty panels that read the same and are escaped in opposite directions:
-// an agency that has never drawn a Region, and a search that matched none of
-// hundreds. Telling a reader with 400 Regions to import a KML file is advice
+// an organization that has never drawn a Region, and a search that matched none
+// of hundreds. Telling a reader with 400 Regions to import a KML file is advice
 // that cannot work, which is the same failure the frame's failure state was
 // added for.
 describe('regionsEmptyState', () => {

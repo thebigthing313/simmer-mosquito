@@ -6,11 +6,11 @@ import { registerRegionRoutes } from './regions.js';
 import type { RouteOptions } from './shared.js';
 
 /**
- * Foundation geography + agency taxonomy command endpoints: region folders,
- * regions (with polygon geometry), and organization-species selection.
+ * Foundation geography + organization taxonomy command endpoints: region
+ * folders, regions (with polygon geometry), and organization-species selection.
  * (Addresses and org lookup tables are handled in foundation-commands.ts;
- * global genera/species taxonomy is operator-owned, not part of the agency
- * command surface.)
+ * global genera/species taxonomy is operator-owned, not part of the
+ * organization command surface.)
  *
  * Region geometry is not part of the synced row, so it travels through the
  * mutation `metadata.geometry` channel; the region PATCH derives detail / folder

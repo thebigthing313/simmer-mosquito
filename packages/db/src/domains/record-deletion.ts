@@ -83,9 +83,10 @@ export interface ChildSet {
  * What happens to the matched rows.
  *
  * `block` refuses the delete while any row matches — the record is load-bearing
- * and the agency has to deal with the references first. `cascade` soft-deletes
- * them alongside the record. `detach` keeps the row and clears its link, which
- * is how surveillance deletes avoid taking control history with them.
+ * and the organization has to deal with the references first. `cascade`
+ * soft-deletes them alongside the record. `detach` keeps the row and clears its
+ * link, which is how surveillance deletes avoid taking control history with
+ * them.
  */
 export type ReferenceEffect = 'block' | 'cascade' | 'detach';
 
@@ -95,7 +96,7 @@ export type ReferenceEffect = 'block' | 'cascade' | 'detach';
  * Every name here is a flag the matching delete command already declares, so
  * the registry and the command vocabulary use one spelling. A rule tagged
  * `null` is performed without asking: the record's own support rows, which
- * carry nothing the agency recorded separately.
+ * carry nothing the organization recorded separately.
  */
 export type DeleteAcknowledgement =
 	| 'acknowledgedActionDetach'
@@ -131,9 +132,9 @@ interface ReferenceRule {
 	 * `null` when it happens unasked.
 	 *
 	 * Required rather than optional, and that is the point of it. A rule reaches
-	 * this registry through one of the shorthands below, and every shorthand
-	 * that cascades or detaches takes this argument, so a new consequence cannot
-	 * be added without someone deciding whether the agency is asked about it.
+	 * this registry through one of the shorthands below, and every shorthand that
+	 * cascades or detaches takes this argument, so a new consequence cannot be
+	 * added without someone deciding whether the organization is asked about it.
 	 * `blocks` sets it to `null` itself: a refusal is not a confirmation.
 	 */
 	readonly acknowledgement: DeleteAcknowledgement | null;
@@ -155,7 +156,7 @@ export interface DeleteImpactEntry {
 export interface DeleteImpact {
 	readonly recordType: DeletableRecordType;
 	readonly recordId: string;
-	/** False when the record is missing, another agency's, or already deleted. */
+	/** False when the record is missing, another organization's, or already deleted. */
 	readonly found: boolean;
 	/** Non-empty means the delete is refused; each entry says by what. */
 	readonly blockers: readonly DeleteImpactEntry[];
@@ -178,7 +179,7 @@ export class RecordDeleteBlockedError extends Error {
 	) {
 		// The domain noun, not the registry key: this message is handed to the
 		// user verbatim by the command layer, and `requestedControlAction` is not
-		// a word anyone in an agency says.
+		// a word anyone in an organization says.
 		super(
 			`Deleting this ${deletableRecordLabel(recordType)} is blocked by records that reference it.`,
 		);
@@ -244,9 +245,9 @@ export function countPhrase(consequences: readonly DeleteImpactEntry[]): string 
  * collection zero-result drops its species counts, changing an application's
  * insecticide drops the batch links that no longer match it, retiring a habitat
  * takes it off its routes, and deleting a weather station destroys its
- * summaries. The question the agency is asked is the delete registry's question
- * — "this many rows go, did you mean that" — but the write is not a delete, so
- * no rule in the registry describes it.
+ * summaries. The question the organization is asked is the delete registry's
+ * question — "this many rows go, did you mean that" — but the write is not a
+ * delete, so no rule in the registry describes it.
  *
  * They deliberately do not become a fourth `ReferenceEffect`. The registry's
  * entries are read twice, once by `readDeleteImpact` to say what a delete would
@@ -270,8 +271,8 @@ export function countPhrase(consequences: readonly DeleteImpactEntry[]): string 
  * its batches and the formulations naming it exactly where they are and makes
  * every one of them unusable, which is the same question over the same count
  * again, with a third sentence. It is also the one that made `rules` a list:
- * batches and formulations are two kinds, and an agency told about one and then
- * the other has been surprised twice by one write.
+ * batches and formulations are two kinds, and an organization told about one
+ * and then the other has been surprised twice by one write.
  */
 export type ClearanceAcknowledgement =
 	| 'acknowledgedBatchClearance'
@@ -325,7 +326,7 @@ export class ClearanceAcknowledgementRequiredError extends Error {
  *
  * A `union all` of scalar counts rather than a query per rule, for the same
  * reason the delete impact reads that way: a contact has three citing tables
- * and the agency is asked on every rename.
+ * and the organization is asked on every rename.
  *
  * `ClearanceRule` and `CitingRule` are the same shape for the same reason they
  * are counted the same way — a key, a table, a `where`, and the words for the
@@ -380,10 +381,10 @@ export async function assertClearanceAcknowledged(
 	input: {
 		readonly acknowledgement: ClearanceAcknowledgement;
 		/**
-		 * The kinds of row the write turns on. Usually one. Retiring an
-		 * insecticide takes its batches and the formulations naming it, which are
-		 * two kinds and two entries, and the agency is owed both in one refusal
-		 * rather than one per attempt.
+		 * The kinds of row the write turns on. Usually one. Retiring an insecticide
+		 * takes its batches and the formulations naming it, which are two kinds and
+		 * two entries, and the organization is owed both in one refusal rather than
+		 * one per attempt.
 		 */
 		readonly rules: readonly ClearanceRule[];
 		/** What the command carried. Anything but `true` is withheld. */
@@ -597,7 +598,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 	/**
 	 * Addresses block rather than cascade. An address is shared reference data,
 	 * and every operational row that names one keeps it as historical context —
-	 * so the agency retires the references first, deliberately, rather than
+	 * so the organization retires the references first, deliberately, rather than
 	 * having a delete quietly rewrite where work happened.
 	 */
 	address: {
@@ -679,8 +680,8 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 
 	/**
 	 * A folder is filing, so deleting one unfiles its regions rather than taking
-	 * them with it. The regions are the agency's map; the folder is where they
-	 * were kept.
+	 * them with it. The regions are the organization's map; the folder is where
+	 * they were kept.
 	 *
 	 * Before this entry the delete soft-deleted the folder row alone, and every
 	 * region in it kept a `region_folder_id` pointing at a row that was gone.
@@ -1060,8 +1061,8 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 
 	/**
 	 * A contact is a person, and the records naming them are the reason the
-	 * agency has their details at all. Delete refuses while any survive rather
-	 * than leaving requests and notification lists pointing at nobody.
+	 * organization has their details at all. Delete refuses while any survive
+	 * rather than leaving requests and notification lists pointing at nobody.
 	 */
 	contact: {
 		table: 'contacts',
@@ -1312,7 +1313,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 	// Delete means the record should never have existed. Deactivate means it
 	// should not be referred to from now on, and it leaves existing records
 	// alone. So a catalog row with any live referrer cannot be deleted: the
-	// referrer is proof it did exist and was used, and the agency wanted
+	// referrer is proof it did exist and was used, and the organization wanted
 	// Deactivate. A mistake made minutes ago has no referrers and deletes fine.
 	//
 	// The block reaches catalog children too. An Insecticide with a Batch needs
@@ -1325,7 +1326,7 @@ const DELETABLE_RECORDS: Record<DeletableRecordType, DeletableRecordConfig> = {
 	// The registry cannot express the same rule for the three operator-global
 	// catalogs (Unit, Genus, Species), because every query here scopes by
 	// `organization_id` and those rows have none. Their block counts across
-	// every agency and lives with the operator commands.
+	// every organization and lives with the operator commands.
 	// -------------------------------------------------------------------------
 
 	collectionMethod: {
@@ -1598,7 +1599,7 @@ export function deleteReferenceScopes(recordType: DeletableRecordType): readonly
  * these rows and say what they are", and both end up in a `DeleteImpactEntry`.
  * They stay separate types because a clearance's rows are about to disappear
  * and a citation's are about to be re-read, and a caller that confused the two
- * would tell the agency its history was being deleted.
+ * would tell the organization its history was being deleted.
  *
  * `match` is the whole `where` clause, including the tenancy and soft-delete
  * filters, because the tables outside the registry — `weather_summaries`, the
@@ -1780,8 +1781,8 @@ function toEntries(
  * Answers the detail page's danger zone: the consequences to state up front and
  * the references that refuse the delete. A record the caller cannot see reports
  * `found: false` with nothing else — the same answer as a record that is
- * already gone, because the agency should not learn from this endpoint that
- * another agency's record exists.
+ * already gone, because the organization should not learn from this endpoint
+ * that another organization's record exists.
  */
 export async function readDeleteImpact(
 	db: DbExecutor,
@@ -1918,7 +1919,7 @@ function orderedAcknowledgements(rules: readonly ReferenceRule[]): DeleteAcknowl
  * Call this before soft-deleting the record itself: it refuses the delete when
  * a blocking reference exists, then performs the cascades and detaches. Returns
  * false when there is nothing to delete — a missing, already-deleted, or
- * other-agency record — so the caller's own soft delete stays idempotent
+ * other-organization record — so the caller's own soft delete stays idempotent
  * instead of the request failing on a repeat.
  *
  * Both refusals happen before anything is written, so a delete that comes back

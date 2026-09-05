@@ -8,7 +8,7 @@ import {
 } from '../../api';
 
 /**
- * `api.ts` is agencies, invitations and identity now.
+ * `api.ts` is organizations, invitations and identity now.
  *
  * The global-catalog writes it used to carry — nine functions across genera,
  * species and units — went to `lib/collections/writes.ts`, which mutates the
@@ -22,9 +22,9 @@ describe('operator sign-out', () => {
 	});
 
 	// Without a `returnTo` the server sends the browser to `APP_ORIGIN` — the
-	// agency workspace — so signing out of the console landed the operator on
-	// another app's sign-in page.
-	it('returns the operator to the console sign-in page, not the agency app', () => {
+	// organization workspace — so signing out of the console landed the operator
+	// on another app's sign-in page.
+	it('returns the operator to the console sign-in page, not the organization app', () => {
 		vi.stubGlobal('window', { location: { origin: 'https://admin.simmer-data.com' } });
 
 		expect(adminLogoutUrl('https://api.simmer-data.com')).toBe(

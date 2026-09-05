@@ -1,26 +1,28 @@
 /**
- * Writing the agency's own record.
+ * Writing the organization's own record.
  *
  * The one table on this seam whose writes do not go through `mutateCollection`,
  * because they do not go to `/commands/organizations` — there is no such
- * endpoint yet. `organizations` holds one row per agency and its settings are a
- * JSON document, so a write is not "these columns changed": it is one of eight
- * named things a Profile can do to the agency. Seven are
+ * endpoint yet. `organizations` holds one row per organization and its settings
+ * are a JSON document, so a write is not "these columns changed": it is one of
+ * eight named things a Profile can do to the organization. Seven are
  * `organizationSettings.*` commands, each with its own route, its own floor and
- * its own validation; the eighth is the agency's details, which is an identity
- * write and named in `IdentityWriteSurface` instead — until ADR 0013 folds it
- * in, after which all eight are commands and the split on this one row is gone.
+ * its own validation; the eighth is the organization's details, which is an
+ * identity write and named in `IdentityWriteSurface` instead — until ADR 0013
+ * folds it in, after which all eight are commands and the split on this one row
+ * is gone.
  *
  * Sending the whole document instead is what this replaces, and it cost three
  * things:
  *
  * The server could not validate. `PATCH /organization/current` passed the
- * incoming document through `resolveOrganizationSettings`, which is deliberately
- * lenient — it substitutes a default and records an issue rather than refusing —
- * and then dropped the issues. A timezone the agency could not use became the
- * default silently. The per-command routes refuse it, and check the referenced
- * rows besides: that a unit code exists and is the right kind of unit, and that
- * a Species Key Binding still names a species that exists.
+ * incoming document through `resolveOrganizationSettings`, which is
+ * deliberately lenient — it substitutes a default and records an issue rather
+ * than refusing — and then dropped the issues. A timezone the organization
+ * could not use became the default silently. The per-command routes refuse it,
+ * and check the referenced rows besides: that a unit code exists and is the
+ * right kind of unit, and that a Species Key Binding still names a species that
+ * exists.
  *
  * A save rewrote settings nobody touched. Editing the larval density bands sent
  * the timezone, the unit defaults and the key bindings back from the editor's own
@@ -50,11 +52,11 @@ import { type RestRefusalBody, writeThroughRest } from './rest-writes';
 /**
  * What both routes answer with.
  *
- * `updatedAt` is why this does not use `writeCommand` from `packages/sync`, which
- * returns the txid alone. Saving the agency details can mean two writes — the
- * details are a REST write and the timezone beside them is a command — and the
- * second has to state the `updated_at` the first produced, or it conflicts with
- * the write the same click just made.
+ * `updatedAt` is why this does not use `writeCommand` from `packages/sync`,
+ * which returns the txid alone. Saving the organization details can mean two
+ * writes — the details are a REST write and the timezone beside them is a
+ * command — and the second has to state the `updated_at` the first produced, or
+ * it conflicts with the write the same click just made.
  */
 export interface OrganizationWriteResult {
 	readonly txid: number;
@@ -68,13 +70,13 @@ export interface OrganizationWriteResult {
  * is about what the Profile asked for; this one is about when they asked, and the
  * answer is to look at the current values and decide again.
  *
- * The trade-off in raising it at all: `updated_at` belongs to the row, not to the
- * setting, so a colleague who changed the mailing address while this sheet was
- * open is a conflict too, even though the server would have merged the two
+ * The trade-off in raising it at all: `updated_at` belongs to the row, not to
+ * the setting, so a colleague who changed the mailing address while this sheet
+ * was open is a conflict too, even though the server would have merged the two
  * sub-documents without touching each other. That is the safe direction, and
- * agency-level writes are rare enough that the false conflict is rarer than the
- * real one. Suppressing it would mean sending no `expectedUpdatedAt` at all,
- * which is where this started.
+ * organization-level writes are rare enough that the false conflict is rarer
+ * than the real one. Suppressing it would mean sending no `expectedUpdatedAt`
+ * at all, which is where this started.
  */
 export class OrganizationConflictError extends Error {
 	constructor() {

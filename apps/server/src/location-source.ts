@@ -77,9 +77,9 @@ export async function resolveLocationGeom(
 /**
  * Another row's geometry, or the 404 its absence means.
  *
- * `loadGeojson` lives in `packages/db` and answers `undefined`, because "absent,
- * another agency's, or deleted" is one fact at that layer and the HTTP status it
- * becomes is this one's to name.
+ * `loadGeojson` lives in `packages/db` and answers `undefined`, because
+ * "absent, another organization's, or deleted" is one fact at that layer and
+ * the HTTP status it becomes is this one's to name.
  */
 export async function loadOr404(
 	trx: Transaction<SimmerDatabase>,

@@ -419,7 +419,7 @@ describeDbIntegration('record deletion policy', () => {
 		});
 	});
 
-	it('reports nothing for a record another agency owns', async () => {
+	it('reports nothing for a record another organization owns', async () => {
 		await withTestDb(async ({ db }) => {
 			const owner = await createOrganization(db, 'impact_owner');
 			const other = await createOrganization(db, 'impact_other');
@@ -522,7 +522,7 @@ describeDbIntegration('record deletion policy', () => {
 		});
 	});
 
-	it('does not let one agency’s referrer block another agency’s catalog row', async () => {
+	it('does not let one organization’s referrer block another organization’s catalog row', async () => {
 		await withTestDb(async ({ db }) => {
 			const mine = await createOrganization(db, 'method_mine');
 			const theirs = await createOrganization(db, 'method_theirs');
@@ -876,7 +876,7 @@ async function createContact(db: Db, organizationId: string): Promise<string> {
 	return row.id;
 }
 
-/** Each type brings its own name: the name is unique per agency. */
+/** Each type brings its own name: the name is unique per organization. */
 let nextNotificationType = 1;
 
 async function createNotificationType(db: Db, organizationId: string): Promise<string> {
@@ -1013,7 +1013,7 @@ interface ActionLinks {
 	readonly habitatId?: string;
 }
 
-/** Each application brings its own insecticide: the trade name is unique per agency. */
+/** Each application brings its own insecticide: the trade name is unique per organization. */
 let nextInsecticide = 1;
 
 async function createApplication(

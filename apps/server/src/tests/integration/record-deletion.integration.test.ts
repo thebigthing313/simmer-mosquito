@@ -19,7 +19,7 @@ import { registerRecordDeletionRoutes } from '../../record-deletion.js';
  * does when a pending collection is not as empty as expected.
  */
 describeDbIntegration('record deletion at the HTTP boundary', () => {
-	it('answers found: false for another agency’s record rather than 404', async () => {
+	it('answers found: false for another organization’s record rather than 404', async () => {
 		await withTestDb(async ({ db }) => {
 			const owner = await createOrganization(db, 'impact_http_owner');
 			const caller = await createOrganization(db, 'impact_http_caller');
@@ -31,7 +31,7 @@ describeDbIntegration('record deletion at the HTTP boundary', () => {
 
 			// Deliberate, and the docstring on the route says so: a 404 here would
 			// differ from the answer for an id that never existed, which turns the
-			// endpoint into a way to probe for other agencies' ids.
+			// endpoint into a way to probe for other organizations' ids.
 			expect(response.status).toBe(200);
 			await expect(response.json()).resolves.toMatchObject({
 				found: false,

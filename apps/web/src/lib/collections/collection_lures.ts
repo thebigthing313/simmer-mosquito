@@ -10,8 +10,8 @@ import { type CollectionLure, createCollectionLuresCollection } from '@simmer-mo
 import { declareCollection } from './registry';
 
 /**
- * `eager`: A catalogue an agency has dozens of rows of, read by every trap and
- * collection screen.
+ * `eager`: A catalogue an organization has dozens of rows of, read by every
+ * trap and collection screen.
  *
  * This app writes collection_lures, so the collection carries the three
  * mutation handlers and every write through it names the command it means.

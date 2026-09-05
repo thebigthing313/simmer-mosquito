@@ -10,8 +10,8 @@ import {
  *
  * `scheduledStartAt` is one instant; the form is a day and two times. Both
  * halves used the *browser's* clock while the mission list and detail page
- * showed the agency's (`formatScheduledStart`), so a 06:00 muster read as 06:00
- * to the dispatcher editing it and as something else to everyone else.
+ * showed the organization's (`formatScheduledStart`), so a 06:00 muster read as
+ * 06:00 to the dispatcher editing it and as something else to everyone else.
  */
 describe('a mission schedule, out of the form and back', () => {
 	const ORGANIZATION_ZONE = 'America/New_York';

@@ -1,9 +1,10 @@
 /**
- * The plumbing every agency command endpoint shares once authorization is done.
+ * The plumbing every organization command endpoint shares once authorization is
+ * done.
  *
- * A command endpoint is the same shape in all seven agency domains: read the
- * body, map it onto a domain command, run that command in a transaction, and
- * turn any refusal into a typed 4xx. Only the mapping and the runner differ
+ * A command endpoint is the same shape in all seven organization domains: read
+ * the body, map it onto a domain command, run that command in a transaction,
+ * and turn any refusal into a typed 4xx. Only the mapping and the runner differ
  * between endpoints; everything around them was copy-pasted 95 times.
  *
  * What deliberately does *not* live here is `authContextMiddleware`. It stays
@@ -59,10 +60,10 @@ export type CommandContext = Context<{ Variables: AuthVariables }>;
  * refuses to remove. `reason` is set where the client can act on the
  * distinction; the four surveillance domains never set it.
  *
- * `409` is the global catalogs' case. An agency delete that other rows block is
- * decided before the delete runs, by `applyRecordDeletion`, and arrives as
- * `RecordDeleteBlockedError`; the taxonomy has no such registry and no
- * `deleted_at`, so its refusal comes back from Postgres as a foreign key
+ * `409` is the global catalogs' case. An organization delete that other rows
+ * block is decided before the delete runs, by `applyRecordDeletion`, and
+ * arrives as `RecordDeleteBlockedError`; the taxonomy has no such registry and
+ * no `deleted_at`, so its refusal comes back from Postgres as a foreign key
  * violation inside the transaction. Same answer, raised from a different place.
  */
 export class CommandError extends Error {
@@ -153,10 +154,10 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 		return context.json(acknowledgementRequiredBody(withheld), 409);
 	}
 	// A merge names rows the caller has to have seen to name, so a refusal is
-	// either that one of them is gone, which is a 404 and the same answer as a row
-	// of another agency, or that the survivor is retired, which is a state the
-	// caller can fix, so 409. `reason` is the discriminator, and is what the form
-	// maps to a message about the right field.
+	// either that one of them is gone, which is a 404 and the same answer as a
+	// row of another organization, or that the survivor is retired, which is a
+	// state the caller can fix, so 409. `reason` is the discriminator, and is
+	// what the form maps to a message about the right field.
 	if (error instanceof RecordMergeRefusedError) {
 		return context.json(
 			{ error: 'merge_refused', reason: error.reason, message: error.message },
@@ -164,8 +165,8 @@ export function handleCommandError(context: CommandContext, error: unknown) {
 		);
 	}
 	// A write that named a row it may not use, catalog or otherwise. Missing is a
-	// 404 and the same answer as another agency's row or a soft-deleted one,
-	// because telling them apart would make this a way to probe for ids.
+	// 404 and the same answer as another organization's row or a soft-deleted
+	// one, because telling them apart would make this a way to probe for ids.
 	// Inactive is a 409: the row is there and somebody can reactivate it or pick
 	// another, and only a catalog can be in that state.
 	if (error instanceof ReferenceRefusedError) {
@@ -256,7 +257,7 @@ export function invalidUpdate(changeNoun: string): {
 	};
 }
 
-/** The two fields every agency command carries, read off the resolved session. */
+/** The two fields every organization command carries, read off the resolved session. */
 export type OrganizationContext = {
 	readonly organizationId: string;
 	readonly actorProfileId: string;
@@ -374,9 +375,9 @@ export interface CommandEndpoint<TCommand, TPayload = Record<string, unknown>> {
 /**
  * Assemble the handler half of a command route.
  *
- * Owns the body read and its `invalid_payload` 400, the agency context, and the
- * `invalid_command` 400 — the four steps that were identical at every call
- * site. The verb, the path, and `authContextMiddleware` stay in the route
+ * Owns the body read and its `invalid_payload` 400, the organization context,
+ * and the `invalid_command` 400 — the four steps that were identical at every
+ * call site. The verb, the path, and `authContextMiddleware` stay in the route
  * registration; the mapping and the runner stay in {@link CommandEndpoint}.
  */
 export function commandEndpoint<TCommand, TPayload = Record<string, unknown>>(

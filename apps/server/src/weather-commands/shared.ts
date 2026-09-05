@@ -7,7 +7,7 @@
  * Both shared helpers take an `OrgOwnedTable`, which the schema derives as "has
  * a non-null `organization_id`, a `deleted_at`, and an `updated_at`". Neither
  * weather table qualifies. `weather_sources.organization_id` is nullable so a
- * future provider-owned station can exist with no agency behind it, which
+ * future provider-owned station can exist with no organization behind it, which
  * `docs/weather-domain.md` keeps as plumbing for `source_type = 'nws'` while v1
  * writes only `'organization'` rows. `weather_summaries` is nullable for the
  * same reason, and has no `deleted_at` at all, because a summary delete is a
@@ -19,11 +19,11 @@
  * makes writing it out safe is that it is written once, here, rather than at
  * each of the ten call sites.
  *
- * A null `organization_id` compares unequal to every agency id, so a global row
- * is unreachable through these helpers rather than merely unlikely to be named.
- * That matters more than usual: `shape-scopes.ts` reads both tables as
- * `organization-or-global`, so a row written with a null org would sync to every
- * agency. Every insert below sets it.
+ * A null `organization_id` compares unequal to every organization id, so a
+ * global row is unreachable through these helpers rather than merely unlikely
+ * to be named. That matters more than usual: `shape-scopes.ts` reads both
+ * tables as `organization-or-global`, so a row written with a null org would
+ * sync to every organization. Every insert below sets it.
  */
 
 import { localDateColumn, type SelectedRow, sql } from '@simmer-mosquito/db';
@@ -106,12 +106,13 @@ export interface StationState {
 }
 
 /**
- * The agency's own station, or `undefined`.
+ * The organization's own station, or `undefined`.
  *
- * `source_type` is not filtered. An agency's rows are all `'organization'` in
- * v1, and a station that somehow carried the other type while naming this
- * organization would still be that agency's row to manage, filtering it out
- * would answer 404 for a row the agency can see in its own list.
+ * `source_type` is not filtered. An organization's rows are all
+ * `'organization'` in v1, and a station that somehow carried the other type
+ * while naming this organization would still be that organization's row to
+ * manage, filtering it out would answer 404 for a row the organization can see
+ * in its own list.
  */
 export async function loadStation(
 	trx: WeatherTransaction,
@@ -130,7 +131,7 @@ export async function loadStation(
 		: { id: row.id, isActive: row.is_active, updatedAt: row.updated_at };
 }
 
-/** A summary and the station it hangs off, scoped to the agency in one read. */
+/** A summary and the station it hangs off, scoped to the organization in one read. */
 export interface SummaryState {
 	readonly id: string;
 	readonly weatherStationId: string;
@@ -160,7 +161,7 @@ export interface SummaryMetrics {
 }
 
 /**
- * The agency's own summary, or `undefined`.
+ * The organization's own summary, or `undefined`.
  *
  * Joined to the station rather than trusting `weather_summaries.organization_id`
  * alone. The column is what the sync scope reads and every write here sets it,

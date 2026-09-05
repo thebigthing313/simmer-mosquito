@@ -7,8 +7,9 @@
  *
  * **Dates.** A date cell is a calendar day with no zone attached. Reading it
  * through `toISOString` shifts it a day backwards for anyone west of Greenwich,
- * which would file every reading in a California agency's file against the wrong
- * day — and the wrongness is invisible, because the row still looks like a date.
+ * which would file every reading in a California organization's file against
+ * the wrong day — and the wrongness is invisible, because the row still looks
+ * like a date.
  *
  * **Blank versus bad.** An empty cell means "no reading" and has to survive as a
  * null; a cell holding `n/a` is a broken line and has to be reported. Collapsing
@@ -87,9 +88,9 @@ describe('parsing a weather spreadsheet', () => {
 	 * The trap this test exists for.
 	 *
 	 * `cellDates` hands back a real `Date` for a date cell, and its parts have to
-	 * be read locally. Through `toISOString` this same cell reads as 2026-05-31 in
-	 * any negative-offset zone, and the file would be off by a day for exactly the
-	 * agencies most likely to be using it.
+	 * be read locally. Through `toISOString` this same cell reads as 2026-05-31
+	 * in any negative-offset zone, and the file would be off by a day for exactly
+	 * the organizations most likely to be using it.
 	 */
 	it('reads a real date cell as the day it shows, not the day UTC calls it', async () => {
 		const sheet = XLSX.utils.aoa_to_sheet([

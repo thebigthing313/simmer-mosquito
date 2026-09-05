@@ -8,7 +8,7 @@
  *
  * This table withholds `invited_email`, `workos_invitation_id` as well. They
  * are an invited address and the handle on a live WorkOS invitation, and the
- * `memberships` shape is eager for every signed-in agency user down to a
+ * `memberships` shape is eager for every signed-in organization user down to a
  * viewer. The shape is eager because of the role ladder, which is a reason
  * for `role`, `status` and `profile_id` and not for these two: an invited
  * address is the private contact detail of somebody who has not accepted

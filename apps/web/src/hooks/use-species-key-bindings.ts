@@ -26,9 +26,9 @@ export interface SpeciesKeyBindingsView {
 /**
  * The effective key binding set for the signed-in person.
  *
- * v1 resolves the agency's set only. The user-scope seam lives in
- * `resolveEffectiveSpeciesKeyBindings` — when personal bindings gain a home, pass
- * them here and every consumer picks the change up unchanged.
+ * v1 resolves the organization's set only. The user-scope seam lives in
+ * `resolveEffectiveSpeciesKeyBindings` — when personal bindings gain a home,
+ * pass them here and every consumer picks the change up unchanged.
  */
 export function useSpeciesKeyBindings(): SpeciesKeyBindingsView {
 	const { speciesKeyBindings } = useOrganizationSettings();

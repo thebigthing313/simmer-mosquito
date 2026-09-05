@@ -75,7 +75,7 @@ import { useAuthSnapshot } from '../use-auth-snapshot';
 import { metadataChanged } from './performed-action-writes';
 import { lifecycleStamp, optimisticStamp } from './shared';
 
-/** How long the trap was out, in whichever of the two shapes the agency records. */
+/** How long the trap was out, in whichever of the two shapes the organization records. */
 export interface CollectionTiming {
 	readonly timingMode: AdultCollectionTimingMode;
 	/** Exact mode: when the trap went out. */

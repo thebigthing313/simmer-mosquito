@@ -61,9 +61,9 @@ describe('weather station update plan', () => {
 		expect(result?.changes).toMatchObject({ source_code: 'NG-2' });
 	});
 
-	// Clearing a code is a change to it, and the column is unique per agency where
-	// it is non-null, so present-and-null has to be told apart from absent, the
-	// same distinction the region's folder id turns on.
+	// Clearing a code is a change to it, and the column is unique per
+	// organization where it is non-null, so present-and-null has to be told apart
+	// from absent, the same distinction the region's folder id turns on.
 	it('treats clearing the code as a change', () => {
 		const result = plan({ code: null });
 

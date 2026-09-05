@@ -7,7 +7,7 @@ import type { AuthVariables } from '../../auth-middleware.js';
 import { registerFoundationCommandRoutes } from '../../foundation-commands/index.js';
 
 describe('registerFoundationCommandRoutes', () => {
-	it('creates collection methods through agency-scoped domain commands', async () => {
+	it('creates collection methods through organization-scoped domain commands', async () => {
 		const calls: unknown[] = [];
 		const app = createApp(
 			{
@@ -105,7 +105,7 @@ describe('registerFoundationCommandRoutes', () => {
 		]);
 	});
 
-	it('creates collection lures through agency-scoped domain commands', async () => {
+	it('creates collection lures through organization-scoped domain commands', async () => {
 		const calls: unknown[] = [];
 		const app = createApp(
 			{
@@ -174,7 +174,7 @@ describe('registerFoundationCommandRoutes', () => {
 		]);
 	});
 
-	it('creates tags through agency-scoped domain commands', async () => {
+	it('creates tags through organization-scoped domain commands', async () => {
 		const calls: unknown[] = [];
 		const app = createApp({
 			writeTagCommand: async (_trx, command) => {
@@ -240,7 +240,7 @@ describe('registerFoundationCommandRoutes', () => {
 		]);
 	});
 
-	it('deletes tags through the agency-scoped delete command', async () => {
+	it('deletes tags through the organization-scoped delete command', async () => {
 		const calls: unknown[] = [];
 		const app = createApp({
 			writeTagCommand: async (_trx, command) => {

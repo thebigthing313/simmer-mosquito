@@ -2,12 +2,12 @@ import { type RawBuilder, sql } from 'kysely';
 
 // --- region membership --------------------------------------------------------
 //
-// A region is the agency's own operational geography — a district, a zone, a
-// city boundary — and "only show me this district" is a question every explorer
-// gets asked. No record carries a region column: a habitat belongs to a district
-// by *where it is*, so membership is a spatial test against the region boundary
-// rather than a foreign key, and it stays correct the moment a boundary is
-// redrawn.
+// A region is the organization's own operational geography — a district, a
+// zone, a city boundary — and "only show me this district" is a question every
+// explorer gets asked. No record carries a region column: a habitat belongs to
+// a district by *where it is*, so membership is a spatial test against the
+// region boundary rather than a foreign key, and it stays correct the moment a
+// boundary is redrawn.
 //
 // The predicate is shared by every map surface and by the detail-page read that
 // asks the inverse question, so the tiles, the paged list, the framed extent and
@@ -46,9 +46,10 @@ export function regionMembershipClause(input: {
 	 */
 	readonly geomType: RawBuilder<unknown>;
 	/**
-	 * The record's tenancy column, e.g. ``sql`h.organization_id` ``. The region set
-	 * is scoped to the record's own agency rather than to a separately passed id,
-	 * so a region id belonging to another agency can never widen a filtered read.
+	 * The record's tenancy column, e.g. ``sql`h.organization_id` ``. The region
+	 * set is scoped to the record's own organization rather than to a separately
+	 * passed id, so a region id belonging to another organization can never widen
+	 * a filtered read.
 	 */
 	readonly organizationId: RawBuilder<unknown>;
 	readonly regionIds: readonly string[];
@@ -80,9 +81,10 @@ export function regionMembershipClause(input: {
  * The branch itself, without the region set around it.
  *
  * Split out so the detail-page read can scope the region set its own way, every
- * live region of the caller's agency rather than a chosen few, and still run the
- * same test the multiselect runs. Two surfaces answering the same question
- * differently about one record is the failure ADR 0015 exists to prevent.
+ * live region of the caller's organization rather than a chosen few, and still
+ * run the same test the multiselect runs. Two surfaces answering the same
+ * question differently about one record is the failure ADR 0015 exists to
+ * prevent.
  *
  * The caller supplies `&&` and the soft-delete filter; this is only the exact
  * test that follows them.

@@ -3,10 +3,11 @@ import type { CommentTargetType } from '../field-work/shared.js';
 /**
  * The shortest query the search endpoint accepts.
  *
- * One character, not three. The agency's handles are codes on a shared template
- * (`MID - S2 - 139`, `TRP-1213-026`), so a single digit is a real search here
- * and a floor of three would refuse it. Stated once, beside the type, because
- * the palette guards on it and the endpoint refuses on it and two copies drift.
+ * One character, not three. The organization's handles are codes on a shared
+ * template (`MID - S2 - 139`, `TRP-1213-026`), so a single digit is a real
+ * search here and a floor of three would refuse it. Stated once, beside the
+ * type, because the palette guards on it and the endpoint refuses on it and two
+ * copies drift.
  */
 export const SEARCH_QUERY_MIN_LENGTH = 1;
 
@@ -33,10 +34,10 @@ export const SEARCH_MAX_OFFSET = 1000;
 /**
  * The tables whose rows the search index holds, in the order ties break in.
  *
- * A table is in the corpus when it holds a handle the agency itself typed and
- * has a detail route. Both halves are checkable rather than a judgement call:
- * `pnpm check:search-corpus` reads this list against the corpus declaration in
- * `packages/db` and the triggers the migration creates.
+ * A table is in the corpus when it holds a handle the organization itself typed
+ * and has a detail route. Both halves are checkable rather than a judgement
+ * call: `pnpm check:search-corpus` reads this list against the corpus
+ * declaration in `packages/db` and the triggers the migration creates.
  *
  * The order is load-bearing. Two documents in the same match class with the same
  * score are ordered by their table's position here and then by id, which is what

@@ -1,9 +1,10 @@
 /**
  * The global unit catalog, as commands.
  *
- * Units of measure are SIMMER's rather than an agency's — no `organization_id`,
- * and every agency records amounts against them — so these are operator
- * commands like the taxonomy's, typed on `OperatorFoundationCommandInput`.
+ * Units of measure are SIMMER's rather than an organization's — no
+ * `organization_id`, and every organization records amounts against them — so
+ * these are operator commands like the taxonomy's, typed on
+ * `OperatorFoundationCommandInput`.
  *
  * ## Why `code` carries an acknowledgement and the other fields do not
  *

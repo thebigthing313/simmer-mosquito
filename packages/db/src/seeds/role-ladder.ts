@@ -152,11 +152,11 @@ export const roleLadderIds = {
 /**
  * Profiles that already exist, keyed by role.
  *
- * The case this is for: real accounts have been invited into a real agency, so
- * each role already has a profile with a role that came from a genuine
- * invitation. Naming those here makes the fixtures below belong to the account
- * that will actually sign in — an assignment "assigned to the collector" is
- * assigned to *them*, not to a stand-in they have no way to be.
+ * The case this is for: real accounts have been invited into a real
+ * organization, so each role already has a profile with a role that came from a
+ * genuine invitation. Naming those here makes the fixtures below belong to the
+ * account that will actually sign in — an assignment "assigned to the
+ * collector" is assigned to *them*, not to a stand-in they have no way to be.
  *
  * A named profile is left completely untouched: no profile write, no membership
  * write, so nothing this seed does can change a role somebody set deliberately.
@@ -169,13 +169,13 @@ type ProfileResolver = (key: RoleLadderKey) => string;
 export interface SeedRoleLadderOptions {
 	readonly organizationId?: string;
 	/**
-	 * The WorkOS organization this agency is, when one exists.
+	 * The WorkOS organization this organization is, when one exists.
 	 *
-	 * Sign-in resolves the agency from WorkOS and not from here, so a ladder
-	 * organization with no WorkOS counterpart cannot be signed into at all: the
-	 * accounts land in whichever agency WorkOS does put them in, and are
-	 * provisioned as viewers. Supplying the id is what makes the seeded roles
-	 * reachable through a browser or `check:role-ladder`.
+	 * Sign-in resolves the organization from WorkOS and not from here, so a
+	 * ladder organization with no WorkOS counterpart cannot be signed into at
+	 * all: the accounts land in whichever organization WorkOS does put them in,
+	 * and are provisioned as viewers. Supplying the id is what makes the seeded
+	 * roles reachable through a browser or `check:role-ladder`.
 	 */
 	readonly workosOrganizationId?: string;
 	/**
@@ -237,15 +237,15 @@ export async function seedRoleLadder(
  * The organization the fixtures hang off — created only if it is not already
  * there.
  *
- * `doNothing`, emphatically not `doUpdateSet`: pointing this at an agency that
- * already exists is the *expected* use once real accounts have been invited into
- * one, and an upsert that set the name would rename a live organization to
- * "Role Ladder Test District" on the way past.
+ * `doNothing`, emphatically not `doUpdateSet`: pointing this at an organization
+ * that already exists is the *expected* use once real accounts have been
+ * invited into one, and an upsert that set the name would rename a live
+ * organization to "Role Ladder Test District" on the way past.
  *
  * Without a WorkOS id the placeholder keeps the column's uniqueness and nothing
- * else. Sign-in reads WorkOS for the agency, so an organization carrying the
- * placeholder is one nobody can sign into: it is enough to hold fixtures for a
- * check that never authenticates, and not enough for the ladder itself.
+ * else. Sign-in reads WorkOS for the organization, so an organization carrying
+ * the placeholder is one nobody can sign into: it is enough to hold fixtures
+ * for a check that never authenticates, and not enough for the ladder itself.
  */
 async function upsertOrganization(
 	trx: DbExecutor,
@@ -344,9 +344,9 @@ async function upsertPeople(
 				...membership,
 			})
 			// `organization_id` and `profile_id` are in the update on purpose. The
-			// conflict is on a fixed id, so a run pointed at a different agency would
-			// otherwise re-role a row that stays where the last run put it, and report
-			// a seeded ladder that is not in the agency named.
+			// conflict is on a fixed id, so a run pointed at a different organization
+			// would otherwise re-role a row that stays where the last run put it, and
+			// report a seeded ladder that is not in the organization named.
 			.onConflict((conflict) =>
 				conflict.column('id').doUpdateSet({
 					organization_id: organizationId,
@@ -689,10 +689,10 @@ function toWorkosAccount(value: string | WorkosAccount | undefined): WorkosAccou
  * A unit for the fixture's "3 sources eliminated", preferring one that exists.
  *
  * `units` is **global** — no `organization_id` — so inserting a fixture unit
- * would put `role_ladder_sources` in every agency's picker, in every environment
- * this seed is ever run against, permanently. Reusing a count unit avoids that;
- * the fixture only needs the source reduction to be valid, and which unit it
- * carries is incidental to every rule being tested.
+ * would put `role_ladder_sources` in every organization's picker, in every
+ * environment this seed is ever run against, permanently. Reusing a count unit
+ * avoids that; the fixture only needs the source reduction to be valid, and
+ * which unit it carries is incidental to every rule being tested.
  *
  * It creates one only when the database has no count unit at all, which is a
  * bare schema rather than any real environment.

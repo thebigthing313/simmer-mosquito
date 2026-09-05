@@ -145,11 +145,11 @@ interface AbundanceFields {
 }
 
 /**
- * What the agency's chosen entry mode insists on.
+ * What the organization's chosen entry mode insists on.
  *
- * Density-only agencies record a band and never a count; count-and-dips
- * agencies record both numbers; hybrid accepts either, and only complains when
- * neither is complete.
+ * Density-only organizations record a band and never a count; count-and-dips
+ * organizations record both numbers; hybrid accepts either, and only complains
+ * when neither is complete.
  */
 function checkEntryPolicy(
 	mode: LarvalInspectionEntryPolicy['mode'],

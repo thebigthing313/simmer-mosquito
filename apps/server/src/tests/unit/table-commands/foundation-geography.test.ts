@@ -1,5 +1,5 @@
 /**
- * An agency's geography and its species selection, as translations.
+ * An organization's geography and its species selection, as translations.
  *
  * `region_folders`, `regions` and `organization_species`. Three things are worth
  * a test here and nothing else is: that a move is its own command rather than

@@ -15,7 +15,7 @@ import type { MergeableRecordType } from './record-merge.js';
  * lists what it proposes. Every proposal is cheap to explain in one line. Fuzzy
  * matching would catch more, but the threshold is a guess and it is worst
  * exactly here, where names come off a handful of templates and a similarity
- * score groups the whole agency.
+ * score groups the whole organization.
  *
  * `readNearbyHabitats` is the other way, and habitats are the only record type
  * that uses it. A duplicate habitat is a place a crew found and named twice, so
@@ -260,7 +260,8 @@ export interface DuplicateCandidatesInput {
 }
 
 /**
- * Every duplicate set this agency's records suggest, with the reason for each.
+ * Every duplicate set this organization's records suggest, with the reason for
+ * each.
  *
  * Every proposal is a shared value, which is evidence a person can check at a
  * glance. Habitats are not here: a duplicate habitat is a place a crew found and
@@ -439,8 +440,8 @@ export interface NearbyHabitatsResult {
  * The radius is the caller's, not a constant, because how far apart two records
  * for one place land depends on how they were filed: a GPS fix under tree cover
  * and a point dropped on an aerial can be tens of metres apart for the same
- * ditch, and an agency that maps culverts every hundred feet needs a tighter one
- * than that.
+ * ditch, and an organization that maps culverts every hundred feet needs a
+ * tighter one than that.
  *
  * The target comes back with the candidates so both are read the same way. The
  * merge form fills every field of the surviving record from these values, and a
@@ -496,7 +497,7 @@ export async function readNearbyHabitats(
 	};
 }
 
-/** The habitat a merge would keep, or undefined when this agency has no such row. */
+/** The habitat a merge would keep, or undefined when this organization has no such row. */
 async function readHabitatCandidate(
 	db: DbExecutor,
 	input: NearbyHabitatsInput,

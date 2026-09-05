@@ -22,9 +22,10 @@
  * the table, so it is the one route the walk is not asked to admit. A route
  * that does not exist in production cannot ship a cross-origin refusal.
  *
- * Everything `main.ts` used to write inline is a module now: `session-routes.ts`
- * has `/health` and the four WorkOS session routes,
- * `operator-organization-routes.ts` has the three that create and read agencies.
+ * Everything `main.ts` used to write inline is a module now:
+ * `session-routes.ts` has `/health` and the four WorkOS session routes,
+ * `operator-organization-routes.ts` has the three that create and read
+ * organizations.
  */
 
 import type { Kysely, SimmerDatabase } from '@simmer-mosquito/db';

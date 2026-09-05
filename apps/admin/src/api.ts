@@ -11,10 +11,10 @@ const DEFAULT_SERVER_URL = 'http://localhost:3000';
 
 /**
  * Identity and the in-app sign-in flow come from the shared browser client —
- * the console signs in through the same public `/auth/*` endpoints the agency
- * workspace does, and `/auth/*` CORS already admits `ADMIN_APP_ORIGIN`. What
- * follows below is the operator control plane proper: the `/admin/*` endpoints
- * only this app calls.
+ * the console signs in through the same public `/auth/*` endpoints the
+ * organization workspace does, and `/auth/*` CORS already admits
+ * `ADMIN_APP_ORIGIN`. What follows below is the operator control plane proper:
+ * the `/admin/*` endpoints only this app calls.
  */
 export type { AuthMe, AuthOrganizationChoice } from '@simmer-mosquito/auth/browser';
 
@@ -167,9 +167,9 @@ export function getServerUrl(): string {
  *
  * WorkOS will not mint a session for an account that belongs to more than one
  * organization until one is chosen. Operators routinely belong to more than one
- * — `createAdminOrganization`'s `linkRequesterAsOwner` makes the operator the new
- * agency's first owner — so the prompt is a designed-for case, not stale data,
- * and it will keep coming back.
+ * — `createAdminOrganization`'s `linkRequesterAsOwner` makes the operator the
+ * new organization's first owner — so the prompt is a designed-for case, not
+ * stale data, and it will keep coming back.
  *
  * The console answers it without asking, because the answer is always the same:
  * an operator working in the control plane is acting as SIMMER. The server now
@@ -178,9 +178,10 @@ export function getServerUrl(): string {
  * puts the session in the org the console needs.
  *
  * Deliberately **not** server-side. Keyed off operator identity in
- * `/auth/sign-in` it would strip the picker from `apps/web` too, and an operator
- * who genuinely holds an agency membership needs that choice there — the agency
- * workspace reads the organization for everything it shows.
+ * `/auth/sign-in` it would strip the picker from `apps/web` too, and an
+ * operator who genuinely holds an organization membership needs that choice
+ * there — the organization workspace reads the organization for everything it
+ * shows.
  *
  * Unset, or set to an organization this account is not in, falls back to the
  * picker rather than failing.
@@ -199,12 +200,13 @@ export const { getAuthMe, selectOrganization, signIn, switchOrganization, verify
  * Where "Sign out" goes.
  *
  * `/auth/logout` clears the cookie and then returns the browser to `APP_ORIGIN`
- * — the *agency* workspace — unless the caller names somewhere else. Asked
- * without a `returnTo`, the console signed the operator out and dropped them on
- * `apps/web`'s sign-in page, on a different origin, with nothing on it pointing
- * back here. That is worst on the screen that most often offers the button:
- * "Not an Operator Account", where the operator's next move is to sign in as
- * someone who *is* one, and the only page that lets them do that is this app's.
+ * — the *organization* workspace — unless the caller names somewhere else.
+ * Asked without a `returnTo`, the console signed the operator out and dropped
+ * them on `apps/web`'s sign-in page, on a different origin, with nothing on it
+ * pointing back here. That is worst on the screen that most often offers the
+ * button: "Not an Operator Account", where the operator's next move is to sign
+ * in as someone who *is* one, and the only page that lets them do that is this
+ * app's.
  *
  * The server honours `returnTo` only for origins it already trusts (`APP_ORIGIN`
  * and `ADMIN_APP_ORIGIN`), so this reads the console's own origin rather than a
@@ -270,8 +272,8 @@ export async function listOrganizationMemberships(
 
 export interface InviteAdminUserResult {
 	/**
-	 * `null` when the address already reaches the agency through WorkOS, so no
-	 * invitation was sent. The role is staged either way.
+	 * `null` when the address already reaches the organization through WorkOS, so
+	 * no invitation was sent. The role is staged either way.
 	 */
 	readonly invitation: { readonly id: string; readonly email: string } | null;
 	readonly membership: AdminMembership;

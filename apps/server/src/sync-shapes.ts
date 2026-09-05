@@ -35,12 +35,12 @@ interface ShapeRoute {
  * One route per table, and the door follows from the scope.
  *
  * `units`, `genera` and `species` used to be registered a second time under
- * `/admin`, behind the operator middleware, because `apps/admin` could not reach
- * the ordinary path: an operator session has no agency context and the agency
- * middleware refuses it. That prefix is gone. The three tables are `global`
- * scope, meaning `shapeScopeFilter` forces no predicate and the handler never
- * reads an agency context at all — so one route can admit either identity,
- * which is exactly what `createGlobalReadMiddleware` does.
+ * `/admin`, behind the operator middleware, because `apps/admin` could not
+ * reach the ordinary path: an operator session has no organization context and
+ * the organization middleware refuses it. That prefix is gone. The three tables
+ * are `global` scope, meaning `shapeScopeFilter` forces no predicate and the
+ * handler never reads an organization context at all — so one route can admit
+ * either identity, which is exactly what `createGlobalReadMiddleware` does.
  *
  * The scope decides, not a list. A table that becomes tenant-scoped stops
  * admitting operators the moment its entry in `shape-scopes.ts` changes, rather

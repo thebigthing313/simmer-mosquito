@@ -612,13 +612,13 @@ export interface CollectionMapFilters {
 }
 
 /**
- * Every collection read carries the agency's timezone, because every one of them
- * has to decide which calendar day a `collected_at` instant fell on. It is not a
- * filter — the operator never chooses it — so it rides on the input beside the
- * filters rather than inside them.
+ * Every collection read carries the organization's timezone, because every one
+ * of them has to decide which calendar day a `collected_at` instant fell on. It
+ * is not a filter — the operator never chooses it — so it rides on the input
+ * beside the filters rather than inside them.
  */
 export interface CollectionTimeZoneInput {
-	/** The agency's IANA timezone, from `AuthContext`. */
+	/** The organization's IANA timezone, from `AuthContext`. */
 	readonly timeZone: string;
 }
 
@@ -653,14 +653,15 @@ export type CollectionPageResult = MapPageResult<SafeCollectionDisplayRow>;
 /**
  * The zone the by-id read is built with.
  *
- * That read projects raw columns and neither filters nor orders by the effective
- * date, so no zone-dependent decision is made — UTC keeps it out of the cache's
- * way rather than standing for any agency's clock.
+ * That read projects raw columns and neither filters nor orders by the
+ * effective date, so no zone-dependent decision is made — UTC keeps it out of
+ * the cache's way rather than standing for any organization's clock.
  */
 const DEFAULT_SURFACE_TIME_ZONE = 'UTC';
 
 /**
- * The single date a collection is filtered and ordered by, in the agency's zone.
+ * The single date a collection is filtered and ordered by, in the
+ * organization's zone.
  *
  * The two timing modes store it in different columns — an exact timestamp in
  * `collected_at`, a plain date in `collection_date` (with `collected_at` null) —
@@ -668,8 +669,8 @@ const DEFAULT_SURFACE_TIME_ZONE = 'UTC';
  *
  * The timestamp half must be converted before it is reduced to a day. A bare
  * `collected_at::date` uses the *database server's* session timezone, so a trap
- * emptied at 9pm in a US agency files under the next day and drops out of the
- * range the operator actually asked for. `at time zone` with an IANA name
+ * emptied at 9pm in a US organization files under the next day and drops out of
+ * the range the operator actually asked for. `at time zone` with an IANA name
  * applies the offset in force at that instant, so this stays right across a
  * daylight-saving change rather than an hour off for half the season.
  */
@@ -683,12 +684,13 @@ function collectionEffectiveDateExpr(timeZone: string): RawBuilder<unknown> {
  * The four states a collection can be in, resolved server-side by precedence so
  * the map colour and the result rail can never disagree about what one is.
  *
- * `pending` first, because it says the record is not finished: the trap is still
- * out and there is nothing to report a problem or a count about yet. It reads
- * the row's own `collection_timing_mode` rather than the agency's current
- * setting, because a null `collected_at` means "not emptied" only under exact
- * timestamps. Under date-plus-duration every finished collection has one, and a
- * status keyed off the column alone would paint the whole surface pending.
+ * `pending` first, because it says the record is not finished: the trap is
+ * still out and there is nothing to report a problem or a count about yet. It
+ * reads the row's own `collection_timing_mode` rather than the organization's
+ * current setting, because a null `collected_at` means "not emptied" only under
+ * exact timestamps. Under date-plus-duration every finished collection has one,
+ * and a status keyed off the column alone would paint the whole surface
+ * pending.
  */
 export type CollectionStatus = 'pending' | 'problem' | 'zero_result' | 'collected';
 
@@ -731,7 +733,7 @@ const collectionDisplayColumns = sql`
 `;
 
 /**
- * The collections surface, built for one agency's timezone.
+ * The collections surface, built for one organization's timezone.
  *
  * Parameterized rather than declared once because the zone reaches into both
  * halves of the surface: the predicates that decide which collections fall in
@@ -739,8 +741,9 @@ const collectionDisplayColumns = sql`
  * could disagree — a list ordered by one notion of "the day" and filtered by
  * another — so both come from {@link collectionEffectiveDateExpr}.
  *
- * Cached per zone: an agency has one, so this holds a handful of entries for the
- * life of the process rather than rebuilding the definition per request.
+ * Cached per zone: an organization has one, so this holds a handful of entries
+ * for the life of the process rather than rebuilding the definition per
+ * request.
  */
 const collectionSurfaces = new Map<
 	string,

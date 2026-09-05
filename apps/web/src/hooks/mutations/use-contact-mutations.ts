@@ -1,5 +1,6 @@
 /**
- * The agency's contact list: adding whoever called, correcting them, removing one.
+ * The organization's contact list: adding whoever called, correcting them,
+ * removing one.
  *
  * ## Who they are and how to reach them are two commands
  *
@@ -13,7 +14,7 @@
  * the server to work out which of the two commands it meant. {@link
  * ContactMutations.save} names one, the other, or both, from what actually
  * changed — so an edit that only fixed a spelling no longer claims to have
- * revisited how the agency may contact somebody.
+ * revisited how the organization may contact somebody.
  *
  * `mergeContacts` is not here. It writes N rows, one per contact folded into the
  * survivor, so it belongs in a transaction rather than a single mutation. It

@@ -10,15 +10,16 @@ import { createOrganizationsCollection, type Organization } from '@simmer-mosqui
 import { declareCollection } from './registry';
 
 /**
- * `eager`: The agency's own record. One row, and the shell reads it before anything
- * else can draw.
+ * `eager`: The organization's own record. One row, and the shell reads it
+ * before anything else can draw.
  *
- * `mutations: true` since ADR 0013's first slice, and that covers exactly one of
- * the eight things a Profile can change about the agency: its details, which are
- * columns and travel as `identity.updateOrganizationDetails`. The other seven are
- * `organizationSettings.*` commands writing a JSON document, so which of the
- * seven a write means cannot be read off a column diff and each keeps its own
- * route. `hooks/mutations/organization-writes.ts` is what carries those.
+ * `mutations: true` since ADR 0013's first slice, and that covers exactly one
+ * of the eight things a Profile can change about the organization: its details,
+ * which are columns and travel as `identity.updateOrganizationDetails`. The
+ * other seven are `organizationSettings.*` commands writing a JSON document, so
+ * which of the seven a write means cannot be read off a column diff and each
+ * keeps its own route. `hooks/mutations/organization-writes.ts` is what carries
+ * those.
  */
 export const organizations = declareCollection<Organization>({
 	table: 'organizations',

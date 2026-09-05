@@ -1,14 +1,14 @@
 /**
- * Every Region the agency has, by name.
+ * Every Region the organization has, by name.
  *
  * The explorer's tree, which groups these under the folders from
  * `useRegionFolders` and searches across both levels at once — so it wants the
  * whole set rather than a page of it, and the search stays in the browser.
  *
- * No org predicate. The shape is scoped to the agency server-side — the proxy
- * forces the scope and ignores anything the caller asks for — so re-stating it
- * here is redundant, and a stale column spelling in a redundant predicate empties
- * a page rather than narrowing it.
+ * No org predicate. The shape is scoped to the organization server-side — the
+ * proxy forces the scope and ignores anything the caller asks for — so
+ * re-stating it here is redundant, and a stale column spelling in a redundant
+ * predicate empties a page rather than narrowing it.
  *
  * No boundary. A Region's polygon lives outside the sync shape entirely
  * (`geom` and `geojson` never reach a collection), and the tree draws names, not

@@ -39,10 +39,10 @@ function OrganizationDirectoryRoute() {
 	}, [all, search]);
 
 	/*
-	 * Agencies nobody can sign in to. This is the only condition in the directory
-	 * that is actually broken rather than merely a state, so it is counted once at
-	 * the top instead of being something an operator has to notice by scanning
-	 * every row for a pill.
+	 * Organizations nobody can sign in to. This is the only condition in the
+	 * directory that is actually broken rather than merely a state, so it is
+	 * counted once at the top instead of being something an operator has to
+	 * notice by scanning every row for a pill.
 	 */
 	const unlinked = all.filter((organization) => organization.workosOrganizationId === null).length;
 
@@ -120,8 +120,8 @@ function OrganizationDirectoryRow({ organization }: { readonly organization: Adm
 				<div className="min-w-0 flex-1">
 					<p className="m-0 truncate font-medium text-foreground text-sm">{organization.name}</p>
 					{/*
-					 * The second line answers "can this agency work yet?" before it
-					 * answers "who do I call?" — an unlinked agency has no working
+					 * The second line answers "can this organization work yet?" before it
+					 * answers "who do I call?" — an unlinked organization has no working
 					 * account to contact anyway.
 					 */}
 					<p className="mt-0.5 mb-0 flex items-center gap-1.5 truncate text-xs">

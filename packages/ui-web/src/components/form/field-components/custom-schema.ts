@@ -1,5 +1,5 @@
 /**
- * Pure reconciliation between an agency's custom schema (a lookup row's
+ * Pure reconciliation between an organization's custom schema (a lookup row's
  * `customSchema`) and a record's `metadata` column.
  *
  * Kept free of React so both the editor ({@link ../field-components/metadata-field})

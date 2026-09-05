@@ -218,11 +218,11 @@ function RegistrationList({
  * right one to warn about is a question about a person, and while the form is
  * open the person is otherwise named nowhere but the breadcrumb.
  *
- * The consent flags are here for the same reason. A registration is a promise to
- * warn somebody, and a contact who wants no email, no SMS and no phone is a
- * promise the agency cannot keep; that is worth reading before recording another
- * place to keep it about. All three are shown either way, because a missing
- * badge would leave "wants it" and "nobody said" looking the same.
+ * The consent flags are here for the same reason. A registration is a promise
+ * to warn somebody, and a contact who wants no email, no SMS and no phone is a
+ * promise the organization cannot keep; that is worth reading before recording
+ * another place to keep it about. All three are shown either way, because a
+ * missing badge would leave "wants it" and "nobody said" looking the same.
  *
  * Editing any of it is the contact's own page, one press away on the back link.
  */

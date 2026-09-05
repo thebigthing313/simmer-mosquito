@@ -174,8 +174,9 @@ describe('RecordCleanup', () => {
 		renderPage();
 
 		// Oldest first is the server's ordering, and the page's default follows it:
-		// the row the agency has had longest is the one most likely already named by
-		// the records that matter, so merging into it moves the fewest rows.
+		// the row the organization has had longest is the one most likely already
+		// named by the records that matter, so merging into it moves the fewest
+		// rows.
 		expect(screen.getByRole('radio', { name: /412 Oak St$/ }).getAttribute('aria-checked')).toBe(
 			'true',
 		);

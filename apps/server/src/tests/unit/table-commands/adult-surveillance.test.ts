@@ -177,8 +177,9 @@ describe('collections intent map', () => {
 	});
 
 	it('reads the collection-date timing mode off its own four columns', () => {
-		// Agencies record duration one of two ways and the setting says which —
-		// reading one agency's collections under the other's mode is silent.
+		// Organizations record duration one of two ways and the setting says which
+		// — reading one organization's collections under the other's mode is
+		// silent.
 		const command = build(
 			collections,
 			'adultSurveillance.recordCollectedTrapCollection',

@@ -337,9 +337,10 @@ describe('registerAuthUserRoutes', () => {
 		expect(finalizeSession).toHaveBeenCalledWith(expect.anything(), session);
 	});
 
-	// ADR 0011: how a SIMMER Operator holding an agency membership comes to hold
-	// an ordinary agency session, so their foundation writes go through the same
-	// routes and the same domain builders an agency member's do.
+	// ADR 0011: how a SIMMER Operator holding an organization membership comes to
+	// hold an ordinary organization session, so their foundation writes go
+	// through the same routes and the same domain builders an organization
+	// member's do.
 	it('re-seals the session against another organization and finalizes it', async () => {
 		const switchOrganization = vi.fn(async () => session);
 		const { app, finalizeSession } = createApp({ switchOrganization });

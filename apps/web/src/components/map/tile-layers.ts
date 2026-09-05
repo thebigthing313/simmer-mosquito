@@ -180,7 +180,7 @@ const TILE_LAYER_BINDINGS = {
 		allLayerIds: REGION_LAYER_IDS,
 		buildTileUrl: (layer) => buildRegionTileUrl(layer.serverUrl, layer.filters),
 		// Only the ticked regions are on screen, so the camera frames those and an
-		// empty set frames nothing rather than the whole agency.
+		// empty set frames nothing rather than the whole organization.
 		buildExtentUrl: (layer) => {
 			const ids = layer.visibleIds ?? EMPTY_IDS;
 			return ids.length === 0

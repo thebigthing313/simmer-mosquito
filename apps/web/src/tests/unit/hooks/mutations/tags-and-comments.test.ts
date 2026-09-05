@@ -5,10 +5,10 @@
  *
  * Two surfaces that hang off every record rather than belonging to one domain,
  * and both have a spelling nothing else checks. A Tag's colour is a hex string
- * the agency chose and the client used to upper-case it, which made the same
- * colour two values. A comment's `entity_type` is stored snake_case while the
- * domain speaks camelCase, so `serviceRequest` reaching the column unconverted
- * attaches the note to a type no read matches.
+ * the organization chose and the client used to upper-case it, which made the
+ * same colour two values. A comment's `entity_type` is stored snake_case while
+ * the domain speaks camelCase, so `serviceRequest` reaching the column
+ * unconverted attaches the note to a type no read matches.
  *
  * The lifecycle is the other half. A Tag created with the switch off used to be
  * written active, and a pin used to be a column the server read to work out what

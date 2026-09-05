@@ -7,7 +7,7 @@ import { prefixesWithNoRoutes } from './support/registered-routes.js';
 
 /**
  * The map surface left the server raw: eleven tile layers and their list reads,
- * about 1.2 MB of tiles to frame one agency where 500 KB would do (#232).
+ * about 1.2 MB of tiles to frame one organization where 500 KB would do (#232).
  *
  * Two of these tests are why the middleware is written here rather than being
  * `compress()` from `hono/compress`: that one's compressible-type list has no

@@ -9,9 +9,10 @@
  * from 40 to 38 says nothing about the species, and re-sending the rest would be
  * this layer inventing an edit the technician did not make.
  *
- * `identifiedDate` is the agency's today rather than the browser's, which is why
- * `add` takes it instead of reading a clock: an identification keyed at 11pm on
- * a lab machine two zones away belongs to the day the agency is having.
+ * `identifiedDate` is the organization's today rather than the browser's, which
+ * is why `add` takes it instead of reading a clock: an identification keyed at
+ * 11pm on a lab machine two zones away belongs to the day the organization is
+ * having.
  */
 
 import { type CollectionSpecies, settleWrite } from '@simmer-mosquito/sync';
@@ -45,7 +46,7 @@ export interface CollectionSpeciesMutations {
 	readonly add: (input: {
 		readonly collectionId: string;
 		readonly fields: CollectionSpeciesFields;
-		/** `YYYY-MM-DD` on the agency's clock, not the browser's. */
+		/** `YYYY-MM-DD` on the organization's clock, not the browser's. */
 		readonly identifiedDate: string;
 		/** Minted by the caller when it needs the id back — key entry tracks its rows. */
 		readonly collectionSpeciesId: string;

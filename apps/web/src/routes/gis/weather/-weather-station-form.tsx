@@ -82,9 +82,9 @@ export interface WeatherStationFormPageProps {
 /**
  * The form's values, as the write seam takes them.
  *
- * The code is empty-to-null rather than empty-to-empty. It is unique per agency
- * where it is non-null, so a second station saved with a blank code box would
- * collide with the first if the empty string were stored.
+ * The code is empty-to-null rather than empty-to-empty. It is unique per
+ * organization where it is non-null, so a second station saved with a blank
+ * code box would collide with the first if the empty string were stored.
  */
 export function weatherStationFieldsFrom(values: WeatherStationFormValues): WeatherStationFields {
 	const code = values.code.trim();

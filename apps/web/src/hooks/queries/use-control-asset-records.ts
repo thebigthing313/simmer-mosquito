@@ -1,11 +1,11 @@
 /**
  * Vehicles and equipment, as the settings page maintains them.
  *
- * Two tables the agency owns that are not quite catalogs — an application names a
- * vehicle and a piece of equipment, but neither carries a custom schema and both
- * carry a free-form `metadata` bag instead. They differ from each other in two
- * columns: the name column's spelling, and a serial number equipment has and a
- * vehicle does not.
+ * Two tables the organization owns that are not quite catalogs — an application
+ * names a vehicle and a piece of equipment, but neither carries a custom schema
+ * and both carry a free-form `metadata` bag instead. They differ from each
+ * other in two columns: the name column's spelling, and a serial number
+ * equipment has and a vehicle does not.
  *
  * That difference is resolved here rather than in the page. The old code carried
  * a `VehicleRow | EquipmentRow` union all the way to the table cell and asked

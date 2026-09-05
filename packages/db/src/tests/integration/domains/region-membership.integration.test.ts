@@ -34,10 +34,11 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
 // assert once, and name the failing case in the diff rather than in the block
 // title.
 //
-// Two agencies, one per distinct region. Both membership reads scope the region
-// set to the record's own agency, so a case that names a multipart region gets a
-// district library holding exactly that region and nothing else. Seeding both
-// regions into one agency would test every case against both.
+// Two organizations, one per distinct region. Both membership reads scope the
+// region set to the record's own organization, so a case that names a multipart
+// region gets a district library holding exactly that region and nothing else.
+// Seeding both regions into one organization would test every case against
+// both.
 
 const orgId = (index: number) => `00000000-0000-4000-8000-${String(400 + index).padStart(12, '0')}`;
 const folderId = (index: number) =>
@@ -164,8 +165,9 @@ describeDbIntegration('region membership corpus, SQL half', () => {
 			const organizationIds = CORPUS_REGIONS.map((_region, index) => orgId(index));
 
 			// --- the predicate itself, per case, plus the cross-check ------------
-			// Each agency holds one region, so the join gives one row per habitat
-			// and each case is tested against the region its corpus entry names.
+			// Each organization holds one region, so the join gives one row per
+			// habitat and each case is tested against the region its corpus entry
+			// names.
 			const branchRows = await sql<BranchRow>`
 				select
 					h.id,
@@ -219,7 +221,7 @@ describeDbIntegration('region membership corpus, SQL half', () => {
 
 			// --- the Region multiselect ------------------------------------------
 			// Both region ids go in. The clause scopes the region set to the
-			// record's own agency, so each habitat is still tested against one.
+			// record's own organization, so each habitat is still tested against one.
 			const filtered = await sql<{ readonly id: string }>`
 				select h.id
 				from habitats h

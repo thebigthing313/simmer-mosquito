@@ -68,7 +68,7 @@ export function CandidateRow({
 }
 
 /**
- * How far away a candidate is, in the agency's units.
+ * How far away a candidate is, in the organization's units.
  *
  * Rounded to whole units below ten and to the nearest ten above, because the
  * reader is judging "is that this basin or the next one" and a distance to the

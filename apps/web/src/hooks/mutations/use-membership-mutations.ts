@@ -1,5 +1,5 @@
 /**
- * Writing the access a login holds on this agency.
+ * Writing the access a login holds on this organization.
  *
  * Four commands, and they take two different paths out of the browser for a
  * reason `docs/domain-command-contract.md` gives under "Commands that span two
@@ -96,10 +96,10 @@ export function useMembershipMutations(): MembershipMutations {
 				operation: 'update',
 				intent: 'identity.endMembership',
 				key: membershipId,
-				// Not a delete: the row is the only record that access was ever held, so
-				// it survives deactivated. `is_default` goes with it — left set, it points
-				// at the one agency this person can no longer enter, and their next
-				// sign-in has nowhere to go.
+				// Not a delete: the row is the only record that access was ever held,
+				// so it survives deactivated. `is_default` goes with it — left set, it
+				// points at the one organization this person can no longer enter, and
+				// their next sign-in has nowhere to go.
 				changes: { status: 'inactive', is_default: false } satisfies Partial<Membership>,
 			}),
 		);
@@ -112,11 +112,11 @@ export function useMembershipMutations(): MembershipMutations {
  * What an invitation says on the wire.
  *
  * Pulled out of the hook because two of its decisions are worth pinning and
- * neither is visible from a rendered dialog. `profile_id` is the whole reason the
- * sheet offers a list: sending a fresh id for somebody the agency already records
- * work against mints a second Profile, and the field history splits in two. And a
- * minted id is what makes a retry a retry, so it has to be the same shape whether
- * the Profile is new or picked.
+ * neither is visible from a rendered dialog. `profile_id` is the whole reason
+ * the sheet offers a list: sending a fresh id for somebody the organization
+ * already records work against mints a second Profile, and the field history
+ * splits in two. And a minted id is what makes a retry a retry, so it has to be
+ * the same shape whether the Profile is new or picked.
  *
  * `mintId` is an argument for the test's sake and for no other reason.
  */

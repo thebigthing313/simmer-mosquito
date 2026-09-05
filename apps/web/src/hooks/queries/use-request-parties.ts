@@ -9,8 +9,8 @@
  *
  * Which is also why this is not a join. `useOrganizationServiceRequests` could
  * join both tables, and the planner would then collect join keys from every
- * request the agency has ever taken. This is the same two subsets, sized to what
- * is on screen.
+ * request the organization has ever taken. This is the same two subsets, sized
+ * to what is on screen.
  *
  * One implementation for two surfaces: the overview's open-requests panel and the
  * explorer's list had a near-identical copy each.

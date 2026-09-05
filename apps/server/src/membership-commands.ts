@@ -158,9 +158,9 @@ export async function writeMembershipCommand(
 				command.payload.organizationId,
 				{
 					status: 'inactive',
-					// `is_default` names where a user lands when they sign in. Left set, it
-					// points at the one agency they can no longer enter, and the next
-					// sign-in has nowhere to go.
+					// `is_default` names where a user lands when they sign in. Left set,
+					// it points at the one organization they can no longer enter, and the
+					// next sign-in has nowhere to go.
 					is_default: false,
 				},
 			);
@@ -205,7 +205,7 @@ async function writeInvitation(
 	if (activeMember !== undefined) {
 		throw new CommandError(409, {
 			error: 'already_a_member',
-			reason: 'That address already has access to this agency.',
+			reason: 'That address already has access to this organization.',
 		});
 	}
 
@@ -293,7 +293,7 @@ async function writeInvitedProfile(
 }
 
 /**
- * One live invitation per address per agency, refused by name.
+ * One live invitation per address per organization, refused by name.
  *
  * `memberships_organization_invited_email_unique` is the rule the schema owns,
  * and reaching it as a constraint violation would answer 500. A collision here
@@ -394,7 +394,7 @@ async function setMembershipColumns(
 function profileRefusal(issue: StageOrganizationInvitationErrorCode): string {
 	switch (issue) {
 		case 'profile_not_found':
-			return 'That profile is not in this agency.';
+			return 'That profile is not in this organization.';
 		case 'profile_already_linked':
 			return 'That profile already has a login.';
 		case 'profile_deleted':
@@ -402,7 +402,7 @@ function profileRefusal(issue: StageOrganizationInvitationErrorCode): string {
 		case 'invited_email_already_used':
 			return 'That address is already invited.';
 		case 'already_a_member':
-			return 'That address already has access to this agency.';
+			return 'That address already has access to this organization.';
 	}
 }
 
@@ -415,8 +415,8 @@ function profileRefusal(issue: StageOrganizationInvitationErrorCode): string {
  *
  * `before` is the revoke side: WorkOS is what refuses a session, so ending the
  * SIMMER row and then failing would leave somebody who reads as removed and can
- * still sign in. `after` is the create side: the mail must not reach somebody the
- * agency has no row for.
+ * still sign in. `after` is the create side: the mail must not reach somebody
+ * the organization has no row for.
  */
 export function membershipSecondSystem(db: CommandDb, auth: MembershipAuth) {
 	return {
@@ -688,7 +688,8 @@ async function sendInvitation(
 	} catch (error) {
 		// The row is written and the mail is not. That reads on the People page as
 		// somebody invited who never got a link, and the repair is a re-invitation.
-		// The other order sends a working link to somebody the agency has no row for.
+		// The other order sends a working link to somebody the organization has no
+		// row for.
 		throw new CommandError(
 			502,
 			refuseInvitationSend(error, {
@@ -730,8 +731,8 @@ async function endWorkOsMembership(
 		.executeTakeFirst();
 
 	// The same bound as an invitation, for the same reason: an admin who could
-	// remove an owner could remove every owner, and an agency with no owner cannot
-	// appoint one.
+	// remove an owner could remove every owner, and an organization with no owner
+	// cannot appoint one.
 	if (target !== undefined) {
 		assertCanGrantRole(authContext.role, target.role, 'remove');
 	}

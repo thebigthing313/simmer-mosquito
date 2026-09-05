@@ -11,7 +11,8 @@ import { BasicIndex } from '@tanstack/db';
 import { declareCollection } from './registry';
 
 /**
- * `on-demand`: The public an agency has heard from, which grows with every service request.
+ * `on-demand`: The public an organization has heard from, which grows with every service
+ * request.
  *
  * This app writes contacts, so the collection carries the three mutation
  * handlers and every write through it names the command it means.

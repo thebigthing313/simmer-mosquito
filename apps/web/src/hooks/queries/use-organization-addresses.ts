@@ -1,15 +1,15 @@
 /**
- * The agency's whole address book, alphabetical.
+ * The organization's whole address book, alphabetical.
  *
  * The addresses explorer, which filters and pages over synced rows rather than
- * asking the server: an address book is a few thousand rows an agency curates,
- * not a season's accumulation.
+ * asking the server: an address book is a few thousand rows an organization
+ * curates, not a season's accumulation.
  *
  * The centroid rides along because the explorer narrows by region against the
  * boundaries directly rather than server-side, and a point is what that test
  * takes. The full geometry still lives outside the shape.
  *
- * No org predicate — the shape is scoped to the agency server-side. See
+ * No org predicate — the shape is scoped to the organization server-side. See
  * `use-organization-service-requests.ts` for why re-stating it here is both
  * redundant and the thing that broke when the column name changed.
  */

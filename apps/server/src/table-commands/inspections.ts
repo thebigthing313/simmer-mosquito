@@ -18,11 +18,11 @@
  *
  * ## The entry policy no longer costs a query
  *
- * Whether an agency records larvae as a density band or a count is an
+ * Whether an organization records larvae as a density band or a count is an
  * organization setting, and the domain validates the result against it. The old
- * routes fetched it with `loadInspectionPolicy` on every POST and PATCH —
- * but the settings blob is already on `AuthContext`, put there for the timezone
- * and resolved from the same per-request identity query. So this reads it off the
+ * routes fetched it with `loadInspectionPolicy` on every POST and PATCH — but
+ * the settings blob is already on `AuthContext`, put there for the timezone and
+ * resolved from the same per-request identity query. So this reads it off the
  * context instead: same value, same freshness, one fewer round trip.
  */
 

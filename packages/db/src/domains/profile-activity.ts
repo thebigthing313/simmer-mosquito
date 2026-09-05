@@ -88,9 +88,9 @@ export interface ProfileActivityInput {
 	/** Inclusive upper bound on the activity date (`YYYY-MM-DD`). */
 	readonly dateTo: string;
 	/**
-	 * The agency's IANA timezone. Timestamps become calendar dates in it, so a
-	 * trap set at 9pm files under the day the crew worked rather than the day
-	 * the database server rolled over.
+	 * The organization's IANA timezone. Timestamps become calendar dates in it,
+	 * so a trap set at 9pm files under the day the crew worked rather than the
+	 * day the database server rolled over.
 	 */
 	readonly timeZone: string;
 	/** Safety cap on total rows returned across all branches. */
@@ -161,11 +161,11 @@ const ADDRESS_JOIN = 'left join addresses ad on ad.id = r.address_id';
 const ADDRESS_NAME = `nullif(btrim(ad.display_name), '')`;
 
 /**
- * The nine record shapes, dated in one agency's timezone.
+ * The nine record shapes, dated in one organization's timezone.
  *
  * Built per call rather than declared as constants because six of these date
  * expressions convert a `timestamptz`, and which calendar day that lands on is
- * the agency's question rather than the database server's.
+ * the organization's question rather than the database server's.
  */
 function recordShapes(timeZone: string): {
 	readonly habitat: RecordShape;
@@ -338,9 +338,9 @@ function primaryBranches(shapes: RecordShapes, timeZone: string): readonly Prima
 			role: 'set',
 			profileColumn: 'set_by_profile_id',
 			// A collection is dated by whichever of the two mutually-exclusive timing
-			// shapes it was recorded in — `collections_timing_shape` guarantees exactly
-			// one is populated, so reading either column alone silently empties adult
-			// surveillance for every agency on the other mode.
+			// shapes it was recorded in — `collections_timing_shape` guarantees
+			// exactly one is populated, so reading either column alone silently
+			// empties adult surveillance for every organization on the other mode.
 			date: `coalesce(${localDate('r.started_at')}, r.collection_date)`,
 			occurredAt: 'r.started_at',
 		},
@@ -389,10 +389,11 @@ function shapeByEntityType(
  * Every record the Profile is named on or assisted with, in `[dateFrom,
  * dateTo]`, across the nine categories — one `union all`, one round-trip.
  *
- * Each branch scopes to the agency first so the `(organization_id, <date> desc,
- * …)` indexes stay usable, and excludes soft-deleted rows — on the record and,
- * for the assisting branches, on the personnel link too. Ordered newest-first
- * and capped; the caller reports truncation rather than trimming quietly.
+ * Each branch scopes to the organization first so the `(organization_id, <date>
+ * desc, …)` indexes stay usable, and excludes soft-deleted rows — on the record
+ * and, for the assisting branches, on the personnel link too. Ordered
+ * newest-first and capped; the caller reports truncation rather than trimming
+ * quietly.
  */
 export async function listProfileActivity(
 	db: Kysely<SimmerDatabase>,

@@ -45,7 +45,7 @@ const auth = env.workosIdentityWritesDisabled
 	: workOsAuth;
 if (env.workosIdentityWritesDisabled) {
 	console.warn(
-		'[workos-interlock] WORKOS_IDENTITY_WRITES_DISABLED=true — every WorkOS identity write refuses with 403 workos_identity_writes_disabled. Invitations, role changes, removals, password resets, sign-ups and agency creation will not settle.',
+		'[workos-interlock] WORKOS_IDENTITY_WRITES_DISABLED=true — every WorkOS identity write refuses with 403 workos_identity_writes_disabled. Invitations, role changes, removals, password resets, sign-ups and organization creation will not settle.',
 	);
 }
 const db = createDb({
@@ -132,8 +132,8 @@ for (const prefix of COMPRESSED_READ_PREFIXES) {
 
 // Organization-scoped reads on URLs that are byte-identical across tenants.
 // `cache-headers.ts` explains why; the short version is that a tile URL carries
-// no organization id and one login can switch between agencies without the URL
-// changing. Registered before the routes so it wraps them.
+// no organization id and one login can switch between organizations without the
+// URL changing. Registered before the routes so it wraps them.
 for (const prefix of PRIVATE_READ_PREFIXES) {
 	app.use(prefix, privateNoStore);
 }

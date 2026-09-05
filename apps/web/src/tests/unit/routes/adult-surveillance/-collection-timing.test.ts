@@ -23,7 +23,8 @@ describe('a collection set and collected on the same day', () => {
 	}
 
 	it('never stamps the set after the collection', () => {
-		// 09:00 on the agency's clock — before its midday, so both stamps clamp.
+		// 09:00 on the organization's clock — before its midday, so both stamps
+		// clamp.
 		const morning = new Date('2026-08-04T13:00:00.000Z');
 		const stamps = collectionTimingStamps(
 			exactValues('2026-08-04', '2026-08-04'),

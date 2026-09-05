@@ -13,7 +13,8 @@ import {
 } from './shared.js';
 
 /**
- * The agency's own details: its name, who to contact, and where to post things.
+ * The organization's own details: its name, who to contact, and where to post
+ * things.
  *
  * Not its settings. Those are seven `organizationSettings.*` commands writing a
  * JSON document, and they share this row. Before ADR 0013 the columns were an
@@ -53,22 +54,22 @@ export type UpdateOrganizationDetailsCommand = IdentityDomainCommand<
 >;
 
 /**
- * The one country an agency address can name.
+ * The one country an organization address can name.
  *
- * SIMMER does not expect an agency outside the US. A mosquito control district
- * is a US institution, and the rest of the product already assumes it: the
- * agency timezone picker offers US zones only, and the mailing region is
- * checked against the state codes below. The country is the field that was
+ * SIMMER does not expect an organization outside the US. A mosquito control
+ * district is a US institution, and the rest of the product already assumes it:
+ * the organization timezone picker offers US zones only, and the mailing region
+ * is checked against the state codes below. The country is the field that was
  * never told, so a direct caller could write an address in a state that is a
  * state of somewhere else. Both halves refuse now, and this is where the
- * assumption is written down rather than implied by a select. See "An agency
- * address is US-shaped" in `docs/identity-domain.md` for what would have to
- * change if a non-US agency ever appears.
+ * assumption is written down rather than implied by a select. See "An
+ * organization address is US-shaped" in `docs/identity-domain.md` for what
+ * would have to change if a non-US organization ever appears.
  */
 const US_COUNTRY_CODE = 'US';
 
 /**
- * The mailing regions an agency address can name.
+ * The mailing regions an organization address can name.
  *
  * An unrecognized code was silently dropped to `null` by the route this
  * replaces. It is refused here instead: a state nobody can spell is a typo, and
@@ -155,9 +156,9 @@ const DETAIL_KEYS: readonly (keyof OrganizationDetailChanges)[] = ['name', ...NU
  * The two details that are codes rather than free text.
  *
  * Both are upper-cased and then required to be one of a fixed set, and both say
- * the same thing: an agency address is US-shaped. They are a pair here so that
- * neither can be given the rule while the other is forgotten, which is how the
- * country came to be written with no check at all.
+ * the same thing: an organization address is US-shaped. They are a pair here so
+ * that neither can be given the rule while the other is forgotten, which is how
+ * the country came to be written with no check at all.
  */
 const CODED_DETAILS: readonly {
 	readonly key: NullableDetailKey;
@@ -183,7 +184,7 @@ export function updateOrganizationDetailsCommand(
 	validateOrganizationBase(input, issues);
 
 	if (DETAIL_KEYS.every((key) => input[key] === undefined)) {
-		issues.push({ path: 'changes', message: 'At least one agency detail must change.' });
+		issues.push({ path: 'changes', message: 'At least one organization detail must change.' });
 	}
 
 	const changes: Record<string, string | null> = {};
@@ -197,8 +198,8 @@ export function updateOrganizationDetailsCommand(
 	}
 	for (const { key, isAllowed, message } of CODED_DETAILS) {
 		const value = changes[key];
-		// Absent leaves the column alone and `null` clears it. An agency that has
-		// not filled its address in is not an error; only a code that names
+		// Absent leaves the column alone and `null` clears it. An organization that
+		// has not filled its address in is not an error; only a code that names
 		// somewhere else is.
 		if (typeof value !== 'string') {
 			continue;

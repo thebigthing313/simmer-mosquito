@@ -35,9 +35,10 @@ interface SpeciesOption {
 }
 
 /**
- * Key binding setup: one key per species, assigned against the agency's adopted
- * species list. The same set drives adult and larval key entry, so the editor keeps
- * both a bound list and an unbound list visible rather than hiding what is left.
+ * Key binding setup: one key per species, assigned against the organization's
+ * adopted species list. The same set drives adult and larval key entry, so the
+ * editor keeps both a bound list and an unbound list visible rather than hiding
+ * what is left.
  */
 export function KeyBindingsSettings({
 	canManage,
@@ -301,8 +302,8 @@ function SectionLabel({ children }: { readonly children: React.ReactNode }) {
 }
 
 /**
- * The agency's adopted species, falling back to the full taxonomy when none are
- * curated — the same rule the sample identification picker follows.
+ * The organization's adopted species, falling back to the full taxonomy when
+ * none are curated — the same rule the sample identification picker follows.
  */
 function useSpeciesOptions(): readonly SpeciesOption[] {
 	return useAdoptedSpeciesOptions().options;

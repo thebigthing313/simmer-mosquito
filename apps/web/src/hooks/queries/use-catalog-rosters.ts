@@ -1,5 +1,5 @@
 /**
- * The agency's catalogs, as the record forms need them.
+ * The organization's catalogs, as the record forms need them.
  *
  * One file for all of them, because they are one question asked of seven tables:
  * what may this field be set to. The explorers ask a narrower one — see
@@ -9,14 +9,15 @@
  * A form needs two things those drop:
  *
  * `isActive`, because a retired catalog row stays selectable. These forms are
- * where past seasons get keyed in, and a method the agency dropped last year is
- * exactly what a record from last year was worked with. `lifecycleOptions` marks
- * the row and sorts it behind everything still in service.
+ * where past seasons get keyed in, and a method the organization dropped last
+ * year is exactly what a record from last year was worked with.
+ * `lifecycleOptions` marks the row and sorts it behind everything still in
+ * service.
  *
- * `customSchema`, because a catalog row can carry extra fields the agency defined,
- * and picking the method is what decides which of them the form renders.
- * `collection_lures` is the one catalog without that column, which is why the
- * roster comes in two shapes rather than one.
+ * `customSchema`, because a catalog row can carry extra fields the organization
+ * defined, and picking the method is what decides which of them the form
+ * renders. `collection_lures` is the one catalog without that column, which is
+ * why the roster comes in two shapes rather than one.
  *
  * Every catalog here is eager, so none of this costs a request. The reads suspend
  * for the same reason the explorer options do: the rows are there before a form
@@ -41,7 +42,7 @@ export interface CatalogListing {
 	readonly isActive: boolean;
 }
 
-/** The same, plus whatever extra fields the agency attached to this row. */
+/** The same, plus whatever extra fields the organization attached to this row. */
 export interface SchemaCatalogListing extends CatalogListing {
 	readonly customSchema: unknown;
 }

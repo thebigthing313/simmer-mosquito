@@ -13,10 +13,10 @@ const ExpandIcon = iconRegistry.arrows.chevronDown.icon;
 
 /**
  * The organization switcher. It anchors the secondary sidebar with the current
- * agency name (wrapping to two lines, then truncating) and a menu to move
- * between the agencies the operator belongs to. Logos are not yet supported, so
- * the name carries the identity on its own. Its height matches the header so the
- * top dividers align across columns.
+ * organization name (wrapping to two lines, then truncating) and a menu to move
+ * between the organizations the operator belongs to. Logos are not yet
+ * supported, so the name carries the identity on its own. Its height matches
+ * the header so the top dividers align across columns.
  */
 export function SecondarySidebarHeader() {
 	const { organizations, currentOrganization, onSelectOrganization } = useShell();

@@ -19,7 +19,7 @@ interface TestRow {
 
 const row: TestRow = {
 	id: 'habitat-1',
-	organization_id: 'agency-1',
+	organization_id: 'organization-1',
 	lat: 41.2,
 	lng: -95.9,
 	geom_type: 'Point',

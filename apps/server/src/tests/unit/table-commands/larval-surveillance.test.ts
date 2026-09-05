@@ -127,9 +127,10 @@ describe('inspections intent map', () => {
 	});
 
 	it('takes the entry policy from the session rather than a query', () => {
-		// A band and no counts: what a `hybrid` agency records and what a
-		// count-and-dips agency may not. Same body, two agencies, and the only thing
-		// that decided was the settings blob already on the auth context.
+		// A band and no counts: what a `hybrid` organization records and what a
+		// count-and-dips organization may not. Same body, two organizations, and
+		// the only thing that decided was the settings blob already on the auth
+		// context.
 		expect(() =>
 			build(
 				inspections,

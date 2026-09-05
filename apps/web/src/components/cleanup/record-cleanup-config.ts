@@ -46,8 +46,8 @@ export interface DuplicatePageConfig {
 	 *
 	 * Declared rather than read off the results, so the filter offers the same
 	 * choices on every visit. Taking them from the data would hide a match type
-	 * the moment an agency had none of it, which is when a reader most wants to
-	 * see that it was looked for and found nothing.
+	 * the moment an organization had none of it, which is when a reader most
+	 * wants to see that it was looked for and found nothing.
 	 */
 	readonly reasons: readonly DuplicateReason[];
 }

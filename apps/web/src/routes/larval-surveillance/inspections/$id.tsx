@@ -320,10 +320,10 @@ function InspectionLocationCard({
  * the two it repeated were the two an operator had just read.
  *
  * What is left is what nothing else on the page says: which stages were there,
- * how many larvae, and out of how much dipping. The rate closes the loop back to
- * the badge in the header — an agency configures its density bands as ranges of
- * larvae per dip, so printing the rate is what makes "Heavy" checkable instead of
- * asserted.
+ * how many larvae, and out of how much dipping. The rate closes the loop back
+ * to the badge in the header — an organization configures its density bands as
+ * ranges of larvae per dip, so printing the rate is what makes "Heavy"
+ * checkable instead of asserted.
  *
  * A dry inspection renders nothing. Its Dry badge is already in the header, and
  * the sentence that used to fill this card — that larvae need standing water —

@@ -140,7 +140,7 @@ export interface InspectionFormHeader {
 export interface InspectionFormPageProps {
 	readonly organizationId: string;
 	readonly canSubmit: boolean;
-	/** The agency's larval entry policy — decides which abundance fields exist. */
+	/** The organization's larval entry policy — decides which abundance fields exist. */
 	readonly policy: ResolvedLarvalInspectionEntryPolicy;
 	readonly profiles: readonly ProfileListing[];
 	readonly habitatTypes: readonly SchemaCatalogListing[];
@@ -216,10 +216,10 @@ interface ResultColumns {
 }
 
 /**
- * Which abundance inputs the agency's entry policy makes meaningful, and which
- * of them it insists on. Mirrors `normalizeLarvalInspectionResult` so the form
- * asks for exactly what the command will accept — under density-only entry a
- * larvae count is rejected outright, and under count-and-dips both counts are
+ * Which abundance inputs the organization's entry policy makes meaningful, and
+ * which of them it insists on. Mirrors `normalizeLarvalInspectionResult` so the
+ * form asks for exactly what the command will accept — under density-only entry
+ * a larvae count is rejected outright, and under count-and-dips both counts are
  * required, so neither should be presented the same way as an optional field.
  *
  * Hybrid requires density *or* the count pair, which no single field can be
@@ -311,8 +311,8 @@ export function InspectionFormPage({
 					inspectionId: FORM_VALIDATION_CONTEXT.organizationId,
 					inspectionDate: value.inspectionDate,
 					inspectedByProfileId: value.inspectedByProfileId,
-					// The agency's own policy, so the form enforces the same abundance
-					// rules the server will rather than the built-in default.
+					// The organization's own policy, so the form enforces the same
+					// abundance rules the server will rather than the built-in default.
 					policy,
 					isWet: value.isWet,
 					dipCount: value.dipCount,
@@ -931,7 +931,8 @@ function HabitatSearchResults({
 	readonly onSelect: (habitat: HabitatMatch) => void;
 }) {
 	// `includeRetired`, because this picker always has: an inspection is also how
-	// a site the agency retired gets looked at again. The control pickers exclude.
+	// a site the organization retired gets looked at again. The control pickers
+	// exclude.
 	const {
 		matches: habitats,
 		isReady,

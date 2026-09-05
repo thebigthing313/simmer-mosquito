@@ -88,8 +88,8 @@ export function registerAdminInvitationRoutes(
 			// Postgres first, then WorkOS, under the ordering rule in
 			// `docs/domain-command-contract.md`. Staging still refuses an address
 			// already spoken for, and sending before it meant the operator read that
-			// refusal while the invitee held a working link to an agency with no row
-			// for them.
+			// refusal while the invitee held a working link to an organization with
+			// no row for them.
 			const staged = await stageMembership(options.db, organizationId, payloadResult.payload);
 			if (!staged.ok) {
 				return context.json({ error: staged.code }, staged.status);
@@ -104,8 +104,8 @@ export function registerAdminInvitationRoutes(
 			});
 			if (!invitationResult.ok) {
 				// The Membership stays, with no invitation id on it. The role is still
-				// staged and still claimed the next time they enter the agency, and an
-				// operator who needs the mail can invite again.
+				// staged and still claimed the next time they enter the organization,
+				// and an operator who needs the mail can invite again.
 				return context.json(invitationResult.refusal, 502);
 			}
 
@@ -200,8 +200,8 @@ type SentInvitation = Awaited<ReturnType<AdminInvitationAuth['sendOrganizationIn
  * invited to it — `sendInvitation` throws on an existing member — and does not
  * need to be. What they are missing is the SIMMER role, which the caller stages
  * either way, to be claimed by provisioning the next time they enter the
- * agency. This is the ordinary shape of an operator support grant (ADR 0011),
- * not an edge case.
+ * organization. This is the ordinary shape of an operator support grant (ADR
+ * 0011), not an edge case.
  *
  * A `null` invitation is therefore success, not absence. Any other WorkOS
  * refusal comes back named: it used to leave the route throwing, which reached
@@ -248,7 +248,7 @@ async function inviteUnlessAlreadyReached(
 }
 
 /**
- * Everything that must be true of the agency and the named profile before
+ * Everything that must be true of the organization and the named profile before
  * WorkOS is touched at all.
  *
  * Grouped because they share a consequence: each is a refusal the caller can

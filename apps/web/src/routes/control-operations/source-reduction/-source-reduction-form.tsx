@@ -374,8 +374,8 @@ export function SourceReductionFormPage({
 					</div>
 				</FormSection>
 
-				{/* Agencies attach their own fields to a method; render whichever the
-							    selected one declares, and nothing when it declares none. */}
+				{/* Organizations attach their own fields to a method; render whichever
+							    the selected one declares, and nothing when it declares none. */}
 				<form.Subscribe selector={(state) => state.values.sourceReductionMethodId}>
 					{(methodId) => {
 						const schema = customSchemaFor(methods, methodId);

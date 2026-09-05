@@ -58,8 +58,8 @@ describe('useApplicationBatchNames', () => {
 
 	it('matches nothing when the caller has no application yet', async () => {
 		// A hook cannot be called conditionally, so a form that has not chosen one
-		// asks for an id no row has. Reading the whole table instead would put every
-		// batch in the agency behind an empty field.
+		// asks for an id no row has. Reading the whole table instead would put
+		// every batch in the organization behind an empty field.
 		seedRows(application_batches, [link('l1', 'b1'), link('l2', 'b2')]);
 
 		const { result } = await renderRead(() => useApplicationBatchNames(null));

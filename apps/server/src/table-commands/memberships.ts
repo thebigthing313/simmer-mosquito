@@ -1,5 +1,5 @@
 /**
- * `/commands/memberships`: who may sign in to this agency, and as what.
+ * `/commands/memberships`: who may sign in to this organization, and as what.
  *
  * The four commands ADR 0013 left until last, and the only table on the surface
  * whose writes are not finished when the transaction commits. WorkOS holds the

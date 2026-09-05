@@ -1,5 +1,5 @@
 /**
- * The write transaction every agency command endpoint commits through.
+ * The write transaction every organization command endpoint commits through.
  *
  * Five families had a `writeCommands` of their own and two more opened the loop
  * inline, which left the ownership check optional by accident: three of the five
@@ -155,12 +155,12 @@ export interface RunCommandsConfig<TCommand extends WritableCommand, TRow> {
 /**
  * The half of a command that is not Postgres.
  *
- * One table has one. `memberships` writes SIMMER's row *and* settles the grant a
- * session is refreshed against, which lives in WorkOS, and ADR 0013 admits that
- * under a rule about order: the row is written first on a create and last on a
- * revoke. Revoking in Postgres first leaves somebody who reads as removed and can
- * still sign in; mailing an invitation first sends a working link to somebody the
- * agency has no row for.
+ * One table has one. `memberships` writes SIMMER's row *and* settles the grant
+ * a session is refreshed against, which lives in WorkOS, and ADR 0013 admits
+ * that under a rule about order: the row is written first on a create and last
+ * on a revoke. Revoking in Postgres first leaves somebody who reads as removed
+ * and can still sign in; mailing an invitation first sends a working link to
+ * somebody the organization has no row for.
  *
  * So it is two hooks rather than one, and which one a command uses *is* which
  * side of the transaction it belongs on. Neither runs inside it: a transaction
@@ -194,12 +194,12 @@ export interface SecondSystem<TCommand extends WritableCommand> {
  * of the 28 and never left the file it was written in.
  */
 /**
- * The standing of a SIMMER operator, which is no agency standing at all.
+ * The standing of a SIMMER operator, which is no organization standing at all.
  *
  * `viewer` is the floor on purpose: if a command that was not operator-scoped
  * ever reached this path, the role check would refuse it rather than wave it
- * through. `profileId` is empty because an operator has no agency profile —
- * and neither field is ever read, because `resolveCommandOwnership` returns
+ * through. `profileId` is empty because an operator has no organization profile
+ * — and neither field is ever read, because `resolveCommandOwnership` returns
  * `ALLOWED` for every permission kind but the three ownership ones, and
  * `registerOperatorRoutes` proves at startup that an operator table carries
  * none of those.
@@ -209,7 +209,7 @@ const OPERATOR_ACTOR: CommandActor = { role: 'viewer', profileId: '' };
 /**
  * The write tail for an operator table.
  *
- * Separate from {@link runCommands} because that one reads an agency
+ * Separate from {@link runCommands} because that one reads an organization
  * `AuthContext` off the request, and an operator session has none — the global
  * catalogs have no `organization_id` for one to scope.
  */
@@ -272,7 +272,7 @@ export async function runCommands<TCommand extends WritableCommand, TRow>(
 
 		// The create side. The row is committed by the time this runs, which is the
 		// whole reason it is out here: a mail that beat its own Membership would
-		// reach somebody the agency has no row for.
+		// reach somebody the organization has no row for.
 		for (const command of commands) {
 			await config.secondSystem?.after?.(command, authContext);
 		}

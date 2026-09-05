@@ -153,7 +153,7 @@ describe('an invitation', () => {
 
 	// The Membership stays. It reads on the People page as somebody invited who
 	// never got a link, and a re-invitation repairs it. The other order sends a
-	// working link to somebody the agency has no row for.
+	// working link to somebody the organization has no row for.
 	it('answers 502 when WorkOS refuses, leaving the row written', async () => {
 		const auth = fakeAuth();
 		auth.sendOrganizationInvitation.mockRejectedValue(new Error('WorkOS is down'));
@@ -438,7 +438,7 @@ describe('ending a membership', () => {
 		expect(auth.deactivateOrganizationMembership).not.toHaveBeenCalled();
 	});
 
-	it('answers 404 for a membership in another agency', async () => {
+	it('answers 404 for a membership in another organization', async () => {
 		const db = removalDb(null);
 
 		const thrown = await secondSystem(db, fakeAuth())

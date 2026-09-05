@@ -1,5 +1,5 @@
 /**
- * Writing the agency's lookup catalogs.
+ * Writing the organization's lookup catalogs.
  *
  * The mirror of `hooks/queries/use-catalog-rosters.ts`, and one file for the same
  * reason: eight tables asked the same four questions — add one, edit one, retire
@@ -160,7 +160,7 @@ function catalogRowBase(organizationId: string, actorProfileId: string | null) {
 	};
 }
 
-/** The agency and actor every one of these writes is made on behalf of. */
+/** The organization and actor every one of these writes is made on behalf of. */
 function useWriterIdentity(): {
 	readonly organizationId: string | null;
 	readonly actorProfileId: string | null;

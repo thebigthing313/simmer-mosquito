@@ -6,7 +6,7 @@ import {
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 
 /**
- * The identity commands an agency can send.
+ * The identity commands an organization can send.
  *
  * Every identity write ADR 0013 folds in, which is all of them. The one surface
  * left outside is `people.listMemberships`: it is a read behind a POST, and

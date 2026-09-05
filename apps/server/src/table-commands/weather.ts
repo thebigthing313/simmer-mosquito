@@ -18,11 +18,11 @@
  * tables: the point lives in `geom`, which never syncs, so `geometry` names the
  * shape to store rather than a column.
  *
- * ## The future-date rule needs the agency's zone
+ * ## The future-date rule needs the organization's zone
  *
  * A summary records weather that has already happened, so its bucket cannot end
- * after today. Which day "today" is depends on the agency's timezone, a
- * California agency entering yesterday's rain at 6pm is on a date UTC has
+ * after today. Which day "today" is depends on the organization's timezone, a
+ * California organization entering yesterday's rain at 6pm is on a date UTC has
  * already left, so the check cannot live in a domain builder, which is handed
  * no zone, and cannot live in the writer, which is handed a transaction and a
  * command and nothing else. It lives here, where `authContext.timeZone` is the
@@ -279,7 +279,7 @@ function readNumber(value: unknown): number | null {
 }
 
 /**
- * Refuse a bucket that runs past today in the agency's zone.
+ * Refuse a bucket that runs past today in the organization's zone.
  *
  * Raised as a `DomainValidationError` so it lands as the same `invalid_command`
  * 400 with an issue path that a builder rejection does. To a client this is one
@@ -303,7 +303,7 @@ function assertNotFuture(
 	}
 }
 
-/** Today, as the calendar day the agency is currently on. */
+/** Today, as the calendar day the organization is currently on. */
 function todayInTimeZone(timeZone: string): string {
 	return new Intl.DateTimeFormat('en-CA', {
 		timeZone,

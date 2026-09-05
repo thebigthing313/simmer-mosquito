@@ -8,15 +8,15 @@
  *
  * This table withholds `subscription_status`, `billing_mode`,
  * `billing_contact_name`, `billing_contact_email`, `subscription_notes` as
- * well. They are the operator's view of an agency rather than the agency's
- * own record. They are written and read in the operator console
+ * well. They are the operator's view of an organization rather than the
+ * organization's own record. They are written and read in the operator console
  * (`apps/admin`), which reaches them over REST; `subscription_notes` in
- * particular is what operators write *about* an agency. An agency that
- * should see its own subscription state is a product decision to make
+ * particular is what operators write *about* an organization. An organization
+ * that should see its own subscription state is a product decision to make
  * deliberately, not a column to leave streaming by default. Say so in
- * `WITHHELD` in `scripts/withheld-columns.mjs`, never by deleting a
- * line below — that lasts until the next regeneration, and the drift check
- * reads the same list.
+ * `WITHHELD` in `scripts/withheld-columns.mjs`, never by deleting a line below
+ * — that lasts until the next regeneration, and the drift check reads the same
+ * list.
  *
  * A `date` column is a `YYYY-MM-DD` string rather than a `Date` — see
  * `functions/sync-collection.ts` for why parsing one loses a day.

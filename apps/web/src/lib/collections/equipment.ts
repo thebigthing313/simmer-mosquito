@@ -10,8 +10,8 @@ import { createEquipmentCollection, type Equipment } from '@simmer-mosquito/sync
 import { declareCollection } from './registry';
 
 /**
- * `eager`: An agency's equipment. A short list, offered on every application and
- * assignment.
+ * `eager`: An organization's equipment. A short list, offered on every
+ * application and assignment.
  *
  * This app writes equipment, so the collection carries the three mutation
  * handlers and every write through it names the command it means.

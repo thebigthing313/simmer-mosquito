@@ -983,7 +983,7 @@ export const webStandalonePages: readonly ShellStandalonePage[] = [
 	{ path: '/changelog', crumbs: [{ label: "What's New" }] },
 ];
 
-/** The account-menu entries for the agency workspace. */
+/** The account-menu entries for the organization workspace. */
 export const webAccountLinks: readonly ShellAccountLink[] = [
 	{ label: 'Profile', to: '/profile', icon: iconRegistry.actions.edit.icon },
 ];

@@ -1,11 +1,11 @@
 /**
  * The four notification tables, as commands.
  *
- * `notification_types` is the catalog an agency defines; a
+ * `notification_types` is the catalog an organization defines; a
  * `notification_registrations` row is a member of the public who wants telling
- * before a mission runs near them; `notification_registration_types` is the link
- * between the two; and `mission_notifications` is one actual notification owed
- * for one mission. Twenty commands.
+ * before a mission runs near them; `notification_registration_types` is the
+ * link between the two; and `mission_notifications` is one actual notification
+ * owed for one mission. Twenty commands.
  *
  * ## A `default:` that reopened
  *

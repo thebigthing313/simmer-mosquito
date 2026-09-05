@@ -1,5 +1,5 @@
 /**
- * Every Contact the agency has, by name.
+ * Every Contact the organization has, by name.
  *
  * The whole directory rather than a page of it, because the explorer filters
  * across seven fields at once — name, company, department, title, and all three
@@ -9,10 +9,10 @@
  * the collection directly with an `ilike` subset, the way the address picker
  * does.
  *
- * No org predicate. The shape is scoped to the agency server-side — the proxy
- * forces the scope and ignores anything the caller asks for — so re-stating it
- * here is redundant, and a stale column spelling in a redundant predicate empties
- * a page rather than narrowing it.
+ * No org predicate. The shape is scoped to the organization server-side — the
+ * proxy forces the scope and ignores anything the caller asks for — so
+ * re-stating it here is redundant, and a stale column spelling in a redundant
+ * predicate empties a page rather than narrowing it.
  */
 
 import { useLiveQuery } from '@tanstack/react-db';

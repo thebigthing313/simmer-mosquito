@@ -6,13 +6,14 @@ import { regions } from '../../lib/collections/regions';
 import type { FilterOption } from './multi-select-filter';
 
 /**
- * The agency's regions, as filter options and as an id→name lookup.
+ * The organization's regions, as filter options and as an id→name lookup.
  *
- * A region is the agency's own operational geography — a district, a zone, a
- * treatment area — and it is how field work is divided up, so "only show me this
- * district" is a question every map surface gets asked. Regions are grouped into
- * folders, so options are labelled by name alone and ordered alphabetically;
- * agencies keep tens of them, not thousands, and the picker searches.
+ * A region is the organization's own operational geography — a district, a
+ * zone, a treatment area — and it is how field work is divided up, so "only
+ * show me this district" is a question every map surface gets asked. Regions
+ * are grouped into folders, so options are labelled by name alone and ordered
+ * alphabetically; organizations keep tens of them, not thousands, and the
+ * picker searches.
  *
  * `regions` is an on-demand shape, so this drives its subset with an org-scoped
  * live query rather than reading an already-local catalog. Plain `useLiveQuery`,

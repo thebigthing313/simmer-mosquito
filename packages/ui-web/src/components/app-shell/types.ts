@@ -68,7 +68,7 @@ export interface ShellDomain {
 	readonly groups: readonly ShellNavGroup[];
 }
 
-/** An agency the signed-in person can operate within. */
+/** An organization the signed-in person can operate within. */
 export interface ShellOrganization {
 	readonly id: string;
 	readonly name: string;

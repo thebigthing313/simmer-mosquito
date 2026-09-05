@@ -5,18 +5,20 @@
  *
  * ## Two clocks, and why neither is resolved here
  *
- * A collection is dated one of two ways, per an agency setting: `exact_timestamps`
- * puts an instant in `collectedAt` and leaves `collectionDate` null, while
- * `collection_date_duration` puts a plain day in `collectionDate` and always
- * leaves `collectedAt` null. Which of the two a row uses is `collectionTimingMode`,
- * and reading only one of the columns empties a whole surface for half the
- * agencies — see the `collectionEffectiveDate` note in `-adult-display.tsx`.
+ * A collection is dated one of two ways, per an organization setting:
+ * `exact_timestamps` puts an instant in `collectedAt` and leaves
+ * `collectionDate` null, while `collection_date_duration` puts a plain day in
+ * `collectionDate` and always leaves `collectedAt` null. Which of the two a row
+ * uses is `collectionTimingMode`, and reading only one of the columns empties a
+ * whole surface for half the organizations — see the `collectionEffectiveDate`
+ * note in `-adult-display.tsx`.
  *
  * Both columns ride up raw and the shared helper resolves them, because turning
- * the instant into a calendar day needs the agency's time zone. A zone is an
- * argument, not a column, so no compiled `select` can reach it: a projection that
- * took the UTC prefix would file a trap emptied at 10:30pm under the next day,
- * disagreeing with the server, which windows these rows in the agency's zone.
+ * the instant into a calendar day needs the organization's time zone. A zone is
+ * an argument, not a column, so no compiled `select` can reach it: a projection
+ * that took the UTC prefix would file a trap emptied at 10:30pm under the next
+ * day, disagreeing with the server, which windows these rows in the
+ * organization's zone.
  *
  * `collectedAt` is a `Date` and `collectionDate` a `YYYY-MM-DD` string, which is
  * how they are stored and what the shape streams. The helpers take both.
@@ -98,7 +100,7 @@ export interface CollectionDates {
  * Ordering needs no zone: it needs a key that ranks the same way for everyone,
  * and the stored instant does that with finer resolution than the day it falls
  * on. Separate from `collectionEffectiveDate`, which answers "which day is this
- * filed under" — only that question needs the agency.
+ * filed under" — only that question needs the organization.
  *
  * ISO either way, so an instant and a plain day still rank against each other on
  * their shared `YYYY-MM-DD` prefix. Undated rows sort last.

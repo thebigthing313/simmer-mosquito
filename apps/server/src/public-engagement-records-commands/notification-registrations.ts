@@ -224,8 +224,9 @@ async function runRegistrationCommands(
  * a record of anything that happened.
  *
  * `acknowledgedFutureOnlyChange` is the flag on three of the four, and it is
- * named for the answer rather than the question — the agency is confirming that
- * the change applies from here on and does not restate what was already sent.
+ * named for the answer rather than the question — the organization is
+ * confirming that the change applies from here on and does not restate what was
+ * already sent.
  */
 async function assertRegistrationHistory(
 	trx: PublicEngagementTransaction,

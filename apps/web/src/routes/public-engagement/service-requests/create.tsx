@@ -46,9 +46,9 @@ function CreateServiceRequestRoute() {
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
-	// The day the public reported it is an operational date, so it is the agency's
-	// day rather than the browser's — an intake taker keying in a call at 11pm
-	// files it under the day the agency is still working.
+	// The day the public reported it is an operational date, so it is the
+	// organization's day rather than the browser's — an intake taker keying in a
+	// call at 11pm files it under the day the organization is still working.
 	const timeZone = useOrganizationTimeZone();
 	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
 

@@ -4,12 +4,12 @@ import type { Tag } from '../hooks/queries/tag-view';
 import { hexWithAlpha } from '../lib/hex-color';
 
 /**
- * A tag, tinted from the colour the agency chose for it.
+ * A tag, tinted from the colour the organization chose for it.
  *
- * The colour is applied as a triple — border, a wash of background, and the text
- * — from one hex value, so an agency picking any colour still lands on a chip
- * that reads. A missing or malformed colour falls back to neutral rather than
- * rendering something unreadable.
+ * The colour is applied as a triple — border, a wash of background, and the
+ * text — from one hex value, so an organization picking any colour still lands
+ * on a chip that reads. A missing or malformed colour falls back to neutral
+ * rather than rendering something unreadable.
  */
 function TagChip({ tag }: { readonly tag: Tag }) {
 	const style = tagColorStyle(tag.color);

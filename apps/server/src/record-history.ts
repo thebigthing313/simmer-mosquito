@@ -119,8 +119,9 @@ export function sentNotificationRule(
  * The species filed under a genus.
  *
  * `genera` and `species` are global tables with no `organization_id`, so the
- * count is every agency's and the rule carries no tenancy filter. The caller is
- * an operator, who already reads every agency, so the number leaks nothing.
+ * count is every organization's and the rule carries no tenancy filter. The
+ * caller is an operator, who already reads every organization, so the number
+ * leaks nothing.
  */
 export function genusSpeciesRule(genusId: string): CitingRule {
 	return {
@@ -135,11 +136,11 @@ export function genusSpeciesRule(genusId: string): CitingRule {
 }
 
 /**
- * Everything an agency has identified as a species.
+ * Everything an organization has identified as a species.
  *
  * Global for the same reason `genusSpeciesRule` is, and counted across the
  * three tables that name a species: the two surveillance counts and the
- * agency's own species list.
+ * organization's own species list.
  */
 export function speciesRecordRules(speciesId: string): readonly CitingRule[] {
 	return [
@@ -168,8 +169,8 @@ export function speciesRecordRules(speciesId: string): readonly CitingRule[] {
 }
 
 /**
- * Refuse a trap code the agency is already using, unless the caller says they
- * meant it.
+ * Refuse a trap code the organization is already using, unless the caller says
+ * they meant it.
  *
  * Not a history check, and kept out of the shared helper for that reason: the
  * traps it counts do not read under the code being written, they compete with
@@ -198,7 +199,7 @@ export async function assertTrapCodeAcknowledged(
 	}
 	await assertNoColliding(db, {
 		acknowledged: input.acknowledged,
-		message: 'Another trap in this agency already uses this code.',
+		message: 'Another trap in this organization already uses this code.',
 		rule: {
 			key: 'duplicateTrapCode',
 			table: 'traps',

@@ -1,12 +1,12 @@
 /**
  * Which command a contact edit is, and the round trip that decides it.
  *
- * Who somebody is and how the agency may reach them are two commands, and each
- * server-side builder reads its own half of the one body. That makes both
+ * Who somebody is and how the organization may reach them are two commands, and
+ * each server-side builder reads its own half of the one body. That makes both
  * mistakes silent. Name an intent the change set has nothing for and the domain
  * refuses a command with nothing to change — so a save that always names both
- * fails whenever the user touched only one group. Name one too few and the other
- * half of the form is dropped behind a 200.
+ * fails whenever the user touched only one group. Name one too few and the
+ * other half of the form is dropped behind a 200.
  *
  * The last test is the one that catches the whole class at once. A save compares
  * what the form holds against what the record holds, and the comparison is only

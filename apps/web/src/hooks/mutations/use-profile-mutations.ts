@@ -1,12 +1,12 @@
 /**
- * Writing the agency's people.
+ * Writing the organization's people.
  *
- * A **Profile** is who an agency attributes work to. It may or may not have a
- * login behind it: a historical Profile — a crew member who left before SIMMER,
- * or who never signs in — exists so records can name them, and is created here
- * with no `user_id` at all. Attaching a login is a different act with a
- * different floor, and it happens through an invitation rather than through
- * this.
+ * A **Profile** is who an organization attributes work to. It may or may not
+ * have a login behind it: a historical Profile — a crew member who left before
+ * SIMMER, or who never signs in — exists so records can name them, and is
+ * created here with no `user_id` at all. Attaching a login is a different act
+ * with a different floor, and it happens through an invitation rather than
+ * through this.
  *
  * Two operations, and both are commands since ADR 0013's first slice: they were
  * the easiest of the seven identity writes, because each is a plain Postgres

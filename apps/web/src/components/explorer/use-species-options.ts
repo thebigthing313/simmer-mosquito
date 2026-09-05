@@ -6,18 +6,19 @@ import { species } from '../../lib/collections/species';
 import type { FilterOption } from './multi-select-filter';
 
 /**
- * The species an agency records, as filter options, plus the taxonomy as a lookup.
+ * The species an organization records, as filter options, plus the taxonomy as
+ * a lookup.
  *
- * Two different sets, deliberately. The **options** are the species the agency has
- * adopted — a New Jersey program records perhaps thirty of the taxonomy's
- * thousands, and offering the rest would bury the ones it actually finds. The
- * **names** are the whole taxonomy, because a sample identified years ago may name
- * a species the agency has since dropped from its list, and that record still has
- * to read as what it is.
+ * Two different sets, deliberately. The **options** are the species the
+ * organization has adopted — a New Jersey program records perhaps thirty of the
+ * taxonomy's thousands, and offering the rest would bury the ones it actually
+ * finds. The **names** are the whole taxonomy, because a sample identified
+ * years ago may name a species the organization has since dropped from its
+ * list, and that record still has to read as what it is.
  *
- * When the agency has curated nothing, the options fall back to the full catalog:
- * an empty filter is worse than a long one, and a new agency has not got to its
- * species list yet.
+ * When the organization has curated nothing, the options fall back to the full
+ * catalog: an empty filter is worse than a long one, and a new organization has
+ * not got to its species list yet.
  *
  * The two queries run alongside each other rather than in sequence — neither
  * needs anything the other returns.

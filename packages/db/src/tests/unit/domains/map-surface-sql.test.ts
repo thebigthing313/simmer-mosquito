@@ -64,10 +64,10 @@ import type { SimmerDatabase } from '../../../index.js';
 // Eleven explorer surfaces each answer the same four questions — the tile, the
 // framed extent, the paged list, the single row — and each answers them with
 // hand-written SQL. What has to hold across all of them is invisible in any one
-// reader: the tenancy predicate, the soft-delete predicate, and (for the spatial
-// reads) the envelope pair. ADR 0008 says a read that drops one of those leaks
-// another agency's records or resurrects deleted ones, and nothing but the eye
-// currently enforces it.
+// reader: the tenancy predicate, the soft-delete predicate, and (for the
+// spatial reads) the envelope pair. ADR 0008 says a read that drops one of
+// those leaks another organization's records or resurrects deleted ones, and
+// nothing but the eye currently enforces it.
 //
 // So this compiles every reader against a driver that never connects, and pins
 // the result. The per-clause assertions below say what must be true; the file
@@ -75,8 +75,8 @@ import type { SimmerDatabase } from '../../../index.js';
 // a refactor that changes one character of emitted SQL fails here first.
 
 const organizationId = '9a3d9e12-2a1c-4d5f-8f2b-6d0f47a03c31';
-// The agency's zone. Named rather than defaulted so a collection read that
-// stopped converting `collected_at` would change the SQL these assert on.
+// The organization's zone. Named rather than defaulted so a collection read
+// that stopped converting `collected_at` would change the SQL these assert on.
 const timeZone = 'America/New_York';
 const id = 'd4e5f6a7-b8c9-4d0e-8f1a-2b3c4d5e6f70';
 const regionIds = ['b7c0c1d4-8f43-4f6a-9d21-5f9a7b2e14aa'];
@@ -663,7 +663,7 @@ const mapReads: ReadonlyArray<{
 describe('map surface scope', () => {
 	it.each(
 		mapReads.map((read) => [read.name, read] as const),
-	)('the %s read is scoped to one agency and excludes deleted rows', async (_name, mapRead) => {
+	)('the %s read is scoped to one organization and excludes deleted rows', async (_name, mapRead) => {
 		const { db, queries } = compilingDatabase();
 
 		await mapRead.read(db);

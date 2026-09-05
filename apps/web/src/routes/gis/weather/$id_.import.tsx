@@ -98,8 +98,8 @@ function ImportWeatherRoute() {
  * render, and a commit that answers a refusal with a dialog.
  */
 function useWeatherUpload(stationId: string) {
-	// The agency's calendar day, so the review and the server agree about which
-	// rows are dated in the future.
+	// The organization's calendar day, so the review and the server agree about
+	// which rows are dated in the future.
 	const today = todayInTimeZone(useOrganizationTimeZone());
 	// Every reading the station holds, not the year the detail page was showing.
 	// The assessment answers insert, update, no change or fail per row against

@@ -10,8 +10,9 @@ import { afterEach, describe, expect, it } from 'vitest';
  * The console's own front door carries the same strip (#408).
  *
  * An operator signs in with a real production identity here too, and the
- * console's agency creation and invitation routes are both refused on staging,
- * so the warning is worth as much before this form as before the web app's.
+ * console's organization creation and invitation routes are both refused on
+ * staging, so the warning is worth as much before this form as before the web
+ * app's.
  *
  * The copy is asserted in `apps/web`, which owns six of the seven signed-out
  * routes. What is app-specific is the gate and the wiring.

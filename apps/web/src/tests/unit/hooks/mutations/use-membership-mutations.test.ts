@@ -1,11 +1,11 @@
 /**
  * What an invitation carries, which is two client-minted ids and an address.
  *
- * The ids are the whole of why `identity.invite` may be retried at all: a second
- * attempt collides on the primary key, and the server answers with the row it
- * already wrote instead of mailing a second link. Sending the wrong Profile id is
- * the failure that does not look like one — the invitation still works, and the
- * agency ends up with two people where it records one.
+ * The ids are the whole of why `identity.invite` may be retried at all: a
+ * second attempt collides on the primary key, and the server answers with the
+ * row it already wrote instead of mailing a second link. Sending the wrong
+ * Profile id is the failure that does not look like one — the invitation still
+ * works, and the organization ends up with two people where it records one.
  */
 
 import { describe, expect, it } from 'vitest';

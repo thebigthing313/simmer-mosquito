@@ -27,10 +27,11 @@
  * ## An edit is up to two commands
  *
  * `updateInspectionFieldDetails` takes the whole result — date, inspector, wet,
- * dips, density, larvae, life stages — because an inspection *is* its result and
- * the domain validates the set against the agency's entry policy as a unit. The
- * ad hoc placement is a different builder that ignores all of it. So a save that
- * corrected the dip count and moved the point names both, as one write.
+ * dips, density, larvae, life stages — because an inspection *is* its result
+ * and the domain validates the set against the organization's entry policy as a
+ * unit. The ad hoc placement is a different builder that ignores all of it. So
+ * a save that corrected the dip count and moved the point names both, as one
+ * write.
  *
  * A habitat inspection has no location command at all: its geometry is the
  * habitat's, and moving it means editing the habitat.
@@ -64,7 +65,7 @@ export interface InspectionCentroid {
 	readonly geomType: string;
 }
 
-/** What the inspector found. The domain validates the set against the agency's policy. */
+/** What the inspector found. The domain validates the set against the organization's policy. */
 export interface InspectionResult {
 	/** `YYYY-MM-DD` — the operational date, not a timestamp. */
 	readonly inspectionDate: string;
@@ -353,10 +354,10 @@ function resultColumns(result: InspectionResult) {
 /**
  * Whether the result changed at all.
  *
- * Compared as a whole rather than field by field because the command takes it as
- * a whole: the domain validates dips, density and larvae against each other and
- * against the agency's entry policy, so sending three of the twelve would be
- * validating a result nobody recorded.
+ * Compared as a whole rather than field by field because the command takes it
+ * as a whole: the domain validates dips, density and larvae against each other
+ * and against the organization's entry policy, so sending three of the twelve
+ * would be validating a result nobody recorded.
  */
 function resultMoved(next: InspectionResult, current: InspectionResult): boolean {
 	const a = resultColumns(next);
