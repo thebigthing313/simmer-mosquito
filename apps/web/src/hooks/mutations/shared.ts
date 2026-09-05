@@ -14,11 +14,11 @@
  *
  * `apps/admin` writes through plain functions (`lib/collections/writes.ts`), and
  * for three global catalogs that is right — a genus is not written on behalf of
- * anyone. Every agency write is. It carries the acting Profile, the Agency it
- * belongs to, and on some tables the agency's clock, and a plain function would
- * have to be handed all three at every call site. A hook reads them once from the
- * auth snapshot and returns operations already bound to them, so a form's submit
- * handler passes what the user typed and nothing else.
+ * anyone. Every organization write is. It carries the acting Profile, the
+ * Organization it belongs to, and on some tables that Organization's clock, and
+ * a plain function would have to be handed all three at every call site. A hook
+ * reads them once from the auth snapshot and returns operations already bound to
+ * them, so a form's submit handler passes what the user typed and nothing else.
  *
  * ## Every write names the command it means
  *

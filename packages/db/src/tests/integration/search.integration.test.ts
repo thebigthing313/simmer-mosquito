@@ -438,11 +438,12 @@ describeDbIntegration('search documents reader', () => {
 	 * index. A null `organization_id` is a platform-owned station, which is
 	 * nobody's agency record.
 	 *
-	 * #279 settled that it stays out once provider stations land: an Agency will
-	 * see only the stations it has subscribed to through
-	 * `weather_source_subscriptions`, so an unsubscribed station has no Agency to
-	 * be indexed under. Whoever builds that feed owes the index one document per
-	 * subscribing Agency, and this test is what they trip over.
+	 * #279 settled that it stays out once provider stations land: an Organization
+	 * will see only the stations it has subscribed to through
+	 * `weather_source_subscriptions`, so an unsubscribed station has no
+	 * Organization to be indexed under. Whoever builds that feed owes the index
+	 * one document per subscribing Organization, and this test is what they trip
+	 * over.
 	 *
 	 * The reader takes an `organizationId`, so it cannot tell "no document" from
 	 * "a document the tenancy filter dropped". Both directions are read off
@@ -458,7 +459,8 @@ describeDbIntegration('search documents reader', () => {
 			expect(await documentsFor(db, 'weather_sources', platform)).toBe(0);
 
 			// The platform station is a real row, and its shape scope streams it to
-			// every Agency. Search is what excludes it, not the row failing to exist.
+			// every Organization. Search is what excludes it, not the row failing to
+			// exist.
 			const stations = await db
 				.selectFrom('weather_sources')
 				.select(['id'])

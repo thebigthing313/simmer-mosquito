@@ -20,9 +20,9 @@ import { CommandError } from '../../../../sync/command-error';
 
 describe('generationRefusalOf', () => {
 	it('carries the unit codes, which are the only actionable part of that refusal', () => {
-		// Agency-wide: one registration holding a unit the conversion table cannot
-		// price blocks generation for every mission. A message without the codes
-		// leaves the operator with a refusal and nowhere to go.
+		// Organization-wide: one registration holding a unit the conversion table
+		// cannot price blocks generation for every mission. A message without the
+		// codes leaves the operator with a refusal and nowhere to go.
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
 			reason: 'buffer_unit_not_convertible',

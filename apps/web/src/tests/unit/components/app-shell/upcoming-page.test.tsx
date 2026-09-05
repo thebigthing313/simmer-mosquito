@@ -62,11 +62,11 @@ function renderAt(activePath: string) {
 	return render(
 		<ShellProvider
 			activePath={activePath}
-			currentOrganization={{ id: 'org_1', name: 'Test Agency' }}
+			currentOrganization={{ id: 'org_1', name: 'Test Organization' }}
 			domains={domains()}
 			onNavigate={() => undefined}
 			onSelectOrganization={() => undefined}
-			organizations={[{ id: 'org_1', name: 'Test Agency' }]}
+			organizations={[{ id: 'org_1', name: 'Test Organization' }]}
 			user={{ name: 'Crew', email: 'crew@example.test' }}
 		>
 			<UpcomingPage />

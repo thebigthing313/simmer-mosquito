@@ -93,11 +93,11 @@ export type MissionNotificationStatus = (typeof MISSION_NOTIFICATION_STATUSES)[n
 export const NOTIFICATION_CHANNELS = ['email', 'sms', 'phone'] as const;
 export type NotificationChannel = (typeof NOTIFICATION_CHANNELS)[number];
 
-/** How an Agency pays. One member today, and the column exists so a second can arrive. */
+/** How an Organization pays. One member today, and the column exists so a second can arrive. */
 export const ORGANIZATION_BILLING_MODES = ['manual_invoice'] as const;
 export type OrganizationBillingMode = (typeof ORGANIZATION_BILLING_MODES)[number];
 
-/** Where an Agency sits in its subscription. */
+/** Where an Organization sits in its subscription. */
 export const ORGANIZATION_SUBSCRIPTION_STATUSES = [
 	'trial',
 	'active',
@@ -106,7 +106,7 @@ export const ORGANIZATION_SUBSCRIPTION_STATUSES = [
 ] as const;
 export type OrganizationSubscriptionStatus = (typeof ORGANIZATION_SUBSCRIPTION_STATUSES)[number];
 
-/** How a Service Request reached the Agency. */
+/** How a Service Request reached the Organization. */
 export const REQUEST_INTAKE_TYPES = ['online', 'phone', 'walk-in', 'other'] as const;
 export type RequestIntakeType = (typeof REQUEST_INTAKE_TYPES)[number];
 
@@ -115,7 +115,7 @@ export const ROUTE_TYPES = ['habitat', 'trap'] as const;
 export type RouteType = (typeof ROUTE_TYPES)[number];
 
 /**
- * The Agency role ladder, as five names.
+ * The Organization role ladder, as five names.
  *
  * The ordering here is the database's, which happens to run strongest first.
  * Which role outranks which is an authorization question and stays the server's:
@@ -136,7 +136,7 @@ export type SpeciesStatus = (typeof SPECIES_STATUSES)[number];
 export const UNIT_SYSTEMS = ['si', 'imperial', 'us_customary'] as const;
 export type UnitSystem = (typeof UNIT_SYSTEMS)[number];
 
-/** What a Unit measures. An Agency picks one default Unit per type. */
+/** What a Unit measures. An Organization picks one default Unit per type. */
 export const UNIT_TYPES = [
 	'weight',
 	'distance',
@@ -149,7 +149,7 @@ export const UNIT_TYPES = [
 ] as const;
 export type UnitType = (typeof UNIT_TYPES)[number];
 
-/** Who owns a Weather Station: the Agency, or the National Weather Service. */
+/** Who owns a Weather Station: the Organization, or the National Weather Service. */
 export const WEATHER_SOURCE_TYPES = ['organization', 'nws'] as const;
 export type WeatherSourceType = (typeof WEATHER_SOURCE_TYPES)[number];
 

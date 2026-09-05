@@ -20,7 +20,7 @@ import {
  * quietly showing yesterday's data.
  */
 const organizationKeys = {
-	all: ['admin', 'agencies'] as const,
+	all: ['admin', 'organizations'] as const,
 	list: () => [...organizationKeys.all, 'list'] as const,
 	memberships: (organizationId: string) =>
 		[...organizationKeys.all, 'memberships', organizationId] as const,

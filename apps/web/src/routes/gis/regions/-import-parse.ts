@@ -45,10 +45,10 @@ export interface ParseResult {
 	/** True when the file held more than `MAX_REGIONS` and only the first were kept. */
 	readonly truncated: boolean;
 	/**
-	 * Boundaries withheld because their coordinates are not WGS84 lng/lat. Agency
-	 * exports are often in State Plane feet or UTM metres, which parse as valid
-	 * GeoJSON and land nowhere on earth: every write would fail the domain
-	 * position validator, and the preview map would fit to nothing.
+	 * Boundaries withheld because their coordinates are not WGS84 lng/lat. Exports
+	 * from an Organization are often in State Plane feet or UTM metres, which
+	 * parse as valid GeoJSON and land nowhere on earth: every write would fail the
+	 * domain position validator, and the preview map would fit to nothing.
 	 */
 	readonly projected: number;
 	/** Set when the file could not be parsed at all. */
