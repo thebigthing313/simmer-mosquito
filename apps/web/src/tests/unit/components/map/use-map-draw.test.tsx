@@ -305,6 +305,71 @@ function pressInEveryField(key: string): void {
 	}
 }
 
+/**
+ * The real `ui-web` select, which is what a record form puts beside the map.
+ *
+ * Rendered rather than synthesised, because what Radix does with a key is the
+ * whole question. A version that stopped spending Escape, or started spending
+ * Enter, would still let the press through, and the cases below would go on
+ * passing against a hand-made event.
+ */
+function renderSelect(): void {
+	render(
+		<Select>
+			<SelectTrigger aria-label="Habitat type">
+				<SelectValue placeholder="Pick one" />
+			</SelectTrigger>
+			<SelectContent>
+				<SelectItem value="pond">Pond</SelectItem>
+				<SelectItem value="ditch">Ditch</SelectItem>
+			</SelectContent>
+		</Select>,
+	);
+}
+
+/** Open it the way a pointer does, and hand back the option it focused. */
+async function openSelect(): Promise<HTMLElement> {
+	fireEvent.pointerDown(screen.getByLabelText('Habitat type'), {
+		button: 0,
+		ctrlKey: false,
+		pointerType: 'mouse',
+	});
+	const option = await screen.findByText('Pond');
+	const focused = document.activeElement;
+	// The listbox's own option, so no part of the field guard applies to it.
+	expect(focused?.tagName).toBe('DIV');
+	expect(focused?.getAttribute('role')).toBe('option');
+	return (focused ?? option) as HTMLElement;
+}
+
+/**
+ * Press `key` on an open listbox option and report what the `window` listener
+ * saw, which is what says why a case passed.
+ *
+ * `defaultPrevented` is the half worth pinning: Escape arrives spent and Enter
+ * does not, and a case that stopped telling them apart would keep passing while
+ * the guard it was written for had gone.
+ */
+function pressOnOption(
+	option: HTMLElement,
+	key: string,
+): { readonly reachedWindow: boolean; readonly defaultPrevented: boolean } {
+	const seen = { reachedWindow: false, defaultPrevented: false };
+	function record(event: KeyboardEvent) {
+		seen.reachedWindow = true;
+		seen.defaultPrevented = event.defaultPrevented;
+	}
+	window.addEventListener('keydown', record);
+	try {
+		act(() => {
+			fireEvent.keyDown(option, { key });
+		});
+	} finally {
+		window.removeEventListener('keydown', record);
+	}
+	return seen;
+}
+
 /** How far along the open draft is, in the terms a stray key would move. */
 function draftState(result: ControlledHarness['result']) {
 	return {
@@ -538,6 +603,31 @@ describe('useMapDraw', () => {
 		});
 	});
 
+	// The canvas is a `div` carrying no role, which is what the guards have to
+	// let past. One that swallowed every Enter landing on a `div`, or every Enter
+	// with something open elsewhere on the page, would take the finish with it.
+	it('finishes the shape on an Enter the map canvas got', () => {
+		const { fake, result } = mountControlled();
+		const canvas = document.createElement('div');
+		document.body.append(canvas);
+
+		act(() => {
+			result.current.draw.start('Polygon');
+		});
+		placeVertices(fake, FIRST_SQUARE);
+		try {
+			pressKeyIn(canvas, 'Enter');
+		} finally {
+			canvas.remove();
+		}
+
+		expect(result.current.draw.isDrawing).toBe(false);
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closed(FIRST_SQUARE)],
+		});
+	});
+
 	// The panel beside the map stays live while a draft is open, so Enter has to
 	// tell a finished shape from a filled-in description. The listener is on
 	// `window` and reads where the key came from, rather than the map holding
@@ -587,36 +677,67 @@ describe('useMapDraw', () => {
 	it('leaves the draft alone when Escape dismissed an open select', async () => {
 		const { fake, result } = mountControlled();
 
-		render(
-			<Select>
-				<SelectTrigger aria-label="Habitat type">
-					<SelectValue placeholder="Pick one" />
-				</SelectTrigger>
-				<SelectContent>
-					<SelectItem value="pond">Pond</SelectItem>
-					<SelectItem value="ditch">Ditch</SelectItem>
-				</SelectContent>
-			</Select>,
-		);
+		renderSelect();
 		act(() => {
 			result.current.draw.start('Polygon');
 		});
 		placeVertices(fake, FIRST_SQUARE);
 		const before = draftState(result);
 
-		fireEvent.pointerDown(screen.getByLabelText('Habitat type'), {
-			button: 0,
-			ctrlKey: false,
-			pointerType: 'mouse',
-		});
-		const option = await screen.findByText('Pond');
-		const focused = document.activeElement;
-		// The listbox's own option, so no part of the field guard applies to it.
-		expect(focused?.tagName).toBe('DIV');
-		expect(focused?.getAttribute('role')).toBe('option');
+		const option = await openSelect();
+		const seen = pressOnOption(option, 'Escape');
+
+		expect(seen.reachedWindow).toBe(true);
+		expect(seen.defaultPrevented).toBe(true);
+		expect(draftState(result)).toEqual(before);
+	});
+
+	/**
+	 * The third hole in this handler, and the one neither guard above it reaches.
+	 *
+	 * Radix's select item calls `preventDefault` for Space alone, to stop the
+	 * page scrolling. Enter has no default worth cancelling on a `div`, so the
+	 * press that picks a value arrives with the flag clear, on a target that is
+	 * no field. Its `role="option"` is what says the key was the listbox's, and
+	 * the case asserts the flag was clear so it cannot start passing for #547's
+	 * reason instead of its own.
+	 */
+	it.each(OPEN_DRAFTS)('leaves an open $name alone when Enter chose a value from a select', async ({
+		open,
+	}) => {
+		const { fake, result } = mountControlled();
+
+		renderSelect();
+		open(fake, result);
+		const before = draftState(result);
+		expect(before.canFinish).toBe(true);
+
+		const option = await openSelect();
+		const seen = pressOnOption(option, 'Enter');
+
+		expect(seen.reachedWindow).toBe(true);
+		expect(seen.defaultPrevented).toBe(false);
+		expect(draftState(result)).toEqual(before);
+	});
+
+	// The other half of the same press, one key earlier. The trigger spends the
+	// Enter that opens it, the way `DismissableLayer` spends the Escape that
+	// closes it, so this is the `defaultPrevented` guard rather than the role one.
+	it.each(OPEN_DRAFTS)('leaves an open $name alone when Enter opened a select', async ({
+		open,
+	}) => {
+		const { fake, result } = mountControlled();
+
+		renderSelect();
+		open(fake, result);
+		const before = draftState(result);
+		const trigger = screen.getByLabelText('Habitat type');
+		trigger.focus();
+
 		act(() => {
-			fireEvent.keyDown(focused ?? option, { key: 'Escape' });
+			fireEvent.keyDown(trigger, { key: 'Enter' });
 		});
+		await screen.findByText('Pond');
 
 		expect(draftState(result)).toEqual(before);
 	});

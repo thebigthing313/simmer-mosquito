@@ -1590,32 +1590,20 @@ function useDrawMapEvents({
 			}
 		}
 
-		// The field guard is here for the reason it is on the Delete arm: the
-		// location panel sits beside the map and its fields stay live while a draw
-		// is open, so an Enter meant for a description would otherwise finish the
-		// shape and an Escape meant to clear one would throw the whole draft away.
-		// Both arms cover every mode this listener is registered for, because a
-		// draw, a hole, a continuation, an edit and an open sketch all reach Finish
-		// through the same `finishRef` and all cancel through the one Escape arm.
+		// The guard is here for the reason it is on the Delete arm: the location
+		// panel sits beside the map and its controls stay live while a draw is
+		// open, so an Enter meant for a description would otherwise finish the
+		// shape and an Escape meant to close a dropdown would throw the whole
+		// draft away. Both arms cover every mode this listener is registered for,
+		// because a draw, a hole, a continuation, an edit and an open sketch all
+		// reach Finish through the same `finishRef` and all cancel through the one
+		// Escape arm.
 		function handleKeyDown(event: KeyboardEvent) {
+			if ((event.key !== 'Enter' && event.key !== 'Escape') || isAimedElsewhere(event)) {
+				return;
+			}
 			if (event.key === 'Enter') {
-				if (!isTypingInto(event.target)) {
-					finishRef.current();
-				}
-				return;
-			}
-			if (event.key !== 'Escape' || isTypingInto(event.target)) {
-				return;
-			}
-			// Escape needs a second guard the other arms do not, because it is also
-			// the dismiss key. Radix's DismissableLayer listens on the document in
-			// the capture phase, calls `preventDefault`, dismisses, and does not stop
-			// propagation, so the press that closed a select beside the map still
-			// arrives here. What it leaves focused is the listbox's own
-			// `div[role="option"]`, and a popover's is whatever it autofocused, so
-			// neither is a field `isTypingInto` can answer for. `defaultPrevented` is
-			// what says the key was already spent.
-			if (event.defaultPrevented) {
+				finishRef.current();
 				return;
 			}
 			const current = modeRef.current;
@@ -1859,6 +1847,43 @@ function vertexUnder(map: MapboxMap, event: MapMouseEvent): DrawVertexRef | null
 	const ring = feature?.properties?.ring;
 	const vertex = feature?.properties?.vertex;
 	return typeof ring === 'number' && typeof vertex === 'number' ? { ring, vertex } : null;
+}
+
+/**
+ * The items of a popup list, where Enter is the list's own choose key.
+ *
+ * ARIA roles rather than anything one library sets. `option` is what makes a
+ * list a listbox to a screen reader and `menuitem` what makes one a menu, so
+ * every accessible dropdown carries them whichever library drew it. This app
+ * has three: Radix's Select and DropdownMenu, and cmdk's Command behind the
+ * Region multiselect.
+ */
+const POPUP_LIST_ITEM =
+	'[role="option"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"]';
+
+/**
+ * Whether the key was meant for something beside the map rather than the map.
+ *
+ * Three answers, because no one of them covers the panel. A field is the case
+ * #517 found. `defaultPrevented` is #547's: Radix's `DismissableLayer` listens
+ * on the document in the capture phase, calls `preventDefault`, dismisses, and
+ * does not stop propagation, so the Escape that closed a select still arrives
+ * here, and so does the Enter that opened one, which the trigger spends the
+ * same way.
+ *
+ * The list item is #560's, and it is the one neither of the others reaches.
+ * Radix's select item calls `preventDefault` for Space alone, to stop the page
+ * scrolling; Enter has no default worth cancelling on a `div`, so the press
+ * that picks a value arrives with the flag clear and the listbox's own
+ * `div[role="option"]` on `event.target`, which is no field. Its role is what
+ * says the key was the list's.
+ */
+function isAimedElsewhere(event: KeyboardEvent): boolean {
+	return (
+		isTypingInto(event.target) ||
+		event.defaultPrevented ||
+		(event.target instanceof Element && event.target.closest(POPUP_LIST_ITEM) !== null)
+	);
 }
 
 /** Whether the key went somewhere a person is typing, where Delete is a delete. */
