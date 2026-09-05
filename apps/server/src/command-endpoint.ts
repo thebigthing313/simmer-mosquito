@@ -257,9 +257,12 @@ export function invalidUpdate(changeNoun: string): {
 }
 
 /** The two fields every agency command carries, read off the resolved session. */
-export type AgencyContext = { readonly organizationId: string; readonly actorProfileId: string };
+export type OrganizationContext = {
+	readonly organizationId: string;
+	readonly actorProfileId: string;
+};
 
-export function agencyCommandContext(authContext: AuthContext): AgencyContext {
+export function organizationCommandContext(authContext: AuthContext): OrganizationContext {
 	return {
 		organizationId: authContext.organization.id,
 		actorProfileId: authContext.profile.id,
@@ -320,7 +323,7 @@ export interface CommandRequest<TPayload = Record<string, unknown>> {
 	 */
 	readonly payload: TPayload;
 	/** `organizationId` and `actorProfileId`, ready to spread into a builder. */
-	readonly agency: AgencyContext;
+	readonly organization: OrganizationContext;
 	/** The whole resolved session, for the builders that need more than the two ids. */
 	readonly authContext: AuthContext;
 	/** A path parameter, e.g. `param('trapId')`. */
@@ -407,7 +410,7 @@ export function commandEndpoint<TCommand, TPayload = Record<string, unknown>>(
 		try {
 			built = await endpoint.build({
 				payload,
-				agency: agencyCommandContext(authContext),
+				organization: organizationCommandContext(authContext),
 				authContext,
 				// Hono widens `param` to `string | undefined` when it cannot see the
 				// path; every name read here appears in the path it was registered

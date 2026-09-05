@@ -242,7 +242,9 @@ describeDbIntegration('history and collision refusals', () => {
 				flag: 'acknowledgedTaxonomyMeaningChange',
 				// Two agencies, one number. The operator already reads every agency,
 				// so the total leaks nothing, and a breakdown is a report.
-				consequences: [{ key: 'speciesAgencyLists', count: 2, singular: 'agency species list' }],
+				consequences: [
+					{ key: 'speciesOrganizationLists', count: 2, singular: 'agency species list' },
+				],
 			});
 
 			const species = await db

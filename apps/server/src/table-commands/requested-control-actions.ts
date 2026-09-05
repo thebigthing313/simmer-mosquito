@@ -86,9 +86,9 @@ export function requestedControlActionTableCommands(
 			key: 'requestedControlAction',
 		},
 		intents: {
-			'controlOperations.requestControlAction': ({ payload, agency, id }) =>
+			'controlOperations.requestControlAction': ({ payload, organization, id }) =>
 				requestControlActionCommand({
-					...agency,
+					...organization,
 					requestedControlActionId: id,
 					// Untyped: which four control types exist is the domain's list, and a
 					// second copy here could fall behind it.
@@ -102,9 +102,9 @@ export function requestedControlActionTableCommands(
 					requestedAt: readDate(payload.requested_at),
 				}),
 
-			'controlOperations.updateRequestedControlActionDetails': ({ payload, agency, id }) =>
+			'controlOperations.updateRequestedControlActionDetails': ({ payload, organization, id }) =>
 				updateRequestedControlActionDetailsCommand({
-					...agency,
+					...organization,
 					requestedControlActionId: id,
 					...(payload.control_type !== undefined
 						? { controlType: (readText(payload.control_type) ?? '') as never }
@@ -123,11 +123,11 @@ export function requestedControlActionTableCommands(
 
 			'controlOperations.updateRequestedControlActionLocationAndContext': ({
 				payload,
-				agency,
+				organization,
 				id,
 			}) =>
 				updateRequestedControlActionLocationAndContextCommand({
-					...agency,
+					...organization,
 					requestedControlActionId: id,
 					...(payload.locationSource !== undefined
 						? {
@@ -143,19 +143,19 @@ export function requestedControlActionTableCommands(
 			// `resolved_at` is read where the command says a resolution is what this
 			// is; an absent one means "now", which is what a technician closing a
 			// request in the field means by it.
-			'controlOperations.resolveRequestedControlAction': ({ payload, agency, id }) =>
+			'controlOperations.resolveRequestedControlAction': ({ payload, organization, id }) =>
 				resolveRequestedControlActionCommand({
-					...agency,
+					...organization,
 					requestedControlActionId: id,
 					resolvedAt: readDate(payload.resolved_at),
 				}),
 
-			'controlOperations.reopenRequestedControlAction': ({ agency, id }) =>
-				reopenRequestedControlActionCommand({ ...agency, requestedControlActionId: id }),
+			'controlOperations.reopenRequestedControlAction': ({ organization, id }) =>
+				reopenRequestedControlActionCommand({ ...organization, requestedControlActionId: id }),
 
-			'controlOperations.deleteRequestedControlAction': ({ payload, agency, id }) =>
+			'controlOperations.deleteRequestedControlAction': ({ payload, organization, id }) =>
 				deleteRequestedControlActionCommand({
-					...agency,
+					...organization,
 					requestedControlActionId: id,
 					acknowledgedActionDetach: acknowledged(payload, 'acknowledgedActionDetach'),
 					acknowledgedMissionDetach: acknowledged(payload, 'acknowledgedMissionDetach'),

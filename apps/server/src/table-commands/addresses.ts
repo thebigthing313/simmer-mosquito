@@ -8,7 +8,7 @@
  * ## Two of these were not reachable at all
  *
  * `/foundation/addresses` never built a domain command. Its three routes wrap a
- * payload in a `{ type, payload }` literal so `denyUnauthorizedAgencyCommands`
+ * payload in a `{ type, payload }` literal so `denyUnauthorizedOrganizationCommands`
  * still answers for them, and write the row directly — which is why the PATCH
  * builds `updateAddressDetails` and only that. A location change had nowhere to
  * go: `updateAddressLocation` was a stub answering 501, even though both the
@@ -74,9 +74,9 @@ export function addressTableCommands(
 			key: 'address',
 		},
 		intents: {
-			'foundation.createAddress': ({ payload, agency, id }) =>
+			'foundation.createAddress': ({ payload, organization, id }) =>
 				createAddressCommand({
-					...agency,
+					...organization,
 					addressId: id,
 					displayName: readText(payload.display_name) ?? '',
 					// Passed through untyped: which geometries an address accepts is the
@@ -96,9 +96,9 @@ export function addressTableCommands(
 			// postcode and dragged the pin names both, and each reads its own half of
 			// one payload — which is the thing the old PATCH could not express,
 			// because it built one command and the location had no name.
-			'foundation.updateAddressDetails': ({ payload, agency, id }) =>
+			'foundation.updateAddressDetails': ({ payload, organization, id }) =>
 				updateAddressDetailsCommand({
-					...agency,
+					...organization,
 					addressId: id,
 					...(payload.display_name !== undefined
 						? { displayName: readText(payload.display_name) ?? '' }
@@ -121,16 +121,20 @@ export function addressTableCommands(
 						: {}),
 				}),
 
-			'foundation.updateAddressLocation': ({ payload, agency, id }) =>
-				updateAddressLocationCommand({ ...agency, addressId: id, geometry: payload.geometry }),
+			'foundation.updateAddressLocation': ({ payload, organization, id }) =>
+				updateAddressLocationCommand({
+					...organization,
+					addressId: id,
+					geometry: payload.geometry,
+				}),
 
 			// The row this write names is the *target*, the address that survives, and
 			// the sources come from the body, because there is no column for
 			// "addresses being folded into this one". Same shape as
 			// `publicEngagement.mergeContacts`.
-			'foundation.mergeAddresses': ({ payload, agency, id }) =>
+			'foundation.mergeAddresses': ({ payload, organization, id }) =>
 				mergeAddressesCommand({
-					...agency,
+					...organization,
 					targetAddressId: id,
 					sourceAddressIds: readIdList(payload.sourceAddressIds),
 					acknowledgedMergeConsolidatesHistory: acknowledged(
@@ -139,8 +143,8 @@ export function addressTableCommands(
 					),
 				}),
 
-			'foundation.deleteAddress': ({ agency, id }) =>
-				deleteAddressCommand({ ...agency, addressId: id }),
+			'foundation.deleteAddress': ({ organization, id }) =>
+				deleteAddressCommand({ ...organization, addressId: id }),
 		},
 	};
 }

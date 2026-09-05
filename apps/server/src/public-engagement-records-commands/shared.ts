@@ -11,13 +11,13 @@ import type { PublicEngagementCommand } from '@simmer-mosquito/domain';
 import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	CommandError,
 	commandEndpoint,
 	createCommand,
 	handleCommandError,
 	invalidUpdate,
+	organizationCommandContext,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
 import { isRecord, readNullableText, readText } from '../command-payload.js';
@@ -34,7 +34,6 @@ import {
 export type PublicEngagementDb = CommandDb;
 export type PublicEngagementTransaction = CommandTransaction;
 export {
-	agencyCommandContext,
 	type CommandContext,
 	commandActor,
 	commandEndpoint,
@@ -43,6 +42,7 @@ export {
 	handleCommandError,
 	invalidUpdate,
 	localDateColumn,
+	organizationCommandContext,
 	readDate,
 	readNumberOrNull,
 	runCommands,

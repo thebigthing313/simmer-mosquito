@@ -204,7 +204,7 @@ function daysAgo(value: Date): number {
 describeDbIntegration('role ladder fixtures over an existing agency', () => {
 	it('attaches the fixtures to profiles that are already there', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createAgencyWithCollector(db);
+			const org = await createOrganizationWithCollector(db);
 
 			await seedRoleLadder(db, {
 				organizationId: org.organizationId,
@@ -236,7 +236,7 @@ describeDbIntegration('role ladder fixtures over an existing agency', () => {
 
 	it('leaves an existing membership’s role and profile untouched', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createAgencyWithCollector(db);
+			const org = await createOrganizationWithCollector(db);
 
 			await seedRoleLadder(db, {
 				organizationId: org.organizationId,
@@ -265,7 +265,7 @@ describeDbIntegration('role ladder fixtures over an existing agency', () => {
 		await withTestDb(async ({ db }) => {
 			// The footgun: an upsert that set the name would rebrand a live agency
 			// "Role Ladder Test District" on the way past.
-			const org = await createAgencyWithCollector(db);
+			const org = await createOrganizationWithCollector(db);
 
 			await seedRoleLadder(db, { organizationId: org.organizationId });
 
@@ -283,7 +283,7 @@ describeDbIntegration('role ladder fixtures over an existing agency', () => {
 			// Only one collector exists, so the "somebody else's" party has to be
 			// created — otherwise `otherAssignmentId` would be assigned to the same
 			// person and prove nothing.
-			const org = await createAgencyWithCollector(db);
+			const org = await createOrganizationWithCollector(db);
 
 			await seedRoleLadder(db, {
 				organizationId: org.organizationId,
@@ -301,7 +301,7 @@ describeDbIntegration('role ladder fixtures over an existing agency', () => {
 	});
 });
 
-async function createAgencyWithCollector(
+async function createOrganizationWithCollector(
 	db: Parameters<typeof seedRoleLadder>[0],
 ): Promise<{ readonly organizationId: string; readonly collectorProfileId: string }> {
 	const organization = await db

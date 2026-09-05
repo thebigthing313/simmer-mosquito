@@ -31,7 +31,7 @@ import type {
 import { type ForbiddenBody, forbidden, hasAtLeastRole, type MinimumRole } from './roles.js';
 
 /** Every command type an agency membership can send. */
-export type AgencyCommandType =
+export type OrganizationCommandType =
 	| AdultSurveillanceCommandType
 	| ControlOperationsCommandType
 	| FieldWorkCommandType
@@ -699,7 +699,7 @@ const ORGANIZATION_SETTINGS_PERMISSIONS: Record<
  * import management", "collector/viewer: read-only". One floor across all ten.
  *
  * Weather is the last domain to arrive here, and it arrives whole. The union
- * these ten belong to was left out of `AgencyCommandType` while nothing wrote
+ * these ten belong to was left out of `OrganizationCommandType` while nothing wrote
  * one, so adding the first writer demanded a floor for every one of them in the
  * same change, which is the exhaustive `Record` doing its job rather than an
  * obstacle to work around.
@@ -765,7 +765,7 @@ const IDENTITY_PERMISSIONS: Record<IdentityCommandType, CommandPermission> = {
  * make each half exhaustive. Both matter: without the annotations a missing
  * command would widen this object's inferred type instead of failing the build.
  */
-const COMMAND_PERMISSIONS: Record<AgencyCommandType, CommandPermission> = {
+const COMMAND_PERMISSIONS: Record<OrganizationCommandType, CommandPermission> = {
 	...FIELD_WORK_PERMISSIONS,
 	...MISSION_DISPATCH_PERMISSIONS,
 	...FOUNDATION_PERMISSIONS,
@@ -778,7 +778,7 @@ const COMMAND_PERMISSIONS: Record<AgencyCommandType, CommandPermission> = {
 	...WEATHER_PERMISSIONS,
 };
 
-export function readCommandPermission(type: AgencyCommandType): CommandPermission {
+export function readCommandPermission(type: OrganizationCommandType): CommandPermission {
 	// The map is total over the union, so this is unreachable through the type
 	// system. It stays as the runtime half of the same promise: an unmapped
 	// command is a programming error, and the safe reading of "nobody decided who
@@ -843,7 +843,7 @@ export function decideCommand(scope: CommandScope, permission: CommandPermission
  */
 export function authorizeCommands(
 	scope: CommandScope,
-	commands: readonly { readonly type: AgencyCommandType }[],
+	commands: readonly { readonly type: OrganizationCommandType }[],
 ): ForbiddenBody | null {
 	for (const command of commands) {
 		const permission = readCommandPermission(command.type);
@@ -857,7 +857,7 @@ export function authorizeCommands(
 function deniedReason(
 	scope: CommandScope,
 	permission: CommandPermission,
-	type: AgencyCommandType,
+	type: OrganizationCommandType,
 ): string {
 	// Naming the role would be actively misleading here: an agency owner is
 	// refused `createSpecies` however high they are, and telling them their role
@@ -890,7 +890,7 @@ function scopeOf(authContext: { readonly role: SimmerRole; readonly isOperator?:
  * A floor is settled by the actor's role and the command's name, so a route
  * whose type is fixed can refuse before reading the body — which is what the
  * settings routes want, so that an unauthorized caller cannot learn the shape
- * of a valid payload by watching 400s. `denyUnauthorizedAgencyCommands` above
+ * of a valid payload by watching 400s. `denyUnauthorizedOrganizationCommands` above
  * cannot do that, because it takes commands that have already been built.
  *
  * Refuses only an outright `deny`. An `ownership` rule needs a stored row and
@@ -904,7 +904,7 @@ export function denyUnauthorizedCommandType(
 		};
 		readonly json: (body: ForbiddenBody, status: 403) => Response;
 	},
-	type: AgencyCommandType,
+	type: OrganizationCommandType,
 ): Response | null {
 	const scope = scopeOf(context.get('authContext'));
 	const permission = readCommandPermission(type);
@@ -915,7 +915,7 @@ export function denyUnauthorizedCommandType(
 	return context.json(forbidden(deniedReason(scope, permission, type)), 403);
 }
 
-export function denyUnauthorizedAgencyCommands(
+export function denyUnauthorizedOrganizationCommands(
 	context: {
 		readonly get: (key: 'authContext') => {
 			readonly role: SimmerRole;
@@ -923,7 +923,7 @@ export function denyUnauthorizedAgencyCommands(
 		};
 		readonly json: (body: ForbiddenBody, status: 403) => Response;
 	},
-	commands: readonly { readonly type: AgencyCommandType }[],
+	commands: readonly { readonly type: OrganizationCommandType }[],
 ): Response | null {
 	const denial = authorizeCommands(scopeOf(context.get('authContext')), commands);
 	return denial === null ? null : context.json(denial, 403);

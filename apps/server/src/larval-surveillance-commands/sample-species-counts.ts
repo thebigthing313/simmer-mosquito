@@ -34,7 +34,7 @@ export function registerSampleSpeciesRoutes(
 		'/larval-surveillance/sample-species',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				addSampleSpeciesCountCommand({
 					...ctx,
 					sampleSpeciesId: readText(payload.id) ?? '',
@@ -52,7 +52,7 @@ export function registerSampleSpeciesRoutes(
 		'/larval-surveillance/sample-species/:sampleSpeciesId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				updateSampleSpeciesCountCommand({
 					...ctx,
 					sampleSpeciesId: param('sampleSpeciesId'),
@@ -76,7 +76,7 @@ export function registerSampleSpeciesRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			build: ({ organization: ctx, param }) =>
 				deleteSampleSpeciesCountCommand({
 					...ctx,
 					sampleSpeciesId: param('sampleSpeciesId'),

@@ -26,12 +26,12 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	commandEndpoint,
 	createCommand,
 	invalidUpdate,
+	organizationCommandContext,
 	type PayloadResult,
 } from './command-endpoint.js';
 import { acknowledged, isRecord } from './command-payload.js';
@@ -449,7 +449,7 @@ function buildCreateCommand(
 	authContext: AuthContext,
 	payload: ControlAssetPayload,
 ): ControlAssetCommand {
-	const context = agencyCommandContext(authContext);
+	const context = organizationCommandContext(authContext);
 	if (kind === 'vehicles') {
 		return createVehicleCommand({
 			...context,
@@ -475,7 +475,7 @@ function buildUpdateCommands(
 	payload: ControlAssetPayload,
 ): CommandsResult<ControlAssetCommand> {
 	const commands: ControlAssetCommand[] = [];
-	const context = agencyCommandContext(authContext);
+	const context = organizationCommandContext(authContext);
 	const hasDetailChange =
 		payload.vehicleName !== undefined ||
 		payload.equipmentName !== undefined ||
@@ -535,7 +535,7 @@ function buildDeleteCommand(
 	authContext: AuthContext,
 	assetId: string,
 ): ControlAssetCommand {
-	const context = agencyCommandContext(authContext);
+	const context = organizationCommandContext(authContext);
 	return kind === 'vehicles'
 		? deleteVehicleCommand({ ...context, vehicleId: assetId })
 		: deleteEquipmentCommand({ ...context, equipmentId: assetId });

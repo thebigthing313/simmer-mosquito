@@ -50,9 +50,13 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
-import { agencyCommandContext, handleCommandError, readJsonObject } from '../command-endpoint.js';
+import {
+	handleCommandError,
+	organizationCommandContext,
+	readJsonObject,
+} from '../command-endpoint.js';
 import { readString } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
+import { denyUnauthorizedOrganizationCommands } from '../command-permissions.js';
 import { type CommandTransaction, commandActor, writeCommands } from '../command-write.js';
 import type { RouteOptions } from './shared.js';
 
@@ -69,7 +73,7 @@ export function registerMissionNotificationGenerationRoute(
 			// command's name is fixed for this route, so it is known without building
 			// anything. Same argument `weather-commands/import.ts` and `dispatch.ts`
 			// make.
-			const denial = denyUnauthorizedAgencyCommands(context, [
+			const denial = denyUnauthorizedOrganizationCommands(context, [
 				{ type: 'publicEngagement.generateMissionNotifications' },
 			]);
 			if (denial !== null) {
@@ -85,7 +89,7 @@ export function registerMissionNotificationGenerationRoute(
 			let command: GenerateMissionNotificationsCommand;
 			try {
 				command = generateMissionNotificationsCommand({
-					...agencyCommandContext(authContext),
+					...organizationCommandContext(authContext),
 					missionId: readString(parsed.payload.mission_id),
 				});
 			} catch (error) {

@@ -33,7 +33,7 @@ export function registerNotificationRegistrationTypeRoutes(
 		'/public-engagement/notification-registration-types',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				subscribeNotificationRegistrationTypeCommand({
 					...ctx,
 					notificationRegistrationTypeId: readText(payload.id) ?? '',
@@ -52,7 +52,7 @@ export function registerNotificationRegistrationTypeRoutes(
 			// notifications have already gone out under it, and a DELETE with no
 			// body has nowhere to put the answer.
 			body: 'optional',
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				unsubscribeNotificationRegistrationTypeCommand({
 					...ctx,
 					notificationRegistrationTypeId: param('notificationRegistrationTypeId'),

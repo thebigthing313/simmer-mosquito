@@ -166,8 +166,8 @@ export function readMissionPlan(values: MissionFormValues, timeZone: string): Mi
 	const trimmedName = values.missionName.trim();
 	return {
 		controlType: values.controlType,
-		startAt: agencyInstant(values.startDate, values.startTime, timeZone),
-		endAt: agencyInstant(values.startDate, values.endTime, timeZone),
+		startAt: organizationInstant(values.startDate, values.startTime, timeZone),
+		endAt: organizationInstant(values.startDate, values.endTime, timeZone),
 		rainDate: values.rainDate === '' ? null : values.rainDate,
 		missionName: trimmedName === '' ? null : trimmedName,
 		plannedMethodId: values.plannedMethodId === NO_METHOD ? null : values.plannedMethodId,
@@ -185,7 +185,7 @@ export function readMissionPlan(values: MissionFormValues, timeZone: string): Mi
  * muster from another zone was writing their own 6am, while the mission list and
  * detail page have always shown the yard's.
  */
-function agencyInstant(date: string, time: string, timeZone: string): Date | null {
+function organizationInstant(date: string, time: string, timeZone: string): Date | null {
 	const instant = localTimeAsInstant(date, time, timeZone);
 	return instant === null ? null : new Date(instant);
 }

@@ -14,13 +14,13 @@ import {
 	type SpeciesStatus,
 } from '@simmer-mosquito/domain';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	CommandError,
 	commandEndpoint,
 	createCommand,
 	type InvalidCommandBody,
 	invalidUpdate,
+	organizationCommandContext,
 } from '../command-endpoint.js';
 import { readNumber, readText } from '../command-payload.js';
 import {
@@ -192,12 +192,12 @@ export type CollectionSpeciesRow = SelectedRow<
 // ---------------------------------------------------------------------------
 
 export {
-	agencyCommandContext,
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
 	type InvalidCommandBody,
 	invalidUpdate,
+	organizationCommandContext,
 };
 
 export type TrapUpdateColumns = {

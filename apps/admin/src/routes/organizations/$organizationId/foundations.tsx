@@ -17,15 +17,15 @@ import { createFileRoute } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
 import { AdminError, AdminPage } from '../../../components/admin-page';
-import { AgencySessionGate } from '../../../components/agency-session';
 import { CatalogList, CatalogRow, RecordDialog } from '../../../components/catalog';
 import { GeometryFileInput, PointInput } from '../../../components/geometry-input';
-import { useAgencies } from '../-agency-data';
+import { OrganizationSessionGate } from '../../../components/organization-session';
+import { useOrganizations } from '../-organization-data';
 import {
-	type AgencyFoundations,
 	type LookupKind,
-	useAgencyFoundations,
+	type OrganizationFoundations,
 	useCreateFoundation,
+	useOrganizationFoundations,
 } from './-foundations-data';
 
 const FoundationsIcon = iconRegistry.generic.settings.icon;
@@ -45,7 +45,7 @@ const REGION_IMPORT_KINDS: readonly ImportGeometryKind[] =
 	getOwnedGeometryPolicy('region').allowedTypes.filter(isImportGeometryKind);
 
 export const Route = createFileRoute('/organizations/$organizationId/foundations')({
-	component: AgencyFoundationsRoute,
+	component: OrganizationFoundationsRoute,
 });
 
 /**
@@ -58,7 +58,7 @@ export const Route = createFileRoute('/organizations/$organizationId/foundations
  * operator hunting for an edit control that was never built.
  *
  * The writes are the agency's own endpoints, which means this page only works
- * from inside the agency (ADR 0011) — `AgencySessionGate` is what puts the
+ * from inside the agency (ADR 0011) — `OrganizationSessionGate` is what puts the
  * session there, and what explains the way in when it is not.
  *
  * The layout is a **sequence, not a grid**. These eight things are not eight
@@ -75,10 +75,10 @@ export const Route = createFileRoute('/organizations/$organizationId/foundations
  * with an empty subtitle each. Regions, addresses, and traps carry a second
  * line worth reading, so those stay as rows.
  */
-function AgencyFoundationsRoute() {
+function OrganizationFoundationsRoute() {
 	const { organizationId } = Route.useParams();
-	const agency = useAgencyIdentity(organizationId);
-	const { data, isPending, error } = useAgencyFoundations(organizationId);
+	const organization = useOrganizationIdentity(organizationId);
+	const { data, isPending, error } = useOrganizationFoundations(organizationId);
 
 	if (error !== null) {
 		return <FoundationsFrame>{<AdminError error={error} />}</FoundationsFrame>;
@@ -90,13 +90,13 @@ function AgencyFoundationsRoute() {
 
 	return (
 		<FoundationsFrame>
-			<AgencySessionGate
-				agencyName={agency.name}
+			<OrganizationSessionGate
+				organizationName={organization.name}
 				organizationId={organizationId}
-				workosOrganizationId={agency.workosOrganizationId}
+				workosOrganizationId={organization.workosOrganizationId}
 			>
 				<FoundationPanels data={data} organizationId={organizationId} />
-			</AgencySessionGate>
+			</OrganizationSessionGate>
 		</FoundationsFrame>
 	);
 }
@@ -108,13 +108,16 @@ function AgencyFoundationsRoute() {
  * already warm. The WorkOS id is what entering the agency switches the session
  * to.
  */
-function useAgencyIdentity(organizationId: string): {
+function useOrganizationIdentity(organizationId: string): {
 	readonly name: string | undefined;
 	readonly workosOrganizationId: string | null;
 } {
-	const { data } = useAgencies();
-	const agency = data?.find((row) => row.id === organizationId);
-	return { name: agency?.name, workosOrganizationId: agency?.workosOrganizationId ?? null };
+	const { data } = useOrganizations();
+	const organization = data?.find((row) => row.id === organizationId);
+	return {
+		name: organization?.name,
+		workosOrganizationId: organization?.workosOrganizationId ?? null,
+	};
 }
 
 function FoundationsFrame({ children }: { readonly children: ReactNode }) {
@@ -142,7 +145,7 @@ function FoundationPanels({
 	data,
 	organizationId,
 }: {
-	readonly data: AgencyFoundations;
+	readonly data: OrganizationFoundations;
 	readonly organizationId: string;
 }) {
 	const create = useCreateFoundation(organizationId);
@@ -320,7 +323,10 @@ interface ReadinessStep {
  * optional, and a checklist that lists optional work teaches an operator to
  * ignore it.
  */
-function readinessSteps(data: AgencyFoundations, enabledSpeciesCount: number): ReadinessStep[] {
+function readinessSteps(
+	data: OrganizationFoundations,
+	enabledSpeciesCount: number,
+): ReadinessStep[] {
 	return [
 		{
 			label: 'A region',
@@ -642,8 +648,8 @@ function FoundationForm({
 	onSubmit,
 }: {
 	readonly dialog: DialogKind;
-	readonly foundations: AgencyFoundations;
-	readonly availableSpecies: AgencyFoundations['species'];
+	readonly foundations: OrganizationFoundations;
+	readonly availableSpecies: OrganizationFoundations['species'];
 	readonly create: ReturnType<typeof useCreateFoundation>;
 	readonly onSubmit: (label: string, action: () => Promise<unknown>) => Promise<void>;
 }) {
@@ -719,7 +725,7 @@ function RegionForm({
 	onSubmit,
 }: {
 	readonly create: ReturnType<typeof useCreateFoundation>;
-	readonly folders: AgencyFoundations['regionFolders'];
+	readonly folders: OrganizationFoundations['regionFolders'];
 	readonly onSubmit: (label: string, action: () => Promise<unknown>) => Promise<void>;
 }) {
 	const [name, setName] = useState('');
@@ -860,7 +866,7 @@ function SpeciesForm({
 	create,
 	onSubmit,
 }: {
-	readonly available: AgencyFoundations['species'];
+	readonly available: OrganizationFoundations['species'];
 	readonly create: ReturnType<typeof useCreateFoundation>;
 	readonly onSubmit: (label: string, action: () => Promise<unknown>) => Promise<void>;
 }) {
@@ -950,7 +956,7 @@ function TrapForm({
 	create,
 	onSubmit,
 }: {
-	readonly foundations: AgencyFoundations;
+	readonly foundations: OrganizationFoundations;
 	readonly create: ReturnType<typeof useCreateFoundation>;
 	readonly onSubmit: (label: string, action: () => Promise<unknown>) => Promise<void>;
 }) {

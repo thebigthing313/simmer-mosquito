@@ -520,7 +520,7 @@ function build(
 	}
 	return builder({
 		payload,
-		agency: { organizationId: ORG, actorProfileId: ACTOR_PROFILE },
+		organization: { organizationId: ORG, actorProfileId: ACTOR_PROFILE },
 		authContext: authContext(),
 		id,
 	});

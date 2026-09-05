@@ -49,24 +49,24 @@ export function sampleTableCommands(
 			// two intentions, not because one has a field the other lacks. The domain
 			// refuses a blank name to the first, which is the right answer to a caller
 			// who meant the second and did not say so.
-			'larvalSurveillance.addInspectionSample': ({ payload, agency, id }) =>
+			'larvalSurveillance.addInspectionSample': ({ payload, organization, id }) =>
 				addInspectionSampleCommand({
-					...agency,
+					...organization,
 					sampleId: id,
 					inspectionId: readText(payload.inspection_id) ?? '',
 					displayName: readText(payload.display_name) ?? '',
 				}),
 
-			'larvalSurveillance.addUnlabeledInspectionSample': ({ payload, agency, id }) =>
+			'larvalSurveillance.addUnlabeledInspectionSample': ({ payload, organization, id }) =>
 				addUnlabeledInspectionSampleCommand({
-					...agency,
+					...organization,
 					sampleId: id,
 					inspectionId: readText(payload.inspection_id) ?? '',
 				}),
 
-			'larvalSurveillance.updateInspectionSample': ({ payload, agency, id }) =>
+			'larvalSurveillance.updateInspectionSample': ({ payload, organization, id }) =>
 				updateInspectionSampleCommand({
-					...agency,
+					...organization,
 					sampleId: id,
 					displayName: readText(payload.display_name) ?? '',
 				}),
@@ -74,31 +74,31 @@ export function sampleTableCommands(
 			// `is_zero_larvae` is a column a client can watch change, but which way it
 			// moved is the command's to say. Two names rather than one boolean read for
 			// its direction — the same treatment `markHabitatInaccessible` gets.
-			'larvalSurveillance.markSampleZeroLarvae': ({ agency, id }) =>
-				markSampleZeroLarvaeCommand({ ...agency, sampleId: id }),
+			'larvalSurveillance.markSampleZeroLarvae': ({ organization, id }) =>
+				markSampleZeroLarvaeCommand({ ...organization, sampleId: id }),
 
-			'larvalSurveillance.clearSampleZeroLarvae': ({ agency, id }) =>
-				clearSampleZeroLarvaeCommand({ ...agency, sampleId: id }),
+			'larvalSurveillance.clearSampleZeroLarvae': ({ organization, id }) =>
+				clearSampleZeroLarvaeCommand({ ...organization, sampleId: id }),
 
 			// Not the same shape as the pair above, and deliberately: non-mosquito
 			// presence is an observation the field recorded, so the value is the point.
-			'larvalSurveillance.setSampleNonMosquitoPresence': ({ payload, agency, id }) =>
+			'larvalSurveillance.setSampleNonMosquitoPresence': ({ payload, organization, id }) =>
 				setSampleNonMosquitoPresenceCommand({
-					...agency,
+					...organization,
 					sampleId: id,
 					hasNonMosquito: payload.has_non_mosquito === true,
 				}),
 
-			'larvalSurveillance.setSampleUnidentifiableReason': ({ payload, agency, id }) =>
+			'larvalSurveillance.setSampleUnidentifiableReason': ({ payload, organization, id }) =>
 				setSampleUnidentifiableReasonCommand({
-					...agency,
+					...organization,
 					sampleId: id,
 					unidentifiableReason: readNullableText(payload.unidentifiable_reason),
 				}),
 
-			'larvalSurveillance.deleteInspectionSample': ({ payload, agency, id }) =>
+			'larvalSurveillance.deleteInspectionSample': ({ payload, organization, id }) =>
 				deleteInspectionSampleCommand({
-					...agency,
+					...organization,
 					sampleId: id,
 					acknowledgedAssociatedRecordsDeletion: acknowledged(
 						payload,

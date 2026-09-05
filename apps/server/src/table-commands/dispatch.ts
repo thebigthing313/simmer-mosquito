@@ -32,7 +32,7 @@
  * The old routes could only check a role once the command existed, because the
  * command's `type` was the only place the name appeared. Here the names arrive in
  * the request, so a role that may not send them is refused before a builder runs.
- * The check is the same `denyUnauthorizedAgencyCommands` and the same map; only
+ * The check is the same `denyUnauthorizedOrganizationCommands` and the same map; only
  * its position moved.
  *
  * ## What a table has to supply
@@ -52,15 +52,15 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables, OperatorAuthContext } from '../auth-middleware.js';
 import {
-	type AgencyContext,
-	agencyCommandContext,
 	type CommandContext,
+	type OrganizationContext,
+	organizationCommandContext,
 	readJsonObject,
 } from '../command-endpoint.js';
 import type { CommandPayload, CommandTable } from '../command-payload.js';
 import {
-	type AgencyCommandType,
-	denyUnauthorizedAgencyCommands,
+	denyUnauthorizedOrganizationCommands,
+	type OrganizationCommandType,
 	readCommandPermission,
 } from '../command-permissions.js';
 import {
@@ -87,7 +87,7 @@ export interface IntentRequest<TTable extends CommandTable, TArgument extends st
 	 * caller naming one it has no fields for fails loudly rather than silently.
 	 */
 	readonly payload: CommandPayload<TTable, TArgument>;
-	readonly agency: AgencyContext;
+	readonly organization: OrganizationContext;
 	readonly authContext: AuthContext;
 	/**
 	 * The row this write names.
@@ -108,7 +108,7 @@ export type IntentBuilder<
 /**
  * The commands one table accepts.
  *
- * Keyed by `AgencyCommandType` rather than `string`, so a typo is a build error
+ * Keyed by `OrganizationCommandType` rather than `string`, so a typo is a build error
  * and the names that come back out are already known to the permission map.
  * Partial because no table accepts the whole vocabulary.
  */
@@ -116,7 +116,7 @@ export type IntentMap<
 	TTable extends CommandTable,
 	TCommand,
 	TArgument extends string = never,
-> = Readonly<Partial<Record<AgencyCommandType, IntentBuilder<TTable, TCommand, TArgument>>>>;
+> = Readonly<Partial<Record<OrganizationCommandType, IntentBuilder<TTable, TCommand, TArgument>>>>;
 
 export interface TableCommands<
 	TTable extends CommandTable,
@@ -162,7 +162,10 @@ export interface OperatorTableCommands<
 	readonly run: RunCommandsConfig<TCommand, TRow>;
 	readonly intents: Readonly<
 		Partial<
-			Record<AgencyCommandType, (request: OperatorIntentRequest<TTable, TArgument>) => TCommand>
+			Record<
+				OrganizationCommandType,
+				(request: OperatorIntentRequest<TTable, TArgument>) => TCommand
+			>
 		>
 	>;
 }
@@ -178,7 +181,7 @@ export type AnyTableCommands<
 
 /** The names a request said it meant, or why the list could not be read. */
 type IntentsResult =
-	| { readonly ok: true; readonly intents: readonly AgencyCommandType[] }
+	| { readonly ok: true; readonly intents: readonly OrganizationCommandType[] }
 	| { readonly ok: false; readonly reason: string };
 
 /**
@@ -202,7 +205,7 @@ function readIntents(
 		return { ok: false, reason: 'A command request must carry a non-empty `intents` list.' };
 	}
 
-	const intents: AgencyCommandType[] = [];
+	const intents: OrganizationCommandType[] = [];
 	for (const name of raw) {
 		if (typeof name !== 'string' || name.length === 0) {
 			return { ok: false, reason: 'Every entry in `intents` must be a command name.' };
@@ -210,7 +213,7 @@ function readIntents(
 		if (!Object.hasOwn(spec.intents, name)) {
 			return { ok: false, reason: `${spec.table} does not accept the command ${name}.` };
 		}
-		intents.push(name as AgencyCommandType);
+		intents.push(name as OrganizationCommandType);
 	}
 
 	return { ok: true, intents };
@@ -250,7 +253,7 @@ function tableCommandHandler<
 
 		// Before building, because the names are enough to decide and a role that may
 		// not send them should not have its payload validated first.
-		const denial = denyUnauthorizedAgencyCommands(
+		const denial = denyUnauthorizedOrganizationCommands(
 			context,
 			names.intents.map((type) => ({ type })),
 		);
@@ -266,7 +269,7 @@ function tableCommandHandler<
 			// columns; the values stay `unknown` either way, so the cast adds no claim
 			// about them. It is here rather than at 272 call sites.
 			payload: payload as CommandPayload<TTable, TArgument>,
-			agency: agencyCommandContext(authContext),
+			organization: organizationCommandContext(authContext),
 			authContext,
 			id: idFrom(context, payload),
 		};
@@ -306,7 +309,7 @@ function assertOperatorScoped(spec: {
 	readonly table: string;
 	readonly intents: Readonly<Record<string, unknown>>;
 }): void {
-	for (const name of Object.keys(spec.intents) as AgencyCommandType[]) {
+	for (const name of Object.keys(spec.intents) as OrganizationCommandType[]) {
 		const permission = readCommandPermission(name);
 		if (permission.kind !== 'operator') {
 			throw new Error(

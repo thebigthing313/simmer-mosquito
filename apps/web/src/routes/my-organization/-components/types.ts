@@ -29,7 +29,7 @@ export interface SetupCatalog {
 	readonly detail: string;
 }
 
-export interface AgencyDetailsFormValues {
+export interface OrganizationDetailsFormValues {
 	readonly name: string;
 	readonly mainContactEmail: string;
 	readonly phoneNumber: string;

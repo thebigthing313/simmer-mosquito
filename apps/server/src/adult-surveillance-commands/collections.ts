@@ -49,7 +49,6 @@ import {
 import {
 	type AdultSurveillanceDb,
 	type AdultSurveillanceTransaction,
-	agencyCommandContext,
 	type CollectionInsertInput,
 	type CollectionRow,
 	type CollectionTimingColumns,
@@ -65,6 +64,7 @@ import {
 	isCollectedTiming,
 	loadTrapSnapshot,
 	localDateColumn,
+	organizationCommandContext,
 	pendingStartedAt,
 	readCollectionTiming,
 	readDate,
@@ -107,7 +107,7 @@ export function registerCollectionRoutes(
 		'/adult-surveillance/collections/:collectionId/collect',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) => {
+			build: ({ payload, organization: ctx, param }) => {
 				const assignmentItemId = readNullableText(payload.assignmentItemId);
 				// Emptying the trap off the stop that sent the technician to it.
 				if (assignmentItemId !== null) {
@@ -140,7 +140,7 @@ export function registerCollectionRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			build: ({ organization: ctx, param }) =>
 				cancelPendingCollectionCommand({
 					...ctx,
 					collectionId: param('collectionId'),
@@ -154,7 +154,7 @@ export function registerCollectionRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				deleteCollectionCommand({
 					...ctx,
 					collectionId: param('collectionId'),
@@ -174,7 +174,7 @@ function buildCollectionCreateCommand(
 ):
 	| { readonly ok: true; readonly command: CollectionCommand }
 	| { readonly ok: false; readonly body: InvalidCommandBody } {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const collectionId = readText(payload.id) ?? '';
 	const timing = readCollectionTiming(payload);
 	const collected = isCollectedTiming(timing);
@@ -291,7 +291,7 @@ function buildCollectionUpdateCommands(
 ):
 	| { readonly ok: true; readonly commands: readonly CollectionCommand[] }
 	| { readonly ok: false; readonly body: InvalidCommandBody } {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: CollectionCommand[] = [];
 
 	const hasMethod = 'collectionMethodId' in payload;

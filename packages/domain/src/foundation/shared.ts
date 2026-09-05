@@ -3,8 +3,8 @@ import {
 	nullableText as normalizeNullableText,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
-	validateAgencyCommandContext,
 	validateOperatorCommandContext,
+	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import {
 	type DomainId,
@@ -76,12 +76,12 @@ export interface FoundationDomainCommand<TType extends FoundationCommandType, TP
 	readonly payload: TPayload;
 }
 
-export interface AgencyFoundationCommandInput {
+export interface OrganizationFoundationCommandInput {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
 }
 
-export interface AgencyFoundationCommandPayload {
+export interface OrganizationFoundationCommandPayload {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
 }
@@ -94,11 +94,11 @@ export interface OperatorFoundationCommandPayload {
 	readonly operatorUserId: DomainId;
 }
 
-export function validateAgencyBase(
-	input: AgencyFoundationCommandInput,
+export function validateOrganizationBase(
+	input: OrganizationFoundationCommandInput,
 	issues: DomainValidationIssue[],
 ): void {
-	validateAgencyCommandContext(input, issues);
+	validateOrganizationCommandContext(input, issues);
 }
 
 export function validateOperatorBase(
@@ -108,12 +108,12 @@ export function validateOperatorBase(
 	validateOperatorCommandContext(input, issues);
 }
 
-export function validateAgencyIdCommand<T extends AgencyFoundationCommandInput>(
+export function validateOrganizationIdCommand<T extends OrganizationFoundationCommandInput>(
 	input: T,
 	idKey: keyof T & string,
 ): DomainValidationIssue[] {
 	const issues = createIssues();
-	validateAgencyBase(input, issues);
+	validateOrganizationBase(input, issues);
 	requireUuid(input[idKey] as string | undefined, idKey, issues);
 	return issues;
 }
@@ -243,8 +243,10 @@ export function normalizePostalCode(
 	return normalized;
 }
 
-export function agencyPayload(input: AgencyFoundationCommandInput): AgencyFoundationCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
+export function organizationPayload(
+	input: OrganizationFoundationCommandInput,
+): OrganizationFoundationCommandPayload {
+	return validateOrganizationCommandContext(input, createIssues());
 }
 
 export function operatorPayload(

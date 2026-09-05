@@ -34,10 +34,8 @@ import {
 	missionItemGeom,
 } from '../mission-dispatch-commands/mission-execution.js';
 import {
-	type AgencyContext,
 	type ApplicationRow,
 	type ApplicationUpdateColumns,
-	agencyCommandContext,
 	applicationReturnColumns,
 	type CommandContext,
 	type CommandsResult,
@@ -52,6 +50,8 @@ import {
 	localDateColumn,
 	locationContextColumns,
 	locationContextInput,
+	type OrganizationContext,
+	organizationCommandContext,
 	type RouteOptions,
 	readControlActionContext,
 	resolveGeom,
@@ -76,7 +76,7 @@ export function registerApplicationRoutes(
 		'/control-operations/applications',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) => buildApplicationCreateCommand(ctx, payload),
+			build: ({ payload, organization: ctx }) => buildApplicationCreateCommand(ctx, payload),
 			run: (context, commands) => runApplicationCommands(context, options.db, commands, 201),
 		}),
 	);
@@ -96,7 +96,7 @@ export function registerApplicationRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ agency: ctx, param, payload }) =>
+			build: ({ organization: ctx, param, payload }) =>
 				deleteChemicalApplicationCommand({
 					...ctx,
 					applicationId: param('applicationId'),
@@ -121,7 +121,7 @@ export function registerApplicationRoutes(
  * could see it.
  */
 export function buildApplicationCreateCommand(
-	ctx: AgencyContext,
+	ctx: OrganizationContext,
 	payload: Record<string, unknown>,
 ): ApplicationCommand {
 	const missionItemId = readNullableText(payload.missionItemId);
@@ -176,7 +176,7 @@ function buildApplicationUpdateCommands(
 	applicationId: string,
 	payload: Record<string, unknown>,
 ): CommandsResult {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	// Updates never produce a mission helper; only the create path can.
 	const commands: ControlOperationsCommand[] = [];
 

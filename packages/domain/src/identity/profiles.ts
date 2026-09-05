@@ -7,12 +7,12 @@ import {
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import {
-	type AgencyIdentityCommandInput,
-	type AgencyIdentityCommandPayload,
-	agencyPayload,
 	type IdentityDomainCommand,
-	validateAgencyBase,
-	validateAgencyIdCommand,
+	type OrganizationIdentityCommandInput,
+	type OrganizationIdentityCommandPayload,
+	organizationPayload,
+	validateOrganizationBase,
+	validateOrganizationIdCommand,
 } from './shared.js';
 
 /**
@@ -26,7 +26,7 @@ import {
  * three already had: a replay collides on the primary key rather than adding a
  * second person.
  */
-export interface CreateProfileCommandInput extends AgencyIdentityCommandInput {
+export interface CreateProfileCommandInput extends OrganizationIdentityCommandInput {
 	readonly profileId: DomainId;
 	readonly displayName: string;
 	readonly isActive?: boolean;
@@ -34,14 +34,14 @@ export interface CreateProfileCommandInput extends AgencyIdentityCommandInput {
 
 export type CreateProfileCommand = IdentityDomainCommand<
 	'identity.createProfile',
-	AgencyIdentityCommandPayload & {
+	OrganizationIdentityCommandPayload & {
 		readonly profileId: DomainId;
 		readonly displayName: string;
 		readonly isActive: boolean;
 	}
 >;
 
-export interface UpdateProfileCommandInput extends AgencyIdentityCommandInput {
+export interface UpdateProfileCommandInput extends OrganizationIdentityCommandInput {
 	readonly profileId: DomainId;
 	readonly displayName?: string;
 	readonly isActive?: boolean;
@@ -49,7 +49,7 @@ export interface UpdateProfileCommandInput extends AgencyIdentityCommandInput {
 
 export type UpdateProfileCommand = IdentityDomainCommand<
 	'identity.updateProfile',
-	AgencyIdentityCommandPayload & {
+	OrganizationIdentityCommandPayload & {
 		readonly profileId: DomainId;
 		readonly changes: {
 			readonly displayName?: string;
@@ -60,14 +60,14 @@ export type UpdateProfileCommand = IdentityDomainCommand<
 
 export function createProfileCommand(input: CreateProfileCommandInput): CreateProfileCommand {
 	const issues = createIssues();
-	validateAgencyBase(input, issues);
+	validateOrganizationBase(input, issues);
 	requireUuid(input.profileId, 'profileId', issues);
 	const displayName = normalizeRequiredText(input.displayName, 'displayName', issues, 200);
 	throwIfIssues('Create profile command is invalid.', issues);
 	return {
 		type: 'identity.createProfile',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			profileId: normalizeRequiredId(input.profileId),
 			displayName,
 			isActive: input.isActive ?? true,
@@ -76,7 +76,7 @@ export function createProfileCommand(input: CreateProfileCommandInput): CreatePr
 }
 
 export function updateProfileCommand(input: UpdateProfileCommandInput): UpdateProfileCommand {
-	const issues = validateAgencyIdCommand(input, 'profileId');
+	const issues = validateOrganizationIdCommand(input, 'profileId');
 	const hasDisplayName = input.displayName !== undefined;
 	const hasIsActive = input.isActive !== undefined;
 	if (!hasDisplayName && !hasIsActive) {
@@ -89,7 +89,7 @@ export function updateProfileCommand(input: UpdateProfileCommandInput): UpdatePr
 	return {
 		type: 'identity.updateProfile',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			profileId: normalizeRequiredId(input.profileId),
 			changes: {
 				...(displayName !== undefined ? { displayName } : {}),

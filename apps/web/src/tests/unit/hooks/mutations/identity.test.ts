@@ -256,7 +256,7 @@ describe('a profile write', () => {
 	});
 });
 
-function agencyFields(overrides: Record<string, unknown> = {}) {
+function organizationFields(overrides: Record<string, unknown> = {}) {
 	return {
 		name: AGENCY.name,
 		mainContactEmail: AGENCY.main_contact_email,
@@ -275,7 +275,7 @@ describe('an agency details write', () => {
 	it('sends nothing at all when the sheet was opened and closed', async () => {
 		const { result } = renderHook(() => useOrganizationSettingsMutations());
 
-		await result.current.saveAgencyDetails(agencyFields());
+		await result.current.saveOrganizationDetails(organizationFields());
 
 		expect(dispatches()).toHaveLength(0);
 		expect(requests()).toHaveLength(0);
@@ -284,7 +284,7 @@ describe('an agency details write', () => {
 	it('dispatches the columns as a command and states the stamp it expects', async () => {
 		const { result } = renderHook(() => useOrganizationSettingsMutations());
 
-		await result.current.saveAgencyDetails(agencyFields({ phoneNumber: '555-0199' }));
+		await result.current.saveOrganizationDetails(organizationFields({ phoneNumber: '555-0199' }));
 
 		expect(dispatches()).toHaveLength(1);
 		expect(lastIntents()).toEqual(['identity.updateOrganizationDetails']);
@@ -298,7 +298,9 @@ describe('an agency details write', () => {
 	it('sends the timezone to its own route, because it is not a column', async () => {
 		const { result } = renderHook(() => useOrganizationSettingsMutations());
 
-		await result.current.saveAgencyDetails(agencyFields({ timezone: 'America/Denver' }));
+		await result.current.saveOrganizationDetails(
+			organizationFields({ timezone: 'America/Denver' }),
+		);
 
 		expect(dispatches()).toHaveLength(0);
 		expect(requests()).toHaveLength(1);
@@ -313,8 +315,8 @@ describe('an agency details write', () => {
 	it('sends one of each when the sheet changed a column and the timezone', async () => {
 		const { result } = renderHook(() => useOrganizationSettingsMutations());
 
-		await result.current.saveAgencyDetails(
-			agencyFields({ name: 'Coastal Vector Control', timezone: 'America/Denver' }),
+		await result.current.saveOrganizationDetails(
+			organizationFields({ name: 'Coastal Vector Control', timezone: 'America/Denver' }),
 		);
 
 		expect(lastIntents()).toEqual(['identity.updateOrganizationDetails']);

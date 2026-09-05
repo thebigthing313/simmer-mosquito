@@ -42,9 +42,9 @@ export function tagItemTableCommands(
 			key: 'tagItem',
 		},
 		intents: {
-			'fieldWork.assignTag': ({ payload, agency, id }) =>
+			'fieldWork.assignTag': ({ payload, organization, id }) =>
 				assignTagCommand({
-					...agency,
+					...organization,
 					tagItemId: id,
 					tagId: readText(payload.tag_id) ?? '',
 					target: readEntityTarget(payload.entity_type, payload.entity_id),
@@ -52,7 +52,8 @@ export function tagItemTableCommands(
 
 			// Only the link row's id: which record the Tag was on is what the server
 			// looks up, and it is also how the ownership check reaches it.
-			'fieldWork.unassignTag': ({ agency, id }) => unassignTagCommand({ ...agency, tagItemId: id }),
+			'fieldWork.unassignTag': ({ organization, id }) =>
+				unassignTagCommand({ ...organization, tagItemId: id }),
 		},
 	};
 }

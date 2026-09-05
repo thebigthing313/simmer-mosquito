@@ -7,7 +7,7 @@ import {
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
-	validateAgencyCommandContext,
+	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import {
 	type DomainId,
@@ -211,7 +211,7 @@ export function validateBase(
 	input: PublicEngagementCommandInput,
 	issues: DomainValidationIssue[],
 ): void {
-	validateAgencyCommandContext(input, issues);
+	validateOrganizationCommandContext(input, issues);
 }
 
 export function validateIdCommand<T extends PublicEngagementCommandInput>(
@@ -225,7 +225,7 @@ export function validateIdCommand<T extends PublicEngagementCommandInput>(
 }
 
 export function basePayload(input: PublicEngagementCommandInput): PublicEngagementCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
+	return validateOrganizationCommandContext(input, createIssues());
 }
 
 export function validateContactReference(

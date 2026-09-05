@@ -44,7 +44,6 @@ import {
 	resolveMissionMethodId,
 } from '../mission-dispatch-commands/mission-execution.js';
 import {
-	type AgencyContext,
 	type BiocontrolActionRow,
 	biocontrolActionReturnColumns,
 	type CommandContext,
@@ -59,6 +58,7 @@ import {
 	localDateColumn,
 	locationContextColumns,
 	locationContextInput,
+	type OrganizationContext,
 	type OutreachActionRow,
 	outreachActionReturnColumns,
 	type RouteOptions,
@@ -94,14 +94,17 @@ interface ActionConfig<TRow> {
 	readonly basePath: string;
 	readonly notFoundError: string;
 	readonly idParam: string;
-	readonly buildCreate: (ctx: AgencyContext, payload: Record<string, unknown>) => ActionCommand;
+	readonly buildCreate: (
+		ctx: OrganizationContext,
+		payload: Record<string, unknown>,
+	) => ActionCommand;
 	readonly buildUpdate: (
-		ctx: AgencyContext,
+		ctx: OrganizationContext,
 		id: string,
 		payload: Record<string, unknown>,
 	) => CommandsResult;
 	readonly buildDelete: (
-		ctx: AgencyContext,
+		ctx: OrganizationContext,
 		id: string,
 		payload: Record<string, unknown>,
 	) => ControlOperationsCommand;
@@ -121,7 +124,7 @@ export function registerActionRoutes<TRow>(
 		config.basePath,
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency }) => config.buildCreate(agency, payload),
+			build: ({ payload, organization }) => config.buildCreate(organization, payload),
 			run: (context, commands) => runActionCommands(context, options.db, config, commands, 201),
 		}),
 	);
@@ -130,8 +133,8 @@ export function registerActionRoutes<TRow>(
 		`${config.basePath}/:${config.idParam}`,
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency, param }) =>
-				config.buildUpdate(agency, param(config.idParam), payload),
+			build: ({ payload, organization, param }) =>
+				config.buildUpdate(organization, param(config.idParam), payload),
 			run: (context, commands) => runActionCommands(context, options.db, config, commands),
 		}),
 	);
@@ -141,8 +144,8 @@ export function registerActionRoutes<TRow>(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ agency, param, payload }) =>
-				config.buildDelete(agency, param(config.idParam), payload),
+			build: ({ organization, param, payload }) =>
+				config.buildDelete(organization, param(config.idParam), payload),
 			run: (context, commands) => runActionCommands(context, options.db, config, commands),
 		}),
 	);

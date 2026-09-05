@@ -53,9 +53,13 @@ import {
 } from '@simmer-mosquito/domain';
 import type { Hono } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
-import { agencyCommandContext, handleCommandError, readJsonObject } from '../command-endpoint.js';
+import {
+	handleCommandError,
+	organizationCommandContext,
+	readJsonObject,
+} from '../command-endpoint.js';
 import { acknowledged, readString } from '../command-payload.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
+import { denyUnauthorizedOrganizationCommands } from '../command-permissions.js';
 import { commandActor, writeCommands } from '../command-write.js';
 import { refusableWrite } from '../table-commands/shared.js';
 import {
@@ -116,7 +120,7 @@ export function registerWeatherImportRoute(
 		// authorization, so a collector should be refused before the domain is asked
 		// to parse and validate five thousand rows. `dispatch.ts` makes the same
 		// argument for the same reason.
-		const denial = denyUnauthorizedAgencyCommands(context, [
+		const denial = denyUnauthorizedOrganizationCommands(context, [
 			{ type: 'weather.commitWeatherSummaryImport' },
 		]);
 		if (denial !== null) {
@@ -133,7 +137,7 @@ export function registerWeatherImportRoute(
 		let command: CommitWeatherSummaryImportCommand;
 		try {
 			command = commitWeatherSummaryImportCommand({
-				...agencyCommandContext(authContext),
+				...organizationCommandContext(authContext),
 				weatherStationId: readString(payload.weather_source_id),
 				rows: readRows(payload.rows),
 				acknowledgedUpdates: acknowledged(payload, 'acknowledgedUpdates'),

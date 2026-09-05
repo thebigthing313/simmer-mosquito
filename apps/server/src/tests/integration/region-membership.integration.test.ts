@@ -164,7 +164,7 @@ describeDbIntegration('the regions-containing-a-record read', () => {
 				readRecordRegions(db, { recordType, recordId, organizationId: own });
 
 			const [
-				otherAgency,
+				otherOrganization,
 				softDeleted,
 				unknown,
 				nothingHolds,
@@ -189,11 +189,11 @@ describeDbIntegration('the regions-containing-a-record read', () => {
 			// existed have to be indistinguishable. That is why `found` is a body
 			// field and not a status code.
 			expect({
-				otherAgency: summarize(otherAgency),
+				otherOrganization: summarize(otherOrganization),
 				softDeleted: summarize(softDeleted),
 				unknown: summarize(unknown),
 			}).toEqual({
-				otherAgency: { found: false, groups: [] },
+				otherOrganization: { found: false, groups: [] },
 				softDeleted: { found: false, groups: [] },
 				unknown: { found: false, groups: [] },
 			});

@@ -1,13 +1,13 @@
 import {
-	type AgencyCommandContextInput,
-	type AgencyCommandContextPayload,
 	createIssues,
 	jsonObject,
 	nullableText,
+	type OrganizationCommandContextInput,
+	type OrganizationCommandContextPayload,
 	requiredText,
 	requiredUuid,
 	throwIfIssues,
-	validateAgencyCommandContext,
+	validateOrganizationCommandContext,
 } from './command-validation.js';
 import type { JsonObject } from './shared.js';
 
@@ -23,7 +23,7 @@ export interface NamedReferenceFieldSet {
 }
 
 export type NamedReferenceCreateInput<TFields extends NamedReferenceFieldSet> =
-	AgencyCommandContextInput & {
+	OrganizationCommandContextInput & {
 		readonly name: string;
 		readonly description?: TFields['description'] extends true ? string | null : never;
 		readonly customSchema?: TFields['customSchema'] extends true ? unknown | null : never;
@@ -33,7 +33,7 @@ export type NamedReferenceCreateInput<TFields extends NamedReferenceFieldSet> =
 	};
 
 export type NamedReferenceUpdateInput<TFields extends NamedReferenceFieldSet> =
-	AgencyCommandContextInput & {
+	OrganizationCommandContextInput & {
 		readonly name?: string;
 		readonly description?: TFields['description'] extends true ? string | null : never;
 		readonly customSchema?: TFields['customSchema'] extends true ? unknown | null : never;
@@ -86,19 +86,19 @@ export function createNamedReferenceCommand<
 	}>,
 ): Readonly<{
 	readonly type: TType;
-	readonly payload: AgencyCommandContextPayload &
+	readonly payload: OrganizationCommandContextPayload &
 		Record<TIdKey, string> &
 		NamedReferenceCreatePayload<TFields>;
 }> {
 	const { type, input, idKey, fields } = options;
 	const issues = createIssues();
-	const context = validateAgencyCommandContext(input, issues);
+	const context = validateOrganizationCommandContext(input, issues);
 	const id = requiredUuid(input[idKey], idKey, issues);
 	const payload = normalizeCreatePayload(input, fields, issues);
 	throwIfIssues(options.message ?? `${humanizeCommandType(type)} command is invalid.`, issues);
 	return {
 		type,
-		payload: { ...context, [idKey]: id, ...payload } as AgencyCommandContextPayload &
+		payload: { ...context, [idKey]: id, ...payload } as OrganizationCommandContextPayload &
 			Record<TIdKey, string> &
 			NamedReferenceCreatePayload<TFields>,
 	};
@@ -119,13 +119,13 @@ export function updateNamedReferenceCommand<
 	}>,
 ): Readonly<{
 	readonly type: TType;
-	readonly payload: AgencyCommandContextPayload &
+	readonly payload: OrganizationCommandContextPayload &
 		Record<TIdKey, string> &
 		NamedReferenceUpdatePayload<TFields>;
 }> {
 	const { type, input, idKey, fields } = options;
 	const issues = createIssues();
-	const context = validateAgencyCommandContext(input, issues);
+	const context = validateOrganizationCommandContext(input, issues);
 	const id = requiredUuid(input[idKey], idKey, issues);
 	const changes = normalizeUpdateChanges(input, fields, options.changeNoun, issues);
 	throwIfIssues(options.message ?? `${humanizeCommandType(type)} command is invalid.`, issues);
@@ -136,7 +136,7 @@ export function updateNamedReferenceCommand<
 			[idKey]: id,
 			changes,
 			acknowledgedHistoricalLabelChange: input.acknowledgedHistoricalLabelChange ?? false,
-		} as AgencyCommandContextPayload &
+		} as OrganizationCommandContextPayload &
 			Record<TIdKey, string> &
 			NamedReferenceUpdatePayload<TFields>,
 	};
@@ -145,22 +145,23 @@ export function updateNamedReferenceCommand<
 export function namedReferenceIdCommand<TType extends string, TIdKey extends string>(
 	options: Readonly<{
 		type: TType;
-		input: AgencyCommandContextInput & Record<TIdKey, string | null | undefined>;
+		input: OrganizationCommandContextInput & Record<TIdKey, string | null | undefined>;
 		idKey: TIdKey;
 		message?: string;
 	}>,
 ): Readonly<{
 	readonly type: TType;
-	readonly payload: AgencyCommandContextPayload & Record<TIdKey, string>;
+	readonly payload: OrganizationCommandContextPayload & Record<TIdKey, string>;
 }> {
 	const { type, input, idKey } = options;
 	const issues = createIssues();
-	const context = validateAgencyCommandContext(input, issues);
+	const context = validateOrganizationCommandContext(input, issues);
 	const id = requiredUuid(input[idKey], idKey, issues);
 	throwIfIssues(options.message ?? `${humanizeCommandType(type)} command is invalid.`, issues);
 	return {
 		type,
-		payload: { ...context, [idKey]: id } as AgencyCommandContextPayload & Record<TIdKey, string>,
+		payload: { ...context, [idKey]: id } as OrganizationCommandContextPayload &
+			Record<TIdKey, string>,
 	};
 }
 

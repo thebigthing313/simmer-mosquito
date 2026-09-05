@@ -23,10 +23,10 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
-	type AgencyContext,
 	type CommandContext,
 	type CommandsResult,
 	commandEndpoint,
+	type OrganizationContext,
 } from '../command-endpoint.js';
 import { runCommands } from '../command-write.js';
 import {
@@ -52,13 +52,16 @@ interface OrgLookupCatalog {
 	readonly key: string;
 	/** The 404 body's `error`. */
 	readonly notFound: string;
-	readonly create: (agency: AgencyContext, payload: CollectionMethodCreatePayload) => LookupCommand;
+	readonly create: (
+		organization: OrganizationContext,
+		payload: CollectionMethodCreatePayload,
+	) => LookupCommand;
 	readonly update: (
 		authContext: AuthContext,
 		id: string,
 		payload: CollectionMethodUpdatePayload,
 	) => CommandsResult<LookupCommand>;
-	readonly remove: (agency: AgencyContext, id: string) => LookupCommand;
+	readonly remove: (organization: OrganizationContext, id: string) => LookupCommand;
 }
 
 const orgLookupCatalogs: readonly OrgLookupCatalog[] = [
@@ -67,9 +70,9 @@ const orgLookupCatalogs: readonly OrgLookupCatalog[] = [
 		idParam: 'collectionMethodId',
 		key: 'collectionMethod',
 		notFound: 'collection_method_not_found',
-		create: (agency, payload) =>
+		create: (organization, payload) =>
 			createCollectionMethodCommand({
-				...agency,
+				...organization,
 				collectionMethodId: payload.id,
 				name: payload.name,
 				description: payload.description,
@@ -77,40 +80,41 @@ const orgLookupCatalogs: readonly OrgLookupCatalog[] = [
 				actionThreshold: payload.actionThreshold,
 			}),
 		update: buildUpdateCommands,
-		remove: (agency, collectionMethodId) =>
-			deleteCollectionMethodCommand({ ...agency, collectionMethodId }),
+		remove: (organization, collectionMethodId) =>
+			deleteCollectionMethodCommand({ ...organization, collectionMethodId }),
 	},
 	{
 		path: 'collection-lures',
 		idParam: 'collectionLureId',
 		key: 'collectionLure',
 		notFound: 'collection_lure_not_found',
-		create: (agency, payload) =>
+		create: (organization, payload) =>
 			createCollectionLureCommand({
-				...agency,
+				...organization,
 				collectionLureId: payload.id,
 				name: payload.name,
 				description: payload.description,
 			}),
 		update: buildCollectionLureUpdateCommands,
-		remove: (agency, collectionLureId) =>
-			deleteCollectionLureCommand({ ...agency, collectionLureId }),
+		remove: (organization, collectionLureId) =>
+			deleteCollectionLureCommand({ ...organization, collectionLureId }),
 	},
 	{
 		path: 'habitat-types',
 		idParam: 'habitatTypeId',
 		key: 'habitatType',
 		notFound: 'habitat_type_not_found',
-		create: (agency, payload) =>
+		create: (organization, payload) =>
 			createHabitatTypeCommand({
-				...agency,
+				...organization,
 				habitatTypeId: payload.id,
 				name: payload.name,
 				description: payload.description,
 				customSchema: payload.customSchema,
 			}),
 		update: buildHabitatTypeUpdateCommands,
-		remove: (agency, habitatTypeId) => deleteHabitatTypeCommand({ ...agency, habitatTypeId }),
+		remove: (organization, habitatTypeId) =>
+			deleteHabitatTypeCommand({ ...organization, habitatTypeId }),
 	},
 ];
 
@@ -145,7 +149,7 @@ export function registerOrgLookupRoutes(
 			options.authContextMiddleware,
 			commandEndpoint({
 				readPayload: readCollectionMethodCreatePayload,
-				build: ({ payload, agency }) => catalog.create(agency, payload),
+				build: ({ payload, organization }) => catalog.create(organization, payload),
 				run: (context, commands) => run(context, commands, 201),
 			}),
 		);
@@ -166,7 +170,7 @@ export function registerOrgLookupRoutes(
 			options.authContextMiddleware,
 			commandEndpoint({
 				body: 'none',
-				build: ({ agency, param }) => catalog.remove(agency, param(catalog.idParam)),
+				build: ({ organization, param }) => catalog.remove(organization, param(catalog.idParam)),
 				run,
 			}),
 		);

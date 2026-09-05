@@ -239,7 +239,7 @@ function recordingApp(requests: string[]): Hono<{ Variables: AuthVariables }> {
  * The app as an operator meets it: the agency middleware refuses, the operator
  * one admits.
  */
-function refusingAgencyApp(requests: string[]): Hono<{ Variables: AuthVariables }> {
+function refusingOrganizationApp(requests: string[]): Hono<{ Variables: AuthVariables }> {
 	const app = new Hono<{ Variables: AuthVariables }>();
 
 	registerSyncShapeRoutes(app, {
@@ -362,7 +362,7 @@ describe('registerSyncShapeRoutes', () => {
 	 */
 	it('admits an operator on a global shape the agency middleware refuses', async () => {
 		const requests: string[] = [];
-		const response = await refusingAgencyApp(requests).request('/sync/shapes/genera');
+		const response = await refusingOrganizationApp(requests).request('/sync/shapes/genera');
 
 		expect(response.status).toBe(200);
 		expect(new URL(requests[0] ?? '').searchParams.get('table')).toBe('genera');
@@ -376,7 +376,7 @@ describe('registerSyncShapeRoutes', () => {
 	 * someone maintains.
 	 */
 	it('does not admit an operator on a tenant-scoped shape', async () => {
-		const response = await refusingAgencyApp([]).request('/sync/shapes/habitats');
+		const response = await refusingOrganizationApp([]).request('/sync/shapes/habitats');
 
 		expect(response.status).toBe(403);
 	});

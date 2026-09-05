@@ -81,9 +81,9 @@ export function weatherStationTableCommands(
 			key: 'weatherStation',
 		},
 		intents: {
-			'weather.createWeatherStation': ({ payload, agency, id }) =>
+			'weather.createWeatherStation': ({ payload, organization, id }) =>
 				createWeatherStationCommand({
-					...agency,
+					...organization,
 					weatherStationId: id,
 					stationName: readText(payload.source_name) ?? '',
 					stationCode: readNullableText(payload.source_code),
@@ -91,9 +91,9 @@ export function weatherStationTableCommands(
 					geometry: payload.geometry,
 				}),
 
-			'weather.updateWeatherStationDetails': ({ payload, agency, id }) =>
+			'weather.updateWeatherStationDetails': ({ payload, organization, id }) =>
 				updateWeatherStationDetailsCommand({
-					...agency,
+					...organization,
 					weatherStationId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 					...(payload.source_name !== undefined
@@ -109,9 +109,9 @@ export function weatherStationTableCommands(
 					),
 				}),
 
-			'weather.updateWeatherStationLocation': ({ payload, agency, id }) =>
+			'weather.updateWeatherStationLocation': ({ payload, organization, id }) =>
 				updateWeatherStationLocationCommand({
-					...agency,
+					...organization,
 					weatherStationId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 					geometry: payload.geometry,
@@ -124,23 +124,23 @@ export function weatherStationTableCommands(
 			// `is_active` is a column the client can see, so a write that sets it
 			// arrives here as one of these two names rather than as a details edit
 			// carrying the column. Which of the two it is, is the client's to say.
-			'weather.deactivateWeatherStation': ({ payload, agency, id }) =>
+			'weather.deactivateWeatherStation': ({ payload, organization, id }) =>
 				deactivateWeatherStationCommand({
-					...agency,
+					...organization,
 					weatherStationId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 				}),
 
-			'weather.reactivateWeatherStation': ({ payload, agency, id }) =>
+			'weather.reactivateWeatherStation': ({ payload, organization, id }) =>
 				reactivateWeatherStationCommand({
-					...agency,
+					...organization,
 					weatherStationId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 				}),
 
-			'weather.deleteWeatherStation': ({ payload, agency, id }) =>
+			'weather.deleteWeatherStation': ({ payload, organization, id }) =>
 				deleteWeatherStationCommand({
-					...agency,
+					...organization,
 					weatherStationId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 					acknowledgedSummaryDeletion: acknowledged(payload, 'acknowledgedSummaryDeletion'),
@@ -161,12 +161,12 @@ export function weatherSummaryTableCommands(
 			key: 'weatherSummary',
 		},
 		intents: {
-			'weather.createWeatherSummary': ({ payload, agency, authContext, id }) => {
+			'weather.createWeatherSummary': ({ payload, organization, authContext, id }) => {
 				const startDate = readText(payload.start_date) ?? '';
 				const endDate = readText(payload.end_date) ?? startDate;
 				assertNotFuture({ startDate, endDate }, authContext.timeZone);
 				return createWeatherSummaryCommand({
-					...agency,
+					...organization,
 					weatherSummaryId: id,
 					weatherStationId: readText(payload.weather_source_id) ?? '',
 					startDate,
@@ -177,7 +177,7 @@ export function weatherSummaryTableCommands(
 				});
 			},
 
-			'weather.updateWeatherSummary': ({ payload, agency, authContext, id }) => {
+			'weather.updateWeatherSummary': ({ payload, organization, authContext, id }) => {
 				const startDate =
 					payload.start_date !== undefined ? (readText(payload.start_date) ?? '') : undefined;
 				const endDate =
@@ -187,7 +187,7 @@ export function weatherSummaryTableCommands(
 				// re-checks the pair for ordering and overlap.
 				assertNotFuture({ startDate, endDate }, authContext.timeZone);
 				return updateWeatherSummaryCommand({
-					...agency,
+					...organization,
 					weatherSummaryId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 					...(startDate !== undefined ? { startDate } : {}),
@@ -196,9 +196,9 @@ export function weatherSummaryTableCommands(
 				});
 			},
 
-			'weather.deleteWeatherSummary': ({ payload, agency, id }) =>
+			'weather.deleteWeatherSummary': ({ payload, organization, id }) =>
 				deleteWeatherSummaryCommand({
-					...agency,
+					...organization,
 					weatherSummaryId: id,
 					expectedUpdatedAt: readDate(payload.expectedUpdatedAt),
 				}),

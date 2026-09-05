@@ -77,7 +77,7 @@ export function registerInspectionRoutes(
 		'/larval-surveillance/inspections',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: async ({ payload, agency: ctx, authContext }) => {
+			build: async ({ payload, organization: ctx, authContext }) => {
 				const policy = await loadInspectionPolicy(options.db, authContext.organization.id);
 				const result = readInspectionResult(payload);
 				const habitatId = readNullableText(payload.habitatId);
@@ -125,7 +125,7 @@ export function registerInspectionRoutes(
 		'/larval-surveillance/inspections/:inspectionId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: async ({ payload, agency: ctx, authContext, param }) => {
+			build: async ({ payload, organization: ctx, authContext, param }) => {
 				const inspectionId = param('inspectionId');
 				const commands: InspectionCommand[] = [];
 
@@ -163,7 +163,7 @@ export function registerInspectionRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				deleteInspectionCommand({
 					...ctx,
 					inspectionId: param('inspectionId'),

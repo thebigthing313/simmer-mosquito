@@ -1,8 +1,8 @@
 import {
 	createIssues,
 	requiredId as normalizeRequiredId,
-	validateAgencyCommandContext,
 	validateLocalDate,
+	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import {
 	type DomainId,
@@ -86,11 +86,11 @@ export interface ExpectedUpdatedAtPayload {
 }
 
 export function validateBase(input: WeatherCommandInput, issues: DomainValidationIssue[]): void {
-	validateAgencyCommandContext(input, issues);
+	validateOrganizationCommandContext(input, issues);
 }
 
 export function basePayload(input: WeatherCommandInput): WeatherCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
+	return validateOrganizationCommandContext(input, createIssues());
 }
 
 /** A Weather Source's geometry, against the Weather Station policy. */

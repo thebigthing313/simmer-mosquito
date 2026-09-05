@@ -141,9 +141,9 @@ export function missionTableCommands(
 			// The only command that reads `mission_items`: a mission planned from a
 			// map selection arrives with its stops, in one transaction, because a
 			// mission that appeared without them would read as a failed save.
-			'missionDispatch.createMission': ({ payload, agency, id }) =>
+			'missionDispatch.createMission': ({ payload, organization, id }) =>
 				createMissionCommand({
-					...agency,
+					...organization,
 					missionId: id,
 					controlType: (readText(payload.control_type) ?? '') as never,
 					scheduledStartAt: readDate(payload.scheduled_start_at) ?? new Date(Number.NaN),
@@ -161,18 +161,18 @@ export function missionTableCommands(
 					acknowledgedMethodMismatch: acknowledged(payload, 'acknowledgedMethodMismatch'),
 				}),
 
-			'missionDispatch.updateMissionDetails': ({ payload, agency, id }) =>
+			'missionDispatch.updateMissionDetails': ({ payload, organization, id }) =>
 				updateMissionDetailsCommand({
-					...agency,
+					...organization,
 					missionId: id,
 					missionName: readNullableText(payload.mission_name),
 				}),
 
 			// The three schedule columns move together because moving any of them is
 			// the same question to a crew and the same one to everybody notified.
-			'missionDispatch.updateMissionSchedule': ({ payload, agency, id }) =>
+			'missionDispatch.updateMissionSchedule': ({ payload, organization, id }) =>
 				updateMissionScheduleCommand({
-					...agency,
+					...organization,
 					missionId: id,
 					...(payload.scheduled_start_at !== undefined
 						? { scheduledStartAt: readDate(payload.scheduled_start_at) ?? new Date(Number.NaN) }
@@ -193,9 +193,9 @@ export function missionTableCommands(
 					),
 				}),
 
-			'missionDispatch.updateMissionPlan': ({ payload, agency, id }) =>
+			'missionDispatch.updateMissionPlan': ({ payload, organization, id }) =>
 				updateMissionPlanCommand({
-					...agency,
+					...organization,
 					missionId: id,
 					...(payload.control_type !== undefined
 						? { controlType: (readText(payload.control_type) ?? '') as never }
@@ -216,9 +216,9 @@ export function missionTableCommands(
 			// Assigning is its own command rather than part of the details update: the
 			// server stamps `assigned_by_profile_id` with the caller, so who handed the
 			// work over is recorded by the act of handing it over.
-			'missionDispatch.assignMission': ({ payload, agency, id }) =>
+			'missionDispatch.assignMission': ({ payload, organization, id }) =>
 				assignMissionCommand({
-					...agency,
+					...organization,
 					missionId: id,
 					assignedToProfileId: readNullableText(payload.assigned_to_profile_id),
 					acknowledgedInProgressAssignmentChange: acknowledged(
@@ -227,9 +227,9 @@ export function missionTableCommands(
 					),
 				}),
 
-			'missionDispatch.updateMissionNotificationType': ({ payload, agency, id }) =>
+			'missionDispatch.updateMissionNotificationType': ({ payload, organization, id }) =>
 				updateMissionNotificationTypeCommand({
-					...agency,
+					...organization,
 					missionId: id,
 					notificationTypeId: readNullableText(payload.notification_type_id),
 					acknowledgedNotificationRegenerationImpact: acknowledged(
@@ -241,17 +241,17 @@ export function missionTableCommands(
 			// The lifecycle commands read one column each, and only for *when*: absent
 			// means now, which is what an online client sends. A device that recorded
 			// the work offline states the moment it happened.
-			'missionDispatch.startMission': ({ payload, agency, id }) =>
+			'missionDispatch.startMission': ({ payload, organization, id }) =>
 				startMissionCommand({
-					...agency,
+					...organization,
 					missionId: id,
 					startedAt: readDate(payload.started_at),
 					acknowledgedEarlyStart: acknowledged(payload, 'acknowledgedEarlyStart'),
 				}),
 
-			'missionDispatch.completeMission': ({ payload, agency, id }) =>
+			'missionDispatch.completeMission': ({ payload, organization, id }) =>
 				completeMissionCommand({
-					...agency,
+					...organization,
 					missionId: id,
 					completedAt: readDate(payload.completed_at),
 					// Not an acknowledgement: finishing a mission nobody marked started
@@ -260,9 +260,9 @@ export function missionTableCommands(
 					autoStartMission: payload.autoStartMission === true,
 				}),
 
-			'missionDispatch.cancelMission': ({ payload, agency, id }) =>
+			'missionDispatch.cancelMission': ({ payload, organization, id }) =>
 				cancelMissionCommand({
-					...agency,
+					...organization,
 					missionId: id,
 					cancellationCommentId: readText(payload.cancellationCommentId) ?? '',
 					cancellationReason: readText(payload.cancellation_reason) ?? '',
@@ -281,18 +281,18 @@ export function missionTableCommands(
 			// look up; clearing both columns is the same write either way. The reason
 			// is not optional, because a mission that reopened with no account of why
 			// is what the next person to read it has to work from.
-			'missionDispatch.reopenMission': ({ payload, agency, id }) =>
+			'missionDispatch.reopenMission': ({ payload, organization, id }) =>
 				reopenMissionCommand({
-					...agency,
+					...organization,
 					missionId: id,
 					reopenCommentId: readText(payload.reopenCommentId) ?? '',
 					reopenReason: readText(payload.reopenReason) ?? '',
 					reopenedAt: readDate(payload.reopenedAt),
 				}),
 
-			'missionDispatch.deleteMission': ({ payload, agency, id }) =>
+			'missionDispatch.deleteMission': ({ payload, organization, id }) =>
 				deleteMissionCommand({
-					...agency,
+					...organization,
 					missionId: id,
 					acknowledgedMissionItemDeletion: acknowledged(payload, 'acknowledgedMissionItemDeletion'),
 					acknowledgedActualActionDetach: acknowledged(payload, 'acknowledgedActualActionDetach'),
@@ -308,9 +308,9 @@ export function missionTableCommands(
 
 			// A move restacks the worklist and answers with the mission. See
 			// `routes.ts` for why that puts it on the parent.
-			'missionDispatch.moveMissionItems': ({ payload, agency, id }) =>
+			'missionDispatch.moveMissionItems': ({ payload, organization, id }) =>
 				moveMissionItemsCommand({
-					...agency,
+					...organization,
 					missionId: id,
 					missionItemIds: readStringArray(payload.mission_item_ids),
 					placement: payload.placement as MissionItemPlacement,

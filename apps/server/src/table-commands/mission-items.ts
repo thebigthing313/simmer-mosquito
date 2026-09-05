@@ -120,9 +120,9 @@ export function missionItemTableCommands(
 			key: 'missionItem',
 		},
 		intents: {
-			'missionDispatch.addMissionItem': ({ payload, agency, id }) =>
+			'missionDispatch.addMissionItem': ({ payload, organization, id }) =>
 				addMissionItemCommand({
-					...agency,
+					...organization,
 					missionItemId: id,
 					missionId: readText(payload.mission_id) ?? '',
 					...(payload.geometry === undefined ? {} : { geometry: payload.geometry }),
@@ -140,9 +140,9 @@ export function missionItemTableCommands(
 
 			// No location of its own: the stop takes the request's, which the server
 			// reads off the Requested Control Action inside the transaction.
-			'missionDispatch.addMissionItemFromRequestedControlAction': ({ payload, agency, id }) =>
+			'missionDispatch.addMissionItemFromRequestedControlAction': ({ payload, organization, id }) =>
 				addMissionItemFromRequestedControlActionCommand({
-					...agency,
+					...organization,
 					missionItemId: id,
 					missionId: readText(payload.mission_id) ?? '',
 					requestedControlActionId: readText(payload.requested_control_action_id) ?? '',
@@ -153,9 +153,9 @@ export function missionItemTableCommands(
 			// One command for both, because they are one question: what this stop is,
 			// and moving the ground without moving the link is how a stop ends up
 			// treating one place while claiming to answer a request about another.
-			'missionDispatch.updateMissionItemLocationAndLink': ({ payload, agency, id }) =>
+			'missionDispatch.updateMissionItemLocationAndLink': ({ payload, organization, id }) =>
 				updateMissionItemLocationAndLinkCommand({
-					...agency,
+					...organization,
 					missionItemId: id,
 					...(payload.geometry !== undefined ? { geometry: payload.geometry } : {}),
 					...(payload.locationSource !== undefined
@@ -188,9 +188,9 @@ export function missionItemTableCommands(
 					),
 				}),
 
-			'missionDispatch.removeMissionItem': ({ payload, agency, id }) =>
+			'missionDispatch.removeMissionItem': ({ payload, organization, id }) =>
 				removeMissionItemCommand({
-					...agency,
+					...organization,
 					missionItemId: id,
 					acknowledgedItemProgressDeletion: acknowledged(
 						payload,
@@ -206,9 +206,9 @@ export function missionItemTableCommands(
 			// `autoStartMission` is not an acknowledgement: closing the first stop of a
 			// mission nobody marked started is the ordinary case in the field, and this
 			// says whether the server should stamp the start rather than refuse.
-			'missionDispatch.completeMissionItem': ({ payload, agency, id }) =>
+			'missionDispatch.completeMissionItem': ({ payload, organization, id }) =>
 				completeMissionItemCommand({
-					...agency,
+					...organization,
 					missionItemId: id,
 					completedAt: readDate(payload.completed_at),
 					autoStartMission: payload.autoStartMission === true,
@@ -217,9 +217,9 @@ export function missionItemTableCommands(
 
 			// A skip records why. A stop that was passed over with no account of it is
 			// indistinguishable from one nobody reached.
-			'missionDispatch.skipMissionItem': ({ payload, agency, id }) =>
+			'missionDispatch.skipMissionItem': ({ payload, organization, id }) =>
 				skipMissionItemCommand({
-					...agency,
+					...organization,
 					missionItemId: id,
 					skippedAt: readDate(payload.skipped_at),
 					skipReason: readText(payload.skip_reason) ?? '',
@@ -229,11 +229,11 @@ export function missionItemTableCommands(
 
 			// Both read nothing: undoing either close is clearing the columns that
 			// recorded it, and which ones those are is settled by the name.
-			'missionDispatch.reopenMissionItem': ({ agency, id }) =>
-				reopenMissionItemCommand({ ...agency, missionItemId: id }),
+			'missionDispatch.reopenMissionItem': ({ organization, id }) =>
+				reopenMissionItemCommand({ ...organization, missionItemId: id }),
 
-			'missionDispatch.unskipMissionItem': ({ agency, id }) =>
-				unskipMissionItemCommand({ ...agency, missionItemId: id }),
+			'missionDispatch.unskipMissionItem': ({ organization, id }) =>
+				unskipMissionItemCommand({ ...organization, missionItemId: id }),
 		},
 	};
 }

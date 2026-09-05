@@ -67,9 +67,9 @@ export function assignmentItemTableCommands(
 			key: 'assignmentItem',
 		},
 		intents: {
-			'fieldWork.addAssignmentItem': ({ payload, agency, id }) =>
+			'fieldWork.addAssignmentItem': ({ payload, organization, id }) =>
 				addAssignmentItemCommand({
-					...agency,
+					...organization,
 					assignmentItemId: id,
 					assignmentId: readText(payload.assignment_id) ?? '',
 					target: readEntityTarget(payload.entity_type, payload.entity_id) as AssignmentItemTarget,
@@ -79,28 +79,28 @@ export function assignmentItemTableCommands(
 					directionsToNextItem: readNullableText(payload.directions_to_next_item),
 				}),
 
-			'fieldWork.updateAssignmentItem': ({ payload, agency, id }) =>
+			'fieldWork.updateAssignmentItem': ({ payload, organization, id }) =>
 				updateAssignmentItemCommand({
-					...agency,
+					...organization,
 					assignmentItemId: id,
 					directionsToNextItem: readNullableText(payload.directions_to_next_item),
 				}),
 
-			'fieldWork.completeAssignmentItem': ({ payload, agency, id }) =>
+			'fieldWork.completeAssignmentItem': ({ payload, organization, id }) =>
 				completeAssignmentItemCommand({
-					...agency,
+					...organization,
 					assignmentItemId: id,
 					completedAt: readDate(payload.completed_at),
 				}),
 
 			// Reopen and unskip read nothing: they clear a state rather than date one,
 			// so there is no moment for the start-time rule to judge.
-			'fieldWork.reopenAssignmentItem': ({ agency, id }) =>
-				reopenAssignmentItemCommand({ ...agency, assignmentItemId: id }),
+			'fieldWork.reopenAssignmentItem': ({ organization, id }) =>
+				reopenAssignmentItemCommand({ ...organization, assignmentItemId: id }),
 
-			'fieldWork.skipAssignmentItem': ({ payload, agency, id }) =>
+			'fieldWork.skipAssignmentItem': ({ payload, organization, id }) =>
 				skipAssignmentItemCommand({
-					...agency,
+					...organization,
 					assignmentItemId: id,
 					skippedAt: readDate(payload.skipped_at),
 					// Required by the domain: a stop passed over without a reason is a hole
@@ -108,11 +108,11 @@ export function assignmentItemTableCommands(
 					skipReason: readText(payload.skip_reason) ?? '',
 				}),
 
-			'fieldWork.unskipAssignmentItem': ({ agency, id }) =>
-				unskipAssignmentItemCommand({ ...agency, assignmentItemId: id }),
+			'fieldWork.unskipAssignmentItem': ({ organization, id }) =>
+				unskipAssignmentItemCommand({ ...organization, assignmentItemId: id }),
 
-			'fieldWork.removeAssignmentItem': ({ agency, id }) =>
-				removeAssignmentItemCommand({ ...agency, assignmentItemId: id }),
+			'fieldWork.removeAssignmentItem': ({ organization, id }) =>
+				removeAssignmentItemCommand({ ...organization, assignmentItemId: id }),
 		},
 	};
 }

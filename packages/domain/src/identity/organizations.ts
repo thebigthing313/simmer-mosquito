@@ -5,11 +5,11 @@ import {
 	throwIfIssues,
 } from '../command-validation.js';
 import {
-	type AgencyIdentityCommandInput,
-	type AgencyIdentityCommandPayload,
-	agencyPayload,
 	type IdentityDomainCommand,
-	validateAgencyBase,
+	type OrganizationIdentityCommandInput,
+	type OrganizationIdentityCommandPayload,
+	organizationPayload,
+	validateOrganizationBase,
 } from './shared.js';
 
 /**
@@ -33,7 +33,7 @@ export interface OrganizationDetailChanges {
 }
 
 export interface UpdateOrganizationDetailsCommandInput
-	extends AgencyIdentityCommandInput,
+	extends OrganizationIdentityCommandInput,
 		OrganizationDetailChanges {
 	/**
 	 * The `updated_at` the editor was looking at, or `null` to write regardless.
@@ -46,7 +46,7 @@ export interface UpdateOrganizationDetailsCommandInput
 
 export type UpdateOrganizationDetailsCommand = IdentityDomainCommand<
 	'identity.updateOrganizationDetails',
-	AgencyIdentityCommandPayload & {
+	OrganizationIdentityCommandPayload & {
 		readonly changes: OrganizationDetailChanges;
 		readonly expectedUpdatedAt: string | null;
 	}
@@ -180,7 +180,7 @@ export function updateOrganizationDetailsCommand(
 	input: UpdateOrganizationDetailsCommandInput,
 ): UpdateOrganizationDetailsCommand {
 	const issues = createIssues();
-	validateAgencyBase(input, issues);
+	validateOrganizationBase(input, issues);
 
 	if (DETAIL_KEYS.every((key) => input[key] === undefined)) {
 		issues.push({ path: 'changes', message: 'At least one agency detail must change.' });
@@ -215,7 +215,7 @@ export function updateOrganizationDetailsCommand(
 
 	return {
 		type: 'identity.updateOrganizationDetails',
-		payload: { ...agencyPayload(input), changes, expectedUpdatedAt },
+		payload: { ...organizationPayload(input), changes, expectedUpdatedAt },
 	};
 }
 

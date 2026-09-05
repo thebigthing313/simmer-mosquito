@@ -7,11 +7,11 @@ import type {
 import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
 	invalidUpdate,
+	organizationCommandContext,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
 import { isRecord, readText } from '../command-payload.js';
@@ -27,13 +27,13 @@ import {
 export type FieldWorkDb = CommandDb;
 export type FieldWorkTransaction = CommandTransaction;
 export {
-	agencyCommandContext,
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
 	invalidUpdate,
 	localDateColumn,
 	nowLocalDate,
+	organizationCommandContext,
 	readDate,
 	readStringArray,
 	runCommands,

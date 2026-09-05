@@ -78,7 +78,7 @@ export function isOperatorNotConfiguredError(error: unknown): boolean {
 
 /** One declaration, in `packages/domain`; re-exported for this app's call sites. */
 export type { MembershipStatus, SimmerRole } from '@simmer-mosquito/domain';
-export interface AdminAgency {
+export interface AdminOrganization {
 	readonly id: string;
 	readonly workosOrganizationId: string | null;
 	readonly name: string;
@@ -124,14 +124,14 @@ export interface AdminMembership {
 	readonly updatedAt: string;
 }
 
-export interface AgencyMembershipsResult {
-	readonly organization: AdminAgency;
+export interface OrganizationMembershipsResult {
+	readonly organization: AdminOrganization;
 	readonly memberships: AdminMembership[];
 }
 
-export interface CreateAdminAgencyInput {
+export interface CreateAdminOrganizationInput {
 	readonly name: string;
-	readonly subscriptionStatus: AdminAgency['subscription']['subscriptionStatus'];
+	readonly subscriptionStatus: AdminOrganization['subscription']['subscriptionStatus'];
 	readonly billingContactName: string;
 	readonly billingContactEmail: string;
 	readonly subscriptionNotes: string;
@@ -167,7 +167,7 @@ export function getServerUrl(): string {
  *
  * WorkOS will not mint a session for an account that belongs to more than one
  * organization until one is chosen. Operators routinely belong to more than one
- * — `createAdminAgency`'s `linkRequesterAsOwner` makes the operator the new
+ * — `createAdminOrganization`'s `linkRequesterAsOwner` makes the operator the new
  * agency's first owner — so the prompt is a designed-for case, not stale data,
  * and it will keep coming back.
  *
@@ -217,13 +217,16 @@ export function adminLogoutUrl(serverUrl = getServerUrl()): string {
 	return url.toString();
 }
 
-export async function listAdminAgencies(serverUrl = getServerUrl()): Promise<AdminAgency[]> {
+export async function listAdminOrganizations(
+	serverUrl = getServerUrl(),
+): Promise<AdminOrganization[]> {
 	const response = await sessionFetch(`${serverUrl}/admin/organizations`, {
 		credentials: 'include',
 		headers: { accept: 'application/json' },
 	});
 	const body = await readResponseBody<
-		{ readonly organizations: AdminAgency[] } | { readonly error: string; readonly reason?: string }
+		| { readonly organizations: AdminOrganization[] }
+		| { readonly error: string; readonly reason?: string }
 	>(response);
 
 	if (!response.ok || !('organizations' in body)) {
@@ -233,26 +236,29 @@ export async function listAdminAgencies(serverUrl = getServerUrl()): Promise<Adm
 	return body.organizations;
 }
 
-export async function createAdminAgency(
-	input: CreateAdminAgencyInput,
+export async function createAdminOrganization(
+	input: CreateAdminOrganizationInput,
 	serverUrl = getServerUrl(),
-): Promise<AdminAgency> {
-	return postJson<AdminAgency>(`${serverUrl}/admin/organizations`, {
+): Promise<AdminOrganization> {
+	return postJson<AdminOrganization>(`${serverUrl}/admin/organizations`, {
 		...input,
 		billingMode: 'manual_invoice',
 	});
 }
 
-export async function listAgencyMemberships(
-	agencyId: string,
+export async function listOrganizationMemberships(
+	organizationId: string,
 	serverUrl = getServerUrl(),
-): Promise<AgencyMembershipsResult> {
-	const response = await sessionFetch(`${serverUrl}/admin/organizations/${agencyId}/memberships`, {
-		credentials: 'include',
-		headers: { accept: 'application/json' },
-	});
+): Promise<OrganizationMembershipsResult> {
+	const response = await sessionFetch(
+		`${serverUrl}/admin/organizations/${organizationId}/memberships`,
+		{
+			credentials: 'include',
+			headers: { accept: 'application/json' },
+		},
+	);
 	const body = await readResponseBody<
-		AgencyMembershipsResult | { readonly error: string; readonly reason?: string }
+		OrganizationMembershipsResult | { readonly error: string; readonly reason?: string }
 	>(response);
 
 	if (!response.ok || 'error' in body) {
@@ -272,12 +278,12 @@ export interface InviteAdminUserResult {
 }
 
 export async function inviteAdminUser(
-	agencyId: string,
+	organizationId: string,
 	input: InviteAdminUserInput,
 	serverUrl = getServerUrl(),
 ): Promise<InviteAdminUserResult> {
 	return postJson<InviteAdminUserResult>(
-		`${serverUrl}/admin/organizations/${agencyId}/invitations`,
+		`${serverUrl}/admin/organizations/${organizationId}/invitations`,
 		input,
 	);
 }

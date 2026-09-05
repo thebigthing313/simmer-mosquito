@@ -165,14 +165,14 @@ export const mapSurfaceLateCollectionDates = {
  */
 export const mapSurfaceStampedCollectionIds = {
 	/** Midday in Auckland, which is midnight UTC that same morning. */
-	agencyMidday: seedId(4, 7),
+	organizationMidday: seedId(4, 7),
 	/** Midday UTC, which is 01:00 on the 5th in Auckland. */
 	utcMidday: seedId(4, 8),
 } as const;
 
 export const mapSurfaceStampedTypedDay = '2026-08-04';
 const mapSurfaceStampedAt = {
-	agencyMidday: new Date('2026-08-04T00:00:00.000Z'),
+	organizationMidday: new Date('2026-08-04T00:00:00.000Z'),
 	utcMidday: new Date('2026-08-04T12:00:00.000Z'),
 } as const;
 
@@ -664,7 +664,7 @@ export async function seedStampedCollections(db: DbExecutor): Promise<void> {
 	await db
 		.insertInto('collections')
 		.values(
-			(['agencyMidday', 'utcMidday'] as const).map((stamp) => ({
+			(['organizationMidday', 'utcMidday'] as const).map((stamp) => ({
 				id: mapSurfaceStampedCollectionIds[stamp],
 				organization_id: mapSurfaceOrganizationIds.own,
 				geom: point(mapSurfacePlace.inside),

@@ -5,12 +5,12 @@ import {
 } from '../named-reference-commands.js';
 import type { DomainId, JsonObject } from '../shared.js';
 import type {
-	AgencyFoundationCommandInput,
-	AgencyFoundationCommandPayload,
 	FoundationDomainCommand,
+	OrganizationFoundationCommandInput,
+	OrganizationFoundationCommandPayload,
 } from './shared.js';
 
-export interface CreateCollectionMethodCommandInputBase extends AgencyFoundationCommandInput {
+export interface CreateCollectionMethodCommandInputBase extends OrganizationFoundationCommandInput {
 	readonly collectionMethodId: DomainId;
 	readonly name: string;
 	readonly description?: string | null;
@@ -23,7 +23,7 @@ export interface CreateCollectionMethodCommandInput
 
 export type CreateCollectionMethodCommand = FoundationDomainCommand<
 	'foundation.createCollectionMethod',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly collectionMethodId: DomainId;
 		readonly name: string;
 		readonly description: string | null;
@@ -32,7 +32,7 @@ export type CreateCollectionMethodCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateCollectionMethodCommandInput extends AgencyFoundationCommandInput {
+export interface UpdateCollectionMethodCommandInput extends OrganizationFoundationCommandInput {
 	readonly collectionMethodId: DomainId;
 	readonly name?: string;
 	readonly description?: string | null;
@@ -43,7 +43,7 @@ export interface UpdateCollectionMethodCommandInput extends AgencyFoundationComm
 
 export type UpdateCollectionMethodCommand = FoundationDomainCommand<
 	'foundation.updateCollectionMethod',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly collectionMethodId: DomainId;
 		readonly changes: Readonly<{
 			readonly name?: string;
@@ -55,26 +55,26 @@ export type UpdateCollectionMethodCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface CollectionMethodIdCommandInput extends AgencyFoundationCommandInput {
+export interface CollectionMethodIdCommandInput extends OrganizationFoundationCommandInput {
 	readonly collectionMethodId: DomainId;
 }
 
 export type DeactivateCollectionMethodCommand = FoundationDomainCommand<
 	'foundation.deactivateCollectionMethod',
-	AgencyFoundationCommandPayload & { readonly collectionMethodId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly collectionMethodId: DomainId }
 >;
 
 export type ReactivateCollectionMethodCommand = FoundationDomainCommand<
 	'foundation.reactivateCollectionMethod',
-	AgencyFoundationCommandPayload & { readonly collectionMethodId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly collectionMethodId: DomainId }
 >;
 
 export type DeleteCollectionMethodCommand = FoundationDomainCommand<
 	'foundation.deleteCollectionMethod',
-	AgencyFoundationCommandPayload & { readonly collectionMethodId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly collectionMethodId: DomainId }
 >;
 
-export interface CreateCollectionLureCommandInput extends AgencyFoundationCommandInput {
+export interface CreateCollectionLureCommandInput extends OrganizationFoundationCommandInput {
 	readonly collectionLureId: DomainId;
 	readonly name: string;
 	readonly description?: string | null;
@@ -82,14 +82,14 @@ export interface CreateCollectionLureCommandInput extends AgencyFoundationComman
 
 export type CreateCollectionLureCommand = FoundationDomainCommand<
 	'foundation.createCollectionLure',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly collectionLureId: DomainId;
 		readonly name: string;
 		readonly description: string | null;
 	}
 >;
 
-export interface UpdateCollectionLureCommandInput extends AgencyFoundationCommandInput {
+export interface UpdateCollectionLureCommandInput extends OrganizationFoundationCommandInput {
 	readonly collectionLureId: DomainId;
 	readonly name?: string;
 	readonly description?: string | null;
@@ -98,7 +98,7 @@ export interface UpdateCollectionLureCommandInput extends AgencyFoundationComman
 
 export type UpdateCollectionLureCommand = FoundationDomainCommand<
 	'foundation.updateCollectionLure',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly collectionLureId: DomainId;
 		readonly changes: Readonly<{
 			readonly name?: string;
@@ -108,26 +108,26 @@ export type UpdateCollectionLureCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface CollectionLureIdCommandInput extends AgencyFoundationCommandInput {
+export interface CollectionLureIdCommandInput extends OrganizationFoundationCommandInput {
 	readonly collectionLureId: DomainId;
 }
 
 export type DeactivateCollectionLureCommand = FoundationDomainCommand<
 	'foundation.deactivateCollectionLure',
-	AgencyFoundationCommandPayload & { readonly collectionLureId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly collectionLureId: DomainId }
 >;
 
 export type ReactivateCollectionLureCommand = FoundationDomainCommand<
 	'foundation.reactivateCollectionLure',
-	AgencyFoundationCommandPayload & { readonly collectionLureId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly collectionLureId: DomainId }
 >;
 
 export type DeleteCollectionLureCommand = FoundationDomainCommand<
 	'foundation.deleteCollectionLure',
-	AgencyFoundationCommandPayload & { readonly collectionLureId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly collectionLureId: DomainId }
 >;
 
-export interface CreateHabitatTypeCommandInput extends AgencyFoundationCommandInput {
+export interface CreateHabitatTypeCommandInput extends OrganizationFoundationCommandInput {
 	readonly habitatTypeId: DomainId;
 	readonly name: string;
 	readonly description?: string | null;
@@ -136,7 +136,7 @@ export interface CreateHabitatTypeCommandInput extends AgencyFoundationCommandIn
 
 export type CreateHabitatTypeCommand = FoundationDomainCommand<
 	'foundation.createHabitatType',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly habitatTypeId: DomainId;
 		readonly name: string;
 		readonly description: string | null;
@@ -144,7 +144,7 @@ export type CreateHabitatTypeCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateHabitatTypeCommandInput extends AgencyFoundationCommandInput {
+export interface UpdateHabitatTypeCommandInput extends OrganizationFoundationCommandInput {
 	readonly habitatTypeId: DomainId;
 	readonly name?: string;
 	readonly description?: string | null;
@@ -154,7 +154,7 @@ export interface UpdateHabitatTypeCommandInput extends AgencyFoundationCommandIn
 
 export type UpdateHabitatTypeCommand = FoundationDomainCommand<
 	'foundation.updateHabitatType',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly habitatTypeId: DomainId;
 		readonly changes: Readonly<{
 			readonly name?: string;
@@ -165,23 +165,23 @@ export type UpdateHabitatTypeCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface HabitatTypeIdCommandInput extends AgencyFoundationCommandInput {
+export interface HabitatTypeIdCommandInput extends OrganizationFoundationCommandInput {
 	readonly habitatTypeId: DomainId;
 }
 
 export type DeactivateHabitatTypeCommand = FoundationDomainCommand<
 	'foundation.deactivateHabitatType',
-	AgencyFoundationCommandPayload & { readonly habitatTypeId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly habitatTypeId: DomainId }
 >;
 
 export type ReactivateHabitatTypeCommand = FoundationDomainCommand<
 	'foundation.reactivateHabitatType',
-	AgencyFoundationCommandPayload & { readonly habitatTypeId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly habitatTypeId: DomainId }
 >;
 
 export type DeleteHabitatTypeCommand = FoundationDomainCommand<
 	'foundation.deleteHabitatType',
-	AgencyFoundationCommandPayload & { readonly habitatTypeId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly habitatTypeId: DomainId }
 >;
 
 export function createCollectionMethodCommand(

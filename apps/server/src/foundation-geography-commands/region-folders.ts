@@ -33,7 +33,7 @@ export function registerRegionFolderRoutes(
 		'/foundation/region-folders',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				createRegionFolderCommand({
 					...ctx,
 					regionFolderId: readText(payload.id) ?? '',
@@ -48,7 +48,7 @@ export function registerRegionFolderRoutes(
 		'/foundation/region-folders/:regionFolderId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				updateRegionFolderCommand({
 					...ctx,
 					regionFolderId: param('regionFolderId'),
@@ -66,7 +66,7 @@ export function registerRegionFolderRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				deleteRegionFolderCommand({
 					...ctx,
 					regionFolderId: param('regionFolderId'),

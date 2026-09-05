@@ -16,12 +16,12 @@ import type {
 import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
-	type AgencyContext,
-	agencyCommandContext,
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
 	invalidUpdate,
+	type OrganizationContext,
+	organizationCommandContext,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
 import { isRecord, readNullableText } from '../command-payload.js';
@@ -36,13 +36,13 @@ import { resolveLocationGeom } from '../location-source.js';
 export type ControlOperationsDb = CommandDb;
 export type ControlOperationsTransaction = CommandTransaction;
 export {
-	type AgencyContext,
-	agencyCommandContext,
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
 	invalidUpdate,
 	localDateColumn,
+	type OrganizationContext,
+	organizationCommandContext,
 	readDate,
 	runCommands,
 	softDelete,

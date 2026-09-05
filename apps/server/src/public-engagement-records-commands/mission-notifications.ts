@@ -34,7 +34,7 @@ export function registerMissionNotificationRoutes(
 		'/public-engagement/mission-notifications/:missionNotificationId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) => {
+			build: ({ payload, organization: ctx, param }) => {
 				const statusChangedAt = readDate(payload.statusChangedAt);
 				const base = {
 					...ctx,

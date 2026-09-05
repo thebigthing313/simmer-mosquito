@@ -1,9 +1,9 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-	type AdminAgency,
-	type AgencyMembershipsResult,
-	listAdminAgencies,
-	listAgencyMemberships,
+	type AdminOrganization,
+	listAdminOrganizations,
+	listOrganizationMemberships,
+	type OrganizationMembershipsResult,
 } from '../../api';
 
 /**
@@ -19,31 +19,31 @@ import {
  * lists that just went stale, rather than each page inventing its own key and
  * quietly showing yesterday's data.
  */
-const agencyKeys = {
+const organizationKeys = {
 	all: ['admin', 'agencies'] as const,
-	list: () => [...agencyKeys.all, 'list'] as const,
+	list: () => [...organizationKeys.all, 'list'] as const,
 	memberships: (organizationId: string) =>
-		[...agencyKeys.all, 'memberships', organizationId] as const,
+		[...organizationKeys.all, 'memberships', organizationId] as const,
 };
 
-export function useAgencies() {
-	return useQuery<AdminAgency[]>({
-		queryKey: agencyKeys.list(),
-		queryFn: () => listAdminAgencies(),
+export function useOrganizations() {
+	return useQuery<AdminOrganization[]>({
+		queryKey: organizationKeys.list(),
+		queryFn: () => listAdminOrganizations(),
 	});
 }
 
-export function useAgencyMemberships(organizationId: string) {
-	return useQuery<AgencyMembershipsResult>({
-		queryKey: agencyKeys.memberships(organizationId),
-		queryFn: () => listAgencyMemberships(organizationId),
+export function useOrganizationMemberships(organizationId: string) {
+	return useQuery<OrganizationMembershipsResult>({
+		queryKey: organizationKeys.memberships(organizationId),
+		queryFn: () => listOrganizationMemberships(organizationId),
 	});
 }
 
 /** Invalidate everything agency-shaped. Used after a create or an invitation. */
-export function useInvalidateAgencies(): () => Promise<void> {
+export function useInvalidateOrganizations(): () => Promise<void> {
 	const queryClient = useQueryClient();
 	return async () => {
-		await queryClient.invalidateQueries({ queryKey: agencyKeys.all });
+		await queryClient.invalidateQueries({ queryKey: organizationKeys.all });
 	};
 }

@@ -15,7 +15,6 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
@@ -23,6 +22,7 @@ import {
 	invalidUpdate,
 	type LarvalSurveillanceDb,
 	type LarvalSurveillanceTransaction,
+	organizationCommandContext,
 	runCommands,
 	type SampleRow,
 	type SampleUpdateColumns,
@@ -44,7 +44,7 @@ export function registerSampleRoutes(
 		'/larval-surveillance/samples',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) => {
+			build: ({ payload, organization: ctx }) => {
 				const displayName = readNullableText(payload.displayName);
 				return displayName !== null
 					? addInspectionSampleCommand({
@@ -78,7 +78,7 @@ export function registerSampleRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				deleteInspectionSampleCommand({
 					...ctx,
 					sampleId: param('sampleId'),
@@ -99,7 +99,7 @@ function buildSampleUpdateCommands(
 ):
 	| { readonly ok: true; readonly commands: readonly LarvalSurveillanceCommand[] }
 	| { readonly ok: false; readonly body: InvalidCommandBody } {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: LarvalSurveillanceCommand[] = [];
 
 	if ('displayName' in payload) {

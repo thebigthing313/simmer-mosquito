@@ -1,7 +1,7 @@
 import {
 	createIssues,
 	requiredUuid as requireUuid,
-	validateAgencyCommandContext,
+	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import {
 	type AdHocInspectionLocationSource,
@@ -70,7 +70,7 @@ export interface SampleSpeciesIdLike extends LarvalCommandInput {
 }
 
 export function validateBase(input: LarvalCommandInput, issues: DomainValidationIssue[]): void {
-	validateAgencyCommandContext(input, issues);
+	validateOrganizationCommandContext(input, issues);
 }
 
 export function validateIdCommand<T extends LarvalCommandInput>(
@@ -158,5 +158,5 @@ export function validateAdHocInspectionLocationSourceInput(
 }
 
 export function basePayload(input: LarvalCommandInput): LarvalCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
+	return validateOrganizationCommandContext(input, createIssues());
 }

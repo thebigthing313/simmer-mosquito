@@ -20,7 +20,6 @@ import { nextItemPosition } from '../ordered-items.js';
 import { assertItemProgress } from './assignment-lifecycle.js';
 import {
 	type AssignmentItemRow,
-	agencyCommandContext,
 	assignmentItemReturnColumns,
 	assignmentPlacementRef,
 	type CommandContext,
@@ -30,6 +29,7 @@ import {
 	type FieldWorkDb,
 	type FieldWorkTransaction,
 	invalidUpdate,
+	organizationCommandContext,
 	type RouteOptions,
 	readDate,
 	readItemLifecycleTransition,
@@ -51,7 +51,7 @@ export function registerAssignmentItemRoutes(
 		'/field-work/assignment-items',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				addAssignmentItemCommand({
 					...ctx,
 					assignmentItemId: readText(payload.id) ?? '',
@@ -81,7 +81,7 @@ export function registerAssignmentItemRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			build: ({ organization: ctx, param }) =>
 				removeAssignmentItemCommand({
 					...ctx,
 					assignmentItemId: param('assignmentItemId'),
@@ -96,7 +96,7 @@ function buildAssignmentItemUpdateCommands(
 	assignmentItemId: string,
 	payload: Record<string, unknown>,
 ): CommandsResult {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: FieldWorkCommand[] = [];
 
 	if ('directionsToNextItem' in payload) {

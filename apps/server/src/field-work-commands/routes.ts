@@ -38,7 +38,7 @@ export function registerRouteRoutes(
 		'/field-work/routes',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				createRouteCommand({
 					...ctx,
 					routeId: readText(payload.id) ?? '',
@@ -53,7 +53,7 @@ export function registerRouteRoutes(
 		'/field-work/routes/:routeId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				updateRouteDetailsCommand({
 					...ctx,
 					routeId: param('routeId'),
@@ -68,7 +68,7 @@ export function registerRouteRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ agency: ctx, param, payload }) =>
+			build: ({ organization: ctx, param, payload }) =>
 				deleteRouteCommand({
 					...ctx,
 					routeId: param('routeId'),
@@ -82,7 +82,7 @@ export function registerRouteRoutes(
 		'/field-work/routes/:routeId/move-items',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				moveRouteItemsCommand({
 					...ctx,
 					routeId: param('routeId'),

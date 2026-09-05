@@ -8,18 +8,18 @@ import {
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import {
-	type AgencyFoundationCommandInput,
-	type AgencyFoundationCommandPayload,
-	agencyPayload,
 	type FoundationDomainCommand,
 	normalizeRequiredDomainId,
 	type OperatorFoundationCommandInput,
 	type OperatorFoundationCommandPayload,
+	type OrganizationFoundationCommandInput,
+	type OrganizationFoundationCommandPayload,
 	operatorPayload,
-	validateAgencyBase,
-	validateAgencyIdCommand,
+	organizationPayload,
 	validateOperatorBase,
 	validateOperatorIdCommand,
+	validateOrganizationBase,
+	validateOrganizationIdCommand,
 } from './shared.js';
 
 export interface CreateGenusCommandInput extends OperatorFoundationCommandInput {
@@ -116,26 +116,27 @@ export type DeleteSpeciesCommand = FoundationDomainCommand<
 	OperatorFoundationCommandPayload & { readonly speciesId: DomainId }
 >;
 
-export interface SelectOrganizationSpeciesCommandInput extends AgencyFoundationCommandInput {
+export interface SelectOrganizationSpeciesCommandInput extends OrganizationFoundationCommandInput {
 	readonly organizationSpeciesId: DomainId;
 	readonly speciesId: DomainId;
 }
 
 export type SelectOrganizationSpeciesCommand = FoundationDomainCommand<
 	'foundation.selectOrganizationSpecies',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly organizationSpeciesId: DomainId;
 		readonly speciesId: DomainId;
 	}
 >;
 
-export interface UnselectOrganizationSpeciesCommandInput extends AgencyFoundationCommandInput {
+export interface UnselectOrganizationSpeciesCommandInput
+	extends OrganizationFoundationCommandInput {
 	readonly organizationSpeciesId: DomainId;
 }
 
 export type UnselectOrganizationSpeciesCommand = FoundationDomainCommand<
 	'foundation.unselectOrganizationSpecies',
-	AgencyFoundationCommandPayload & { readonly organizationSpeciesId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly organizationSpeciesId: DomainId }
 >;
 
 export function createGenusCommand(input: CreateGenusCommandInput): CreateGenusCommand {
@@ -262,14 +263,14 @@ export function selectOrganizationSpeciesCommand(
 	input: SelectOrganizationSpeciesCommandInput,
 ): SelectOrganizationSpeciesCommand {
 	const issues = createIssues();
-	validateAgencyBase(input, issues);
+	validateOrganizationBase(input, issues);
 	requireUuid(input.organizationSpeciesId, 'organizationSpeciesId', issues);
 	requireUuid(input.speciesId, 'speciesId', issues);
 	throwIfIssues('Select organization species command is invalid.', issues);
 	return {
 		type: 'foundation.selectOrganizationSpecies',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			organizationSpeciesId: normalizeRequiredDomainId(input.organizationSpeciesId),
 			speciesId: normalizeRequiredDomainId(input.speciesId),
 		},
@@ -279,12 +280,12 @@ export function selectOrganizationSpeciesCommand(
 export function unselectOrganizationSpeciesCommand(
 	input: UnselectOrganizationSpeciesCommandInput,
 ): UnselectOrganizationSpeciesCommand {
-	const issues = validateAgencyIdCommand(input, 'organizationSpeciesId');
+	const issues = validateOrganizationIdCommand(input, 'organizationSpeciesId');
 	throwIfIssues('Unselect organization species command is invalid.', issues);
 	return {
 		type: 'foundation.unselectOrganizationSpecies',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			organizationSpeciesId: normalizeRequiredDomainId(input.organizationSpeciesId),
 		},
 	};

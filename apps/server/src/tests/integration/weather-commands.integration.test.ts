@@ -63,7 +63,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('writes a station as its own source, scoped to the agency', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'station_create');
+			const { organizationId, actorProfileId } = await organization(db, 'station_create');
 			const stationId = uuid(1);
 
 			const station = await writeStation(
@@ -100,7 +100,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('refuses a second station with the same name, case and spacing aside', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'station_dupe');
+			const { organizationId, actorProfileId } = await organization(db, 'station_dupe');
 			await writeStation(
 				db,
 				createWeatherStationCommand({
@@ -133,8 +133,8 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('lets another agency use the same station name', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await agency(db, 'station_name_mine');
-			const theirs = await agency(db, 'station_name_theirs');
+			const mine = await organization(db, 'station_name_mine');
+			const theirs = await organization(db, 'station_name_theirs');
 			const command = (organizationId: string, actorProfileId: string, id: string) =>
 				createWeatherStationCommand({
 					organizationId,
@@ -158,8 +158,8 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('answers a station the agency does not own as if it were not there', async () => {
 		await withTestDb(async ({ db }) => {
-			const owner = await agency(db, 'station_owner');
-			const stranger = await agency(db, 'station_stranger');
+			const owner = await organization(db, 'station_owner');
+			const stranger = await organization(db, 'station_stranger');
 			const stationId = uuid(1);
 			await writeStation(
 				db,
@@ -197,7 +197,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('asks before renaming a station that already has summaries', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'station_rename_ack');
+			const { organizationId, actorProfileId } = await organization(db, 'station_rename_ack');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-01');
 
@@ -232,7 +232,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('renames a station with no summaries without asking', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'station_rename_free');
+			const { organizationId, actorProfileId } = await organization(db, 'station_rename_free');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 
 			const station = await writeStation(
@@ -254,7 +254,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('asks before moving a station that already has summaries', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'station_move_ack');
+			const { organizationId, actorProfileId } = await organization(db, 'station_move_ack');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-01');
 
@@ -289,7 +289,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('refuses a stale write when the client said what it had loaded', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'station_conflict');
+			const { organizationId, actorProfileId } = await organization(db, 'station_conflict');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 
 			const refusal = await refused(
@@ -314,7 +314,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('deletes a station by taking its summaries with it', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'station_delete');
+			const { organizationId, actorProfileId } = await organization(db, 'station_delete');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-01');
 			await seedSummary(db, organizationId, stationId, '2026-06-02', '2026-06-04');
@@ -352,7 +352,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('will not delete a station with summaries unless the loss is acknowledged', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'station_delete_ack');
+			const { organizationId, actorProfileId } = await organization(db, 'station_delete_ack');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-01');
 
@@ -391,7 +391,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('writes a bucket with the agency on it', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'summary_create');
+			const { organizationId, actorProfileId } = await organization(db, 'summary_create');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 
 			const summary = await writeSummary(
@@ -421,7 +421,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('refuses a bucket that straddles one the station already holds', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'summary_overlap');
+			const { organizationId, actorProfileId } = await organization(db, 'summary_overlap');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-03');
 
@@ -448,7 +448,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('allows a bucket that starts the day after another ends', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'summary_adjacent');
+			const { organizationId, actorProfileId } = await organization(db, 'summary_adjacent');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-03');
 
@@ -473,7 +473,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('judges an edited bucket by the dates it would end up with', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'summary_widen');
+			const { organizationId, actorProfileId } = await organization(db, 'summary_widen');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			const first = await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-02');
 			await seedSummary(db, organizationId, stationId, '2026-06-05', '2026-06-06');
@@ -498,7 +498,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('does not count a bucket as overlapping itself', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'summary_self');
+			const { organizationId, actorProfileId } = await organization(db, 'summary_self');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			const summaryId = await seedSummary(
 				db,
@@ -524,7 +524,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('clears a metric on an explicit null and leaves an unnamed one alone', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'summary_patch');
+			const { organizationId, actorProfileId } = await organization(db, 'summary_patch');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			const summaryId = await seedSummary(
 				db,
@@ -556,7 +556,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('refuses a manual entry against an inactive station', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'summary_inactive');
+			const { organizationId, actorProfileId } = await organization(db, 'summary_inactive');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await db
 				.updateTable('weather_sources')
@@ -587,7 +587,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('deletes a summary outright, and finds nothing the second time', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'summary_delete');
+			const { organizationId, actorProfileId } = await organization(db, 'summary_delete');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			const summaryId = await seedSummary(
 				db,
@@ -614,7 +614,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('refuses a patch that would leave a summary with no readings', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'summary_empty');
+			const { organizationId, actorProfileId } = await organization(db, 'summary_empty');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			const summaryId = await seedSummary(
 				db,
@@ -653,7 +653,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('refuses a patch that inverts a pair against the stored half', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'summary_pair');
+			const { organizationId, actorProfileId } = await organization(db, 'summary_pair');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			const summaryId = await seedSummary(
 				db,
@@ -684,8 +684,8 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('answers another agency\u2019s summary as if it were not there', async () => {
 		await withTestDb(async ({ db }) => {
-			const owner = await agency(db, 'summary_owner');
-			const stranger = await agency(db, 'summary_stranger');
+			const owner = await organization(db, 'summary_owner');
+			const stranger = await organization(db, 'summary_stranger');
 			const stationId = await seedStation(db, owner.organizationId, owner.actorProfileId);
 			const summaryId = await seedSummary(
 				db,
@@ -728,7 +728,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('keeps a global station out of reach of every agency', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'station_global');
+			const { organizationId, actorProfileId } = await organization(db, 'station_global');
 			// A provider-owned row: `organization_id` is null, which is the state the
 			// nullable column exists for and the one the hand-written predicates have
 			// to exclude. Null compares unequal to every id rather than matching.
@@ -765,7 +765,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('stores the notes a station carries', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'station_metadata');
+			const { organizationId, actorProfileId } = await organization(db, 'station_metadata');
 			const stationId = uuid(1);
 
 			const created = await writeStation(
@@ -803,7 +803,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('sorts an import into inserts, updates and no-changes by re-reading the station', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'import_mixed');
+			const { organizationId, actorProfileId } = await organization(db, 'import_mixed');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			const unchanged = await seedSummary(
 				db,
@@ -875,7 +875,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('writes nothing at all when an overwrite was not agreed to', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'import_ack');
+			const { organizationId, actorProfileId } = await organization(db, 'import_ack');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await seedSummary(db, organizationId, stationId, '2026-06-02', '2026-06-02');
 
@@ -912,7 +912,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('will not write the good rows of a partly bad file without consent', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'import_partial');
+			const { organizationId, actorProfileId } = await organization(db, 'import_partial');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-05');
 
@@ -941,7 +941,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('writes the good rows and reports the bad ones once partial import is agreed', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'import_partial_ok');
+			const { organizationId, actorProfileId } = await organization(db, 'import_partial_ok');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 			await seedSummary(db, organizationId, stationId, '2026-06-01', '2026-06-05');
 
@@ -973,7 +973,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('fails only the offending rows when the file repeats a bucket', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'import_repeat');
+			const { organizationId, actorProfileId } = await organization(db, 'import_repeat');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 
 			const result = await runImport(
@@ -1001,7 +1001,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('fails a row dated after the agency\u2019s today', async () => {
 		await withTestDb(async ({ db }) => {
-			const { organizationId, actorProfileId } = await agency(db, 'import_future');
+			const { organizationId, actorProfileId } = await organization(db, 'import_future');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
 
 			const result = await runImport(
@@ -1028,8 +1028,8 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 	it('refuses an import against a station the agency does not own', async () => {
 		await withTestDb(async ({ db }) => {
-			const owner = await agency(db, 'import_owner');
-			const stranger = await agency(db, 'import_stranger');
+			const owner = await organization(db, 'import_owner');
+			const stranger = await organization(db, 'import_stranger');
 			const stationId = await seedStation(db, owner.organizationId, owner.actorProfileId);
 
 			const result = await runImport(
@@ -1145,7 +1145,7 @@ async function refused(
 // Fixtures
 // ===========================================================================
 
-async function agency(
+async function organization(
 	db: Db,
 	slug: string,
 ): Promise<{ readonly organizationId: string; readonly actorProfileId: string }> {

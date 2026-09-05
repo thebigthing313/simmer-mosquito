@@ -3,11 +3,11 @@ import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/com
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
-import { type CreateAdminAgencyInput, createAdminAgency } from '../../api';
-import { useInvalidateAgencies } from './-agency-data';
+import { type CreateAdminOrganizationInput, createAdminOrganization } from '../../api';
+import { useInvalidateOrganizations } from './-organization-data';
 
 export const Route = createFileRoute('/organizations/create')({
-	component: CreateAgencyRoute,
+	component: CreateOrganizationRoute,
 });
 
 const SUBSCRIPTION_OPTIONS = [
@@ -17,9 +17,9 @@ const SUBSCRIPTION_OPTIONS = [
 	{ value: 'canceled', label: 'Canceled' },
 ];
 
-type AgencyFormValues = CreateAdminAgencyInput;
+type OrganizationFormValues = CreateAdminOrganizationInput;
 
-function emptyAgency(): AgencyFormValues {
+function emptyOrganization(): OrganizationFormValues {
 	return {
 		name: '',
 		subscriptionStatus: 'trial',
@@ -38,7 +38,7 @@ function emptyAgency(): AgencyFormValues {
 	};
 }
 
-function trimmed(values: AgencyFormValues): AgencyFormValues {
+function trimmed(values: OrganizationFormValues): OrganizationFormValues {
 	const trim = (value: string) => value.trim();
 	return {
 		...values,
@@ -66,22 +66,22 @@ function trimmed(values: AgencyFormValues): AgencyFormValues {
  * operator the agency's first owner — was below the fold of a 520px panel.
  * On its own page the whole decision is visible at once.
  */
-function CreateAgencyRoute() {
+function CreateOrganizationRoute() {
 	const navigate = useNavigate();
-	const invalidateAgencies = useInvalidateAgencies();
+	const invalidateOrganizations = useInvalidateOrganizations();
 	const [saveError, setSaveError] = useState<string | null>(null);
 
 	const form = useAppForm({
-		defaultValues: emptyAgency(),
+		defaultValues: emptyOrganization(),
 		onSubmit: async ({ value }) => {
 			setSaveError(null);
 			try {
-				const agency = await createAdminAgency(trimmed(value));
-				await invalidateAgencies();
-				toast.success(`${agency.name} created.`);
+				const organization = await createAdminOrganization(trimmed(value));
+				await invalidateOrganizations();
+				toast.success(`${organization.name} created.`);
 				await navigate({
 					to: '/organizations/$organizationId',
-					params: { organizationId: agency.id },
+					params: { organizationId: organization.id },
 				});
 			} catch (error) {
 				setSaveError(error instanceof Error ? error.message : 'Unable to create the agency.');

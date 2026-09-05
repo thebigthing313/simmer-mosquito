@@ -3,11 +3,11 @@ import type { FoundationCommand } from '@simmer-mosquito/domain';
 import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
 	invalidUpdate,
+	organizationCommandContext,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
 import { type CommandDb, type CommandTransaction, runCommands } from '../command-write.js';
@@ -15,12 +15,12 @@ import { type CommandDb, type CommandTransaction, runCommands } from '../command
 export type FoundationDb = CommandDb;
 export type FoundationTransaction = CommandTransaction;
 export {
-	agencyCommandContext,
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
 	geojsonToGeom,
 	invalidUpdate,
+	organizationCommandContext,
 	runCommands,
 	softDelete,
 	updateRow,

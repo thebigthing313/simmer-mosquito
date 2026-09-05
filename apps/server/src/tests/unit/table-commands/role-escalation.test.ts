@@ -101,7 +101,7 @@ function build(intent: string, role: string): { readonly payload: unknown } {
 	};
 	return builder({
 		payload: { profile_id: PROFILE, invited_email: 'casey@example.test', role },
-		agency: { organizationId: ORG, actorProfileId: ACTOR_PROFILE },
+		organization: { organizationId: ORG, actorProfileId: ACTOR_PROFILE },
 		authContext: authContext('owner'),
 		id: MEMBERSHIP,
 	});

@@ -3,7 +3,7 @@ import {
 	createIssues,
 	requiredId as normalizeRequiredId,
 	throwIfIssues,
-	validateAgencyCommandContext,
+	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 import { resolveLarvalInspectionEntryPolicy } from './larval-inspection-policy.js';
@@ -167,7 +167,7 @@ export function updateSpeciesKeyBindingsCommand(
 
 function validateCommandBase(input: OrganizationSettingsCommandInput): DomainValidationIssue[] {
 	const issues = createIssues();
-	validateAgencyCommandContext(input, issues);
+	validateOrganizationCommandContext(input, issues);
 	normalizeExpectedUpdatedAt(input.expectedUpdatedAt, 'expectedUpdatedAt', issues);
 	return issues;
 }

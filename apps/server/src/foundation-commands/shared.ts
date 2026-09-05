@@ -45,10 +45,10 @@ import {
 } from '@simmer-mosquito/domain';
 import type { AuthContext } from '../auth-context.js';
 import {
-	agencyCommandContext,
 	createCommand,
 	type InvalidCommandBody,
 	invalidUpdate,
+	organizationCommandContext,
 	type PayloadResult,
 } from '../command-endpoint.js';
 import { acknowledged, isRecord } from '../command-payload.js';
@@ -172,7 +172,7 @@ export function buildUpdateCommands(
 	if (hasDetailChange) {
 		const commandResult = createCommand(() =>
 			updateCollectionMethodCommand({
-				...agencyCommandContext(authContext),
+				...organizationCommandContext(authContext),
 				collectionMethodId,
 				...(payload.name === undefined ? {} : { name: payload.name }),
 				...(payload.description === undefined ? {} : { description: payload.description }),
@@ -193,11 +193,11 @@ export function buildUpdateCommands(
 		const commandResult = createCommand(() =>
 			payload.isActive
 				? reactivateCollectionMethodCommand({
-						...agencyCommandContext(authContext),
+						...organizationCommandContext(authContext),
 						collectionMethodId,
 					})
 				: deactivateCollectionMethodCommand({
-						...agencyCommandContext(authContext),
+						...organizationCommandContext(authContext),
 						collectionMethodId,
 					}),
 		);
@@ -234,7 +234,7 @@ export function buildCollectionLureUpdateCommands(
 	if (hasDetailChange) {
 		const commandResult = createCommand(() =>
 			updateCollectionLureCommand({
-				...agencyCommandContext(authContext),
+				...organizationCommandContext(authContext),
 				collectionLureId,
 				...(payload.name === undefined ? {} : { name: payload.name }),
 				...(payload.description === undefined ? {} : { description: payload.description }),
@@ -251,11 +251,11 @@ export function buildCollectionLureUpdateCommands(
 		const commandResult = createCommand(() =>
 			payload.isActive
 				? reactivateCollectionLureCommand({
-						...agencyCommandContext(authContext),
+						...organizationCommandContext(authContext),
 						collectionLureId,
 					})
 				: deactivateCollectionLureCommand({
-						...agencyCommandContext(authContext),
+						...organizationCommandContext(authContext),
 						collectionLureId,
 					}),
 		);
@@ -288,7 +288,7 @@ export function buildHabitatTypeUpdateCommands(
 	if (hasDetailChange) {
 		const commandResult = createCommand(() =>
 			updateHabitatTypeCommand({
-				...agencyCommandContext(authContext),
+				...organizationCommandContext(authContext),
 				habitatTypeId,
 				...(payload.name === undefined ? {} : { name: payload.name }),
 				...(payload.description === undefined ? {} : { description: payload.description }),
@@ -306,11 +306,11 @@ export function buildHabitatTypeUpdateCommands(
 		const commandResult = createCommand(() =>
 			payload.isActive
 				? reactivateHabitatTypeCommand({
-						...agencyCommandContext(authContext),
+						...organizationCommandContext(authContext),
 						habitatTypeId,
 					})
 				: deactivateHabitatTypeCommand({
-						...agencyCommandContext(authContext),
+						...organizationCommandContext(authContext),
 						habitatTypeId,
 					}),
 		);

@@ -22,12 +22,12 @@ import { assertCitedHistoryAcknowledged, assertTrapCodeAcknowledged } from '../r
 import {
 	type AdultSurveillanceDb,
 	type AdultSurveillanceTransaction,
-	agencyCommandContext,
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
 	type InvalidCommandBody,
 	invalidUpdate,
+	organizationCommandContext,
 	resolveLocationGeom,
 	runCommands,
 	surveillanceCatalogReferences,
@@ -52,7 +52,7 @@ export function registerTrapRoutes(
 		'/adult-surveillance/traps',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				createTrapCommand({
 					...ctx,
 					trapId: readText(payload.id) ?? '',
@@ -84,7 +84,7 @@ export function registerTrapRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				deleteTrapCommand({
 					...ctx,
 					trapId: param('trapId'),
@@ -102,7 +102,7 @@ function buildTrapUpdateCommands(
 ):
 	| { readonly ok: true; readonly commands: readonly AdultSurveillanceCommand[] }
 	| { readonly ok: false; readonly body: InvalidCommandBody } {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: AdultSurveillanceCommand[] = [];
 
 	const hasName = 'trapName' in payload;

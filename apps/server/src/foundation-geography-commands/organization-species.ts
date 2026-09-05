@@ -30,7 +30,7 @@ export function registerOrganizationSpeciesRoutes(
 		'/foundation/organization-species',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				selectOrganizationSpeciesCommand({
 					...ctx,
 					organizationSpeciesId: readText(payload.id) ?? '',
@@ -46,7 +46,7 @@ export function registerOrganizationSpeciesRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			build: ({ organization: ctx, param }) =>
 				unselectOrganizationSpeciesCommand({
 					...ctx,
 					organizationSpeciesId: param('organizationSpeciesId'),

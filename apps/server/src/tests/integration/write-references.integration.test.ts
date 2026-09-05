@@ -32,8 +32,8 @@ import { writeInspectionCommand } from '../../larval-surveillance-commands/inspe
 describeDbIntegration('cross-agency references', () => {
 	it('refuses a create naming another agency’s address, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await agency(db, 'refs_create_mine');
-			const theirs = await agency(db, 'refs_create_theirs');
+			const mine = await seedOrganization(db, 'refs_create_mine');
+			const theirs = await seedOrganization(db, 'refs_create_theirs');
 			const theirAddress = await createAddress(db, theirs.organizationId);
 			const trapId = crypto.randomUUID();
 
@@ -65,8 +65,8 @@ describeDbIntegration('cross-agency references', () => {
 
 	it('names the address in the refusal rather than saying which agency owns it', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await agency(db, 'refs_reason_mine');
-			const theirs = await agency(db, 'refs_reason_theirs');
+			const mine = await seedOrganization(db, 'refs_reason_mine');
+			const theirs = await seedOrganization(db, 'refs_reason_theirs');
 			const theirAddress = await createAddress(db, theirs.organizationId);
 
 			const refusal = await capture(() =>
@@ -83,8 +83,8 @@ describeDbIntegration('cross-agency references', () => {
 
 	it('refuses an update that repoints a record at another agency’s address', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await agency(db, 'refs_update_mine');
-			const theirs = await agency(db, 'refs_update_theirs');
+			const mine = await seedOrganization(db, 'refs_update_mine');
+			const theirs = await seedOrganization(db, 'refs_update_theirs');
 			const ourAddress = await createAddress(db, mine.organizationId);
 			const theirAddress = await createAddress(db, theirs.organizationId);
 
@@ -113,8 +113,8 @@ describeDbIntegration('cross-agency references', () => {
 
 	it('refuses a create naming another agency’s profile as the inspector', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await agency(db, 'refs_profile_mine');
-			const theirs = await agency(db, 'refs_profile_theirs');
+			const mine = await seedOrganization(db, 'refs_profile_mine');
+			const theirs = await seedOrganization(db, 'refs_profile_theirs');
 
 			// A Profile rather than an Address, because a profile id is the one an
 			// operator moving between agencies is most likely to still be holding.
@@ -141,13 +141,13 @@ type Db = Kysely<SimmerDatabase>;
 
 const POINT = { type: 'Point', coordinates: [-90.5, 35.5] } as const;
 
-interface Agency {
+interface SeededOrganization {
 	readonly organizationId: string;
 	readonly profileId: string;
 	readonly collectionMethodId: string;
 }
 
-async function agency(db: Db, slug: string): Promise<Agency> {
+async function seedOrganization(db: Db, slug: string): Promise<SeededOrganization> {
 	const organization = await db
 		.insertInto('organizations')
 		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
@@ -185,7 +185,11 @@ async function createAddress(db: Db, organizationId: string): Promise<string> {
 	return row.id;
 }
 
-function writeTrapCommandFor(db: Db, actor: Agency, input: { readonly addressId: string }) {
+function writeTrapCommandFor(
+	db: Db,
+	actor: SeededOrganization,
+	input: { readonly addressId: string },
+) {
 	const command = createTrapCommand({
 		organizationId: actor.organizationId,
 		actorProfileId: actor.profileId,

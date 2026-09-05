@@ -1,6 +1,6 @@
 import { useBreadcrumbLabel } from '@simmer-mosquito/ui-web/components/app-shell';
 import { createFileRoute, Outlet } from '@tanstack/react-router';
-import { useAgencies } from './-agency-data';
+import { useOrganizations } from './-organization-data';
 
 /**
  * The layout every agency drill-down sits under.
@@ -11,17 +11,17 @@ import { useAgencies } from './-agency-data';
  * Coastal MAD › Members" on every child page, resolved once rather than per page.
  */
 export const Route = createFileRoute('/organizations/$organizationId')({
-	component: AgencyLayoutRoute,
+	component: OrganizationLayoutRoute,
 });
 
-function AgencyLayoutRoute() {
+function OrganizationLayoutRoute() {
 	const { organizationId } = Route.useParams();
 	// Reads the directory's cache rather than fetching the agency again — the
 	// operator arrived through that list, so it is already warm.
-	const { data } = useAgencies();
-	const agency = (data ?? []).find((row) => row.id === organizationId);
+	const { data } = useOrganizations();
+	const organization = (data ?? []).find((row) => row.id === organizationId);
 
-	useBreadcrumbLabel(organizationId, agency?.name);
+	useBreadcrumbLabel(organizationId, organization?.name);
 
 	return <Outlet />;
 }

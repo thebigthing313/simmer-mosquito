@@ -20,7 +20,6 @@ import { acknowledged, readNullableText, readText } from '../command-payload.js'
 import { insertLifecycleComment } from '../lifecycle-comment.js';
 import { assertCitedHistoryAcknowledged } from '../record-history.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	commandEndpoint,
@@ -28,6 +27,7 @@ import {
 	geojsonToGeom,
 	invalidUpdate,
 	localDateColumn,
+	organizationCommandContext,
 	type PublicEngagementDb,
 	type PublicEngagementTransaction,
 	type RouteOptions,
@@ -53,7 +53,7 @@ export function registerServiceRequestRoutes(
 		'/public-engagement/service-requests',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				createServiceRequestCommand({
 					...ctx,
 					serviceRequestId: readText(payload.id) ?? '',
@@ -82,7 +82,7 @@ export function registerServiceRequestRoutes(
 		'/public-engagement/service-requests/:serviceRequestId/contact',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				updateServiceRequestContactCommand({
 					...ctx,
 					serviceRequestId: param('serviceRequestId'),
@@ -100,7 +100,7 @@ export function registerServiceRequestRoutes(
 		'/public-engagement/service-requests/:serviceRequestId/location',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				updateServiceRequestLocationCommand({
 					...ctx,
 					serviceRequestId: param('serviceRequestId'),
@@ -119,7 +119,7 @@ export function registerServiceRequestRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ agency: ctx, param, payload }) =>
+			build: ({ organization: ctx, param, payload }) =>
 				deleteServiceRequestCommand({
 					...ctx,
 					serviceRequestId: param('serviceRequestId'),
@@ -144,7 +144,7 @@ function buildServiceRequestUpdateCommands(
 	serviceRequestId: string,
 	payload: Record<string, unknown>,
 ): CommandsResult {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: PublicEngagementCommand[] = [];
 
 	const detailKeys = ['requestDate', 'intakeType', 'receivedByProfileId', 'details'];
