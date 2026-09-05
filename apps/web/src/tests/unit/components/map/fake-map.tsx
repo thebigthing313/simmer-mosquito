@@ -283,3 +283,16 @@ export function pressKey(key: string): void {
 		window.dispatchEvent(new KeyboardEvent('keydown', { key }));
 	});
 }
+
+/**
+ * Press a key inside `field`, the way the panel beside the map is typed into.
+ *
+ * The event bubbles, because that is the only way one pressed in a field reaches
+ * the `window` listener at all, and it is what puts the field on `event.target`
+ * for the session to read.
+ */
+export function pressKeyIn(field: HTMLElement, key: string): void {
+	act(() => {
+		field.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+	});
+}
