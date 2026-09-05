@@ -83,13 +83,19 @@ function* jsxText(masked) {
 /**
  * Whether a string literal is copy rather than wiring.
  *
- * Three kinds are dropped: a module specifier, a URL or path, and the value of
- * an attribute that carries no words. Everything else counts, including a bare
- * one-word label, because that is the shape a heading takes.
+ * A literal is copy unless one of `WIRING` recognizes it. Everything else
+ * counts, including a bare one-word label, because that is the shape a heading
+ * takes.
  */
-function isCopy({ text, before }) {
-	return text.length > 0 && !isSpecifier(before) && !isPath(text) && !isWiringAttribute(before);
-}
+const isCopy = (literal) => literal.text.length > 0 && !WIRING.some((is) => is(literal));
+
+/** The four shapes a string literal takes when it is a name rather than words. */
+const WIRING = [
+	({ before }) => isSpecifier(before),
+	({ text }) => isPath(text),
+	({ before }) => isWiringAttribute(before),
+	({ before }) => isIdentifierConstant(before),
+];
 
 const isSpecifier = (before) => /\b(?:from|import|require)\s*\(?\s*$/.test(before);
 
@@ -100,3 +106,17 @@ function isWiringAttribute(before) {
 	const attribute = before.match(/([A-Za-z][\w-]*)\s*=\s*\{?\s*$/);
 	return attribute !== null && NON_COPY_ATTRIBUTES.has(attribute[1]);
 }
+
+/**
+ * A constant named `SOMETHING_ID` or `SOMETHING_IDS`, whose value is a name the
+ * program uses rather than a word a person reads.
+ *
+ * The declaration twin of the `id=` already in `NON_COPY_ATTRIBUTES`. Every one
+ * of the 40 in the app roots is a Mapbox source or layer id, and six of them
+ * spell it `route-sites`, which is what made this worth drawing: adding `site`
+ * to `check-vocabulary.mjs` reported all six, and #538 had already ruled the
+ * layer ids code rather than copy. A `_ID` constant is an identifier by
+ * construction, so the rule cannot swallow a sentence.
+ */
+const isIdentifierConstant = (before) =>
+	/\b[A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*_IDS?\s*=\s*\[?\s*$/.test(before);

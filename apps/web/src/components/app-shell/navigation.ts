@@ -158,6 +158,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 						to: '/larval-surveillance/habitats/create',
 						icon: iconRegistry.actions.add.icon,
 						write: 'manager',
+						// vocabulary-ignore site: a search keyword matches what a person types, not what SIMMER calls the record.
 						action: { keywords: ['new', 'add', 'site', 'breeding', 'source', 'larval'] },
 					},
 					{

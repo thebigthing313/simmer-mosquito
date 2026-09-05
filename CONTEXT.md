@@ -112,9 +112,16 @@ Common source terms:
   labels, filters, headings, and columns; lowercase "organization" in a sentence
   is not a term.
 - "District" can mean the **Organization** itself, since an abatement district is
-  one, or a piece of its geography, which is a **Region**. Neither is a term:
-  write Organization or Region.
-- "Site" reads as a **Habitat** to one person and a **Trap** to the next, and is
-  not a shared abstraction. Write the concrete record: Habitat, Trap, Address,
-  Service Request, Mission Item. A workflow that proves a generic site model is
-  worth it has to replace this entry first.
+  one, or a piece of its geography, which is a **Region**. Not a term: write
+  Organization or Region.
+- "Site" reads as a **Habitat** to one person and a **Trap** to the next, so it
+  is not a shared abstraction. Not a term: write the concrete record, Habitat,
+  Trap, Address, Service Request, Mission Item. A workflow that proves a generic
+  site model is worth it has to replace this entry first.
+
+The Avoid column above is one half of the register `pnpm check:vocabulary` reads.
+The sentence "Not a term:" in this section is the other half, for a word the
+table cannot hold because it stands for no single term. It has to open a
+sentence, on a bullet that opens with the word in quotes, because the
+Organization bullet ends "is not a term" and means the opposite. Two bullets say
+it, and the gate fails if it can no longer find both.

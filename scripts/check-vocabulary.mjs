@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Holds user-facing copy to the Avoid lists in `CONTEXT.md`.
+ * Holds user-facing copy to the words `CONTEXT.md` refuses.
  *
  * The Core language table names every domain term and, beside it, the words that
  * are not that term. Nothing read that table until this gate, which is how
@@ -12,11 +12,18 @@
  *
  * ## The register is `CONTEXT.md`
  *
- * The Avoid lists are parsed out of the table rather than copied into this file.
- * A second copy is a copy, and it would be the one that drifts: the table is
+ * The refusals are parsed out of the document rather than copied into this file.
+ * A second copy is a copy, and it would be the one that drifts: the document is
  * what a person edits when the vocabulary changes, and a script nobody opens
- * would keep enforcing last year's words. If the table stops parsing, the gate
+ * would keep enforcing last year's words. If either half stops parsing, the gate
  * fails and says so rather than passing over an empty register.
+ *
+ * Two halves, because a refused word does not always have a term to sit beside.
+ * The Avoid column of the Core language table holds the words that are not some
+ * named term, agency and tenant among them. "Site" has no such term: it reads as
+ * a Habitat to one person and a Trap to the next, which is the whole reason it
+ * is refused, so the table has no row to put it on. Those live in the
+ * Ambiguities section and are marked by the words "Not a term".
  *
  * ## What it reads
  *
@@ -34,41 +41,61 @@
  * not match `agency_id` or `agencyName`, because an underscore and a capital are
  * both word characters.
  *
- * ## Two words, not seventeen
+ * ## Four words, not seventeen
  *
- * `ENFORCED` is `agency` and `tenant`. Two words at zero and enforced is worth
- * more than fifteen with an allowance file nobody reads.
+ * `ENFORCED` is `agency`, `tenant`, `site` and `seat`. A word joins when the ban
+ * on it is unconditional, or when the exceptions can be named one at a time.
  *
- * The rest of the table needs a judgement this gate cannot make. `account` is
- * banned as a name for an Organization or a Profile and is the right word for
- * what a person signs in with, which is the **Account** term; `user`, `login`,
- * `seat` and `zone` are the same shape. A flat word list would report every
- * correct use of Account as a violation. `agency` and `tenant` have no second
- * sense in this product, so they are the two the ban is unconditional on.
+ * `account`, `user` and `login` are not that. `account` is banned as a name for
+ * an Organization or a Profile and is the right word for what a person signs in
+ * with, which is the **Account** term, and all 22 pieces of copy saying it mean
+ * the second one. Enforcing it would mean 22 markers all giving the same reason,
+ * which is a list of correct code written out longhand. Widening the list means
+ * answering "how do we tell the banned sense from the allowed one" for the word
+ * being added, and for those three the answer is still no.
  *
- * Widening the list means answering "how do we tell the banned sense from the
- * allowed one" for each word added, not adding a string here.
+ * ## Markers, not an allowance
  *
- * ## The allowance
+ * A word can be right in copy and still be on the list. "Site visits" is the
+ * industry name for an outreach method, and the search box matches "site" to
+ * Habitats because that is what a person types. Three strings under
+ * `apps/web/src` are like that, and they are permanent.
  *
- * `apps/web/src` reached zero for both words in #489 to #492, and
- * `apps/admin/src` reached it in #533. `ALLOWANCE` is empty, so both roots are
- * gated at zero and the first branch to write agency into copy fails.
+ * The exemption is a comment on the line above, in the shape of a Biome
+ * suppression:
  *
- * It stays in the file rather than coming out with the last entry, because it is
- * the shape a future ban takes. Adding a word to `ENFORCED` that the workspace
- * already says in fifty places needs somewhere to put the fifty while the copy
- * is written, and that ratchet works the way
- * `UNCHECKED_ACKNOWLEDGEMENTS` in `apps/server/src/acknowledgements.ts` does: the
- * gate fails when the real number differs in either direction. Up means a branch
- * wrote new copy; down means a branch fixed some and owes the number.
+ *     // vocabulary-ignore site: the industry name for this outreach method.
  *
- * A count rather than a list of allowed sites, deliberately. `CLAUDE.md` warns
- * about a saved allowance that matches nothing: an entry naming a file that has
- * since been cleaned up is headroom a new violation lands inside, silently. A
- * count cannot go stale that way, because there is nothing in it to match. The
- * cost is that the gate cannot say which finding is the new one, so on a failure
- * it prints all of them.
+ * A count of three excused strings could not say which three or why. A marker
+ * puts the reason where the next reader is already looking, and an unused one
+ * fails instead of sitting there as headroom the next violation lands inside.
+ * That is the failure `CLAUDE.md` warns about under the `fallow` baseline, and a
+ * marker cannot have it: every `vocabulary-ignore` in the scanned roots must be
+ * one line, well formed, and directly above a piece of copy that says the word
+ * it names. Nothing else about it is optional.
+ *
+ * ### A marker is one line, and says so when it is not
+ *
+ * #291 is the trap this is written against: a `biome-ignore` whose reason wraps
+ * onto a second line silently stops suppressing. Two rules make the same mistake
+ * loud here rather than quiet.
+ *
+ * A reason ends in a full stop, so the first line of a wrapped one fails at the
+ * marker, naming the line. And a marker that exempts nothing fails, so a wrapped
+ * one whose first line happens to end in a full stop fails anyway, on the line
+ * below, with the wrap named as the likely cause. Either way the branch stops
+ * and the message says which line to put back together.
+ *
+ * A third rule is about where the marker sits rather than how it wraps. The line
+ * is read off the masked source as well as the source, so the word has to be in
+ * a comment: written inside a string literal it exempts nothing, and the string
+ * itself is copy that gets reported.
+ *
+ * One known hole, and it is `masked-source.mjs`'s rather than this file's. A
+ * `//` typed into JSX children is read as a comment there, so it does work as a
+ * marker, and it also renders on screen for every user of that page. The same
+ * masking is why a line of JSX text opening with `//` is invisible to the copy
+ * scan at all, marker or not. Nothing has ever written one.
  */
 
 import { readFileSync } from 'node:fs';
@@ -76,6 +103,7 @@ import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { copyStrings } from './lib/copy-strings.mjs';
+import { maskedSource } from './lib/masked-source.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -90,41 +118,65 @@ const REGISTER = join(workspaceRoot, 'CONTEXT.md');
 const COPY_ROOTS = ['apps/web/src', 'apps/admin/src', 'apps/mobile/src'];
 
 /**
- * The avoided words this gate enforces, out of the register's full lists.
+ * The refused words this gate enforces, out of everything the register refuses.
  *
- * Each must appear in some Avoid list in `CONTEXT.md`, and the gate fails if one
- * does not: a word nobody bans any more is a word this should stop checking.
+ * Each must be refused somewhere in `CONTEXT.md`, and the gate fails if one is
+ * not: a word nobody bans any more is a word this should stop checking.
  */
-const ENFORCED = ['agency', 'tenant'];
+const ENFORCED = ['agency', 'tenant', 'site', 'seat'];
 
-/**
- * Findings this gate tolerates, per root, per word.
- *
- * Empty since #533, and every root is at zero. A count is exact and the gate
- * fails when it moves either way, so a branch that writes new copy saying agency
- * has to argue for a number here rather than quietly add one.
- */
-const ALLOWANCE = {};
-
-/** Below this the table has been reformatted and the parse has stopped working. */
+/** Below this the Core language table has been reformatted and its parse has stopped working. */
 const MINIMUM_TERMS = 12;
+
+/** Below this the Ambiguities section has been reformatted and its parse has stopped working. */
+const MINIMUM_REFUSED = 2;
+
+/** How a bullet in the Ambiguities section says the word it opens with is refused. */
+const REFUSAL = /(?:^|\.\s)Not a term:/;
+
+/** The word that opens a marker, and the token the sweep for a stale one looks for. */
+const MARKER_WORD = 'vocabulary-ignore';
 
 function main() {
 	const register = readRegister();
 	const missing = ENFORCED.filter((word) => !register.avoided.has(word));
 	if (missing.length > 0) {
 		fail(
-			`CONTEXT.md no longer avoids ${missing.join(' or ')}, and this gate still checks for ${missing.length === 1 ? 'it' : 'them'}. Take the word out of ENFORCED in scripts/check-vocabulary.mjs, or put it back in the Avoid column it belongs in.`,
+			`CONTEXT.md no longer refuses ${missing.join(' or ')}, and this gate still checks for ${missing.length === 1 ? 'it' : 'them'}. Take the word out of ENFORCED in scripts/check-vocabulary.mjs, or put it back in the Avoid column it belongs in.`,
 		);
 	}
 
-	const findings = COPY_ROOTS.flatMap((root) => scanRoot(root));
-	report(findings, register);
+	report(
+		COPY_ROOTS.flatMap((root) => scanRoot(root)),
+		register,
+	);
 }
 
 // ---------------------------------------------------------------------------
 // The register
 // ---------------------------------------------------------------------------
+
+/**
+ * What `CONTEXT.md` refuses: the terms and their Avoid lists, the words the
+ * Ambiguities section calls "not a term", and the union of both.
+ */
+function readRegister() {
+	const markdown = readFileSync(REGISTER, 'utf8').replace(/\r\n/g, '\n');
+	const terms = readTerms(sectionOf(markdown, 'Core language'));
+	const refused = readRefused(sectionOf(markdown, 'Ambiguities to preserve'));
+
+	return { terms, refused, avoided: new Set([...[...terms.values()].flat(), ...refused]) };
+}
+
+function sectionOf(markdown, heading) {
+	const section = markdown.match(new RegExp(`\\n## ${heading}\\n([\\s\\S]*?)(?=\\n## |$)`));
+	if (section === null) {
+		fail(
+			`CONTEXT.md has no "## ${heading}" section, so there is nothing to read the register out of.`,
+		);
+	}
+	return section[1];
+}
 
 /**
  * The Core language table: each term, and the words beside it in the Avoid
@@ -137,14 +189,8 @@ function main() {
  * refuses to run against a register it read almost nothing out of, rather than
  * passing because it found no banned words in an empty list.
  */
-function readRegister() {
-	const markdown = readFileSync(REGISTER, 'utf8').replace(/\r\n/g, '\n');
-	const section = markdown.match(/\n## Core language\n([\s\S]*?)(?=\n## )/);
-	if (section === null) {
-		fail(`CONTEXT.md has no "## Core language" section, so there is no Avoid list to read.`);
-	}
-
-	const rows = section[1].split('\n').map(readRow);
+function readTerms(section) {
+	const rows = section.split('\n').map(readRow);
 	const terms = new Map(rows.filter((row) => row !== null));
 
 	if (terms.size < MINIMUM_TERMS) {
@@ -153,7 +199,7 @@ function readRegister() {
 		);
 	}
 
-	return { terms, avoided: new Set([...terms.values()].flat()) };
+	return terms;
 }
 
 /**
@@ -178,12 +224,63 @@ const avoidedWords = (cell) =>
 		.map((word) => word.trim().toLowerCase())
 		.filter((word) => word.length > 0);
 
+/**
+ * The words the Ambiguities section refuses outright, as opposed to the ones it
+ * asks you to qualify.
+ *
+ * Every bullet there opens with a word in quotes. "Application" and
+ * "Notification" mean two things and the section says which term to write for
+ * each; "District" and "Site" are not terms at all. The sentence "Not a term:"
+ * tells those apart, and `MINIMUM_REFUSED` is what stops a rewrite of the
+ * section from quietly emptying this half of the register.
+ *
+ * A whole sentence and not the three words on their own, because the
+ * Organization bullet ends "lowercase organization in a sentence is not a term"
+ * and means the opposite. Matching that would refuse the word this product is
+ * built on.
+ */
+function readRefused(section) {
+	const refused = bulletsIn(section)
+		.map((bullet) => (REFUSAL.test(bullet) ? bullet.match(/^"([A-Za-z][\w-]*)"/) : null))
+		.filter((quoted) => quoted !== null)
+		.map((quoted) => quoted[1].toLowerCase());
+
+	if (refused.length < MINIMUM_REFUSED) {
+		fail(
+			`read only ${refused.length} refused ${refused.length === 1 ? 'word' : 'words'} out of the Ambiguities to preserve section in CONTEXT.md, which is fewer than the ${MINIMUM_REFUSED} this expects. A bullet there refuses a word by opening with it in quotes and saying "not a term". Fix the parse in scripts/check-vocabulary.mjs, or the wording in CONTEXT.md, before the refusals go unread.`,
+		);
+	}
+
+	return refused;
+}
+
+/** Each `- ` bullet in a markdown section, with its wrapped continuation lines joined on. */
+function bulletsIn(section) {
+	const bullets = [];
+	for (const line of section.split('\n')) {
+		readBulletLine(bullets, line);
+	}
+	return bullets;
+}
+
+/** One line of a section: a bullet's first line, its continuation, or neither. */
+function readBulletLine(bullets, line) {
+	const opened = line.match(/^- (.*)$/);
+	if (opened !== null) {
+		bullets.push(opened[1]);
+		return;
+	}
+	if (bullets.length > 0 && /^\s+\S/.test(line)) {
+		bullets[bullets.length - 1] += ` ${line.trim()}`;
+	}
+}
+
 // ---------------------------------------------------------------------------
 // The copy
 // ---------------------------------------------------------------------------
 
 /**
- * An avoided word and the plural of it.
+ * A refused word and the plural of it.
  *
  * "Agencies" on a heading is the same mistake as "Agency", and the register
  * writes the singular. Only the two regular endings, because the enforced words
@@ -198,19 +295,29 @@ const PATTERNS = new Map(
 	ENFORCED.map((word) => [word, new RegExp(`\\b(?:${formsOf(word).join('|')})\\b`, 'gi')]),
 );
 
-/** Every enforced word in every piece of copy under one root. */
+/** Every finding and every marker under one root. */
 function scanRoot(root) {
-	const files = [...typeScriptFilesUnder(join(workspaceRoot, root))];
-	return files.flatMap((file) => findingsIn(root, file));
+	return [...typeScriptFilesUnder(join(workspaceRoot, root))].map((file) => readFile(root, file));
 }
 
-function findingsIn(root, file) {
+function readFile(root, file) {
 	const source = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
 	const where = relative(workspaceRoot, file).replaceAll('\\', '/');
+	const lines = source.split('\n');
+	const masked = maskedSource(source).split('\n');
 
+	return {
+		root,
+		where,
+		lines,
+		findings: findingsIn(source, where),
+		markers: markersIn(lines, masked, where),
+	};
+}
+
+function findingsIn(source, where) {
 	return copyStrings(source).flatMap((copy) =>
 		avoidedIn(copy.text).map((written) => ({
-			root,
 			where,
 			word: written.word,
 			written: written.text,
@@ -227,7 +334,8 @@ function findingsIn(root, file) {
  * The offset is what makes the reported line the line the word is on. A JSX run
  * starts at the `>` that opened it, which is often the line above, and pointing
  * a person at the tag rather than the sentence is how a gate gets a reputation
- * for being wrong.
+ * for being wrong. It is also what a marker is measured against, so a run
+ * spanning four lines takes its marker above the line holding the word.
  */
 function avoidedIn(copy) {
 	const said = [];
@@ -246,74 +354,216 @@ function avoidedIn(copy) {
 const lineOf = (source, index) => source.slice(0, index).split('\n').length;
 
 // ---------------------------------------------------------------------------
+// The markers
+// ---------------------------------------------------------------------------
+
+/**
+ * Every marker in one file, well formed or not, and what each one is above.
+ *
+ * The sweep is for the word `vocabulary-ignore` anywhere in the file rather than
+ * for the marker shape, because a marker that does not parse is the case worth
+ * catching. Somebody wrote it meaning to exempt something, and a scan that only
+ * collected the ones matching the pattern would drop it on the floor and report
+ * the copy below as unmarked, with nothing saying why the marker did not count.
+ */
+function markersIn(lines, masked, where) {
+	const claimed = lines.flatMap((line, at) => (line.includes(MARKER_WORD) ? [at] : []));
+
+	return claimed.map((at) => ({
+		where,
+		line: at + 1,
+		target: targetOf(lines, at) + 1,
+		...read(lines[at], masked[at]),
+	}));
+}
+
+/**
+ * The line a marker is above: the first one below it that is not another marker.
+ *
+ * Markers stack, because one line of copy can say two refused words and each
+ * needs its own reason. Nothing else may come between: a blank line or an
+ * ordinary comment under a marker makes the marker exempt that line instead, and
+ * it exempts nothing, which is the failure below.
+ */
+function targetOf(lines, at) {
+	let target = at + 1;
+	while (target < lines.length && lines[target].includes(MARKER_WORD)) {
+		target += 1;
+	}
+	return target;
+}
+
+/**
+ * One marker as `{ word, reason }`, or `{ problem }` saying what is wrong with
+ * it.
+ *
+ * A marker is read off the masked source as well as the source: `masked` holds
+ * spaces wherever a comment or a string body was, so a line still carrying
+ * letters there is code. That is the marker written inside a string literal,
+ * which exempts nothing and is itself copy.
+ */
+function read(line, masked) {
+	if (/[A-Za-z0-9]/.test(masked)) {
+		return { problem: 'the word is in code or in a string rather than in a comment' };
+	}
+
+	const marker = line.match(new RegExp(`${MARKER_WORD}\\s+(\\S+)\\s*:\\s*(.*)$`));
+	if (marker === null) {
+		return { problem: `it does not read "${MARKER_WORD} <word>: <reason>"` };
+	}
+
+	const word = marker[1];
+	const reason = marker[2].replace(/\*\/\s*\}?\s*$/, '').trim();
+	return problemWith(word, reason) ?? { word, reason };
+}
+
+/** What is wrong with a marker's word or its reason, or `null` when nothing is. */
+function problemWith(word, reason) {
+	if (!ENFORCED.includes(word)) {
+		return {
+			problem: `"${word}" is not a word this gate enforces, and ENFORCED holds ${ENFORCED.join(', ')}`,
+		};
+	}
+	if (reason.split(/\s+/).filter((each) => each.length > 0).length < 3) {
+		return { problem: 'it carries no reason, and the reason is the point of a marker' };
+	}
+	if (!reason.endsWith('.')) {
+		return {
+			problem:
+				'its reason does not end in a full stop, which is what the first line of a wrapped reason looks like. A marker is one line',
+		};
+	}
+	return null;
+}
+
+// ---------------------------------------------------------------------------
 // Reporting
 // ---------------------------------------------------------------------------
 
-function report(findings, register) {
-	const failures = failuresIn(findings);
+function report(files, register) {
+	const problems = files.flatMap((file) => problemsIn(file, register));
 
-	if (failures.length === 0) {
-		announce(register);
+	if (problems.length === 0) {
+		announce(files, register);
 		return;
 	}
 
-	for (const failure of failures) {
-		printFailure(failure, register);
-	}
+	console.error(problems.join('\n\n'));
 	process.exit(1);
 }
 
-/** Each root and word whose count is not the one checked in, either way. */
-function failuresIn(findings) {
-	const pairs = COPY_ROOTS.flatMap((root) => ENFORCED.map((word) => ({ root, word })));
-
-	return pairs
-		.map(({ root, word }) => ({
-			root,
-			word,
-			allowed: ALLOWANCE[root]?.[word] ?? 0,
-			found: findings.filter((entry) => entry.root === root && entry.word === word),
-		}))
-		.filter(({ allowed, found }) => found.length !== allowed);
+/** Everything wrong in one file: copy with no marker over it, and markers over nothing. */
+function problemsIn(file, register) {
+	return [
+		...unmarkedIn(file).map((finding) => unmarkedMessage(finding, register)),
+		...staleIn(file).map(staleMessage),
+	];
 }
 
-function announce({ terms }) {
-	const allowed = Object.values(ALLOWANCE).flatMap((words) => Object.values(words));
-	const total = allowed.reduce((sum, each) => sum + each, 0);
-	console.log(
-		`check-vocabulary: ${terms.size} terms in CONTEXT.md, ${ENFORCED.length} enforced (${ENFORCED.join(', ')}), ${total} allowed in copy and no more.`,
-	);
+/** Copy saying a refused word with no marker above the line it is on. */
+function unmarkedIn({ findings, markers }) {
+	return findings.filter((finding) => !markers.some((marker) => exempts(marker, finding)));
 }
 
-function printFailure(failure, register) {
-	const { root, word, allowed, found } = failure;
-	const direction = found.length > allowed ? 'more' : 'fewer';
+/** Every marker that does not exempt a piece of copy, and why it does not. */
+function staleIn({ findings, markers, lines }) {
+	return markers
+		.filter((marker) => !findings.some((finding) => exempts(marker, finding)))
+		.map((marker) => ({ ...marker, diagnosis: diagnose(marker, findings, lines) }));
+}
 
-	console.error(
-		`check-vocabulary: ${root} has ${count(found.length, 'piece')} of copy saying "${word}", ${direction} than the ${allowed} allowed.\n`,
-	);
-	for (const entry of found) {
-		console.error(`  ${entry.where}:${entry.line}  ${entry.written}: ${trim(entry.copy)}`);
+/** Whether one marker excuses one finding: same word, and the line right below it. */
+const exempts = (marker, finding) => marker.word === finding.word && marker.target === finding.line;
+
+/**
+ * Why a marker exempts nothing, when it is otherwise well formed.
+ *
+ * Two shapes, and they want different sentences. Copy saying the word further
+ * down the file means the marker drifted off it, and a wrapped reason is the way
+ * that happens: the second line pushes the marker one line too high. Nothing
+ * saying the word at all means the copy has been rewritten and the marker is
+ * what `CLAUDE.md` calls headroom nothing is using.
+ *
+ * A marker that did not parse gets none of this. Its own message already says
+ * what is wrong with it, and it names no word to look for.
+ */
+function diagnose(marker, findings, lines) {
+	if (marker.problem !== undefined) {
+		return null;
 	}
-	console.error(`\n${guidance(failure, register)}\n`);
-}
 
-/** What to do about one failing count, which depends on which way it moved. */
-function guidance({ root, word, allowed, found }, register) {
-	if (found.length < allowed) {
-		return `That is ${allowed - found.length} fewer than the allowance, so copy has been fixed and the number is stale. Set ALLOWANCE['${root}'].${word} to ${found.length} in scripts/check-vocabulary.mjs.`;
+	const below = findings.find((finding) => saysBelow(finding, marker));
+	if (below === undefined) {
+		return `Nothing directly under it says "${marker.word}". Either the copy was fixed and the marker outlived it, or the marker was never over the line it means.`;
 	}
-
-	const write = `CONTEXT.md avoids "${word}" in user-facing copy. Write the term it stands for instead: ${termsAvoiding(register, word)}.`;
-	return allowed === 0
-		? write
-		: `${write}\nThe allowance is a count and not a list, so it cannot point at the new one. It is the line above that was not there before.`;
+	return wrappedOver(lines, marker, below)
+		? `Line ${below.line} says "${marker.word}" and a comment line sits between. A marker is one line and sits directly above the copy, so a reason wrapped onto a second one exempts nothing. Put the reason on one line.`
+		: `Line ${below.line} says "${marker.word}" and the marker is not the line above it. Move the marker down.`;
 }
 
-/** The terms whose Avoid list holds this word, for the failure to point at. */
-function termsAvoiding({ terms }, word) {
+/**
+ * Copy just under a marker that says the marker's word.
+ *
+ * Two lines and no further. A marker that has missed its copy has missed it by
+ * the one line a wrapped reason adds, and searching the rest of the file finds
+ * some unrelated string and tells the reader to move the marker onto that.
+ */
+const saysBelow = (finding, marker) =>
+	finding.word === marker.word && finding.line > marker.target && finding.line - marker.target <= 2;
+
+/** Whether what sits between a marker and the copy under it is another comment. */
+function wrappedOver(lines, marker, below) {
+	const between = lines
+		.slice(marker.target - 1, below.line - 1)
+		.join('')
+		.trim();
+	return between.startsWith('//') || between.startsWith('/*');
+}
+
+function unmarkedMessage(finding, register) {
+	return [
+		`check-vocabulary: ${finding.where}:${finding.line} says "${finding.written}" in copy.`,
+		'',
+		`  ${trim(finding.copy)}`,
+		'',
+		`CONTEXT.md refuses "${finding.word}" in user-facing copy. ${writeInstead(register, finding.word)}`,
+		'If the word is right here, say why on the line above:',
+		'',
+		`  // ${MARKER_WORD} ${finding.word}: one sentence ending in a full stop.`,
+	].join('\n');
+}
+
+function staleMessage(marker) {
+	const opening =
+		marker.problem === undefined
+			? `check-vocabulary: ${marker.where}:${marker.line} marks "${marker.word}" and exempts nothing.`
+			: `check-vocabulary: ${marker.where}:${marker.line} is not a marker, because ${marker.problem}.`;
+
+	return marker.diagnosis === null ? opening : `${opening}\n\n${marker.diagnosis}`;
+}
+
+/**
+ * What to write instead of a refused word.
+ *
+ * A word out of the Core language table names the terms whose Avoid list holds
+ * it. One out of the Ambiguities section names no term by definition, which is
+ * why it is refused, so it points at the section instead.
+ */
+function writeInstead({ terms, refused }, word) {
 	const naming = [...terms].filter(([, avoided]) => avoided.includes(word)).map(([term]) => term);
-	return naming.length > 0 ? naming.join(', ') : 'the term CONTEXT.md names';
+	if (naming.length > 0) {
+		return `Write the term it stands for: ${naming.join(', ')}.`;
+	}
+	return refused.includes(word)
+		? 'Write the concrete record instead. The "Ambiguities to preserve" section of CONTEXT.md says which.'
+		: 'Write the term CONTEXT.md names instead.';
+}
+
+function announce(files, { terms, refused }) {
+	const markers = files.reduce((total, file) => total + file.markers.length, 0);
+	console.log(
+		`check-vocabulary: ${terms.size} terms and ${refused.length} refused words in CONTEXT.md, ${ENFORCED.length} enforced (${ENFORCED.join(', ')}), ${count(markers, 'string')} exempted by a marker and no others.`,
+	);
 }
 
 const trim = (copy) => (copy.length > 100 ? `${copy.slice(0, 100)}...` : copy);

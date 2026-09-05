@@ -929,6 +929,7 @@ const CLOSE_COPY: LifecycleCopy = {
 	action: 'Close Request',
 	title: 'Close this request',
 	description: 'What was found, and what was done about it. This goes on the request as a comment.',
+	// vocabulary-ignore site: ordinary English in a field tech's voice, not the abstraction.
 	placeholder: 'No standing water found on site.',
 	unexplained: 'Closed',
 };
