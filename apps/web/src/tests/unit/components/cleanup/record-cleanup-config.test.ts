@@ -14,6 +14,7 @@
 
 import { describe, expect, it } from 'vitest';
 import {
+	addedOn,
 	duplicateGroupHeading,
 	RECORD_CLEANUP_CONFIGS,
 	recordCountLabel,
@@ -121,5 +122,32 @@ describe('recordCountLabel', () => {
 	it('agrees with the count', () => {
 		expect(recordCountLabel(1, RECORD_CLEANUP_CONFIGS.address)).toBe('1 address');
 		expect(recordCountLabel(3, RECORD_CLEANUP_CONFIGS.address)).toBe('3 addresses');
+	});
+});
+
+/**
+ * Which day an instant was added on, and who gets to say.
+ *
+ * Two zones, and two that disagree about this instant, because one zone proves
+ * nothing: a formatter reading the browser's zone passes a single-zone
+ * assertion wherever the test runner happens to sit, which is what #156 found.
+ * Two answers that differ cannot both come from one browser zone, so this fails
+ * against a formatter that names no zone no matter where it runs.
+ *
+ * `2026-03-04T23:30:00Z` is late on the 4th across the Americas and already
+ * midday on the 5th in New Zealand — the shape of the bug this pins, where two
+ * readers of one cleanup page compared rows on dates that were never the
+ * record's.
+ */
+describe('addedOn', () => {
+	const ADDED = '2026-03-04T23:30:00.000Z';
+
+	it('names the day the Organization was on, not the day the reader is on', () => {
+		expect(addedOn(ADDED, 'Pacific/Auckland')).toBe('Mar 5, 2026');
+		expect(addedOn(ADDED, 'America/Anchorage')).toBe('Mar 4, 2026');
+	});
+
+	it('says so rather than showing an Invalid Date when the stamp is unreadable', () => {
+		expect(addedOn('', 'America/New_York')).toBe('an unknown date');
 	});
 });

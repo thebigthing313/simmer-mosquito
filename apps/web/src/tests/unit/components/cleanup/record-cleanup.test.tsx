@@ -34,6 +34,17 @@ vi.mock('../../../../hooks/use-can-write', () => ({
 	useHasRole: (minimum: MinimumRole) => (RANK[signedInRole] ?? 0) >= (RANK[minimum] ?? 0),
 }));
 
+/**
+ * The Organization's zone, mutable so a case can move the Organization rather
+ * than the reader. Mocked at all because the real hook reads the settings blob
+ * off a synced collection, which is a suspense query and not what any case here
+ * is about.
+ */
+let organizationTimeZone = 'America/Chicago';
+vi.mock('../../../../hooks/use-organization-time-zone', () => ({
+	useOrganizationTimeZone: () => organizationTimeZone,
+}));
+
 vi.mock('@tanstack/react-router', async (importOriginal) => ({
 	...(await importOriginal<typeof import('@tanstack/react-router')>()),
 	Link: ({ children, ...rest }: { children?: ReactNode }) => <a {...rest}>{children}</a>,
@@ -151,6 +162,7 @@ beforeEach(() => {
 	groups = [nameGroup()];
 	failed = false;
 	signedInRole = 'manager';
+	organizationTimeZone = 'America/Chicago';
 	merges.mockReset();
 	merges.mockResolvedValue(undefined);
 });
@@ -607,6 +619,32 @@ describe('RecordCleanup', () => {
 		expect(row.textContent).toMatch(/Added \w+ \d+, \d{4}/);
 		expect(within(row).getByText('Open')).toBeTruthy();
 		expect(within(row).getByRole('button', { name: 'Not a duplicate' })).toBeTruthy();
+	});
+
+	it('dates a row by the Organization, not by whoever opened the page', () => {
+		// Two zones that disagree about this instant, and the row has to follow the
+		// Organization to both. One zone would prove nothing: the row's own date is
+		// whatever zone the test runner sits in until a second answer rules that out.
+		groups = [
+			{
+				key: 'same_name:maria alvarez',
+				reason: 'same_name',
+				value: 'maria alvarez',
+				records: [
+					contactRecord(OLDEST, 'Maria Alvarez', '2026-03-04T23:30:00.000Z'),
+					contactRecord(MIDDLE, 'M. Alvarez', '2026-06-11T00:00:00.000Z'),
+				],
+			},
+		];
+
+		organizationTimeZone = 'Pacific/Auckland';
+		renderPage('contact');
+		expect(rowFor('Maria Alvarez').textContent).toContain('Added Mar 5, 2026');
+
+		cleanup();
+		organizationTimeZone = 'America/Anchorage';
+		renderPage('contact');
+		expect(rowFor('Maria Alvarez').textContent).toContain('Added Mar 4, 2026');
 	});
 
 	it('offers a retry rather than an empty state when the read failed', () => {

@@ -20,9 +20,11 @@ import type {
 	DuplicateRecord,
 	DuplicateRecordType,
 } from '../../hooks/use-merge-candidates';
+import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { WriteOnly } from '../write-only';
 import { type MergeFieldValue, mergeFieldSummary } from './merge-field-plan';
 import {
+	addedOn,
 	duplicateGroupHeading,
 	type RecordCleanupConfig,
 	recordCountLabel,
@@ -145,6 +147,7 @@ function CandidateRow({
 }) {
 	const radioId = useId();
 	const facts = candidateFacts(recordType, record);
+	const timeZone = useOrganizationTimeZone();
 
 	return (
 		<Item size="sm" variant={isSurvivor ? 'muted' : 'default'}>
@@ -177,7 +180,7 @@ function CandidateRow({
 						))}
 					</dl>
 				)}
-				<ItemDescription>Added {addedOn(record.createdAt)}</ItemDescription>
+				<ItemDescription>Added {addedOn(record.createdAt, timeZone)}</ItemDescription>
 			</ItemContent>
 			<ItemActions className="self-start">
 				<Button asChild size="sm" variant="ghost">
@@ -219,23 +222,4 @@ function candidateFacts(
 		...columns,
 		{ column: 'coordinates', label: 'Coordinates', value: `${record.lat}, ${record.lng}` },
 	];
-}
-
-/**
- * When the record was added, which is what decides the default survivor.
- *
- * The oldest row is preselected because it is the one the agency has had longest
- * and so the one most likely already named by the records that matter. Showing
- * the date is what makes that choice checkable rather than arbitrary.
- */
-function addedOn(createdAt: string): string {
-	const parsed = new Date(createdAt);
-	if (Number.isNaN(parsed.getTime())) {
-		return 'an unknown date';
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-	}).format(parsed);
 }
