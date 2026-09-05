@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+	ACTIVITY_RANGE_COPY,
 	type ActivityEntry,
 	ActivityRequestError,
 	activityEntryKey,
@@ -185,18 +186,23 @@ describe('activityPanelMessage', () => {
 	const ready = { hasProfile: true, isLoading: false, error: null, isEmpty: false };
 
 	it('shows the log once there is one', () => {
-		expect(activityPanelMessage(ready)).toBeNull();
+		expect(activityPanelMessage(ready, ACTIVITY_RANGE_COPY)).toBeNull();
 	});
 
 	it('asks for a person before anything else', () => {
-		expect(activityPanelMessage({ ...ready, hasProfile: false, isLoading: true })).toMatchObject({
+		expect(
+			activityPanelMessage({ ...ready, hasProfile: false, isLoading: true }, ACTIVITY_RANGE_COPY),
+		).toMatchObject({
 			title: 'Choose a person',
 		});
 	});
 
 	it('distinguishes a failed read from a day with no work in it', () => {
-		const failed = activityPanelMessage({ ...ready, error: new Error('boom'), isEmpty: true });
-		const empty = activityPanelMessage({ ...ready, isEmpty: true });
+		const failed = activityPanelMessage(
+			{ ...ready, error: new Error('boom'), isEmpty: true },
+			ACTIVITY_RANGE_COPY,
+		);
+		const empty = activityPanelMessage({ ...ready, isEmpty: true }, ACTIVITY_RANGE_COPY);
 
 		expect(failed).not.toEqual(empty);
 		expect(failed).toMatchObject({ title: 'Activity could not be loaded' });
@@ -208,21 +214,25 @@ describe('activityPanelMessage', () => {
 	it('repeats the reason when the server refuses the range', () => {
 		const refused = new ActivityRequestError('The date range may span at most 92 days.', true);
 
-		expect(activityPanelMessage({ ...ready, error: refused, isEmpty: true })).toEqual({
+		expect(
+			activityPanelMessage({ ...ready, error: refused, isEmpty: true }, ACTIVITY_RANGE_COPY),
+		).toEqual({
 			title: 'That range was not read',
 			body: 'The date range may span at most 92 days.',
 		});
 	});
 
 	it('loads before it reports emptiness', () => {
-		expect(activityPanelMessage({ ...ready, isLoading: true, isEmpty: true })).toBe('loading');
+		expect(
+			activityPanelMessage({ ...ready, isLoading: true, isEmpty: true }, ACTIVITY_RANGE_COPY),
+		).toBe('loading');
 	});
 
 	// The person and both dates are in the query key, so a change of any of them
 	// used to hand back an empty log for as long as the read took. A refetch with
 	// entries on screen is not a loading state.
 	it('is not loading while there is a log to keep reading', () => {
-		expect(activityPanelMessage({ ...ready, isLoading: true })).toBeNull();
+		expect(activityPanelMessage({ ...ready, isLoading: true }, ACTIVITY_RANGE_COPY)).toBeNull();
 	});
 });
 
@@ -233,7 +243,7 @@ describe('activityPanelState', () => {
 	const ready = { hasProfile: true, isLoading: false, error: null, isEmpty: false };
 
 	it('hands an empty range to the frame rather than drawing it in the body', () => {
-		expect(activityPanelState({ ...ready, isEmpty: true })).toMatchObject({
+		expect(activityPanelState({ ...ready, isEmpty: true }, ACTIVITY_RANGE_COPY)).toMatchObject({
 			isEmpty: true,
 			message: null,
 			emptyTitle: 'No activity in this range',
@@ -241,7 +251,9 @@ describe('activityPanelState', () => {
 	});
 
 	it('hands a first load to the frame, so it draws placeholder rows', () => {
-		expect(activityPanelState({ ...ready, isLoading: true, isEmpty: true })).toMatchObject({
+		expect(
+			activityPanelState({ ...ready, isLoading: true, isEmpty: true }, ACTIVITY_RANGE_COPY),
+		).toMatchObject({
 			isEmpty: true,
 			message: null,
 		});
@@ -251,12 +263,18 @@ describe('activityPanelState', () => {
 	// The frame's copy has nowhere to put either, so the body keeps drawing them,
 	// and neither may reach the reader as an empty day.
 	it('keeps a refusal and an outage in the body, both reported as not empty', () => {
-		const refused = activityPanelState({
-			...ready,
-			error: new ActivityRequestError('The date range may span at most 92 days.', true),
-			isEmpty: true,
-		});
-		const outage = activityPanelState({ ...ready, error: new Error('boom'), isEmpty: true });
+		const refused = activityPanelState(
+			{
+				...ready,
+				error: new ActivityRequestError('The date range may span at most 92 days.', true),
+				isEmpty: true,
+			},
+			ACTIVITY_RANGE_COPY,
+		);
+		const outage = activityPanelState(
+			{ ...ready, error: new Error('boom'), isEmpty: true },
+			ACTIVITY_RANGE_COPY,
+		);
 
 		expect(refused).toMatchObject({
 			isEmpty: false,
@@ -272,7 +290,9 @@ describe('activityPanelState', () => {
 	});
 
 	it('keeps the ask for a person in the body', () => {
-		expect(activityPanelState({ ...ready, hasProfile: false, isEmpty: true })).toMatchObject({
+		expect(
+			activityPanelState({ ...ready, hasProfile: false, isEmpty: true }, ACTIVITY_RANGE_COPY),
+		).toMatchObject({
 			isEmpty: false,
 			message: { title: 'Choose a person' },
 		});
@@ -280,7 +300,7 @@ describe('activityPanelState', () => {
 
 	// Story 26: reloading with a log on screen leaves the log there.
 	it('leaves the log alone while a new person or window loads', () => {
-		expect(activityPanelState({ ...ready, isLoading: true })).toMatchObject({
+		expect(activityPanelState({ ...ready, isLoading: true }, ACTIVITY_RANGE_COPY)).toMatchObject({
 			isEmpty: false,
 			message: null,
 		});

@@ -36,6 +36,7 @@ import { Route as MyOrganizationInsecticidesRouteImport } from './routes/my-orga
 import { Route as MyOrganizationControlMethodsRouteImport } from './routes/my-organization/control-methods'
 import { Route as MyOrganizationAdultSurveillanceRouteImport } from './routes/my-organization/adult-surveillance'
 import { Route as GisDataExplorerRouteImport } from './routes/gis/data-explorer'
+import { Route as DailyWorkProfileIdRouteImport } from './routes/daily-work/$profileId'
 import { Route as ControlOperationsResistanceMonitoringRouteImport } from './routes/control-operations/resistance-monitoring'
 import { Route as AdultSurveillanceTrapDirectoryRouteImport } from './routes/adult-surveillance/trap-directory'
 import { Route as AdultSurveillanceCollectionMethodsRouteImport } from './routes/adult-surveillance/collection-methods'
@@ -279,6 +280,11 @@ const MyOrganizationAdultSurveillanceRoute =
 const GisDataExplorerRoute = GisDataExplorerRouteImport.update({
   id: '/gis/data-explorer',
   path: '/gis/data-explorer',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DailyWorkProfileIdRoute = DailyWorkProfileIdRouteImport.update({
+  id: '/daily-work/$profileId',
+  path: '/daily-work/$profileId',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ControlOperationsResistanceMonitoringRoute =
@@ -899,6 +905,7 @@ export interface FileRoutesByFullPath {
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
+  '/daily-work/$profileId': typeof DailyWorkProfileIdRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -1030,6 +1037,7 @@ export interface FileRoutesByTo {
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
+  '/daily-work/$profileId': typeof DailyWorkProfileIdRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -1163,6 +1171,7 @@ export interface FileRoutesById {
   '/adult-surveillance/collection-methods': typeof AdultSurveillanceCollectionMethodsRoute
   '/adult-surveillance/trap-directory': typeof AdultSurveillanceTrapDirectoryRoute
   '/control-operations/resistance-monitoring': typeof ControlOperationsResistanceMonitoringRoute
+  '/daily-work/$profileId': typeof DailyWorkProfileIdRoute
   '/gis/data-explorer': typeof GisDataExplorerRoute
   '/my-organization/adult-surveillance': typeof MyOrganizationAdultSurveillanceRoute
   '/my-organization/control-methods': typeof MyOrganizationControlMethodsRoute
@@ -1297,6 +1306,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/collection-methods'
     | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
+    | '/daily-work/$profileId'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -1428,6 +1438,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/collection-methods'
     | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
+    | '/daily-work/$profileId'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -1560,6 +1571,7 @@ export interface FileRouteTypes {
     | '/adult-surveillance/collection-methods'
     | '/adult-surveillance/trap-directory'
     | '/control-operations/resistance-monitoring'
+    | '/daily-work/$profileId'
     | '/gis/data-explorer'
     | '/my-organization/adult-surveillance'
     | '/my-organization/control-methods'
@@ -1693,6 +1705,7 @@ export interface RootRouteChildren {
   AdultSurveillanceCollectionMethodsRoute: typeof AdultSurveillanceCollectionMethodsRoute
   AdultSurveillanceTrapDirectoryRoute: typeof AdultSurveillanceTrapDirectoryRoute
   ControlOperationsResistanceMonitoringRoute: typeof ControlOperationsResistanceMonitoringRoute
+  DailyWorkProfileIdRoute: typeof DailyWorkProfileIdRoute
   GisDataExplorerRoute: typeof GisDataExplorerRoute
   AdultSurveillanceIndexRoute: typeof AdultSurveillanceIndexRoute
   ControlOperationsIndexRoute: typeof ControlOperationsIndexRoute
@@ -1987,6 +2000,13 @@ declare module '@tanstack/react-router' {
       path: '/gis/data-explorer'
       fullPath: '/gis/data-explorer'
       preLoaderRoute: typeof GisDataExplorerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/daily-work/$profileId': {
+      id: '/daily-work/$profileId'
+      path: '/daily-work/$profileId'
+      fullPath: '/daily-work/$profileId'
+      preLoaderRoute: typeof DailyWorkProfileIdRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/control-operations/resistance-monitoring': {
@@ -2772,6 +2792,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdultSurveillanceTrapDirectoryRoute: AdultSurveillanceTrapDirectoryRoute,
   ControlOperationsResistanceMonitoringRoute:
     ControlOperationsResistanceMonitoringRoute,
+  DailyWorkProfileIdRoute: DailyWorkProfileIdRoute,
   GisDataExplorerRoute: GisDataExplorerRoute,
   AdultSurveillanceIndexRoute: AdultSurveillanceIndexRoute,
   ControlOperationsIndexRoute: ControlOperationsIndexRoute,
