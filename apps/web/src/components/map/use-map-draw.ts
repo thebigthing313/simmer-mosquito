@@ -1593,9 +1593,10 @@ function useDrawMapEvents({
 		// The field guard is here for the reason it is on the Delete arm: the
 		// location panel sits beside the map and its fields stay live while a draw
 		// is open, so an Enter meant for a description would otherwise finish the
-		// shape. One arm covers every mode this listener is registered for, because
-		// a draw, a hole, a continuation, an edit and an open sketch all reach
-		// Finish through the same `finishRef`.
+		// shape and an Escape meant to clear one would throw the whole draft away.
+		// Both arms cover every mode this listener is registered for, because a
+		// draw, a hole, a continuation, an edit and an open sketch all reach Finish
+		// through the same `finishRef` and all cancel through the one Escape arm.
 		function handleKeyDown(event: KeyboardEvent) {
 			if (event.key === 'Enter') {
 				if (!isTypingInto(event.target)) {
@@ -1603,7 +1604,18 @@ function useDrawMapEvents({
 				}
 				return;
 			}
-			if (event.key !== 'Escape') {
+			if (event.key !== 'Escape' || isTypingInto(event.target)) {
+				return;
+			}
+			// Escape needs a second guard the other arms do not, because it is also
+			// the dismiss key. Radix's DismissableLayer listens on the document in
+			// the capture phase, calls `preventDefault`, dismisses, and does not stop
+			// propagation, so the press that closed a select beside the map still
+			// arrives here. What it leaves focused is the listbox's own
+			// `div[role="option"]`, and a popover's is whatever it autofocused, so
+			// neither is a field `isTypingInto` can answer for. `defaultPrevented` is
+			// what says the key was already spent.
+			if (event.defaultPrevented) {
 				return;
 			}
 			const current = modeRef.current;
