@@ -29,6 +29,7 @@ import {
 	type CollectionFormValues,
 	type CollectionSaveInput,
 	collectionFieldsFrom,
+	isCollectionLocation,
 	noLureValue,
 	noUnitValue,
 } from './-collection-form';
@@ -106,24 +107,29 @@ function EditCollectionLoader({
 			// inherits its trap's point and address, and moving it means moving the
 			// trap.
 			const isAdhoc = collection.trapId === null;
+			// The narrowed shape, not a boolean. The save reads its coordinates, and a
+			// boolean left the route asking the same question twice to get the
+			// compiler there.
 			const refinedPoint =
-				isAdhoc && geometryChanged && geometry !== null && geometry.type === 'Point';
+				isAdhoc && geometryChanged && geometry !== null && isCollectionLocation(geometry)
+					? geometry
+					: null;
 
 			await mutations.save({
 				collectionId: collection.id,
 				fields: collectionFieldsFrom(values, timeZone),
 				current: collectionFieldsFrom(formValuesFrom(collection, personnel, timeZone), timeZone),
 				geometry:
-					refinedPoint && geometry.type === 'Point'
-						? {
-								geometry: geometry,
+					refinedPoint === null
+						? null
+						: {
+								geometry: refinedPoint,
 								centroid: {
-									lat: geometry.coordinates[1],
-									lng: geometry.coordinates[0],
+									lat: refinedPoint.coordinates[1],
+									lng: refinedPoint.coordinates[0],
 									geomType: 'point',
 								},
-							}
-						: null,
+							},
 			});
 			await setPersonnel({
 				target: { type: 'collection', id: collection.id },

@@ -1,4 +1,5 @@
-import { createAddressCommand } from '@simmer-mosquito/domain';
+import { createAddressCommand, getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
+import type { GeoJsonPoint } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
 import { LocationSection } from '@simmer-mosquito/ui-web/components/form';
@@ -31,6 +32,24 @@ import { FORM_VALIDATION_CONTEXT, validateAgainstCommand } from '../../../forms/
 
 /** The GIS form's public point type, and the one the geocoder helpers return. */
 export type AddressPointGeometry = GeocoderPoint;
+
+/** What an Address stores, read off the register rather than named here. */
+const ADDRESS_LOCATION_SHAPES = getOwnedGeometryPolicy('address').allowedTypes;
+
+/**
+ * Whether a placed shape is one an Address stores.
+ *
+ * `GeometryControl` below takes the same `address` policy, so its draw toolbar
+ * and its file import offer exactly the shapes this answers true for and the two
+ * cannot come apart. That is the whole fix: the adopt path used to ask
+ * `type !== 'Point'` and return, so a shape the control offered and the guard
+ * had not heard of went in and never came out, with nothing on screen to say so.
+ */
+export function isAddressLocation(
+	geometry: DrawGeometry,
+): geometry is Extract<DrawGeometry, GeoJsonPoint> {
+	return ADDRESS_LOCATION_SHAPES.includes(geometry.type);
+}
 
 export interface AddressFormValues {
 	readonly displayName: string;
@@ -107,10 +126,14 @@ export function AddressFormPage({
 	 * fresh draw rather than a clear, which is what `clearPoint` is for.
 	 */
 	const adoptDrawnPoint = useCallback((next: DrawGeometry | null) => {
-		if (next === null || next.type !== 'Point') {
+		if (next === null || !isAddressLocation(next)) {
 			return;
 		}
-		setGeometry({ type: 'Point', coordinates: [next.coordinates[0], next.coordinates[1]] });
+		// The narrowed value, not a pair rebuilt from `coordinates[0]` and `[1]`.
+		// The indices were the second place this file said Point, and reading them
+		// off a shape that is not one builds a Point out of rings. Assigning is what
+		// makes the compiler hold this form's state to what the predicate asserts.
+		setGeometry(next);
 		setGeometryChanged(true);
 		setLocationError(null);
 	}, []);
