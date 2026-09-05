@@ -83,9 +83,9 @@ loop and would pick the wrong strategy inside a larger join.
 
 It is a sibling of `/records/:recordType/:recordId/delete-impact` in
 `apps/server/src/record-deletion.ts`, which already solves this shape: generic,
-keyed by record type and id, whitelisted, agency-scoped, and answering
+keyed by record type and id, whitelisted, organization-scoped, and answering
 `found: false` rather than 404 so the endpoint cannot be used to probe for
-another agency's ids. Build the two to read as a pair.
+another organization's ids. Build the two to read as a pair.
 
 Not on `/map/*`. Every `/map/*` route today is a tileset or one record's
 boundary, and this returns names with no geometry. Both prefixes get identical
@@ -118,7 +118,7 @@ and nobody notices, because it looks like data.
 
 The record is looked up with the caller's `organization_id` before it is read at
 all, and the region set scopes to the **caller's** `organization_id`, so a region
-id from another agency cannot widen the answer.
+id from another organization cannot widen the answer.
 
 For fourteen of the 15 tables that is the same value as the record's own column,
 which is what the shipped `regionMembershipClause` scopes to. The fifteenth is
@@ -134,21 +134,21 @@ stations `gis/weather/$id.tsx` already branches on with `isOwned`. Its record
 gate is `organization_id = :caller or organization_id is null`.
 
 That does not weaken the probe defence. A null-org row is owned by nobody, not
-by another agency, and is already visible to every agency by design. The region
-side needs no exception, because `regions.organization_id` is NOT NULL and the
-region set already scopes to the caller, so a null-org record is answered with
-the caller's own regions. Operationally that is the point, since an agency
-subscribes to a provider station to find out which of their districts it sits
-in.
+by another organization, and is already visible to every organization by design.
+The region side needs no exception, because `regions.organization_id` is NOT
+NULL and the region set already scopes to the caller, so a null-org record is
+answered with the caller's own regions. Operationally that is the point, since
+an organization subscribes to a provider station to find out which of their
+districts it sits in.
 
 The coverage test gains a case for it. A `weather_sources` row with a null
-`organization_id`, sitting inside a region owned by an agency unrelated to it,
-answers `found: true` **with that agency's region in `groups`**. Asserting
-`found: true` alone is not enough, because a region set scoped to the record's
-column rather than the caller's answers `found: true` with an empty `groups`,
-and the panel then reads "inside none of your regions" on every shared station
-forever. The other fourteen tables can never expose either failure, so without
-this case both read correct and regress silently.
+`organization_id`, sitting inside a region owned by an organization unrelated to
+it, answers `found: true` **with that organization's region in `groups`**.
+Asserting `found: true` alone is not enough, because a region set scoped to the
+record's column rather than the caller's answers `found: true` with an empty
+`groups`, and the panel then reads "inside none of your regions" on every shared
+station forever. The other fourteen tables can never expose either failure, so
+without this case both read correct and regress silently.
 
 ### Response
 
@@ -173,7 +173,7 @@ case the contract carries.
 A record type not on the whitelist is 404 `unknown_record_type`. The type list
 is not secret.
 
-A record id that is unknown, cross-agency, or soft-deleted all answer
+A record id that is unknown, cross-organization, or soft-deleted all answer
 `found: false`, and they have to be indistinguishable. That is why `found` is a
 body field and not a status code.
 
@@ -355,11 +355,11 @@ The SQL half seeds and asserts in a single `it()` with one `withTestDb`, calling
 the shipped helper rather than inline SQL. `withTestDb` applies the whole
 migration set per call, about 1s against a local container and 9s against a
 remote one, so thirty-two `it()` blocks would be thirty-two migration runs.
-Seed once: one agency per distinct region, one record per case in `habitats` (it
-is `geometry(Geometry, 4326)` held to all six shapes, so it holds every case),
-then one assertion pass. The agencies are what scope each case to the region it
-names, since both membership reads take the region set from the record's own
-agency.
+Seed once: one organization per distinct region, one record per case in
+`habitats` (it is `geometry(Geometry, 4326)` held to all six shapes, so it holds
+every case), then one assertion pass. The organizations are what scope each case
+to the region it names, since both membership reads take the region set from the
+record's own organization.
 
 The silent skip is accepted, not fought. `describeDbIntegration` is
 `describe.skip` when `TEST_DATABASE_URL` is unset so a developer without Postgres
@@ -448,7 +448,8 @@ maintained, 56 KB gzip, but its dispatcher has no Point branch and no polyline
 branch, and it carries a global `DP_TOL` of 1e-6, roughly 11 cm on the ground,
 against `geometryContainsLngLat`'s 1e-12. That is two client-side membership
 answers eleven centimetres apart inside one app, and the corpus would not catch
-it, because its boundary cases use shared literals. Agency-drawn geometry would.
+it, because its boundary cases use shared literals. Organization-drawn geometry
+would.
 
 **Hand-roll in `packages/mapping` with `robust-predicates`** as the one runtime
 dependency: Unlicense, zero dependencies, 1.0 KB gzip for `orient2d`. Roughly
@@ -477,16 +478,17 @@ by a hand-rolled implementation is one pair of eyes checking itself. 107 KB gzip
 is too much to ship for one predicate and free as a test-only third voice from
 the same JTS lineage PostGIS runs through GEOS. Fall back to `jsts` at runtime
 only with evidence, if the hand-rolled area case proves unstable against real
-agency geometry.
+organization geometry.
 
 The corpus is the gate mobile passes before it answers offline.
 
 ### When web and mobile disagree
 
 They can, and the first person to find out will be someone looking at the same
-record on a phone and a laptop. The corpus is thirty-two cases; agency-drawn
-polygons are not the corpus, and the failure mode of a hand-rolled overlay is a
-wrong boolean on one record with nothing to make it visible.
+record on a phone and a laptop. The corpus is thirty-two cases;
+organization-drawn polygons are not the corpus, and the failure mode of a
+hand-rolled overlay is a wrong boolean on one record with nothing to make it
+visible.
 
 The server is the reconciler. A device's answer is a local read for working
 offline, not a second authority, so when a device is online the panel reads the
@@ -512,8 +514,8 @@ a new regions panel" with "your district filter now returns different records".
 
 ## Measurements and their caveats
 
-Measured on production, one agency, 345 live regions in 4 folders, 0 unfiled,
-average 329 vertices and max 4038, 113,571 total.
+Measured on production, one organization, 345 live regions in 4 folders, 0
+unfiled, average 329 vertices and max 4038, 113,571 total.
 
 | surface | records | total | per record |
 | --- | --- | --- | --- |
@@ -541,14 +543,14 @@ and only the domain validator stops it, on the write path only. The predicate
 returns false rather than erroring, so this is not a correctness risk, and
 nothing should be built assuming non-empty geometry as an invariant.
 
-Production holds one agency. 345 regions is a real number, not a distribution,
-and 4 folders reflects early adoption rather than a ceiling. Coverage there is
-partial and uneven: Municipalities and Sections cover every record, Airspray
-Sites 10% and County Parks 3%, so a typical record shows two folder rows, not
-four. That is the "only folders with a hit" rule earning its keep, and it also
-makes the empty state rare for this agency, appearing mostly for records
-digitized outside the agency boundary, which reads more like a data-quality
-signal than an ordinary state.
+Production holds one organization. 345 regions is a real number, not a
+distribution, and 4 folders reflects early adoption rather than a ceiling.
+Coverage there is partial and uneven: Municipalities and Sections cover every
+record, Airspray Sites 10% and County Parks 3%, so a typical record shows two
+folder rows, not four. That is the "only folders with a hit" rule earning its
+keep, and it also makes the empty state rare for this organization, appearing
+mostly for records digitized outside the organization boundary, which reads more
+like a data-quality signal than an ordinary state.
 
 Folders partition space in practice and nothing enforces it. `region_folder_id`
 is nullable and no constraint stops two regions in one folder covering the same

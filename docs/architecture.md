@@ -1,17 +1,18 @@
 # SIMMER architecture
 
 SIMMER is the Strategic Integrated Mosquito Management Enterprise Resources
-platform. The product serves mosquito control agencies with a web management
-console and a field-focused mobile app.
+platform. The product serves mosquito control organizations with a web
+management console and a field-focused mobile app.
 
 The architecture is Postgres-centered and sync-native. Railway is the primary
 operational home for deployed services. WorkOS owns authentication identity.
-SIMMER owns agency data, authorization decisions, domain workflows, and
+SIMMER owns organization data, authorization decisions, domain workflows, and
 historical attribution.
 
 ## Product shape
 
-The MVP covers the full agency operating surface from the previous SIMMER work:
+The MVP covers the full organization operating surface from the previous SIMMER
+work:
 
 - Adult surveillance: traps and collections.
 - Larval surveillance: habitats, inspections, and samples.
@@ -48,25 +49,26 @@ Services intentionally postponed:
 
 ## Applications
 
-`apps/web` is a Vite React SPA using TanStack Router. It is the agency-facing
-web app for authenticated agency workflows. The current shell exposes
-WorkOS-backed browser auth, AuthContext display, and Electric/TanStack DB tracer
-surfaces while the first product workflow shape is settled. It is not a
-TanStack Start app.
+`apps/web` is a Vite React SPA using TanStack Router. It is the
+organization-facing web app for authenticated organization workflows. The
+current shell exposes WorkOS-backed browser auth, AuthContext display, and
+Electric/TanStack DB tracer surfaces while the first product workflow shape is
+settled. It is not a TanStack Start app.
 
 The web app is online-only in v1. It uses sync-native reads and optimistic
 domain-command writes for responsiveness and consistency, but it does not offer
 offline persistence, offline command queues, or offline conflict resolution.
-All agency roles use the web app for the workflows their role permits.
+All organization roles use the web app for the workflows their role permits.
 
 `apps/admin` is a Vite React SPA using TanStack Router. It is the SIMMER
-operator control plane, not an agency administration surface. Its scope is
-in-app operator auth, agency creation and support metadata, agency-scoped user
-invitation and membership support, agency foundation bootstrapping (regions,
-addresses, method/lure/habitat lookups, enabled species, and first traps),
-global mosquito taxonomy management, and global unit management. Agency-owned
-operational catalogs and workflows remain in `apps/web` unless a future
-support/repair tool is explicitly operator-owned.
+operator control plane, not an organization administration surface. Its scope is
+in-app operator auth, organization creation and support metadata,
+organization-scoped user invitation and membership support, organization
+foundation bootstrapping (regions, addresses, method/lure/habitat lookups,
+enabled species, and first traps), global mosquito taxonomy management, and
+global unit management. Organization-owned operational catalogs and workflows
+remain in `apps/web` unless a future support/repair tool is explicitly
+operator-owned.
 
 It is built on the same platform as `apps/web` rather than beside it: the
 two-rail app shell, the TanStack Form field kit, the browser auth client, and
@@ -82,8 +84,8 @@ bundle.
 Access is all-or-nothing, unlike the web app's role ladder: a session in the one
 WorkOS organization that is SIMMER (`SIMMER_OPERATOR_ORG_ID`) reaches every
 `/admin/*` endpoint, and any other session reaches none, including the same
-person's while they are signed in to an agency they administer. The console
-renders that refusal as an explanation rather than an error.
+person's while they are signed in to an organization they administer. The
+console renders that refusal as an explanation rather than an error.
 
 `apps/preview` is an internal Vite React/TanStack Router application for
 component preview, design-token inspection, visual-regression surfaces, and
@@ -286,7 +288,7 @@ and timestamps. It does not own the primary authorization model.
 WorkOS identities are separate from SIMMER domain identities.
 
 - `users`: global login identities linked to WorkOS users.
-- `organizations`: SIMMER agencies linked to WorkOS organizations.
+- `organizations`: SIMMER customer organizations linked to WorkOS organizations.
 - `profiles`: org-scoped people used for historical attribution. Profiles may
   exist without login access.
 - `memberships`: current access relationship between user, organization,
@@ -304,9 +306,9 @@ later without changing the invited role.
 **None of the WorkOS half of that runs on staging.** Staging authenticates
 against the WorkOS production directory, so it refuses every WorkOS identity
 write with a 403 and writes only SIMMER's own rows. Signing in and switching
-Agency work; inviting, changing a role, removing access, resetting a password,
-signing up and creating an Agency do not. See ADR 0017 before changing anything
-that calls WorkOS.
+Organization work; inviting, changing a role, removing access, resetting a
+password, signing up and creating an Organization do not. See ADR 0017 before
+changing anything that calls WorkOS.
 
 ## Organization scope
 
@@ -400,7 +402,7 @@ Testing emphasis:
 
 ## Billing
 
-Agency billing is manual for MVP. Government agencies usually will not keep a
+Billing is manual for MVP. A government organization usually will not keep a
 credit card on file inside the app.
 
 SIMMER stores manual subscription metadata per organization, such as trial,

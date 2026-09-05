@@ -60,3 +60,18 @@ readings is a permissions question. **Company** stays the label.
   navigation label were already right.
 - Nothing enforces this. A `check:vocabulary` gate over copy strings would hold
   the Avoid lists the way `check:column-vocabularies` holds the enums.
+
+#493 amends the last bullet. The gate was built in #539 and runs in `ci.yml`, so
+the decision is enforced over the copy it was written about. It parses
+`CONTEXT.md` rather than copying it, in two halves: the Avoid column of the Core
+language table, and the "Not a term" bullets in the Ambiguities section. #552
+extended it with the per-string `// vocabulary-ignore` marker that let `site` and
+`seat` join `agency` and `tenant`, so the enforced set is four words and there is
+no allowance count. `account`, `user` and `login` are still outside it, because
+nothing yet tells the banned sense of those from the term.
+
+What the gate reads is copy: string literals and JSX text under `apps/web/src`,
+`apps/admin/src` and `apps/mobile/src`. Comments and prose are not copy and are
+not gated, so those went by issue instead. #534 and #565 took agency and tenant
+out of the comments, #536 out of the docs that say which word to use, #566 out of
+`scripts/`, and #562 out of the eight doc files this ADR named outstanding.

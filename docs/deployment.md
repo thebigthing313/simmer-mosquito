@@ -7,7 +7,7 @@ SIMMER has three operating environments:
   `docker-compose.yml`. Nothing local points at Railway. See "Local
   development".
 - **staging** on Railway, deployed from the `staging` branch. It is a sandbox
-  agency staff sign into, holding a full-history clone of production and
+  organization staff sign into, holding a full-history clone of production and
   authenticating against WorkOS **production**, so a release candidate soaks
   there against real identities and real-shaped data. See "Pipeline" and
   "Refreshing the staging sandbox".
@@ -59,7 +59,7 @@ Postgres + Electric from `docker-compose.yml`. `apps/server` reads env from
 `apps/server/.env`; Vite reads from the repo-root `.env` (its `envDir` is the
 workspace root). Keep the shared keys in sync across both files.
 
-**Nothing local points at Railway.** Staging is a sandbox agency staff are
+**Nothing local points at Railway.** Staging is a sandbox organization staff are
 signed into to try upcoming features against a clone of their own data, so a
 local `pnpm dev:server` writing to it corrupts their test. There is no
 documented escape hatch back to it, because an escape hatch aimed at a
@@ -215,8 +215,8 @@ refresh for a clean re-snapshot; its stored shape state predates the reload.
 
 Nothing relinks WorkOS ids here. Staging authenticates against WorkOS
 production, so the ids the dump carries are the ones staging wants. Signing in
-afterwards as a production identity and landing in the right agency is the check
-that the reload reached `users` and `organizations`.
+afterwards as a production identity and landing in the right organization is the
+check that the reload reached `users` and `organizations`.
 
 The daily `schema-drift.yml` run stays. It answers a different question — has
 staging drifted from the migration set — and a refresh that runs a few times a
@@ -232,13 +232,14 @@ database that syncs, re-snapshots, and restores in a fraction of the time.
 So the **local** clone keeps the **last 3 years of dated records** by default and
 **all reference data**. The staging sandbox keeps everything: the trim is not a
 saving there, because the dump and the restore run at full volume either way and
-the prune is 1.17M deletes and eleven full-table rewrites on top (#371). Dated means the things an agency performs: inspections,
-applications, collections, biocontrol and source-reduction actions, outreach,
-service requests, requests for control, assignments, missions, weather
-summaries. Reference data is what it accumulates: habitats, traps, addresses,
-regions, contacts, routes, taxonomy, methods, products, units, profiles,
-memberships. A habitat is still the habitat it was in 2011, and deleting those
-would change what the app *is* rather than how much history it holds.
+the prune is 1.17M deletes and eleven full-table rewrites on top (#371). Dated
+means the things an organization performs: inspections, applications,
+collections, biocontrol and source-reduction actions, outreach, service
+requests, requests for control, assignments, missions, weather summaries.
+Reference data is what it accumulates: habitats, traps, addresses, regions,
+contacts, routes, taxonomy, methods, products, units, profiles, memberships. A
+habitat is still the habitat it was in 2011, and deleting those would change
+what the app *is* rather than how much history it holds.
 
 The dump itself is always whole, since prod is only ever read, and the trim runs
 on the target afterwards via `scripts/prune-history.sql`, which is also runnable
@@ -321,7 +322,7 @@ Why it is part of that clone rather than a follow-up:
 `workos_organization_id`, so an unrelinked row is invisible to a staging
 session, and worse than invisible. Signing in against an org id that resolves to
 nothing provisions a *fresh* organization, leaving the database with two rows
-for the same agency.
+for the same organization.
 
 So the script rewrites the ids itself, from `$WorkosOrgRelinks` /
 `$WorkosUserRelinks` near the top of the file, and then **verifies** that no
@@ -329,7 +330,8 @@ organization still carries a mapped prod id. That check is the point: a relink
 whose only verification is someone noticing a broken workspace is one clone away
 from being lost, which is exactly what #82 was.
 
-**When a new agency exists in both environments, add it to `$WorkosOrgRelinks`.**
+**When a new organization exists in both environments, add it to
+`$WorkosOrgRelinks`.**
 The script prints any organization whose id is outside the map after relinking,
 that list should be empty, and anything in it will duplicate on next sign-in.
 Pass `-SkipRelink` only when you intend to work through `DEV_IMPERSONATE_*`.
@@ -448,9 +450,10 @@ WORKOS_REDIRECT_URI=https://<server-domain>/auth/callback
 
 **Both environments point at the same WorkOS directory, the production one.**
 `WORKOS_API_KEY`, `WORKOS_CLIENT_ID` and `SIMMER_OPERATOR_ORG_ID` hold the same
-values on staging as on production, which is what lets an agency user sign in to
-the sandbox with the credentials they already have and land in their own Agency
-(#377). Only the callback URL differs, and both are registered in WorkOS.
+values on staging as on production, which is what lets an organization user sign
+in to the sandbox with the credentials they already have and land in their own
+Organization (#377). Only the callback URL differs, and both are registered in
+WorkOS.
 
 `WORKOS_COOKIE_PASSWORD` is the one WorkOS value that **must differ between the
 two**. It is what seals the session cookie, so a shared value means a session
@@ -464,11 +467,11 @@ authenticates against WorkOS production, so without it an invitation sent from
 unreleased code mails a real address, a removal revokes somebody's real access,
 and a password reset mails a working link for a production account. With it set,
 every WorkOS identity write answers 403 `workos_identity_writes_disabled` and
-only SIMMER's own rows are written. Signing in, switching agency and signing out
-are unaffected; inviting, re-inviting, changing a role, removing access,
-resetting a password, signing up and creating an agency from the operator
-console all refuse. Nobody new can be onboarded on staging, which is the
-intended shape and not a gap.
+only SIMMER's own rows are written. Signing in, switching organization and
+signing out are unaffected; inviting, re-inviting, changing a role, removing
+access, resetting a password, signing up and creating an organization from the
+operator console all refuse. Nobody new can be onboarded on staging, which is
+the intended shape and not a gap.
 
 Read as the exact string `true`, and **absent means settle**, so the variable
 going missing in production cannot silently turn identity off. Production must
@@ -528,8 +531,9 @@ VITE_SIMMER_OPERATOR_ORG_ID=<the WorkOS org that is SIMMER, in this environment>
 VITE_SIMMER_ENVIRONMENT=staging   # staging only; omit in production
 ```
 
-The console wears the same banner as the agency workspace, and keeps syncing in
-a hidden tab on the same terms, off the same variable. See "Web service" above.
+The console wears the same banner as the organization workspace, and keeps
+syncing in a hidden tab on the same terms, off the same variable. See "Web
+service" above.
 
 Both Railway environments set it to the same id,
 `org_01KRQEQBJJHF729PY0ED6P7875`, because staging authenticates against WorkOS
@@ -540,16 +544,16 @@ WorkOS environment has its own SIMMER organization,
 `VITE_SIMMER_OPERATOR_ORG_ID` is how the console answers WorkOS's organization
 challenge without asking. WorkOS refuses to mint a session for an account in more
 than one organization until one is chosen, and operators are routinely in
-several: `createAdminAgency`'s `linkRequesterAsOwner` makes the operator the new
-agency's first owner. The console picks this one and refuses any account that is
-not a member of it: **being in the SIMMER organization is what operator access
-means.** There is no picker; a non-member is turned away rather than let in under
-some agency's identity.
+several: `createAdminOrganization`'s `linkRequesterAsOwner` makes the operator
+the new organization's first owner. The console picks this one and refuses any
+account that is not a member of it: **being in the SIMMER organization is what
+operator access means.** There is no picker; a non-member is turned away rather
+than let in under some organization's identity.
 
 Note this is a build-time `VITE_` value like the others, so changing it needs a
 redeploy, and that it is deliberately *not* server-side. If `/auth/sign-in`
 enforced it, it would also strip the picker from `apps/web`, where an operator
-who genuinely holds an agency membership still needs to choose.
+who genuinely holds an organization membership still needs to choose.
 
 #### Set both, and set them to the same organization
 
@@ -720,10 +724,10 @@ dupes`, and `fallow:health` run in `ci.yml`, and `verify` here runs typecheck,
 test, and build, and it never consults them. Duplication and complexity are read as
 "did this branch make it worse" against where the workspace already is, and a
 threshold judgement about the shape of the code is not a reason to refuse a
-release to an agency that is waiting on a fix. The cost is that a red CI on
-`main` does not stop anything shipping, which is how #136 sat red across several
-green production deploys: read a red `main` as work owed, not as a broken
-release, and check which job failed before treating it as either.
+release to an organization that is waiting on a fix. The cost is that a red CI
+on `main` does not stop anything shipping, which is how #136 sat red across
+several green production deploys: read a red `main` as work owed, not as a
+broken release, and check which job failed before treating it as either.
 
 The separate DB migration workflow (`db-migrate.yml`) remains available for
 targeted migration retries. `workflow_dispatch` on the deploy workflow allows a
@@ -855,7 +859,7 @@ As of 2026-09-01, the three-branch flow and the staging sandbox are in place
   fast-forward promotion (#393), which put web 0.6.0 and admin 0.5.0 on
   `staging`;
 - staging pointed at WorkOS production, with a production identity signing in,
-  resolving to the existing Agency and creating no row;
+  resolving to the existing Organization and creating no row;
 - `WORKOS_IDENTITY_WRITES_DISABLED=true` on the staging server, and the two
   cookie passwords separated;
 - staging Electric returned to private, insecure and domainless, with all 59
