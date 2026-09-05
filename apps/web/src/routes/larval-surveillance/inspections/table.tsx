@@ -20,7 +20,14 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
+import { DateRangeFilter } from '../../../components/date-range-filter';
 import { EmptyValue } from '../../../components/empty-value';
+import {
+	MultiSelectFilter,
+	SegmentedFilter,
+	ToggleFilter,
+	useDateRangeFilters,
+} from '../../../components/explorer';
 import { DensityBadge, LifeStageStrip, WetnessBadge } from '../../../components/larval-display';
 import {
 	type InspectionTableRow,
@@ -32,6 +39,7 @@ import {
 	INSPECTION_SORT_KEYS,
 	type InspectionSort,
 	type InspectionSortKey,
+	inspectionWindowKey,
 	nextSort,
 	SORT_DIRECTIONS,
 	type SortDirection,
@@ -43,6 +51,18 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
+import {
+	DensityFilter,
+	INSPECTION_TABLE_COUNTING,
+	type InspectionCatalogs,
+	type InspectionFilterBinding,
+	InspectionFilterChips,
+	inspectionTableFilters,
+	useInspectionCatalogs,
+	useInspectionFilterState,
+	WETNESS_OPTIONS,
+} from '../-inspection-filters';
+import { inspectionFilterCodecs } from '../-inspections-search';
 import { formatListDate } from '../-overview-data';
 
 /**
@@ -57,15 +77,26 @@ interface TableSearch {
 	readonly direction: SortDirection;
 }
 
-const SEARCH_DEFAULTS: TableSearch = {
+const SORT_DEFAULTS: TableSearch = {
 	sort: DEFAULT_INSPECTION_SORT.key,
 	direction: DEFAULT_INSPECTION_SORT.direction,
 };
 
-const SEARCH_CODECS: FilterCodecs<TableSearch> = {
-	sort: choiceParam(INSPECTION_SORT_KEYS, SEARCH_DEFAULTS.sort),
-	direction: choiceParam(SORT_DIRECTIONS, SEARCH_DEFAULTS.direction),
+const SORT_CODECS: FilterCodecs<TableSearch> = {
+	sort: choiceParam(INSPECTION_SORT_KEYS, SORT_DEFAULTS.sort),
+	direction: choiceParam(SORT_DIRECTIONS, SORT_DEFAULTS.direction),
 };
+
+/**
+ * The sort's two params and the explorer's eight, validated as one set.
+ *
+ * `searchValidator` keeps what its codecs name and drops the rest, so the
+ * filters have to be here or a link from the map would arrive with them stripped
+ * before the page read them. `regions` is among them and no control here writes
+ * it: the table has no region predicate, and carrying the param is what lets a
+ * reader go Map to Table and back without losing their region selection.
+ */
+const SEARCH_CODECS = { ...inspectionFilterCodecs, ...SORT_CODECS };
 
 export const Route = createFileRoute('/larval-surveillance/inspections/table')({
 	component: InspectionsTableRoute,
@@ -98,36 +129,54 @@ const WINDOW_STEP = 50;
  * four and why Site, Habitat type, Inspector and Density are not among them;
  * Life stages is six boolean columns drawn as one strip, so there is no column
  * under it to sort by at all.
+ *
+ * ## The filters are the map explorer's
+ *
+ * The bar above the rows reads and writes the params the explorer reads and
+ * writes, through the same codecs, so a link built on one surface opens the same
+ * set on the other. Six of the explorer's seven filters are here; Region is not,
+ * and `InspectionTableFilters` in the read hook says why.
  */
 function InspectionsTableRoute() {
-	const { filters, setFilters } = useSearchFilters(SEARCH_DEFAULTS, SEARCH_CODECS);
+	const { filters: sortSearch, setFilters: setSort } = useSearchFilters(SORT_DEFAULTS, SORT_CODECS);
 	const sort: InspectionSort = useMemo(
-		() => ({ key: filters.sort, direction: filters.direction }),
-		[filters.direction, filters.sort],
+		() => ({ key: sortSearch.sort, direction: sortSearch.direction }),
+		[sortSearch.direction, sortSearch.sort],
 	);
 
-	// A window belongs to the sort it was loaded under. The fiftieth row of one
-	// order is nobody's row in another, so a new sort starts at the first page of
-	// it. The window is stored against the sort that widened it and read back
-	// through `limit`, so the reset follows from the URL rather than from the
-	// click handler. Every way of arriving at a sort gets it, including a pasted
-	// link and coming back to the table from a record.
-	const [loaded, setLoaded] = useState({ limit: WINDOW_STEP, ...sort });
-	const isLoadedSort = loaded.key === sort.key && loaded.direction === sort.direction;
-	if (!isLoadedSort) {
-		setLoaded({ limit: WINDOW_STEP, ...sort });
-	}
-	const limit = isLoadedSort ? loaded.limit : WINDOW_STEP;
+	// The filter set is the explorer's, read through the explorer's codecs, so
+	// the two surfaces answer the same address. Both hooks patch the same search
+	// params and neither touches the other's keys. `all-time` is where the two
+	// part: this page says it holds every inspection, so an address with no dates
+	// on it opens on every inspection.
+	const binding = useInspectionFilterState(INSPECTION_TABLE_COUNTING, 'all-time');
+	const catalogs = useInspectionCatalogs();
+	const filters = useMemo(() => inspectionTableFilters(binding.state), [binding.state]);
 
-	const { rows, isReady, isError } = useInspectionTable(sort, limit);
-	const shown = useHeldRows(rows, isReady, sort);
+	// A window belongs to the query that loaded it. A new sort reorders the whole
+	// set and a new filter changes which rows are in it, so either one starts at
+	// the first page rather than at row fifty of something else. The window is
+	// stored against that query's key and read back through `limit`, so the reset
+	// follows from the URL rather than from a click handler: a pasted link and
+	// Back out of a record get it too. `limit` reads `WINDOW_STEP` on the render
+	// that discards the window, so the read is never asked for a stale one.
+	const windowKey = inspectionWindowKey(sort, filters);
+	const [loaded, setLoaded] = useState({ limit: WINDOW_STEP, key: windowKey });
+	const isLoadedWindow = loaded.key === windowKey;
+	if (!isLoadedWindow) {
+		setLoaded({ limit: WINDOW_STEP, key: windowKey });
+	}
+	const limit = isLoadedWindow ? loaded.limit : WINDOW_STEP;
+
+	const { rows, isReady, isError } = useInspectionTable(sort, limit, filters);
+	const shown = useHeldRows(rows, isReady, windowKey);
 
 	const sortBy = useCallback(
 		(key: InspectionSortKey) => {
 			const next = nextSort(sort, key);
-			setFilters({ direction: next.direction, sort: next.key });
+			setSort({ direction: next.direction, sort: next.key });
 		},
-		[setFilters, sort],
+		[setSort, sort],
 	);
 
 	const loadMore = useCallback(() => {
@@ -141,8 +190,14 @@ function InspectionsTableRoute() {
 				icon={InspectionIcon}
 				title="Inspections"
 			/>
+			<InspectionsFilterBar binding={binding} catalogs={catalogs} />
 			{shown.length === 0 ? (
-				<NoRows isError={isError} isReady={isReady} />
+				<NoRows
+					isError={isError}
+					isFiltered={binding.activeCount > 0}
+					isReady={isReady}
+					onClearFilters={binding.reset}
+				/>
 			) : (
 				<LoadedRows
 					isError={isError}
@@ -158,13 +213,120 @@ function InspectionsTableRoute() {
 	);
 }
 
-/** Waiting, failed, or genuinely empty. Nothing on screen tells them apart. */
-function NoRows({ isError, isReady }: { readonly isError: boolean; readonly isReady: boolean }) {
+/**
+ * The filters, above the rows they narrow.
+ *
+ * Six controls, each one a column of `inspections`, which is what lets Postgres
+ * answer a narrowed table rather than the browser hide rows out of a window it
+ * was already sent. `InspectionTableFilters` in the read hook carries the rest
+ * of that, including why Region is not here.
+ *
+ * The bar renders whether or not any rows came back, because a filter that
+ * matched nothing is exactly when the reader needs the control that loosens it.
+ */
+function InspectionsFilterBar({
+	binding,
+	catalogs,
+}: {
+	readonly binding: InspectionFilterBinding;
+	readonly catalogs: InspectionCatalogs;
+}) {
+	const { activeCount, defaults, reset, set, setFilters, state, today } = binding;
+	const dateRange = useDateRangeFilters({
+		from: state.dateFrom,
+		to: state.dateTo,
+		today,
+		setFilters,
+	});
+	const resetDates = useCallback(
+		() => setFilters({ from: defaults.from, to: defaults.to }),
+		[setFilters, defaults.from, defaults.to],
+	);
+
+	return (
+		<div className="grid gap-4 rounded-md border border-border/50 bg-muted/20 p-4">
+			<div className="grid gap-4 lg:grid-cols-2">
+				<DateRangeFilter {...dateRange} />
+				<div className="grid content-start gap-3">
+					<SegmentedFilter
+						label="Water"
+						onChange={set.setWetness}
+						options={WETNESS_OPTIONS}
+						value={state.wetness}
+					/>
+					<DensityFilter onChange={set.setDensities} selected={state.densities} />
+				</div>
+			</div>
+			<div className="flex flex-wrap items-center gap-2">
+				<ToggleFilter
+					label="Larvae found only"
+					onChange={set.setPositiveOnly}
+					value={state.positiveOnly}
+				/>
+				<MultiSelectFilter
+					empty="No habitat types"
+					label="Habitat type"
+					onChange={set.setTypeIds}
+					options={catalogs.habitatTypes}
+					selected={state.typeIds}
+				/>
+				<MultiSelectFilter
+					empty="No people"
+					label="Inspector"
+					onChange={set.setInspectorIds}
+					options={catalogs.personnel}
+					selected={state.inspectorIds}
+				/>
+			</div>
+			{activeCount === 0 ? null : (
+				<InspectionFilterChips
+					catalogs={catalogs}
+					defaults={defaults}
+					onClearAll={reset}
+					onResetDates={resetDates}
+					set={set}
+					state={state}
+				/>
+			)}
+		</div>
+	);
+}
+
+/**
+ * Waiting, failed, filtered to nothing, or genuinely empty. Nothing on screen
+ * tells them apart, and the last two ask for different things: one wants a
+ * looser filter, the other wants a first inspection.
+ */
+function NoRows({
+	isError,
+	isFiltered,
+	isReady,
+	onClearFilters,
+}: {
+	readonly isError: boolean;
+	readonly isFiltered: boolean;
+	readonly isReady: boolean;
+	readonly onClearFilters: () => void;
+}) {
 	if (isError) {
 		return <InspectionsUnavailable />;
 	}
 	if (!isReady) {
 		return <ListLoading rows={8} />;
+	}
+	if (isFiltered) {
+		return (
+			<ListEmpty
+				action={
+					<Button onClick={onClearFilters} type="button" variant="outline">
+						Clear filters
+					</Button>
+				}
+				description="Nothing recorded matches what is set above."
+				icon={InspectionIcon}
+				title="No inspections match"
+			/>
+		);
 	}
 	return (
 		<ListEmpty
@@ -227,24 +389,24 @@ const NO_ROWS: readonly InspectionTableRow[] = [];
  * asked for more of it. What is already shown stays correct: the wider window
  * is the same order with more of it on the end.
  *
- * A new sort is the case where it is not. The same rows in the old order under a
- * header that now says something else reads as a sort that did nothing, so what
- * is held is kept with the sort it was read under and only handed back while
- * that still matches. Under a new one the reader waits on a skeleton instead.
+ * A new sort or a new filter is the case where it is not. The same rows in the
+ * old order under a header that now says something else reads as a sort that did
+ * nothing, and rows that do not match the filter just set read as a filter that
+ * did nothing. So what is held is kept against the window key it was read under
+ * and only handed back while that still matches. Under a new one the reader
+ * waits on a skeleton instead.
  */
 function useHeldRows(
 	rows: readonly InspectionTableRow[],
 	isReady: boolean,
-	sort: InspectionSort,
+	windowKey: string,
 ): readonly InspectionTableRow[] {
-	const held = useRef({ rows, sort });
+	const held = useRef({ rows, windowKey });
 	if (isReady) {
-		held.current = { rows, sort };
+		held.current = { rows, windowKey };
 		return rows;
 	}
-	const heldSort = held.current.sort;
-	const isSameSort = heldSort.key === sort.key && heldSort.direction === sort.direction;
-	return isSameSort ? held.current.rows : NO_ROWS;
+	return held.current.windowKey === windowKey ? held.current.rows : NO_ROWS;
 }
 
 function InspectionsTable({

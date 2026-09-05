@@ -1,13 +1,11 @@
-import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
+import type { LarvalDensity } from '@simmer-mosquito/domain';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useCallback, useMemo, useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { DateRangeFilter } from '../../../components/date-range-filter';
 import {
-	ActiveFilterBar,
 	ExplorerMapPage,
 	ExplorerRow,
 	FilterChip,
@@ -20,10 +18,8 @@ import {
 	useDateRangeFilters,
 	useExplorerPanel,
 	useFlyToSelection,
-	useHabitatTypeOptions,
 	useMapBoundsParam,
 	usePagedMapResource,
-	usePersonnelOptions,
 	useRegionOptions,
 	useSelectedMapRecord,
 	whenAny,
@@ -41,25 +37,29 @@ import {
 	type MapLegendEntry,
 	type MapTileLayer,
 } from '../../../components/map';
-import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { adhocLabel } from '../../../lib/coordinate-label';
 import {
 	DATE_RANGE_COUNTING,
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
+import {
+	DensityFilter,
+	type InspectionCatalogs,
+	InspectionFilterChips,
+	type InspectionFilterSetters,
+	type InspectionFilterState,
+	useInspectionCatalogs,
+	useInspectionFilterState,
+	WETNESS_OPTIONS,
+} from '../-inspection-filters';
 import { InspectionMapCard } from '../-inspection-map-card';
 import {
 	type InspectionFilters as InspectionSearchFilters,
 	inspectionFilterCodecs,
 } from '../-inspections-search';
-import {
-	addDaysToDateString,
-	formatListDate,
-	formatMonthDay,
-	todayInTimeZone,
-} from '../-overview-data';
-import { inspectionLegend, type WetFilter } from './-legend';
+import { formatListDate } from '../-overview-data';
+import { inspectionLegend } from './-legend';
 
 const InspectionEntityIcon = iconRegistry.entities.inspection.icon;
 
@@ -98,44 +98,13 @@ interface InspectionSite {
 	readonly hasPupae: boolean;
 }
 
-/** The window the explorer opens with, and the reset target for "Clear all". */
-const DEFAULT_WINDOW_DAYS = 30;
-
 const PATH = '/map/inspections';
 
-const WETNESS_OPTIONS: readonly { readonly value: WetFilter; readonly label: string }[] = [
-	{ value: 'all', label: 'All' },
-	{ value: 'wet', label: 'Wet' },
-	{ value: 'dry', label: 'Dry' },
-];
-
-/**
- * The window the surface opens on, in the agency's zone.
- *
- * A fixed number of days back from today rather than a calendar month, so the
- * page opens on the same amount of work whenever it is opened.
- */
-function useDefaultWindow(): { readonly defaultFrom: string; readonly today: string } {
-	const timeZone = useOrganizationTimeZone();
-	const today = useMemo(() => todayInTimeZone(timeZone), [timeZone]);
-	const defaultFrom = useMemo(
-		() => addDaysToDateString(today, -(DEFAULT_WINDOW_DAYS - 1)),
-		[today],
-	);
-	return { defaultFrom, today };
-}
-
-/** The three catalogs the filter controls read from. */
+/** The catalogs the filter controls read from: the shared two, plus Region. */
 function useInspectionFilterOptions(): InspectionFilterOptions {
-	const habitatTypes = useHabitatTypeOptions();
-	const personnel = usePersonnelOptions();
+	const catalogs = useInspectionCatalogs();
 	const regions = useRegionOptions();
-	return {
-		habitatTypes: habitatTypes.options,
-		personnel,
-		regions,
-		typeNameById: habitatTypes.nameById,
-	};
+	return { catalogs, regions };
 }
 
 /**
@@ -224,117 +193,22 @@ function inspectionQueryParams(bbox: string | null, filters: InspectionTileFilte
 	});
 }
 
-/**
- * The filter set, held on the URL.
- *
- * A deep link from the overview's "view on map" actions, a shared link, and
- * Back out of a record all land on the same view, so the state cannot live in
- * the component. What the component wants back is a plain value and a setter per
- * filter, and building those out of one patch function is the bulk of what this
- * route would otherwise do before it renders anything.
- */
-function useInspectionFilterState(defaultFrom: string, today: string) {
-	const filterDefaults = useMemo<InspectionSearchFilters>(
-		() => ({
-			from: defaultFrom,
-			to: today,
-			water: 'all',
-			density: new Set(),
-			positive: false,
-			types: new Set(),
-			inspectors: new Set(),
-			regions: new Set(),
-		}),
-		[defaultFrom, today],
-	);
-	const {
-		filters: query,
-		setFilters,
-		reset,
-		activeCount,
-	} = useSearchFilters(filterDefaults, inspectionFilterCodecs, DATE_RANGE_COUNTING);
-	const setWetness = useCallback((next: WetFilter) => setFilters({ water: next }), [setFilters]);
-	const setDensities = useCallback(
-		(next: ReadonlySet<LarvalDensity>) =>
-			setFilters({ density: next as InspectionSearchFilters['density'] }),
-		[setFilters],
-	);
-	const setPositiveOnly = useCallback(
-		(next: boolean) => setFilters({ positive: next }),
-		[setFilters],
-	);
-	const setTypeIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ types: next }),
-		[setFilters],
-	);
-	const setInspectorIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ inspectors: next }),
-		[setFilters],
-	);
-	const setRegionIds = useCallback(
-		(next: ReadonlySet<string>) => setFilters({ regions: next }),
-		[setFilters],
-	);
-	const state: InspectionFilterState = {
-		dateFrom: query.from,
-		dateTo: query.to,
-		densities: query.density as ReadonlySet<LarvalDensity>,
-		inspectorIds: query.inspectors,
-		positiveOnly: query.positive,
-		regionIds: query.regions,
-		typeIds: query.types,
-		wetness: query.water,
-	};
-	const set: InspectionFilterSetters = {
-		setDensities,
-		setInspectorIds,
-		setPositiveOnly,
-		setRegionIds,
-		setTypeIds,
-		setWetness,
-	};
-	return { activeCount, reset, set, setFilters, state };
-}
-
-/** What the reader has narrowed the list by. */
-interface InspectionFilterState {
-	readonly dateFrom: string;
-	readonly dateTo: string;
-	readonly densities: ReadonlySet<LarvalDensity>;
-	readonly inspectorIds: ReadonlySet<string>;
-	readonly positiveOnly: boolean;
-	readonly regionIds: ReadonlySet<string>;
-	readonly typeIds: ReadonlySet<string>;
-	readonly wetness: WetFilter;
-}
-
-/** One setter per filter, each patching the URL. */
-interface InspectionFilterSetters {
-	readonly setDensities: (next: ReadonlySet<LarvalDensity>) => void;
-	readonly setInspectorIds: (next: ReadonlySet<string>) => void;
-	readonly setPositiveOnly: (next: boolean) => void;
-	readonly setRegionIds: (next: ReadonlySet<string>) => void;
-	readonly setTypeIds: (next: ReadonlySet<string>) => void;
-	readonly setWetness: (next: WetFilter) => void;
-}
-
 /** The catalogs the filter controls offer, and the names their chips read by. */
 interface InspectionFilterOptions {
-	readonly habitatTypes: ReturnType<typeof useHabitatTypeOptions>['options'];
-	readonly personnel: ReturnType<typeof usePersonnelOptions>;
+	readonly catalogs: InspectionCatalogs;
 	readonly regions: ReturnType<typeof useRegionOptions>;
-	readonly typeNameById: ReadonlyMap<string, string>;
 }
 
 function InspectionsExplorerRoute() {
-	const { defaultFrom, today } = useDefaultWindow();
 	const {
 		activeCount: activeFilterCount,
+		defaults,
 		reset,
 		set,
 		setFilters,
 		state,
-	} = useInspectionFilterState(defaultFrom, today);
+		today,
+	} = useInspectionFilterState(DATE_RANGE_COUNTING, 'last-30-days');
 	const { dateFrom, dateTo, densities, wetness } = state;
 
 	const [map, setMap] = useState<MapboxMap | null>(null);
@@ -361,10 +235,9 @@ function InspectionsExplorerRoute() {
 	);
 	const legend = useMemo(() => inspectionLegend(wetness, densities), [wetness, densities]);
 
-	const isDefaultRange = dateFrom === defaultFrom && dateTo === today;
 	const resetDates = useCallback(
-		() => setFilters({ from: defaultFrom, to: today }),
-		[setFilters, defaultFrom, today],
+		() => setFilters({ from: defaults.from, to: defaults.to }),
+		[setFilters, defaults.from, defaults.to],
 	);
 	const clearAll = reset;
 
@@ -375,7 +248,7 @@ function InspectionsExplorerRoute() {
 				<InspectionFilters
 					activeFilterCount={activeFilterCount}
 					dateRange={dateRange}
-					isDefaultRange={isDefaultRange}
+					defaults={defaults}
 					onClearAll={clearAll}
 					onResetDates={resetDates}
 					options={filterOptions}
@@ -416,7 +289,7 @@ function InspectionsExplorerRoute() {
 						key={inspection.id}
 						onSelect={setSelectedId}
 						selectedId={selectedId}
-						typeNameById={filterOptions.typeNameById}
+						typeNameById={filterOptions.catalogs.typeNameById}
 					/>
 				),
 			}}
@@ -462,13 +335,12 @@ function InspectionMap({
 /**
  * The chip row, or nothing when no filter is set.
  *
- * It takes the filter values and their setters rather than a callback per chip,
- * so the card above it hands over what it already holds instead of building
- * twelve closures on every render.
+ * The six chips both surfaces share come from `InspectionFilterChips`; Region is
+ * the map's own filter, so its chips are passed as children and land after them.
  */
 function InspectionActiveFilters({
 	activeFilterCount,
-	isDefaultRange,
+	defaults,
 	onClearAll,
 	onResetDates,
 	options,
@@ -476,7 +348,7 @@ function InspectionActiveFilters({
 	state,
 }: {
 	readonly activeFilterCount: number;
-	readonly isDefaultRange: boolean;
+	readonly defaults: InspectionSearchFilters;
 	readonly onClearAll: () => void;
 	readonly onResetDates: () => void;
 	readonly options: InspectionFilterOptions;
@@ -486,30 +358,24 @@ function InspectionActiveFilters({
 	if (activeFilterCount === 0) {
 		return null;
 	}
-	const { densities, inspectorIds, regionIds, typeIds } = state;
+	const { regionIds } = state;
 	return (
-		<ActiveFilters
-			densities={densities}
-			from={state.dateFrom}
-			inspectorIds={inspectorIds}
-			isDefaultRange={isDefaultRange}
+		<InspectionFilterChips
+			catalogs={options.catalogs}
+			defaults={defaults}
 			onClearAll={onClearAll}
-			onClearPositive={() => set.setPositiveOnly(false)}
-			onClearWetness={() => set.setWetness('all')}
 			onResetDates={onResetDates}
-			onToggleDensity={(value) => set.setDensities(toggle(densities, value))}
-			onToggleInspector={(id) => set.setInspectorIds(toggle(inspectorIds, id))}
-			onToggleRegion={(id) => set.setRegionIds(toggle(regionIds, id))}
-			onToggleType={(id) => set.setTypeIds(toggle(typeIds, id))}
-			personnelNameById={options.personnel.nameById}
-			positiveOnly={state.positiveOnly}
-			regionIds={regionIds}
-			regionNameById={options.regions.nameById}
-			to={state.dateTo}
-			typeIds={typeIds}
-			typeNameById={options.typeNameById}
-			wetness={state.wetness}
-		/>
+			set={set}
+			state={state}
+		>
+			{[...regionIds].map((id) => (
+				<FilterChip
+					key={`region-${id}`}
+					label={options.regions.nameById.get(id) ?? 'Unknown region'}
+					onRemove={() => set.setRegionIds(toggle(regionIds, id))}
+				/>
+			))}
+		</InspectionFilterChips>
 	);
 }
 
@@ -534,14 +400,14 @@ function InspectionFilterGrid({
 				empty="No habitat types"
 				label="Habitat type"
 				onChange={set.setTypeIds}
-				options={options.habitatTypes}
+				options={options.catalogs.habitatTypes}
 				selected={state.typeIds}
 			/>
 			<MultiSelectFilter
 				empty="No people"
 				label="Inspector"
 				onChange={set.setInspectorIds}
-				options={options.personnel.options}
+				options={options.catalogs.personnel}
 				selected={state.inspectorIds}
 			/>
 			<MultiSelectFilter
@@ -559,7 +425,7 @@ function InspectionFilterGrid({
 function InspectionFilters({
 	activeFilterCount,
 	dateRange,
-	isDefaultRange,
+	defaults,
 	onClearAll,
 	onResetDates,
 	options,
@@ -568,7 +434,7 @@ function InspectionFilters({
 }: {
 	readonly activeFilterCount: number;
 	readonly dateRange: ReturnType<typeof useDateRangeFilters>;
-	readonly isDefaultRange: boolean;
+	readonly defaults: InspectionSearchFilters;
 	readonly onClearAll: () => void;
 	readonly onResetDates: () => void;
 	readonly options: InspectionFilterOptions;
@@ -592,7 +458,7 @@ function InspectionFilters({
 
 			<InspectionActiveFilters
 				activeFilterCount={activeFilterCount}
-				isDefaultRange={isDefaultRange}
+				defaults={defaults}
 				onClearAll={onClearAll}
 				onResetDates={onResetDates}
 				options={options}
@@ -600,139 +466,6 @@ function InspectionFilters({
 				state={state}
 			/>
 		</>
-	);
-}
-
-/**
- * Larval-density multi-select rendered as a chip row, each chip carrying the heat
- * color it maps to on the map — so the filter doubles as the map's legend.
- */
-function DensityFilter({
-	selected,
-	onChange,
-}: {
-	readonly selected: ReadonlySet<LarvalDensity>;
-	readonly onChange: (next: ReadonlySet<LarvalDensity>) => void;
-}) {
-	return (
-		<div className="flex items-start gap-3">
-			<span className="w-14 shrink-0 pt-1 font-medium text-muted-foreground text-xs">Density</span>
-			<fieldset className="m-0 flex min-w-0 flex-1 flex-wrap gap-1.5 border-0 p-0">
-				<legend className="sr-only">Filter by larval density</legend>
-				{LARVAL_DENSITIES.map((value) => {
-					const isSelected = selected.has(value);
-					return (
-						<button
-							aria-pressed={isSelected}
-							className={cn(
-								'inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-xs transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-								isSelected
-									? 'border-primary/50 bg-primary/10 text-foreground'
-									: 'border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground',
-							)}
-							key={value}
-							onClick={() => onChange(toggle(selected, value))}
-							type="button"
-						>
-							<span
-								aria-hidden="true"
-								className="size-2.5 shrink-0 rounded-full ring-1 ring-black/10"
-								style={{ backgroundColor: INSPECTION_DENSITY_COLORS[value] }}
-							/>
-							{densityLabel(value)}
-						</button>
-					);
-				})}
-			</fieldset>
-		</div>
-	);
-}
-
-function ActiveFilters({
-	from,
-	to,
-	isDefaultRange,
-	wetness,
-	densities,
-	positiveOnly,
-	typeIds,
-	typeNameById,
-	inspectorIds,
-	personnelNameById,
-	regionIds,
-	regionNameById,
-	onResetDates,
-	onClearWetness,
-	onToggleDensity,
-	onClearPositive,
-	onToggleType,
-	onToggleInspector,
-	onToggleRegion,
-	onClearAll,
-}: {
-	readonly from: string;
-	readonly to: string;
-	readonly isDefaultRange: boolean;
-	readonly wetness: WetFilter;
-	readonly densities: ReadonlySet<LarvalDensity>;
-	readonly positiveOnly: boolean;
-	readonly typeIds: ReadonlySet<string>;
-	readonly typeNameById: ReadonlyMap<string, string>;
-	readonly inspectorIds: ReadonlySet<string>;
-	readonly personnelNameById: ReadonlyMap<string, string>;
-	readonly regionIds: ReadonlySet<string>;
-	readonly regionNameById: ReadonlyMap<string, string>;
-	readonly onResetDates: () => void;
-	readonly onClearWetness: () => void;
-	readonly onToggleDensity: (value: LarvalDensity) => void;
-	readonly onClearPositive: () => void;
-	readonly onToggleType: (id: string) => void;
-	readonly onToggleInspector: (id: string) => void;
-	readonly onToggleRegion: (id: string) => void;
-	readonly onClearAll: () => void;
-}) {
-	return (
-		<ActiveFilterBar onClearAll={onClearAll}>
-			{isDefaultRange ? null : (
-				<FilterChip label={`Dates: ${dateRangeLabel(from, to)}`} onRemove={onResetDates} />
-			)}
-			{wetness !== 'all' ? (
-				<FilterChip
-					label={`Water: ${wetness === 'wet' ? 'Wet' : 'Dry'}`}
-					onRemove={onClearWetness}
-				/>
-			) : null}
-			{LARVAL_DENSITIES.filter((value) => densities.has(value)).map((value) => (
-				<FilterChip
-					color={INSPECTION_DENSITY_COLORS[value]}
-					key={`density-${value}`}
-					label={densityLabel(value)}
-					onRemove={() => onToggleDensity(value)}
-				/>
-			))}
-			{positiveOnly ? <FilterChip label="Larvae found" onRemove={onClearPositive} /> : null}
-			{[...typeIds].map((id) => (
-				<FilterChip
-					key={`type-${id}`}
-					label={typeNameById.get(id) ?? 'Unknown type'}
-					onRemove={() => onToggleType(id)}
-				/>
-			))}
-			{[...inspectorIds].map((id) => (
-				<FilterChip
-					key={`inspector-${id}`}
-					label={personnelNameById.get(id) ?? 'Unknown inspector'}
-					onRemove={() => onToggleInspector(id)}
-				/>
-			))}
-			{[...regionIds].map((id) => (
-				<FilterChip
-					key={`region-${id}`}
-					label={regionNameById.get(id) ?? 'Unknown region'}
-					onRemove={() => onToggleRegion(id)}
-				/>
-			))}
-		</ActiveFilterBar>
 	);
 }
 
@@ -806,20 +539,6 @@ function inspectionSwatch(inspection: InspectionSite): {
 }
 
 // --- helpers ----------------------------------------------------------------
-
-/** Human label for the active range chip, tolerating open-ended bounds. */
-function dateRangeLabel(from: string, to: string): string {
-	if (from === '' && to === '') {
-		return 'All dates';
-	}
-	if (from === '') {
-		return `Until ${formatMonthDay(to)}`;
-	}
-	if (to === '') {
-		return `From ${formatMonthDay(from)}`;
-	}
-	return `${formatMonthDay(from)} – ${formatMonthDay(to)}`;
-}
 
 function resolveTypeName(
 	inspection: InspectionSite,
