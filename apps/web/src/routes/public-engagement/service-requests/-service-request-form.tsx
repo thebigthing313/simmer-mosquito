@@ -16,7 +16,11 @@ import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry, MapDrawController } from '../../../components/map/use-map-draw';
+import type {
+	DrawGeometry,
+	DrawGeometryType,
+	MapDrawController,
+} from '../../../components/map/use-map-draw';
 import type { AddressOption } from '../../../components/pickers/address-picker';
 import { AddressPicker } from '../../../components/pickers/address-picker';
 import { ContactPicker } from '../../../components/pickers/contact-picker';
@@ -190,7 +194,7 @@ export function ServiceRequestFormPage({
 		missingMessage: 'Place the request location on the map.',
 		required: requireLocation && !hideLocation,
 	});
-	const { addressCoord, draw, geometry } = location;
+	const { addressCoord, draw, geometry, geometryType } = location;
 
 	const profileOptions = useMemo(
 		() =>
@@ -256,7 +260,7 @@ export function ServiceRequestFormPage({
 						<DrawToolbar
 							geometryKind="serviceRequest"
 							controller={draw}
-							geometryType="Point"
+							geometryType={geometryType}
 							pointPrompt="Click the map to place the request location."
 						/>
 					</>
@@ -285,6 +289,7 @@ export function ServiceRequestFormPage({
 						controller={draw}
 						form={form}
 						geometry={geometry}
+						geometryType={geometryType}
 						locationError={location.locationError}
 						onAddressSelected={handleAddressSelected}
 						onClearPoint={location.clear}
@@ -418,6 +423,7 @@ function RequestLocation({
 	form,
 	organizationId,
 	geometry,
+	geometryType,
 	controller,
 	addressCoord,
 	locationError,
@@ -432,6 +438,7 @@ function RequestLocation({
 	readonly form: any;
 	readonly organizationId: string;
 	readonly geometry: DrawGeometry | null;
+	readonly geometryType: DrawGeometryType;
 	readonly controller: MapDrawController;
 	readonly addressCoord: { readonly lat: number; readonly lng: number } | null;
 	readonly locationError: string | null;
@@ -472,7 +479,7 @@ function RequestLocation({
 			<GeometryControl
 				controller={controller}
 				geometry={geometry}
-				geometryType="Point"
+				geometryType={geometryType}
 				geometryKind="serviceRequest"
 				label="Point"
 				required={requireLocation}

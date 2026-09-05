@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -191,7 +190,7 @@ function TrapLocationCard({
 		<RecordLocationCard
 			description={`${point.lat.toFixed(5)}, ${point.lng.toFixed(5)}`}
 			emptyDescription="This trap has no location to display."
-			geojson={{ type: 'Point', coordinates: [point.lng, point.lat] } as GeoJsonGeometry}
+			geojson={{ type: 'Point', coordinates: [point.lng, point.lat] }}
 			geomType="Point"
 			height="h-[280px]"
 		/>

@@ -1,4 +1,3 @@
-import type { GeoJsonPoint } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
@@ -90,7 +89,7 @@ function CreateServiceRequestRoute() {
 				fields: serviceRequestFieldsFrom(values),
 				contactId: requestContactId,
 				addressId,
-				geometry: geometry as GeoJsonPoint,
+				geometry,
 			});
 			await navigate({
 				to: '/public-engagement/service-requests/$id',

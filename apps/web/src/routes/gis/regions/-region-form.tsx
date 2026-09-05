@@ -126,7 +126,7 @@ export function RegionFormPage({
 		initialGeometry,
 		missingMessage: 'Draw the region boundary on the map before saving.',
 	});
-	const { draw, geometry } = location;
+	const { draw, geometry, geometryType } = location;
 
 	const activeFolders = useMemo(
 		() => [...regionFolders].sort((a, b) => a.name.localeCompare(b.name)),
@@ -177,7 +177,7 @@ export function RegionFormPage({
 				aside={
 					<>
 						<MapCanvas onMapReady={location.onMapReady} />
-						<DrawToolbar geometryKind="region" controller={draw} geometryType="Polygon" />
+						<DrawToolbar geometryKind="region" controller={draw} geometryType={geometryType} />
 						<MapLegend mode={mode} />
 					</>
 				}
@@ -222,7 +222,7 @@ export function RegionFormPage({
 					<GeometryControl
 						controller={draw}
 						geometry={geometry}
-						geometryType="Polygon"
+						geometryType={geometryType}
 						geometryKind="region"
 						label="Boundary"
 						onClear={location.clear}

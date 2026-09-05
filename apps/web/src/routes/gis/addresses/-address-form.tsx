@@ -209,14 +209,16 @@ export function AddressFormPage({
 		}
 	}, [values, geometry, geometryChanged, geocoderResponse, onSave]);
 
-	const geoJson =
+	// `[...]` rather than the stored pair: `GeoJSON.Position` is mutable
+	// `number[]`, and the draw types hold their pairs readonly.
+	const geoJson: GeoJSON.Feature | null =
 		geometry === null
 			? null
-			: ({
+			: {
 					type: 'Feature',
 					properties: {},
-					geometry: { type: 'Point', coordinates: geometry.coordinates },
-				} as unknown as GeoJSON.Feature);
+					geometry: { type: 'Point', coordinates: [...geometry.coordinates] },
+				};
 
 	return (
 		<MapSplitPage
@@ -310,6 +312,13 @@ export function AddressFormPage({
 							error={locationError}
 							title="Address location"
 						>
+							{/*
+							 * The one form that writes the shape name by hand. Everywhere else
+							 * it comes off `useDrawLocation`, which reads the register. This
+							 * form holds its own `GeocoderPoint` instead, so deriving the
+							 * toolbar from the register while the state stays a point would let
+							 * the two disagree the day the address policy widens.
+							 */}
 							<GeometryControl
 								controller={draw}
 								extraActions={
@@ -332,7 +341,7 @@ export function AddressFormPage({
 										Geocode
 									</Button>
 								}
-								geometry={geometry as DrawGeometry | null}
+								geometry={geometry}
 								geometryType="Point"
 								geometryKind="address"
 								label="Location"

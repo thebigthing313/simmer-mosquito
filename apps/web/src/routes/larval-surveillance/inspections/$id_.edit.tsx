@@ -156,7 +156,7 @@ function EditInspectionLoader({
 			// habitat's, which this form cannot move it off.
 			const redrawn =
 				isAdhoc && JSON.stringify(adhocGeometry) !== JSON.stringify(initialAdhocGeometry)
-					? ((adhocGeometry ?? null) as GeoJsonGeometry | null)
+					? adhocGeometry
 					: null;
 			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
 			if (redrawn !== null && centroid === null) {
