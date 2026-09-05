@@ -57,10 +57,18 @@ vi.mock('../../../../lib/collections/mutate', async () => {
 	const { recordDispatch } = await import('./dispatch-harness');
 	return { mutateCollection: recordDispatch };
 });
+/**
+ * The profile the auth snapshot has resolved, which a test can take away.
+ *
+ * Hoisted because `vi.mock` runs before the module body, and mutable because the
+ * window this file has to cover is the one before a profile arrives.
+ */
+const snapshot = vi.hoisted(() => ({ profileId: null as string | null }));
+
 vi.mock('../../../../hooks/use-auth-snapshot', () => ({
 	useAuthSnapshot: () => ({
 		authenticated: true,
-		localIdentity: { organizationId: ORGANIZATION, profileId: PROFILE },
+		localIdentity: { organizationId: ORGANIZATION, profileId: snapshot.profileId },
 	}),
 }));
 
@@ -113,6 +121,7 @@ const DRAWN: ActionLocation = {
 const UNMOVED: ActionLocation = { lat: 38.58, lng: -121.49, geomType: 'st_point' };
 
 beforeEach(() => {
+	snapshot.profileId = PROFILE;
 	installMemoryCollections();
 	resetDispatches();
 	stubApi();
@@ -949,6 +958,31 @@ describe('a request for control', () => {
 		expect(lastIntents()).toEqual(['controlOperations.reopenRequestedControlAction']);
 		expect(lastChanges().resolved_at).toBeNull();
 		expect(lastChanges().resolved_by_profile_id).toBeNull();
+	});
+
+	it('refuses raising, editing and closing out while the profile is still resolving', async () => {
+		// The requester is the domain answer to who asked for the control action, not
+		// a stamp the server fills in, so a write sent before the profile arrives
+		// stores a null nothing later replaces. Refusing before the dispatch is what
+		// keeps an optimistic row off the screen as well as off the wire.
+		snapshot.profileId = null;
+		const { result } = renderHook(() => useRequestedControlActionMutations());
+
+		await expect(result.current.create(RECORD, requestFields(), SHAPE)).rejects.toThrow(
+			'Your profile is still loading.',
+		);
+		await expect(
+			result.current.update(
+				RECORD,
+				requestFields({ summary: 'Levee drained.' }),
+				requestFields(),
+				null,
+			),
+		).rejects.toThrow('Your profile is still loading.');
+		await expect(result.current.resolve(RECORD)).rejects.toThrow('Your profile is still loading.');
+
+		expect(dispatches()).toHaveLength(0);
+		expect(requests()).toHaveLength(0);
 	});
 
 	it('names the delete and withholds both detach flags', async () => {

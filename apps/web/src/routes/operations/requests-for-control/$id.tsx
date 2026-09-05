@@ -45,7 +45,6 @@ import {
 	type RequestRecord,
 	useRequestedControlAction,
 } from '../../../hooks/queries/use-requested-control-action';
-import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useHabitatLocationContext } from '../../../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import {
@@ -108,8 +107,6 @@ function RequestDetailContent({
 	readonly subject: string;
 	readonly askDelete: AskAcknowledged;
 }) {
-	const auth = useAuthSnapshot();
-	const _actorProfileId = auth?.authenticated === true ? auth.localIdentity.profileId : null;
 	const habitatName = useLinkedHabitatName(request.habitatId);
 	const requestWrites = useRequestedControlActionMutations();
 	const { busy, error, run } = useCommandRunner();
