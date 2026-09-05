@@ -7,7 +7,7 @@ import {
 	setAdHocCollectionCommand,
 	setTrapCollectionCommand,
 } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry, GeoJsonPoint } from '@simmer-mosquito/mapping';
+import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -26,7 +26,7 @@ import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry } from '../../../components/map/use-map-draw';
+import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { FirstCommentSection } from '../../../forms/first-comment-section';
 import type { CollectionFields } from '../../../hooks/mutations/use-collection-mutations';
@@ -57,15 +57,15 @@ const COLLECTION_LOCATION_SHAPES = getOwnedGeometryPolicy('collection').allowedT
  *
  * `useDrawLocation` below takes the same `collection` policy and offers nothing
  * else, so this narrows what the two routes hold to what the optimistic centroid
- * takes rather than gating a second time. It reads `allowedTypes` for the same
- * reason the station and Region predicates do: both routes used to ask
+ * takes rather than gating a second time. Both halves read the register, for the
+ * same reason the station and Region predicates do: both routes used to ask
  * `type === 'Point'`, a copy of the matrix that goes stale the day the policy
  * widens, and on Regions that copy refused a boundary the user could see on the
- * map.
+ * map. `Point` written into the assertion was the last of that copy left.
  */
 export function isCollectionLocation(
 	geometry: DrawGeometry,
-): geometry is Extract<DrawGeometry, GeoJsonPoint> {
+): geometry is DrawGeometryFor<'collection'> {
 	return COLLECTION_LOCATION_SHAPES.includes(geometry.type);
 }
 

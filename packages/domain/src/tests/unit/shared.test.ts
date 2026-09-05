@@ -10,6 +10,7 @@ import {
 	normalizeOwnedGeometry,
 	OWNED_GEOMETRY_POLICIES,
 	type OwnedGeometryKind,
+	type OwnedGeometryTypeFor,
 	ownedGeometryAllowsParts,
 	SUPPORTED_GEOMETRY_TYPES,
 	type SupportedGeoJsonGeometry,
@@ -101,6 +102,35 @@ describe('the owned geometry register', () => {
 		expect(() => getOwnedGeometryPolicy('parcel' as OwnedGeometryKind)).toThrow(
 			'Unknown owned geometry kind: parcel',
 		);
+	});
+});
+
+/**
+ * The type-level lookup, which `tsc` checks rather than vitest.
+ *
+ * Each annotation below is the assertion; the `expect` beside it only proves the
+ * case ran. The `@ts-expect-error` cases are the ones that catch a regression: a
+ * lookup that stopped reading the register and widened to `SupportedGeometryType`
+ * would take every name, the directive would suppress nothing, and `tsc` would
+ * fail on the directive itself.
+ */
+describe('OwnedGeometryTypeFor', () => {
+	it('answers with the shapes a policy names', () => {
+		const stored: OwnedGeometryTypeFor<'region'> = 'MultiPolygon';
+		const placed: OwnedGeometryTypeFor<'address'> = 'Point';
+
+		expect(getOwnedGeometryPolicy('region').allowedTypes).toContain(stored);
+		expect(getOwnedGeometryPolicy('address').allowedTypes).toContain(placed);
+	});
+
+	it('refuses a shape the policy leaves out', () => {
+		// @ts-expect-error A Region stores areas, so its lookup takes no Point.
+		const refusedByRegion: OwnedGeometryTypeFor<'region'> = 'Point';
+		// @ts-expect-error An Address stores one point, so its lookup takes no Polygon.
+		const refusedByAddress: OwnedGeometryTypeFor<'address'> = 'Polygon';
+
+		expect(getOwnedGeometryPolicy('region').allowedTypes).not.toContain(refusedByRegion);
+		expect(getOwnedGeometryPolicy('address').allowedTypes).not.toContain(refusedByAddress);
 	});
 });
 

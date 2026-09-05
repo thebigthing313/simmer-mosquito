@@ -234,6 +234,27 @@ export function getOwnedGeometryPolicy(kind: OwnedGeometryKind): OwnedGeometryPo
 }
 
 /**
+ * The shapes `Kind` stores, as a union of the register's own literal names.
+ *
+ * The type-level half of {@link getOwnedGeometryPolicy}, which answers with the
+ * widened `readonly SupportedGeometryType[]` its interface declares. That left a
+ * caller narrowing a value against `allowedTypes` with no type to narrow to, so
+ * five form predicates checked the register at run time and then wrote `Point`
+ * out by hand in the type they asserted. The two agreed by coincidence: widen a
+ * policy and the check widens, the assertion does not, and the predicate starts
+ * calling a Polygon a Point with nothing failing to compile.
+ *
+ * `as const satisfies` on the register is what makes this readable. `satisfies`
+ * checks each row against {@link OwnedGeometryPolicy} without widening it, so
+ * `allowedTypes` keeps its tuple of literal names and this lookup moves the day
+ * a policy does.
+ */
+export type OwnedGeometryTypeFor<Kind extends OwnedGeometryKind> = Extract<
+	(typeof OWNED_GEOMETRY_POLICIES)[number],
+	{ readonly kind: Kind }
+>['allowedTypes'][number];
+
+/**
  * The base shape behind each storable one.
  *
  * An object keyed by the type union rather than a list, so the compiler requires
