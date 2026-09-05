@@ -121,6 +121,7 @@ function openingGeometryType(kind: OwnedGeometryKind): DrawGeometryType {
 
 export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 	const {
+		geometryKind,
 		initialGeometry = null,
 		initialReferenceGeometry = null,
 		map: externalMap,
@@ -155,6 +156,7 @@ export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 		isLoaded: map !== null,
 		value: geometry,
 		onChange: handleGeometryChange,
+		geometryKind,
 	});
 	const { start, requestPoint } = draw;
 

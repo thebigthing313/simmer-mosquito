@@ -173,7 +173,11 @@ export function RequestFormPage({
 							geoJson={location.referenceGeometry as unknown as GeoJSON.GeoJSON | null}
 							onMapReady={location.onMapReady}
 						/>
-						<DrawToolbar controller={location.draw} geometryType={location.geometryType} />
+						<DrawToolbar
+							geometryKind="requestedControlAction"
+							controller={location.draw}
+							geometryType={location.geometryType}
+						/>
 					</>
 				}
 				header={header}

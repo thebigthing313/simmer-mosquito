@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import type { OwnedGeometryKind } from '@simmer-mosquito/domain';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -45,17 +46,29 @@ function mount(value: DrawGeometry | null = null) {
 function useControlledDraw({
 	map,
 	initial,
+	geometryKind,
 }: {
 	readonly map: MapboxMap;
 	readonly initial: DrawGeometry | null;
+	readonly geometryKind: OwnedGeometryKind;
 }) {
 	const [value, setValue] = useState<DrawGeometry | null>(initial);
-	return { value, draw: useMapDraw({ map, isLoaded: true, value, onChange: setValue }) };
+	return {
+		value,
+		draw: useMapDraw({ map, isLoaded: true, value, onChange: setValue, geometryKind }),
+	};
 }
 
-function mountControlled(initial: DrawGeometry | null = null) {
+/**
+ * A habitat by default, which is one of the five kinds that store every shape,
+ * so nothing here is refused for the record's sake unless the case says so.
+ */
+function mountControlled(
+	initial: DrawGeometry | null = null,
+	geometryKind: OwnedGeometryKind = 'habitat',
+) {
 	const fake = createFakeMap();
-	return { fake, ...renderHook(useControlledDraw, { map: fake.map, initial }) };
+	return { fake, ...renderHook(useControlledDraw, { map: fake.map, initial, geometryKind }) };
 }
 
 type ControlledHarness = ReturnType<typeof mountControlled>;
@@ -135,17 +148,60 @@ const NOTCHED_BLOCK = [
 	[-91, 37],
 ] as const;
 
+/** A line straight down the middle of {@link BLOCK}, out both sides. */
+const ACROSS_BLOCK = [
+	[-89.5, 33],
+	[-89.5, 38],
+] as const;
+/** The two halves {@link ACROSS_BLOCK} leaves, wound the way the block was. */
+const WEST_HALF = [
+	[-89.5, 34],
+	[-91, 34],
+	[-91, 37],
+	[-89.5, 37],
+] as const;
+const EAST_HALF = [
+	[-89.5, 37],
+	[-88, 37],
+	[-88, 34],
+	[-89.5, 34],
+] as const;
+
 /** Open the first piece, start a reshape, and trace `line` over the map. */
 function sketchOver(
 	fake: FakeMap,
 	result: ControlledHarness['result'],
 	line: readonly (readonly [number, number])[],
 ): void {
+	traceOver(fake, result, line, 0, false);
+}
+
+/** The same for Split, on the piece at `index`. */
+function splitOver(
+	fake: FakeMap,
+	result: ControlledHarness['result'],
+	line: readonly (readonly [number, number])[],
+	index = 0,
+): void {
+	traceOver(fake, result, line, index, true);
+}
+
+function traceOver(
+	fake: FakeMap,
+	result: ControlledHarness['result'],
+	line: readonly (readonly [number, number])[],
+	index: number,
+	splitting: boolean,
+): void {
 	act(() => {
-		result.current.draw.editPart(0);
+		result.current.draw.editPart(index);
 	});
 	act(() => {
-		result.current.draw.startReshape();
+		if (splitting) {
+			result.current.draw.startSplit();
+		} else {
+			result.current.draw.startReshape();
+		}
 	});
 	for (const [longitude, latitude] of line) {
 		act(() => {
@@ -1353,7 +1409,7 @@ describe('useMapDraw', () => {
 			partCount: 2,
 			problem: null,
 			selected: null,
-			sketchVertices: null,
+			sketch: null,
 		});
 		act(() => {
 			result.current.draw.moveVertex({ ring: 0, vertex: 0 }, [-91, 35]);
@@ -1588,7 +1644,7 @@ describe('useMapDraw', () => {
 			result.current.draw.startReshape();
 		});
 
-		expect(result.current.draw.editedPart?.sketchVertices).toBe(0);
+		expect(result.current.draw.editedPart?.sketch?.vertices ?? null).toBe(0);
 		expect(result.current.draw.editedPart?.problem).toBeNull();
 		expect(result.current.draw.canFinish).toBe(false);
 	});
@@ -1675,7 +1731,7 @@ describe('useMapDraw', () => {
 			result.current.draw.startReshape();
 		});
 
-		expect(result.current.draw.editedPart?.sketchVertices).toBeNull();
+		expect(result.current.draw.editedPart?.sketch?.vertices ?? null).toBeNull();
 	});
 
 	it('leaves the other pieces alone and keeps the reshaped one at its index', () => {
@@ -1727,20 +1783,20 @@ describe('useMapDraw', () => {
 
 		drawPolygon(fake, result, BLOCK);
 		sketchOver(fake, result, OUTSIDE_SKETCH);
-		expect(result.current.draw.editedPart?.sketchVertices).toBe(4);
+		expect(result.current.draw.editedPart?.sketch?.vertices ?? null).toBe(4);
 
 		for (let taken = 0; taken < 4; taken += 1) {
 			act(() => {
 				result.current.draw.undo();
 			});
 		}
-		expect(result.current.draw.editedPart?.sketchVertices).toBe(0);
+		expect(result.current.draw.editedPart?.sketch?.vertices ?? null).toBe(0);
 		expect(result.current.draw.canUndo).toBe(true);
 
 		act(() => {
 			result.current.draw.undo();
 		});
-		expect(result.current.draw.editedPart?.sketchVertices).toBeNull();
+		expect(result.current.draw.editedPart?.sketch?.vertices ?? null).toBeNull();
 		expect(result.current.draw.canUndo).toBe(false);
 	});
 
@@ -1754,7 +1810,7 @@ describe('useMapDraw', () => {
 		act(() => {
 			result.current.draw.finish();
 		});
-		expect(result.current.draw.editedPart?.sketchVertices).toBeNull();
+		expect(result.current.draw.editedPart?.sketch?.vertices ?? null).toBeNull();
 
 		act(() => {
 			result.current.draw.undo();
@@ -1790,7 +1846,7 @@ describe('useMapDraw', () => {
 			fake.doubleClick(longitude, latitude);
 		});
 
-		expect(result.current.draw.editedPart?.sketchVertices).toBeNull();
+		expect(result.current.draw.editedPart?.sketch?.vertices ?? null).toBeNull();
 		act(() => {
 			result.current.draw.finish();
 		});
@@ -1837,6 +1893,211 @@ describe('useMapDraw', () => {
 
 		expect(result.current.draw.editedPart?.problem).toBe('coversNoGround');
 		expect(result.current.draw.canFinish).toBe(false);
+	});
+
+	// Half the block each way, from one line drawn clean across it. Both halves
+	// keep the winding the block arrived with, so neither is flipped on the way
+	// into the part list.
+	it('cuts a piece in two along the split line', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		splitOver(fake, result, ACROSS_BLOCK);
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'MultiPolygon',
+			coordinates: [[closed(WEST_HALF)], [closed(EAST_HALF)]],
+		});
+	});
+
+	it('gives a hole the line misses to the piece that holds it', () => {
+		const { fake, result } = mountControlled({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+
+		splitOver(fake, result, [
+			[-88.5, 33],
+			[-88.5, 38],
+		]);
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'MultiPolygon',
+			coordinates: [
+				[
+					closed([
+						[-88.5, 34],
+						[-91, 34],
+						[-91, 37],
+						[-88.5, 37],
+					]),
+					closed(POND),
+				],
+				[
+					closed([
+						[-88.5, 37],
+						[-88, 37],
+						[-88, 34],
+						[-88.5, 34],
+					]),
+				],
+			],
+		});
+	});
+
+	/**
+	 * The pond straddles the line, so it stops being a hole: each half of its ring
+	 * becomes part of the outline of one piece. Both pieces come back with one
+	 * ring, which is what PostGIS would have made of the same cut.
+	 *
+	 * The coordinates are pinned in the corpus in `packages/mapping`. What this
+	 * case owns is that the shape reaching the record is a two-piece MultiPolygon
+	 * with no hole left anywhere in it.
+	 */
+	it('turns a hole the line crosses into the boundary of both pieces', () => {
+		const { fake, result } = mountControlled({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+
+		splitOver(fake, result, ACROSS_BLOCK);
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		const parts = drawParts(result.current.value);
+		expect(parts).toHaveLength(2);
+		expect(parts.map(drawHoles)).toEqual([[], []]);
+		expect(result.current.value?.type).toBe('MultiPolygon');
+	});
+
+	it('cuts a line in two at the place the split line crosses it', () => {
+		const { fake, result } = mountControlled({
+			type: 'LineString',
+			coordinates: [
+				[-91, 35],
+				[-90, 35],
+				[-89, 35],
+			],
+		});
+
+		splitOver(fake, result, [
+			[-89.5, 34],
+			[-89.5, 36],
+		]);
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'MultiLineString',
+			coordinates: [
+				[
+					[-91, 35],
+					[-90, 35],
+					[-89.5, 35],
+				],
+				[
+					[-89.5, 35],
+					[-89, 35],
+				],
+			],
+		});
+	});
+
+	// The two halves go in where the piece they replace was, so the piece drawn
+	// second stays last in the list rather than being pushed around by the cut.
+	it('leaves the other pieces alone and puts both halves at the index it split', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.startPart();
+		});
+		drawPolygon(fake, result, SECOND_SQUARE);
+		splitOver(fake, result, ACROSS_BLOCK);
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({
+			type: 'MultiPolygon',
+			coordinates: [[closed(WEST_HALF)], [closed(EAST_HALF)], [closed(SECOND_SQUARE)]],
+		});
+	});
+
+	it('says nothing is wrong until the split line has two vertices', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.startSplit();
+		});
+
+		expect(result.current.draw.editedPart?.sketch).toEqual({ tool: 'split', vertices: 0 });
+		expect(result.current.draw.editedPart?.problem).toBeNull();
+		expect(result.current.draw.canFinish).toBe(false);
+	});
+
+	// A line that stops inside leaves one piece with a slit down it, which is not
+	// a cut and is not something the part list could hold.
+	it('refuses a split line that does not come out the other side', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		splitOver(fake, result, [
+			[-89.5, 33],
+			[-89.5, 35],
+		]);
+
+		expect(result.current.draw.editedPart?.problem).toBe('doesNotDivide');
+		expect(result.current.draw.canFinish).toBe(false);
+		act(() => {
+			result.current.draw.finish();
+		});
+		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(BLOCK)] });
+	});
+
+	/**
+	 * A Notification Registration stores a Point or a Polygon and neither multi
+	 * shape, so the second half of a cut has nowhere to go. Read off
+	 * `OWNED_GEOMETRY_POLICIES` rather than named here, and refused before the
+	 * first click because no line will make it false.
+	 */
+	it('refuses a split on a record that cannot store a second piece', () => {
+		const { fake, result } = mountControlled(null, 'notificationRegistration');
+
+		drawPolygon(fake, result, BLOCK);
+		splitOver(fake, result, ACROSS_BLOCK);
+
+		expect(result.current.draw.editedPart?.problem).toBe('cannotHoldParts');
+		expect(result.current.draw.canFinish).toBe(false);
+		act(() => {
+			result.current.draw.finish();
+		});
+		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(BLOCK)] });
+	});
+
+	it('leaves the committed piece as it was when a split is cancelled', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		splitOver(fake, result, ACROSS_BLOCK);
+		act(() => {
+			result.current.draw.cancel();
+		});
+
+		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(BLOCK)] });
+		expect(result.current.draw.editedPart).toBeNull();
 	});
 
 	it('resolves a requested point on the next click', async () => {

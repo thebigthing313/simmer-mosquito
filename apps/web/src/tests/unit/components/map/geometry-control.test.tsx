@@ -81,6 +81,7 @@ function fakeController(): MapDrawController {
 		deleteVertex: vi.fn(),
 		selectVertex: vi.fn(),
 		startReshape: vi.fn(),
+		startSplit: vi.fn(),
 		removePart: vi.fn(),
 		removeHole: vi.fn(),
 		highlightPart: vi.fn(),
@@ -310,6 +311,7 @@ describe('DrawToolbar', () => {
 		render(
 			<DrawToolbar
 				controller={{ ...fakeController(), holeDraft, isDrawing: true, vertexCount }}
+				geometryKind="habitat"
 				geometryType="Polygon"
 			/>,
 		);
@@ -350,6 +352,7 @@ describe('DrawToolbar', () => {
 					isDrawing: true,
 					vertexCount: 5,
 				}}
+				geometryKind="habitat"
 				geometryType="Polygon"
 			/>,
 		);
@@ -368,6 +371,7 @@ describe('DrawToolbar', () => {
 					isDrawing: true,
 					vertexCount: 5,
 				}}
+				geometryKind="habitat"
 				geometryType="Polygon"
 			/>,
 		);
@@ -375,17 +379,27 @@ describe('DrawToolbar', () => {
 		expect(screen.getByText('The holes must stay inside the shape.')).toBeDefined();
 	});
 
-	function renderEdit(editedPart: MapDrawController['editedPart']) {
+	function renderEdit(
+		editedPart: MapDrawController['editedPart'],
+		geometryKind: OwnedGeometryKind = 'habitat',
+	) {
 		render(
 			<DrawToolbar
 				controller={{ ...fakeController(), drawType: 'Polygon', editedPart, isDrawing: true }}
+				geometryKind={geometryKind}
 				geometryType="Polygon"
 			/>,
 		);
 	}
 
 	it('asks for a line once Reshape is pressed', () => {
-		renderEdit({ partNumber: 1, partCount: 1, problem: null, selected: null, sketchVertices: 0 });
+		renderEdit({
+			partNumber: 1,
+			partCount: 1,
+			problem: null,
+			selected: null,
+			sketch: { tool: 'reshape', vertices: 0 },
+		});
 
 		expect(
 			screen.getByText('Click the map to draw a line across the edge of the shape.'),
@@ -398,7 +412,7 @@ describe('DrawToolbar', () => {
 			partCount: 3,
 			problem: 'tooFewCrossings',
 			selected: null,
-			sketchVertices: 2,
+			sketch: { tool: 'reshape', vertices: 2 },
 		});
 
 		expect(screen.getByText('The line has to cross the edge twice.')).toBeDefined();
@@ -412,10 +426,87 @@ describe('DrawToolbar', () => {
 			partCount: 3,
 			problem: 'tooFewVertices',
 			selected: null,
-			sketchVertices: 3,
+			sketch: { tool: 'reshape', vertices: 3 },
 		});
 
 		expect(screen.getByText('That leaves nothing of piece 2.')).toBeDefined();
+	});
+
+	it('asks for a line once Split is pressed', () => {
+		renderEdit({
+			partNumber: 1,
+			partCount: 1,
+			problem: null,
+			selected: null,
+			sketch: { tool: 'split', vertices: 0 },
+		});
+
+		expect(screen.getByText('Click the map to draw a line across the shape.')).toBeDefined();
+	});
+
+	it('says a split line has to come out the other side', () => {
+		renderEdit({
+			partNumber: 2,
+			partCount: 3,
+			problem: 'doesNotDivide',
+			selected: null,
+			sketch: { tool: 'split', vertices: 2 },
+		});
+
+		expect(
+			screen.getByText('The line has to cross piece 2 and come out the other side.'),
+		).toBeDefined();
+	});
+
+	/**
+	 * The refusal the register decides. A Notification Registration stores a Point
+	 * or a Polygon and neither multi shape, so the message names those two rather
+	 * than saying the tool is unavailable, and it is read off
+	 * `OWNED_GEOMETRY_POLICIES` rather than written into the sentence.
+	 */
+	it('names the shapes a record stores when it cannot hold a second piece', () => {
+		renderEdit(
+			{
+				partNumber: 1,
+				partCount: 1,
+				problem: 'cannotHoldParts',
+				selected: null,
+				sketch: { tool: 'split', vertices: 0 },
+			},
+			'notificationRegistration',
+		);
+
+		expect(
+			screen.getByText(
+				'This record stores one Point or Polygon, so there is nowhere to put the second piece.',
+			),
+		).toBeDefined();
+	});
+
+	it('offers Split on an open edit and calls it', () => {
+		const controller = fakeController();
+		render(
+			<DrawToolbar
+				controller={{
+					...controller,
+					drawType: 'Polygon',
+					editedPart: {
+						partNumber: 1,
+						partCount: 1,
+						problem: null,
+						selected: null,
+						sketch: null,
+					},
+					isDrawing: true,
+				}}
+				geometryKind="habitat"
+				geometryType="Polygon"
+			/>,
+		);
+
+		fireEvent.click(screen.getByText('Split'));
+
+		expect(controller.startSplit).toHaveBeenCalled();
 	});
 
 	it('offers Reshape on an open edit and takes it away while one is running', () => {
@@ -425,11 +516,12 @@ describe('DrawToolbar', () => {
 			partCount: 1,
 			problem: null,
 			selected: null,
-			sketchVertices: null,
+			sketch: null,
 		};
 		const { rerender } = render(
 			<DrawToolbar
 				controller={{ ...controller, drawType: 'Polygon', editedPart, isDrawing: true }}
+				geometryKind="habitat"
 				geometryType="Polygon"
 			/>,
 		);
@@ -441,14 +533,16 @@ describe('DrawToolbar', () => {
 				controller={{
 					...controller,
 					drawType: 'Polygon',
-					editedPart: { ...editedPart, sketchVertices: 0 },
+					editedPart: { ...editedPart, sketch: { tool: 'reshape', vertices: 0 } },
 					isDrawing: true,
 				}}
+				geometryKind="habitat"
 				geometryType="Polygon"
 			/>,
 		);
 
 		expect(screen.queryByText('Reshape')).toBeNull();
+		expect(screen.queryByText('Split')).toBeNull();
 		expect(screen.queryByText('Delete vertex')).toBeNull();
 	});
 
@@ -464,15 +558,17 @@ describe('DrawToolbar', () => {
 						partCount: 1,
 						problem: null,
 						selected: null,
-						sketchVertices: null,
+						sketch: null,
 					},
 					isDrawing: true,
 				}}
+				geometryKind="habitat"
 				geometryType="Point"
 			/>,
 		);
 
 		expect(screen.queryByText('Reshape')).toBeNull();
+		expect(screen.queryByText('Split')).toBeNull();
 	});
 
 	// A continuation opens with the piece's own vertices placed, so a count above
@@ -486,6 +582,7 @@ describe('DrawToolbar', () => {
 					isDrawing: true,
 					vertexCount: 4,
 				}}
+				geometryKind="habitat"
 				geometryType="Polygon"
 			/>,
 		);

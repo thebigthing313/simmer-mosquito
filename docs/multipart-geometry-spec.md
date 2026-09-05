@@ -1308,9 +1308,15 @@ Ruled out on the map, each with the ticket that ruled it.
   under #495, over an edit draft seeded with every ring of one part. Reshape
   followed under #496 and previews into that same draft: a line sketched across a
   part's outline replaces the stretch between its first and last crossing, so one
-  gesture extends where it runs outside and carves where it runs inside. Split,
-  #449's last child, reuses the crossing helper #496 put in `packages/mapping`
-  and is not built.
+  gesture extends where it runs outside and carves where it runs inside. Split
+  closed the set under #497, over the same draft and the same crossings: a line
+  run in one side of a part and out the other cuts it in two, and both pieces go
+  back at the index the one they replace held. It is the only one of the three
+  that changes how many parts a shape has, so it is the only one with a refusal
+  read off `OWNED_GEOMETRY_POLICIES`: a Notification Registration stores a Point
+  or a Polygon and neither multi shape, so the second piece has nowhere to go.
+  The two pieces share the line they were cut along, which OGC calls an invalid
+  MultiPolygon and nothing in this schema refuses. #518 carries that.
 - Importing a point from a file. No import surface has ever produced a Point, and
   adding one is a new capability with no multipart in it.
 - GeometryCollection as a record geometry. Nothing in mosquito control needs a

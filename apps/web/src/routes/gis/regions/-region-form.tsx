@@ -156,7 +156,7 @@ export function RegionFormPage({
 				aside={
 					<>
 						<MapCanvas onMapReady={location.onMapReady} />
-						<DrawToolbar controller={draw} geometryType="Polygon" />
+						<DrawToolbar geometryKind="region" controller={draw} geometryType="Polygon" />
 						<MapLegend mode={mode} />
 					</>
 				}

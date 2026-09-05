@@ -152,7 +152,7 @@ export function WeatherStationFormPage({
 				aside={
 					<>
 						<MapCanvas onMapReady={location.onMapReady} />
-						<DrawToolbar controller={draw} geometryType="Point" />
+						<DrawToolbar geometryKind="weatherStation" controller={draw} geometryType="Point" />
 						<MapLegend mode={mode} />
 					</>
 				}

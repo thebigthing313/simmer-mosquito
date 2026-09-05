@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { PlanarPath } from '../../sketch.js';
-import { reshapePath, sketchCrossings } from '../../sketch.js';
+import type { PlanarPath, SplitPart } from '../../sketch.js';
+import { reshapePath, sketchCrossings, splitRings } from '../../sketch.js';
 
 /**
- * The reshape corpus: a sketch, the path it was drawn across, and the path it
- * leaves.
+ * The reshape and split corpus: a sketch, the path it was drawn across, and the
+ * path or the pieces it leaves.
  *
  * Every expectation is hand-written and checked by hand. `packages/mapping`
  * takes no geometry library, so there is no oracle to generate one from, and a
@@ -404,5 +404,263 @@ describe('sketchCrossings', () => {
 
 		expect(sketchCrossings(SQUARE, sketch, true)).toHaveLength(1);
 		expect(sketchCrossings(SQUARE, sketch, false)).toHaveLength(0);
+	});
+});
+
+/**
+ * A hole cut out of {@link SQUARE} well clear of the equator, so a sketch along
+ * y=5 misses it entirely. Wound the way the square is, which is how a user who
+ * drew both by hand leaves them.
+ */
+const HIGH_HOLE: PlanarPath = [
+	[2, 8],
+	[2, 9],
+	[4, 9],
+	[4, 8],
+];
+
+/** A hole straddling y=5, so the same sketch cuts through it. */
+const STRADDLING_HOLE: PlanarPath = [
+	[3, 3],
+	[3, 7],
+	[7, 7],
+	[7, 3],
+];
+
+/** A line running west to east across {@link SQUARE}, out both sides. */
+const ACROSS: PlanarPath = [
+	[-1, 5],
+	[11, 5],
+];
+
+function split(
+	rings: readonly PlanarPath[],
+	sketch: PlanarPath,
+	closed = true,
+): readonly SplitPart[] | string {
+	const outcome = splitRings({ rings, sketch, closed });
+	return outcome.kind === 'split' ? outcome.parts : outcome.refusal;
+}
+
+describe('splitRings', () => {
+	/**
+	 * The plain case, and the one every other expectation below is read against.
+	 * The sketch runs out both sides of the square, so the stretch of it that
+	 * counts is the part between the two crossings and the tails are dropped.
+	 */
+	it('cuts an outline in two along the sketch', () => {
+		expect(split([SQUARE], ACROSS)).toEqual([
+			[
+				[
+					[0, 5],
+					[0, 10],
+					[10, 10],
+					[10, 5],
+				],
+			],
+			[
+				[
+					[10, 5],
+					[10, 0],
+					[0, 0],
+					[0, 5],
+				],
+			],
+		]);
+	});
+
+	/**
+	 * Both halves come back wound the way the outline arrived, which the
+	 * coordinates above do not say out loud. A split that flipped one of them
+	 * would still draw correctly and would write a ring the next reader has to
+	 * guess at.
+	 */
+	it('keeps the winding the outline arrived with', () => {
+		const clockwise = split([SQUARE], ACROSS);
+		const counterClockwise = split([SQUARE_BACKWARDS], ACROSS);
+
+		expect(Array.isArray(clockwise) && clockwise.map((part) => windingOf(part[0] ?? []))).toEqual([
+			-1, -1,
+		]);
+		expect(
+			Array.isArray(counterClockwise) && counterClockwise.map((part) => windingOf(part[0] ?? [])),
+		).toEqual([1, 1]);
+	});
+
+	/**
+	 * A hole the sketch misses is not touched at all: it goes to the piece that
+	 * contains it, corner for corner and wound as it was.
+	 */
+	it('gives a hole on one side of the sketch to that side', () => {
+		expect(split([SQUARE, HIGH_HOLE], ACROSS)).toEqual([
+			[
+				[
+					[0, 5],
+					[0, 10],
+					[10, 10],
+					[10, 5],
+				],
+				HIGH_HOLE,
+			],
+			[
+				[
+					[10, 5],
+					[10, 0],
+					[0, 0],
+					[0, 5],
+				],
+			],
+		]);
+	});
+
+	/**
+	 * The case worth the walk. A hole the sketch also crosses stops being a hole:
+	 * each of its two arcs becomes part of the outline of one piece, which is what
+	 * PostGIS does and the only answer that writes without a repair. Both pieces
+	 * come back with one ring and no hole at all.
+	 *
+	 * Half the square is 50 and half the hole is 8, so each piece covers 42.
+	 */
+	it('turns a hole the sketch crosses into the boundary of both pieces', () => {
+		expect(split([SQUARE, STRADDLING_HOLE], ACROSS)).toEqual([
+			[
+				[
+					[7, 5],
+					[7, 7],
+					[3, 7],
+					[3, 5],
+					[0, 5],
+					[0, 10],
+					[10, 10],
+					[10, 5],
+				],
+			],
+			[
+				[
+					[3, 5],
+					[3, 3],
+					[7, 3],
+					[7, 5],
+					[10, 5],
+					[10, 0],
+					[0, 0],
+					[0, 5],
+				],
+			],
+		]);
+	});
+
+	/**
+	 * Two holes at once, one of each kind, because the crossed one is dropped from
+	 * the hole list by index and placing the missed one after it is where an
+	 * off-by-one would land.
+	 */
+	it('places a missed hole while a crossed one becomes boundary', () => {
+		const parts = split([SQUARE, STRADDLING_HOLE, HIGH_HOLE], ACROSS);
+
+		expect(Array.isArray(parts) && parts.map((part) => part.slice(1))).toEqual([[HIGH_HOLE], []]);
+	});
+
+	it('cuts a line in two at the one place the sketch crosses it', () => {
+		expect(
+			split(
+				[LINE],
+				[
+					[7, -1],
+					[7, 1],
+				],
+				false,
+			),
+		).toEqual([
+			[
+				[
+					[0, 0],
+					[5, 0],
+					[7, 0],
+				],
+			],
+			[
+				[
+					[7, 0],
+					[10, 0],
+				],
+			],
+		]);
+	});
+
+	it('refuses a sketch that never reaches the outline', () => {
+		expect(
+			split(
+				[SQUARE],
+				[
+					[20, 20],
+					[30, 30],
+				],
+			),
+		).toBe('doesNotDivide');
+	});
+
+	/**
+	 * A sketch that stops inside leaves a slit rather than a cut. It is the
+	 * refusal the tool owes most often, because it is what a gesture that has not
+	 * finished looks like.
+	 */
+	it('refuses a sketch that crosses the outline once', () => {
+		expect(
+			split(
+				[SQUARE],
+				[
+					[-1, 5],
+					[5, 5],
+				],
+			),
+		).toBe('doesNotDivide');
+	});
+
+	it('refuses a sketch that only touches the outline', () => {
+		expect(
+			split(
+				[SQUARE],
+				[
+					[5, 15],
+					[5, 10],
+					[15, 15],
+				],
+			),
+		).toBe('doesNotDivide');
+	});
+
+	/**
+	 * In, out, in, out leaves three pieces. Splitting into more than two from one
+	 * sketch is out of scope, and a part list that grew by two from one gesture is
+	 * not something the toolbar could name.
+	 */
+	it('refuses a sketch that would leave three pieces', () => {
+		expect(
+			split(
+				[SQUARE],
+				[
+					[-1, 2],
+					[11, 2],
+					[11, 8],
+					[-1, 8],
+				],
+			),
+		).toBe('doesNotDivide');
+	});
+
+	it('refuses a line the sketch crosses twice', () => {
+		expect(
+			split(
+				[LINE],
+				[
+					[2, -1],
+					[2, 1],
+					[7, 1],
+					[7, -1],
+				],
+				false,
+			),
+		).toBe('doesNotDivide');
 	});
 });

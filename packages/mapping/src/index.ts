@@ -106,8 +106,11 @@ export type {
 	ReshapeOutcome,
 	ReshapeRefusal,
 	SketchCrossing,
+	SplitOutcome,
+	SplitPart,
+	SplitRefusal,
 } from './sketch.js';
-export { reshapePath, sketchCrossings } from './sketch.js';
+export { reshapePath, sketchCrossings, splitRings } from './sketch.js';
 export type {
 	MapTileFilterPrimitive,
 	MapTileFilterValue,
