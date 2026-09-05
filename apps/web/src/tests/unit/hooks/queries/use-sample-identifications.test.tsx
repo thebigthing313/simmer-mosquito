@@ -59,6 +59,22 @@ describe('useSampleIdentifications', () => {
 		expect(result.current.identifications.map((row) => row.larvaeCount)).toEqual([40, 12, 3]);
 	});
 
+	it('drops an identification whose taxonomy row it does not hold', async () => {
+		// The `'inner'` third argument is what does this. Without it `.join()` in
+		// `@tanstack/db` defaults to `left`, the unmatched row is emitted, and the
+		// `coalesce` labels it "Unknown species" beside a real count. The
+		// `coalesce` stays because the builder types a joined column as possibly
+		// absent whatever the join kind, so this is the assertion that says it is
+		// unreachable.
+		seedRows(sample_species, [identification('i1', 's1', 12), identification('i2', 'gone', 40)]);
+
+		const { result } = await renderRead(() => useSampleIdentifications(SAMPLE));
+
+		expect(result.current.identifications.map((row) => row.speciesName)).toEqual([
+			'Culex tarsalis',
+		]);
+	});
+
 	it('answers about the sample it was asked about', async () => {
 		seedRows(sample_species, [
 			identification('i1', 's1', 12),

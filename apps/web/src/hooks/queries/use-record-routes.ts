@@ -51,17 +51,23 @@ export function useRecordRoutes(target: {
 					.where(({ item }) =>
 						and(eq(item.entity_type, target.type), eq(item.entity_id, target.id)),
 					)
-					// `inner`: a stop whose Route is not in the catalog is a deleted one, and
-					// there is nothing on screen for it to be a link to.
-					.join({ route: routes() }, ({ item, route }) => eq(item.route_id, route.id))
+					// `inner`, and passed rather than left to the default, which is `left`:
+					// a stop whose Route this client does not hold has no name to draw, and
+					// the line is a link, so drawing it unnamed offers a page that is not
+					// there.
+					.join({ route: routes() }, ({ item, route }) => eq(item.route_id, route.id), 'inner')
 					.orderBy(({ route }) => route.route_name, 'asc')
 					.select(({ item, route }) => ({
 						routeItemId: item.id,
 						// The stop's own column rather than the joined row's id. They are the
-						// same value on an inner join, and this one is typed as present —
-						// the join side is optional to the query types whatever the join
-						// kind, because they describe `left` and `inner` alike.
+						// same value under this join, and this one is typed as present: the
+						// builder types a joined column as possibly absent whatever the join
+						// kind, because one set of types describes `left` and `inner` alike.
 						routeId: item.route_id,
+						// The `coalesce` is what makes this compile, not a fallback the engine
+						// reaches. `RecordRoute.routeName` is a `string` and the joined column
+						// is typed wider, so deleting it fails `tsc`. An `inner` join emits
+						// only matched pairs, so the empty string never reaches a row.
 						routeName: coalesce(route.route_name, ''),
 						position: item.position,
 					})),

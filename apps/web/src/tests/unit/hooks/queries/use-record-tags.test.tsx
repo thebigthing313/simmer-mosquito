@@ -5,9 +5,9 @@
  *
  * One `tag_items` row per tagged record joined to the catalog, so a chip
  * arrives named and coloured. The three things worth holding are the join being
- * `inner` (a tag_item whose tag is gone is nothing to draw, not a blank chip),
- * the alphabetical order, and the predicate being on `entity_id` rather than on
- * the tag.
+ * `inner` (a tag_item whose catalog row the client does not hold is nothing to
+ * draw, not a chip reading "Unknown tag"), the alphabetical order, and the
+ * predicate being on `entity_id` rather than on the tag.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -57,19 +57,18 @@ describe('useRecordTags', () => {
 		expect(result.current.map((row) => row.name)).toEqual(['Alder', 'Meadow', 'Zephyr']);
 	});
 
-	it('shows an assignment whose tag is gone as an Unknown tag chip', async () => {
-		// Not what the hook says it does. Its comment calls the join `inner`, but
-		// `.join()` in `@tanstack/db` defaults to `left`, so the unmatched row is
-		// emitted and the `coalesce` fallback labels it. Three other read sites
-		// document `inner` and pass no join type either. This asserts what ships;
-		// changing it is a behaviour change and belongs in its own branch. It
-		// sorts first, because the order is on the joined name and there is none.
+	it('drops an assignment whose catalog row it does not hold', async () => {
+		// The `'inner'` third argument is what does this. Without it `.join()` in
+		// `@tanstack/db` defaults to `left`, the unmatched row is emitted, and the
+		// `coalesce` labels it "Unknown tag". The `coalesce` calls stay because the
+		// builder types a joined column as possibly absent whatever the join kind,
+		// so this is the assertion that says they are unreachable.
 		seedRows(tags, [tag('t1', 'Roadside')]);
-		seedRows(tag_items, [tagItem('i1', HABITAT, 't1'), tagItem('i2', HABITAT, 'deleted')]);
+		seedRows(tag_items, [tagItem('i1', HABITAT, 't1'), tagItem('i2', HABITAT, 'not-synced')]);
 
 		const { result } = await renderRead(() => useRecordTags(HABITAT));
 
-		expect(result.current.map((row) => row.name)).toEqual(['Unknown tag', 'Roadside']);
+		expect(result.current.map((row) => row.name)).toEqual(['Roadside']);
 	});
 
 	it('answers about the record it was asked about', async () => {

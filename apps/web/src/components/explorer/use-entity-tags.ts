@@ -49,10 +49,15 @@ export function useEntityTags(
 							inArray(item.entity_id, uniqueIds.length > 0 ? uniqueIds : [unmatchableId]),
 						),
 					)
-					.join({ tag: tags() }, ({ item, tag }) => eq(item.tag_id, tag.id))
+					// `inner`, and passed rather than left to the default, which is `left`,
+					// for the reason recorded in `use-record-tags.ts`: an assignment whose
+					// catalog row this client does not hold has no chip to draw.
+					.join({ tag: tags() }, ({ item, tag }) => eq(item.tag_id, tag.id), 'inner')
 					.orderBy(({ tag }) => tag.tag_name, 'asc')
-					// Coalesced for the reason recorded in `use-record-tags.ts`: a joined
-					// column types as possibly absent, and `item.tag_id` is the same uuid.
+					// The `coalesce` calls are what make this compile, for the reason
+					// recorded in `use-record-tags.ts`: a joined column types as possibly
+					// absent whatever the join kind, `Tag` requires a name, and deleting one
+					// fails `tsc`. Under `inner` the fallbacks they name never reach a row.
 					.select(({ item, tag }) => ({
 						entityId: item.entity_id,
 						id: coalesce(tag.id, item.tag_id),
