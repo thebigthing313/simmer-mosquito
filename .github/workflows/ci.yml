@@ -111,6 +111,17 @@ jobs:
       - name: Mutation coverage
         run: pnpm check:mutation-coverage
 
+      # `CONTEXT.md` names every domain term and, beside it, the words that are
+      # not that term. Nothing read those Avoid lists until this, which is how
+      # agency and organization ended up in one sentence on one screen. It reads
+      # user-facing copy only, string literals and JSX text in the two app
+      # roots, because about 2,100 comments here say agency and a gate that read
+      # them would fail on history. Two words, `agency` and `tenant`, which are
+      # the ones with no second sense in this product. `apps/web` is at zero;
+      # the allowance is the `apps/admin` copy still to fix in #533.
+      - name: Vocabulary
+        run: pnpm check:vocabulary
+
       # `packages/db/src/tables.ts` is generated from `packages/db/schema.sql`,
       # the schema dbmate dumps on migrate. This runs the generator and fails on
       # any difference, which covers both a hand edit and a migration whose
