@@ -43,11 +43,21 @@
  * not match `agency_id` or `agencyName`, because an underscore and a capital are
  * both word characters.
  *
- * ## Six words, not seventeen
+ * ## Six words, not twenty-five
  *
- * `ENFORCED` is `agency`, `tenant`, `site`, `seat`, `login` and `user`. A word
- * joins when the ban on it is unconditional, or when the exceptions can be named
- * one at a time.
+ * `ENFORCED` is `agency`, `tenant`, `site`, `seat`, `login` and `user`, out of
+ * the twenty-five single words the register refuses. A word joins when the ban
+ * on it is unconditional, or when the exceptions can be named one at a time.
+ *
+ * The list is pinned at both ends. A word on it has to still be refused in
+ * `CONTEXT.md` or the gate fails, and `MINIMUM_ENFORCED` fails when the list is
+ * shorter than it was. Taking a word out is the edit a vocabulary sweep makes,
+ * and until #591 the only trace of it was one digit in a passing summary line.
+ *
+ * Swapping one refused word for another passes, and nothing here catches it. A
+ * sweep deletes rather than swaps, and the alternative on offer was enforcing
+ * all twenty-five with a written reason beside each omission, which turns every
+ * new term in `CONTEXT.md` into churn in this file.
  *
  * `login` and `user` joined in #587 and #588, and neither needed a marker.
  * `login` was two badges, both saying a Profile has no Account against it, and
@@ -137,8 +147,12 @@ const COPY_ROOTS = ['apps/web/src', 'apps/admin/src', 'apps/mobile/src'];
  *
  * Each must be refused somewhere in `CONTEXT.md`, and the gate fails if one is
  * not: a word nobody bans any more is a word this should stop checking.
+ * `MINIMUM_ENFORCED` holds the other direction.
  */
 const ENFORCED = ['agency', 'tenant', 'site', 'seat', 'login', 'user'];
+
+/** Below this a word has been dropped from ENFORCED and the gate has stopped checking it. */
+const MINIMUM_ENFORCED = 6;
 
 /** Below this the Core language table has been reformatted and its parse has stopped working. */
 const MINIMUM_TERMS = 12;
@@ -153,6 +167,12 @@ const REFUSAL = /(?:^|\.\s)Not a term:/;
 const MARKER_WORD = 'vocabulary-ignore';
 
 function main() {
+	if (ENFORCED.length < MINIMUM_ENFORCED) {
+		fail(
+			`ENFORCED holds ${count(ENFORCED.length, 'word')} (${ENFORCED.join(', ')}), fewer than the ${MINIMUM_ENFORCED} this expects. A word has been dropped and every check on it has stopped. Put it back in ENFORCED in scripts/check-vocabulary.mjs, or, if CONTEXT.md has stopped refusing it, lower MINIMUM_ENFORCED in the same commit.`,
+		);
+	}
+
 	const register = readRegister();
 	const missing = ENFORCED.filter((word) => !register.avoided.has(word));
 	if (missing.length > 0) {
