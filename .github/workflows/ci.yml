@@ -136,6 +136,20 @@ jobs:
       - name: Vocabulary
         run: pnpm check:vocabulary
 
+      # Biome checks zero markdown files, so `pnpm check` above has never read a
+      # word of prose and `docs/writing-style.md` held only as far as whoever
+      # was reading. Fourteen em dashes were sitting under `docs/` when #594 was
+      # filed. This reads every tracked `.md` except the generated changelogs,
+      # for the em dash and for an en dash between spaces, both at zero with no
+      # allowance. A fenced block and an inline code span are masked, an
+      # unspaced en dash in a range is correct and is left alone, and a dash
+      # that is right carries a `<!-- prose-ignore: -->` marker on the line
+      # above. Code comments are out: the workspace carries 3,059 em dashes in
+      # `.ts`, `.tsx` and `.mjs`, so a gate reading them would fail on history,
+      # which is the same line `check:vocabulary` draws.
+      - name: Prose
+        run: pnpm check:prose
+
       # `packages/db/src/tables.ts` is generated from `packages/db/schema.sql`,
       # the schema dbmate dumps on migrate. This runs the generator and fails on
       # any difference, which covers both a hand edit and a migration whose

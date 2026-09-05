@@ -20,8 +20,8 @@ SDK: `@workos-inc/node` 8.13.0.
 | `updateUser`, weak password | `BadRequestException` | 400 | `password_strength_error` |
 
 **Not captured: an expired token.** WorkOS sets the lifetime, so producing one
-means waiting. Its shape is very likely the 404 above — a spent token and an
-unknown token already answer identically, and both messages read "Could not
+means waiting. Its shape is very likely the 404 above, because a spent token and
+an unknown token already answer identically and both messages read "Could not
 locate user with provided token".
 
 ## What this changed
@@ -32,8 +32,8 @@ Every guess the mapping was built on was wrong in at least one way.
 `if (!isUnprocessable(error)) return false`, so it answered `false` for every
 real policy rejection, which then fell through to `isBadRequest` and returned
 `invalid_token`. A user who chose a seven-character password on the reset form
-was told their link had expired — the precise misdirection #54 was filed to
-prevent, shipping in the direction nobody had checked.
+was told their link had expired. That is the precise misdirection #54 was filed
+to prevent, shipping in the direction nobody had checked.
 
 **Of the three inferred codes, one existed.** `password_strength_error` is real
 but belongs to `createUser`/`updateUser`, not to the reset path.
@@ -50,7 +50,7 @@ but belongs to `createUser`/`updateUser`, not to the reset path.
 }
 ```
 
-A password can fail more than one requirement at once — short *and* weak — so
+A password can fail more than one requirement at once, short *and* weak, so
 there can be several entries.
 
 **Token failures are cleanly separable by status.** 404 versus 400 settles it

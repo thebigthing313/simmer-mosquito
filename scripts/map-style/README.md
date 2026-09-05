@@ -6,10 +6,10 @@ Four Mapbox GL styles for SIMMER, generated from one layer graph and four palett
 | --- | --- | --- |
 | `simmer-day.json` | `mapbox://styles/mapbox/streets-v12` | The primary basemap. |
 | `simmer-hybrid.json` | `mapbox://styles/mapbox/satellite-streets-v12` | Imagery with SIMMER cartography over it. |
-| `simmer-dusk.json` | — (net new) | Dawn/dusk trap runs on a tablet in a truck cab. |
-| `simmer-print.json` | — (net new) | Letter-size PDF for board packets and public notices. |
+| `simmer-dusk.json` | Net new | Dawn/dusk trap runs on a tablet in a truck cab. |
+| `simmer-print.json` | Net new | Letter-size PDF for board packets and public notices. |
 
-**These four files are generated. Do not hand-edit them** — edit `palette.mjs` or
+**These four files are generated. Do not hand-edit them.** Edit `palette.mjs` or
 `layers.mjs` and rebuild, or a Studio round-trip will quietly lose the change.
 
 ```sh
@@ -21,7 +21,7 @@ node scripts/map-style/contrast.mjs         # measure data marks against each ba
 ## Preview before you upload
 
 `build.mjs` also emits `preview.html`, with all four styles inlined so it opens
-straight off disk — no static server, no Studio account, no upload.
+straight off disk: no static server, no Studio account, no upload.
 
 It is **not tracked**: it inlines the four committed JSONs, so keeping it in git
 would duplicate them and let it go stale silently. Build it first.
@@ -29,9 +29,9 @@ would duplicate them and let it go stale silently. Build it first.
 1. `node scripts/map-style/build.mjs`
 2. Open `scripts/map-style/preview.html` in a browser.
 3. Paste a Mapbox **public** token (`pk.…`). It is kept in `localStorage` only.
-4. Switch variants, and watch the zoom readout — it names which staging band you
-   are in, so you can check the reveal actually feels right rather than reading
-   zoom stops out of JSON.
+4. Switch variants, and watch the zoom readout. It names the zoom range you are
+   in and what should be on screen in it, so you can check the reveal rather
+   than reading zoom stops out of JSON.
 
 A Mapbox style is close to unreviewable as source. The whole design lives in how
 the zoom stops interact, and nothing in the JSON tells you whether the map is
@@ -47,8 +47,8 @@ quiet at z10 and legible at z16. Walk it before committing to it.
 
 Notes on what Studio will do to the file:
 
-- It rewrites `glyphs` and `sprite` to your account's endpoints. Harmless — every
-  font referenced here is Mapbox-hosted, so it resolves either way.
+- It rewrites `glyphs` and `sprite` to your account's endpoints. Harmless, because
+  every font referenced here is Mapbox-hosted and resolves either way.
 - It preserves the `metadata` block, including the "this is generated" note.
 - Editing in Studio and re-exporting will reformat everything. That is fine for
   experimenting, but land real changes in `palette.mjs` / `layers.mjs` and rebuild,
@@ -57,7 +57,7 @@ Notes on what Studio will do to the file:
 ## Wiring into `apps/web`
 
 `apps/web/src/components/map/map-styles.ts` hardcodes two Mapbox style URLs.
-Once the styles are published, that catalogue is where they go — `BASEMAP_STYLES`
+Once the styles are published, that catalogue is where they go. `BASEMAP_STYLES`
 already drives the switcher, so adding entries is the whole change. Reading the
 ids from the Vite env keeps the published style ids out of source and lets the
 current Mapbox styles stay as the fallback until you have uploaded.
@@ -77,7 +77,8 @@ Anything the basemap paints has to stay clear of all of them.
 That is why water here is a desaturated slate (`#c3d2d6`) rather than a
 cartographic blue: Streets-style water sits close enough to `mapDomain.address`
 (`#2d46b6`) that an address pin over a pond stops reading. Same reason parks are
-a grey-green rather than a real green — `mapLifecycle.active` is already green.
+a grey-green rather than a real green, because `mapLifecycle.active` is already
+green.
 
 Roads carry hierarchy through **width and casing weight, never hue**. A quiet base
 cannot afford Streets' warm motorway tints, and once the casings are graded, width
@@ -90,7 +91,7 @@ road fill is `#fcfefd`.)
 ### Water-first staged reveal
 
 All four feature groups you asked for are in the style, but they are never all
-present at once — that is the only way a base carrying this much information stays
+present at once. That is the only way a base carrying this much information stays
 quiet enough for the marks to win.
 
 ```
@@ -100,8 +101,8 @@ z12-14  water + full road network and names; land cover drops to a tint.
 z15+    water + roads + buildings; terrain and land cover off entirely.
 ```
 
-Water is the one group present at every zoom. It is not context — breeding habitat
-is the job — so it holds tonal weight at the organization overview where
+Water is the one group present at every zoom. Breeding habitat is the job and not
+context, so water holds tonal weight at the organization overview where
 everything else has faded out. Hillshade peaks at z11, where terrain explains
 where water collects, and is gone by z14 before it can muddy dense marks.
 
@@ -109,7 +110,7 @@ where water collects, and is gone by z14 before it can muddy dense marks.
 
 - **Wetland is its own class.** `landuse_overlay` separates `wetland` from
   `wetland_noveg`; vegetated wetland leans green, unvegetated leans water-ward.
-  A dashed edge is what separates them from open water at a glance — done with a
+  A dashed edge is what separates them from open water at a glance, done with a
   line rather than `fill-pattern` on purpose, because a pattern needs a sprite
   image and would tie every style to an uploaded asset.
 - **Streams get a casing.** `waterway-casing` sits under every linear water layer
@@ -117,33 +118,33 @@ where water collects, and is gone by z14 before it can muddy dense marks.
 - **Water body labels on**, from `natural_label`, sized by the tileset's own
   `sizerank` so density is governed by feature prominence and not zoom alone.
   Water names run bluer than land names so they read as water, not as place.
-- **Intermittent water** — see the tileset limit below. Delivered for streams,
+- **Intermittent water.** See the tileset limit below. Delivered for streams,
   not for ponds.
 
 ### Labels
 
 Roboto Condensed, deliberately a different voice from the Poppins used across
-product chrome — narrow enough that "West Kaweah Drainage Canal" fits at 12px, and
+product chrome: narrow enough that "West Kaweah Drainage Canal" fits at 12px, and
 hinted well enough to hold at 10px over imagery.
 
 **This is not Barlow Semi Condensed.** You picked the condensed-grotesque register
 and I costed Barlow Semi Condensed for it, but Mapbox's hosted catalogue carries
-plain `Barlow` only — no semi-condensed cut. A fontstack naming a font Mapbox does
-not serve **falls back silently rather than erroring**, so this would have shipped
-looking like a design choice. Roboto Condensed is the same register, has
+plain `Barlow` only, with no semi-condensed cut. A fontstack naming a font Mapbox
+does not serve **falls back silently rather than erroring**, so this would have
+shipped looking like a design choice. Roboto Condensed is the same register, has
 Light/Regular/Bold, and is genuinely hosted. `build.mjs` now hard-fails on any
 font outside the verified-available set.
 
 ### Boundaries
 
-Neutral grey, clearly subordinate — `#9aa8a6` county at 0.8px dashed against a
+Neutral grey, clearly subordinate: `#9aa8a6` county at 0.8px dashed against a
 SIMMER Region's 2px solid `#2d46b6` plus fill wash. Nothing drawn by the basemap
 can be mistaken for an organization's own record.
 
 ### POIs
 
 Civic and coordination only at z13 (`education`, `medical`, `park_like`,
-`public_facilities` — schools, hospitals, parks, government facilities), plus a
+`public_facilities`: schools, hospitals, parks, government facilities), plus a
 thin wayfinding set at z15+ (`religion`, `motorist`, `landmark`, `historic`) for
 "the trap behind the gas station".
 
@@ -158,12 +159,12 @@ Three things the interview asked for that `mapbox-streets-v8` cannot fully expre
 All three are hard limits, not shortcuts.
 
 **Intermittent *ponds* are not expressible.** The `water` source layer is a single
-merged polygon per tile with no `class` field — individual water bodies cannot be
-filtered at any price. Intermittent water is therefore delivered where the data
+merged polygon per tile with no `class` field, so individual water bodies cannot
+be filtered at any price. Intermittent water is therefore delivered where the data
 supports it: `waterway` carries a real `stream_intermittent` class (drawn dashed),
 and `landuse_overlay` separates vegetated from unvegetated wetland. If you need
 seasonal ponds distinguished, that has to come from SIMMER's own habitat geometry
-as a data layer — which you already have.
+as a data layer, which you already have.
 
 **City limits are not available.** The `admin` layer tops out at `admin_level` 2,
 which is counties in the US. Municipal boundaries would need a separate uploaded
@@ -178,8 +179,8 @@ surface it can land on, at the WCAG 1.4.11 3:1 floor for non-text graphical
 objects. It reads the real design-tokens build, so it cannot drift from what the
 layers paint. (`packages/design-tokens` must be built first.)
 
-It judges a mark legible when **either** its fill or its casing clears the floor —
-if the fill sinks into the ground the casing still outlines the shape, and vice
+It judges a mark legible when **either** its fill or its casing clears the floor.
+If the fill sinks into the ground the casing still outlines the shape, and vice
 versa. Judging the fill alone condemns most of the palette over water and tells
 you nothing actionable; `mapInteraction.pointStroke` exists precisely so point
 marks do not depend on ground contrast.
@@ -187,7 +188,7 @@ marks do not depend on ground contrast.
 Read the output as a map of where care is needed, **not as a bug list**:
 
 **On Day and Print, the weak marks are a property of the mark palette, not of this
-basemap.** The ones weak everywhere are the mid-tone and warm values —
+basemap.** The ones weak everywhere are the mid-tone and warm values:
 `density.light` (`#e0b13a`), `status.pending`/`progress.skipped` (`#e0a12e`),
 `density.medium` (`#ea8a3c`), `status.neutral` (`#8b9a9c`), `sourceReduction`
 (`#2f9e8f`), `biocontrol` (`#5a9e2f`). Any pale basemap does this to them,
@@ -198,7 +199,7 @@ surface, meaning **the point halo does almost nothing on a light basemap**. It
 works as designed on Dusk (11.2:1). This is the clearest standing issue in the
 existing palette that this pass surfaced.
 
-**On Dusk, the finding is real and specific — and it corrects what I told you
+**On Dusk, the finding is real and specific, and it corrects what I told you
 during the interview.** I predicted the blue *fills* would weaken. They don't:
 `mapDomain.address` clears comfortably via its halo. What fails is the **dark
 casings**, which is a different problem with a different fix. If you wire up Dusk,
@@ -226,7 +227,7 @@ palette darkens road casings and puts labels on a dark halo.
 2. Zoom staging, filters, layer order → `layers.mjs`.
 3. `node scripts/map-style/build.mjs`, then reload `preview.html`.
 4. `node scripts/map-style/contrast.mjs` if you touched a ground, water, or
-   building tone — those are the surfaces marks land on.
+   building tone. Those are the surfaces marks land on.
 5. Re-upload to Studio.
 
 The generated JSON is excluded from Biome (`biome.json`), the same way

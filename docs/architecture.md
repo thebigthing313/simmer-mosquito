@@ -98,7 +98,7 @@ It currently exists as a scaffold: it signs in against the same `/auth/*`
 endpoints the web apps use, holds the resulting sealed session in SecureStore
 rather than a cookie (ADR 0016), and renders the resolved `AuthContext`. TanStack
 DB, ElectricSQL, local persistence, offline transactions, and the map are all
-still ahead of it — the mobile matrix in `docs/sync.md` describes the plan, not
+still ahead of it. The mobile matrix in `docs/sync.md` describes the plan, not
 the app.
 
 It has no `packages/ui-mobile` yet. Components are app-local until a second
