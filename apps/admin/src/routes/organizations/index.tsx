@@ -52,13 +52,13 @@ function OrganizationDirectoryRoute() {
 				<Button asChild>
 					<Link to="/organizations/create">
 						<AddIcon aria-hidden="true" />
-						Create Agency
+						Create Organization
 					</Link>
 				</Button>
 			}
-			description="Every mosquito control agency on the platform. Open one to manage its people and reference data."
+			description="Every mosquito control organization on the platform. Open one to manage its people and reference data."
 			icon={OrganizationIcon}
-			title="Agencies"
+			title="Organizations"
 		>
 			{error !== null ? (
 				<AdminError error={error} />
@@ -69,8 +69,8 @@ function OrganizationDirectoryRoute() {
 							<p className="m-0 flex items-center gap-2 rounded-md border border-warning/30 bg-attention/20 px-3 py-2.5 text-foreground text-sm">
 								<WarningIcon aria-hidden="true" className="size-4 shrink-0 text-warning" />
 								{unlinked === 1
-									? '1 agency has no WorkOS organization linked, so nobody there can sign in.'
-									: `${unlinked} agencies have no WorkOS organization linked, so nobody there can sign in.`}
+									? '1 organization is not linked to WorkOS, so nobody there can sign in.'
+									: `${unlinked} organizations are not linked to WorkOS, so nobody there can sign in.`}
 							</p>
 						)
 					}
@@ -80,17 +80,17 @@ function OrganizationDirectoryRoute() {
 								<Button asChild>
 									<Link to="/organizations/create">
 										<AddIcon aria-hidden="true" />
-										Create Agency
+										Create Organization
 									</Link>
 								</Button>
 							}
-							description="Create an agency when a customer is ready to onboard."
+							description="Create an organization when a customer is ready to onboard."
 							icon={OrganizationIcon}
-							title="No agencies yet"
+							title="No organizations yet"
 						/>
 					}
 					isReady={!isPending}
-					noun="agencies"
+					noun="organizations"
 					onSearchChange={setSearch}
 					search={search}
 					shown={organizations.length}

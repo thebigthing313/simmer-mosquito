@@ -230,7 +230,7 @@ export async function listAdminOrganizations(
 	>(response);
 
 	if (!response.ok || !('organizations' in body)) {
-		throw adminApiError(response, body, 'Unable to load agencies.');
+		throw adminApiError(response, body, 'Unable to load organizations.');
 	}
 
 	return body.organizations;

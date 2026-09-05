@@ -141,7 +141,7 @@ function SpeciesRoute() {
 					Add Species
 				</Button>
 			}
-			description="The global species list agencies identify collections and samples against."
+			description="The global species list everyone identifies collections and samples against."
 			icon={SpeciesIcon}
 			title="Species"
 		>
@@ -167,7 +167,7 @@ function SpeciesRoute() {
 						}
 						description={
 							canAdd
-								? 'Each species belongs to a genus and carries the binomial agencies read.'
+								? 'Each species belongs to a genus and carries the binomial crews read.'
 								: 'Species are recorded against a genus, and there are none yet.'
 						}
 						icon={SpeciesIcon}
@@ -195,9 +195,9 @@ function SpeciesRoute() {
 			</CatalogBody>
 
 			<CatalogDialog
-				createDescription="Added to the global list every agency identifies against."
+				createDescription="Added to the global list everyone identifies against."
 				createTitle="Add Species"
-				editDescription="Changes apply to every agency using this species."
+				editDescription="Changes apply to everyone using this species."
 				editTitle={(row) => `Edit ${row.displayName}`}
 				onClose={() => setDialog(null)}
 				state={dialog}
@@ -250,7 +250,7 @@ function SpeciesListRow({
 				<>
 					<EditRecordButton label={`Edit ${row.displayName}`} onClick={onEdit} />
 					<DeleteRecordButton
-						consequence={`${row.displayName} will be removed for every agency. The server will refuse this while collections or samples reference it.`}
+						consequence={`${row.displayName} will be removed for everyone. The server will refuse this while collections or samples reference it.`}
 						onDelete={onDelete}
 						recordLabel={row.displayName}
 					/>

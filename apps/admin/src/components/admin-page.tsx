@@ -96,8 +96,8 @@ function OperatorRequired() {
 				</EmptyMedia>
 				<EmptyTitle>Not Signed In as SIMMER</EmptyTitle>
 				<EmptyDescription>
-					This console is for platform operators. If you also work in an agency, sign out and sign
-					back in as SIMMER. Agency work happens in the SIMMER web app.
+					This console is for platform operators. If you also work in an organization, sign out and
+					sign back in as SIMMER. Your own work happens in the SIMMER web app.
 				</EmptyDescription>
 			</EmptyHeader>
 			<EmptyContent>

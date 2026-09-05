@@ -243,7 +243,7 @@ describeDbIntegration('history and collision refusals', () => {
 				// Two agencies, one number. The operator already reads every agency,
 				// so the total leaks nothing, and a breakdown is a report.
 				consequences: [
-					{ key: 'speciesOrganizationLists', count: 2, singular: 'agency species list' },
+					{ key: 'speciesOrganizationLists', count: 2, singular: 'organization species list' },
 				],
 			});
 

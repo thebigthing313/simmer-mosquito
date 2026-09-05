@@ -160,8 +160,8 @@ export function speciesRecordRules(speciesId: string): readonly CitingRule[] {
 		{
 			key: 'speciesOrganizationLists',
 			table: 'organization_species',
-			singular: 'agency species list',
-			plural: 'agency species lists',
+			singular: 'organization species list',
+			plural: 'organization species lists',
 			match: sql`species_id = ${speciesId} and deleted_at is null`,
 		},
 	];

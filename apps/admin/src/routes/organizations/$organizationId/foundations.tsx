@@ -123,7 +123,7 @@ function useOrganizationIdentity(organizationId: string): {
 function FoundationsFrame({ children }: { readonly children: ReactNode }) {
 	return (
 		<AdminPage
-			description="Reference data this agency needs before its crews can record anything. These can only be added here — the agency edits and removes them from the SIMMER web app."
+			description="Reference data this organization needs before its crews can record anything. These can only be added here, and edited or removed from the SIMMER web app."
 			icon={FoundationsIcon}
 			title="Foundations"
 		>
@@ -171,7 +171,7 @@ function FoundationPanels({
 			<Readiness steps={steps} />
 
 			<FoundationGroup
-				description="What this agency's forms offer when crews record work. A trap records against a collection method, so methods come before traps."
+				description="What the forms offer when crews record work. A trap records against a collection method, so methods come before traps."
 				title="Field vocabulary"
 			>
 				<ChipSection
@@ -198,12 +198,12 @@ function FoundationPanels({
 			</FoundationGroup>
 
 			<FoundationGroup
-				description="Where the agency works. Regions are the districts crews are assigned across; addresses are the fixed places traps and service requests reference."
+				description="Where the organization works. Regions are the districts crews are assigned across; addresses are the fixed places traps and service requests reference."
 				title="Geography"
 			>
 				<RecordSection
 					addLabel="Add region"
-					emptyMessage="No regions. Load the agency's district boundaries from the KML, KMZ, or GeoJSON they sent."
+					emptyMessage="No regions. Load the district boundaries from the KML, KMZ, or GeoJSON they sent."
 					icon={RegionIcon}
 					items={data.regions.map((region) => ({
 						id: region.id,
@@ -255,7 +255,7 @@ function FoundationPanels({
 			</FoundationGroup>
 
 			<FoundationGroup
-				description="The agency's first traps. Crews add the rest themselves once they can sign in."
+				description="The first traps. Crews add the rest themselves once they can sign in."
 				title="Traps"
 			>
 				<RecordSection
@@ -367,7 +367,7 @@ function Readiness({ steps }: { readonly steps: readonly ReadinessStep[] }) {
 		return (
 			<p className="m-0 flex items-center gap-2 rounded-md border border-success/30 bg-success/5 px-4 py-3 text-foreground text-sm">
 				<CheckIcon aria-hidden="true" className="size-4 shrink-0 text-success" />
-				This agency has everything its crews need to start recording work.
+				This organization has everything its crews need to start recording work.
 			</p>
 		);
 	}
@@ -376,7 +376,7 @@ function Readiness({ steps }: { readonly steps: readonly ReadinessStep[] }) {
 		<div className="grid gap-3 rounded-md border border-border/60 bg-muted/30 px-4 py-3.5">
 			<p className="m-0 text-foreground text-sm">
 				<span className="font-medium">{next.label.replace(/^An? /, '')}</span> is the next thing
-				this agency needs — {next.unblocks}.
+				this organization needs, so {next.unblocks}.
 			</p>
 			<ul className="m-0 flex list-none flex-wrap gap-x-4 gap-y-1.5 p-0">
 				{steps.map((step) => (
@@ -626,9 +626,9 @@ function dialogDescription(dialog: DialogKind | null): string {
 		return '';
 	}
 	if (dialog.kind === 'species') {
-		return 'Enabling a species adds it to this agency’s identification lists. The global species list itself is managed under Taxonomy.';
+		return "Enabling a species adds it to this organization's identification lists. The global species list itself is managed under Taxonomy.";
 	}
-	return 'Added for this agency only. It can be edited or removed from the SIMMER web app.';
+	return 'Added for this organization only. It can be edited or removed from the SIMMER web app.';
 }
 
 /**

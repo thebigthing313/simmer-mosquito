@@ -20,8 +20,8 @@
  *
  * ## What it reads
  *
- * User-facing copy in `apps/web/src` and `apps/admin/src`: string literals that
- * are not wiring, and the text between two JSX tags. `CONTEXT.md` says the rule
+ * User-facing copy in the three apps that ship screens: string literals that are
+ * not wiring, and the text between two JSX tags. `CONTEXT.md` says the rule
  * binds on labels, filters, headings and columns, and that lowercase
  * organization in a sentence is not a term, so a comment and an identifier are
  * both out of scope. That is not a softening. There are about 2,100 comments in
@@ -51,20 +51,24 @@
  *
  * ## The allowance
  *
- * `apps/web/src` is at zero for both words after #489 to #492. `apps/admin/src`
- * still says agency in 63 places, which is #533 and is copy work rather than
- * tooling work, so it is not fixed here. `ALLOWANCE` carries that count and the
- * gate fails when the real number differs in either direction, the same ratchet
- * as `UNCHECKED_ACKNOWLEDGEMENTS` in `apps/server/src/acknowledgements.ts`. Up
- * means a branch wrote new copy; down means a branch fixed some and owes the
- * number.
+ * `apps/web/src` reached zero for both words in #489 to #492, and
+ * `apps/admin/src` reached it in #533. `ALLOWANCE` is empty, so both roots are
+ * gated at zero and the first branch to write agency into copy fails.
+ *
+ * It stays in the file rather than coming out with the last entry, because it is
+ * the shape a future ban takes. Adding a word to `ENFORCED` that the workspace
+ * already says in fifty places needs somewhere to put the fifty while the copy
+ * is written, and that ratchet works the way
+ * `UNCHECKED_ACKNOWLEDGEMENTS` in `apps/server/src/acknowledgements.ts` does: the
+ * gate fails when the real number differs in either direction. Up means a branch
+ * wrote new copy; down means a branch fixed some and owes the number.
  *
  * A count rather than a list of allowed sites, deliberately. `CLAUDE.md` warns
  * about a saved allowance that matches nothing: an entry naming a file that has
  * since been cleaned up is headroom a new violation lands inside, silently. A
  * count cannot go stale that way, because there is nothing in it to match. The
- * cost is that the gate cannot say which of the 64 findings is the new one, so
- * on a failure it prints all of them.
+ * cost is that the gate cannot say which finding is the new one, so on a failure
+ * it prints all of them.
  */
 
 import { readFileSync } from 'node:fs';
@@ -77,8 +81,13 @@ import { typeScriptFilesUnder } from './lib/source-files.mjs';
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REGISTER = join(workspaceRoot, 'CONTEXT.md');
 
-/** The roots holding user-facing copy. The server and the packages ship no screens. */
-const COPY_ROOTS = ['apps/web/src', 'apps/admin/src'];
+/**
+ * The roots holding user-facing copy. The server and the packages ship no
+ * screens; `apps/preview` is an internal component gallery and not a product
+ * surface. `apps/mobile` ships React Native screens and joined the list in #533,
+ * which found the one string on it by hand because nothing was reading them.
+ */
+const COPY_ROOTS = ['apps/web/src', 'apps/admin/src', 'apps/mobile/src'];
 
 /**
  * The avoided words this gate enforces, out of the register's full lists.
@@ -91,14 +100,11 @@ const ENFORCED = ['agency', 'tenant'];
 /**
  * Findings this gate tolerates, per root, per word.
  *
- * `apps/admin/src` still calls an Organization an agency throughout its copy.
- * That is #533 and it is a copy change, not a tooling one. The number is exact
- * and the gate fails when the count moves either way, so fixing those strings
- * means editing this number down in the same branch.
+ * Empty since #533, and every root is at zero. A count is exact and the gate
+ * fails when it moves either way, so a branch that writes new copy saying agency
+ * has to argue for a number here rather than quietly add one.
  */
-const ALLOWANCE = {
-	'apps/admin/src': { agency: 63 },
-};
+const ALLOWANCE = {};
 
 /** Below this the table has been reformatted and the parse has stopped working. */
 const MINIMUM_TERMS = 12;

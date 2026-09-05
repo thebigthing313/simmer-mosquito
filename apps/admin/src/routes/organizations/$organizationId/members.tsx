@@ -35,7 +35,7 @@ const ROLE_OPTIONS = [
 	{ value: 'viewer', label: 'Viewer — read only' },
 	{ value: 'collector', label: 'Collector — records field work' },
 	{ value: 'manager', label: 'Manager — records and manages catalogs' },
-	{ value: 'admin', label: 'Admin — manages the agency' },
+	{ value: 'admin', label: 'Admin — manages the organization' },
 	{ value: 'owner', label: 'Owner — full control' },
 ];
 
@@ -70,7 +70,7 @@ function OrganizationMembersRoute() {
 
 	return (
 		<AdminPage
-			description="People connected to this agency. An invitation creates a WorkOS invite and a pending membership at the role you choose."
+			description="People connected to this organization. An invitation creates a WorkOS invite and a pending membership at the role you choose."
 			icon={ContactIcon}
 			title={data === undefined ? 'Members' : `${data.organization.name} — Members`}
 		>
@@ -90,7 +90,7 @@ function OrganizationMembersRoute() {
 						) : memberships.length === 0 ? (
 							<div className="p-4">
 								<ListEmpty
-									description="Invite the agency's first owner or admin below."
+									description="Invite the first owner or admin below."
 									title="Nobody Connected Yet"
 								/>
 							</div>
@@ -164,7 +164,7 @@ function OrganizationMembersRoute() {
 function inviteOutcome(result: InviteAdminUserResult, sent: InviteAdminUserInput): string {
 	const email = result.membership.invitedEmail ?? sent.email.trim();
 	return result.invitation === null
-		? `${email} already has access. The ${sent.role} role applies next time they enter this agency.`
+		? `${email} already has access. The ${sent.role} role applies next time they enter this organization.`
 		: `Invitation sent to ${email}.`;
 }
 

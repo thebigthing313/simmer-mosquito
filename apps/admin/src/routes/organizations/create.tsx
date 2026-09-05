@@ -84,7 +84,7 @@ function CreateOrganizationRoute() {
 					params: { organizationId: organization.id },
 				});
 			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to create the agency.');
+				setSaveError(error instanceof Error ? error.message : 'Unable to create the organization.');
 			}
 		},
 	});
@@ -95,40 +95,40 @@ function CreateOrganizationRoute() {
 				actions={
 					<>
 						<form.ResetButton />
-						<form.SubmitButton>Create Agency</form.SubmitButton>
+						<form.SubmitButton>Create Organization</form.SubmitButton>
 					</>
 				}
 				header={{
-					title: 'Create Agency',
+					title: 'Create Organization',
 					description:
-						'Add a mosquito control agency. Invite its people from the agency page once it exists.',
+						'Add a mosquito control organization. Invite its people from its page once it exists.',
 					backTo: '/organizations',
-					backLabel: 'Agencies',
+					backLabel: 'Organizations',
 				}}
 				onSubmit={() => {
 					void form.handleSubmit();
 				}}
 			>
-				<form.FormErrorAlert title="Unable to Create Agency" />
+				<form.FormErrorAlert title="Unable to Create Organization" />
 				{saveError === null ? null : (
 					<Alert variant="destructive">
-						<AlertTitle>Unable to Create Agency</AlertTitle>
+						<AlertTitle>Unable to Create Organization</AlertTitle>
 						<AlertDescription>{saveError}</AlertDescription>
 					</Alert>
 				)}
 
 				<section className="grid gap-5">
-					<h2 className="m-0 font-semibold text-foreground text-sm">Agency</h2>
+					<h2 className="m-0 font-semibold text-foreground text-sm">Organization</h2>
 					<form.AppField
 						name="name"
 						validators={{
 							onSubmit: ({ value }: { readonly value: string }) =>
-								value.trim().length === 0 ? 'Agency name is required.' : undefined,
+								value.trim().length === 0 ? 'Organization name is required.' : undefined,
 						}}
 					>
 						{(field) => (
 							<field.TextField
-								label="Agency name"
+								label="Organization name"
 								maxLength={160}
 								placeholder="e.g. Coastal Mosquito Abatement District"
 								required
@@ -194,7 +194,7 @@ function CreateOrganizationRoute() {
 					<form.AppField name="linkRequesterAsOwner">
 						{(field) => (
 							<field.SwitchField
-								description="Adds your account as this agency's first owner. Leave off when the customer's own owner will be invited."
+								description="Adds your account as its first owner. Leave off when the customer's own owner will be invited."
 								label="Link me as owner"
 							/>
 						)}
