@@ -6,6 +6,8 @@ import type {
 	DuplicateRecordType,
 	MergeableRecordType,
 } from '../../hooks/use-merge-candidates';
+import { todayInTimeZone } from '../../lib/local-date';
+import { formatListDate } from '../../routes/larval-surveillance/-overview-data';
 
 type RegistryIcon = typeof iconRegistry.entities.address.icon;
 
@@ -162,4 +164,27 @@ export function recordLabel(
 /** `3 addresses`, `1 address`. */
 export function recordCountLabel(count: number, config: RecordCleanupConfig): string {
 	return `${count} ${count === 1 ? config.noun.one : config.noun.many}`;
+}
+
+/**
+ * The day a record was added, on the Organization's calendar.
+ *
+ * The oldest record is the survivor a group preselects, because it is the one
+ * the Organization has had longest and so the one most likely already named by
+ * the records that matter. The date is what makes that choice checkable rather
+ * than arbitrary, and it is read across the rows of a group rather than on its
+ * own.
+ *
+ * `created_at` is an instant, and which day an instant fell on is only a fact
+ * once a zone says so. The zone is the Organization's, the way every other
+ * operational date on this app reads: a contact added at 9pm Eastern was added
+ * on the 4th, including for the colleague reading the page from UTC, where the
+ * same instant is already the 5th.
+ */
+export function addedOn(createdAt: string, timeZone: string): string {
+	const added = new Date(createdAt);
+	if (Number.isNaN(added.getTime())) {
+		return 'an unknown date';
+	}
+	return formatListDate(todayInTimeZone(timeZone, added));
 }

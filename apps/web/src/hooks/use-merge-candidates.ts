@@ -40,7 +40,10 @@ export interface DuplicateRecord {
 	/** The record's own name. Empty when it has none, which habitats often do. */
 	readonly label: string;
 	readonly detail: string | null;
-	/** ISO, as JSON carries it. Rendered through `lib/local-date`. */
+	/**
+	 * ISO, as JSON carries it — an instant, so the day it names is the
+	 * Organization's, read through `lib/local-date`. `addedOn` is that read.
+	 */
 	readonly createdAt: string;
 	readonly lat: number | null;
 	readonly lng: number | null;

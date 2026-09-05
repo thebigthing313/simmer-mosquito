@@ -346,6 +346,7 @@ function ServiceRequestActivityPanel({
 							event={event}
 							key={event.key}
 							requestTitle={titleById.get(event.requestId) ?? 'a service request'}
+							timeZone={timeZone}
 						/>
 					))}
 				</ul>
@@ -358,16 +359,25 @@ function ActivityRow({
 	event,
 	requestTitle,
 	actorName,
+	timeZone,
 }: {
 	readonly event: ServiceRequestEvent;
 	readonly requestTitle: string;
 	readonly actorName: string | null;
+	/**
+	 * The Organization's, not the reader's. An event carries an instant — the
+	 * request was created, a comment was left, it was closed — and which day that
+	 * fell on is only a fact once a zone says so. Read in UTC, as this was, a
+	 * request logged at the end of an Eastern shift files under tomorrow, and the
+	 * feed disagrees with the date on the request it links to.
+	 */
+	readonly timeZone: string;
 }) {
 	const { verb, icon: KindIcon } = EVENT_PRESENTATION[event.kind];
 
 	return (
 		<PanelRow
-			date={formatMonthDay(event.at.toISOString().slice(0, 10))}
+			date={formatMonthDay(todayInTimeZone(timeZone, event.at))}
 			icon={<KindIcon aria-hidden="true" className="size-4" />}
 			params={{ id: event.requestId }}
 			primary={`${actorName ?? 'Someone'} ${verb} ${requestTitle}`}
