@@ -56,8 +56,21 @@ const REGISTER_SOURCE = join(workspaceRoot, 'packages/domain/src/shared.ts');
 /**
  * The six OGC shapes, spelled the way GeoJSON spells them.
  *
- * Held here rather than read out of the register, so that widening the register
- * to the multi shapes does not also widen what the scan will tolerate.
+ * Held here rather than read out of the register, because the register says what
+ * is stored and this says what a copy looks like. When the gate was written
+ * `SUPPORTED_GEOMETRY_TYPES` held three names and this list was already six, so
+ * the reason given was that widening the register must not widen what the scan
+ * tolerates. ADR 0018 has since done that widening, and the reason survives in
+ * the other direction: a policy narrows as well as widens, and
+ * `notification_registrations` is Point and Polygon today. A scan reading the
+ * register would stop seeing a shape written out by hand on the day nothing
+ * stored one.
+ *
+ * `MINIMUM_GEOMETRY_TYPE_NAMES` holds the other end. Drop a name and
+ * `checkNoCopies` stops counting it: `['Polygon', 'MultiPolygon']`, the
+ * commonest pair in this workspace, reads as one name and passes the two-name
+ * test. Nothing else moves, because the summary line counts kinds and tables and
+ * never says how many shapes this list holds (#599).
  */
 const GEOMETRY_TYPE_NAMES = [
 	'Point',
@@ -67,6 +80,9 @@ const GEOMETRY_TYPE_NAMES = [
 	'MultiLineString',
 	'MultiPolygon',
 ];
+
+/** Below this a shape has been dropped and the copy scan has stopped seeing it. */
+const MINIMUM_GEOMETRY_TYPE_NAMES = 6;
 
 /**
  * How many kinds and how many tables the register holds.
@@ -92,6 +108,7 @@ const COMPARISON_CHAIN = new RegExp(
 );
 
 function main() {
+	checkNameList();
 	const register = readRegister();
 	const failures = [
 		...checkOneRowPerKind(register),
@@ -113,6 +130,19 @@ function main() {
 	console.log(
 		`Geometry policies: ${register.rows.length} kinds over ${EXPECTED_TABLES} tables, no copies.`,
 	);
+}
+
+/** Refuse to scan for copies with a shape missing from the list that finds them. */
+function checkNameList() {
+	if (GEOMETRY_TYPE_NAMES.length < MINIMUM_GEOMETRY_TYPE_NAMES) {
+		throw new Error(
+			`GEOMETRY_TYPE_NAMES holds ${GEOMETRY_TYPE_NAMES.length} shapes ` +
+				`(${GEOMETRY_TYPE_NAMES.join(', ')}), fewer than the ${MINIMUM_GEOMETRY_TYPE_NAMES} OGC ` +
+				'shapes this expects. A name has been dropped and the copy scan has stopped counting it, ' +
+				'so a list writing that shape out by hand now passes. Put it back in ' +
+				'scripts/check-geometry-policies.mjs.',
+		);
+	}
 }
 
 /** Read the kind union and the policy rows out of the register's source. */

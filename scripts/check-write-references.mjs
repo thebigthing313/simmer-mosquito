@@ -34,6 +34,13 @@
  * for every foreign key pointing at an organization-owned record and requires an
  * entry. Together they cover both directions; neither covers both on its own.
  *
+ * That pairing holds only where there is a database. The integration suite skips
+ * silently without `TEST_DATABASE_URL`, so until #599 a column deleted from the
+ * registry left this gate's scope on every local run with nothing to see: a
+ * write whose only reference is that column stops being a reference write at
+ * all, and the sole trace is the column count moving by one in a summary line
+ * that prints on a pass. `MINIMUM_REFERENCE_COLUMNS` is what fails instead.
+ *
  * ## The allowlist
  *
  * `SESSION_OWNED` is for a column set from `AuthContext` rather than from a
@@ -150,6 +157,16 @@ function staleAllowances(usedAllowances) {
 // The registry
 // ---------------------------------------------------------------------------
 
+/**
+ * How many columns `RECORD_REFERENCE_COLUMNS` holds.
+ *
+ * The registry itself is read out of the module, so it cannot drift from this
+ * gate. What it can do is lose a column, and a lost column takes every write
+ * naming it out of scope rather than reporting one. The number moves when the
+ * registry does, in the same commit.
+ */
+const MINIMUM_REFERENCE_COLUMNS = 36;
+
 /** The keys of `RECORD_REFERENCE_COLUMNS`, read from the module that owns them. */
 function readRegistryColumns() {
 	const source = readFileSync(REGISTRY_FILE, 'utf8');
@@ -163,6 +180,16 @@ function readRegistryColumns() {
 	const columns = new Set([...body.matchAll(/^\t([a-z][a-z0-9_]*): /gm)].map(([, key]) => key));
 	if (columns.size === 0) {
 		throw new Error('RECORD_REFERENCE_COLUMNS read as empty. Has its shape changed?');
+	}
+	if (columns.size < MINIMUM_REFERENCE_COLUMNS) {
+		throw new Error(
+			`RECORD_REFERENCE_COLUMNS holds ${columns.size} columns, fewer than the ` +
+				`${MINIMUM_REFERENCE_COLUMNS} this check expects. A column has been dropped, and every ` +
+				'write whose only reference is that column has left the scope of this gate rather than ' +
+				'being reported. Put it back in packages/db/src/domains/write-references.ts, or, if the ' +
+				'schema no longer has the column, lower MINIMUM_REFERENCE_COLUMNS in ' +
+				'scripts/check-write-references.mjs in the same commit.',
+		);
 	}
 	return columns;
 }
