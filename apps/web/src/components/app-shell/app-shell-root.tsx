@@ -11,8 +11,9 @@ import { EnvironmentBanner } from '@simmer-mosquito/ui-web/components/environmen
 import { Toaster } from '@simmer-mosquito/ui-web/components/ui/sonner';
 import { useLiveQuery } from '@tanstack/react-db';
 import { Outlet, useLocation, useNavigate } from '@tanstack/react-router';
-import { Suspense, useRef, useState } from 'react';
+import { Suspense, useMemo, useRef, useState } from 'react';
 import { type AuthMe, getServerUrl } from '../../auth';
+import { useDailyWorkRoster } from '../../hooks/queries/use-daily-work-roster';
 import { useProfileNames } from '../../hooks/queries/use-profile-names';
 import { useOrganizationTimeZone } from '../../hooks/use-organization-time-zone';
 import { organizations } from '../../lib/collections/organizations';
@@ -23,6 +24,7 @@ import {
 	webAccountLinks,
 	webShellDomains,
 	webStandalonePages,
+	withDailyWorkGroup,
 } from './navigation';
 
 function formatRole(role: string | null | undefined): string {
@@ -60,6 +62,17 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	const organizationResult = useLiveQuery((query) => query.from({ row: organizations() }), []);
 	const profileNameById = useProfileNames();
 	const timeZone = useOrganizationTimeZone();
+	// The first navigation built at render time. Memoised because it rebuilds a
+	// row per Profile, and the shell's context value is keyed on the array.
+	const dailyWork = useDailyWorkRoster();
+	const domains = useMemo(
+		() => withDailyWorkGroup(shellDomainsForRole(auth), dailyWork.listed),
+		[auth, dailyWork.listed],
+	);
+	const resolutionDomains = useMemo(
+		() => withDailyWorkGroup(webShellDomains, dailyWork.routable),
+		[dailyWork.routable],
+	);
 
 	const organization = (organizationResult.data ?? []).find(
 		(row) => row.id === localIdentity?.organizationId,
@@ -95,10 +108,11 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 				currentOrganization={currentOrganization}
 				onSelectOrganization={() => undefined}
 				user={shellUser}
-				domains={shellDomainsForRole(auth)}
-				// Unfiltered, so a viewer who lands on a form path still gets a true
-				// rail and breadcrumb before the route guard redirects them.
-				resolutionDomains={webShellDomains}
+				domains={domains}
+				// Unfiltered, and carrying every Profile rather than only the active
+				// ones, so a viewer on a form path and a supervisor on a deactivated
+				// colleague's day both get a true rail and breadcrumb.
+				resolutionDomains={resolutionDomains}
 				standalonePages={webStandalonePages}
 				accountLinks={webAccountLinks}
 				version={__APP_VERSION__}

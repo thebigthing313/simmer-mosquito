@@ -907,6 +907,73 @@ export function shellDomainsForRole(auth: AuthMe | null): readonly WebShellDomai
 		.filter((domain) => domain.groups.length > 0);
 }
 
+/** A Profile as the Daily Work group lists one. */
+export interface DailyWorkPerson {
+	readonly id: string;
+	readonly name: string;
+}
+
+/**
+ * The Profiles behind the Daily Work group, in the two lists the shell takes.
+ *
+ * Both are `null` until the profiles shape has synced, and that is a different
+ * fact from an empty list, which is an organization whose every Profile has been
+ * deactivated. Neither draws a heading, but only one of them is worth a second
+ * look at the People page, so the two are not collapsed into a count of zero.
+ */
+export interface DailyWorkRoster {
+	/** Active Profiles, alphabetical. What the sidebar draws. */
+	readonly listed: readonly DailyWorkPerson[] | null;
+	/** Every Profile, active or not. What "where am I" resolves against. */
+	readonly routable: readonly DailyWorkPerson[] | null;
+}
+
+const OVERVIEW_DOMAIN_ID = 'overview';
+
+/**
+ * Overview with one row per Profile appended, under a "Daily Work" heading.
+ *
+ * The first navigation this app builds at render time rather than declaring. A
+ * row's destination is still the route template `/daily-work/$profileId` with
+ * the id in `params`, so the route stays typed here and the shell does the
+ * substitution. See `ShellNavParams`.
+ *
+ * Called twice, with the two lists on {@link DailyWorkRoster}. The drawn
+ * navigation gets the active Profiles; "where am I" gets all of them, so
+ * somebody already reading a deactivated colleague's day keeps a breadcrumb that
+ * names them rather than dropping to the domain alone. That is the same split
+ * `resolutionDomains` already makes for the forms a viewer's sidebar hides.
+ *
+ * No group at all when the list is empty, rather than a heading with nothing
+ * under it.
+ */
+export function withDailyWorkGroup(
+	domains: readonly WebShellDomain[],
+	people: readonly DailyWorkPerson[] | null,
+): readonly WebShellDomain[] {
+	if (people === null || people.length === 0) {
+		return domains;
+	}
+
+	const group: WebShellNavGroup = {
+		id: 'overview-daily-work',
+		label: 'Daily Work',
+		items: people.map((person) => ({
+			// The same id in both lists, so the open page's row reads as active even
+			// though only one of the two lists is drawn.
+			id: `daily-work-${person.id}`,
+			label: person.name,
+			to: '/daily-work/$profileId',
+			params: { profileId: person.id },
+			icon: iconRegistry.entities.contact.icon,
+		})),
+	};
+
+	return domains.map((domain) =>
+		domain.id === OVERVIEW_DOMAIN_ID ? { ...domain, groups: [...domain.groups, group] } : domain,
+	);
+}
+
 /**
  * Destinations reached from the account menu rather than the domain rail. They
  * belong to no domain, so they carry their own trail instead of falling back to
@@ -966,6 +1033,10 @@ export interface WebShellCandidate {
  *
  * Stubs are excluded from both: the fifteen `stub: true` items are unbuilt
  * destinations, and offering one is offering a door that opens onto nothing.
+ *
+ * The Daily Work rows are excluded by reading the declared navigation rather
+ * than the composed one: global search already finds people, and a route row per
+ * Profile would push every other destination off the list.
  */
 export function shellSearchCandidates(auth: AuthMe | null): {
 	readonly routes: readonly WebShellCandidate[];

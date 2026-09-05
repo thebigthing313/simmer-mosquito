@@ -4,6 +4,7 @@ import type {
 	ShellDomain,
 	ShellNavGroup,
 	ShellNavItem,
+	ShellNavParams,
 	ShellStandalonePage,
 } from './types';
 
@@ -16,6 +17,37 @@ import type {
  * domain list at module scope. Taking the navigation as an argument is the whole
  * change, and it is what lets `apps/admin` mount the same chrome.
  */
+
+/**
+ * A destination's concrete path: the route template with each `$segment`
+ * replaced by its value in `params`.
+ *
+ * Every part of the shell that compares a destination to the current path, or
+ * hands one to `onNavigate`, goes through here. A template reaching either would
+ * be a row that matches nothing and navigates to a literal `$profileId`.
+ *
+ * A `$segment` with no value is left as it stands rather than dropped, so a
+ * caller that forgets one gets a path that visibly names the gap instead of a
+ * shorter path that quietly matches a different item.
+ */
+export function navDestination(destination: {
+	readonly to?: LinkProps['to'];
+	readonly params?: ShellNavParams;
+}): string | null {
+	const { to, params } = destination;
+	if (typeof to !== 'string' || to === '') {
+		return null;
+	}
+
+	if (params === undefined) {
+		return to;
+	}
+
+	return to
+		.split('/')
+		.map((segment) => (segment.startsWith('$') ? (params[segment.slice(1)] ?? segment) : segment))
+		.join('/');
+}
 
 /** Longest-prefix active match, so nested record paths still light their item. */
 export function pathMatches(activePath: string, target: string): boolean {
@@ -54,8 +86,8 @@ export function resolveActive(
 	let bestLength = -1;
 
 	for (const candidate of flattenNavItems(domains)) {
-		const target = candidate.item.to;
-		if (target !== undefined && pathMatches(activePath, target) && target.length > bestLength) {
+		const target = navDestination(candidate.item);
+		if (target !== null && pathMatches(activePath, target) && target.length > bestLength) {
 			best = candidate;
 			bestLength = target.length;
 		}
@@ -74,11 +106,12 @@ export function resolveActive(
 }
 
 /** The first navigable destination of a domain (used when its icon is clicked). */
-export function firstDestination(domain: ShellDomain): LinkProps['to'] | null {
+export function firstDestination(domain: ShellDomain): string | null {
 	for (const group of domain.groups) {
 		const [item] = group.items;
-		if (item?.to !== undefined) {
-			return item.to;
+		const path = item === undefined ? null : navDestination(item);
+		if (path !== null) {
+			return path;
 		}
 	}
 
@@ -98,6 +131,11 @@ function looksLikeRecordId(segment: string): boolean {
  * meaningful trailing segments. A trailing segment uses its registered label
  * when one is supplied (e.g. a record's name), otherwise a record id renders as
  * `#id` and any other segment is title-cased.
+ *
+ * An item carrying `params` covers the record segment itself, so its own label
+ * is the last crumb and there is nothing trailing to name. That is how the
+ * Daily Work rows put a person's name at the end of the trail without the page
+ * having to register one.
  */
 export function buildBreadcrumbs(
 	domains: readonly ShellDomain[],
@@ -123,9 +161,9 @@ export function buildBreadcrumbs(
 		crumbs.push({ label: group.label });
 	}
 
-	crumbs.push({ label: item.label, to: item.to });
+	crumbs.push({ label: item.label, to: item.to, ...(item.params ? { params: item.params } : {}) });
 
-	const itemSegments = item.to?.split('/').filter(Boolean) ?? [];
+	const itemSegments = navDestination(item)?.split('/').filter(Boolean) ?? [];
 	const pathSegments = activePath.split('/').filter(Boolean);
 	const trailing = pathSegments.slice(itemSegments.length);
 	for (const segment of trailing) {

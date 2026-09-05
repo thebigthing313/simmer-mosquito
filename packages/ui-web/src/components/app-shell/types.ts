@@ -18,12 +18,25 @@ import type { LinkProps } from '@tanstack/react-router';
  * chrome reads these shapes and never constructs them.
  */
 
+/**
+ * Values for the `$segments` of a route template, for a destination built at
+ * render time from a record.
+ *
+ * Route and record are declared apart so `to` stays typed against the route
+ * tree. A row per Profile still names `/daily-work/$profileId`, so renaming that
+ * route fails the typecheck instead of leaving a sidebar row that navigates
+ * nowhere.
+ */
+export type ShellNavParams = Readonly<Record<string, string>>;
+
 /** A single navigable destination inside a domain's secondary sidebar. */
 export interface ShellNavItem {
 	readonly id: string;
 	readonly label: string;
 	/** Type-safe router destination. Compared against the active path for selection. */
 	readonly to: LinkProps['to'];
+	/** Fills the `$segments` of {@link ShellNavItem.to}. See {@link ShellNavParams}. */
+	readonly params?: ShellNavParams;
 	readonly icon?: RegistryIcon;
 	/** Optional compact count/indicator (e.g. items needing attention). */
 	readonly badge?: string | number;
@@ -76,6 +89,8 @@ export interface ShellUser {
 export interface ShellCrumb {
 	readonly label: string;
 	readonly to?: LinkProps['to'];
+	/** Fills the `$segments` of {@link ShellCrumb.to}. See {@link ShellNavParams}. */
+	readonly params?: ShellNavParams;
 }
 
 /**

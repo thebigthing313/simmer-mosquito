@@ -9,7 +9,7 @@ import {
 import { CalendarIcon, HomeIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { Fragment } from 'react';
 import { useBreadcrumbLabels } from '../breadcrumb-labels';
-import { buildBreadcrumbs, firstDestination } from '../resolve-nav';
+import { buildBreadcrumbs, firstDestination, navDestination } from '../resolve-nav';
 import { useResolutionDomains, useShell } from '../shell-context';
 import { HeaderSearchBar } from './header-search-bar';
 
@@ -60,15 +60,16 @@ export function AppHeader() {
 					{crumbs.map((crumb, index) => {
 						const isLast = index === crumbs.length - 1;
 						const hideOnMobile = isLast ? undefined : 'max-sm:hidden';
+						const destination = navDestination(crumb);
 						return (
-							<Fragment key={crumb.to ?? `leaf:${crumb.label}`}>
+							<Fragment key={destination ?? `leaf:${crumb.label}`}>
 								<BreadcrumbSeparator className={hideOnMobile} />
 								<BreadcrumbItem className={hideOnMobile}>
-									{isLast || crumb.to === undefined ? (
+									{isLast || destination === null ? (
 										<BreadcrumbPage>{crumb.label}</BreadcrumbPage>
 									) : (
 										<BreadcrumbLink asChild>
-											<button type="button" onClick={() => crumb.to && onNavigate(crumb.to)}>
+											<button type="button" onClick={() => onNavigate(destination)}>
 												{crumb.label}
 											</button>
 										</BreadcrumbLink>

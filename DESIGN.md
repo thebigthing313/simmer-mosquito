@@ -405,6 +405,15 @@ model and identity, and the shell does the rest. Its rail carries three domains
 (Agencies, Mosquito Taxonomy, Units) and its switcher names the control plane
 rather than an agency, because every page there spans all of them.
 
+**Rows built from data.** A navigation item may point at a record rather than a
+page: `to` stays the route template and `params` carries the ids, so
+`/daily-work/$profileId` is still typed against the route tree while the id
+arrives at render time. The shell puts the two back together in one place,
+`navDestination`, which is what matches the row against the current path, sends
+the click, and ends the breadcrumb trail on the record's own label instead of
+its id. A group built this way draws nothing at all when its list is empty,
+because a heading over no rows says less than no heading.
+
 **The Desktop Floor Rule.** SIMMER web is a desktop application. The two-rail
 shell spends 304px on fixed chrome, and both rails stay visible at every width.
 They do not collapse, and there is no mobile shell. Below the floor set in
