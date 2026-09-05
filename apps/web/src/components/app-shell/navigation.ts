@@ -936,7 +936,7 @@ const OVERVIEW_DOMAIN_ID = 'overview';
  * The first navigation this app builds at render time rather than declaring. A
  * row's destination is still the route template `/daily-work/$profileId` with
  * the id in `params`, so the route stays typed here and the shell does the
- * substitution — see `ShellNavParams`.
+ * substitution. See `ShellNavParams`.
  *
  * Called twice, with the two lists on {@link DailyWorkRoster}. The drawn
  * navigation gets the active Profiles; "where am I" gets all of them, so
