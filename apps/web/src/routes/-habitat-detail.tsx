@@ -4,7 +4,9 @@ import {
 	formatGeometryTypeLabel,
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -41,8 +43,9 @@ import {
 	CheckCircle2Icon,
 	iconRegistry,
 } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
-import { type CSSProperties, type ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
+import { type CSSProperties, Suspense, useEffect, useMemo, useState } from 'react';
 import type { AskAcknowledged } from '../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
@@ -108,8 +111,7 @@ const historyPageSize = 25;
  * history is 25 stops rather than 125, and nothing is reachable by mouse that a
  * keyboard cannot reach.
  */
-const historyLinkClassName =
-	'rounded-sm underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
+const historyLinkClassName = recordLink({ tone: 'inherit', underline: 'hover' });
 // The larval-surveillance explorer is the only habitats index, so "Back to
 // habitats" always returns there.
 type HabitatDetailBackTo = '/larval-surveillance/habitats';
@@ -346,7 +348,7 @@ function HabitatDetailsCard({
 					<span className="text-xs font-semibold text-muted-foreground uppercase">Description</span>
 					<p className="m-0 text-sm text-foreground">{habitatDescription(habitat)}</p>
 				</div>
-				<dl className="grid gap-2.5">
+				<DetailList>
 					<DetailRow label="Habitat type">
 						<Suspense fallback={<span className="text-muted-foreground">Loading…</span>}>
 							<HabitatTypeLabel habitatTypeId={habitat.typeId} />
@@ -375,7 +377,7 @@ function HabitatDetailsCard({
 					<DetailRow label="Updated">
 						<AuditValue at={habitat.updatedAt} profileId={habitat.updatedByProfileId} />
 					</DetailRow>
-				</dl>
+				</DetailList>
 				<Suspense fallback={null}>
 					<HabitatMetadata habitatTypeId={habitat.typeId} metadata={habitat.metadata} />
 				</Suspense>
@@ -409,15 +411,6 @@ function HabitatMetadata({
 			    organization-authored label wraps here too rather than being clipped
 			    by the curated-label column `DetailRow` above is sized for. */}
 			<CustomFieldsList entries={entries} />
-		</div>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[120px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
 		</div>
 	);
 }
@@ -495,7 +488,7 @@ function HabitatRoutes({ habitatId }: { readonly habitatId: string }) {
 			{routes.map(({ position, routeId, routeItemId, routeName }) => (
 				<li className="flex items-baseline gap-2" key={routeItemId}>
 					<Link
-						className="w-fit rounded-sm text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						className={cn(recordLink({ tone: 'value' }), 'w-fit')}
 						params={{ id: routeId }}
 						to="/larval-surveillance/habitats/routes/$id"
 					>

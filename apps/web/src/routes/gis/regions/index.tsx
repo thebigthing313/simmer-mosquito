@@ -1,3 +1,4 @@
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
@@ -804,7 +805,10 @@ function RegionTreeRow({
 						onCheckedChange={(value) => onToggle(value === true)}
 					/>
 					<button
-						className="min-w-0 flex-1 truncate rounded-sm text-left text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						className={cn(
+							recordLink({ size: 'sm', tone: 'value' }),
+							'min-w-0 flex-1 truncate text-left',
+						)}
 						onClick={onFocus}
 						title="Show on the Map"
 						type="button"

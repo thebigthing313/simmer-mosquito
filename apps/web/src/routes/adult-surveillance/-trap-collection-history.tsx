@@ -1,3 +1,4 @@
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -29,6 +30,7 @@ import {
 	CircleIcon,
 	iconRegistry,
 } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo, useState } from 'react';
 import { WriteOnly } from '../../components/write-only';
@@ -338,7 +340,10 @@ export function CollectionRow({
 							species={collection.species}
 						/>
 						<Link
-							className="inline-flex w-fit items-center gap-1.5 rounded-sm font-medium text-muted-foreground text-xs transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							className={cn(
+								recordLink({ size: 'xs', tone: 'muted' }),
+								'inline-flex w-fit items-center gap-1.5 transition-colors',
+							)}
 							params={{ id: collection.id }}
 							to="/adult-surveillance/collections/$id"
 						>

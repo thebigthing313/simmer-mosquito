@@ -1,3 +1,4 @@
+import { DetailList } from '@simmer-mosquito/ui-web/components/detail-row';
 import {
 	customFieldEntries,
 	formatCustomFieldValue,
@@ -36,7 +37,7 @@ export function CustomFieldsList({
 	readonly entries: ReturnType<typeof customFieldEntries>;
 }) {
 	return (
-		<dl className="grid gap-2.5">
+		<DetailList>
 			{entries.map((entry) => {
 				const value = formatCustomFieldValue(entry);
 				return (
@@ -61,7 +62,7 @@ export function CustomFieldsList({
 					</div>
 				);
 			})}
-		</dl>
+		</DetailList>
 	);
 }
 

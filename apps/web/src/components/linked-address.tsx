@@ -1,5 +1,7 @@
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { type LinkedAddress, resolveLinkedAddress } from '../hooks/queries/address-view';
 import { useAddress } from '../hooks/queries/use-address';
@@ -73,7 +75,7 @@ function LinkedAddressValue({
 	return (
 		<div className="grid gap-0.5">
 			<Link
-				className="w-fit rounded-sm text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className={cn(recordLink({ tone: 'value' }), 'w-fit')}
 				params={{ id: address.id }}
 				to="/gis/addresses/$id"
 			>

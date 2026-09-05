@@ -1,3 +1,4 @@
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -596,7 +597,10 @@ function EditStopRow({
 				<div className="min-w-0 flex-1">
 					<div className="flex items-center gap-2">
 						<Link
-							className="pointer-events-auto w-fit max-w-full truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+							className={cn(
+								recordLink({ size: 'sm' }),
+								'pointer-events-auto w-fit max-w-full truncate',
+							)}
 							params={{ id: stop.habitatId }}
 							to="/larval-surveillance/habitats/$id"
 						>

@@ -1,3 +1,4 @@
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -8,14 +9,12 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
-import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
@@ -186,36 +185,25 @@ function OutreachDetailsCard({
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
+				<DetailList>
 					<DetailRow label="Method">{methodName}</DetailRow>
 					<DetailRow label="Reached">{formatReach(action.reach)}</DetailRow>
 					<DetailRow label="Who">
-						{action.reachDescription === null ? (
-							<EmptyValue />
-						) : (
+						{action.reachDescription === null ? null : (
 							// Written in a textarea, so it can carry the crew's own line breaks.
 							<span className="whitespace-pre-line">{action.reachDescription}</span>
 						)}
 					</DetailRow>
 					<DetailRow label="Date">{formatActionDate(action.outreachDate)}</DetailRow>
-					<DetailRow label="Technician">
-						{technicianName ?? <span className="text-muted-foreground">Unassigned</span>}
+					<DetailRow empty="Unassigned" label="Technician">
+						{technicianName}
 					</DetailRow>
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={action.addressId} />
 					</DetailRow>
-				</dl>
+				</DetailList>
 				<AdditionalPersonnelList target={{ type: 'outreachAction', id: action.id }} />
 			</CardContent>
 		</Card>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[90px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
 	);
 }

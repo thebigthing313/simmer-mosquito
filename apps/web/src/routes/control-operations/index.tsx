@@ -1,6 +1,7 @@
 import type { UnitDefaults } from '@simmer-mosquito/domain';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Collapsible,
@@ -154,11 +155,7 @@ function ActionRow({
 		<li className="flex items-center gap-3 px-4 py-2.5">
 			{icon === undefined ? null : <span className="shrink-0 text-muted-foreground">{icon}</span>}
 			<div className="grid min-w-0 flex-1">
-				<Link
-					className="truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					params={params}
-					to={to}
-				>
+				<Link className={cn(recordLink({ size: 'sm' }), 'truncate')} params={params} to={to}>
 					{primary}
 				</Link>
 				<span className="truncate text-muted-foreground text-xs">{secondary}</span>
@@ -362,7 +359,7 @@ function ControlActionRow({ action }: { readonly action: DailyControlAction }) {
 			<Icon aria-hidden="true" className="size-4 shrink-0 text-muted-foreground" />
 			<div className="grid min-w-0 flex-1">
 				<Link
-					className="truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					className={cn(recordLink({ size: 'sm' }), 'truncate')}
 					params={{ id: action.id }}
 					to={KIND_DETAIL_ROUTE[action.kind]}
 				>

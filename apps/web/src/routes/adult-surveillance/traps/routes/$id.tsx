@@ -1,3 +1,4 @@
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
@@ -94,7 +95,10 @@ function StopRow({
 				</span>
 				<div className="grid min-w-0 flex-1 gap-0.5">
 					<Link
-						className="pointer-events-auto flex w-fit max-w-full items-center gap-1.5 rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+						className={cn(
+							recordLink({ size: 'sm' }),
+							'pointer-events-auto flex w-fit max-w-full items-center gap-1.5',
+						)}
 						params={{ id: stop.trapId }}
 						to="/adult-surveillance/traps/$id"
 					>

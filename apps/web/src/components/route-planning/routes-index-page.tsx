@@ -1,3 +1,4 @@
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -298,7 +299,10 @@ function RouteListRow({
 				</span>
 				<span className="min-w-0 flex-1">
 					<Link
-						className="pointer-events-auto block w-fit max-w-full truncate rounded-sm font-medium text-foreground text-sm hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+						className={cn(
+							recordLink({ size: 'sm', underline: 'hover' }),
+							'pointer-events-auto block w-fit max-w-full truncate',
+						)}
 						{...surface.detailLink(route.id)}
 					>
 						{route.routeName}

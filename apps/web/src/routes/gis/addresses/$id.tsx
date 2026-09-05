@@ -1,4 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -8,7 +9,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
 import { AddressSurveillanceCard } from '../../../components/address-surveillance';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
@@ -158,32 +158,15 @@ function AddressDetailsCard({ address }: { readonly address: AddressRecord }) {
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
-					<DetailRow label="Street">{orDash(address.addressLine1)}</DetailRow>
-					<DetailRow label="Unit">{orDash(address.addressLine2)}</DetailRow>
-					<DetailRow label="City">{orDash(address.locality)}</DetailRow>
-					<DetailRow label="State">{orDash(address.region)}</DetailRow>
-					<DetailRow label="Postal">{orDash(address.postalCode)}</DetailRow>
+				<DetailList>
+					<DetailRow label="Street">{address.addressLine1}</DetailRow>
+					<DetailRow label="Unit">{address.addressLine2}</DetailRow>
+					<DetailRow label="City">{address.locality}</DetailRow>
+					<DetailRow label="State">{address.region}</DetailRow>
+					<DetailRow label="Postal">{address.postalCode}</DetailRow>
 					<DetailRow label="Country">{address.country}</DetailRow>
-				</dl>
+				</DetailList>
 			</CardContent>
 		</Card>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[90px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
-	);
-}
-
-function orDash(value: string | null): ReactNode {
-	return value !== null && value.trim().length > 0 ? (
-		value
-	) : (
-		<span className="text-muted-foreground">—</span>
 	);
 }

@@ -1,4 +1,6 @@
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -8,14 +10,13 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useMemo } from 'react';
+import { useMemo } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
-import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
@@ -233,19 +234,17 @@ function SourceReductionDetailsCard({
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
+				<DetailList>
 					<DetailRow label="Method">{methodName}</DetailRow>
 					<DetailRow label="Eliminated">{amountLabel}</DetailRow>
 					<DetailRow label="Date">{formatActionDate(sourceReduction.actionDate)}</DetailRow>
-					<DetailRow label="Technician">
-						{technicianName ?? <span className="text-muted-foreground">Unassigned</span>}
+					<DetailRow empty="Unassigned" label="Technician">
+						{technicianName}
 					</DetailRow>
 					<DetailRow label="Habitat">
-						{habitatId === null ? (
-							<EmptyValue />
-						) : (
+						{habitatId === null ? null : (
 							<Link
-								className="rounded-sm text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								className={recordLink({ tone: 'value' })}
 								params={{ id: habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
@@ -256,18 +255,9 @@ function SourceReductionDetailsCard({
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={sourceReduction.addressId} />
 					</DetailRow>
-				</dl>
+				</DetailList>
 				<AdditionalPersonnelList target={{ type: 'sourceReduction', id: sourceReduction.id }} />
 			</CardContent>
 		</Card>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[90px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
 	);
 }

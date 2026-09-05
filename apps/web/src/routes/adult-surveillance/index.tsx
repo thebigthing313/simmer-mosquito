@@ -1,5 +1,6 @@
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { AlertTriangleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
@@ -119,10 +120,7 @@ function CollectionLink({
 }) {
 	return (
 		<Link
-			className={cn(
-				'truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-				className,
-			)}
+			className={cn(cn(recordLink({ size: 'sm' }), 'truncate'), className)}
 			params={{ id }}
 			to="/adult-surveillance/collections/$id"
 		>

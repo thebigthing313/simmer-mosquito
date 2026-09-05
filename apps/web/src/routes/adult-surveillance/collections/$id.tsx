@@ -1,5 +1,7 @@
 import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -36,8 +38,9 @@ import {
 	TableRow,
 } from '@simmer-mosquito/ui-web/components/ui/table';
 import { iconRegistry, KeyboardIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { type AskAcknowledged, useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -842,13 +845,11 @@ function DetailsCard({
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
-					<DetailRow label="Trap">
-						{collection.trapId === null ? (
-							<span className="text-muted-foreground italic">Ad-hoc — no trap</span>
-						) : (
+				<DetailList>
+					<DetailRow empty="Ad-hoc, no trap" label="Trap">
+						{collection.trapId === null ? null : (
 							<Link
-								className="inline-flex items-center gap-1.5 rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
 								params={{ id: collection.trapId }}
 								to="/adult-surveillance/traps/$id"
 							>
@@ -858,49 +859,32 @@ function DetailsCard({
 						)}
 					</DetailRow>
 					<DetailRow label="Method">{methodName}</DetailRow>
-					<DetailRow label="Lure">
-						{lureName ?? <span className="text-muted-foreground">None</span>}
+					<DetailRow empty="None" label="Lure">
+						{lureName}
 					</DetailRow>
-					<DetailRow label="Collected">
-						{collectedDate === null ? (
-							<span className="text-muted-foreground">Pending</span>
-						) : (
-							formatWeekdayMonthDay(collectedDate)
-						)}
+					<DetailRow empty="Pending" label="Collected">
+						{collectedDate === null ? null : formatWeekdayMonthDay(collectedDate)}
 					</DetailRow>
 					<DetailRow label="Set">
-						{startedDay === null ? <EmptyValue /> : formatWeekdayMonthDay(startedDay)}
+						{startedDay === null ? null : formatWeekdayMonthDay(startedDay)}
 					</DetailRow>
-					<DetailRow label="Collected by">
-						{collection.collectedByProfileId === null ? (
-							<span className="text-muted-foreground">Unassigned</span>
-						) : (
-							(profileNameById.get(collection.collectedByProfileId) ?? 'Unknown')
-						)}
+					<DetailRow empty="Unassigned" label="Collected by">
+						{collection.collectedByProfileId === null
+							? null
+							: (profileNameById.get(collection.collectedByProfileId) ?? 'Unknown')}
 					</DetailRow>
-					<DetailRow label="Set by">
-						{collection.setByProfileId === null ? (
-							<span className="text-muted-foreground">Unassigned</span>
-						) : (
-							(profileNameById.get(collection.setByProfileId) ?? 'Unknown')
-						)}
+					<DetailRow empty="Unassigned" label="Set by">
+						{collection.setByProfileId === null
+							? null
+							: (profileNameById.get(collection.setByProfileId) ?? 'Unknown')}
 					</DetailRow>
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={collection.addressId} />
 					</DetailRow>
-				</dl>
+				</DetailList>
 				<AdditionalPersonnelList target={{ type: 'collection', id: collection.id }} />
 			</CardContent>
 		</Card>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[110px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
 	);
 }
 

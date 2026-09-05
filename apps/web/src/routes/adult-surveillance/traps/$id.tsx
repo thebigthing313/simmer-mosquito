@@ -1,3 +1,5 @@
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -37,7 +39,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/tabs';
 import { CheckCircle2Icon, CircleIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -335,7 +337,7 @@ function TrapCollectionsList({
 							<TableRow key={collection.id}>
 								<TableCell>
 									<Link
-										className="rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+										className={recordLink()}
 										params={{ id: collection.id }}
 										to="/adult-surveillance/collections/$id"
 									>
@@ -562,19 +564,17 @@ function TrapDetailsCard({
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
+				<DetailList>
 					<DetailRow label="Method">{methodName}</DetailRow>
-					<DetailRow label="Lure">
-						{lureName ?? <span className="text-muted-foreground">None</span>}
+					<DetailRow empty="None" label="Lure">
+						{lureName}
 					</DetailRow>
-					<DetailRow label="Code">
-						{trap.trapCode ?? <span className="text-muted-foreground">Not set</span>}
-					</DetailRow>
+					<DetailRow label="Code">{trap.trapCode}</DetailRow>
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={trap.addressId} />
 					</DetailRow>
 					<DetailRow label="Status">{trap.isActive ? 'Active' : 'Inactive'}</DetailRow>
-				</dl>
+				</DetailList>
 				{trap.description !== null && trap.description.trim().length > 0 ? (
 					<div className="grid gap-1">
 						<span className="font-semibold text-muted-foreground text-xs uppercase">
@@ -585,15 +585,6 @@ function TrapDetailsCard({
 				) : null}
 			</CardContent>
 		</Card>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[90px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
 	);
 }
 

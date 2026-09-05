@@ -1,6 +1,8 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type { Sample } from '@simmer-mosquito/sync';
 import { sessionFetch } from '@simmer-mosquito/sync';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -31,6 +33,7 @@ import {
 	PlusIcon,
 	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
@@ -305,7 +308,7 @@ function SampleHeader({
 							<span aria-hidden="true">·</span>
 							<span>at</span>
 							<Link
-								className="rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+								className={recordLink()}
 								params={{ id: geo.habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
@@ -1033,10 +1036,10 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
+				<DetailList>
 					<DetailRow label="Inspection">
 						<Link
-							className="inline-flex items-center gap-1.5 rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+							className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
 							params={{ id: geo.inspectionId }}
 							to="/larval-surveillance/inspections/$id"
 						>
@@ -1049,7 +1052,7 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 							<span className="tabular-nums">{adhocLabel(geo.lat, geo.lng)}</span>
 						) : (
 							<Link
-								className="inline-flex items-center gap-1.5 rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
 								params={{ id: geo.habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
@@ -1062,18 +1065,9 @@ function ContextCard({ geo }: { readonly geo: SampleGeoRow }) {
 					<DetailRow label="Coordinates">{coordinateLabel(geo)}</DetailRow>
 					<DetailRow label="Recorded">{formatDateTime(geo.createdAt, timeZone)}</DetailRow>
 					<DetailRow label="Updated">{formatDateTime(geo.updatedAt, timeZone)}</DetailRow>
-				</dl>
+				</DetailList>
 			</CardContent>
 		</Card>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[100px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
 	);
 }
 

@@ -52,8 +52,20 @@
 	"ignoreFindings": ["packages/ui-web/src/components/ui/**"],
 
 	// The duplication ratchet. CI runs `fallow dupes` with no flags, so this is
-	// what makes it a gate: 9.0% is where the workspace sits, and 9.1 leaves a
+	// what makes it a gate: 5.3% is where the workspace sits, and 5.4 leaves a
 	// tenth of a point of slack so an ordinary change does not fail on rounding.
+	//
+	// It was 9.1 against 5.3% when #555 collapsed twenty copies of the linked
+	// record-name class and sixteen of `DetailRow`, and that gap is the entry to
+	// read before trusting this number. Nothing had lowered the ratchet since
+	// #108 while the denominator kept growing, so 3.8 points of allowance had
+	// accumulated that no branch was using — enough headroom to add every clone
+	// #555 took out, twice over, and still pass. #555 itself moved 12,754
+	// duplicated lines to 12,552, which does not round to a tenth of a point:
+	// sixteen copies of a seven-line component are each below fallow's minimum
+	// clone size, so the drift the copies had was invisible to this gate the
+	// whole time it was drifting. Lower the ratchet when a cleanup lands, not
+	// only when the ratio moves.
 	//
 	// It was 9.2 against 9.1% before #108 gave the organization-settings choice
 	// card one home — the same tinted frame had been written out in `adult.tsx`
@@ -125,7 +137,7 @@
 	},
 
 	"duplicates": {
-		"threshold": 9.1
+		"threshold": 5.4
 	},
 
 	// `@tanstack/db` is a deliberate pin, not an import. `@tanstack/react-db` and

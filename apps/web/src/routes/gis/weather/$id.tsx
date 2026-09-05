@@ -1,3 +1,4 @@
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -17,7 +18,7 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useState } from 'react';
+import { useCallback, useState } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -174,15 +175,13 @@ function StationDetailsCard({ station }: { readonly station: WeatherStation }) {
 			<CardHeader className="px-4 py-4">
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
-			<CardContent className="grid gap-2.5" padding="compact">
-				<DetailRow label="Type">{weatherSourceTypeLabel(station.sourceType)}</DetailRow>
-				<DetailRow label="Code">
-					{station.sourceCode ?? <span className="text-muted-foreground">Not set</span>}
-				</DetailRow>
-				<DetailRow label="Provider">
-					{station.providerSourceId ?? <span className="text-muted-foreground">Not set</span>}
-				</DetailRow>
-				<DetailRow label="Status">{station.isActive ? 'Active' : 'Inactive'}</DetailRow>
+			<CardContent padding="compact">
+				<DetailList>
+					<DetailRow label="Type">{weatherSourceTypeLabel(station.sourceType)}</DetailRow>
+					<DetailRow label="Code">{station.sourceCode}</DetailRow>
+					<DetailRow label="Provider">{station.providerSourceId}</DetailRow>
+					<DetailRow label="Status">{station.isActive ? 'Active' : 'Inactive'}</DetailRow>
+				</DetailList>
 			</CardContent>
 		</Card>
 	);
@@ -291,14 +290,5 @@ function StationLifecycleCard({
 				</AlertDialogContent>
 			</AlertDialog>
 		</Card>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[90px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
 	);
 }
