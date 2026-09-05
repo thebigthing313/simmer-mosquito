@@ -32,6 +32,7 @@ export {
 	buildBreadcrumbs,
 	firstDestination,
 	flattenNavItems,
+	navDestination,
 	pathMatches,
 	resolveActive,
 } from './resolve-nav';
@@ -50,6 +51,7 @@ export type {
 	ShellDomain,
 	ShellNavGroup,
 	ShellNavItem,
+	ShellNavParams,
 	ShellOrganization,
 	ShellStandalonePage,
 	ShellUser,

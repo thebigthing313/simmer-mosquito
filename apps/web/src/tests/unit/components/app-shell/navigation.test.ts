@@ -2,7 +2,12 @@ import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 import type { AuthMe } from '../../../../auth';
-import { shellDomainsForRole } from '../../../../components/app-shell/navigation';
+import {
+	shellDomainsForRole,
+	shellSearchCandidates,
+	webShellDomains,
+	withDailyWorkGroup,
+} from '../../../../components/app-shell/navigation';
 
 /**
  * The sidebar's half of the role ladder.
@@ -140,6 +145,91 @@ describe('shellDomainsForRole', () => {
 		}
 	});
 });
+
+/**
+ * The first navigation group this app builds at render time rather than
+ * declaring, and the three things that makes newly possible to get wrong: a
+ * heading over nothing, a row the palette then repeats, and a drawn row whose
+ * id does not match the one "where am I" resolves.
+ */
+describe('withDailyWorkGroup', () => {
+	const ada = { id: '11111111-1111-4111-8111-111111111111', name: 'Ada Lovelace' };
+	const ben = { id: '22222222-2222-4222-8222-222222222222', name: 'Ben Okri' };
+	const chi = { id: '33333333-3333-4333-8333-333333333333', name: 'Chidi Anagye' };
+
+	it('puts the group under Overview, below what was already there', () => {
+		const overview = overviewOf(withDailyWorkGroup(webShellDomains, [ada]));
+
+		expect(overview?.groups.map((group) => group.label)).toEqual([undefined, 'Daily Work']);
+	});
+
+	it('keeps the order it was handed', () => {
+		// The sort is `useDailyWorkRoster`'s, so this pins that the group does not
+		// quietly reorder behind it.
+		const group = dailyWorkGroup(withDailyWorkGroup(webShellDomains, [chi, ada, ben]));
+
+		expect(group?.items.map((item) => item.label)).toEqual([
+			'Chidi Anagye',
+			'Ada Lovelace',
+			'Ben Okri',
+		]);
+	});
+
+	it('sends a row to that person and to nobody else', () => {
+		const [item] = dailyWorkGroup(withDailyWorkGroup(webShellDomains, [ada]))?.items ?? [];
+
+		expect(item?.to).toBe('/daily-work/$profileId');
+		expect(item?.params).toEqual({ profileId: ada.id });
+	});
+
+	it('draws no heading before the profiles shape has synced', () => {
+		expect(dailyWorkGroup(withDailyWorkGroup(webShellDomains, null))).toBeUndefined();
+	});
+
+	it('draws no heading when the organization has nobody active', () => {
+		// A different fact from the one above, and the reason `DailyWorkRoster`
+		// keeps `null` and `[]` apart rather than counting rows.
+		expect(dailyWorkGroup(withDailyWorkGroup(webShellDomains, []))).toBeUndefined();
+	});
+
+	it('leaves every other domain untouched', () => {
+		const before = webShellDomains.filter((domain) => domain.id !== 'overview');
+		const after = withDailyWorkGroup(webShellDomains, [ada]).filter(
+			(domain) => domain.id !== 'overview',
+		);
+
+		expect(after).toEqual(before);
+	});
+
+	it('gives the drawn row and the resolved row the same id', () => {
+		// The sidebar draws the active Profiles and resolves against all of them,
+		// so a row reads as active while its page is open only if both lists name
+		// it identically.
+		const drawn = dailyWorkGroup(withDailyWorkGroup(webShellDomains, [ada]));
+		const resolved = dailyWorkGroup(withDailyWorkGroup(webShellDomains, [ada, ben]));
+
+		expect(drawn?.items[0]?.id).toBe(resolved?.items[0]?.id);
+	});
+
+	it('adds no row to the command palette', () => {
+		// The palette reads the declared navigation, not the composed one. Global
+		// search already finds people, and a route row each would bury everything
+		// else.
+		const { routes, actions } = shellSearchCandidates(authWithRole('owner'));
+
+		expect(
+			[...routes, ...actions].some((candidate) => candidate.id.startsWith('daily-work-')),
+		).toBe(false);
+	});
+});
+
+function overviewOf(domains: ReturnType<typeof withDailyWorkGroup>) {
+	return domains.find((domain) => domain.id === 'overview');
+}
+
+function dailyWorkGroup(domains: ReturnType<typeof withDailyWorkGroup>) {
+	return overviewOf(domains)?.groups.find((group) => group.id === 'overview-daily-work');
+}
 
 /**
  * Every `create.tsx` route, read off the generated route tree.
