@@ -13,6 +13,7 @@
 		"check:build-graph": "node scripts/check-build-graph.mjs",
 		"check:column-vocabularies": "node scripts/check-column-vocabularies.mjs",
 		"check:geometry-policies": "node scripts/check-geometry-policies.mjs",
+		"check:join-types": "node scripts/check-join-types.mjs",
 		"check:mutation-coverage": "node scripts/check-mutation-coverage.mjs",
 		"check:schema-drift": "node scripts/check-schema-drift.mjs",
 		"check:search-corpus": "node scripts/check-search-corpus.mjs",
