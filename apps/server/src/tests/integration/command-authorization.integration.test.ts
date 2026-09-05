@@ -21,12 +21,12 @@ import {
  *
  * Both sets are covered by unit tests against fakes, and those prove the
  * predicates. What they cannot prove is the part that only a database has: that
- * `for update` really serializes two crews finishing the same assignment, that a
- * filtered `count(*)` agrees with reading every row and asking
- * `readAssignmentItemState`, and that the tenancy and `deleted_at` predicates
- * exclude what they claim to. The SQL was previously verified by compiling it
- * with Kysely's `DummyDriver`, which proves its shape and nothing about its
- * behaviour.
+ * `for update` really serializes two crews finishing the same assignment, that
+ * a filtered `count(*)` agrees with reading every row and asking
+ * `readAssignmentItemState`, and that the organization and `deleted_at`
+ * predicates exclude what they claim to. The SQL was previously verified by
+ * compiling it with Kysely's `DummyDriver`, which proves its shape and nothing
+ * about its behaviour.
  */
 describeDbIntegration('command authorization reads', () => {
 	// -----------------------------------------------------------------------

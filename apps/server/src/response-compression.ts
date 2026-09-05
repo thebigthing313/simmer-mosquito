@@ -31,9 +31,9 @@
  *   instead.
  *
  * `vary: accept-encoding` is the one header this adds, appended to whatever the
- * tenancy middleware already set rather than replacing it. Dropping the
- * `cookie` half would undo `cache-headers.ts` from a file that never mentions
- * it.
+ * organization-scope middleware already set rather than replacing it. Dropping
+ * the `cookie` half would undo `cache-headers.ts` from a file that never
+ * mentions it.
  */
 
 import type { MiddlewareHandler } from 'hono';

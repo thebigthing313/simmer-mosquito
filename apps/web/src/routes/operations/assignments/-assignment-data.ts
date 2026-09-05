@@ -673,10 +673,10 @@ export interface OpenServiceRequest {
 /**
  * Open service requests, for the target picker.
  *
- * No `organization_id` predicate: the shape is authorized and scoped server-side,
- * so a client-side tenant filter is redundant — and on a collection whose rows
- * carry the column but whose subset request does not accept it, it empties the
- * page instead.
+ * No `organization_id` predicate: the shape is authorized and scoped
+ * server-side, so a client-side organization filter is redundant — and on a
+ * collection whose rows carry the column but whose subset request does not
+ * accept it, it empties the page instead.
  */
 export function useOpenServiceRequests(): {
 	readonly requests: readonly OpenServiceRequest[];

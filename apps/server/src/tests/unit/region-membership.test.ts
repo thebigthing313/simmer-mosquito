@@ -9,9 +9,9 @@ import { registerRegionMembershipRoutes } from '../../region-membership.js';
  * The regions endpoint at the HTTP boundary.
  *
  * The predicate is proved against Postgres by the corpus in `packages/db`, and
- * the tenancy answers by `region-membership.integration.test.ts` next door. What
- * neither can reach is what the route does with a record type it has never heard
- * of, which is the one case that must not be a `found: false`.
+ * the organization-scoped answers by `region-membership.integration.test.ts`
+ * next door. What neither can reach is what the route does with a record type it
+ * has never heard of, which is the one case that must not be a `found: false`.
  */
 describe('GET /records/:recordType/:recordId/regions', () => {
 	it('answers 404 for a table that carries no geometry', async () => {

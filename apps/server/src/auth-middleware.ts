@@ -71,7 +71,7 @@ export function createAuthContextMiddleware(options: {
  *
  * The global catalogs — `genera`, `species`, `units` — have no
  * `organization_id` and every organization reads them, so their shape route
- * forces no tenant predicate at all: `shapeScopeFilter` returns `{}` for
+ * forces no organization predicate at all: `shapeScopeFilter` returns `{}` for
  * `global` and never touches `authContext`. The only thing left to check is
  * that somebody is signed in.
  *

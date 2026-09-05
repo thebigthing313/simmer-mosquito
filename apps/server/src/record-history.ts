@@ -119,9 +119,9 @@ export function sentNotificationRule(
  * The species filed under a genus.
  *
  * `genera` and `species` are global tables with no `organization_id`, so the
- * count is every organization's and the rule carries no tenancy filter. The
- * caller is an operator, who already reads every organization, so the number
- * leaks nothing.
+ * count is every organization's and the rule carries no organization filter.
+ * The caller is an operator, who already reads every organization, so the
+ * number leaks nothing.
  */
 export function genusSpeciesRule(genusId: string): CitingRule {
 	return {

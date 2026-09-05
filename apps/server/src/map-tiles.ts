@@ -453,9 +453,9 @@ export function registerMapTileRoutes(
 	// filter can each answer part of this; none can reach `additional_personnel`,
 	// and the collections surface has no personnel filter at all.
 	//
-	// Tenancy alone, like every other `/map/*` read: organization data is
-	// viewable by anyone in the organization, and a floor here would be theatre
-	// while those five filters stay open to any member.
+	// Organization scope alone, like every other `/map/*` read: organization data
+	// is viewable by anyone in the organization, and a floor here would be
+	// theatre while those five filters stay open to any member.
 	app.get('/map/profiles/:profileId/activity', options.authContextMiddleware, async (context) => {
 		const profileId = context.req.param('profileId');
 		if (!uuidPattern.test(profileId)) {
@@ -642,7 +642,7 @@ function registerPagedRoute<TInput, TRow>(
 }
 
 /**
- * A read of one row by id, tenant-scoped.
+ * A read of one row by id, organization-scoped.
  *
  * Thirteen copies, differing in a noun and a reader. The most recently added one
  * was written the same way, which is the argument for this existing: the copy

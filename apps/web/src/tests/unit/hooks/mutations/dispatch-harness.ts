@@ -95,7 +95,8 @@ export function lastChanges(): Record<string, unknown> {
  * The row the most recent write carried.
  *
  * The insert half of {@link lastChanges}. A create states a whole row rather
- * than a patch, and that is where an optimistic centroid and the tenant land.
+ * than a patch, and that is where an optimistic centroid and the organization
+ * id land.
  */
 export function lastRow(): Record<string, unknown> {
 	return (lastWrite().row ?? {}) as Record<string, unknown>;

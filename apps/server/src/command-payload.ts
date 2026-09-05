@@ -26,9 +26,9 @@ export type CommandTable = keyof SimmerDatabase;
  * A column of the table, as a body spells it.
  *
  * Not every column: `ServerOwnedColumns` comes off, so a handler reading
- * `organization_id` fails `tsc` rather than taking tenancy off the request. The
- * set is generated beside the table types and the rule behind it is
- * `SERVER_OWNED` in `scripts/generate-table-types.mjs` (#478).
+ * `organization_id` fails `tsc` rather than taking the organization off the
+ * request. The set is generated beside the table types and the rule behind it
+ * is `SERVER_OWNED` in `scripts/generate-table-types.mjs` (#478).
  *
  * Distributive, so a factory serving several tables at once answers to the
  * union of their columns rather than the intersection. `org-lookups.ts` is why:

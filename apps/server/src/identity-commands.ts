@@ -98,8 +98,8 @@ export async function writeIdentityCommand(
 
 /**
  * The organization's own row, which is not org-owned in the sense `updateRow`
- * means: its tenant column *is* its `id`, so the scope predicate is written out
- * here.
+ * means: its organization column *is* its `id`, so the scope predicate is
+ * written out here.
  *
  * The conflict check is the one thing this write has that the other two do not.
  * `expectedUpdatedAt` is what the editor was looking at, and a row that has
