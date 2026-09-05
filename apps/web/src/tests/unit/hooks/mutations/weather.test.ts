@@ -93,7 +93,7 @@ describe('a weather station write', () => {
 		expect(lastWrite().locationSource).toBeUndefined();
 	});
 
-	it("builds the new station as the acting agency's own, not as an unowned feed", async () => {
+	it("builds the new station as the acting organization's own, not as an unowned feed", async () => {
 		// `organization_id` is nullable on this table for the provider rows, so a
 		// missing Organization here is a station that syncs to nobody rather than
 		// an error, and `source_type` is what the server will set regardless.
@@ -268,7 +268,7 @@ function summaryFields(overrides: Record<string, unknown> = {}) {
 }
 
 describe('a weather summary write', () => {
-	it('names the create and files the bucket under its station and agency', async () => {
+	it('names the create and files the bucket under its station and organization', async () => {
 		const { result } = renderHook(() => useWeatherSummaryMutations());
 
 		await result.current.create({

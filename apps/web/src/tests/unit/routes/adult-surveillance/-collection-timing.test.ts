@@ -11,7 +11,7 @@ import { collectionTimingStamps } from '../../../../routes/adult-surveillance/co
  * entered.
  */
 describe('a collection set and collected on the same day', () => {
-	const AGENCY = 'America/New_York';
+	const ORGANIZATION_ZONE = 'America/New_York';
 
 	function exactValues(startedAt: string | null, collectedAt: string | null) {
 		return {
@@ -25,7 +25,11 @@ describe('a collection set and collected on the same day', () => {
 	it('never stamps the set after the collection', () => {
 		// 09:00 on the agency's clock — before its midday, so both stamps clamp.
 		const morning = new Date('2026-08-04T13:00:00.000Z');
-		const stamps = collectionTimingStamps(exactValues('2026-08-04', '2026-08-04'), AGENCY, morning);
+		const stamps = collectionTimingStamps(
+			exactValues('2026-08-04', '2026-08-04'),
+			ORGANIZATION_ZONE,
+			morning,
+		);
 
 		expect(stamps.startedAt).not.toBeNull();
 		expect(stamps.collectedAt).not.toBeNull();
@@ -36,7 +40,11 @@ describe('a collection set and collected on the same day', () => {
 
 	it('keeps a set from an earlier day earlier', () => {
 		const morning = new Date('2026-08-04T13:00:00.000Z');
-		const stamps = collectionTimingStamps(exactValues('2026-08-02', '2026-08-04'), AGENCY, morning);
+		const stamps = collectionTimingStamps(
+			exactValues('2026-08-02', '2026-08-04'),
+			ORGANIZATION_ZONE,
+			morning,
+		);
 
 		expect(stamps.startedAt?.toISOString()).toBe('2026-08-02T16:00:00.000Z');
 		expect(stamps.collectedAt?.toISOString()).toBe('2026-08-04T13:00:00.000Z');
@@ -50,7 +58,7 @@ describe('a collection set and collected on the same day', () => {
 				collectedAt: null,
 				collectionDate: '2026-08-02',
 			},
-			AGENCY,
+			ORGANIZATION_ZONE,
 			new Date('2026-08-04T13:00:00.000Z'),
 		);
 

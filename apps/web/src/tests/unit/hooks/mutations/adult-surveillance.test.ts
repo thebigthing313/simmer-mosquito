@@ -605,7 +605,7 @@ describe('a collection write', () => {
 });
 
 describe('a collection species write', () => {
-	it('names the create and files it under the day the agency is having', async () => {
+	it('names the create and files it under the day the organization is having', async () => {
 		// An identification keyed at 11pm on a lab machine two zones away belongs to
 		// the agency's date, not the browser's.
 		const { result } = renderHook(() => useCollectionSpeciesMutations());

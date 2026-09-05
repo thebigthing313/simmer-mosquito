@@ -76,9 +76,9 @@ describe('the trap picker', () => {
 		expect(screen.queryByText('MP-1 - Mill Pond')).toBeNull();
 	});
 
-	// The empty state distinguishes "this agency has no traps" from "your term
+	// The empty state distinguishes "there are no traps" from "your term
 	// matched none", and the retired rows now count towards the first.
-	it('says the agency has traps when only the search missed', () => {
+	it('says the organization has traps when only the search missed', () => {
 		const input = openPicker([RETIRED]);
 		fireEvent.change(input, { target: { value: 'nothing like this' } });
 

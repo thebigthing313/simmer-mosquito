@@ -93,7 +93,7 @@ describe('a tag write', () => {
 		expect(lastWrite().row).toMatchObject({ id });
 	});
 
-	it('stores the colour exactly as the agency picked it', async () => {
+	it('stores the colour exactly as the organization picked it', async () => {
 		// Upper-casing it here made `#a3e635` and `#A3E635` two colours, and the
 		// swatch that read the row back stopped matching the one in the picker.
 		const { result } = renderHook(() => useTagMutations());

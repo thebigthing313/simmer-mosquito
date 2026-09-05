@@ -174,7 +174,7 @@ describe('HabitatMerge', () => {
 		expect(screen.queryByRole('button', { name: /^Merge \d/ })).toBeNull();
 	});
 
-	it('searches in metres and labels in the agency unit', () => {
+	it('searches in metres and labels in the organization unit', () => {
 		// The buttons say what the agency says. What goes over the wire is metres,
 		// because the radius reaches `st_dwithin` over geography.
 		distanceUnit = 'foot';
@@ -184,7 +184,7 @@ describe('HabitatMerge', () => {
 		expect(requestedRadii[0]).toBeCloseTo(76.2, 1);
 	});
 
-	it('starts at 100 m for an agency that works in metres', () => {
+	it('starts at 100 m for an organization that works in metres', () => {
 		renderPage();
 
 		expect(screen.getByRole('radio', { name: '100 m' })).toBeTruthy();
@@ -199,7 +199,7 @@ describe('HabitatMerge', () => {
 		expect(requestedRadii.at(-1)).toBe(500);
 	});
 
-	it('says how far away each habitat is, in the agency unit', () => {
+	it('says how far away each habitat is, in the organization unit', () => {
 		distanceUnit = 'foot';
 		renderPage();
 

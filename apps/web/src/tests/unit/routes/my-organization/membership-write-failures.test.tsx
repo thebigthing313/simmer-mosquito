@@ -38,7 +38,7 @@ const { RemoveMemberControl } = await import(
 
 const INVITED_PERSON = {
 	displayName: 'Sam Rivera',
-	email: 'crew@agency.test',
+	email: 'crew@example.test',
 	membershipId: 'membership_2',
 	membershipStatus: 'invited',
 	role: 'collector',
@@ -48,7 +48,7 @@ const OWNER: AuthMe = {
 	authenticated: true,
 	user: {
 		workosUserId: 'user_1',
-		email: 'owner@agency.test',
+		email: 'owner@example.test',
 		firstName: null,
 		lastName: null,
 		displayName: 'Owner',

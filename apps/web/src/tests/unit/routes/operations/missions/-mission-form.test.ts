@@ -14,7 +14,7 @@ import {
  * to the dispatcher editing it and as something else to everyone else.
  */
 describe('a mission schedule, out of the form and back', () => {
-	const AGENCY = 'America/New_York';
+	const ORGANIZATION_ZONE = 'America/New_York';
 
 	function values(overrides: Partial<MissionFormValues> = {}): MissionFormValues {
 		return {
@@ -33,10 +33,10 @@ describe('a mission schedule, out of the form and back', () => {
 
 	// Two zones, sixteen hours apart, because a browser-zone implementation
 	// answers both the same and would pass wherever the suite happens to run.
-	it('schedules the instant the agency means, not the one the browser does', () => {
+	it('schedules the instant the organization means, not the one the browser does', () => {
 		// 06:00 on 4 August is 10:00Z in New York (UTC-4) and 18:00Z the previous
 		// day in Auckland (UTC+12).
-		expect(readMissionPlan(values(), AGENCY).startAt?.toISOString()).toBe(
+		expect(readMissionPlan(values(), ORGANIZATION_ZONE).startAt?.toISOString()).toBe(
 			'2026-08-04T10:00:00.000Z',
 		);
 		expect(readMissionPlan(values(), 'Pacific/Auckland').startAt?.toISOString()).toBe(
@@ -69,6 +69,6 @@ describe('a mission schedule, out of the form and back', () => {
 	});
 
 	it('leaves an open-ended mission open-ended', () => {
-		expect(readMissionPlan(values({ endTime: '' }), AGENCY).endAt).toBeNull();
+		expect(readMissionPlan(values({ endTime: '' }), ORGANIZATION_ZONE).endAt).toBeNull();
 	});
 });
