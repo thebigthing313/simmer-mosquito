@@ -8,19 +8,8 @@ import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
 import { ListEmpty, ListLoading } from '@simmer-mosquito/ui-web/components/page/list-states';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
-import {
-	Item,
-	ItemActions,
-	ItemContent,
-	ItemDescription,
-	ItemGroup,
-	ItemMedia,
-	ItemTitle,
-} from '@simmer-mosquito/ui-web/components/ui/item';
-import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
+import { ItemGroup } from '@simmer-mosquito/ui-web/components/ui/item';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { ArrowLeftIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { useQueryClient } from '@tanstack/react-query';

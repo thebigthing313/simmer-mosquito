@@ -38,9 +38,13 @@ jobs:
       # Lint, format, and import order, in one pass over every file, and first
       # because it is a second's work. Nothing else here reads style. `typecheck`
       # and `build` are indifferent to it, and `fallow` reads structure rather
-      # than syntax. Errors fail the job and the warning backlog does not,
-      # because Biome exits on severity. Four errors sat on `staging` because
-      # nothing here ran it (#291).
+      # than syntax. Four errors sat on `staging` because nothing here ran it
+      # (#291).
+      #
+      # It runs `--error-on-warnings`, so a warning fails the job too. It used to
+      # exit on severity alone, and 46 warnings accumulated under that, 41 of
+      # them an unused import or local that no gate counted: `fallow dead-code`
+      # gates unused *exports* (#543). The tree is at zero with no allowance.
       - name: Lint and format
         run: pnpm check
 

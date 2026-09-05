@@ -8,7 +8,6 @@ import {
 	type DeactivateVehicleCommand,
 	type DeleteEquipmentCommand,
 	type DeleteVehicleCommand,
-	DomainValidationError,
 	deactivateEquipmentCommand,
 	deactivateVehicleCommand,
 	deleteEquipmentCommand,
@@ -34,7 +33,7 @@ import {
 	organizationCommandContext,
 	type PayloadResult,
 } from './command-endpoint.js';
-import { acknowledged, isRecord } from './command-payload.js';
+import { acknowledged } from './command-payload.js';
 import { type CommandDb, type CommandTransaction, runCommands } from './command-write.js';
 import { assertCitedHistoryAcknowledged } from './record-history.js';
 
@@ -612,18 +611,6 @@ function readOptionalJson(value: unknown): unknown | null {
 
 function invalidPayload(reason: string): PayloadResult<never> {
 	return { ok: false, reason };
-}
-
-async function readCurrentTransactionId(db: ControlAssetTransaction): Promise<number> {
-	const result = await sql<{
-		txid: string;
-	}>`select pg_current_xact_id()::xid::text as txid`.execute(db);
-	const txid = result.rows[0]?.txid;
-	if (txid === undefined) {
-		throw new Error('Unable to read current transaction id.');
-	}
-
-	return Number.parseInt(txid, 10);
 }
 
 const vehicleReturnColumns = [

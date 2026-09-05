@@ -1,23 +1,16 @@
 import { createNotificationRegistrationCommand } from '@simmer-mosquito/domain';
-import {
-	FormSection,
-	LocationSection,
-	RecordFormPage,
-	useAppForm,
-} from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
+import { FormSection, LocationSection } from '@simmer-mosquito/ui-web/components/form';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import { Label } from '@simmer-mosquito/ui-web/components/ui/label';
 import type { Map as MapboxMap } from 'mapbox-gl';
-import { useId, useMemo, useState } from 'react';
+import { useId, useMemo } from 'react';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../forms/domain-validation';
 import type { UnitLabel } from '../../hooks/queries/use-unit-labels';
 import { unitOptions } from '../../lib/unit-options';
-import { DrawToolbar, GeometryControl } from '../map/geometry-control';
+import { GeometryControl } from '../map/geometry-control';
 import { type DrawLocation, useDrawLocation } from '../map/use-draw-location';
 import type { DrawGeometry, DrawGeometryType, MapDrawController } from '../map/use-map-draw';
 import { type AddressOption, AddressPicker } from '../pickers/address-picker';
-import { ContactPicker } from '../pickers/contact-picker';
 import type { RequestMapPoint } from '../pickers/new-address-form';
 
 /**

@@ -1,6 +1,6 @@
-import { type RawBuilder, sql, type Transaction } from 'kysely';
+import { sql, type Transaction } from 'kysely';
 
-import type { DbExecutor, SimmerDatabase } from '../index.js';
+import type { SimmerDatabase } from '../index.js';
 
 /**
  * Folding one record into another is never just the one row.

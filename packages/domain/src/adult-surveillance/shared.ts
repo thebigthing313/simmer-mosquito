@@ -1,10 +1,8 @@
 import {
 	createIssues,
-	isFutureBeyondClockSkew,
 	jsonObject as normalizeMetadata,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
-	validateNotFutureLocalDate,
 	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import {
@@ -17,7 +15,6 @@ import {
 } from '../location-intent.js';
 import type { UnitType } from '../organization-settings/types-and-defaults.js';
 import type { DomainId, DomainValidationIssue, JsonObject } from '../shared.js';
-import { validateOperationalDate } from '../surveillance-records.js';
 
 export type {
 	CollectedCollectionTiming,
@@ -191,10 +188,6 @@ export function collectionBasePayload(input: CollectionBaseInput): CollectionBas
 
 export function basePayload(input: AdultCommandInput): AdultCommandPayload {
 	return validateOrganizationCommandContext(input, createIssues());
-}
-
-function isValidDate(value: Date | undefined): value is Date {
-	return value instanceof Date && !Number.isNaN(value.getTime());
 }
 
 /**

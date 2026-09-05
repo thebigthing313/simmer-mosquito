@@ -49,7 +49,9 @@ import { sourceFiles } from './lib/source-files.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REGISTER_SOURCE = join(workspaceRoot, 'packages/domain/src/shared.ts');
-const SCANNED_ROOTS = ['apps', 'packages'];
+
+// Which roots the scan walks is `sourceFiles`, in `scripts/lib/source-files.mjs`,
+// and not a constant here. A copy of that list sat here unread until #543.
 
 /**
  * The six OGC shapes, spelled the way GeoJSON spells them.

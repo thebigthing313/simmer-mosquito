@@ -1,7 +1,6 @@
 import {
 	applyRecordDeletion,
 	assertWriteReferences,
-	type CatalogRecordType,
 	type CatalogReference,
 	checkedValues,
 } from '@simmer-mosquito/db';

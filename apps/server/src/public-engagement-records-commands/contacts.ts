@@ -2,7 +2,6 @@ import { applyRecordDeletion, applyRecordMerge } from '@simmer-mosquito/db';
 import {
 	createContactCommand,
 	deleteContactCommand,
-	mergeContactsCommand,
 	type PublicEngagementCommand,
 	updateContactCommunicationCommand,
 	updateContactDetailsCommand,

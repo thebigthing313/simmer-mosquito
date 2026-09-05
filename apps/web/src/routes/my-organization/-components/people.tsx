@@ -1,13 +1,3 @@
-import {
-	AlertDialog,
-	AlertDialogAction,
-	AlertDialogCancel,
-	AlertDialogContent,
-	AlertDialogDescription,
-	AlertDialogFooter,
-	AlertDialogHeader,
-	AlertDialogTitle,
-} from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
@@ -45,8 +35,8 @@ import {
 	usePeopleDirectory,
 } from '../../../hooks/queries/use-people-directory';
 import { errorMessageForSave } from '../../../lib/save-error';
-import { canManageRoles, canRemoveMember, grantableRoles } from '../../../lib/write-access';
-import { AddIcon, CloseIcon, DeleteIcon, EditIcon, ORG_ROLE_OPTIONS, SaveIcon } from './constants';
+import { canManageRoles, grantableRoles } from '../../../lib/write-access';
+import { AddIcon, CloseIcon, EditIcon, ORG_ROLE_OPTIONS, SaveIcon } from './constants';
 import {
 	formatRole,
 	requiredTextValue,

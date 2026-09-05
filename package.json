@@ -8,7 +8,7 @@
 		"build": "nx run-many -t build",
 		"changeset": "changeset",
 		"changeset:status": "changeset status --since=origin/staging",
-		"check": "biome check .",
+		"check": "biome check --error-on-warnings .",
 		"check:acknowledgements": "node scripts/check-acknowledgements.mjs",
 		"check:build-graph": "node scripts/check-build-graph.mjs",
 		"check:column-vocabularies": "node scripts/check-column-vocabularies.mjs",

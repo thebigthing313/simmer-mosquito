@@ -36,8 +36,7 @@ const PROFILE = '22222222-2222-4222-8222-222222222222';
 
 const spec = membershipTableCommands(undefined as never, unusableAuth()) as TableCommands<
 	'memberships',
-	// biome-ignore lint/suspicious/noExplicitAny: the union is the module's; only
-	// `payload.role` is read off a built command here.
+	// biome-ignore lint/suspicious/noExplicitAny: the union is the module's; only `payload.role` is read off a built command here.
 	any,
 	unknown,
 	string

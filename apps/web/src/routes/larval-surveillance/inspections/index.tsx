@@ -38,11 +38,7 @@ import {
 	type MapTileLayer,
 } from '../../../components/map';
 import { adhocLabel } from '../../../lib/coordinate-label';
-import {
-	DATE_RANGE_COUNTING,
-	searchValidator,
-	useSearchFilters,
-} from '../../../lib/search-filters';
+import { DATE_RANGE_COUNTING, searchValidator } from '../../../lib/search-filters';
 import {
 	DensityFilter,
 	type InspectionCatalogs,
