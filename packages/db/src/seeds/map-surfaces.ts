@@ -2,37 +2,38 @@ import { type RawBuilder, sql } from 'kysely';
 import type { DbExecutor } from '../index.js';
 
 /**
- * One agency's records, another agency's records, and the rows that must never
- * come back.
+ * One organization's records, another organization's records, and the rows that
+ * must never come back.
  *
  * `map-surface-sql.test.ts` pins the SQL every map read emits, which proves the
  * tenancy and soft-delete predicates are *written*. It cannot prove they
  * **work** — a predicate against the wrong alias, or a join that resurrects a
  * deleted parent, compiles to text that passes every assertion there and still
- * hands one agency another's habitats. Nothing runs these reads.
+ * hands one organization another's habitats. Nothing runs these reads.
  *
  * So this seeds each of the twelve map surfaces four times over, once per way a
  * read can be wrong:
  *
- * - `inside` — this agency's live record, inside {@link mapSurfacePlace.tile}
- *   and inside {@link mapSurfacePlace.bounds}. Every read must return it.
- * - `outside` — this agency's live record, far enough away to fall in neither.
- *   Only the unbounded reads (extent, page, by-id) may return it.
- * - `deleted` — this agency's soft-deleted record, in the same place as
+ * - `inside` — this organization's live record, inside {@link
+ *   mapSurfacePlace.tile} and inside {@link mapSurfacePlace.bounds}. Every read
+ *   must return it.
+ * - `outside` — this organization's live record, far enough away to fall in
+ *   neither. Only the unbounded reads (extent, page, by-id) may return it.
+ * - `deleted` — this organization's soft-deleted record, in the same place as
  *   `inside`. No read may ever return it.
- * - `deletedFar` — this agency's soft-deleted record, far outside the span of
- *   every live row. No read may return it, and the extent reads are the only
- *   ones that can say so: an extent answers with a box rather than a row set, so
- *   a resurrected record inside the span would not move it.
- * - `otherOrg` — the other agency's live record, in the same place as `inside`.
- *   No read may ever return it.
+ * - `deletedFar` — this organization's soft-deleted record, far outside the
+ *   span of every live row. No read may return it, and the extent reads are the
+ *   only ones that can say so: an extent answers with a box rather than a row
+ *   set, so a resurrected record inside the span would not move it.
+ * - `otherOrg` — the other organization's live record, in the same place as
+ *   `inside`. No read may ever return it.
  *
  * `deleted` and `otherOrg` sit on top of `inside` on purpose. A read that has
  * lost its scope does not fail quietly with them there — it answers with three
  * features where one was seeded, and the count is the assertion.
  */
 
-/** The two agencies: the one doing the reading, and the one that must stay invisible. */
+/** The two organizations: the one doing the reading, and the one that must stay invisible. */
 export const mapSurfaceOrganizationIds = {
 	own: '00000000-0000-4000-8000-000000000301',
 	other: '00000000-0000-4000-8000-000000000302',
@@ -126,7 +127,7 @@ export const mapSurfaceRowIds = Object.fromEntries(
 /**
  * A sample's geometry is its parent inspection's, so a sample can also be
  * orphaned by a delete it does not carry itself. This one is live, on this
- * agency, in the right place — and hangs off the deleted inspection.
+ * organization, in the right place — and hangs off the deleted inspection.
  */
 export const mapSurfaceSampleOnDeletedInspectionId = seedId(2, 6);
 
@@ -134,7 +135,7 @@ export const mapSurfaceSampleOnDeletedInspectionId = seedId(2, 6);
  * A collection on the *other* timing mode — an exact `collected_at` instant
  * rather than a plain date — placed so the two zones disagree about its day.
  *
- * `2026-03-16T02:30Z` is 10:30pm on the 15th in New York. An agency there
+ * `2026-03-16T02:30Z` is 10:30pm on the 15th in New York. An organization there
  * filters it under the 15th; a reader converting in UTC files it under the 16th
  * and drops it from any window that ends on the 15th. Nothing else in this seed
  * can catch that, because every other collection here is dated by a plain
@@ -154,8 +155,8 @@ export const mapSurfaceLateCollectionDates = {
  * A collection's date is keyed as a day and stored as an instant, and which
  * instant is the client's choice. Midday UTC — what it used to be — has twelve
  * hours of headroom, so it survives every zone strictly inside ±12 and no
- * further. An agency on `Pacific/Auckland` (UTC+12 in August) types the 4th and
- * the row is midnight on the 5th there.
+ * further. An organization on `Pacific/Auckland` (UTC+12 in August) types the
+ * 4th and the row is midnight on the 5th there.
  *
  * Both instants below are what `operationalDayAsInstant` in
  * `apps/web/src/lib/local-date.ts` produced for `2026-08-04`, before and after
@@ -176,7 +177,7 @@ const mapSurfaceStampedAt = {
 	utcMidday: new Date('2026-08-04T12:00:00.000Z'),
 } as const;
 
-/** The agency these are read back for. */
+/** The organization these are read back for. */
 export const mapSurfaceStampedTimeZone = 'Pacific/Auckland';
 
 /** The units the amount-bearing surfaces are measured in. Units are global. */
@@ -231,9 +232,9 @@ export async function seedMapSurfaces(db: DbExecutor): Promise<void> {
 
 // --- the lookups every surface row points at --------------------------------
 //
-// Each agency needs its own copy: an organization's records may only reference
-// that organization's methods and people, and a seed that shared them would be
-// testing a state the writers cannot produce.
+// Each organization needs its own copy: an organization's records may only
+// reference that organization's methods and people, and a seed that shared them
+// would be testing a state the writers cannot produce.
 
 /** The org-scoped rows a surface row's required foreign keys resolve to. */
 interface OrganizationRefs {
@@ -248,7 +249,7 @@ interface OrganizationRefs {
 	readonly contactId: string;
 }
 
-/** Derived from the organization id so the two agencies' lookups cannot collide. */
+/** Derived from the organization id so the two organizations' lookups cannot collide. */
 function organizationRefs(organizationId: string): OrganizationRefs {
 	const slot = organizationId === mapSurfaceOrganizationIds.own ? 1 : 2;
 	return {
@@ -277,8 +278,8 @@ async function seedOrganizationLookups(db: DbExecutor, organizationId: string): 
 		})
 		.execute();
 
-	// A registration always names a contact, so the notification surface needs one
-	// per agency before its rows can exist.
+	// A registration always names a contact, so the notification surface needs
+	// one per organization before its rows can exist.
 	await db
 		.insertInto('contacts')
 		.values({
@@ -687,7 +688,7 @@ export async function seedStampedCollections(db: DbExecutor): Promise<void> {
  * map where red means the crew already went back. `dateDurationDone` is
  * finished and has a null `collected_at`, because that is what date plus
  * duration stores; a status that took the null for "not emptied" without
- * checking the row's mode would paint every agency on that mode pending.
+ * checking the row's mode would paint every organization on that mode pending.
  *
  * The other four hold the ordering either side of those: `problem` beats
  * `zeroResult`, and an unflagged collection falls through to `collected`.

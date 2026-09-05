@@ -230,8 +230,9 @@ export const IMPORT_FILE_ACCEPT = [
  *
  * A KMZ is a zipped KML, so its document is unpacked here and the rest of the
  * file is never parsed. The archive is recognised by its bytes rather than its
- * extension: agencies pass these files around by email and a `.kmz` saved as
- * `.kml` (or the reverse) is common enough that the extension is not evidence.
+ * extension: organizations pass these files around by email and a `.kmz` saved
+ * as `.kml` (or the reverse) is common enough that the extension is not
+ * evidence.
  *
  * Throws when the archive can't be read; the message names what is wrong with
  * the file, so callers can render it as-is.

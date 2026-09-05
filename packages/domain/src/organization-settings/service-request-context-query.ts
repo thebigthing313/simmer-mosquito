@@ -2,11 +2,11 @@ import type { ServiceRequestContextSettings } from './types-and-defaults.js';
 
 /**
  * Meters per one unit of a distance unit, keyed by the `units.code` the org
- * setting stores. The `units` table carries no conversion factor, so this is the
- * canonical distance-unit → meters table. `mile` is the seeded default unit; the
- * rest cover the common distance units an agency might add. An unrecognized code
- * falls back to meters (factor 1) so a mis-set unit degrades to a literal amount
- * rather than throwing.
+ * setting stores. The `units` table carries no conversion factor, so this is
+ * the canonical distance-unit → meters table. `mile` is the seeded default
+ * unit; the rest cover the common distance units an organization might add. An
+ * unrecognized code falls back to meters (factor 1) so a mis-set unit degrades
+ * to a literal amount rather than throwing.
  */
 const METERS_PER_DISTANCE_UNIT: Readonly<Record<string, number>> = {
 	mile: 1609.344,

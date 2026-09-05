@@ -13,11 +13,11 @@ import { readMapTile } from './map-tile.js';
 // predicates that narrow the set differ; everything around those was written out
 // once per surface.
 //
-// The part that matters is not the repetition but what the repetition hid. Every
-// one of those reads must be scoped to the caller's agency and must exclude
-// soft-deleted rows (ADR 0008), and the spatial ones must narrow to the tile
-// envelope with the index-friendly `&&` before the exact `st_intersects`. That
-// predicate was typed by hand eleven times, in three different orders, and
+// The part that matters is not the repetition but what the repetition hid.
+// Every one of those reads must be scoped to the caller's organization and must
+// exclude soft-deleted rows (ADR 0008), and the spatial ones must narrow to the
+// tile envelope with the index-friendly `&&` before the exact `st_intersects`.
+// That predicate was typed by hand eleven times, in three different orders, and
 // nothing checked that the twelfth would remember it.
 //
 // Here a surface declares its table, its alias, its geometry and its filters, and
@@ -125,7 +125,7 @@ export interface MapRecordSurfaceReaders<TFilters, TRow> extends MapSurfaceReade
 	listPage(db: DbExecutor, input: MapPageInput<TFilters>): Promise<MapPageResult<TRow>>;
 	/** A filtered, offset-paged window inside an explicit bounding box. */
 	listByBounds(db: DbExecutor, input: MapBoundsPageInput<TFilters>): Promise<MapPageResult<TRow>>;
-	/** One row, or nothing when it is another agency's, deleted, or absent. */
+	/** One row, or nothing when it is another organization's, deleted, or absent. */
 	getById(db: DbExecutor, input: MapByIdInput): Promise<TRow | undefined>;
 }
 
@@ -253,8 +253,8 @@ export function mapRecordSurface<TFilters, TRow>(
  * Tenancy, soft delete, and whatever else the surface is always narrowed by.
  *
  * Every reader on every surface starts here — that is the whole point of the
- * factory. A read that answered without these would hand one agency another's
- * records, or resurrect rows the agency deleted.
+ * factory. A read that answered without these would hand one organization
+ * another's records, or resurrect rows the organization deleted.
  */
 function scopeWhere<TFilters>(
 	definition: MapSurfaceDefinition<TFilters>,

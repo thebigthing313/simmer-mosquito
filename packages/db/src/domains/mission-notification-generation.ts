@@ -42,8 +42,8 @@ import type { SimmerDatabase } from '../index.js';
  *
  * Carried on the refusal so the operator has somewhere to go. The unit codes
  * alone say what is wrong and not where it is: nothing lists registrations
- * across an agency, because they are managed from the contact that holds them,
- * so the contact id is what turns the refusal into a link.
+ * across an organization, because they are managed from the contact that holds
+ * them, so the contact id is what turns the refusal into a link.
  */
 export interface UnpriceableRegistration {
 	readonly registrationId: string;
@@ -56,9 +56,9 @@ export interface UnpriceableRegistration {
  * How many unpriceable registrations a refusal carries.
  *
  * The alert sits above a mission's notification list, and ten rows is the most
- * that still reads as a message rather than a page. An agency that has fifty of
- * them is not going to fix them from this card either way, so the rest are
- * counted instead of listed.
+ * that still reads as a message rather than a page. An organization that has
+ * fifty of them is not going to fix them from this card either way, so the rest
+ * are counted instead of listed.
  */
 export const UNPRICEABLE_REGISTRATION_CAP = 10;
 
@@ -73,7 +73,7 @@ export interface GenerateMissionNotificationsInput {
 	readonly organizationId: string;
 	readonly actorProfileId: string | null;
 	/**
-	 * Every distance unit the agency's registrations name, in metres.
+	 * Every distance unit the organization's registrations name, in metres.
 	 *
 	 * A unit missing from this list is a refusal, not a default. See
 	 * `requireConvertibleBufferUnits`.
@@ -166,10 +166,10 @@ export class MissionNotificationRefusedError extends Error {
 /**
  * The rows a refusal will carry, and how many it leaves out.
  *
- * Split out from the read because the arithmetic is what a wrong cap gets wrong:
- * `total` counts every unpriceable registration and the read is already limited,
- * so subtracting the limit rather than what was actually read reports a row not
- * shown on an agency that has exactly ten.
+ * Split out from the read because the arithmetic is what a wrong cap gets
+ * wrong: `total` counts every unpriceable registration and the read is already
+ * limited, so subtracting the limit rather than what was actually read reports
+ * a row not shown on an organization that has exactly ten.
  */
 export function capUnpriceableRegistrations(
 	rows: readonly UnpriceableRegistration[],
@@ -189,8 +189,8 @@ export function capUnpriceableRegistrations(
  * The units the caller has to price, as they are actually used.
  *
  * Read before generating so the caller can look each code up in the domain's
- * conversion table. Distinct unit ids across this agency's live registrations,
- * which is a much shorter list than the unit catalog.
+ * conversion table. Distinct unit ids across this organization's live
+ * registrations, which is a much shorter list than the unit catalog.
  */
 export async function readRegistrationBufferUnits(
 	trx: Transaction<SimmerDatabase>,
@@ -300,10 +300,11 @@ async function readMission(
  * checks it is a uuid and that it arrives with a distance, so a volume unit
  * picked from a list reaches here intact.
  *
- * The refusal is agency-wide rather than scoped to this mission, and that is
- * deliberate even though it blocks every mission until somebody fixes the unit.
- * Scoping it would mean deciding which registrations are near enough to matter,
- * which is the question the missing catchment is what stops us answering.
+ * The refusal is organization-wide rather than scoped to this mission, and that
+ * is deliberate even though it blocks every mission until somebody fixes the
+ * unit. Scoping it would mean deciding which registrations are near enough to
+ * matter, which is the question the missing catchment is what stops us
+ * answering.
  */
 async function requireConvertibleBufferUnits(
 	trx: Transaction<SimmerDatabase>,

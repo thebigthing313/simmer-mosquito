@@ -55,7 +55,7 @@ import {
 export type RoleInput = SimmerRole | undefined;
 
 /**
- * Inviting somebody into the agency.
+ * Inviting somebody into the organization.
  *
  * `profileId` is the Profile the login attaches to, and it is one id either way:
  * an existing historical Profile the invite dialog picked, or one the client

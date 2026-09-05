@@ -7,11 +7,11 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
  * The strip that names a non-production deployment, above everything else on the
  * page so it is the first thing on screen and cannot be scrolled away.
  *
- * Staging shows agency staff a clone of their own data, running code that has
- * not shipped, on a database the next refresh replaces. Two failures follow from
- * a user who does not know that: a staging bug filed as a production support
- * ticket, and an afternoon of real work typed into a copy. Neither is fixable
- * afterwards, so the banner is not dismissible.
+ * Staging shows organization staff a clone of their own data, running code that
+ * has not shipped, on a database the next refresh replaces. Two failures follow
+ * from a user who does not know that: a staging bug filed as a production
+ * support ticket, and an afternoon of real work typed into a copy. Neither is
+ * fixable afterwards, so the banner is not dismissible.
  *
  * The refusal sentence repeats what the server answers with. Staging performs no
  * WorkOS identity writes, so those commands return 403

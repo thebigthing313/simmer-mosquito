@@ -15,8 +15,8 @@
  * rows are not going anywhere; they will read differently. The counting and the
  * entry shape are the same, and the refusal reaches the client as the same
  * `acknowledgement_required` body, but the sentence is the opposite one, so
- * sharing the clearance's error class would tell an agency its history was
- * being deleted when it was being relabelled.
+ * sharing the clearance's error class would tell an organization its history
+ * was being deleted when it was being relabelled.
  *
  * ## Where the citing tables come from
  *
@@ -92,12 +92,13 @@ export class HistoryAcknowledgementRequiredError extends Error {
 
 /**
  * Thrown by `assertNoColliding` when the write would produce a second record
- * carrying a value the agency already uses, and the confirmation was withheld.
+ * carrying a value the organization already uses, and the confirmation was
+ * withheld.
  *
  * A collision is not a citation: the rows it counts do not read under the value
  * being written, they compete with it. Same body on the wire, separate class,
- * because a caller that reached for the wrong one would tell the agency its
- * history was being rewritten by a duplicate trap code.
+ * because a caller that reached for the wrong one would tell the organization
+ * its history was being rewritten by a duplicate trap code.
  */
 export class CollisionAcknowledgementRequiredError extends Error {
 	readonly acknowledgement: 'acknowledgedDuplicateTrapCode';
@@ -122,8 +123,8 @@ export class CollisionAcknowledgementRequiredError extends Error {
  *
  * `subject` completes "already read under this ___" and is the domain noun for
  * the record being changed, not the table. `message` replaces the sentence
- * outright, for the taxonomy, whose rows belong to every agency and need to say
- * so.
+ * outright, for the taxonomy, whose rows belong to every organization and need
+ * to say so.
  *
  * @throws HistoryAcknowledgementRequiredError when rows cited the record and
  * `acknowledged` was not true.
@@ -158,7 +159,7 @@ export async function assertHistoryAcknowledged(
 }
 
 /**
- * Refuse a write whose value already belongs to another of the agency's
+ * Refuse a write whose value already belongs to another of the organization's
  * records, when its confirmation was withheld.
  *
  * Only `acknowledgedDuplicateTrapCode` uses it. Trap codes are indexed but not

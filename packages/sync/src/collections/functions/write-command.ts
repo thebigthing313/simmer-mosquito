@@ -1,10 +1,11 @@
 /**
  * The HTTP half of a collection write.
  *
- * Every agency command endpoint answers the same way — a JSON body carrying a
- * `txid` on success, a `reason`/`message` on refusal — so the request, the
- * refusal, and the txid read are the same three lines for every table. What
- * differs per table is the URL and the body, and both are arguments.
+ * Every organization command endpoint answers the same way — a JSON body
+ * carrying a `txid` on success, a `reason`/`message` on refusal — so the
+ * request, the refusal, and the txid read are the same three lines for every
+ * table. What differs per table is the URL and the body, and both are
+ * arguments.
  *
  * Authorization and the authoritative validation both live on the server: it
  * resolves the actor from the session cookie, re-runs the domain builder over

@@ -54,8 +54,9 @@ describe('createAppAuthController', () => {
 
 		getAuthMe.mockRejectedValueOnce(new Error('Failed to fetch'));
 
-		// `refresh` is what the enter-agency flow calls after re-sealing a session.
-		// A blip there must not read as "signed out" when we already know better.
+		// `refresh` is what the enter-organization flow calls after re-sealing a
+		// session. A blip there must not read as "signed out" when we already know
+		// better.
 		await expect(controller.refresh()).resolves.toMatchObject({ authenticated: true });
 		await expect(controller.load()).resolves.toMatchObject({ authenticated: true });
 	});
@@ -93,8 +94,8 @@ describe('createAppAuthController', () => {
 	});
 
 	// The reason `refresh` and `renew` are two things. Signing in and entering an
-	// agency re-seal the cookie and then ask who they are; an answer from a round
-	// trip sent before the change describes the session they left.
+	// organization re-seal the cookie and then ask who they are; an answer from a
+	// round trip sent before the change describes the session they left.
 	it('never serves a caller that changed the session an answer from before it', async () => {
 		let release: (answer: AuthMe) => void = () => undefined;
 		const before = new Promise<AuthMe>((resolve) => {
@@ -260,9 +261,9 @@ describe('createAppAuthController', () => {
 	});
 
 	it('changes the session inside the same lock', async () => {
-		// Entering an agency re-seals the session, so it spends the token a renewal
-		// spends. Serializing it against this tab's renewals (#301) does nothing
-		// about the tab next door.
+		// Entering an organization re-seals the session, so it spends the token a
+		// renewal spends. Serializing it against this tab's renewals (#301) does
+		// nothing about the tab next door.
 		const { locks, held } = fakeLocks();
 		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(SIGNED_IN);
 		const controller = createAppAuthController({ getAuthMe, locks });

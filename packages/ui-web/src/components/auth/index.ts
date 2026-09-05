@@ -1,12 +1,12 @@
 /**
  * The parts of a sign-in form that both front doors share.
  *
- * The agency workspace (`apps/web`) and the operator console (`apps/admin`) run
- * the same in-app email + password flow against the same public `/auth/*`
- * endpoints (ADR 0010), and `@simmer-mosquito/auth/browser` already gives them
- * one typed outcome union. What they had written twice was the UI that renders
- * it: the destructive alert, the credentials fieldset with its autofill hints,
- * and the verification-code step.
+ * The organization workspace (`apps/web`) and the operator console
+ * (`apps/admin`) run the same in-app email + password flow against the same
+ * public `/auth/*` endpoints (ADR 0010), and `@simmer-mosquito/auth/browser`
+ * already gives them one typed outcome union. What they had written twice was
+ * the UI that renders it: the destructive alert, the credentials fieldset with
+ * its autofill hints, and the verification-code step.
  *
  * Fields only — no shell, no navigation, no `fetch`. What each app keeps is what
  * genuinely differs: its own front door (web's map-room stage, the console's

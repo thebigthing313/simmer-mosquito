@@ -81,13 +81,13 @@ export function syncedColumnsOf(schema: z.ZodObject<z.ZodRawShape>): readonly st
  * **`date` is absent on purpose. Do not add it.** A `date` column is a calendar
  * day, and every way of turning one into a `Date` picks a timezone the column
  * does not have: `new Date('2026-08-14')` is UTC midnight, the previous day for
- * every agency west of Greenwich, and local midnight makes the stored value
- * differ between two clients reading the same row. Left alone it stays the
- * `YYYY-MM-DD` string Postgres sent — fixed-width and zero-padded, so
- * lexicographic order *is* chronological order, equality is `===`, and the subset
- * compiler emits `'2026-08-14'`, exactly the literal a `date` column wants.
- * `Temporal.PlainDate` would say all of that in the type system rather than in
- * this comment, and cannot be used yet: see issue #161.
+ * every organization west of Greenwich, and local midnight makes the stored
+ * value differ between two clients reading the same row. Left alone it stays
+ * the `YYYY-MM-DD` string Postgres sent — fixed-width and zero-padded, so
+ * lexicographic order *is* chronological order, equality is `===`, and the
+ * subset compiler emits `'2026-08-14'`, exactly the literal a `date` column
+ * wants. `Temporal.PlainDate` would say all of that in the type system rather
+ * than in this comment, and cannot be used yet: see issue #161.
  *
  * `timestamptz` does need parsing. Its Postgres text form is neither fixed-width
  * nor normalized, so string comparison misorders silently instead of failing, and
@@ -100,8 +100,8 @@ const shapeParsers = {
 };
 
 /**
- * The session cookie is the whole authorization story; nothing about the agency
- * travels in the request itself.
+ * The session cookie is the whole authorization story; nothing about the
+ * organization travels in the request itself.
  *
  * Annotated `typeof fetch` rather than given parameter types of its own. Electric
  * declares `fetchClient?: typeof fetch`, whose first parameter is

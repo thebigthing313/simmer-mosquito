@@ -196,12 +196,12 @@ function daysAgo(value: Date): number {
 }
 
 /**
- * The path that matters once real accounts exist: an agency already has people,
- * invited into it with roles somebody chose, and the fixtures have to belong to
- * *them* — an assignment "assigned to the collector" is no use if it is assigned
- * to a stand-in the tester cannot sign in as.
+ * The path that matters once real accounts exist: an organization already has
+ * people, invited into it with roles somebody chose, and the fixtures have to
+ * belong to *them* — an assignment "assigned to the collector" is no use if it
+ * is assigned to a stand-in the tester cannot sign in as.
  */
-describeDbIntegration('role ladder fixtures over an existing agency', () => {
+describeDbIntegration('role ladder fixtures over an existing organization', () => {
 	it('attaches the fixtures to profiles that are already there', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganizationWithCollector(db);
@@ -261,10 +261,10 @@ describeDbIntegration('role ladder fixtures over an existing agency', () => {
 		});
 	});
 
-	it('does not rename the agency it is pointed at', async () => {
+	it('does not rename the organization it is pointed at', async () => {
 		await withTestDb(async ({ db }) => {
-			// The footgun: an upsert that set the name would rebrand a live agency
-			// "Role Ladder Test District" on the way past.
+			// The footgun: an upsert that set the name would rebrand a live
+			// organization "Role Ladder Test District" on the way past.
 			const org = await createOrganizationWithCollector(db);
 
 			await seedRoleLadder(db, { organizationId: org.organizationId });

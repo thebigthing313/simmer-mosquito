@@ -34,7 +34,7 @@
  *
  * A subset is derived from its array, never typed out. `RANGE_DENSITIES` is
  * `LARVAL_DENSITIES` without `none`, because the four bands with a
- * larvae-per-dip range are the ones an agency configures.
+ * larvae-per-dip range are the ones an organization configures.
  *
  * ## What holds this to the database
  *
@@ -46,7 +46,7 @@
  * declaring them, so a column whose type is not registered does not compile.
  */
 
-/** How an agency dates an Adult Collection, per `organization_settings`. */
+/** How an organization dates an Adult Collection, per `organization_settings`. */
 export const ADULT_COLLECTION_TIMING_MODES = [
 	'exact_timestamps',
 	'collection_date_duration',
@@ -64,14 +64,15 @@ export type InsecticideType = (typeof INSECTICIDE_TYPES)[number];
 /**
  * The Larval Density bands, weakest first.
  *
- * The bands are larvae per dip and the thresholds are an agency setting, so a
- * band is a reading rather than a count. An Inspection Sample records dips.
+ * The bands are larvae per dip and the thresholds are an organization setting,
+ * so a band is a reading rather than a count. An Inspection Sample records
+ * dips.
  */
 export const LARVAL_DENSITIES = ['none', 'light', 'medium', 'heavy', 'very_heavy'] as const;
 export type LarvalDensity = (typeof LARVAL_DENSITIES)[number];
 
 /**
- * The four bands an agency gives a larvae-per-dip range.
+ * The four bands an organization gives a larvae-per-dip range.
  *
  * `none` has no range: it is what a sample with no larvae reads as, so a
  * threshold for it would be a threshold of zero.

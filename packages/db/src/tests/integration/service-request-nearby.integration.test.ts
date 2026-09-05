@@ -58,7 +58,7 @@ describeDbIntegration('service-request nearby', () => {
 	// The nearby view is date-bounded, so the same failure as the collections
 	// explorer applies here: a collection emptied in the evening converts to the
 	// next day in the database server's zone and falls out of the window.
-	it('dates a collection by the agency’s day, not the database server’s', async () => {
+	it('dates a collection by the organization’s day, not the database server’s', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await db
 				.insertInto('organizations')

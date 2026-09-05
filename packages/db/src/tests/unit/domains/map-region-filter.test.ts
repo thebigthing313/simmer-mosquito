@@ -15,12 +15,12 @@ import type { SimmerDatabase } from '../../../index.js';
 // The region filter is a spatial predicate spread across nine map readers, each
 // with its own table alias. These compile the SQL — no database — to prove the
 // predicate lands on the right geometry and, above all, that the region set is
-// scoped to the record's own agency: a filter that skipped that would let a
-// guessed region id from another agency widen a tenant-scoped read.
+// scoped to the record's own organization: a filter that skipped that would let
+// a guessed region id from another organization widen a tenant-scoped read.
 
 const organizationId = '9a3d9e12-2a1c-4d5f-8f2b-6d0f47a03c31';
-// The agency's zone. Named rather than defaulted so a collection read that
-// stopped converting `collected_at` would change the SQL these assert on.
+// The organization's zone. Named rather than defaulted so a collection read
+// that stopped converting `collected_at` would change the SQL these assert on.
 const timeZone = 'America/New_York';
 const regionIds = ['b7c0c1d4-8f43-4f6a-9d21-5f9a7b2e14aa', 'c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f'];
 
@@ -56,7 +56,7 @@ describe('region membership filter', () => {
 			'a',
 			'a',
 		],
-	])('scopes the %s read to regions of the same agency', async (_surface, read, geomAlias, tenancyAlias) => {
+	])('scopes the %s read to regions of the same organization', async (_surface, read, geomAlias, tenancyAlias) => {
 		const { db, queries } = compilingDatabase();
 
 		await read(db);

@@ -17,9 +17,9 @@ import type { DbExecutor } from '../index.js';
  * which would have detached a species from its genus on any edit that did not
  * restate it.
  *
- * What is left is the reads the operator console's per-agency foundations view
- * needs. `listUnits` is not among them — the console reads units through their
- * Electric shape like every other table.
+ * What is left is the reads the operator console's per-organization foundations
+ * view needs. `listUnits` is not among them — the console reads units through
+ * their Electric shape like every other table.
  */
 export interface SafeGenus {
 	readonly id: string;

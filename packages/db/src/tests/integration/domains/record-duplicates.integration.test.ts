@@ -16,8 +16,8 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
  * shared name survives a difference in case and padding, whether two rows a few
  * metres apart cluster while two rows a street apart do not, and whether the
  * organization and soft-delete filters hold. A proposal that includes another
- * agency's row, or a row that is already gone, is worse than no proposal at all,
- * because the merge it leads to names ids the writer will refuse.
+ * organization's row, or a row that is already gone, is worse than no proposal
+ * at all, because the merge it leads to names ids the writer will refuse.
  */
 describeDbIntegration('duplicate candidates', () => {
 	it('groups addresses that share a display name, ignoring case and padding', async () => {
@@ -150,7 +150,7 @@ describeDbIntegration('duplicate candidates', () => {
 		});
 	});
 
-	it('never proposes a row from another agency or a row that is already deleted', async () => {
+	it('never proposes a row from another organization or a row that is already deleted', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'duplicates_scope');
 			const other = await createOrganization(db, 'duplicates_other');
@@ -238,10 +238,10 @@ describeDbIntegration('duplicate candidates', () => {
  * Two records for one catch basin agree about nothing except where they are, so
  * this is the only evidence a habitat merge has. Every question here is one the
  * SQL answers: whether the radius means metres at this latitude, whether the
- * agency and soft-delete filters hold, and whether the habitat being kept is
- * excluded from its own answer. A search that returned the target would offer a
- * merge of a record into itself, which the domain refuses after the user has
- * committed to it.
+ * organization and soft-delete filters hold, and whether the habitat being kept
+ * is excluded from its own answer. A search that returned the target would
+ * offer a merge of a record into itself, which the domain refuses after the
+ * user has committed to it.
  */
 describeDbIntegration('nearby habitats', () => {
 	it('answers the habitats inside the radius, nearest first, and not itself', async () => {
@@ -291,7 +291,7 @@ describeDbIntegration('nearby habitats', () => {
 		});
 	});
 
-	it('never answers with another agency habitat or one already deleted', async () => {
+	it('never answers with another organization habitat or one already deleted', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'nearby_scope');
 			const other = await createOrganization(db, 'nearby_other');
@@ -362,7 +362,7 @@ describeDbIntegration('nearby habitats', () => {
 		});
 	});
 
-	it('answers nothing at all for a habitat this agency does not have', async () => {
+	it('answers nothing at all for a habitat this organization does not have', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'nearby_missing');
 			const other = await createOrganization(db, 'nearby_missing_other');

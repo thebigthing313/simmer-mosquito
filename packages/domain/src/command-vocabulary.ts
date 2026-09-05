@@ -143,8 +143,9 @@ export type DomainCommandType =
  * The global taxonomy names (`createGenus`, `updateSpecies` and their siblings)
  * appear only in `command-permissions.ts`. Their routes under `/admin` call
  * `createGenusWithTxid` and the like directly, with hand-written payload
- * readers, so no route ever builds one of these commands. They are also operator
- * writes rather than agency ones, which is why nothing has needed them yet.
+ * readers, so no route ever builds one of these commands. They are also
+ * operator writes rather than organization ones, which is why nothing has
+ * needed them yet.
  */
 export type MultiRowCommandType =
 	// Many rows the command names: a move restacks an id list, a merge retires one.

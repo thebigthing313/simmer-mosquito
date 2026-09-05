@@ -3,10 +3,10 @@ import type { SpeciesKeyBinding, SpeciesKeyBindings } from './types-and-defaults
 import { DEFAULT_SPECIES_KEY_BINDINGS } from './types-and-defaults.js';
 
 /**
- * Characters an agency may bind to a species. Letters and digits only: they are
- * layout-stable across keyboards, legible on a printed bench sheet, and leave the
- * editing keys free. Bindings are stored and compared lowercase, so a binding fires
- * whether or not caps lock is on.
+ * Characters an organization may bind to a species. Letters and digits only:
+ * they are layout-stable across keyboards, legible on a printed bench sheet,
+ * and leave the editing keys free. Bindings are stored and compared lowercase,
+ * so a binding fires whether or not caps lock is on.
  */
 export const BINDABLE_KEY_CHARACTERS = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
@@ -28,7 +28,7 @@ export const RESERVED_ENTRY_KEYS: readonly string[] = [
 
 const BINDABLE_KEY_SET = new Set(BINDABLE_KEY_CHARACTERS.split(''));
 
-/** True when a raw `KeyboardEvent.key` is a character an agency may bind. */
+/** True when a raw `KeyboardEvent.key` is a character an organization may bind. */
 export function isBindableKey(key: string): boolean {
 	return key.length === 1 && BINDABLE_KEY_SET.has(key.toLowerCase());
 }
@@ -176,9 +176,9 @@ export function resolveSpeciesKeyBindings(
 }
 
 /**
- * The scope seam. v1 stores one binding set per agency; a personal set can be layered
- * in later by passing it here, and every caller — modal, settings page, cheat sheet —
- * keeps reading through this one function.
+ * The scope seam. v1 stores one binding set per organization; a personal set can be
+ * layered in later by passing it here, and every caller — modal, settings page, cheat
+ * sheet — keeps reading through this one function.
  */
 export function resolveEffectiveSpeciesKeyBindings(input: {
 	readonly organization: SpeciesKeyBindings;

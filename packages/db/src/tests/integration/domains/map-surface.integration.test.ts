@@ -82,16 +82,16 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
 // `map-surface-sql.test.ts` compiles all forty-one map reads and pins the SQL,
 // which proves ADR 0008's tenancy and soft-delete predicates are written. It
 // pins text, not execution: no read in this package has ever been run against
-// Postgres, so a predicate on the wrong alias, a join that outlives its parent's
-// delete, or an envelope that frames the wrong corner would keep that suite
-// green and hand one agency another agency's records.
+// Postgres, so a predicate on the wrong alias, a join that outlives its
+// parent's delete, or an envelope that frames the wrong corner would keep that
+// suite green and hand one organization another organization's records.
 //
 // This runs every one of them. The seed puts each surface's live record on top
-// of a deleted one and a neighbouring agency's, so a read that lost its scope
-// answers with three where one was seeded — the returned id set is the whole
-// assertion, and it is compared for all twelve surfaces at once so a broken
-// predicate shows up as a diff naming its surface rather than one failure that
-// stops the loop.
+// of a deleted one and a neighbouring organization's, so a read that lost its
+// scope answers with three where one was seeded — the returned id set is the
+// whole assertion, and it is compared for all twelve surfaces at once so a
+// broken predicate shows up as a diff naming its surface rather than one
+// failure that stops the loop.
 //
 // Filters are deliberately absent. Every read is called with no filters at all,
 // which is the state the predicates under test must hold in unaided; what each
@@ -136,9 +136,9 @@ interface SurfaceUnderTest {
 }
 
 /**
- * The agency zone every surface is read in. Deliberately not UTC: a surface that
- * stopped converting `collected_at` would still pass under UTC, because UTC is
- * exactly the wrong answer this issue is about.
+ * The organization zone every surface is read in. Deliberately not UTC: a
+ * surface that stopped converting `collected_at` would still pass under UTC,
+ * because UTC is exactly the wrong answer this issue is about.
  */
 const mapSurfaceTimeZone = 'America/New_York';
 
@@ -238,7 +238,7 @@ const surfaces: readonly SurfaceUnderTest[] = [
 const page = { limit: 50, offset: 0 };
 
 describeDbIntegration('map surfaces against Postgres', () => {
-	it('draws only this agency’s live records inside the tile', async () => {
+	it('draws only this organization’s live records inside the tile', async () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
 
@@ -255,8 +255,8 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			);
 
 			// One id per surface: the outside record is in another tile, and the
-			// deleted and neighbouring-agency records sit exactly on top of the one
-			// that should be drawn.
+			// deleted and neighbouring-organization records sit exactly on top of the
+			// one that should be drawn.
 			expect(drawn).toEqual(
 				expectedPerSurface(
 					(ids) => [ids.inside],
@@ -295,7 +295,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 		});
 	});
 
-	it('frames every live record of this agency and no other', async () => {
+	it('frames every live record of this organization and no other', async () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
 
@@ -328,8 +328,8 @@ describeDbIntegration('map surfaces against Postgres', () => {
 							east: round(mapSurfacePlace.inside.lng + padding),
 							north: round(mapSurfacePlace.outside.lat + padding),
 						},
-						// The neighbouring agency seeded one record, at `inside`. Its
-						// camera must frame that and never this agency's `outside`.
+						// The neighbouring organization seeded one record, at `inside`. Its
+						// camera must frame that and never this organization's `outside`.
 						other: {
 							west: round(mapSurfacePlace.inside.lng - padding),
 							south: round(mapSurfacePlace.inside.lat - padding),
@@ -343,7 +343,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 		});
 	});
 
-	it('lists this agency’s live records, viewport-bounded or not', async () => {
+	it('lists this organization’s live records, viewport-bounded or not', async () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
 
@@ -360,7 +360,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			);
 
 			// Unbounded: `outside` belongs in the result rail even though it is off
-			// screen. Deleted and the other agency's never do.
+			// screen. Deleted and the other organization's never do.
 			expect(paged).toEqual(
 				expectedPerSurface(
 					(ids) => ({ ids: [ids.inside, ids.outside].sort(), total: 2 }),
@@ -426,10 +426,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 	});
 
 	// A `timestamptz` becomes a calendar date in whichever zone does the
-	// converting, and the database server's is not the agency's. This is worse
-	// than a mislabelled row: at the edge of a window the collection falls
+	// converting, and the database server's is not the organization's. This is
+	// worse than a mislabelled row: at the edge of a window the collection falls
 	// *outside the range that was asked for* and is simply absent.
-	it('windows a collection by the agency’s day, not the database server’s', async () => {
+	it('windows a collection by the organization’s day, not the database server’s', async () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
 			await seedLateCollection(db);
@@ -455,9 +455,9 @@ describeDbIntegration('map surfaces against Postgres', () => {
 	});
 
 	// The other half of the same seam. The test above proves the *reader* takes
-	// the agency's zone; this one proves the *stamp* the client writes agrees with
-	// it. Both are correct in isolation and were written months apart — issue #156
-	// is what happened in between, and it lived entirely in the gap.
+	// the organization's zone; this one proves the *stamp* the client writes
+	// agrees with it. Both are correct in isolation and were written months apart
+	// — issue #156 is what happened in between, and it lived entirely in the gap.
 	it('files a typed day under that day, from a zone past +12', async () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
@@ -536,10 +536,10 @@ describeDbIntegration('map surfaces against Postgres', () => {
 		await withTestDb(async ({ db }) => {
 			await seedMapSurfaces(db);
 
-			// The sample itself is live and this agency's — only its parent is gone.
-			// Samples read their geometry through that join, so without the join's
-			// own soft-delete predicate this row would draw at a place its agency
-			// no longer has a record for.
+			// The sample itself is live and this organization's — only its parent is
+			// gone. Samples read their geometry through that join, so without the
+			// join's own soft-delete predicate this row would draw at a place its
+			// organization no longer has a record for.
 			const opened = await getSampleDisplayRowById(db, {
 				organizationId: mapSurfaceOrganizationIds.own,
 				id: mapSurfaceSampleOnDeletedInspectionId,

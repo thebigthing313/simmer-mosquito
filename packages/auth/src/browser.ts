@@ -12,11 +12,12 @@
  * `/auth/me`. It imports nothing from `@workos-inc/node` and is exported as a
  * separate subpath so a browser bundle never reaches the server SDK.
  *
- * Both front ends need it. The agency workspace signs agency staff in; the
- * operator console signs operators in against the same endpoints (`/auth/*` CORS
- * already admits `ADMIN_APP_ORIGIN`). Written twice, the two copies of the
- * outcome parsing drifted immediately — an outcome the server can return but one
- * client does not name is a silent dead end for the user in front of it.
+ * Both front ends need it. The organization workspace signs organization staff
+ * in; the operator console signs operators in against the same endpoints
+ * (`/auth/*` CORS already admits `ADMIN_APP_ORIGIN`). Written twice, the two
+ * copies of the outcome parsing drifted immediately — an outcome the server can
+ * return but one client does not name is a silent dead end for the user in
+ * front of it.
  *
  * The server URL is injected rather than read from `import.meta.env` here: this
  * module is environment-agnostic, and each app already owns that decision (web
@@ -75,7 +76,7 @@ export interface VerificationRequiredOutcome {
  *
  * `refused` is its own outcome rather than an error because it is the expected
  * answer, not a fault: the membership check is WorkOS's, and "you are not in
- * that agency" is exactly what the caller needs to show.
+ * that organization" is exactly what the caller needs to show.
  */
 export type SwitchOrganizationOutcome =
 	| { readonly status: 'switched' }
@@ -373,8 +374,8 @@ export function createAuthClient(options: {
 	 * Not the same thing as {@link selectOrganization}, which resolves a sign-in
 	 * that has not finished yet. This one has nothing pending: the caller is
 	 * signed in and wants to be somewhere else, which is how a SIMMER Operator
-	 * holding an agency membership comes to hold an ordinary agency session
-	 * (ADR 0011).
+	 * holding an organization membership comes to hold an ordinary organization
+	 * session (ADR 0011).
 	 */
 	async function switchOrganization(input: {
 		readonly organizationId: string;
@@ -559,8 +560,9 @@ export interface AppAuthController {
 	readonly snapshot: AuthMe | null;
 	readonly load: () => Promise<AuthMe>;
 	/**
-	 * Ask now, for a caller that has just changed the session and needs the answer
-	 * for the session it changed to. Signing in and entering an agency both do.
+	 * Ask now, for a caller that has just changed the session and needs the
+	 * answer for the session it changed to. Signing in and entering an
+	 * organization both do.
 	 */
 	readonly refresh: () => Promise<AuthMe>;
 	/**
@@ -573,24 +575,24 @@ export interface AppAuthController {
 	/**
 	 * Run something that changes the session, with no renewal overlapping it.
 	 *
-	 * Entering an agency re-seals the session against another organization, which
-	 * spends the same single-use refresh token a renewal spends. #298 gave
-	 * rotation to one endpoint; this is the other write that was left outside that
-	 * rule, and running the two at once is WorkOS's reuse signature (#301).
+	 * Entering an organization re-seals the session against another organization,
+	 * which spends the same single-use refresh token a renewal spends. #298 gave
+	 * rotation to one endpoint; this is the other write that was left outside
+	 * that rule, and running the two at once is WorkOS's reuse signature (#301).
 	 *
-	 * **The operation must be the session-changing call and nothing else.** It must
-	 * not call `renew` or `refresh`, and must not issue a request that can renew:
-	 * `sessionFetch` answers a 401 by renewing. All three take the same
+	 * **The operation must be the session-changing call and nothing else.** It
+	 * must not call `renew` or `refresh`, and must not issue a request that can
+	 * renew: `sessionFetch` answers a 401 by renewing. All three take the same
 	 * browser-wide lock this is holding, and that lock is not reentrant, so the
 	 * operation would wait on the exchange that is waiting on it. Ask afterwards
-	 * instead, which is what the enter-agency flow does.
+	 * instead, which is what the enter-organization flow does.
 	 *
-	 * The wait is bounded, so this costs seconds rather than the page, but seconds
-	 * on every agency entry is still a bug. It is stated rather than prevented
-	 * because both preventions are worse: a shorter timeout weakens the ordering
-	 * this exists to guarantee, and a flag cannot tell a renewal called from inside
-	 * the operation apart from one that merely happened at the same time, which is
-	 * the race being fixed.
+	 * The wait is bounded, so this costs seconds rather than the page, but
+	 * seconds on every organization entry is still a bug. It is stated rather
+	 * than prevented because both preventions are worse: a shorter timeout
+	 * weakens the ordering this exists to guarantee, and a flag cannot tell a
+	 * renewal called from inside the operation apart from one that merely
+	 * happened at the same time, which is the race being fixed.
 	 */
 	readonly exchange: <T>(operation: () => Promise<T>) => Promise<T>;
 	readonly subscribe: (listener: () => void) => () => void;
@@ -647,7 +649,7 @@ export function sessionLostDestination(options: {
  * When that answers "no", the session is genuinely gone, and the workspace has
  * to stop pretending otherwise: `renew()` records the refusal, which is what
  * lets the shell see a signed-out snapshot instead of reading an empty synced
- * collection as a broken agency (#299).
+ * collection as a broken organization (#299).
  *
  * `onSessionLost` is the app's, because only the app knows where its sign-in
  * surface is, and it is called once for a loss however many collections were
@@ -857,10 +859,11 @@ export function createAppAuthController(options: {
 	 * The promise is dropped as soon as it settles: callers arriving later want
 	 * the current answer, not this one.
 	 *
-	 * Separate from `refresh()` rather than replacing it, because sharing is wrong
-	 * for the caller that has just *changed* the session. Signing in and entering
-	 * an agency both re-seal the cookie and then ask who they are; joining a round
-	 * trip sent before the change would answer for the session they left.
+	 * Separate from `refresh()` rather than replacing it, because sharing is
+	 * wrong for the caller that has just *changed* the session. Signing in and
+	 * entering an organization both re-seal the cookie and then ask who they are;
+	 * joining a round trip sent before the change would answer for the session
+	 * they left.
 	 */
 	function renew(): Promise<AuthMe> {
 		pending ??= serialize(ask).finally(() => {

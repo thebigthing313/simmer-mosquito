@@ -23,9 +23,9 @@ import {
  *   SIMMER_ROLE_LADDER_MANAGER=user_01DEF…
  *
  * `SIMMER_ROLE_LADDER_WORKOS_ORGANIZATION_ID` is the WorkOS organization these
- * accounts belong to. Sign-in reads the agency from WorkOS, so without it the
- * seeded roles are unreachable: the accounts sign in to whichever agency WorkOS
- * has them in, and arrive there as viewers.
+ * accounts belong to. Sign-in reads the organization from WorkOS, so without it
+ * the seeded roles are unreachable: the accounts sign in to whichever
+ * organization WorkOS has them in, and arrive there as viewers.
  *
  * Anyone omitted still gets a profile and a membership. That is enough to be an
  * assignee, to author a comment, and to be the subject of an API-driven check;
@@ -107,10 +107,10 @@ try {
 	const organizationId =
 		process.env.SIMMER_ROLE_LADDER_ORGANIZATION_ID ?? ROLE_LADDER_ORGANIZATION_ID;
 
-	// When pointed at an agency that already has people — real accounts invited
-	// into a real organization — attach the fixtures to *their* profiles rather
-	// than to stand-ins. An assignment "assigned to the collector" is no use if
-	// it is assigned to somebody the tester cannot sign in as.
+	// When pointed at an organization that already has people — real accounts
+	// invited into a real organization — attach the fixtures to *their* profiles
+	// rather than to stand-ins. An assignment "assigned to the collector" is no
+	// use if it is assigned to somebody the tester cannot sign in as.
 	const existing = await resolveExistingProfiles(db, organizationId);
 	const existingProfileIds: ExistingProfileIds = {};
 	if (Object.keys(existing).length > 0) {
@@ -148,7 +148,7 @@ try {
 	if (!hasWorkosOrganization) {
 		console.log(
 			'\nNo SIMMER_ROLE_LADDER_WORKOS_ORGANIZATION_ID, so this organization has a ' +
-				'placeholder WorkOS id and cannot be signed into. Sign-in resolves the agency from ' +
+				'placeholder WorkOS id and cannot be signed into. Sign-in resolves the organization from ' +
 				'WorkOS, so these accounts land wherever WorkOS puts them and are provisioned as ' +
 				'viewers. Set it to sign in as these roles.',
 		);

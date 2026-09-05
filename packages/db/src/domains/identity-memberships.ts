@@ -243,8 +243,8 @@ export async function assertOrganizationProfileCanBeInvited(
 // The row survives, deactivated. Attribution survives either way
 // (`created_by_profile_id` points at the profile, which outlives the
 // membership), but the row is the only record that access was ever held, and
-// "who could see this agency's data last March" is a question worth being able
-// to answer.
+// "who could see this organization's data last March" is a question worth being
+// able to answer.
 
 export type MembershipRemovalIssue =
 	| 'membership_not_found'
@@ -263,9 +263,9 @@ export interface MembershipRemovalTarget {
 /**
  * Whether this membership may be ended, given who is asking.
  *
- * Two refusals, both about locking an agency out of itself rather than about
- * rank — the ladder question ("may this actor reach this person at all") is the
- * caller's, and is answered before this runs.
+ * Two refusals, both about locking an organization out of itself rather than
+ * about rank — the ladder question ("may this actor reach this person at all")
+ * is the caller's, and is answered before this runs.
  */
 export function validateMembershipRemoval(input: {
 	readonly membership: { readonly role: SimmerRole; readonly status: MembershipStatus } | null;
@@ -278,13 +278,13 @@ export function validateMembershipRemoval(input: {
 
 	// Self-removal is a foot-gun with no upside: the actor is an owner or admin
 	// standing on the page they would lose. Leaving is a different act with a
-	// different confirmation, and no agency has asked for it.
+	// different confirmation, and no organization has asked for it.
 	if (input.isSelf) {
 		return 'membership_is_self';
 	}
 
-	// An agency with no active owner cannot hand out roles or invite anyone —
-	// including a replacement owner — so this is a one-way door.
+	// An organization with no active owner cannot hand out roles or invite anyone
+	// — including a replacement owner — so this is a one-way door.
 	if (
 		input.membership.role === 'owner' &&
 		input.membership.status === 'active' &&
@@ -706,8 +706,8 @@ export async function stageOrganizationInvitation(
  * stamps the id the send returned onto that row.
  *
  * Scoped by organization as well as by id. The caller has an id it read from
- * its own staging call, and a stamp that could reach another agency's row would
- * be a tenancy hole for the sake of one saved predicate.
+ * its own staging call, and a stamp that could reach another organization's row
+ * would be a tenancy hole for the sake of one saved predicate.
  */
 export async function stampOrganizationInvitation(
 	db: Kysely<SimmerDatabase>,

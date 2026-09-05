@@ -287,7 +287,7 @@ describeDbIntegration('record merge policy', () => {
 		});
 	});
 
-	it('refuses a source that belongs to another agency, without saying so', async () => {
+	it('refuses a source that belongs to another organization, without saying so', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'merge_owner');
 			const other = await createOrganization(db, 'merge_other');
@@ -295,7 +295,7 @@ describeDbIntegration('record merge policy', () => {
 			const foreign = await createAddress(db, other, 'Their depot');
 
 			// Reported as missing rather than forbidden: a distinct answer would let
-			// one agency probe for another agency's ids.
+			// one organization probe for another organization's ids.
 			await expect(
 				db.transaction().execute(async (trx) =>
 					applyRecordMerge(trx, {
@@ -334,7 +334,7 @@ describeDbIntegration('record merge policy', () => {
 		});
 	});
 
-	it('leaves identical rows in a neighbouring agency untouched', async () => {
+	it('leaves identical rows in a neighbouring organization untouched', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await createOrganization(db, 'merge_scope');
 			const other = await createOrganization(db, 'merge_scope_other');

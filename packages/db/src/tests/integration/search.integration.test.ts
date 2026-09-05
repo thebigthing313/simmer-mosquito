@@ -244,7 +244,7 @@ describeDbIntegration('search documents reader', () => {
 		});
 	});
 
-	it('holds one agency to its own documents', async () => {
+	it('holds one organization to its own documents', async () => {
 		await withTestDb(async ({ db }) => {
 			const mine = await seedOrganization(db, 'workos_org_search_mine');
 			const theirs = await seedOrganization(db, 'workos_org_search_theirs');
@@ -436,7 +436,7 @@ describeDbIntegration('search documents reader', () => {
 	 * `weather_sources` is the one corpus table whose tenancy column is nullable,
 	 * and the one place the migration deliberately leaves a corpus row out of the
 	 * index. A null `organization_id` is a platform-owned station, which is
-	 * nobody's agency record.
+	 * nobody's Organization record.
 	 *
 	 * #279 settled that it stays out once provider stations land: an Organization
 	 * will see only the stations it has subscribed to through
@@ -449,7 +449,7 @@ describeDbIntegration('search documents reader', () => {
 	 * "a document the tenancy filter dropped". Both directions are read off
 	 * `search_documents` itself.
 	 */
-	it('indexes an agency station and leaves a platform-owned one out', async () => {
+	it('indexes an organization station and leaves a platform-owned one out', async () => {
 		await withTestDb(async ({ db }) => {
 			const org = await seedOrganization(db, 'workos_org_search_platform_station');
 			const owned = await seedWeatherSource(db, org, 'Cedar Bend station', 'CDB-1');
