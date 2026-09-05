@@ -78,7 +78,9 @@ export interface OrganizationWriteResult {
  */
 export class OrganizationConflictError extends Error {
 	constructor() {
-		super('Somebody else changed this agency while you were editing. Reopen to see their changes.');
+		super(
+			'Somebody else changed your organization while you were editing. Reopen to see their changes.',
+		);
 		this.name = 'OrganizationConflictError';
 	}
 }

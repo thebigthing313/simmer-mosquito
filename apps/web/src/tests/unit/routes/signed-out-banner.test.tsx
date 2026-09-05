@@ -54,7 +54,7 @@ describe('SignedOutEnvironmentBanner', () => {
 		// a user meets one sentence rather than two (#376).
 		expect(
 			screen.getByText(
-				'Staging does not allow changes to sign-in accounts, Memberships, roles, Agencies, or invitations.',
+				'Staging does not allow changes to sign-in accounts, Memberships, roles, Organizations, or invitations.',
 			),
 		).toBeTruthy();
 	});

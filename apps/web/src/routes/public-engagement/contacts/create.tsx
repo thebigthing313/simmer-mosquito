@@ -44,7 +44,7 @@ function CreateContactRoute() {
 			defaultValues={defaultContactFormValues()}
 			header={{
 				title: 'Create Contact',
-				description: 'Add a public person or organization to the agency contact list.',
+				description: 'Add a person to the contact list.',
 				backTo: '/public-engagement/contacts',
 				backLabel: 'Contacts',
 			}}

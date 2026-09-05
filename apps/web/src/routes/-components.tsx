@@ -65,7 +65,7 @@ function LandingEntry({
 						Welcome Back
 					</h2>
 					<p className="m-0 leading-normal text-muted-foreground">
-						Sign in to your agency workspace, or create an account to get started.
+						Sign in to your workspace, or create an account to get started.
 					</p>
 				</div>
 

@@ -181,7 +181,7 @@ export function WeatherStationFormPage({
 					<form.AppField name="code">
 						{(field) => (
 							<field.TextField
-								description="Optional short code, unique across the agency's stations."
+								description="Optional short code, unique across your stations."
 								label="Code"
 								placeholder="e.g. NG-1"
 							/>

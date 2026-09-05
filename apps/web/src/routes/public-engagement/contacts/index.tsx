@@ -75,8 +75,7 @@ function ContactsExplorerRoute() {
 					<div className="grid gap-1">
 						<h1 className="m-0 font-semibold text-foreground text-xl leading-tight">Contacts</h1>
 						<p className="m-0 text-muted-foreground text-sm">
-							People and organizations the agency engages with on service requests and
-							notifications.
+							The people you engage with on service requests and notifications.
 						</p>
 					</div>
 					<WriteOnly minimum="manager">

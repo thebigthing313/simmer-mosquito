@@ -36,7 +36,7 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
  * import because a browser package cannot reach into the server.
  */
 const REFUSAL =
-	'Staging does not allow changes to sign-in accounts, Memberships, roles, Agencies, or invitations.';
+	'Staging does not allow changes to sign-in accounts, Memberships, roles, Organizations, or invitations.';
 
 /** The chrome both banners share: the fill, the icon, the environment name. */
 function EnvironmentStrip({

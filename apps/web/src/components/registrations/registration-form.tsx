@@ -353,9 +353,7 @@ function PurposeSection({
 					<fieldset className="grid gap-3">
 						<legend className="font-semibold text-foreground text-sm">Notification types</legend>
 						{notificationTypes.length === 0 ? (
-							<p className="text-muted-foreground text-sm">
-								This agency has no notification types yet.
-							</p>
+							<p className="text-muted-foreground text-sm">No notification types are set up yet.</p>
 						) : (
 							notificationTypes.map((type) => (
 								<NotificationTypeCheckbox

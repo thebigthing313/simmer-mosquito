@@ -281,8 +281,8 @@ export function HabitatFormPage({
 										label="Metadata"
 										description={
 											hasTypeFields
-												? 'Fields this habitat type collects, plus any agency-specific notes.'
-												: 'Optional structured notes for agency-specific habitat details.'
+												? 'Fields this habitat type collects, plus any notes of your own.'
+												: 'Optional structured notes for habitat details of your own.'
 										}
 										mode={{ kind: 'schema', schema, allowExtra: true }}
 									/>

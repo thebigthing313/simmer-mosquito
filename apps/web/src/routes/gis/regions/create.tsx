@@ -65,7 +65,7 @@ function CreateRegionRoute() {
 			defaultValues={defaultRegionFormValues()}
 			header={{
 				title: 'Create Region',
-				description: 'Draw a region boundary and name it for use across the agency.',
+				description: 'Draw a region boundary and name it for use across your organization.',
 				backTo: '/gis/regions',
 				backLabel: 'Regions',
 			}}

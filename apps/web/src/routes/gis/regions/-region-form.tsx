@@ -245,7 +245,7 @@ export function RegionFormPage({
 				<form.AppField name="metadata">
 					{(field) => (
 						<field.MetadataField
-							description="Optional structured notes for agency-specific region details."
+							description="Optional structured notes for region details of your own."
 							label="Metadata"
 							mode={{ kind: 'manual' }}
 						/>

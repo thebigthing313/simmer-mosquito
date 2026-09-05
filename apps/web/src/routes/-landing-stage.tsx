@@ -122,8 +122,8 @@ export function LandingStage({ variant = 'page' }: { readonly variant?: 'page' |
 						isAside && 'hidden lg:block',
 					)}
 				>
-					Built around the five tactics of integrated mosquito management, for the agencies that
-					keep communities protected.
+					Built around the five tactics of integrated mosquito management, for the organizations
+					that keep communities protected.
 				</p>
 			</div>
 		</section>

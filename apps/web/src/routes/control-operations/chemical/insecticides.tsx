@@ -96,13 +96,13 @@ function InsecticidesRoute() {
 		<CatalogPage
 			action={canManage ? addInsecticideDrawer : undefined}
 			canEdit={canManage}
-			description="The products your agency applies — active ingredient, EPA registration number, default usage unit, and the lots crews draw from."
+			description="The products you apply — active ingredient, EPA registration number, default usage unit, and the lots crews draw from."
 			emptyDescription={
 				<>
 					Insecticides are the products behind every chemical application record.
 					{canManage
 						? ' Add your first product to get started.'
-						: ' An owner or admin can add products for your agency.'}
+						: ' An owner or admin can add products for you.'}
 				</>
 			}
 			emptyTitle="No Insecticides Yet"
