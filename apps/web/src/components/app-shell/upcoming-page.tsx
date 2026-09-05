@@ -96,7 +96,7 @@ const weatherStations: Elsewhere = {
 };
 const habitats: Elsewhere = {
 	label: 'Habitats',
-	description: 'The sites you inspect, on the map',
+	description: 'The habitats you inspect, on the map',
 	to: '/larval-surveillance/habitats',
 	icon: iconRegistry.generic.droplet.icon,
 };
@@ -114,7 +114,7 @@ const samples: Elsewhere = {
 };
 const traps: Elsewhere = {
 	label: 'Traps',
-	description: 'Trap sites and their collection methods, on the map',
+	description: 'Traps and their collection methods, on the map',
 	to: '/adult-surveillance/traps',
 	icon: iconRegistry.entities.trap.icon,
 };
@@ -132,7 +132,7 @@ const sourceReduction: Elsewhere = {
 };
 const biocontrol: Elsewhere = {
 	label: 'Biocontrol',
-	description: 'Releases logged by method, amount, and site',
+	description: 'Releases logged by method, amount, and habitat',
 	to: '/control-operations/biocontrol',
 	icon: iconRegistry.entities.biocontrolAction.icon,
 };
@@ -211,10 +211,10 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 	'/larval-surveillance/habitats/stats': {
 		title: 'Habitat Statistics',
 		summary:
-			'What your habitats have produced across a season: which sites come back positive, which types they belong to, and how often each has been visited.',
+			'What your habitats have produced across a season: which habitats come back positive, which types they belong to, and how often each has been visited.',
 		willLand: [
 			'Breeding frequency per habitat and per habitat type across a season',
-			'Inspection coverage, including sites nothing has been logged against',
+			'Inspection coverage, including habitats nothing has been logged against',
 			'Habitats ranked by how often larvae were found, with the map beside the list',
 		],
 		elsewhere: [habitats, inspections, habitatTypes],
@@ -244,7 +244,7 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 	'/adult-surveillance/traps/stats': {
 		title: 'Trap Statistics',
 		summary:
-			'Trap effort and yield: how many nights each trap ran, what it caught, and which sites are carrying the program.',
+			'Trap effort and yield: how many nights each trap ran, what it caught, and which traps are carrying the program.',
 		willLand: [
 			'Catch per trap night, per trap and per collection method',
 			'Trap nights and problem collections over a reporting period',
@@ -289,7 +289,7 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 		summary: 'Releases logged over a season: how much went out, by which method, and where.',
 		willLand: [
 			'Release volumes trended across the season, in a single unit',
-			'Method mix and the sites released into',
+			'Method mix and the habitats released into',
 			'Releases beside the inspections logged at the same habitats afterwards',
 		],
 		elsewhere: [biocontrol, habitats, controlOverview],
