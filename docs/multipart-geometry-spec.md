@@ -855,7 +855,18 @@ it jumps when Electric confirms.
 
 `ownedCentroidFromGeoJson` becomes area-weighted for the areal types, via the
 shoelace formula, weighting parts by area for MultiPolygon. Points and lines keep
-the current average, which is what PostGIS does for them anyway.
+the current average.
+
+#477 amends this. Points average and lines do not. `st_centroid` weights a
+LineString by segment length, so `LINESTRING(0 0, 1 0, 2 0, 10 0)` centroids at
+`POINT(5 0)` where the vertex average is `POINT(3.25 0)`, and a MultiLineString
+drifts further because a short dense part carries vertices without carrying
+length. Lines were left on the average on the belief that PostGIS averaged them
+too, so the optimistic marker jumped on confirm for the six record kinds that
+store a linear shape. `ownedCentroidFromGeoJson` is length-weighted for both line
+types now, weighting parts by their own length, and a line with no length gets
+the position PostGIS gives it rather than a division by zero. The round trip
+below runs all six shapes instead of filtering the linear two out.
 
 What holds the two together is an integration test in
 `owned-geometry.integration.test.ts` that runs the corpus geometries through
