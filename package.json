@@ -18,6 +18,7 @@
 		"check:search-corpus": "node scripts/check-search-corpus.mjs",
 		"check:table-types": "node scripts/generate-table-types.mjs --check",
 		"check:tileset-keys": "node scripts/check-tileset-keys.mjs",
+		"check:vocabulary": "node scripts/check-vocabulary.mjs",
 		"check:write-references": "node scripts/check-write-references.mjs",
 		"check:write": "biome check --write .",
 		"db:migrate": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql up",
