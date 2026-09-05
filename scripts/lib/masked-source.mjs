@@ -108,8 +108,8 @@ function readQuoted(state, at) {
 /**
  * A template literal's fixed chunks, skipping `${...}` and anything nested in it.
  *
- * The expressions are code, so `${agency.name}` is an identifier and not copy,
- * and a nested template inside one is read by the walk on its own turn.
+ * The expressions are code, so `${organization.name}` is an identifier and not
+ * copy, and a nested template inside one is read by the walk on its own turn.
  */
 function readTemplate(state, at) {
 	const { source } = state;

@@ -91,8 +91,9 @@ const CENTROID_FUNCTION = 'public.set_owned_centroid()';
  * catalog says none of this. Each of these is written inside the authorized
  * transaction from something a request cannot speak for:
  *
- * - `organization_id` is tenancy. The server sets it from `AuthContext`, and a
- *   body that named it would name another organization's id.
+ * - `organization_id` is organization scope. The server sets it from
+ *   `AuthContext`, and a body that named it would name another
+ *   organization's id.
  * - `created_at`, `updated_at` and `deleted_at` are the row's own clock. A
  *   delete is a named command, not a timestamp arriving.
  * - `created_by_profile_id` is who made the row, resolved from the session.

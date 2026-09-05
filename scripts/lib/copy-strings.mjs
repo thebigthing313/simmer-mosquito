@@ -5,9 +5,9 @@
  * a column, the text between two tags. It does not bind on an identifier, an
  * import path, or a comment. `check-vocabulary.mjs` is the only caller, and what
  * makes that gate usable is that this file answers "what is copy" narrowly
- * rather than grepping the source. About 2,100 comments in this workspace say
- * agency (#534); a gate that read them would fail on history and be switched off
- * the same day.
+ * rather than grepping the source. About 2,100 comments here said agency when
+ * this was written (#534); a gate that read them would have failed on history
+ * and been switched off the same day.
  *
  * The scan that separates code from comments, strings and regex literals is
  * `masked-source.mjs`, shared with `check-join-types.mjs`. What is left here is

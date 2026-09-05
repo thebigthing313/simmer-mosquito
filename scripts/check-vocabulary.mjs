@@ -31,10 +31,12 @@
  * not wiring, and the text between two JSX tags. `CONTEXT.md` says the rule
  * binds on labels, filters, headings and columns, and that lowercase
  * organization in a sentence is not a term, so a comment and an identifier are
- * both out of scope. That is not a softening. There are about 2,100 comments in
- * this workspace saying agency (#534), and a gate that read them would fail on
- * every branch and be switched off within a day. `scripts/lib/copy-strings.mjs`
- * is where the line between copy and wiring is drawn.
+ * both out of scope. That is not a softening. About 2,100 comments here said
+ * agency when this was written, and a gate reading them would have failed on
+ * every branch and been switched off within a day. #534 and #565 have since
+ * emptied them, and the scope stays copy, because that is what `CONTEXT.md`
+ * binds on. `scripts/lib/copy-strings.mjs` is where the line between copy and
+ * wiring is drawn.
  *
  * Matching is on word boundaries, which is what keeps an identifier out on its
  * own account: `\buser\b` does not match `useLiveQuery`, and `\bagency\b` does

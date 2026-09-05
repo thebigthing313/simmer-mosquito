@@ -3,10 +3,10 @@
  * Asserts that every write naming another record's id runs the reference gate.
  *
  * A write's own `organization_id` comes from the session, so the row it creates
- * lands in the right agency. The ids it *references* come from the payload, and
- * the only thing standing behind them used to be the Postgres foreign key, which
- * is satisfied by the row existing anywhere. So org A could create a Chemical
- * Application naming org B's Habitat and get a 201 (#200).
+ * lands in the right organization. The ids it *references* come from the
+ * payload, and the only thing standing behind them used to be the Postgres
+ * foreign key, which is satisfied by the row existing anywhere. So org A could
+ * create a Chemical Application naming org B's Habitat and get a 201 (#200).
  *
  * `assertWriteReferences` in `packages/db/src/domains/write-references.ts` is the
  * check. Two seams call it:
@@ -31,8 +31,8 @@
  * An object that names none of those columns is not a reference write and is not
  * this check's business. A column that is in the schema but not in the registry
  * is the *integration* test's business: `write-reference-coverage` asks Postgres
- * for every foreign key pointing at a tenant-owned record and requires an entry.
- * Together they cover both directions; neither covers both on its own.
+ * for every foreign key pointing at an organization-owned record and requires an
+ * entry. Together they cover both directions; neither covers both on its own.
  *
  * ## The allowlist
  *
@@ -40,7 +40,7 @@
  * payload. `completed_by_profile_id` is the actor who completed the stop, the
  * same class of value as `created_by_profile_id`. There is no id to doubt, and
  * gating it would spend a query proving the session's own profile belongs to the
- * session's own agency.
+ * session's own organization.
  *
  * An entry that no longer matches anything is a failure. An allowlist that
  * outlives its call site is how a check goes quiet.
@@ -81,7 +81,7 @@ const SESSION_OWNED = new Map([
 	],
 	[
 		'packages/db/src/domains/identity-memberships.ts',
-		'the profile `assertOrganizationProfileCanBeInvited` already scoped to the agency',
+		'the profile `assertOrganizationProfileCanBeInvited` already scoped to the organization',
 	],
 	[
 		'packages/db/src/domains/identity-organizations.ts',

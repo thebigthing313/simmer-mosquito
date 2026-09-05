@@ -12,7 +12,7 @@
  */
 
 const STAGES = [
-	[0, 9, 'z3-8 · agency overview — water, wetland, boundaries. Land flat, no roads.'],
+	[0, 9, 'z3-8 · organization overview — water, wetland, boundaries. Land flat, no roads.'],
 	[9, 12, 'z9-11 · district — land cover in, terrain fading in, major roads only.'],
 	[12, 15, 'z12-14 · neighbourhood — full road network + names, land cover fading out.'],
 	[15, 24, 'z15+ · site — buildings in, terrain and land cover gone.'],
