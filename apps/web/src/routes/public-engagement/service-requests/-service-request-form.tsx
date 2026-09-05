@@ -1,8 +1,10 @@
 import {
 	createServiceRequestCommand,
+	getOwnedGeometryPolicy,
 	REQUEST_INTAKE_TYPES,
 	type RequestIntakeType,
 } from '@simmer-mosquito/domain';
+import type { GeoJsonPoint } from '@simmer-mosquito/mapping';
 import {
 	FormSection,
 	LocationSection,
@@ -90,6 +92,25 @@ const SERVICE_REQUEST_FIELD_PATHS: Readonly<Record<string, string>> = {
 		CONTACT_FIELD_PATHS.map((field) => [`contact.details.${field}`, `newContact.${field}`]),
 	),
 };
+
+/** What a Service Request stores, read off the register rather than named here. */
+const REQUEST_LOCATION_SHAPES = getOwnedGeometryPolicy('serviceRequest').allowedTypes;
+
+/**
+ * Whether a placed shape is one a Service Request stores.
+ *
+ * The draw control takes the same `serviceRequest` policy and offers nothing
+ * else, so this narrows what the create route holds to what the write seam takes
+ * rather than gating a second time. It reads `allowedTypes` for the same reason
+ * the station and Region predicates do: the route used to ask `type === 'Point'`,
+ * a copy of the matrix that goes stale the day the policy widens, and on Regions
+ * that copy refused a boundary the user could see on the map.
+ */
+export function isRequestLocation(
+	geometry: DrawGeometry,
+): geometry is Extract<DrawGeometry, GeoJsonPoint> {
+	return REQUEST_LOCATION_SHAPES.includes(geometry.type);
+}
 
 /**
  * The create path's rules, straight from the domain builder: intake type, date,

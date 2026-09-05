@@ -14,6 +14,7 @@ import { isBelowRole } from '../../../lib/write-access';
 import { contactFieldsFromValues } from '../-contact-fields';
 import {
 	defaultServiceRequestFormValues,
+	isRequestLocation,
 	ServiceRequestFormPage,
 	type ServiceRequestSaveInput,
 	serviceRequestFieldsFrom,
@@ -62,7 +63,7 @@ function CreateServiceRequestRoute() {
 
 	const onSave = useCallback(
 		async ({ values, geometry }: ServiceRequestSaveInput) => {
-			if (geometry === null || geometry.type !== 'Point') {
+			if (geometry === null || !isRequestLocation(geometry)) {
 				throw new Error('Place the request location on the map.');
 			}
 
