@@ -214,7 +214,7 @@ export function HabitatFormPage({
 							    every other located record's form uses. */}
 				<WriteOnly minimum="manager">
 					<LocationSection
-						description="The geometry is the habitat itself — a point for a single site, a line or area for a stretch of one. An address is optional reference."
+						description="The geometry is the habitat itself — a point for a single one, a line or area for a stretch. An address is optional reference."
 						error={location.locationError}
 					>
 						<form.AppField name="addressId">

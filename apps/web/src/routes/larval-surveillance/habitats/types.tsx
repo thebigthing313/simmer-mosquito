@@ -106,7 +106,7 @@ function HabitatTypesRoute() {
 		<CatalogPage
 			action={canManage ? addHabitatTypeDialog : undefined}
 			canEdit={canManage}
-			description="Habitat types classify the larval sites your crews inspect — catch basins, storm drains, ditches, tire piles, and the rest. Manage the labels and any custom fields you record against them."
+			description="Habitat types classify the habitats your crews inspect — catch basins, storm drains, ditches, tire piles, and the rest. Manage the labels and any custom fields you record against them."
 			emptyDescription={
 				<>
 					Habitat types are the classification labels crews pick when recording a larval habitat.
@@ -131,7 +131,7 @@ function HabitatTypesRoute() {
 					emptyLabel={
 						search.query.length > 0
 							? 'No active habitat types match your search.'
-							: 'No active habitat types. Add one to start classifying larval sites.'
+							: 'No active habitat types. Add one to start classifying habitats.'
 					}
 					mutations={mutations}
 					rows={search.filteredActive}
@@ -183,7 +183,7 @@ function HabitatTypeSection({
 					<TableHead className="w-[28%]">Habitat Type</TableHead>
 					<TableHead>Description</TableHead>
 					<TableHead className="w-[22%]">Custom Fields</TableHead>
-					<TableHead className="w-[104px] text-right">Active Sites</TableHead>
+					<TableHead className="w-[104px] text-right">Active Habitats</TableHead>
 					{canManage ? <CatalogActionsHead /> : null}
 				</TableRow>
 			}

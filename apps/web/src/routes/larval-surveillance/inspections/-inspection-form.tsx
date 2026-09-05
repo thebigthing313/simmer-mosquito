@@ -470,7 +470,7 @@ export function InspectionFormPage({
 				<LocationSection
 					description={
 						isEditing
-							? 'The habitat or ad-hoc choice is fixed. Record a new inspection to cover a different site.'
+							? 'The habitat or ad-hoc choice is fixed. Record a new inspection to cover a different habitat.'
 							: 'Tie the inspection to a mapped habitat, or draw the ad-hoc location it covers. An address is optional reference.'
 					}
 					error={habitatError ?? location.locationError}

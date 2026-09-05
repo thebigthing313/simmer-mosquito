@@ -649,7 +649,7 @@ function EditStopRow({
 									{value}
 								</span>
 							)}
-							textareaPlaceholder="What crews should know about this site…"
+							textareaPlaceholder="What crews should know about this habitat…"
 							value={stop.description}
 						/>
 						<InlineEditField

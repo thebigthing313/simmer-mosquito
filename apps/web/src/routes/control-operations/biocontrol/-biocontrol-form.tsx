@@ -297,7 +297,7 @@ export function BiocontrolFormPage({
 				</FormSection>
 
 				<LocationSection
-					description="The geometry is where the agents were released — a point for a single release, a line or area for a distributed one. An address is optional reference, and a habitat links the release to the larval site it was performed against."
+					description="The geometry is where the agents were released — a point for a single release, a line or area for a distributed one. An address is optional reference, and the habitat is the one the release was performed against."
 					error={location.locationError}
 				>
 					<form.AppField name="addressId">
