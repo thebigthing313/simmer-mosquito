@@ -29,18 +29,23 @@ export function useSampleIdentifications(sampleId: string): {
 				query
 					.from({ identification: sample_species() })
 					.where(({ identification }) => eq(identification.sample_id, sampleId))
-					// `inner`: an identification names a species that exists. A row whose
-					// species had vanished from the taxonomy would be a count of nothing.
-					.join({ taxon: species() }, ({ identification, taxon }) =>
-						eq(identification.species_id, taxon.id),
+					// `inner`, and passed rather than left to the default, which is `left`:
+					// an identification whose taxonomy row this client does not hold is a
+					// count with nothing to attribute it to, and "Unknown species" beside a
+					// number reads as a broken record rather than as one still arriving.
+					.join(
+						{ taxon: species() },
+						({ identification, taxon }) => eq(identification.species_id, taxon.id),
+						'inner',
 					)
 					.orderBy(({ identification }) => identification.larvae_count, 'desc')
 					.select(({ identification, taxon }) => ({
 						speciesId: identification.species_id,
-						// `coalesce` even though the join is `inner`: the query builder types
-						// every joined column as possibly absent, and a taxonomy row that is
-						// still arriving is genuinely absent for a frame. The fallback is the
-						// same string the call site used to supply.
+						// The `coalesce` is what makes this compile, not a fallback the engine
+						// reaches. The builder types a joined column as possibly absent
+						// whatever the join kind, and `SampleIdentification.speciesName` is a
+						// `string`, so deleting it fails `tsc`. An `inner` join emits only
+						// matched pairs, so "Unknown species" never reaches a row.
 						speciesName: coalesce(taxon.display_name, 'Unknown species'),
 						larvaeCount: identification.larvae_count,
 						identifiedAt: identification.identified_at,

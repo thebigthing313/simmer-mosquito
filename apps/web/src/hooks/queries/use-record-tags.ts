@@ -29,14 +29,19 @@ export function useRecordTags(entityId: string): readonly Tag[] {
 				query
 					.from({ item: tag_items() })
 					.where(({ item }) => eq(item.entity_id, entityId))
-					// `inner`: an assignment names a tag that exists. A row whose tag had been
-					// deleted is not a blank chip, it is nothing to show.
-					.join({ tag: tags() }, ({ item, tag }) => eq(item.tag_id, tag.id))
+					// `inner`, and passed rather than left to the default, which is `left`:
+					// an assignment whose catalog row this client does not hold has no name
+					// and no colour to draw, and a chip reading "Unknown tag" reads as a
+					// broken record rather than as one still arriving.
+					.join({ tag: tags() }, ({ item, tag }) => eq(item.tag_id, tag.id), 'inner')
 					.orderBy(({ tag }) => tag.tag_name, 'asc')
-					// Coalesced even though the join is `inner`: the builder types every
-					// joined column as possibly absent, which is honest — the catalog row can
-					// still be arriving. `item.tag_id` is the same uuid and cannot be null, so
-					// the id needs no invented fallback.
+					// The `coalesce` calls are what make this compile. The builder types a
+					// joined column as possibly absent whatever the join kind, and `Tag`
+					// requires a name, so deleting one fails `tsc` on the widened type.
+					// The fallbacks they name are not reachable: an `inner` join emits only
+					// matched pairs, so nothing here ever renders "Unknown tag".
+					// `item.tag_id` is the same uuid as `tag.id`, which is why the id needs
+					// no invented stand-in.
 					.select(({ item, tag }) => ({
 						id: coalesce(tag.id, item.tag_id),
 						name: coalesce(tag.tag_name, 'Unknown tag'),

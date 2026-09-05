@@ -9,13 +9,17 @@
  * ## The sort
  *
  * By code, then by name, which is the order `trapDisplayName` composes them in.
- * It replaces a `localeCompare` over the composed label, and differs from it in
- * two ways worth naming. Case folding is gone, so a lowercase code sorts after
- * every uppercase one; trap codes are codes, and if that stops being true this
- * wants a folded column rather than a JS sort. And a trap with neither a code nor
- * a name — which reads as its short id — sorts by where the nulls land instead of
- * by that id. There is no third thing to sort such a trap by that an operator
- * would recognise.
+ * It replaces a `localeCompare` over the composed label and compares strings the
+ * same way it did. `@tanstack/db` defaults a collection's `stringSort` to
+ * `locale`, `orderBy` inherits that when the clause does not set it, and the
+ * ascending comparator calls `localeCompare` under it. So `a-1` sorts before
+ * `Z-1`, case is folded, and a folded column would buy nothing here.
+ *
+ * A trap with neither a code nor a name reads as its short id on screen, and
+ * does not sort by it. `coalesce` yields no value for such a trap, `orderBy`
+ * defaults `nulls` to `first`, and the second clause is the name, which is
+ * missing too. They land together at the head of the list. There is no third
+ * thing to sort them by that an operator would recognise.
  */
 import { coalesce, eq, useLiveQuery } from '@tanstack/react-db';
 import { collection_methods } from '../../lib/collections/collection_methods';

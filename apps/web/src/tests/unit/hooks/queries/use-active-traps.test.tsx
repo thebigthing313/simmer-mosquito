@@ -5,8 +5,10 @@
  *
  * The sort is the part worth holding. It is by code then by name, which is the
  * order `trapDisplayName` composes them in, and it replaced a `localeCompare`
- * over the composed label. Case folding went with it, deliberately, so a
- * lowercase code sorts after every uppercase one.
+ * over the composed label. It still compares that way: the engine's ascending
+ * comparator calls `localeCompare` whenever `stringSort` is `locale`, which is
+ * the collection default. The two cases here are the folded one and the trap
+ * that has neither field to sort by.
  */
 
 import { beforeEach, describe, expect, it } from 'vitest';
@@ -83,13 +85,11 @@ describe('useActiveTraps', () => {
 		expect(result.current.traps.map((row) => row.id)).toEqual(['t2', 't1']);
 	});
 
-	it('folds case, which is not what the hook says it does', async () => {
-		// The module comment says case folding went with the `localeCompare` it
-		// replaced, so "a lowercase code sorts after every uppercase one". The
-		// engine's string comparison is collation-aware, so it does not: `a-1`
-		// still sorts before `Z-1`, exactly as the old JS sort had it. Nothing on
-		// screen is wrong, but the note is, and it is the note somebody would read
-		// before deciding a folded column was needed.
+	it('folds case, because the comparator is collation-aware', async () => {
+		// `stringSort` defaults to `locale` on a collection and the clause does not
+		// override it, so the ascending comparator calls `localeCompare` and `a-1`
+		// sorts before `Z-1`. This is the assertion the module comment points at,
+		// and it is what makes a folded column unnecessary.
 		// Seeded uppercase first, so passing means the rows were compared rather
 		// than left in arrival order.
 		seedRows(traps, [trap('t1', { trap_code: 'Z-1' }), trap('t2', { trap_code: 'a-1' })]);
@@ -97,6 +97,25 @@ describe('useActiveTraps', () => {
 		const { result } = await renderRead(() => useActiveTraps());
 
 		expect(result.current.traps.map((row) => row.trapCode)).toEqual(['a-1', 'Z-1']);
+	});
+
+	it('puts a trap with neither a code nor a name at the head of the list', async () => {
+		// `coalesce` yields no value for such a trap and `orderBy` defaults `nulls`
+		// to `first`, so it sorts ahead of every trap that has something to sort
+		// by rather than by the short id it reads as. Two of them, so the
+		// assertion is about where the group lands and not about one row.
+		seedRows(traps, [
+			trap('t1', { trap_code: 'A-1' }),
+			trap('t2'),
+			trap('t3', { trap_name: 'Almond Grove' }),
+			trap('t4'),
+		]);
+
+		const { result } = await renderRead(() => useActiveTraps());
+
+		const ids = result.current.traps.map((row) => row.id);
+		expect([...ids.slice(0, 2)].sort()).toEqual(['t2', 't4']);
+		expect(ids.slice(2)).toEqual(['t1', 't3']);
 	});
 
 	it('leaves a retired trap out in the predicate rather than after the fact', async () => {
