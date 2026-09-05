@@ -285,33 +285,29 @@ export interface OwnedCentroid {
 /**
  * Derive the trigger-maintained centroid columns (lat, lng, geomType) from a
  * drawn GeoJSON geometry for an optimistic write. Follows the database
- * `set_owned_centroid()` trigger for every shape but the two linear ones:
- * geomType uses the lowercased PostGIS `ST_*` form (e.g. `st_point`) so the
- * optimistic row matches the synced row. Returns null for empty/degenerate
- * geometry.
+ * `set_owned_centroid()` trigger: geomType uses the lowercased PostGIS `ST_*`
+ * form (e.g. `st_point`) so the optimistic row matches the synced row. Returns
+ * null for empty geometry.
  *
- * Areal geometry is area-weighted, holes subtracted and parts weighted by their
- * own area, which is what `st_centroid` computes. `centroidFromGeoJson` averages
- * vertices and the two already disagreed for any polygon with uneven vertex
- * spacing. Multipart is what makes that visible: a MultiPolygon with one large
- * part and one small distant part puts a vertex-averaged marker between them,
- * and it jumps when Electric confirms the row.
+ * `st_centroid` weights by the dimension of the shape and this follows it one
+ * branch at a time. Areal geometry is area-weighted, holes subtracted and parts
+ * weighted by their own area. Linear geometry is length-weighted, parts weighted
+ * by their own length. Points and MultiPoints average their vertices, which is
+ * what `st_centroid` does for them.
  *
- * Points and MultiPoints agree with `st_centroid` on the average. **Lines do
- * not, and that is a known gap rather than a decision this file can defend.**
- * `st_centroid` weights a LineString by segment length, so a line with uneven
- * spacing gets an optimistic marker that moves on confirmation, and a
- * MultiLineString with one long part and one short distant part moves further.
- * ADR 0018 kept the average for lines on the belief that PostGIS averages them
- * too, which it does not. Nothing guards it: the integration test filters the
- * linear shapes out.
+ * `centroidFromGeoJson` averages vertices whatever the shape, so it disagrees
+ * with all four weighted ones: a polygon or a line with uneven vertex spacing,
+ * and either multipart, where a small part far from a large one drags the
+ * average toward it. The browser draws the marker where this function puts it
+ * and the trigger overwrites the row when Electric confirms, so a disagreement
+ * is a pin that jumps.
  *
  * `owned-geometry.integration.test.ts` runs the corpus through `st_centroid` and
- * is what holds the areal half here to PostGIS rather than to hand-computed
- * numbers.
+ * is what holds this to PostGIS rather than to hand-computed numbers.
  */
 export function ownedCentroidFromGeoJson(geometry: GeoJsonGeometry): OwnedCentroid | null {
-	const centroid = arealCentroid(geometry) ?? centroidFromGeoJson(geometry);
+	const centroid =
+		arealCentroid(geometry) ?? linearCentroid(geometry) ?? centroidFromGeoJson(geometry);
 	if (centroid === null) return null;
 	return {
 		lat: centroid.lat,
@@ -412,6 +408,89 @@ function ringMoments(ring: readonly GeoJsonPosition[]): RingMoments | null {
 		lat += (y0 + y1) * cross;
 	}
 	return { origin, twiceArea, lng, lat };
+}
+
+/**
+ * The length-weighted centroid of a LineString or a MultiLineString: every
+ * segment's midpoint weighted by its own length, and a part contributing only
+ * the length it has. Null for every other shape.
+ *
+ * `st_centroid` weights a line this way, so a vertex average lands somewhere
+ * else on any line whose vertices are unevenly spaced. `LINESTRING(0 0, 1 0, 2
+ * 0, 10 0)` centroids at `POINT(5 0)` and averages at `POINT(3.25 0)`. A
+ * MultiLineString drifts further, because a short dense part carries vertices
+ * without carrying length.
+ *
+ * A part with no length contributes its first vertex as a position instead, and
+ * when no part has any length the answer is the average of those positions. That
+ * is the fallback GEOS takes, so a line drawn as one repeated position gets that
+ * position back rather than a division by zero.
+ */
+function linearCentroid(geometry: GeoJsonGeometry): LngLat | null {
+	if (geometry.type === 'LineString') return lengthWeightedCentroid([geometry.coordinates]);
+	if (geometry.type !== 'MultiLineString') return null;
+	return lengthWeightedCentroid(geometry.coordinates);
+}
+
+/** Parts weighted by their own length, and the collapsed-part fallback. */
+function lengthWeightedCentroid(parts: readonly (readonly GeoJsonPosition[])[]): LngLat | null {
+	let lng = 0;
+	let lat = 0;
+	let length = 0;
+	const collapsed: GeoJsonPosition[] = [];
+	for (const part of parts) {
+		const moments = lineMoments(part);
+		if (moments === null) continue;
+		if (moments.length === 0) {
+			collapsed.push(moments.origin);
+			continue;
+		}
+		lng += moments.lng;
+		lat += moments.lat;
+		length += moments.length;
+	}
+	if (length > 0) return { lng: lng / length, lat: lat / length };
+
+	if (collapsed.length === 0) return null;
+	return {
+		lng: collapsed.reduce((total, position) => total + position[0], 0) / collapsed.length,
+		lat: collapsed.reduce((total, position) => total + position[1], 0) / collapsed.length,
+	};
+}
+
+interface LineMoments {
+	readonly origin: GeoJsonPosition;
+	readonly length: number;
+	/** Midpoints already multiplied by their segment's length. */
+	readonly lng: number;
+	readonly lat: number;
+}
+
+/**
+ * The length-weighted sums for one run of vertices, in raw degrees.
+ *
+ * Unlike the shoelace sums this takes no translation, because every weight is
+ * positive and nothing cancels. Translating would only drift from the arithmetic
+ * GEOS runs, which is what the round trip compares against.
+ */
+function lineMoments(part: readonly GeoJsonPosition[]): LineMoments | null {
+	const origin = part[0];
+	if (origin === undefined) return null;
+
+	let length = 0;
+	let lng = 0;
+	let lat = 0;
+	for (let index = 0; index < part.length - 1; index += 1) {
+		const current = part[index];
+		const next = part[index + 1];
+		if (current === undefined || next === undefined) continue;
+		const segment = Math.hypot(next[0] - current[0], next[1] - current[1]);
+		if (segment === 0) continue;
+		length += segment;
+		lng += segment * ((current[0] + next[0]) / 2);
+		lat += segment * ((current[1] + next[1]) / 2);
+	}
+	return { origin, length, lng, lat };
 }
 
 /**

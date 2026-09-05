@@ -240,9 +240,8 @@ describe('geometry helpers', () => {
 		expect(centroid?.geomType).toBe('st_multipolygon');
 	});
 
-	it('keeps the vertex average for points and lines', () => {
-		// The documented drift. `st_centroid` weights a line by length, and this
-		// keeps averaging vertices, which is what the marker has always shown.
+	it('keeps the vertex average for points', () => {
+		// A MultiPoint has no length and no area, so `st_centroid` averages it.
 		expect(
 			ownedCentroidFromGeoJson({
 				type: 'MultiPoint',
@@ -252,6 +251,88 @@ describe('geometry helpers', () => {
 				],
 			}),
 		).toEqual({ lng: 1, lat: 2, geomType: 'st_multipoint' });
+	});
+
+	it('weights a line by segment length rather than by vertex count', () => {
+		// Three vertices packed into the first two degrees and one span of eight.
+		// The length weighting lands at 5, the vertex average at 3.25, which is
+		// the pair the issue measured against the container.
+		const unevenSpacing = {
+			type: 'LineString',
+			coordinates: [
+				[0, 0],
+				[1, 0],
+				[2, 0],
+				[10, 0],
+			],
+		} as const;
+
+		expect(ownedCentroidFromGeoJson(unevenSpacing)).toEqual({
+			lng: 5,
+			lat: 0,
+			geomType: 'st_linestring',
+		});
+		expect(centroidFromGeoJson(unevenSpacing)?.lng).toBe(3.25);
+	});
+
+	it('weights multiline parts by their own length', () => {
+		// A part two degrees long and a dense part a hundredth of a degree long.
+		// The short one holds three of the five vertices and moves the answer by
+		// a fiftieth of what an average would.
+		const parts = {
+			type: 'MultiLineString',
+			coordinates: [
+				[
+					[0, 0],
+					[0, 2],
+				],
+				[
+					[10, 0],
+					[10, 0.005],
+					[10, 0.01],
+				],
+			],
+		} as const;
+		const centroid = ownedCentroidFromGeoJson(parts);
+
+		// (0 * 2 + 10 * 0.01) / 2.01
+		expect(centroid?.lng).toBeCloseTo(0.1 / 2.01, 12);
+		expect(centroid?.geomType).toBe('st_multilinestring');
+	});
+
+	it('gives a line with no length its position back', () => {
+		// Every vertex in one place, so there is no length to divide by. PostGIS
+		// answers with the position; a naive weighting answers NaN.
+		expect(
+			ownedCentroidFromGeoJson({
+				type: 'LineString',
+				coordinates: [
+					[-90.5, 35.5],
+					[-90.5, 35.5],
+					[-90.5, 35.5],
+				],
+			}),
+		).toEqual({ lng: -90.5, lat: 35.5, geomType: 'st_linestring' });
+
+		// Two collapsed parts average one position each, not one per vertex.
+		// `st_centroid` counts the part, which is why the three repeats on the
+		// left do not outvote the two on the right.
+		expect(
+			ownedCentroidFromGeoJson({
+				type: 'MultiLineString',
+				coordinates: [
+					[
+						[-90, 35],
+						[-90, 35],
+						[-90, 35],
+					],
+					[
+						[-88, 37],
+						[-88, 37],
+					],
+				],
+			}),
+		).toEqual({ lng: -89, lat: 36, geomType: 'st_multilinestring' });
 	});
 
 	it('counts GeoJSON vertices across nested geometry types', () => {

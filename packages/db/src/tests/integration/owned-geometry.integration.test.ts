@@ -62,8 +62,77 @@ const SPLIT_LINE: PlanarPath = [
 	[-89.5, 38],
 ];
 
-/** The two shapes whose centroid PostGIS weights by length and the client does not. */
-const LINEAR: ReadonlySet<string> = new Set(['LineString', 'MultiLineString']);
+/**
+ * Lines the corpus has no reason to hold, each named for what it pins.
+ *
+ * The first two are the bug: a length weighting and a vertex average agree on an
+ * evenly spaced line and part company as the spacing gets uneven, and a
+ * MultiLineString drifts further because a short dense part carries vertices
+ * without carrying length. The last two have no length at all, so the weighting
+ * has nothing to divide by and PostGIS decides what comes back instead.
+ */
+const LINEAR_EDGE_CASES: readonly (readonly [string, GeoJsonGeometry])[] = [
+	[
+		'line-with-a-long-last-span',
+		{
+			type: 'LineString',
+			coordinates: [
+				[-90, 35],
+				[-89, 35],
+				[-88, 35],
+				[-80, 35],
+			],
+		},
+	],
+	[
+		'multiline-with-a-short-dense-part',
+		{
+			type: 'MultiLineString',
+			coordinates: [
+				[
+					[-90, 35],
+					[-90, 36],
+					[-90, 37],
+				],
+				[
+					[-80, 40],
+					[-80, 40.01],
+					[-80, 40.02],
+					[-80, 40.03],
+					[-80, 40.04],
+				],
+			],
+		},
+	],
+	[
+		'line-of-one-repeated-position',
+		{
+			type: 'LineString',
+			coordinates: [
+				[-90.5, 35.5],
+				[-90.5, 35.5],
+				[-90.5, 35.5],
+			],
+		},
+	],
+	[
+		'multiline-of-two-collapsed-parts',
+		{
+			type: 'MultiLineString',
+			coordinates: [
+				[
+					[-90, 35],
+					[-90, 35],
+					[-90, 35],
+				],
+				[
+					[-88, 37],
+					[-88, 37],
+				],
+			],
+		},
+	],
+];
 
 /** What an unrestricted `geom` column will take. */
 const EVERY_SHAPE: readonly string[] = Object.values(SHAPE_BY_UPPER_NAME);
@@ -344,15 +413,15 @@ describeDbIntegration('owned geometry columns', () => {
 	 *
 	 * The geometries are the region-membership corpus, which is a set of shapes
 	 * somebody already chose for their awkwardness: holes, parts sharing an edge,
-	 * a part in a hole, a small part far from a big one.
+	 * a part in a hole, a small part far from a big one. All six shapes go
+	 * through, areal and linear alike.
 	 *
-	 * Lines are excluded, and that is the documented drift rather than an
-	 * oversight. `st_centroid` weights a line by segment length and the client
-	 * averages vertices, so the two answer differently for any line with uneven
-	 * spacing. ADR 0018 keeps the average for points and lines; only the areal
-	 * half moved.
+	 * `LINEAR_EDGE_CASES` carries what the corpus has no reason to hold: uneven
+	 * vertex spacing, which is the whole of the difference between a length
+	 * weighting and an average, and lines with no length, where the weighting has
+	 * nothing to divide by.
 	 */
-	it('puts the optimistic areal centroid where st_centroid does', async () => {
+	it('puts the optimistic centroid where st_centroid does', async () => {
 		await withTestDb(async ({ db }) => {
 			const geometries: readonly (readonly [string, GeoJsonGeometry])[] = [
 				...REGION_MEMBERSHIP_CORPUS.map(
@@ -361,7 +430,8 @@ describeDbIntegration('owned geometry columns', () => {
 				...[...new Set(REGION_MEMBERSHIP_CORPUS.map(corpusRegionFor))].map(
 					(region, index) => [`region-${index}`, region] as const,
 				),
-			].filter(([, geometry]) => !LINEAR.has(geometry.type));
+				...LINEAR_EDGE_CASES,
+			];
 
 			const rows = await sql<{ id: string; lng: number; lat: number }>`
 				select
