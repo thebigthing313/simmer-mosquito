@@ -1538,8 +1538,14 @@ function useDrawMapEvents({
 			| ((previous: readonly DrawPosition[]) => readonly DrawPosition[]),
 	) => void;
 }): void {
+	// Whether this draft has already been handed the canvas. The effect re-runs
+	// on every mode change and an edit changes mode on every drag, so focusing on
+	// each run would take focus back off a field the user had moved to mid-draw.
+	const tookFocusRef = useRef(false);
+
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded || mode.kind === 'idle') {
+			tookFocusRef.current = false;
 			return;
 		}
 		const activeMap = map;
@@ -1548,6 +1554,17 @@ function useDrawMapEvents({
 		canvas.style.cursor = 'crosshair';
 		const doubleClickZoomWasEnabled = activeMap.doubleClickZoom.isEnabled();
 		activeMap.doubleClickZoom.disable();
+		// The key half of this hook only answers to keys the map surface got, so
+		// the surface has to hold focus from the moment a draft opens rather than
+		// from the first click on it. Every opener is a button somewhere else on
+		// the page, and Escape is what the point prompt tells the user to press.
+		// The canvas is mapbox's own focus target: `tabindex="0"`, `role="region"`
+		// and an aria-label, and the element its arrow-key panning already needs
+		// focused.
+		if (!tookFocusRef.current) {
+			tookFocusRef.current = true;
+			canvas.focus({ preventScroll: true });
+		}
 
 		function handleClick(event: MapMouseEvent) {
 			const current = modeRef.current;
@@ -1590,16 +1607,18 @@ function useDrawMapEvents({
 			}
 		}
 
-		// The guard is here for the reason it is on the Delete arm: the location
-		// panel sits beside the map and its controls stay live while a draw is
-		// open, so an Enter meant for a description would otherwise finish the
-		// shape and an Escape meant to close a dropdown would throw the whole
-		// draft away. Both arms cover every mode this listener is registered for,
+		// The location panel sits beside the map and its controls stay live while a
+		// draft is open, so an Enter meant for a description must not finish the
+		// shape and an Escape meant to close a dropdown must not throw the draft
+		// away. Both arms cover every mode this listener is registered for,
 		// because a draw, a hole, a continuation, an edit and an open sketch all
 		// reach Finish through the same `finishRef` and all cancel through the one
 		// Escape arm.
 		function handleKeyDown(event: KeyboardEvent) {
-			if ((event.key !== 'Enter' && event.key !== 'Escape') || isAimedElsewhere(event)) {
+			if (
+				(event.key !== 'Enter' && event.key !== 'Escape') ||
+				!isAimedAtMap(activeMap, event.target)
+			) {
 				return;
 			}
 			if (event.key === 'Enter') {
@@ -1786,7 +1805,7 @@ function useDrawEditEvents({
 		}
 
 		// Backspace as well as Delete, because a laptop keyboard often has only the
-		// one key. That is also why the field guard is here and not optional: the
+		// one key. That is also why the surface guard is here and not optional: the
 		// location panel sits beside the map, and a backspace meant for a
 		// description would otherwise take a corner off the shape.
 		function handleKeyDown(event: KeyboardEvent) {
@@ -1798,7 +1817,7 @@ function useDrawEditEvents({
 				current.kind !== 'edit' ||
 				current.selected === null ||
 				current.sketch !== null ||
-				isTypingInto(event.target)
+				!isAimedAtMap(activeMap, event.target)
 			) {
 				return;
 			}
@@ -1850,53 +1869,37 @@ function vertexUnder(map: MapboxMap, event: MapMouseEvent): DrawVertexRef | null
 }
 
 /**
- * The items of a popup list, where Enter is the list's own choose key.
+ * Whether the key was the map's.
  *
- * ARIA roles rather than anything one library sets. `option` is what makes a
- * list a listbox to a screen reader and `menuitem` what makes one a menu, so
- * every accessible dropdown carries them whichever library drew it. This app
- * has three: Radix's Select and DropdownMenu, and cmdk's Command behind the
- * Region multiselect.
+ * Both listeners are on `window`, because a draft has to answer Escape from the
+ * moment it opens and the surface can lose focus under the user, so the
+ * question they cannot dodge is which presses are theirs. Four bugs were four
+ * answers to the other question, "which presses are not theirs": a field
+ * (#517), a spent default (#547), a listbox item's role (#560), and then a
+ * focused `<button>` (#572), which carries none of the three and is
+ * indistinguishable in the event from the canvas, itself a role-less element
+ * nothing prevents a default on. So the rule here is the positive one. The key
+ * is the map's when it came from the map's own key surface, and a press that
+ * landed anywhere else on the page belongs to whatever it landed on.
+ *
+ * `getCanvasContainer`, not `getContainer`: mapbox puts its own attribution and
+ * info buttons in a control container beside the canvas one, inside the same
+ * map. Those are the same `<button>` case #572 is, one element further in, and
+ * the canvas container is the div mapbox binds its own keyboard panning to.
+ *
+ * The second arm is the press nothing claimed. A keydown with no focused
+ * element arrives on the body, which is what a browser hands a key when the
+ * toolbar button that had focus has just re-rendered away. Read as "the target
+ * is no element, or it is the body" rather than as an identity check against
+ * `window`: under jsdom the global `window` is not the object a dispatch there
+ * puts on `event.target`, and a rule that reads true in a browser and false in
+ * every test is worse than no rule.
  */
-const POPUP_LIST_ITEM =
-	'[role="option"],[role="menuitem"],[role="menuitemcheckbox"],[role="menuitemradio"]';
-
-/**
- * Whether the key was meant for something beside the map rather than the map.
- *
- * Three answers, because no one of them covers the panel. A field is the case
- * #517 found. `defaultPrevented` is #547's: Radix's `DismissableLayer` listens
- * on the document in the capture phase, calls `preventDefault`, dismisses, and
- * does not stop propagation, so the Escape that closed a select still arrives
- * here, and so does the Enter that opened one, which the trigger spends the
- * same way.
- *
- * The list item is #560's, and it is the one neither of the others reaches.
- * Radix's select item calls `preventDefault` for Space alone, to stop the page
- * scrolling; Enter has no default worth cancelling on a `div`, so the press
- * that picks a value arrives with the flag clear and the listbox's own
- * `div[role="option"]` on `event.target`, which is no field. Its role is what
- * says the key was the list's.
- */
-function isAimedElsewhere(event: KeyboardEvent): boolean {
-	return (
-		isTypingInto(event.target) ||
-		event.defaultPrevented ||
-		(event.target instanceof Element && event.target.closest(POPUP_LIST_ITEM) !== null)
-	);
-}
-
-/** Whether the key went somewhere a person is typing, where Delete is a delete. */
-function isTypingInto(target: EventTarget | null): boolean {
-	if (!(target instanceof HTMLElement)) {
-		return false;
+function isAimedAtMap(map: MapboxMap, target: EventTarget | null): boolean {
+	if (target instanceof Node && map.getCanvasContainer().contains(target)) {
+		return true;
 	}
-	return (
-		target.isContentEditable ||
-		target.tagName === 'INPUT' ||
-		target.tagName === 'TEXTAREA' ||
-		target.tagName === 'SELECT'
-	);
+	return !(target instanceof Element) || target === target.ownerDocument.body;
 }
 
 /** Whether the pointer is on a boundary rather than inside or outside a shape. */
