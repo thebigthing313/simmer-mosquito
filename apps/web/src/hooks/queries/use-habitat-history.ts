@@ -1,23 +1,30 @@
 /**
- * What has happened at one Habitat: its inspections, their samples, and the
- * applications made on it.
+ * What has happened at one Habitat: its inspections, their samples, the
+ * applications made on it, and the control work somebody asked for there.
  *
- * Two queries rather than one, because they hang off the Habitat in different
+ * Three queries rather than one, because they hang off the Habitat in different
  * ways. Inspections nest — a sample belongs to an inspection and a species count
  * belongs to a sample — so they load as correlated includes, and the `eq()`s in
- * those subqueries are what drive Electric's on-demand subsets. Applications
- * name the Habitat directly, so a nested include would be a lie about the shape
- * of the data.
+ * those subqueries are what drive Electric's on-demand subsets. Applications and
+ * requested control actions name the Habitat directly, so a nested include would
+ * be a lie about the shape of the data.
+ *
+ * Requests are here rather than on a card of their own because the question a
+ * crew lead asks at a site is one question: what has been done here, and what is
+ * outstanding. Both states are returned — a resolved request is the record that
+ * says the ask was dealt with, and the card is called History. The mission
+ * picker's `useOpenRequestedControlActions` filters resolved out because it is
+ * asking a different question, which work is still unplanned.
  *
  * ## Why `useLiveQuery` and not the suspense variant
  *
- * All four tables are on-demand, and the suspense hook gets permanently stuck
+ * All five tables are on-demand, and the suspense hook gets permanently stuck
  * after a navigation unmount over one: it caches `collection.preload()` in a ref
  * and clears it only on a `ready` status it observes, which the recreated
  * collection never re-resolves. The status-gated hook reads live status and
- * recovers. The two `isReady` flags are returned separately-but-combined for the
- * same reason the card wants them: an applications failure belongs in the
- * Applications tab, not across the whole card.
+ * recovers. The error flags are returned separately-but-combined for the same
+ * reason the card wants them: an applications failure belongs in the
+ * Applications tab, not across the whole card, and the same goes for requests.
  *
  * ## The sort that has to happen twice
  *
@@ -28,11 +35,12 @@
  * shape the query language cannot return.
  */
 
-import type { LarvalDensity } from '@simmer-mosquito/domain';
+import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
 import { eq, toArray, useLiveQuery } from '@tanstack/react-db';
 import { useMemo } from 'react';
 import { applications } from '../../lib/collections/applications';
 import { inspections } from '../../lib/collections/inspections';
+import { requested_control_actions } from '../../lib/collections/requested_control_actions';
 import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 
@@ -93,17 +101,39 @@ export interface HabitatHistoryApplication {
 	readonly applicationUnitId: string;
 }
 
+/**
+ * One request for control raised against this habitat.
+ *
+ * `requestedAt` is a `timestamptz` and arrives parsed as a `Date`, unlike the
+ * `YYYY-MM-DD` operational dates the performed actions carry. `resolvedAt` is
+ * the whole of the lifecycle: null is open, a stamp is resolved, and a deleted
+ * request never reaches a collection at all because the shape predicate filters
+ * it upstream.
+ */
+export interface HabitatHistoryRequest {
+	readonly id: string;
+	readonly requestedAt: Date;
+	readonly requestedByProfileId: string | null;
+	readonly controlType: ControlType;
+	readonly summary: string | null;
+	readonly resolvedAt: Date | null;
+}
+
 export interface HabitatHistory {
 	readonly inspections: readonly HabitatHistoryInspection[];
 	/** Every sample across every inspection, most recent first. */
 	readonly samples: readonly HabitatHistorySampleRow[];
 	readonly applications: readonly HabitatHistoryApplication[];
-	/** True once both subsets have settled — the tab counts are wrong before then. */
+	/** Open and resolved alike, most recently raised first. */
+	readonly requests: readonly HabitatHistoryRequest[];
+	/** True once every subset has settled — the tab counts are wrong before then. */
 	readonly isReady: boolean;
 	/** The inspections half failed, which is the whole card. */
 	readonly isError: boolean;
 	/** The applications half failed, which is one tab. */
 	readonly isApplicationsError: boolean;
+	/** The requests half failed, which is one tab. */
+	readonly isRequestsError: boolean;
 }
 
 export function useHabitatHistory(habitatId: string): HabitatHistory {
@@ -178,6 +208,26 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 		[habitatId],
 	);
 
+	const requestResult = useLiveQuery(
+		{
+			gcTime: historyGcTimeMs,
+			query: (query) =>
+				query
+					.from({ request: requested_control_actions() })
+					.where(({ request }) => eq(request.habitat_id, habitatId))
+					.orderBy(({ request }) => request.requested_at, 'desc')
+					.select(({ request }) => ({
+						id: request.id,
+						requestedAt: request.requested_at,
+						requestedByProfileId: request.requested_by_profile_id,
+						controlType: request.control_type,
+						summary: request.summary,
+						resolvedAt: request.resolved_at,
+					})),
+		},
+		[habitatId],
+	);
+
 	const inspectionRows = inspectionResult.data;
 	const historyInspections = useMemo(() => {
 		const rows = (inspectionRows ?? []) as unknown as readonly HabitatHistoryInspection[];
@@ -199,10 +249,15 @@ export function useHabitatHistory(habitatId: string): HabitatHistory {
 		inspections: historyInspections,
 		samples: historySamples,
 		applications: (applicationResult.data ?? []) as unknown as readonly HabitatHistoryApplication[],
-		// Both, so the Applications tab count is never briefly wrong. An
-		// applications-only failure counts as settled — its own tab says so.
-		isReady: inspectionResult.isReady && (applicationResult.isReady || applicationResult.isError),
+		requests: (requestResult.data ?? []) as unknown as readonly HabitatHistoryRequest[],
+		// All three, so no tab count is ever briefly wrong. A failure in either of
+		// the two side subsets counts as settled — its own tab says so.
+		isReady:
+			inspectionResult.isReady &&
+			(applicationResult.isReady || applicationResult.isError) &&
+			(requestResult.isReady || requestResult.isError),
 		isError: inspectionResult.isError,
 		isApplicationsError: applicationResult.isError,
+		isRequestsError: requestResult.isError,
 	};
 }
