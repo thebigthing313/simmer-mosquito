@@ -70,8 +70,8 @@ layout becomes a repeated product decision, add a `cva` variant or companion
 component in `packages/ui-web`.
 
 App-owned custom components are allowed when the pattern is workflow-specific:
-for example an agency profile summary in `apps/web` or a support metadata row
-in `apps/admin`. They should still compose shadcn primitives and Tailwind
+for example an organization profile summary in `apps/web` or a support metadata
+row in `apps/admin`. They should still compose shadcn primitives and Tailwind
 classes directly in JSX. Once the styling repeats across workflows, apps, or
 three call sites, move the styling into `packages/ui-web` with a small public
 API and variants.

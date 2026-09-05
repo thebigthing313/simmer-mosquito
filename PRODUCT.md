@@ -6,32 +6,33 @@ product
 
 ## Users
 
-SIMMER is used by mosquito control agencies that coordinate surveillance,
+SIMMER is used by mosquito control organizations that coordinate surveillance,
 field work, public engagement, control operations, GIS review, reporting, and
-agency setup. Primary users include office operators, field staff, agency
-managers, and SIMMER Operators who support onboarding, taxonomy, units, and
-customer administration.
+organization setup. Primary users include office operators, field staff,
+organization managers, and SIMMER Operators who support onboarding, taxonomy,
+units, and customer administration.
 
 Users work inside operational contexts where geography, time, status, and
 record history matter together. They inspect addresses, regions, traps,
 habitats, service requests, missions, assignments, control work, public
-contacts, weather summaries, and agency configuration. They need to understand
-where work is happening, what requires attention, and what action is available
-next without losing the spatial picture.
+contacts, weather summaries, and organization configuration. They need to
+understand where work is happening, what requires attention, and what action is
+available next without losing the spatial picture.
 
 ## Product purpose
 
 SIMMER is a map-centric SaaS platform for mosquito surveillance and control
-operations. It helps agencies coordinate field workflows, maintain operational
-records, understand spatial patterns, and make decisions across adult
-surveillance, larval surveillance, service requests, public engagement, control
-operations, GIS, weather, assignments, routes, mission dispatch, and reporting.
+operations. It helps organizations coordinate field workflows, maintain
+operational records, understand spatial patterns, and make decisions across
+adult surveillance, larval surveillance, service requests, public engagement,
+control operations, GIS, weather, assignments, routes, mission dispatch, and
+reporting.
 
 The current product also includes a SIMMER Operator control plane for platform
 setup: customer organizations, memberships, global taxonomy, measurement units,
-and foundational agency data. That administrative surface should feel like the
-same product system as the future agency app, not a separate back-office
-afterthought.
+and foundational organization data. That administrative surface should feel like
+the same product system as the future organization app, not a separate
+back-office afterthought.
 
 Success means users can move from operational context to committed action
 quickly: see the relevant work, inspect the right records, understand status and
@@ -49,7 +50,7 @@ confident without becoming decorative or theatrical.
 Reference territory includes ArcGIS Online and Google Maps for spatial
 orientation, but SIMMER should not feel like a clone of either. It should pair
 map fluency with a distinct operational workflow language for mosquito control
-agencies. For product ergonomics, references such as Linear, Stripe, and
+organizations. For product ergonomics, references such as Linear, Stripe, and
 Raycast are useful for density, hierarchy, and focused workflow surfaces, but
 SIMMER should stay more grounded and field-aware than generic SaaS tooling.
 
@@ -73,7 +74,7 @@ relationship views would explain the work more directly.
 
 Avoid treating the SIMMER Operator experience as a temporary admin page. It is
 the first proof of the product system and should carry the same care as
-agency-facing workflows.
+organization-facing workflows.
 
 ## Design principles
 

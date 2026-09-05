@@ -37,7 +37,7 @@ Twenty-four eager, twenty-nine on-demand.
 
 | Area | Eager | On-demand | Excluded |
 | --- | --- | --- | --- |
-| Identity | `organizations` (the agency's own row), `memberships`, `profiles` for selected org | none | `users` |
+| Identity | `organizations` (the organization's own row), `memberships`, `profiles` for selected org | none | `users` |
 | Foundation | `units`, `species`, `organization_species`, `collection_methods`, `collection_lures`, `habitat_types`, `region_folders` | `regions`, `addresses` | `genera` |
 | Adult surveillance | `traps` | `collections`, `collection_species` | none |
 | Larval surveillance | none | `habitats`, `inspections`, `samples`, `sample_species` | none |
@@ -71,8 +71,8 @@ withholds.
   stable label fields: profile id, organization id, display name, active state,
   and timestamps. Profile email and user id are reserved for role-appropriate
   management views.
-- `region_folders` is eager, but `regions` is on-demand because agencies may
-  store complex administrative boundary polygons.
+- `region_folders` is eager, but `regions` is on-demand because organizations
+  may store complex administrative boundary polygons.
 - `addresses` is on-demand because address books can be large.
 - Owned geometry lives on the locatable rows themselves. It is not a standalone
   web collection. Each locatable table carries trigger-maintained centroid

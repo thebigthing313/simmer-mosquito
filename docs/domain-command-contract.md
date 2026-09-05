@@ -13,7 +13,7 @@ whether a second system is involved.
 Identity is there. ADR 0013 decided that profiles, memberships and the
 organization's own details become commands too, and every one of them is: three
 that touch Postgres and nothing else, and four on `/commands/memberships` that
-also settle WorkOS. One surface is still REST and always will be —
+also settle WorkOS. One surface is still REST and always will be:
 `people.listMemberships`, which is a read behind a POST.
 
 ## Command shape
@@ -233,9 +233,9 @@ write's own transaction, and `ColumnOf` subtracts it. Reading one off a body is 
 `tsc` error naming the column, so the value a handler uses is the one the server
 resolved and never the one the caller sent.
 
-- `organization_id` is tenancy, set from `AuthContext`. This is the sharp one: a
-  handler reading it off a body would let a caller name another organization's
-  id.
+- `organization_id` is the organization scope, set from `AuthContext`. This is
+  the sharp one: a handler reading it off a body would let a caller name another
+  organization's id.
 - `created_at`, `updated_at` and `deleted_at` are the row's clock. A delete is a
   named command, not a timestamp arriving.
 - `created_by_profile_id` is who made the row, resolved from the session.

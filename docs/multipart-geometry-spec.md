@@ -87,9 +87,10 @@ They already share one policy, `LOCATABLE_GEOMETRY_TYPES`, three base shapes wit
 no per-table narrowing. Widening them together keeps that. Per-table narrowing
 turns one policy into eight and gives the matrix eight places to drift.
 
-Whether three puddles a few metres apart are one Habitat or three is the agency's
-call. That is an SOP, not configuration: there is no per-Agency geometry setting,
-and neither the SQL CHECK nor the import path could read one.
+Whether three puddles a few metres apart are one Habitat or three is the
+organization's call. That is an SOP, not configuration: there is no
+per-Organization geometry setting, and neither the SQL CHECK nor the import path
+could read one.
 
 ### Why Notification Registrations narrow
 
@@ -304,7 +305,7 @@ exempt: it has no measure, and the position rule already rejects
 `coordinates: []`, so `POINT EMPTY` cannot be built from a GeoJSON payload.
 
 Strictly greater than zero, with no epsilon. Any threshold is a claim about the
-smallest treatment area an agency records, and nobody has that number.
+smallest treatment area an organization records, and nobody has that number.
 
 ### Why not the other two nets
 
@@ -316,8 +317,8 @@ after a `NOTICE: Too few points in geometry component`.
 
 `ST_IsValid` was ruled out by measurement. 15 of 345 production Regions fail it,
 all self-intersections, all in `regions`, with every other table clean across
-194,184 geometry rows. A validity gate would refuse 4% of one agency's live
-Regions the next time anyone saved one. Filed separately as #437, because a
+194,184 geometry rows. A validity gate would refuse 4% of one organization's
+live Regions the next time anyone saved one. Filed separately as #437, because a
 relate on an invalid geometry is undefined in GEOS and those 15 rows have a
 membership answer nobody has checked.
 
@@ -564,7 +565,7 @@ that killed staging. So the migration is safe beside a live Electric slot and
 needs no special shape.
 
 Two cautions carried forward. The reorder-buffer cost is linear in heap size, so
-if any agency's `regions` ever reaches six figures this puts hundreds of MB
+if any organization's `regions` ever reaches six figures this puts hundreds of MB
 through the slot's buffer and onto disk, still without sending a byte to Electric.
 And slot lag read as `pg_wal_lsn_diff(pg_current_wal_lsn(), restart_lsn)` is
 useless as a measurement here, because it is cluster-wide and a developer's own
@@ -1064,9 +1065,9 @@ holding two kinds and refused it as mixed. #473 amends this: one point beside a
 shape of one other kind is that shape, the point is dropped as the label it is,
 and the row says so and still imports. Several points beside a shape are still
 refused, because nothing in the file says which of them is the label. A GeoJSON
-GeometryCollection is rare in agency exports. The KML twin exists only because
-the gate widened: a `<MultiGeometry>` holding a LineString and a Polygon, on a
-record whose `allowedTypes` wants both. Same answer, refused and named.
+GeometryCollection is rare in organization exports. The KML twin exists only
+because the gate widened: a `<MultiGeometry>` holding a LineString and a Polygon,
+on a record whose `allowedTypes` wants both. Same answer, refused and named.
 
 ### The geometryType gate dies
 
@@ -1127,10 +1128,10 @@ labelled and what the register's `domainName` values say ("Habitat Geometry").
 
 ### A consequence that is not backfilled
 
-An agency that already imported a three-lot park file holds three Regions named
-"Park A (1)", "Park A (2)", "Park A (3)". Re-importing the same file now produces
-one Region named "Park A". Nothing reconciles the two. This belongs in the release
-note for the import slice.
+An organization that already imported a three-lot park file holds three Regions
+named "Park A (1)", "Park A (2)", "Park A (3)". Re-importing the same file now
+produces one Region named "Park A". Nothing reconciles the two. This belongs in
+the release note for the import slice.
 
 ## The static gate
 

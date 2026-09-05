@@ -54,6 +54,7 @@ overriding it:
 
 > Contradicts ADR 0007 (shared sync descriptors), but worth reopening because...
 
-Two ADRs need care. **0013 is accepted but not built**: identity writes are
-still REST routes, not domain commands, so the code and the decision disagree on
-purpose. **0014 amends 0007** rather than replacing it, so read both for sync.
+Two ADRs need care. **0013 is accepted and built**: every identity write is a
+domain command in the `identity.*` namespace, and `IDENTITY_FLOORS` is gone, so
+an older note saying identity writes are REST routes is stale. **0014 amends
+0007** rather than replacing it, so read both for sync.

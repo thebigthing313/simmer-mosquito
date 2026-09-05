@@ -1,8 +1,8 @@
 # Releases and changelogs
 
-SIMMER is in production use by an agency. That changes what a version number is
-for: it is no longer bookkeeping, it is the thing a support conversation starts
-with. "Which build are you on, and what changed in it."
+SIMMER is in production use by an organization. That changes what a version
+number is for: it is no longer bookkeeping, it is the thing a support
+conversation starts with. "Which build are you on, and what changed in it."
 
 `apps/web` and `apps/admin` are versioned independently, both starting at
 **0.1.0**. Every other workspace package is unversioned on purpose; see
@@ -89,14 +89,14 @@ This inverts what this document used to say, so the old reasoning is worth
 stating before the new one. Under the two-branch flow the cut happened on the
 promotion to `main`, and the argument was that a number nobody could yet be on
 would be a worse lie than no number at all: the version in the sidebar always
-named a build an agency actually had.
+named a build an organization actually had.
 
 The soak is what changed it. A release candidate now sits on `staging` for days
-in front of agency staff trying it against a clone of their own data, and a bug
-they report has to be reportable. "The one on staging" stops being an answer the
-moment there have been two candidates. So the number is minted at the cut and
-names the candidate from that moment, and `main` fast-forwards a number that
-already exists.
+in front of organization staff trying it against a clone of their own data, and
+a bug they report has to be reportable. "The one on staging" stops being an
+answer the moment there have been two candidates. So the number is minted at the
+cut and names the candidate from that moment, and `main` fast-forwards a number
+that already exists.
 
 The cost is real and small. Between the cut and the promotion there is a version
 production is not on, and a candidate that gets fixed before it ships takes its
@@ -163,8 +163,8 @@ change a user was told about; inventing a category for it would make a badly
 written changeset look like a decision. A release drawing ungrouped entries is
 a review miss, and reads like one.
 
-The audience is agency staff, so `DESIGN.md`'s copy rules apply: say what the
-thing does, don't explain the domain back to them, don't cite best practice.
+The audience is organization staff, so `DESIGN.md`'s copy rules apply: say what
+the thing does, don't explain the domain back to them, don't cite best practice.
 
 To see what is pending on your branch:
 

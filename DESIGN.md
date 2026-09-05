@@ -1,6 +1,6 @@
 ---
 name: SIMMER
-description: Map-centric mosquito control operations UI for focused agency work.
+description: Map-centric UI for focused mosquito control operations work.
 colors:
   field-green: "oklch(52.71% 0.1114 159.1429)"
   deep-field-green: "oklch(39.15% 0.0882 156.38)"
@@ -115,8 +115,8 @@ components:
 
 SIMMER should feel like a calm operational workspace built around geography:
 professional, natural, and focused. It is not a marketing surface and not a
-generic admin console. It is where agency and SIMMER Operator work becomes
-legible enough to trust.
+generic admin console. It is where organization and SIMMER Operator work
+becomes legible enough to trust.
 
 The product register is restrained, but not bland. Use tinted neutrals, grounded
 green, and earned yellow attention to keep dense workflows readable. The
@@ -402,8 +402,8 @@ Both front ends wear the same two-rail shell from
 secondary panel of that domain's navigation, and a breadcrumb header. The
 operator console no longer has chrome of its own. It supplies a navigation
 model and identity, and the shell does the rest. Its rail carries three domains
-(Agencies, Mosquito Taxonomy, Units) and its switcher names the control plane
-rather than an agency, because every page there spans all of them.
+(Organizations, Mosquito Taxonomy, Units) and its switcher names the control
+plane rather than an organization, because every page there spans all of them.
 
 **Rows built from data.** A navigation item may point at a record rather than a
 page: `to` stays the route template and `params` carries the ids, so
@@ -432,12 +432,13 @@ Use full-height right-side geometry, no decorative shadow, and a scrim only when
 the drawer blocks the main workflow.
 
 **The One Create Shape Rule.** Creating a record is a full page when the record
-is long, and a dialog when it is short. The same choice holds for editing it. Both apps use `RecordFormPage` for the long ones (a dozen forms in the
-agency workspace; creating an agency in the console) and a dialog for the short
-catalog rows. Creating an organization used to be a 520px sheet, which put the
-one decision worth deliberating, whether the operator links themselves as the
-agency's first owner, below the fold. That is the shape this rule exists to
-prevent.
+is long, and a dialog when it is short. The same choice holds for editing it.
+Both apps use `RecordFormPage` for the long ones (a dozen forms in the
+organization workspace; creating an organization in the console) and a dialog
+for the short catalog rows. Creating an organization used to be a 520px sheet,
+which put the one decision worth deliberating, whether the operator links
+themselves as the organization's first owner, below the fold. That is the shape
+this rule exists to prevent.
 
 A create form pinned permanently above its own list is not a third option. It
 spends vertical space on every visit to serve the rarest action, and it makes
