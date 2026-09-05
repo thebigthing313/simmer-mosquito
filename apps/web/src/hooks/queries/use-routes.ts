@@ -1,5 +1,5 @@
 /**
- * Every standing Route the agency has, of either kind.
+ * Every standing Route the organization has, of either kind.
  *
  * The two planning surfaces read their own kind — `useHabitatRoutes` and
  * `useTrapRoutes` each filter on `route_type`, because a habitat route and a trap

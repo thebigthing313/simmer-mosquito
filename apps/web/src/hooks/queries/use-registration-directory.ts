@@ -1,5 +1,5 @@
 /**
- * Every notification registration the agency holds.
+ * Every notification registration the organization holds.
  *
  * The whole set rather than a viewport page, because the explorer draws each
  * one's buffer and a registration whose centre is off screen can still cover

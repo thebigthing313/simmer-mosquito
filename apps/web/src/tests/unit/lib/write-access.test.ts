@@ -174,7 +174,7 @@ describe('canRemoveMember', () => {
 	});
 
 	// The bound the server applies too: "admins may remove" without it would be
-	// "admins may remove every owner", and an agency with no owner cannot
+	// "admins may remove every owner", and an organization with no owner cannot
 	// appoint one.
 	it('does not offer removing somebody above your own role', () => {
 		expect(canRemoveMember(authWithRole('admin'), { id: 'membership_2', role: 'owner' })).toBe(

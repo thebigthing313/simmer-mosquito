@@ -1,7 +1,7 @@
 /** @vitest-environment jsdom */
 
 /**
- * Adult surveillance's read: the traps the agency is running now.
+ * Adult surveillance's read: the traps the organization is running now.
  *
  * The sort is the part worth holding. It is by code then by name, which is the
  * order `trapDisplayName` composes them in, and it replaced a `localeCompare`

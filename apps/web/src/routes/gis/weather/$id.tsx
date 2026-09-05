@@ -78,8 +78,9 @@ function WeatherStationContent({
 }) {
 	useBreadcrumbLabel(station.id, station.name);
 
-	// A station an agency does not own is one of the shared provider rows, which no
-	// `weather.*` command writes. It reads the same and offers nothing to change.
+	// A station an organization does not own is one of the shared provider rows,
+	// which no `weather.*` command writes. It reads the same and offers nothing
+	// to change.
 	const isOwned = station.sourceType === 'organization' && station.organizationId !== null;
 
 	return (

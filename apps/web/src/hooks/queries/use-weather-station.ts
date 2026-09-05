@@ -6,9 +6,9 @@
  * rather than an inline query so the surface reads through the same seam as the
  * rest, and so the camelCase boundary lands in one place.
  *
- * Stations are shared rather than agency-owned — `organization_id` is nullable,
- * because the NWS ones belong to nobody — so the shape carries both this
- * agency's own stations and the public ones it reads.
+ * Stations are shared rather than organization-owned — `organization_id` is
+ * nullable, because the NWS ones belong to nobody — so the shape carries both
+ * this organization's own stations and the public ones it reads.
  */
 
 import type { WeatherSourceType } from '@simmer-mosquito/domain';
@@ -25,7 +25,7 @@ export interface WeatherStation {
 	readonly sourceCode: string | null;
 	readonly providerSourceId: string | null;
 	readonly isActive: boolean;
-	/** `null` on a shared station — an NWS one belongs to no agency. */
+	/** `null` on a shared station — an NWS one belongs to no organization. */
 	readonly organizationId: string | null;
 	readonly latitude: number;
 	readonly longitude: number;

@@ -25,8 +25,8 @@ type LandingCapability = {
 /**
  * The three capabilities are the three integrated mosquito management tactics
  * SIMMER covers today, ordered the way a program runs them. Copy stays
- * descriptive: the reader runs a mosquito control agency and does not need the
- * value of surveillance explained back to them.
+ * descriptive: the reader runs a mosquito control organization and does not
+ * need the value of surveillance explained back to them.
  */
 const CAPABILITIES: readonly LandingCapability[] = [
 	{

@@ -6,9 +6,9 @@
  * Anywhere one row means one person, join it instead; the recent-activity hooks
  * all do.
  *
- * Profiles are eager and an agency has tens of them, so this reads the whole
- * table. Status-gated rather than suspending: a panel should resolve names
- * without holding up the page it sits on.
+ * Profiles are eager and an organization has tens of them, so this reads the
+ * whole table. Status-gated rather than suspending: a panel should resolve
+ * names without holding up the page it sits on.
  *
  * The `Map` is the index exception `shared.ts` names — a query returns rows and
  * cannot return a lookup of them.

@@ -67,9 +67,9 @@ export function assessParsedRows(
 	existing: readonly WeatherSummaryListing[],
 	newId: () => string,
 	/**
-	 * The agency's calendar day. Passed so the review fails a future-dated row the
-	 * way the server will: without it the screen says "Add" for a line the commit
-	 * is about to refuse, which is the one thing a review must not do.
+	 * The organization's calendar day. Passed so the review fails a future-dated
+	 * row the way the server will: without it the screen says "Add" for a line
+	 * the commit is about to refuse, which is the one thing a review must not do.
 	 */
 	currentLocalDate: string,
 ): FileAssessment {

@@ -389,8 +389,8 @@ function HabitatMetadata({
 		<div className="grid gap-1.5">
 			<span className="text-xs font-semibold text-muted-foreground uppercase">Metadata</span>
 			{/* The same list every other record's custom fields render through, so an
-			    agency-authored label wraps here too rather than being clipped by the
-			    curated-label column `DetailRow` above is sized for. */}
+			    organization-authored label wraps here too rather than being clipped
+			    by the curated-label column `DetailRow` above is sized for. */}
 			<CustomFieldsList entries={entries} />
 		</div>
 	);
@@ -574,9 +574,9 @@ function InspectionHistory({
 	readonly inspections: readonly HabitatHistoryInspection[];
 }) {
 	const { page, pageCount, pageRows, setPage } = usePagedRows(inspections, historyPageSize);
-	// The agency's larval data mode decides which abundance columns are meaningful:
-	// density-only entry hides larvae, count-and-dips entry hides the derived
-	// density, and hybrid shows all three.
+	// The organization's larval data mode decides which abundance columns are
+	// meaningful: density-only entry hides larvae, count-and-dips entry hides the
+	// derived density, and hybrid shows all three.
 	const columns = inspectionColumnsForMode(useLarvalEntryMode());
 
 	if (inspections.length === 0) {
@@ -1044,7 +1044,7 @@ function formatAmount(value: number): string {
 }
 
 /**
- * A stamp, in the agency's zone.
+ * A stamp, in the organization's zone.
  *
  * Takes a `Date` as well as a string: the read seam hands back `created_at` and
  * `updated_at` as `Date` — `coerce.date()` in the row schema — where the row

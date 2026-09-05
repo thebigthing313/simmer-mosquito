@@ -43,7 +43,7 @@ import { newRecordId, optimisticStamp } from './shared';
 export interface TagFields {
 	readonly name: string;
 	readonly description: string | null;
-	/** A hex string, or `null` for a Tag the agency left uncoloured. */
+	/** A hex string, or `null` for a Tag the organization left uncoloured. */
 	readonly color: string | null;
 	readonly isActive: boolean;
 }

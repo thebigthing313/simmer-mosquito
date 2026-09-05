@@ -90,9 +90,9 @@ describe('a comment written on a route, once the routes collection has answered'
 		});
 	});
 
-	// An id a loaded collection does not hold names a route this agency cannot
-	// see. Either tree would be a guess, so the row gets no destination at all,
-	// which is a different answer from the wait above.
+	// An id a loaded collection does not hold names a route this organization
+	// cannot see. Either tree would be a guess, so the row gets no destination at
+	// all, which is a different answer from the wait above.
 	it('opens neither tree for an id the collection does not hold', () => {
 		const resolution = searchResultDestination(
 			commentOnRoute('00000000-0000-4000-8000-000000absent'),

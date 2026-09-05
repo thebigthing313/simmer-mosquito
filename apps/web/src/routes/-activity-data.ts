@@ -527,11 +527,12 @@ function joinParts(parts: readonly (string | null | undefined)[]): string | null
 }
 
 /**
- * The time of day, where the record genuinely carries one, in the agency's zone.
+ * The time of day, where the record genuinely carries one, in the
+ * organization's zone.
  *
  * The server sends an instant; which clock reading that is depends on where you
  * ask. A collector on the road and a supervisor two time zones away have to see
- * the same 9pm, so the agency's zone is the one that answers.
+ * the same 9pm, so the organization's zone is the one that answers.
  */
 export function formatActivityTime(
 	occurredAt: string | null,

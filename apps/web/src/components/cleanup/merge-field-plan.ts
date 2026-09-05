@@ -8,8 +8,9 @@ import type { DuplicateRecord, MergeableRecordType } from '../../hooks/use-merge
  * A merge re-points every reference onto the survivor and retires the rest, and
  * it does not touch the survivor's own columns. So a phone number only the
  * retired row holds is gone: no error, no warning, the number simply not in the
- * agency's records any more. Two rows for one person is usually two halves of
- * one person, which is why they were entered twice in the first place.
+ * organization's records any more. Two rows for one person is usually two
+ * halves of one person, which is why they were entered twice in the first
+ * place.
  *
  * This module decides nothing on its own. It gathers what every record in the
  * set says, proposes a starting value for each field, and turns whatever the

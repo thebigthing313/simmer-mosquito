@@ -314,8 +314,8 @@ describe('a collection write', () => {
 
 	it('reads the caller rather than the timestamp, so a dated collection is still collected', async () => {
 		// The route this replaces chose between the two on a `collectedAt` that
-		// happened to parse. An agency on date+duration never has one, so every
-		// emptied trap it recorded was written as a trap left out.
+		// happened to parse. An organization on date+duration never has one, so
+		// every emptied trap it recorded was written as a trap left out.
 		const { result } = renderHook(() => useCollectionMutations());
 
 		await result.current.record({
@@ -606,8 +606,8 @@ describe('a collection write', () => {
 
 describe('a collection species write', () => {
 	it('names the create and files it under the day the organization is having', async () => {
-		// An identification keyed at 11pm on a lab machine two zones away belongs to
-		// the agency's date, not the browser's.
+		// An identification keyed at 11pm on a lab machine two zones away belongs
+		// to the organization's date, not the browser's.
 		const { result } = renderHook(() => useCollectionSpeciesMutations());
 
 		await result.current.add({

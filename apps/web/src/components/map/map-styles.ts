@@ -13,7 +13,7 @@ export type MapCamera = {
 	readonly pitch?: number;
 };
 
-/** Continental-US framing until an agency's own extent is known. */
+/** Continental-US framing until an organization's own extent is known. */
 export const DEFAULT_MAP_CAMERA: MapCamera = {
 	center: [-95.7, 37.1],
 	zoom: 3.4,

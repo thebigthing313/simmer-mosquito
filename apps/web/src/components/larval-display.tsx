@@ -36,7 +36,7 @@ export function hasAnyLifeStage(stages: LifeStageFlags): boolean {
 }
 
 /**
- * Larvae per dip — the measure an agency's density bands are ranges of.
+ * Larvae per dip — the measure an organization's density bands are ranges of.
  *
  * The bands under Organization → Larval Surveillance are literally "more than
  * *n* and up to *m* larvae per dip", so this is the number a density badge was

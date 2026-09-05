@@ -6,9 +6,9 @@
  * Three surfaces that each split one form across two commands, and the split is
  * the part nothing else asserts. A service request's contact is a reference the
  * command resolves rather than a column the client sets, an outreach edit is
- * either field details or location and context, and a contact edit is either who
- * they are or how the agency may reach them. Name the wrong half and the server
- * answers 200 having dropped the work.
+ * either field details or location and context, and a contact edit is either
+ * who they are or how the organization may reach them. Name the wrong half and
+ * the server answers 200 having dropped the work.
  *
  * The close is the other reason this file exists. It writes two clocks:
  * `closed_at` is the browser's and goes on the wire, `updated_at` is the

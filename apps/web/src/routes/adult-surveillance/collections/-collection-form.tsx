@@ -220,7 +220,7 @@ export interface CollectionFormPageProps {
 export function defaultCollectionFormValues(
 	today: string,
 	trapId: string | null,
-	/** The agency's default timing mode, from organization settings. */
+	/** The default timing mode, from organization settings. */
 	timingMode: AdultCollectionTimingMode,
 ): CollectionFormValues {
 	return {
@@ -548,9 +548,9 @@ export function CollectionFormPage({
 					</form.AppField>
 				</FormSection>
 
-				{/* Agencies attach their own fields to a collection method; render
-							    whichever the method on this collection declares — whether it was
-							    picked directly or inherited from the trap. */}
+				{/* Organizations attach their own fields to a collection method;
+							    render whichever the method on this collection declares — whether
+							    it was picked directly or inherited from the trap. */}
 				<form.Subscribe selector={(state) => state.values.collectionMethodId}>
 					{(methodId) => {
 						const schema = customSchemaFor(collectionMethods, methodId);

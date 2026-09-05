@@ -1,6 +1,6 @@
 /**
- * The stations an agency reads weather at: adding one, renaming it, moving it,
- * retiring it, deleting it.
+ * The stations an organization reads weather at: adding one, renaming it,
+ * moving it, retiring it, deleting it.
  *
  * ## `geometry` is an argument, not a location source
  *
@@ -177,10 +177,10 @@ export function useWeatherStationMutations(): WeatherStationMutations {
 						lat: centroid.lat,
 						lng: centroid.lng,
 						geom_type: centroid.geomType,
-						// An agency's own station is always its own source. The `nws` type
-						// is plumbing for a provider feed no command writes, so the server
-						// sets this rather than reading it, and the optimistic row says
-						// what the server will.
+						// An organization's own station is always its own source. The `nws`
+						// type is plumbing for a provider feed no command writes, so the
+						// server sets this rather than reading it, and the optimistic row
+						// says what the server will.
 						source_type: 'organization',
 						source_name: fields.name,
 						source_code: fields.code,

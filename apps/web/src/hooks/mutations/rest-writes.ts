@@ -3,12 +3,12 @@
  *
  * Three of the fifty-four are: `organizations`, `profiles` and `memberships`.
  * Their writes are identity writes — creating a Profile, ending a Membership,
- * editing the agency's own record — and identity is not part of the command
- * vocabulary *yet*.
+ * editing the organization's own record — and identity is not part of the
+ * command vocabulary *yet*.
  *
- * **This module is transitional.** ADR 0013 folds identity in, so every agency
- * write reaches Postgres the same way: the client states what it intended and
- * the server decides whether to do it. `/commands/profiles` and
+ * **This module is transitional.** ADR 0013 folds identity in, so every
+ * organization write reaches Postgres the same way: the client states what it
+ * intended and the server decides whether to do it. `/commands/profiles` and
  * `/commands/organizations` will exist, these collections go back to
  * `mutations: true`, and this file is deleted with the last surface that needs
  * it. Do not build anything new on it.

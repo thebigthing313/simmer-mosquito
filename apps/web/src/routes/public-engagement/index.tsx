@@ -173,11 +173,12 @@ function PanelRow({
 // --- open service requests --------------------------------------------------
 
 /**
- * What is still waiting on the agency, newest first.
+ * What is still waiting on the organization, newest first.
  *
  * The panel previews the most recent few and hands the rest to the explorer —
- * an agency in season carries more open requests than a summary can usefully
- * list, and the count in the header is the number that matters at a glance.
+ * an organization in season carries more open requests than a summary can
+ * usefully list, and the count in the header is the number that matters at a
+ * glance.
  */
 function OpenServiceRequestsPanel({
 	requests,
@@ -284,7 +285,8 @@ const EVENT_PRESENTATION: Readonly<
 };
 
 /**
- * What has happened to the agency's service requests lately, newest first.
+ * What has happened to the organization's service requests lately, newest
+ * first.
  *
  * Unlike the panels above it this is a chronology rather than a worklist: the
  * same request appears as often as it was touched, and an event is worth a row

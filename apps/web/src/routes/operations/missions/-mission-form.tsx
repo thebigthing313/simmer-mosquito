@@ -179,11 +179,11 @@ export function readMissionPlan(values: MissionFormValues, timeZone: string): Mi
 }
 
 /**
- * A day and a wall time as the instant they name on the agency's clock.
+ * A day and a wall time as the instant they name on the organization's clock.
  *
- * The zone is the agency's, not the browser's: a dispatcher scheduling a 6am
- * muster from another zone was writing their own 6am, while the mission list and
- * detail page have always shown the yard's.
+ * The zone is the organization's, not the browser's: a dispatcher scheduling a
+ * 6am muster from another zone was writing their own 6am, while the mission
+ * list and detail page have always shown the yard's.
  */
 function organizationInstant(date: string, time: string, timeZone: string): Date | null {
 	const instant = localTimeAsInstant(date, time, timeZone);

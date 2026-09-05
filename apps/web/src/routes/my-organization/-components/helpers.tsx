@@ -83,10 +83,10 @@ export function organizationDetailsFormValues(
  * What the details sheet typed, as the write takes it.
  *
  * The form holds strings because an emptied input is `''`; the columns are
- * nullable because an agency that has no second address line has none. Trimming
- * and that conversion is the whole of what a form owes a write — every other
- * rule about these values belongs to the domain, which is what the seven routes
- * run.
+ * nullable because an organization that has no second address line has none.
+ * Trimming and that conversion is the whole of what a form owes a write — every
+ * other rule about these values belongs to the domain, which is what the seven
+ * routes run.
  */
 export function organizationDetailsFieldsFrom(
 	values: OrganizationDetailsFormValues,

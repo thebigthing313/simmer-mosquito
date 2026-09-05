@@ -1,5 +1,6 @@
 /**
- * What a refused agency write means — and, above all, that a conflict is one.
+ * What a refused organization write means — and, above all, that a conflict is
+ * one.
  *
  * The handler this replaces implemented optimistic concurrency and then undid it:
  * it caught the server's `409 organization_conflict` and immediately re-sent the

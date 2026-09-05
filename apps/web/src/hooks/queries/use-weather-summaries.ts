@@ -2,9 +2,9 @@
  * A station's **Weather Summaries**, newest first.
  *
  * On-demand, because a summary is one station's one reporting period and an
- * agency accumulates them faster than any other weather record. Nothing wants
- * the whole table, and one station's detail page is exactly the subset the mode
- * exists for.
+ * organization accumulates them faster than any other weather record. Nothing
+ * wants the whole table, and one station's detail page is exactly the subset
+ * the mode exists for.
  *
  * `useLiveQuery` rather than the suspense variant, deliberately: the suspense
  * hook sticks after a navigation unmounts it on an on-demand collection, so the

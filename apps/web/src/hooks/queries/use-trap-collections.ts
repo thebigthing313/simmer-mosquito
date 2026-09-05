@@ -63,8 +63,8 @@ export function useTrapCollections(
 	readonly isError: boolean;
 } {
 	const { seasons, timeZone } = options;
-	// A calendar year boundary in the agency's zone, as both the string a `date`
-	// column compares against and the instant a `timestamptz` one does.
+	// A calendar year boundary in the organization's zone, as both the string a
+	// `date` column compares against and the instant a `timestamptz` one does.
 	const sinceDate =
 		seasons === null
 			? null

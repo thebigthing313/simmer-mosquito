@@ -10,8 +10,8 @@ import { createTrapsCollection, type Trap } from '@simmer-mosquito/sync';
 import { declareCollection } from './registry';
 
 /**
- * `eager`: A trap network is a fixed set an agency maintains, not a record that
- * accumulates — and the map draws all of them.
+ * `eager`: A trap network is a fixed set an organization maintains, not a
+ * record that accumulates — and the map draws all of them.
  *
  * This app writes traps, so the collection carries the three mutation handlers
  * and every write through it names the command it means.

@@ -10,8 +10,8 @@ import { createProfilesCollection, type Profile } from '@simmer-mosquito/sync';
 import { declareCollection } from './registry';
 
 /**
- * `eager`: Who an agency's people are. Every record that names an inspector, applicator
- * or crew member resolves through this.
+ * `eager`: Who an organization's people are. Every record that names an inspector,
+ * applicator or crew member resolves through this.
  *
  * `mutations: true` since ADR 0013's first slice: `/commands/profiles` exists,
  * and creating or editing a Profile is `identity.createProfile` and

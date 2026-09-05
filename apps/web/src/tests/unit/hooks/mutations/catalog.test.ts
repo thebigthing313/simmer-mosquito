@@ -570,9 +570,9 @@ function insecticideFields(overrides: Partial<InsecticideFields> = {}): Insectic
 
 describe('an insecticide write', () => {
 	it('leaves the two inventory columns null, because no form sets them', async () => {
-		// An agency that buys in one unit and applies in another needs them. Nothing
-		// in the app writes them yet, so a create that guessed a value would be this
-		// layer inventing a conversion.
+		// An organization that buys in one unit and applies in another needs them.
+		// Nothing in the app writes them yet, so a create that guessed a value
+		// would be this layer inventing a conversion.
 		const { result } = renderHook(() => useInsecticideMutations());
 
 		await result.current.create(insecticideFields());

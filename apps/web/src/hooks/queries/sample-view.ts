@@ -22,7 +22,7 @@ export type SampleStatus = 'identified' | 'awaiting' | 'zero_larvae' | 'unidenti
 export interface Sample {
 	readonly id: string;
 	/**
-	 * The agency's own name for the jar, or `null` when it named none.
+	 * The organization's own name for the jar, or `null` when it named none.
 	 *
 	 * The one nullable name in this folder. Everywhere else the query resolves the
 	 * fallback so no call site has to — a Habitat with no name reads out its

@@ -2,11 +2,12 @@
  * The mosquito taxonomy, as rows.
  *
  * `useSpeciesNames` answers "what is this id called" and `useSpeciesOptions`
- * answers "what may this agency record"; this is for the surfaces that need the
- * rows themselves — a species breakdown that has to tell a real taxon from the
- * catalog's placeholder, and a page building more than one control from one read.
+ * answers "what may this organization record"; this is for the surfaces that
+ * need the rows themselves — a species breakdown that has to tell a real taxon
+ * from the catalog's placeholder, and a page building more than one control
+ * from one read.
  *
- * The taxonomy is a global catalog rather than an agency one — no
+ * The taxonomy is a global catalog rather than an organization one — no
  * `organization_id` — and it is eager, so this costs no request and suspends.
  */
 

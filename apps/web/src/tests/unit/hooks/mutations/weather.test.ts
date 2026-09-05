@@ -1,8 +1,8 @@
 /** @vitest-environment jsdom */
 
 /**
- * What a weather write dispatches: the stations an agency reads at, and the
- * summaries recorded against them.
+ * What a weather write dispatches: the stations an Organization reads at, and
+ * the summaries recorded against them.
  *
  * Two things here are unlike the rest of the app. The station's point is an
  * argument rather than a location source, because the point is the record. And

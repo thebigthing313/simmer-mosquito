@@ -11,8 +11,8 @@ import { BasicIndex } from '@tanstack/db';
 import { declareCollection } from './registry';
 
 /**
- * `on-demand`: An agency's address book grows with its service requests, so the pickers
- * fetch what they search for.
+ * `on-demand`: An organization's address book grows with its service requests, so the
+ * pickers fetch what they search for.
  *
  * This app writes addresses, so the collection carries the three mutation
  * handlers and every write through it names the command it means.

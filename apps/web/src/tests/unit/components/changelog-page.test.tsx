@@ -72,7 +72,7 @@ describe('ChangelogPage', () => {
 
 		// The naive `new Date('2026-08-10')` reading is UTC midnight, which draws
 		// as August 9 for every timezone west of Greenwich — which is all of them,
-		// for the agencies using this.
+		// for the organizations using this.
 		expect(screen.getByText('August 10, 2026')).toBeTruthy();
 		expect(screen.queryByText('August 9, 2026')).toBeNull();
 	});

@@ -6,11 +6,12 @@
  *
  * ## Why retired Habitats are an argument
  *
- * The two pickers this serves disagree, and the disagreement is real rather than
- * an accident of the shape. A control action or a request is new work, and
- * offering a site the agency has retired invites recording against it — so those
- * exclude. The inspection form's picker has always offered every Habitat in the
- * agency, and an inspection is also how a retired site gets looked at again.
+ * The two pickers this serves disagree, and the disagreement is real rather
+ * than an accident of the shape. A control action or a request is new work, and
+ * offering a site the organization has retired invites recording against it —
+ * so those exclude. The inspection form's picker has always offered every
+ * Habitat in the organization, and an inspection is also how a retired site
+ * gets looked at again.
  *
  * Neither is obviously wrong, so the caller says which it wants rather than this
  * quietly picking one and changing what an operator can find.

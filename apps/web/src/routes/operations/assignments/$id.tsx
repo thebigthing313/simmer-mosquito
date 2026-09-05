@@ -559,9 +559,9 @@ function CollectStopButton({
 							// The stop this visit closes — which is what makes the write a
 							// `fieldWork.*` command rather than an ordinary collect.
 							assignmentItemId: stop.assignmentItemId,
-							// Midday on the agency's clock, clamped back to now on the same
-							// day — the same stamp the collection forms use, and the one every
-							// surface reads the day back with.
+							// Midday on the organization's clock, clamped back to now on the
+							// same day — the same stamp the collection forms use, and the one
+							// every surface reads the day back with.
 							collectedAt: operationalDayAsTimestamp(collectedAt, timeZone) ?? new Date(),
 							collectionId,
 						}),

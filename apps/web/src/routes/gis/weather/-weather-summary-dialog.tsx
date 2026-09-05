@@ -216,8 +216,8 @@ export function WeatherSummaryDialog({
  * Re-stating any of those here would be a second copy to drift from the one the
  * server runs, which `forms/domain-validation.ts` argues against at length.
  *
- * The future-date rule is the exception, and has to be, because it depends on the
- * agency's timezone and the domain is handed no clock.
+ * The future-date rule is the exception, and has to be, because it depends on
+ * the organization's timezone and the domain is handed no clock.
  */
 function summaryIssue(input: {
 	readonly parsed: WeatherMetrics | null;
@@ -336,9 +336,9 @@ function MetricGrid({
  * The seven metrics, with their units in the label.
  *
  * The canonical units are Fahrenheit, inches, percent and miles per hour, and
- * they are fixed rather than following the agency's unit defaults, a stored
- * summary carries no unit of its own, so a form that offered a choice would be
- * writing one number under two meanings.
+ * they are fixed rather than following the organization's unit defaults, a
+ * stored summary carries no unit of its own, so a form that offered a choice
+ * would be writing one number under two meanings.
  */
 const METRIC_INPUTS = [
 	{ key: 'temperatureMinF', label: 'Min temp (°F)', placeholder: 'e.g. 54' },

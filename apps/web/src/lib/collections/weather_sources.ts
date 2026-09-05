@@ -10,8 +10,8 @@ import { createWeatherSourcesCollection, type WeatherSource } from '@simmer-mosq
 import { declareCollection } from './registry';
 
 /**
- * `eager`: The stations an agency reads from. A short list the weather screens draw
- * from.
+ * `eager`: The stations an organization reads from. A short list the weather
+ * screens draw from.
  *
  * Writable: the six `weather.*` station commands land on
  * `/commands/weather_sources`. The role floor is manager, enforced on the server

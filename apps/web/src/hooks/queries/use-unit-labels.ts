@@ -18,8 +18,9 @@
  * Anywhere one row means one unit, join it instead. `use-application.ts` and the
  * two beside it do.
  *
- * Units are a global catalog rather than an agency one — no `organization_id` —
- * and there are a few dozen, so this reads the whole table and suspends.
+ * Units are a global catalog rather than an organization one — no
+ * `organization_id` — and there are a few dozen, so this reads the whole table
+ * and suspends.
  */
 
 import type { UnitSystem, UnitType } from '@simmer-mosquito/domain';

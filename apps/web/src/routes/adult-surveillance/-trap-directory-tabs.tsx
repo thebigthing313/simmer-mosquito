@@ -4,9 +4,9 @@ import type { ComponentProps } from 'react';
 
 /**
  * The tab strips the directory is filtered by: collection methods on the left,
- * seasons on the right. Both are as long as the agency's own data makes them —
- * an agency running six trap types, a trap collecting since 2014 — so neither
- * can be laid out as if it were three tabs.
+ * seasons on the right. Both are as long as the organization's own data makes
+ * them — an organization running six trap types, a trap collecting since 2014 —
+ * so neither can be laid out as if it were three tabs.
  *
  * Two defaults have to be undone for that.
  *

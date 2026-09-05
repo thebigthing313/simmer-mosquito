@@ -27,10 +27,10 @@ export interface MatchTypeFilterProps {
  * Narrowing the page to one kind of evidence.
  *
  * Contacts are compared three ways and a busy address book proposes on two, so
- * an agency working through duplicates is really working through one kind at a
- * time: a shared phone number is a different judgement from two rows on one
- * rooftop, and reading them interleaved means switching between the two on every
- * panel.
+ * an organization working through duplicates is really working through one kind
+ * at a time: a shared phone number is a different judgement from two rows on
+ * one rooftop, and reading them interleaved means switching between the two on
+ * every panel.
  *
  * The counts are on the menu items rather than beside the trigger. They are what
  * makes the menu answer a question on its own ("is there anything on email?")

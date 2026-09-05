@@ -65,9 +65,9 @@ function ControlOperationsOverviewRoute() {
 		[today],
 	);
 
-	// Which unit the agency wants each kind of quantity reported in. Falls back
-	// to the domain defaults while the organization row is still syncing, so the
-	// widget renders a total rather than waiting on a setting.
+	// Which unit the organization wants each kind of quantity reported in. Falls
+	// back to the domain defaults while the organization row is still syncing, so
+	// the widget renders a total rather than waiting on a setting.
 	const { unitDefaults } = useOrganizationSettings();
 
 	return (

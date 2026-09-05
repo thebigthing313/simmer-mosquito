@@ -1,6 +1,6 @@
 /**
- * An agency's own geography: drawing a region, renaming it, filing it, redrawing
- * its boundary, removing it.
+ * An organization's own geography: drawing a region, renaming it, filing it,
+ * redrawing its boundary, removing it.
  *
  * ## `geometry` is an argument, not a location source
  *

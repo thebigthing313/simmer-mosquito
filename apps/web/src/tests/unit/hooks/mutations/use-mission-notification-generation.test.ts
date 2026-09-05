@@ -41,7 +41,7 @@ describe('generationRefusalOf', () => {
 
 	it('carries the registrations behind the codes, which is where the fix is made', () => {
 		// The codes say which unit is wrong. Nothing lists registrations across an
-		// agency, so without these the operator has a unit name and no row.
+		// organization, so without these the operator has a unit name and no row.
 		const error = new CommandError('Refused.', 409, {
 			error: 'mission_notifications_refused',
 			reason: 'buffer_unit_not_convertible',

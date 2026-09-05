@@ -289,11 +289,11 @@ export interface MissionProgressCounts {
 // --- formatting -------------------------------------------------------------
 
 /**
- * When a mission is due to start, on the agency's clock.
+ * When a mission is due to start, on the organization's clock.
  *
  * `scheduledStartAt` is an instant, and an instant has no time of day until a
  * zone is named. A dispatcher two zones from the yard has to read the same 6am
- * muster as the crew standing in it, so the zone is the agency's.
+ * muster as the crew standing in it, so the zone is the organization's.
  *
  * A string is still accepted: the write surfaces read raw Electric rows, where
  * the column arrives unparsed.
@@ -313,7 +313,7 @@ export function formatScheduledStart(value: Date | string, timeZone: string | un
 	});
 }
 
-/** The day a request came in, on the agency's calendar. See {@link formatScheduledStart}. */
+/** The day a request came in, on the organization's calendar. See {@link formatScheduledStart}. */
 export function formatRequestedAt(value: Date | string, timeZone: string | undefined): string {
 	const parsed = asInstant(value);
 	if (parsed === null) {

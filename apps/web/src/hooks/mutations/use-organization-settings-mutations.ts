@@ -1,19 +1,19 @@
 /**
- * Configuring the agency.
+ * Configuring the organization.
  *
- * Eight operations, each naming exactly one thing a Profile can change about the
- * agency: the seven `organizationSettings.*` commands, and the agency's details.
- * The details are columns, so since ADR 0013's first slice they are
- * `identity.updateOrganizationDetails` through `mutateCollection` like every
- * other table's writes. The seven are a JSON document and keep their own routes
- * See `organization-writes.ts` for why.
+ * Eight operations, each naming exactly one thing a Profile can change about
+ * the organization: the seven `organizationSettings.*` commands, and the
+ * organization's details. The details are columns, so since ADR 0013's first
+ * slice they are `identity.updateOrganizationDetails` through
+ * `mutateCollection` like every other table's writes. The seven are a JSON
+ * document and keep their own routes See `organization-writes.ts` for why.
  *
  * What each operation sends is only its own sub-document. The server merges it
  * into the stored settings, so an admin editing the larval density bands no
  * longer rewrites the timezone, the unit defaults and the Species Key Bindings
  * from their own copy of the document.
  *
- * ## Saving the agency details can be two writes
+ * ## Saving the organization details can be two writes
  *
  * The details sheet edits the name, the contact, the mailing address — and the
  * timezone, which is not a column but a setting. So `saveOrganizationDetails` sends the
@@ -41,7 +41,7 @@ import { mutateCollection } from '../../lib/collections/mutate';
 import { organizations } from '../../lib/collections/organizations';
 import { OrganizationConflictError, writeOrganization } from './organization-writes';
 
-/** The agency's details, as its sheet holds them. The timezone is a setting; the rest are columns. */
+/** The organization's details, as its sheet holds them. The timezone is a setting; the rest are columns. */
 export interface OrganizationDetailsFields {
 	readonly name: string;
 	readonly mainContactEmail: string | null;
@@ -64,7 +64,7 @@ export interface OrganizationSettingsMutations {
 	readonly setInsecticideBatchTracking: (trackInsecticideBatches: boolean) => Promise<void>;
 	readonly setServiceRequestContext: (context: ServiceRequestContextSettings) => Promise<void>;
 	readonly setSpeciesKeyBindings: (bindings: readonly SpeciesKeyBinding[]) => Promise<void>;
-	/** False while the agency's row is still arriving; every write throws until then. */
+	/** False while the organization's row is still arriving; every write throws until then. */
 	readonly canWrite: boolean;
 }
 
@@ -112,8 +112,8 @@ export interface OrganizationDetailsColumns {
  * `mailingCountry` is not compared to a field because there is no field. The
  * address is US-shaped, enforced by the domain on both the region and the
  * country, so it is always `'US'`. Comparing it to the stored value is what
- * stops an agency whose row predates that from being left alone forever, which
- * is why the field stays in the plan rather than being dropped.
+ * stops an organization whose row predates that from being left alone forever,
+ * which is why the field stays in the plan rather than being dropped.
  */
 export function organizationDetailsPlan(
 	fields: OrganizationDetailsFields,

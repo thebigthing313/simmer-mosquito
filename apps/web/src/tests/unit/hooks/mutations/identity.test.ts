@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
 
 /**
- * What an identity write sends: memberships, profiles and the agency's own row.
+ * What an identity write sends: memberships, profiles and the organization's
+ * own row.
  *
  * Three of the fifty-four tables are not written by command, and this surface is
  * all three. Two of its writes dispatch to a collection like every other table's
@@ -171,8 +172,8 @@ describe('a membership write', () => {
 
 	it('sends the Profile the sheet picked rather than a fresh one', async () => {
 		// The reason the sheet offers a list at all. A minted id for somebody the
-		// agency already records work against splits their field history in two, and
-		// the invitation still succeeds.
+		// organization already records work against splits their field history in
+		// two, and the invitation still succeeds.
 		const { result } = renderHook(() => useMembershipMutations());
 
 		await result.current.invite({
@@ -206,9 +207,10 @@ describe('a membership write', () => {
 	});
 
 	it('clears the default organization when access ends, and keeps the row', async () => {
-		// The Membership is the only record that access was ever held, so this is an
-		// update and not a delete. `is_default` left set points at the one agency
-		// this person can no longer enter, and their next sign-in has nowhere to go.
+		// The Membership is the only record that access was ever held, so this is
+		// an update and not a delete. `is_default` left set points at the one
+		// organization this person can no longer enter, and their next sign-in has
+		// nowhere to go.
 		const { result } = renderHook(() => useMembershipMutations());
 
 		await result.current.endMembership(MEMBERSHIP);

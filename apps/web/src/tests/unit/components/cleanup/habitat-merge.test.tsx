@@ -17,9 +17,9 @@ import type { MinimumRole } from '../../../../lib/write-access';
  * is worth pinning: if the target ever came from the list instead, every merge
  * would still be a valid request for the wrong merge.
  *
- * The radius is the other half. It is in the agency's own units, so an agency
- * that works in feet must not be shown metres, and the number that goes over the
- * wire must be metres whatever the buttons say.
+ * The radius is the other half. It is in the organization's own units, so an
+ * organization that works in feet must not be shown metres, and the number that
+ * goes over the wire must be metres whatever the buttons say.
  */
 
 const RANK: Record<string, number | undefined> = {
@@ -175,8 +175,8 @@ describe('HabitatMerge', () => {
 	});
 
 	it('searches in metres and labels in the organization unit', () => {
-		// The buttons say what the agency says. What goes over the wire is metres,
-		// because the radius reaches `st_dwithin` over geography.
+		// The buttons say what the organization says. What goes over the wire is
+		// metres, because the radius reaches `st_dwithin` over geography.
 		distanceUnit = 'foot';
 		renderPage();
 

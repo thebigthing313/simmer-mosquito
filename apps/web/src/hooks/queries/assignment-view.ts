@@ -79,8 +79,9 @@ export function assignmentDisplayName(
 }
 
 export function formatAssignmentDate(date: string): string {
-	// `assignmentDate` is an agency-local calendar date, so it is split rather than
-	// parsed — `new Date('2026-08-04')` is UTC midnight and shifts a day west of it.
+	// `assignmentDate` is an organization-local calendar date, so it is split
+	// rather than parsed — `new Date('2026-08-04')` is UTC midnight and shifts a
+	// day west of it.
 	const [year, month, day] = date.split('-').map(Number);
 	if (year === undefined || month === undefined || day === undefined) {
 		return date;
@@ -94,7 +95,7 @@ export function formatAssignmentDate(date: string): string {
 }
 
 /**
- * A due time, shown only when one is set, on the agency's clock.
+ * A due time, shown only when one is set, on the organization's clock.
  *
  * `dueAt` is an instant; "due 4pm" is only a fact once a zone says which 4pm.
  * A worklist due at end of shift has to read the same to the crew working it

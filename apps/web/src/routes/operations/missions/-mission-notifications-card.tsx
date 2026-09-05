@@ -144,11 +144,11 @@ export function StandingAlert({ message }: { readonly message: StandingMessage }
 				<AlertTitle>A buffer unit cannot be measured in metres</AlertTitle>
 				<AlertDescription className="grid gap-3">
 					{/*
-					 * This refusal is agency-wide: one registration holding a unit the
-					 * conversion table cannot price blocks generation for every mission.
-					 * The codes say what is wrong, and the list says where, because
-					 * nothing lists registrations across an agency and a code on its own
-					 * leaves the operator hunting for the row.
+					 * This refusal is organization-wide: one registration holding a unit
+					 * the conversion table cannot price blocks generation for every
+					 * mission. The codes say what is wrong, and the list says where,
+					 * because nothing lists registrations across an organization and a
+					 * code on its own leaves the operator hunting for the row.
 					 */}
 					<span>
 						{refusal.unitCodes.length === 0

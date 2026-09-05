@@ -26,7 +26,7 @@ describe('a typed collection date, stamped and read back', () => {
 	});
 
 	it('agrees on the day a clamped same-day stamp falls on', () => {
-		// Keyed at 09:00 local, so the stamp is now rather than the agency's
+		// Keyed at 09:00 local, so the stamp is now rather than the organization's
 		// midday. Any instant that day answers the same question — that is what
 		// makes the clamp safe.
 		const zone = 'America/New_York';

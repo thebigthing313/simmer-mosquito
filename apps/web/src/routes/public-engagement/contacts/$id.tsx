@@ -81,8 +81,8 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 						<>
 							{/*
 							 * A registration is always somebody's, so this is the way in. There is
-							 * no agency-wide registrations page to reach them from any more, and
-							 * arriving from the contact answers the one question a standalone
+							 * no organization-wide registrations page to reach them from any more,
+							 * and arriving from the contact answers the one question a standalone
 							 * create page had to ask first.
 							 */}
 							<Button asChild size="sm" variant="outline">

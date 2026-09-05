@@ -10,8 +10,8 @@ import { createNotificationTypesCollection, type NotificationType } from '@simme
 import { declareCollection } from './registry';
 
 /**
- * `eager`: The notification catalogue an agency offers. A short list, read by every
- * registration form.
+ * `eager`: The notification catalogue an organization offers. A short list,
+ * read by every registration form.
  *
  * This app writes notification_types, so the collection carries the three
  * mutation handlers and every write through it names the command it means.

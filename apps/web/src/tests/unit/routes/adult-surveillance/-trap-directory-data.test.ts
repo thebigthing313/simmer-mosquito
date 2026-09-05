@@ -23,9 +23,10 @@ import {
  * silently, which is why the fixtures below exercise both.
  */
 
-// A US agency zone rather than UTC: a fixture timestamped in the evening falls
-// on a different day in the two, which is what makes the year assertions able to
-// fail if the grouping ever reverts to the browser's or the server's zone.
+// A US organization zone rather than UTC: a fixture timestamped in the evening
+// falls on a different day in the two, which is what makes the year assertions
+// able to fail if the grouping ever reverts to the browser's or the server's
+// zone.
 const ORGANIZATION_TIME_ZONE = 'America/New_York';
 
 function collection(overrides: Partial<DirectoryCollection> = {}): DirectoryCollection {
@@ -164,10 +165,10 @@ describe('groupByYear', () => {
 		expect(years.map((year) => year.key)).toEqual(['2026']);
 	});
 
-	// A collection retrieved late on New Year's Eve is that season's, not the next
-	// one's. Grouping on the UTC prefix of `collectedAt` — which this did — moves
-	// it into a year the crew never worked it in, and the server, which now
-	// windows in the agency's zone, disagrees with the screen.
+	// A collection retrieved late on New Year's Eve is that season's, not the
+	// next one's. Grouping on the UTC prefix of `collectedAt` — which this did —
+	// moves it into a year the crew never worked it in, and the server, which now
+	// windows in the organization's zone, disagrees with the screen.
 	it('files a late-evening collection in the organization’s year, not UTC’s', () => {
 		const newYearsEve = collection({
 			id: 'late',

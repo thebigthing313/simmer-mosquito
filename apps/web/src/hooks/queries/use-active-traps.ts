@@ -1,5 +1,5 @@
 /**
- * Every Trap the agency is currently running, in the order they read.
+ * Every Trap the organization is currently running, in the order they read.
  *
  * The standing inventory: the trap directory's left half, and anywhere else that
  * lists what is deployed right now. Retired traps are excluded in the predicate

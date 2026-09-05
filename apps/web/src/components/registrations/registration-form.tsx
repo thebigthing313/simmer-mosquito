@@ -132,7 +132,7 @@ export function RegistrationFormFields({
 
 	// Distance only. The domain checks this server-side too, but a select that
 	// offers gallons is a select somebody eventually picks gallons from, and the
-	// refusal it causes blocks generation for every mission in the agency.
+	// refusal it causes blocks generation for every mission in the organization.
 	const bufferUnitOptions = useMemo(
 		() => unitOptions(units, (unitType) => unitType === 'distance'),
 		[units],

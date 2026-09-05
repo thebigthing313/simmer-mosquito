@@ -571,8 +571,8 @@ function PressSurface({
  * The bench sheet. Bounded at 36 rows by construction — one key per species over the
  * 36 bindable characters — so it lays out in columns rather than a long scroll: a
  * reference you glance at mid-entry is useless if it has to be scrolled. The columns
- * keep a typical 10–20 key agency fully visible, and a fully-loaded 36 is a short
- * scroll rather than a very long one.
+ * keep a typical 10–20 key organization fully visible, and a fully-loaded 36 is a
+ * short scroll rather than a very long one.
  */
 function BindingSheet({ bindings }: { readonly bindings: readonly ResolvedSpeciesKeyBinding[] }) {
 	return (
@@ -584,7 +584,7 @@ function BindingSheet({ bindings }: { readonly bindings: readonly ResolvedSpecie
 				<span className="text-muted-foreground text-xs">{bindings.length}</span>
 			</div>
 			{/* Two columns of 18 hold the full 36, so the cap is a backstop for short
-			    viewports rather than something a normal agency ever hits. */}
+			    viewports rather than something a normal organization ever hits. */}
 			<ul className="grid max-h-96 grid-cols-1 gap-x-3 gap-y-0.5 overflow-y-auto rounded-md border border-border/40 p-2 sm:grid-cols-2">
 				{bindings.map((binding) => (
 					<li className="flex items-center gap-1.5 px-1 py-0.5 text-sm" key={binding.key}>

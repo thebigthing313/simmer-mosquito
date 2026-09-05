@@ -17,12 +17,13 @@ import { regions } from '../../lib/collections/regions';
 import { type DrawGeometry, drawParts, toDrawGeometry } from './use-map-draw';
 
 /**
- * "Use one of the agency's regions as this polygon."
+ * "Use one of the organization's regions as this polygon."
  *
- * Agencies already maintain their service areas, zones, and districts as regions
- * (`/gis/regions`), and records are routinely scoped to exactly one of them — so
- * re-tracing a district by hand is busywork. This searches the region list and
- * hands the chosen boundary back as a drawn polygon the user can still redraw.
+ * Organizations already maintain their service areas, zones, and districts as
+ * regions (`/gis/regions`), and records are routinely scoped to exactly one of
+ * them — so re-tracing a district by hand is busywork. This searches the region
+ * list and hands the chosen boundary back as a drawn polygon the user can still
+ * redraw.
  *
  * Regions sync on demand and their boundary is excluded from the sync shape, so
  * the list comes from a live subset query (like `AddressPicker`) and the polygon
@@ -156,7 +157,7 @@ function RegionResults({
 		{
 			gcTime: searchGcTimeMs,
 			query: (query) => {
-				// No organization predicate: the shape is scoped to the agency
+				// No organization predicate: the shape is scoped to the organization
 				// server-side, so re-stating it here is redundant — and a stale column
 				// spelling in one is what empties a list rather than narrowing it.
 				const base = query.from({ region: regions() });

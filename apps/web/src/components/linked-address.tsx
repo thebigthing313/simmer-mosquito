@@ -21,10 +21,10 @@ import { MapCardDetail } from './map/map-card';
  * insecticide but never said *where*, which is the first thing a resident asks
  * about on the phone.
  *
- * Both readouts show the address's own name **and** its postal line. Agencies
- * name addresses for their own navigation ("Riverside HOA clubhouse") and the
- * name alone will not get a crew there, while the postal line alone loses the
- * name the agency filed it under.
+ * Both readouts show the address's own name **and** its postal line.
+ * Organizations name addresses for their own navigation ("Riverside HOA
+ * clubhouse") and the name alone will not get a crew there, while the postal
+ * line alone loses the name the organization filed it under.
  *
  * ## Why these take the address rather than fetch it
  *

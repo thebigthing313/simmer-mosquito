@@ -34,12 +34,12 @@ import type { DrawGeometry } from './use-map-draw';
 /**
  * "Fill this geometry from a file."
  *
- * Agencies receive boundaries, routes, and trap and basin locations as KML, KMZ,
- * or GeoJSON from GIS staff and partner agencies; this reads one in, lists every
- * shape this record can store, and lets the user adopt one as the drawn
- * geometry. A feature holding several pieces is one shape and stays whole;
- * pruning a piece off it happens afterwards in the draw control, whose piece list
- * already offers Remove.
+ * Organizations receive boundaries, routes, and trap and basin locations as
+ * KML, KMZ, or GeoJSON from GIS staff and partner organizations; this reads one
+ * in, lists every shape this record can store, and lets the user adopt one as
+ * the drawn geometry. A feature holding several pieces is one shape and stays
+ * whole; pruning a piece off it happens afterwards in the draw control, whose
+ * piece list already offers Remove.
  *
  * What it offers is the record's own storable shapes, filtered to what the
  * parser can produce, so a record that takes areas and lines alike is offered

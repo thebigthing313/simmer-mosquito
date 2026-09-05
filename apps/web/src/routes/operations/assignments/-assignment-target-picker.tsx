@@ -185,7 +185,7 @@ function TrapTargetPicker({
  * nothing else plans work against a request. It filters the open requests
  * already streaming — the same set the worklist map reads — rather than opening
  * a second subset. No organization is passed: the shape is scoped server-side,
- * so the only rows it could ever hold are this agency's.
+ * so the only rows it could ever hold are this organization's.
  */
 function ServiceRequestPicker({
 	value,

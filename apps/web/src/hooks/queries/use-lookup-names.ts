@@ -30,7 +30,7 @@ export function useLookupNames(): ReadonlyMap<string, string> {
 	const biocontrolMethodRows = useNames(biocontrol_methods());
 
 	// Its own query rather than a fifth `useNames`, because a product is named by
-	// its trade name — `shorthand` is an agency's data-entry abbreviation.
+	// its trade name — `shorthand` is an organization's data-entry abbreviation.
 	const productResult = useLiveQuery(
 		(query) =>
 			query

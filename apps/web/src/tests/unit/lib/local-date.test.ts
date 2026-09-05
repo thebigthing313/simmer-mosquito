@@ -210,10 +210,11 @@ describe('operationalDayAsInstant', () => {
 	});
 
 	it('does not stamp today ahead of now', () => {
-		// A collection keyed at 09:00 on the morning it was made. The agency's
-		// midday is three hours out, and `validateOperationalDate` rejects an
-		// operational date more than the clock-skew tolerance in the future — so a
-		// bare midday stamp would refuse the most ordinary entry there is.
+		// A collection keyed at 09:00 on the morning it was made. The
+		// organization's midday is three hours out, and `validateOperationalDate`
+		// rejects an operational date more than the clock-skew tolerance in the
+		// future — so a bare midday stamp would refuse the most ordinary entry
+		// there is.
 		const morning = new Date('2026-08-04T13:00:00.000Z');
 		expect(operationalDayAsInstant('2026-08-04', 'America/New_York', morning)).toBe(
 			'2026-08-04T13:00:00.000Z',
@@ -236,7 +237,7 @@ describe('localTimeOfDay', () => {
 	it('reads an instant back on the organization clock, not the browser one', () => {
 		// The inverse of `localTimeAsInstant`: 13:30Z is 09:30 in New York in
 		// August. A form that hydrates in the browser's zone and saves in the
-		// agency's shows a due time nobody set the moment the two differ.
+		// organization's shows a due time nobody set the moment the two differ.
 		expect(localTimeOfDay('2026-08-04T13:30:00.000Z', 'America/New_York')).toBe('09:30');
 	});
 

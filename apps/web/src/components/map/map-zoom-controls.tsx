@@ -14,9 +14,9 @@ const LIMIT_DURATION_MS = 500;
  * The zoom column: both ends of the range, and a step either way between them.
  *
  * The ends read as one scale top to bottom, closest at the top. They matter on
- * an agency-wide surface, where a reader who has followed one Habitat down to
- * street level would otherwise press zoom out a dozen times to see the county
- * again.
+ * an organization-wide surface, where a reader who has followed one Habitat
+ * down to street level would otherwise press zoom out a dozen times to see the
+ * county again.
  */
 export function MapZoomControls({ map }: { readonly map: MapboxMap | null }) {
 	const disabled = map === null;

@@ -1,18 +1,20 @@
 /**
- * Open requests in the agency, newest first — what a mission can be pointed at.
+ * Open requests in the organization, newest first — what a mission can be
+ * pointed at.
  *
  * The picker on a mission's page. Resolved requests are deliberately absent: a
  * request already dealt with is not new work to plan, even though a stop already
  * on a mission keeps its link if the request is resolved afterwards.
  *
- * The filter is a pushed-down `isNull` rather than a pass in the hook body, so a
- * resolved request leaves the result without the whole list being rebuilt — and
- * so the subset asks for the open ones rather than for every request the agency
- * has ever raised.
+ * The filter is a pushed-down `isNull` rather than a pass in the hook body, so
+ * a resolved request leaves the result without the whole list being rebuilt —
+ * and so the subset asks for the open ones rather than for every request the
+ * organization has ever raised.
  *
- * No organization predicate. The shape is already scoped to the caller's agency
- * server-side, and a client-side `organization_id` filter is at best redundant
- * and at worst empties the page when the column is not in the projection.
+ * No organization predicate. The shape is already scoped to the caller's
+ * organization server-side, and a client-side `organization_id` filter is at
+ * best redundant and at worst empties the page when the column is not in the
+ * projection.
  */
 
 import { isNull, useLiveQuery } from '@tanstack/react-db';

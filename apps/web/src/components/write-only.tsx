@@ -13,10 +13,10 @@ import type { MinimumRole } from '../lib/write-access';
  *
  * `minimum` raises the bar past the default read-only line for controls whose
  * command needs more than field entry: `manager` for planning and the shared
- * catalogs, `admin` for the ones that configure the agency. It should match the
- * floor in `apps/server/src/command-permissions.ts` for the command the control
- * sends — a control shown below its floor is a form the user can fill in and
- * not save.
+ * catalogs, `admin` for the ones that configure the organization. It should
+ * match the floor in `apps/server/src/command-permissions.ts` for the command
+ * the control sends — a control shown below its floor is a form the user can
+ * fill in and not save.
  *
  * This is presentation only. The forms themselves are closed by the route
  * guards in `lib/write-access`, and the server authorizes every command

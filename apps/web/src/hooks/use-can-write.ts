@@ -12,8 +12,8 @@ import { useAuthSnapshot } from './use-auth-snapshot';
  * about the record in front of them.
  *
  * A collector records work but does not plan it, and neither records nor plans
- * is the same as configuring the agency — so the ladder the server enforces is
- * the ladder the page draws.
+ * is the same as configuring the organization — so the ladder the server
+ * enforces is the ladder the page draws.
  *
  * Route access is guarded separately, in `beforeLoad` — see
  * `lib/write-access`. This hook only decides what is drawn.

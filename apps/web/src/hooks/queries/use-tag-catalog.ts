@@ -11,10 +11,10 @@
  * `use-catalog-records.ts` records: `is_active` is a pushed-down predicate, and
  * it keeps the retired half from re-rendering when an active Tag is renamed.
  *
- * No org predicate. The shape is scoped to the agency server-side, so filtering
- * by `organization_id` here re-states server-side authorization as a client-side
- * filter — redundant, and a stale column spelling in one empties the list rather
- * than narrowing it.
+ * No org predicate. The shape is scoped to the organization server-side, so
+ * filtering by `organization_id` here re-states server-side authorization as a
+ * client-side filter — redundant, and a stale column spelling in one empties
+ * the list rather than narrowing it.
  */
 
 import { eq, useLiveSuspenseQuery } from '@tanstack/react-db';
@@ -25,7 +25,7 @@ export interface TagRecord {
 	readonly id: string;
 	readonly name: string;
 	readonly description: string | null;
-	/** A hex string the agency chose, or `null`. Validated where it is rendered. */
+	/** A hex string the organization chose, or `null`. Validated where it is rendered. */
 	readonly color: string | null;
 	readonly isActive: boolean;
 }

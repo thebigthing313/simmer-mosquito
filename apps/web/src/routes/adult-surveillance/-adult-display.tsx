@@ -20,11 +20,12 @@ import { formatDate, formatWeekdayDate } from './-overview-data';
  * and always leaves `collectedAt` null. Reading only `collectedAt` mislabels
  * every date+duration collection as "Pending", so fall back to `collectionDate`.
  *
- * The instant becomes a day in the *agency's* zone, matching how the server
- * windows and orders these rows (`collectionEffectiveDateExpr`). Returning the
- * raw timestamp let every caller take its UTC prefix, so a trap emptied at
- * 10:30pm read as the next day on screen while the server filed it under the day
- * the crew worked — the two halves of the same record disagreeing.
+ * The instant becomes a day in the *organization's* zone, matching how the
+ * server windows and orders these rows (`collectionEffectiveDateExpr`).
+ * Returning the raw timestamp let every caller take its UTC prefix, so a trap
+ * emptied at 10:30pm read as the next day on screen while the server filed it
+ * under the day the crew worked — the two halves of the same record
+ * disagreeing.
  *
  * `collectedAt` is taken as a `Date` or a string because the two read paths spell
  * it differently: the query hooks in `hooks/queries` hand up the `Date` the row
@@ -93,9 +94,9 @@ type Tone = 'neutral' | 'info' | 'catalog' | 'warning' | 'danger' | 'success';
 /**
  * Sex is categorical, not a status, so it reads on the two non-status tones:
  * `catalog` (pink) for female and `info` (blue) for male. Females are what the
- * agency acts on — they are the biters, the ones tested for virus, the ones
- * driving thresholds — so they take the tone that stands out against a table of
- * neutral rows.
+ * organization acts on — they are the biters, the ones tested for virus, the
+ * ones driving thresholds — so they take the tone that stands out against a
+ * table of neutral rows.
  */
 const sexMeta: Record<SpeciesSex, { readonly label: string; readonly tone: Tone }> = {
 	female: { label: 'Female', tone: 'catalog' },

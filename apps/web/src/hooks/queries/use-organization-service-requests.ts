@@ -1,5 +1,5 @@
 /**
- * Every Service Request the agency has, newest first.
+ * Every Service Request the organization has, newest first.
  *
  * One subset serves the whole public-engagement domain — the overview's open list
  * and activity feed, and the explorer's list, map and filters — because they all
@@ -8,21 +8,22 @@
  *
  * ## No contacts, no addresses
  *
- * Deliberately. Both are on-demand, and joining them here would make the planner
- * ask for the contact and address of *every* request the agency has ever taken —
- * a subset request whose id list grows with the season and eventually fails
- * (`docs/sync.md`, and the nested-include failures on the larval overview).
- * `useRequestParties` resolves them for a bounded set of rows instead, which is
- * what both surfaces already do: the overview asks for its six previewed rows,
- * the explorer for its page of twenty-five.
+ * Deliberately. Both are on-demand, and joining them here would make the
+ * planner ask for the contact and address of *every* request the organization
+ * has ever taken — a subset request whose id list grows with the season and
+ * eventually fails (`docs/sync.md`, and the nested-include failures on the
+ * larval overview). `useRequestParties` resolves them for a bounded set of rows
+ * instead, which is what both surfaces already do: the overview asks for its
+ * six previewed rows, the explorer for its page of twenty-five.
  *
  * ## No org predicate
  *
- * The shape is already scoped to the agency server-side — the proxy forces the
- * scope and ignores anything the caller asks for. Filtering by `organization_id`
- * here re-states server-side authorization as a client-side filter, which is both
- * redundant and what broke when the column name changed: the predicate compiled
- * against a column that no longer existed, and Electric rejected the shape.
+ * The shape is already scoped to the organization server-side — the proxy
+ * forces the scope and ignores anything the caller asks for. Filtering by
+ * `organization_id` here re-states server-side authorization as a client-side
+ * filter, which is both redundant and what broke when the column name changed:
+ * the predicate compiled against a column that no longer existed, and Electric
+ * rejected the shape.
  *
  * Open/closed is decided by the caller rather than in the predicate: `closedAt`
  * is a timestamp, not a flag, and every surface wants the closed ones too.

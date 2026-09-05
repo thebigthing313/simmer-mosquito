@@ -423,7 +423,8 @@ function FiltersCard({
  *
  * The count and the filter count are the two things a collapse must not cost.
  * Without them a reader who shut the panel to look at the map cannot tell an
- * agency with no Habitats in view from one whose filters excluded them all.
+ * organization with no Habitats in view from one whose filters excluded them
+ * all.
  */
 function CollapsedPanel({
 	heading,

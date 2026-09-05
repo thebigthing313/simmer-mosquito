@@ -4,7 +4,7 @@ import { profiles } from '../../lib/collections/profiles';
 import type { FilterOption } from './multi-select-filter';
 
 /**
- * The agency's people, as filter options and as an id→name lookup.
+ * The organization's people, as filter options and as an id→name lookup.
  *
  * Every field record is attributed to someone — an inspector, an applicator, a
  * technician — and "what did this crew member do" is a question every explorer

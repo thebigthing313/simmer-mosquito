@@ -155,9 +155,9 @@ export interface ApplicationFormPageProps {
 	readonly applicationMethods: readonly SchemaCatalogListing[];
 	readonly insecticides: readonly InsecticideListing[];
 	/**
-	 * The agency's saved mixes. Passing them turns on formulation entry — leave
-	 * them out where a single application row is being edited, since the record
-	 * itself only ever holds one product.
+	 * The organization's saved mixes. Passing them turns on formulation entry —
+	 * leave them out where a single application row is being edited, since the
+	 * record itself only ever holds one product.
 	 */
 	readonly formulations?: readonly FormulationListing[];
 	/** Every mix's component rows; the chosen mix's are picked out of these. */
@@ -785,7 +785,7 @@ export function ApplicationFormPage({
 					</div>
 				</FormSection>
 
-				{/* Agencies attach their own fields to an application method; render
+				{/* Organizations attach their own fields to an application method; render
 							    whichever the selected one declares, and nothing when it declares
 							    none (including when no method is chosen). */}
 				<form.Subscribe selector={(state) => state.values.applicationMethodId}>

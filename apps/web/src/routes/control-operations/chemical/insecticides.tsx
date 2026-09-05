@@ -1,6 +1,6 @@
 /**
- * The insecticides catalog: the products an agency applies, each expanding to
- * the lots crews draw from.
+ * The insecticides catalog: the products an organization applies, each
+ * expanding to the lots crews draw from.
  *
  * Two record types with two sets of commands, so the surfaces live in the
  * modules beside this file (#169). This holds the two mutation hooks, the

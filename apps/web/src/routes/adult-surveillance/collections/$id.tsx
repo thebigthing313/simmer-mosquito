@@ -267,9 +267,9 @@ function CollectCollectionButton({ collection }: { readonly collection: AdultCol
 					void runAcknowledged((acknowledgements) =>
 						collect({
 							acknowledgements,
-							// Midday on the agency's clock, clamped back to now on the same
-							// day — the same stamp the collection forms use, and the one every
-							// surface reads the day back with.
+							// Midday on the organization's clock, clamped back to now on the
+							// same day — the same stamp the collection forms use, and the one
+							// every surface reads the day back with.
 							collectedAt: operationalDayAsTimestamp(collectedAt, timeZone) ?? new Date(),
 							collectionId: collection.id,
 						}),
@@ -687,9 +687,9 @@ function AddSpeciesForm({
 			void add({
 				collectionId,
 				collectionSpeciesId: newRecordId(),
-				// The agency's today, not the browser's: an identification keyed at
-				// 11pm on a lab machine two zones away belongs to the day the agency
-				// is having.
+				// The organization's today, not the browser's: an identification keyed
+				// at 11pm on a lab machine two zones away belongs to the day the
+				// organization is having.
 				identifiedDate: todayInTimeZone(timeZone),
 				fields: {
 					speciesId: value.speciesId,
@@ -832,9 +832,9 @@ function DetailsCard({
 	const timeZone = useOrganizationTimeZone();
 	const collectedDate = collectionEffectiveDate(collection, timeZone);
 	// The instant the trap went out, read back as the day the crew worked. The
-	// read seam hands `started_at` up as the `Date` the row schema parses, so this
-	// is where the agency's clock turns it into a calendar day — the same clock
-	// `collectionEffectiveDate` reads the collected day on.
+	// read seam hands `started_at` up as the `Date` the row schema parses, so
+	// this is where the organization's clock turns it into a calendar day — the
+	// same clock `collectionEffectiveDate` reads the collected day on.
 	const startedDay =
 		collection.startedAt === null ? null : todayInTimeZone(timeZone, collection.startedAt);
 	return (
