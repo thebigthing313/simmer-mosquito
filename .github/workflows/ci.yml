@@ -115,6 +115,15 @@ jobs:
       - name: Mutation coverage
         run: pnpm check:mutation-coverage
 
+      # `@tanstack/db` defaults a join with no third argument to `left`, and
+      # #475 found four in `apps/web` whose comments said `inner`. This resolves
+      # every `.join()` call's argument list and requires the query-builder ones
+      # to name their type. An array join is told apart by shape: two arguments
+      # at least, and either an object literal first or a function second, which
+      # is nothing `Array.prototype.join` takes. Gated at zero, 88 joins.
+      - name: Join types
+        run: pnpm check:join-types
+
       # `CONTEXT.md` names every domain term and, beside it, the words that are
       # not that term. Nothing read those Avoid lists until this, which is how
       # agency and organization ended up in one sentence on one screen. It reads

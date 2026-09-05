@@ -15,19 +15,29 @@
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-/** Only the workspace's own source is scanned. Tests spell lists out as input data. */
-const SKIPPED_DIRECTORIES = new Set(['node_modules', 'dist', 'coverage', '.fallow', 'tests']);
+/** Build output and dependencies, which no gate reads. */
+const NEVER_SCANNED = ['node_modules', 'dist', 'coverage', '.fallow'];
+
+/**
+ * The walk skips `tests` by default, because a suite spells its lists out as
+ * input data and a gate looking for a second copy of a register would report
+ * every one of them. `{ tests: true }` puts them back, for a gate whose rule
+ * binds on a suite as much as on the source it covers.
+ */
+const SKIPPED_DIRECTORIES = new Set([...NEVER_SCANNED, 'tests']);
+const SKIPPED_WITH_TESTS = new Set(NEVER_SCANNED);
 
 /**
  * @param {string} workspaceRoot
  * @param {readonly string[]} generatedPaths Directory suffixes to skip, as `join`ed path segments.
+ * @param {{ tests?: boolean }} [options] Whether to walk the `tests` trees too.
  */
-export function* sourceFiles(workspaceRoot, generatedPaths = []) {
+export function* sourceFiles(workspaceRoot, generatedPaths = [], options = {}) {
 	for (const root of ['apps', 'packages']) {
 		for (const project of readdirSync(join(workspaceRoot, root))) {
 			const src = join(workspaceRoot, root, project, 'src');
 			if (isDirectory(src)) {
-				yield* typeScriptFilesUnder(src, generatedPaths);
+				yield* typeScriptFilesUnder(src, generatedPaths, options);
 			}
 		}
 	}
@@ -42,14 +52,17 @@ export function* sourceFiles(workspaceRoot, generatedPaths = []) {
  *
  * @param {string} directory
  * @param {readonly string[]} generatedPaths Directory suffixes to skip, as `join`ed path segments.
+ * @param {{ tests?: boolean }} [options] Whether to walk `tests` directories too.
  */
-export function* typeScriptFilesUnder(directory, generatedPaths = []) {
+export function* typeScriptFilesUnder(directory, generatedPaths = [], options = {}) {
+	const skipped = options.tests === true ? SKIPPED_WITH_TESTS : SKIPPED_DIRECTORIES;
+
 	for (const entry of readdirSync(directory, { withFileTypes: true })) {
 		const path = join(directory, entry.name);
 
 		if (entry.isDirectory()) {
-			if (!SKIPPED_DIRECTORIES.has(entry.name) && !isGenerated(path, generatedPaths)) {
-				yield* typeScriptFilesUnder(path, generatedPaths);
+			if (!skipped.has(entry.name) && !isGenerated(path, generatedPaths)) {
+				yield* typeScriptFilesUnder(path, generatedPaths, options);
 			}
 			continue;
 		}
