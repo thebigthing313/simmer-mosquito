@@ -6,6 +6,10 @@
  * which walk the same tree for the same reason and had the same walk written
  * twice. What each one skips beyond the defaults differs, so that is a
  * parameter and the walk is not.
+ *
+ * `typeScriptFilesUnder` is the same walk pointed at one directory, for
+ * `check-mutation-coverage.mjs`, which reads a hooks directory and a suites
+ * directory rather than the workspace.
  */
 
 import { readdirSync, statSync } from 'node:fs';
@@ -23,19 +27,29 @@ export function* sourceFiles(workspaceRoot, generatedPaths = []) {
 		for (const project of readdirSync(join(workspaceRoot, root))) {
 			const src = join(workspaceRoot, root, project, 'src');
 			if (isDirectory(src)) {
-				yield* walk(src, generatedPaths);
+				yield* typeScriptFilesUnder(src, generatedPaths);
 			}
 		}
 	}
 }
 
-function* walk(directory, generatedPaths) {
+/**
+ * Every `.ts` and `.tsx` file under one directory.
+ *
+ * The skip list applies to directories found inside the walk, not to the one
+ * passed in, so a caller can point this at a directory below `tests` and get
+ * its files. That is how the mutation-coverage gate reads the dispatch suites.
+ *
+ * @param {string} directory
+ * @param {readonly string[]} generatedPaths Directory suffixes to skip, as `join`ed path segments.
+ */
+export function* typeScriptFilesUnder(directory, generatedPaths = []) {
 	for (const entry of readdirSync(directory, { withFileTypes: true })) {
 		const path = join(directory, entry.name);
 
 		if (entry.isDirectory()) {
 			if (!SKIPPED_DIRECTORIES.has(entry.name) && !isGenerated(path, generatedPaths)) {
-				yield* walk(path, generatedPaths);
+				yield* typeScriptFilesUnder(path, generatedPaths);
 			}
 			continue;
 		}
