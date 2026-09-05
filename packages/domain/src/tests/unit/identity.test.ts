@@ -24,7 +24,7 @@ import {
 	updateProfileCommand,
 } from '../../index.js';
 
-const agency = {
+const organization = {
 	organizationId: 'f0dbf1c7-d278-441e-82b4-9292d390ce72',
 	actorProfileId: '0105b111-e0be-46b0-b5e9-a87507889b51',
 };
@@ -33,7 +33,7 @@ const membershipId = 'b2e1d3c4-5f6a-4b7c-8d9e-0f1a2b3c4d5e';
 
 describe('updateOrganizationDetailsCommand', () => {
 	it('carries only the fields that arrived', () => {
-		const command = updateOrganizationDetailsCommand({ ...agency, phoneNumber: '555-0100' });
+		const command = updateOrganizationDetailsCommand({ ...organization, phoneNumber: '555-0100' });
 
 		expect(command.type).toBe('identity.updateOrganizationDetails');
 		expect(command.payload.changes).toEqual({ phoneNumber: '555-0100' });
@@ -41,47 +41,49 @@ describe('updateOrganizationDetailsCommand', () => {
 	});
 
 	it('keeps a field sent as null, which is how a value is cleared', () => {
-		const command = updateOrganizationDetailsCommand({ ...agency, phoneNumber: null });
+		const command = updateOrganizationDetailsCommand({ ...organization, phoneNumber: null });
 
 		expect(command.payload.changes).toEqual({ phoneNumber: null });
 	});
 
 	it('refuses a command with nothing to change', () => {
-		expect(() => updateOrganizationDetailsCommand({ ...agency })).toThrow(DomainValidationError);
+		expect(() => updateOrganizationDetailsCommand({ ...organization })).toThrow(
+			DomainValidationError,
+		);
 	});
 
 	it('refuses a blank name rather than writing an agency with none', () => {
-		expect(() => updateOrganizationDetailsCommand({ ...agency, name: '   ' })).toThrow(
+		expect(() => updateOrganizationDetailsCommand({ ...organization, name: '   ' })).toThrow(
 			DomainValidationError,
 		);
 	});
 
 	it('upper-cases a state code and refuses one that is not a state', () => {
 		expect(
-			updateOrganizationDetailsCommand({ ...agency, mailingRegion: 'ca' }).payload.changes
+			updateOrganizationDetailsCommand({ ...organization, mailingRegion: 'ca' }).payload.changes
 				.mailingRegion,
 		).toBe('CA');
 
 		// The route this replaces wrote `null` here and answered 200.
-		expect(() => updateOrganizationDetailsCommand({ ...agency, mailingRegion: 'XX' })).toThrow(
-			DomainValidationError,
-		);
+		expect(() =>
+			updateOrganizationDetailsCommand({ ...organization, mailingRegion: 'XX' }),
+		).toThrow(DomainValidationError);
 	});
 
 	it('accepts a US mailing country in either case and refuses any other', () => {
 		expect(
-			updateOrganizationDetailsCommand({ ...agency, mailingCountry: 'us' }).payload.changes
+			updateOrganizationDetailsCommand({ ...organization, mailingCountry: 'us' }).payload.changes
 				.mailingCountry,
 		).toBe('US');
 
-		expect(() => updateOrganizationDetailsCommand({ ...agency, mailingCountry: 'CA' })).toThrow(
-			DomainValidationError,
-		);
+		expect(() =>
+			updateOrganizationDetailsCommand({ ...organization, mailingCountry: 'CA' }),
+		).toThrow(DomainValidationError);
 	});
 
 	it('accepts a null mailing country, because an unfilled address is not an error', () => {
 		expect(
-			updateOrganizationDetailsCommand({ ...agency, mailingCountry: null }).payload.changes
+			updateOrganizationDetailsCommand({ ...organization, mailingCountry: null }).payload.changes
 				.mailingCountry,
 		).toBeNull();
 	});
@@ -89,7 +91,7 @@ describe('updateOrganizationDetailsCommand', () => {
 	it('refuses an expectedUpdatedAt that is not a timestamp', () => {
 		expect(() =>
 			updateOrganizationDetailsCommand({
-				...agency,
+				...organization,
 				name: 'Coastal MAD',
 				expectedUpdatedAt: 'soon',
 			}),
@@ -99,7 +101,7 @@ describe('updateOrganizationDetailsCommand', () => {
 
 describe('createProfileCommand', () => {
 	it('takes the client-minted id and defaults to active', () => {
-		const command = createProfileCommand({ ...agency, profileId, displayName: 'Dana Reyes' });
+		const command = createProfileCommand({ ...organization, profileId, displayName: 'Dana Reyes' });
 
 		expect(command.payload.profileId).toBe(profileId);
 		expect(command.payload.isActive).toBe(true);
@@ -107,7 +109,7 @@ describe('createProfileCommand', () => {
 
 	it('honours a Profile created inactive', () => {
 		const command = createProfileCommand({
-			...agency,
+			...organization,
 			profileId,
 			displayName: 'Dana Reyes',
 			isActive: false,
@@ -118,22 +120,24 @@ describe('createProfileCommand', () => {
 
 	it('refuses an id that is not a UUID, which is what keeps a replay safe', () => {
 		expect(() =>
-			createProfileCommand({ ...agency, profileId: 'dana', displayName: 'Dana Reyes' }),
+			createProfileCommand({ ...organization, profileId: 'dana', displayName: 'Dana Reyes' }),
 		).toThrow(DomainValidationError);
 	});
 });
 
 describe('updateProfileCommand', () => {
 	it('carries only the field that moved', () => {
-		expect(updateProfileCommand({ ...agency, profileId, isActive: false }).payload.changes).toEqual(
-			{
-				isActive: false,
-			},
-		);
+		expect(
+			updateProfileCommand({ ...organization, profileId, isActive: false }).payload.changes,
+		).toEqual({
+			isActive: false,
+		});
 	});
 
 	it('refuses a save with nothing to change', () => {
-		expect(() => updateProfileCommand({ ...agency, profileId })).toThrow(DomainValidationError);
+		expect(() => updateProfileCommand({ ...organization, profileId })).toThrow(
+			DomainValidationError,
+		);
 	});
 });
 
@@ -148,7 +152,7 @@ describe('updateProfileCommand', () => {
  */
 describe('inviteCommand', () => {
 	const invite = {
-		...agency,
+		...organization,
 		membershipId,
 		profileId,
 		invitedEmail: 'casey@example.test',
@@ -198,29 +202,29 @@ describe('reinviteCommand', () => {
 	// re-invitation that could change the address would be an invitation of
 	// somebody else wearing the same row.
 	it('names a Membership and the role its new link will grant, and nothing else', () => {
-		const command = reinviteCommand({ ...agency, membershipId, role: 'collector' });
+		const command = reinviteCommand({ ...organization, membershipId, role: 'collector' });
 
-		expect(command.payload).toEqual({ ...agency, membershipId, role: 'collector' });
+		expect(command.payload).toEqual({ ...organization, membershipId, role: 'collector' });
 	});
 
 	it('refuses a role that is not one of the five', () => {
-		expect(() => reinviteCommand({ ...agency, membershipId, role: 'superuser' as never })).toThrow(
-			DomainValidationError,
-		);
+		expect(() =>
+			reinviteCommand({ ...organization, membershipId, role: 'superuser' as never }),
+		).toThrow(DomainValidationError);
 	});
 });
 
 describe('changeRoleCommand', () => {
 	it('carries the membership and the role', () => {
-		expect(changeRoleCommand({ ...agency, membershipId, role: 'admin' }).payload).toEqual({
-			...agency,
+		expect(changeRoleCommand({ ...organization, membershipId, role: 'admin' }).payload).toEqual({
+			...organization,
 			membershipId,
 			role: 'admin',
 		});
 	});
 
 	it('refuses a role that arrived as nothing', () => {
-		expect(() => changeRoleCommand({ ...agency, membershipId, role: undefined })).toThrow(
+		expect(() => changeRoleCommand({ ...organization, membershipId, role: undefined })).toThrow(
 			DomainValidationError,
 		);
 	});
@@ -228,14 +232,14 @@ describe('changeRoleCommand', () => {
 
 describe('endMembershipCommand', () => {
 	it('takes the membership and no fields at all', () => {
-		expect(endMembershipCommand({ ...agency, membershipId }).payload).toEqual({
-			...agency,
+		expect(endMembershipCommand({ ...organization, membershipId }).payload).toEqual({
+			...organization,
 			membershipId,
 		});
 	});
 
 	it('refuses a membership id that is not a UUID', () => {
-		expect(() => endMembershipCommand({ ...agency, membershipId: 'casey' })).toThrow(
+		expect(() => endMembershipCommand({ ...organization, membershipId: 'casey' })).toThrow(
 			DomainValidationError,
 		);
 	});

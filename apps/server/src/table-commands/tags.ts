@@ -46,9 +46,9 @@ export function tagTableCommands(db: CommandDb): TableCommands<'tags', TagComman
 		table: 'tags',
 		run: { db, write: writeFoundationTagCommand, notFound: 'tag_not_found', key: 'tag' },
 		intents: {
-			'fieldWork.createTag': ({ payload, agency, id }) =>
+			'fieldWork.createTag': ({ payload, organization, id }) =>
 				createTagCommand({
-					...agency,
+					...organization,
 					tagId: id,
 					tagName: readText(payload.tag_name) ?? '',
 					description: readNullableText(payload.description),
@@ -58,9 +58,9 @@ export function tagTableCommands(db: CommandDb): TableCommands<'tags', TagComman
 			// Each field is read only when it arrived: the domain refuses an update
 			// with nothing to change, and a save that renamed a Tag without touching
 			// its colour must not claim to have cleared one.
-			'fieldWork.updateTag': ({ payload, agency, id }) =>
+			'fieldWork.updateTag': ({ payload, organization, id }) =>
 				updateTagCommand({
-					...agency,
+					...organization,
 					tagId: id,
 					...(payload.tag_name !== undefined ? { tagName: readText(payload.tag_name) ?? '' } : {}),
 					...(payload.description !== undefined
@@ -69,11 +69,14 @@ export function tagTableCommands(db: CommandDb): TableCommands<'tags', TagComman
 					...(payload.color !== undefined ? { color: readNullableText(payload.color) } : {}),
 				}),
 
-			'fieldWork.activateTag': ({ agency, id }) => activateTagCommand({ ...agency, tagId: id }),
+			'fieldWork.activateTag': ({ organization, id }) =>
+				activateTagCommand({ ...organization, tagId: id }),
 
-			'fieldWork.deactivateTag': ({ agency, id }) => deactivateTagCommand({ ...agency, tagId: id }),
+			'fieldWork.deactivateTag': ({ organization, id }) =>
+				deactivateTagCommand({ ...organization, tagId: id }),
 
-			'fieldWork.deleteTag': ({ agency, id }) => deleteTagCommand({ ...agency, tagId: id }),
+			'fieldWork.deleteTag': ({ organization, id }) =>
+				deleteTagCommand({ ...organization, tagId: id }),
 		},
 	};
 }

@@ -56,12 +56,12 @@ describeDbIntegration('catalog reference gate', () => {
 				.set({ deleted_at: sql`now()` })
 				.where('id', '=', deleted)
 				.execute();
-			const otherAgency = await createCollectionMethod(db, theirs, true);
+			const otherOrganization = await createCollectionMethod(db, theirs, true);
 
 			// The two answer alike on purpose: a refusal that told them apart would
 			// be a way to probe for another agency's ids.
 			expect((await capture(db, mine, deleted))?.reason).toBe('missing');
-			expect((await capture(db, mine, otherAgency))?.reason).toBe('missing');
+			expect((await capture(db, mine, otherOrganization))?.reason).toBe('missing');
 		});
 	});
 

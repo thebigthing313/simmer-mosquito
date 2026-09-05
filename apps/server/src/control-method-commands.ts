@@ -51,12 +51,12 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	commandEndpoint,
 	createCommand,
 	invalidUpdate,
+	organizationCommandContext,
 	type PayloadResult,
 } from './command-endpoint.js';
 import { acknowledged } from './command-payload.js';
@@ -563,7 +563,7 @@ function buildCreateCommand(
 	authContext: AuthContext,
 	payload: ControlMethodCreatePayload,
 ): ControlMethodCommand {
-	const context = agencyCommandContext(authContext);
+	const context = organizationCommandContext(authContext);
 	switch (kind) {
 		case 'application-methods':
 			return createApplicationMethodCommand({
@@ -604,7 +604,7 @@ function buildUpdateCommands(
 ): CommandsResult<ControlMethodCommand> {
 	const commands: ControlMethodCommand[] = [];
 	const hasDetailChange = payload.name !== undefined || payload.customSchema !== undefined;
-	const context = agencyCommandContext(authContext);
+	const context = organizationCommandContext(authContext);
 
 	if (hasDetailChange) {
 		const commandResult = createCommand(() =>
@@ -635,7 +635,7 @@ function buildUpdateCommands(
 
 function buildDetailUpdateCommand(
 	kind: ControlMethodKind,
-	context: ReturnType<typeof agencyCommandContext>,
+	context: ReturnType<typeof organizationCommandContext>,
 	methodId: string,
 	payload: ControlMethodUpdatePayload,
 ): ControlMethodCommand {
@@ -659,7 +659,7 @@ function buildDetailUpdateCommand(
 
 function buildActiveCommand(
 	kind: ControlMethodKind,
-	context: ReturnType<typeof agencyCommandContext>,
+	context: ReturnType<typeof organizationCommandContext>,
 	methodId: string,
 	isActive: boolean,
 ): ControlMethodCommand {
@@ -688,7 +688,7 @@ function buildDeleteCommand(
 	authContext: AuthContext,
 	methodId: string,
 ): ControlMethodCommand {
-	const context = agencyCommandContext(authContext);
+	const context = organizationCommandContext(authContext);
 	switch (kind) {
 		case 'application-methods':
 			return deleteApplicationMethodCommand({ ...context, applicationMethodId: methodId });

@@ -24,12 +24,12 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	commandEndpoint,
 	createCommand,
 	invalidUpdate,
+	organizationCommandContext,
 	type PayloadResult,
 } from './command-endpoint.js';
 import { acknowledged, isRecord } from './command-payload.js';
@@ -79,9 +79,9 @@ export function registerPublicEngagementCommandRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			readPayload: readNotificationTypePayload,
-			build: ({ payload, agency }) =>
+			build: ({ payload, organization }) =>
 				createNotificationTypeCommand({
-					...agency,
+					...organization,
 					notificationTypeId: payload.id,
 					name: payload.name ?? '',
 					...(payload.description === undefined ? {} : { description: payload.description }),
@@ -106,9 +106,9 @@ export function registerPublicEngagementCommandRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency, param }) =>
+			build: ({ organization, param }) =>
 				deleteNotificationTypeCommand({
-					...agency,
+					...organization,
 					notificationTypeId: param('notificationTypeId'),
 				}),
 			run,
@@ -302,7 +302,7 @@ function buildUpdateCommands(
 	payload: NotificationTypePayload,
 ): CommandsResult<NotificationTypeCommand> {
 	const commands: NotificationTypeCommand[] = [];
-	const context = agencyCommandContext(authContext);
+	const context = organizationCommandContext(authContext);
 	const hasDetailChange = payload.name !== undefined || payload.description !== undefined;
 
 	if (hasDetailChange) {

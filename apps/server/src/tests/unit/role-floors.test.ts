@@ -13,7 +13,7 @@ import { registerTableCommandSurface } from '../../table-commands/index.js';
 //
 // `COMMAND_PERMISSIONS` is total: a new agency command cannot be added without
 // deciding who may send it, because the build fails until it appears there.
-// These three modules are outside it — their commands are not `AgencyCommandType`
+// These three modules are outside it — their commands are not `OrganizationCommandType`
 // — so nothing forced them to declare a floor, and #121 found all three had
 // written the ladder out again by hand instead. They also had zero tests across
 // 1,109 lines.

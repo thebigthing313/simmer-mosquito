@@ -4,7 +4,7 @@ import {
 	isAdminRefusal,
 	isOperatorNotConfiguredError,
 	isOperatorRequiredError,
-	listAdminAgencies,
+	listAdminOrganizations,
 } from '../../api';
 
 /**
@@ -50,7 +50,7 @@ describe('operator refusals', () => {
 			'fetch',
 			vi.fn(async () => new Response(JSON.stringify({ error: code }), { status: 403 })),
 		);
-		return listAdminAgencies('https://api.simmer-data.com').catch((error: unknown) => error);
+		return listAdminOrganizations('https://api.simmer-data.com').catch((error: unknown) => error);
 	}
 
 	it('reads a wrong-organization refusal apart from an unconfigured server', async () => {
@@ -87,7 +87,7 @@ describe('retrying a failed admin read', () => {
 			'fetch',
 			vi.fn(async () => new Response(JSON.stringify({ error: 'nope' }), { status })),
 		);
-		return listAdminAgencies('https://api.simmer-data.com').catch((error: unknown) => error);
+		return listAdminOrganizations('https://api.simmer-data.com').catch((error: unknown) => error);
 	}
 
 	it('treats a refusal as final and a fault as worth retrying', async () => {

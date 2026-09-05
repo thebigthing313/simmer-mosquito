@@ -49,7 +49,7 @@ export function registerContactRoutes(
 		'/public-engagement/contacts',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				createContactCommand({
 					...ctx,
 					contactId: readText(payload.id) ?? '',
@@ -63,7 +63,7 @@ export function registerContactRoutes(
 		'/public-engagement/contacts/:contactId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) => {
+			build: ({ payload, organization: ctx, param }) => {
 				const contactId = param('contactId');
 				const commands: PublicEngagementCommand[] = [];
 
@@ -122,7 +122,7 @@ export function registerContactRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			build: ({ organization: ctx, param }) =>
 				deleteContactCommand({ ...ctx, contactId: param('contactId') }),
 			run: (context, commands) => runContactCommands(context, options.db, commands),
 		}),

@@ -13,7 +13,7 @@ import type { FoundationCommand } from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { type CommandContext, commandEndpoint } from '../command-endpoint.js';
-import { denyUnauthorizedAgencyCommands } from '../command-permissions.js';
+import { denyUnauthorizedOrganizationCommands } from '../command-permissions.js';
 import type { CommandTransaction } from '../command-write.js';
 import { deleteBlockedBody } from '../record-deletion.js';
 import {
@@ -53,7 +53,7 @@ export function registerAddressRoutes(
 			readPayload: readAddressCreatePayload,
 			build: ({ payload }) => ({ type: 'foundation.createAddress', payload }),
 			run: async (context, commands) => {
-				const denial = denyUnauthorizedAgencyCommands(context, commands);
+				const denial = denyUnauthorizedOrganizationCommands(context, commands);
 				if (denial !== null) {
 					return denial;
 				}
@@ -78,7 +78,7 @@ export function registerAddressRoutes(
 			readPayload: readAddressUpdatePayload,
 			build: ({ payload }) => ({ type: 'foundation.updateAddressDetails', payload }),
 			run: async (context, commands) => {
-				const denial = denyUnauthorizedAgencyCommands(context, commands);
+				const denial = denyUnauthorizedOrganizationCommands(context, commands);
 				if (denial !== null) {
 					return denial;
 				}
@@ -102,7 +102,7 @@ export function registerAddressRoutes(
 			body: 'none',
 			build: () => ({ type: 'foundation.deleteAddress', payload: {} }),
 			run: async (context, commands) => {
-				const denial = denyUnauthorizedAgencyCommands(context, commands);
+				const denial = denyUnauthorizedOrganizationCommands(context, commands);
 				if (denial !== null) {
 					return denial;
 				}

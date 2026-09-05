@@ -5,8 +5,8 @@ import {
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
-	validateAgencyCommandContext,
 	validateLocalDate,
+	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import {
 	type MissionItemLocationSource,
@@ -161,7 +161,7 @@ export function validateBase(
 	input: MissionDispatchCommandInput,
 	issues: DomainValidationIssue[],
 ): void {
-	validateAgencyCommandContext(input, issues);
+	validateOrganizationCommandContext(input, issues);
 }
 
 export function validateIdCommand<T extends MissionDispatchCommandInput>(
@@ -175,7 +175,7 @@ export function validateIdCommand<T extends MissionDispatchCommandInput>(
 }
 
 export function basePayload(input: MissionDispatchCommandInput): MissionDispatchCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
+	return validateOrganizationCommandContext(input, createIssues());
 }
 
 function validateLocatableGeometry(

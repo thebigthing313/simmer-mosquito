@@ -435,7 +435,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			await seedLateCollection(db);
 
 			// A one-day window on the day New York says the collection happened.
-			const onTheAgencysDay = async (timeZone: string): Promise<readonly string[]> => {
+			const onTheOrganizationsDay = async (timeZone: string): Promise<readonly string[]> => {
 				const day = mapSurfaceLateCollectionDates['America/New_York'];
 				const result = await listCollectionDisplayRowsPage(db, {
 					organizationId: mapSurfaceOrganizationIds.own,
@@ -448,9 +448,9 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			};
 
 			// Collected 2026-03-16T02:30Z — 10:30pm on the 15th in New York.
-			expect(await onTheAgencysDay('America/New_York')).toContain(mapSurfaceLateCollectionId);
+			expect(await onTheOrganizationsDay('America/New_York')).toContain(mapSurfaceLateCollectionId);
 			// Converted in UTC the same instant is the 16th, so the 15th loses it.
-			expect(await onTheAgencysDay('UTC')).not.toContain(mapSurfaceLateCollectionId);
+			expect(await onTheOrganizationsDay('UTC')).not.toContain(mapSurfaceLateCollectionId);
 		});
 	});
 
@@ -472,7 +472,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			});
 			const found = onTheTypedDay.rows.map((row) => row.id);
 
-			expect(found).toContain(mapSurfaceStampedCollectionIds.agencyMidday);
+			expect(found).toContain(mapSurfaceStampedCollectionIds.organizationMidday);
 			// And the stamp this replaced, through the same reader, is a day late —
 			// so if anything puts midday UTC back, the assertion above starts
 			// failing and this one says why.

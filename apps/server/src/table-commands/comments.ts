@@ -53,31 +53,32 @@ export function commentTableCommands(
 			key: 'comment',
 		},
 		intents: {
-			'fieldWork.addComment': ({ payload, agency, id }) =>
+			'fieldWork.addComment': ({ payload, organization, id }) =>
 				addCommentCommand({
-					...agency,
+					...organization,
 					commentId: id,
 					target: readEntityTarget(payload.entity_type, payload.entity_id),
 					commentText: readText(payload.comment_text) ?? '',
 					commentedAt: readDate(payload.commented_at),
 				}),
 
-			'fieldWork.updateComment': ({ payload, agency, id }) =>
+			'fieldWork.updateComment': ({ payload, organization, id }) =>
 				updateCommentCommand({
-					...agency,
+					...organization,
 					commentId: id,
 					commentText: readText(payload.comment_text) ?? '',
 				}),
 
-			'fieldWork.pinComment': ({ agency, id }) => pinCommentCommand({ ...agency, commentId: id }),
+			'fieldWork.pinComment': ({ organization, id }) =>
+				pinCommentCommand({ ...organization, commentId: id }),
 
-			'fieldWork.unpinComment': ({ agency, id }) =>
-				unpinCommentCommand({ ...agency, commentId: id }),
+			'fieldWork.unpinComment': ({ organization, id }) =>
+				unpinCommentCommand({ ...organization, commentId: id }),
 
 			// No acknowledgement: nothing hangs off a comment, so removing one takes
 			// nothing with it.
-			'fieldWork.deleteComment': ({ agency, id }) =>
-				deleteCommentCommand({ ...agency, commentId: id }),
+			'fieldWork.deleteComment': ({ organization, id }) =>
+				deleteCommentCommand({ ...organization, commentId: id }),
 		},
 	};
 }

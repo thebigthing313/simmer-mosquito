@@ -11,15 +11,15 @@ import type {
 import type { Organization } from '@simmer-mosquito/sync';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { toast } from 'sonner';
-import type { AgencyDetailsFields } from '../../../hooks/mutations/use-organization-settings-mutations';
+import type { OrganizationDetailsFields } from '../../../hooks/mutations/use-organization-settings-mutations';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
 import { titleCaseToken } from '../../../lib/record-display';
 import { errorMessageForSave } from '../../../lib/save-error';
 import { defaultDensityRangeValues } from './constants';
 import type {
-	AgencyDetailsFormValues,
 	DensityRangeFormValue,
 	DensityRangeFormValues,
+	OrganizationDetailsFormValues,
 	PublicSettingsFormValues,
 	SelectOption,
 	SelectSettingField,
@@ -33,7 +33,7 @@ export function formatRole(role: SimmerRole): string {
 	return role.charAt(0).toUpperCase() + role.slice(1);
 }
 
-export function AgencyDetailLine({
+export function OrganizationDetailLine({
 	label,
 	value,
 }: {
@@ -63,10 +63,10 @@ export function formatMailingAddress(organization: Organization): string {
 	return parts.length === 0 ? 'Not set' : parts.join(', ');
 }
 
-export function agencyDetailsFormValues(
+export function organizationDetailsFormValues(
 	organization: Organization,
 	settings: OrganizationSettings,
-): AgencyDetailsFormValues {
+): OrganizationDetailsFormValues {
 	return {
 		name: organization.name,
 		mainContactEmail: organization.main_contact_email ?? '',
@@ -89,7 +89,9 @@ export function agencyDetailsFormValues(
  * rule about these values belongs to the domain, which is what the seven routes
  * run.
  */
-export function agencyDetailsFieldsFrom(values: AgencyDetailsFormValues): AgencyDetailsFields {
+export function organizationDetailsFieldsFrom(
+	values: OrganizationDetailsFormValues,
+): OrganizationDetailsFields {
 	return {
 		name: requiredTextValue(values.name, 'Organization name'),
 		mainContactEmail: nullableTextValue(values.mainContactEmail),

@@ -4,7 +4,7 @@ import {
 	isFutureBeyondClockSkew,
 	nullableText as normalizeNullableText,
 	requiredId as normalizeRequiredId,
-	validateAgencyCommandContext,
+	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 
@@ -206,7 +206,7 @@ export function fromDbEntityType(entityType: string): string {
 }
 
 export function validateBase(input: FieldWorkCommandInput, issues: DomainValidationIssue[]): void {
-	validateAgencyCommandContext(input, issues);
+	validateOrganizationCommandContext(input, issues);
 }
 
 export function validateIdCommand<T extends FieldWorkCommandInput>(
@@ -221,7 +221,7 @@ export function validateIdCommand<T extends FieldWorkCommandInput>(
 }
 
 export function basePayload(input: FieldWorkCommandInput): FieldWorkCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
+	return validateOrganizationCommandContext(input, createIssues());
 }
 
 export function normalizeOptionalTimestamp(

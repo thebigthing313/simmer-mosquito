@@ -34,7 +34,7 @@ export function registerTagItemRoutes(
 		'/field-work/tag-items',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				assignTagCommand({
 					...ctx,
 					tagItemId: readText(payload.id) ?? '',
@@ -50,7 +50,7 @@ export function registerTagItemRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			build: ({ organization: ctx, param }) =>
 				unassignTagCommand({ ...ctx, tagItemId: param('tagItemId') }),
 			run: (context, commands) => runTagItemCommands(context, options.db, commands),
 		}),

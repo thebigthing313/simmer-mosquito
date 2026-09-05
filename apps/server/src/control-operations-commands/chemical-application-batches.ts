@@ -31,7 +31,7 @@ export function registerApplicationBatchRoutes(
 		'/control-operations/application-batches',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				addChemicalApplicationBatchCommand({
 					...ctx,
 					applicationBatchId: readText(payload.id) ?? '',
@@ -47,7 +47,7 @@ export function registerApplicationBatchRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			build: ({ organization: ctx, param }) =>
 				removeChemicalApplicationBatchCommand({
 					...ctx,
 					applicationBatchId: param('applicationBatchId'),

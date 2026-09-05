@@ -6,11 +6,11 @@ import { registerAdultSurveillanceCommandRoutes } from '../../adult-surveillance
 import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables } from '../../auth-middleware.js';
 import {
-	type AgencyCommandType,
 	authorizeCommands,
 	type CommandPermission,
 	decideCommand,
 	denyUnauthorizedCommandType,
+	type OrganizationCommandType,
 	readCommandPermission,
 } from '../../command-permissions.js';
 import { registerFieldWorkCommandRoutes } from '../../field-work-commands/index.js';
@@ -33,7 +33,7 @@ function decideAsRole(role: SimmerRole, permission: CommandPermission) {
 
 function authorizeAsRole(
 	role: SimmerRole,
-	commands: readonly { readonly type: AgencyCommandType }[],
+	commands: readonly { readonly type: OrganizationCommandType }[],
 ) {
 	return authorizeCommands({ role, isOperator: false }, commands);
 }
@@ -387,7 +387,7 @@ describe('the identity floors', () => {
 	});
 });
 
-function denyFor(role: SimmerRole, type: AgencyCommandType): Response | null {
+function denyFor(role: SimmerRole, type: OrganizationCommandType): Response | null {
 	return denyUnauthorizedCommandType(refusalContext(role), type);
 }
 
@@ -452,7 +452,7 @@ describe('agency endpoints outside field work', () => {
 		['viewer', `/public-engagement/contacts/${contactId}`],
 		['collector', `/public-engagement/contacts/${contactId}`],
 	] as const)('refuses a %s deleting %s', async (role, path) => {
-		const response = await requestAgency(role, path);
+		const response = await requestOrganization(role, path);
 
 		expect(response.status).toBe(403);
 		await expect(response.json()).resolves.toMatchObject({ error: 'forbidden' });
@@ -467,7 +467,7 @@ const trapId = 'fb6c4e80-ad4c-4a7d-9b5c-ae8e8fb03b65';
 const regionId = '0c7d5f91-be5d-4b8e-8c6d-bf9f90c14c76';
 const contactId = '1d8e6a02-cf6e-4c9f-9d7e-c0a0a1d25d87';
 
-async function requestAgency(role: SimmerRole, path: string): Promise<Response> {
+async function requestOrganization(role: SimmerRole, path: string): Promise<Response> {
 	const app = new Hono<{ Variables: AuthVariables }>();
 	const options = {
 		db: unusableDb as never,

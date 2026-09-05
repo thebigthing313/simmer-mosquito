@@ -51,7 +51,7 @@ export function registerSyncShapeRoutes(
 	options: ShapeRouteOptions,
 ): void {
 	const globalReadMiddleware = createGlobalReadMiddleware({
-		agency: options.authContextMiddleware,
+		organization: options.authContextMiddleware,
 		operator: options.operatorAuthContextMiddleware,
 	});
 

@@ -1,12 +1,12 @@
 import type { LocalDateString } from './shared.js';
 import { DomainValidationError, type DomainValidationIssue, type JsonObject } from './shared.js';
 
-export interface AgencyCommandContextInput {
+export interface OrganizationCommandContextInput {
 	readonly organizationId: string | null | undefined;
 	readonly actorProfileId: string | null | undefined;
 }
 
-export interface AgencyCommandContextPayload {
+export interface OrganizationCommandContextPayload {
 	readonly organizationId: string;
 	readonly actorProfileId: string;
 }
@@ -23,10 +23,10 @@ export function createIssues(): DomainValidationIssue[] {
 	return [];
 }
 
-export function validateAgencyCommandContext(
-	input: AgencyCommandContextInput,
+export function validateOrganizationCommandContext(
+	input: OrganizationCommandContextInput,
 	issues: DomainValidationIssue[],
-): AgencyCommandContextPayload {
+): OrganizationCommandContextPayload {
 	return {
 		organizationId: requiredUuid(input.organizationId, 'organizationId', issues),
 		actorProfileId: requiredUuid(input.actorProfileId, 'actorProfileId', issues),

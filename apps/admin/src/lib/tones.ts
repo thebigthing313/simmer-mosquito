@@ -1,4 +1,4 @@
-import type { AdminAgency, MembershipStatus, SimmerRole } from '../api';
+import type { AdminOrganization, MembershipStatus, SimmerRole } from '../api';
 
 /**
  * Badge tones for the three enums the console shows repeatedly.
@@ -10,7 +10,9 @@ import type { AdminAgency, MembershipStatus, SimmerRole } from '../api';
  */
 export type Tone = 'catalog' | 'danger' | 'info' | 'neutral' | 'success' | 'warning';
 
-export function subscriptionTone(status: AdminAgency['subscription']['subscriptionStatus']): Tone {
+export function subscriptionTone(
+	status: AdminOrganization['subscription']['subscriptionStatus'],
+): Tone {
 	if (status === 'active') {
 		return 'success';
 	}

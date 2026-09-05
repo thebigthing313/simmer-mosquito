@@ -52,17 +52,17 @@ export function organizationTableCommands(
 			key: 'organization',
 		},
 		intents: {
-			'identity.updateOrganizationDetails': ({ payload, agency, id }) => {
+			'identity.updateOrganizationDetails': ({ payload, organization, id }) => {
 				// The path names the agency's own row or it names nothing this session
 				// may write. `organizationId` comes from the session either way, so the
 				// mismatch is refused rather than silently redirected.
-				if (id !== agency.organizationId) {
+				if (id !== organization.organizationId) {
 					throw new DomainValidationError('Update organization details command is invalid.', [
 						{ path: 'id', message: 'id must be the signed-in agency.' },
 					]);
 				}
 				return updateOrganizationDetailsCommand({
-					...agency,
+					...organization,
 					...detailChanges(payload),
 					expectedUpdatedAt: readNullableText(payload.expectedUpdatedAt),
 				});

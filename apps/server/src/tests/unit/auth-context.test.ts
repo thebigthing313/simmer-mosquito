@@ -177,12 +177,12 @@ describe('resolveAuthContext', () => {
 			selectedOrganizationId: 'workos_org_simmer',
 			operatorOrganizationId: 'workos_org_simmer',
 		});
-		const agency = await resolveWith({
+		const organization = await resolveWith({
 			selectedOrganizationId: 'workos_org_123',
 			operatorOrganizationId: 'workos_org_simmer',
 		});
 
-		expect([operator.isOperator, agency.isOperator]).toEqual([true, false]);
+		expect([operator.isOperator, organization.isOperator]).toEqual([true, false]);
 	});
 
 	it('has no operators at all when the operator organization is unset', async () => {

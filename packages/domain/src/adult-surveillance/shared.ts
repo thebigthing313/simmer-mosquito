@@ -4,8 +4,8 @@ import {
 	jsonObject as normalizeMetadata,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
-	validateAgencyCommandContext,
 	validateNotFutureLocalDate,
+	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import {
 	type AdultCollectionLocationSource,
@@ -81,7 +81,7 @@ export interface CollectionBasePayload extends AdultCommandPayload {
 }
 
 export function validateBase(input: AdultCommandInput, issues: DomainValidationIssue[]): void {
-	validateAgencyCommandContext(input, issues);
+	validateOrganizationCommandContext(input, issues);
 }
 
 export function validateIdCommand<T extends AdultCommandInput>(
@@ -190,7 +190,7 @@ export function collectionBasePayload(input: CollectionBaseInput): CollectionBas
 }
 
 export function basePayload(input: AdultCommandInput): AdultCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
+	return validateOrganizationCommandContext(input, createIssues());
 }
 
 function isValidDate(value: Date | undefined): value is Date {

@@ -16,7 +16,7 @@
  * ## Saving the agency details can be two writes
  *
  * The details sheet edits the name, the contact, the mailing address — and the
- * timezone, which is not a column but a setting. So `saveAgencyDetails` sends the
+ * timezone, which is not a column but a setting. So `saveOrganizationDetails` sends the
  * details as a command and the timezone to its settings route, each only if it
  * changed, and hands the `updated_at` the first produced to the second. Without
  * that handoff the second write conflicts with the write the same click just
@@ -42,7 +42,7 @@ import { organizations } from '../../lib/collections/organizations';
 import { OrganizationConflictError, writeOrganization } from './organization-writes';
 
 /** The agency's details, as its sheet holds them. The timezone is a setting; the rest are columns. */
-export interface AgencyDetailsFields {
+export interface OrganizationDetailsFields {
 	readonly name: string;
 	readonly mainContactEmail: string | null;
 	readonly phoneNumber: string | null;
@@ -55,7 +55,7 @@ export interface AgencyDetailsFields {
 }
 
 export interface OrganizationSettingsMutations {
-	readonly saveAgencyDetails: (fields: AgencyDetailsFields) => Promise<void>;
+	readonly saveOrganizationDetails: (fields: OrganizationDetailsFields) => Promise<void>;
 	readonly setUnitDefaults: (unitDefaults: UnitDefaults) => Promise<void>;
 	readonly setAdultCollectionTimingMode: (mode: AdultCollectionTimingMode) => Promise<void>;
 	readonly setLarvalInspectionEntryPolicy: (
@@ -85,7 +85,7 @@ type SettingsRoute =
 	| 'species-key-bindings';
 
 /** The columns `identity.updateOrganizationDetails` writes. */
-export interface AgencyDetailsColumns {
+export interface OrganizationDetailsColumns {
 	readonly name: string;
 	readonly mainContactEmail: string | null;
 	readonly phoneNumber: string | null;
@@ -115,12 +115,12 @@ export interface AgencyDetailsColumns {
  * stops an agency whose row predates that from being left alone forever, which
  * is why the field stays in the plan rather than being dropped.
  */
-export function agencyDetailsPlan(
-	fields: AgencyDetailsFields,
+export function organizationDetailsPlan(
+	fields: OrganizationDetailsFields,
 	current: Organization,
 	currentTimezone: string,
-): { readonly details: AgencyDetailsColumns | null; readonly timezone: string | null } {
-	const details: AgencyDetailsColumns = {
+): { readonly details: OrganizationDetailsColumns | null; readonly timezone: string | null } {
+	const details: OrganizationDetailsColumns = {
 		name: fields.name,
 		mainContactEmail: fields.mainContactEmail,
 		phoneNumber: fields.phoneNumber,
@@ -208,15 +208,15 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 		[row, expectedUpdatedAt],
 	);
 
-	const saveAgencyDetails = useCallback(
-		async (fields: AgencyDetailsFields) => {
+	const saveOrganizationDetails = useCallback(
+		async (fields: OrganizationDetailsFields) => {
 			if (row === undefined) {
 				throw new Error('Agency details are still loading.');
 			}
 
 			const organizationId = row.id;
 			const settings = resolveOrganizationSettings(row.settings).settings;
-			const plan = agencyDetailsPlan(fields, row, settings.timezone);
+			const plan = organizationDetailsPlan(fields, row, settings.timezone);
 
 			if (plan.details !== null) {
 				const details = plan.details;
@@ -227,7 +227,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 							intent: 'identity.updateOrganizationDetails',
 							key: organizationId,
 							// All nine, and the library sends only the ones that differ.
-							// `agencyDetailsPlan` decided whether to write at all; the diff
+							// `organizationDetailsPlan` decided whether to write at all; the diff
 							// decides what the body says.
 							changes: {
 								name: details.name,
@@ -325,7 +325,7 @@ export function useOrganizationSettingsMutations(): OrganizationSettingsMutation
 	);
 
 	return {
-		saveAgencyDetails,
+		saveOrganizationDetails,
 		setUnitDefaults,
 		setAdultCollectionTimingMode,
 		setLarvalInspectionEntryPolicy,

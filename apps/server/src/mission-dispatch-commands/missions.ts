@@ -46,7 +46,6 @@ import {
 	checkStartMission,
 } from './mission-lifecycle.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	commandEndpoint,
@@ -58,6 +57,7 @@ import {
 	type MissionDispatchTransaction,
 	type MissionRow,
 	missionReturnColumns,
+	organizationCommandContext,
 	type RouteOptions,
 	readDate,
 	readLifecycleTransition,
@@ -79,7 +79,7 @@ export function registerMissionRoutes(
 		'/mission-dispatch/missions',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				createMissionCommand({
 					...ctx,
 					missionId: readText(payload.id) ?? '',
@@ -116,7 +116,7 @@ export function registerMissionRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ agency: ctx, param, payload }) =>
+			build: ({ organization: ctx, param, payload }) =>
 				deleteMissionCommand({
 					...ctx,
 					missionId: param('missionId'),
@@ -143,7 +143,7 @@ function buildMissionUpdateCommands(
 	missionId: string,
 	payload: Record<string, unknown>,
 ): CommandsResult {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: MissionDispatchCommand[] = [];
 
 	if ('missionName' in payload) {

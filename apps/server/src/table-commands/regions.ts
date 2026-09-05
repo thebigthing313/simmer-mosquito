@@ -75,17 +75,17 @@ export function regionFolderTableCommands(
 			key: 'regionFolder',
 		},
 		intents: {
-			'foundation.createRegionFolder': ({ payload, agency, id }) =>
+			'foundation.createRegionFolder': ({ payload, organization, id }) =>
 				createRegionFolderCommand({
-					...agency,
+					...organization,
 					regionFolderId: id,
 					name: readText(payload.name) ?? '',
 					description: readNullableText(payload.description),
 				}),
 
-			'foundation.updateRegionFolder': ({ payload, agency, id }) =>
+			'foundation.updateRegionFolder': ({ payload, organization, id }) =>
 				updateRegionFolderCommand({
-					...agency,
+					...organization,
 					regionFolderId: id,
 					...(payload.name !== undefined ? { name: readText(payload.name) ?? '' } : {}),
 					...(payload.description !== undefined
@@ -95,9 +95,9 @@ export function regionFolderTableCommands(
 
 			// Deleting a folder does not delete the regions in it; they come loose.
 			// That is what the acknowledgement is about.
-			'foundation.deleteRegionFolder': ({ payload, agency, id }) =>
+			'foundation.deleteRegionFolder': ({ payload, organization, id }) =>
 				deleteRegionFolderCommand({
-					...agency,
+					...organization,
 					regionFolderId: id,
 					acknowledgedRegionDetach: acknowledged(payload, 'acknowledgedRegionDetach'),
 				}),
@@ -112,9 +112,9 @@ export function regionTableCommands(
 		table: 'regions',
 		run: { db, write: writeRegionCommand, notFound: 'region_not_found', key: 'region' },
 		intents: {
-			'foundation.createRegion': ({ payload, agency, id }) =>
+			'foundation.createRegion': ({ payload, organization, id }) =>
 				createRegionCommand({
-					...agency,
+					...organization,
 					regionId: id,
 					regionFolderId: readNullableText(payload.region_folder_id),
 					name: readText(payload.name) ?? '',
@@ -129,9 +129,9 @@ export function regionTableCommands(
 			// The three updates read only what they take. A save that renamed a region
 			// and redrew it names both `updateRegionDetails` and `updateRegionGeometry`,
 			// and each reads its own half of one payload.
-			'foundation.updateRegionDetails': ({ payload, agency, id }) =>
+			'foundation.updateRegionDetails': ({ payload, organization, id }) =>
 				updateRegionDetailsCommand({
-					...agency,
+					...organization,
 					regionId: id,
 					...(payload.name !== undefined ? { name: readText(payload.name) ?? '' } : {}),
 					...(payload.description !== undefined
@@ -143,16 +143,16 @@ export function regionTableCommands(
 			// A move is its own command, so `region_folder_id` is read here and nowhere
 			// else. Present-and-null is how a region leaves a folder without joining
 			// another, which is why this reads the value rather than its presence.
-			'foundation.moveRegionToFolder': ({ payload, agency, id }) =>
+			'foundation.moveRegionToFolder': ({ payload, organization, id }) =>
 				moveRegionToFolderCommand({
-					...agency,
+					...organization,
 					regionId: id,
 					regionFolderId: readNullableText(payload.region_folder_id),
 				}),
 
-			'foundation.updateRegionGeometry': ({ payload, agency, id }) =>
+			'foundation.updateRegionGeometry': ({ payload, organization, id }) =>
 				updateRegionGeometryCommand({
-					...agency,
+					...organization,
 					regionId: id,
 					geometry: payload.geometry,
 					acknowledgedRegionBoundaryChange: acknowledged(
@@ -161,9 +161,9 @@ export function regionTableCommands(
 					),
 				}),
 
-			'foundation.deleteRegion': ({ payload, agency, id }) =>
+			'foundation.deleteRegion': ({ payload, organization, id }) =>
 				deleteRegionCommand({
-					...agency,
+					...organization,
 					regionId: id,
 					acknowledgedRegionDelete: acknowledged(payload, 'acknowledgedRegionDelete'),
 				}),

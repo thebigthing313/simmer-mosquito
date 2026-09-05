@@ -11,12 +11,12 @@ import type { MissionDispatchCommand, MissionItemLocationSource } from '@simmer-
 import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	CommandError,
 	commandEndpoint,
 	createCommand,
 	invalidUpdate,
+	organizationCommandContext,
 	type CommandsResult as SharedCommandsResult,
 } from '../command-endpoint.js';
 import {
@@ -31,13 +31,13 @@ import { loadOr404, resolveLocationGeom } from '../location-source.js';
 export type MissionDispatchDb = CommandDb;
 export type MissionDispatchTransaction = CommandTransaction;
 export {
-	agencyCommandContext,
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
 	invalidUpdate,
 	loadOr404,
 	localDateColumn,
+	organizationCommandContext,
 	readDate,
 	readStringArray,
 	runCommands,

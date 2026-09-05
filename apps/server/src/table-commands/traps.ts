@@ -60,9 +60,9 @@ export function trapTableCommands(
 		table: 'traps',
 		run: { db, write: writeTrapCommand, notFound: 'trap_not_found', key: 'trap' },
 		intents: {
-			'adultSurveillance.createTrap': ({ payload, agency, id }) =>
+			'adultSurveillance.createTrap': ({ payload, organization, id }) =>
 				createTrapCommand({
-					...agency,
+					...organization,
 					trapId: id,
 					locationSource: payload.locationSource as TrapLocationSourceInput,
 					collectionMethodId: readText(payload.collection_method_id) ?? '',
@@ -77,9 +77,9 @@ export function trapTableCommands(
 			// A trap's label is what a historical collection is read back under, so
 			// renaming one is not the same kind of edit as moving it. Two commands
 			// rather than one PATCH, each reading its own half of the body.
-			'adultSurveillance.updateTrapDetails': ({ payload, agency, id }) =>
+			'adultSurveillance.updateTrapDetails': ({ payload, organization, id }) =>
 				updateTrapDetailsCommand({
-					...agency,
+					...organization,
 					trapId: id,
 					...(payload.trap_name !== undefined
 						? { trapName: readNullableText(payload.trap_name) }
@@ -96,9 +96,9 @@ export function trapTableCommands(
 					),
 				}),
 
-			'adultSurveillance.updateTrapConfiguration': ({ payload, agency, id }) =>
+			'adultSurveillance.updateTrapConfiguration': ({ payload, organization, id }) =>
 				updateTrapConfigurationCommand({
-					...agency,
+					...organization,
 					trapId: id,
 					...(payload.locationSource !== undefined
 						? { locationSource: payload.locationSource as TrapLocationSourceInput }
@@ -122,19 +122,19 @@ export function trapTableCommands(
 					),
 				}),
 
-			'adultSurveillance.retireTrap': ({ agency, id }) =>
-				retireTrapCommand({ ...agency, trapId: id }),
+			'adultSurveillance.retireTrap': ({ organization, id }) =>
+				retireTrapCommand({ ...organization, trapId: id }),
 
-			'adultSurveillance.reactivateTrap': ({ payload, agency, id }) =>
+			'adultSurveillance.reactivateTrap': ({ payload, organization, id }) =>
 				reactivateTrapCommand({
-					...agency,
+					...organization,
 					trapId: id,
 					acknowledgedDuplicateTrapCode: acknowledged(payload, 'acknowledgedDuplicateTrapCode'),
 				}),
 
-			'adultSurveillance.deleteTrap': ({ payload, agency, id }) =>
+			'adultSurveillance.deleteTrap': ({ payload, organization, id }) =>
 				deleteTrapCommand({
-					...agency,
+					...organization,
 					trapId: id,
 					acknowledgedCascadeDelete: acknowledged(payload, 'acknowledgedCascadeDelete'),
 				}),

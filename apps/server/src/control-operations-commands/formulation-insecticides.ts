@@ -33,7 +33,7 @@ export function registerFormulationInsecticideRoutes(
 		'/control-operations/formulation-insecticides',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				addFormulationInsecticideCommand({
 					...ctx,
 					formulationInsecticideId: readText(payload.id) ?? '',
@@ -51,7 +51,7 @@ export function registerFormulationInsecticideRoutes(
 		'/control-operations/formulation-insecticides/:formulationInsecticideId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				updateFormulationInsecticideCommand({
 					...ctx,
 					formulationInsecticideId: param('formulationInsecticideId'),
@@ -77,7 +77,7 @@ export function registerFormulationInsecticideRoutes(
 			// removal has somewhere to go. Nothing is required of it: a request
 			// with no body reads as it always did (#341).
 			body: 'optional',
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				removeFormulationInsecticideCommand({
 					...ctx,
 					formulationInsecticideId: param('formulationInsecticideId'),

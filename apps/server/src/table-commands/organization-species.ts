@@ -42,15 +42,15 @@ export function organizationSpeciesTableCommands(
 			key: 'organizationSpecies',
 		},
 		intents: {
-			'foundation.selectOrganizationSpecies': ({ payload, agency, id }) =>
+			'foundation.selectOrganizationSpecies': ({ payload, organization, id }) =>
 				selectOrganizationSpeciesCommand({
-					...agency,
+					...organization,
 					organizationSpeciesId: id,
 					speciesId: readText(payload.species_id) ?? '',
 				}),
 
-			'foundation.unselectOrganizationSpecies': ({ agency, id }) =>
-				unselectOrganizationSpeciesCommand({ ...agency, organizationSpeciesId: id }),
+			'foundation.unselectOrganizationSpecies': ({ organization, id }) =>
+				unselectOrganizationSpeciesCommand({ ...organization, organizationSpeciesId: id }),
 		},
 	};
 }

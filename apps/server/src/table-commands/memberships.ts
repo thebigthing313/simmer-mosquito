@@ -66,21 +66,21 @@ export function membershipTableCommands(
 			secondSystem: membershipSecondSystem(db, auth),
 		},
 		intents: {
-			'identity.invite': ({ payload, agency, id }) =>
+			'identity.invite': ({ payload, organization, id }) =>
 				inviteCommand({
-					...agency,
+					...organization,
 					membershipId: id,
 					profileId: readText(payload.profile_id) ?? '',
 					invitedEmail: readText(payload.invited_email) ?? '',
 					displayName: readText(payload.display_name),
 					role: readRole(payload.role),
 				}),
-			'identity.reinvite': ({ payload, agency, id }) =>
-				reinviteCommand({ ...agency, membershipId: id, role: readRole(payload.role) }),
-			'identity.changeRole': ({ payload, agency, id }) =>
-				changeRoleCommand({ ...agency, membershipId: id, role: readRole(payload.role) }),
-			'identity.endMembership': ({ agency, id }) =>
-				endMembershipCommand({ ...agency, membershipId: id }),
+			'identity.reinvite': ({ payload, organization, id }) =>
+				reinviteCommand({ ...organization, membershipId: id, role: readRole(payload.role) }),
+			'identity.changeRole': ({ payload, organization, id }) =>
+				changeRoleCommand({ ...organization, membershipId: id, role: readRole(payload.role) }),
+			'identity.endMembership': ({ organization, id }) =>
+				endMembershipCommand({ ...organization, membershipId: id }),
 		},
 	};
 }

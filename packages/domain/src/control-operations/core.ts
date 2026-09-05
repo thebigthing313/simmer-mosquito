@@ -6,7 +6,7 @@ import {
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
-	validateAgencyCommandContext,
+	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import {
 	type ControlActionLocationSource,
@@ -284,7 +284,7 @@ function validatePatchLocationSource(
 }
 
 export function validateBase(input: ControlCommandInput, issues: DomainValidationIssue[]): void {
-	validateAgencyCommandContext(input, issues);
+	validateOrganizationCommandContext(input, issues);
 }
 
 export function validateIdCommand<T extends ControlCommandInput>(
@@ -298,7 +298,7 @@ export function validateIdCommand<T extends ControlCommandInput>(
 }
 
 export function basePayload(input: ControlCommandInput): ControlCommandPayload {
-	return validateAgencyCommandContext(input, createIssues());
+	return validateOrganizationCommandContext(input, createIssues());
 }
 
 export function normalizeOptionalTimestamp(

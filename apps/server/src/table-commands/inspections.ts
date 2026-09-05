@@ -99,9 +99,9 @@ export function inspectionTableCommands(
 		table: 'inspections',
 		run: { db, write: writeInspectionCommand, notFound: 'inspection_not_found', key: 'inspection' },
 		intents: {
-			'larvalSurveillance.recordHabitatInspection': ({ payload, agency, authContext, id }) =>
+			'larvalSurveillance.recordHabitatInspection': ({ payload, organization, authContext, id }) =>
 				recordHabitatInspectionCommand({
-					...agency,
+					...organization,
 					inspectionId: id,
 					habitatId: readText(payload.habitat_id) ?? '',
 					policy: inspectionPolicy(authContext),
@@ -114,12 +114,12 @@ export function inspectionTableCommands(
 			// transaction, so the work can never exist with the stop still pending.
 			'fieldWork.recordHabitatInspectionForAssignmentItem': ({
 				payload,
-				agency,
+				organization,
 				authContext,
 				id,
 			}) =>
 				recordHabitatInspectionForAssignmentItemCommand({
-					...agency,
+					...organization,
 					inspectionId: id,
 					assignmentItemId: readText(payload.assignment_item_id) ?? '',
 					// Nullable: the stop already names a habitat, so the ordinary call sends
@@ -131,9 +131,9 @@ export function inspectionTableCommands(
 					...inspectionResult(payload),
 				}),
 
-			'larvalSurveillance.recordAdHocInspection': ({ payload, agency, authContext, id }) =>
+			'larvalSurveillance.recordAdHocInspection': ({ payload, organization, authContext, id }) =>
 				recordAdHocInspectionCommand({
-					...agency,
+					...organization,
 					inspectionId: id,
 					// Untyped by design: which location kinds an ad hoc inspection accepts is
 					// the domain builder's rule, and re-stating it here would be a second copy
@@ -145,9 +145,14 @@ export function inspectionTableCommands(
 					...inspectionResult(payload),
 				}),
 
-			'larvalSurveillance.updateInspectionFieldDetails': ({ payload, agency, authContext, id }) =>
+			'larvalSurveillance.updateInspectionFieldDetails': ({
+				payload,
+				organization,
+				authContext,
+				id,
+			}) =>
 				updateInspectionFieldDetailsCommand({
-					...agency,
+					...organization,
 					inspectionId: id,
 					policy: inspectionPolicy(authContext),
 					...inspectionResult(payload),
@@ -156,9 +161,9 @@ export function inspectionTableCommands(
 			// The only entry that still reads presence, and for a reason presence can
 			// actually answer: each of the three is independently optional, and a
 			// `null` address means "detach" where an absent one means "leave it".
-			'larvalSurveillance.updateAdHocInspectionLocation': ({ payload, agency, id }) =>
+			'larvalSurveillance.updateAdHocInspectionLocation': ({ payload, organization, id }) =>
 				updateAdHocInspectionLocationCommand({
-					...agency,
+					...organization,
 					inspectionId: id,
 					...(payload.locationSource !== undefined
 						? { locationSource: payload.locationSource as never }
@@ -171,9 +176,9 @@ export function inspectionTableCommands(
 						: {}),
 				}),
 
-			'larvalSurveillance.deleteInspection': ({ payload, agency, id }) =>
+			'larvalSurveillance.deleteInspection': ({ payload, organization, id }) =>
 				deleteInspectionCommand({
-					...agency,
+					...organization,
 					inspectionId: id,
 					acknowledgedAssociatedRecordsDeletion: acknowledged(
 						payload,

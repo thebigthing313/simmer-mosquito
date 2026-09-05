@@ -43,12 +43,12 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	commandEndpoint,
 	createCommand,
 	invalidUpdate,
+	organizationCommandContext,
 	type PayloadResult,
 } from '../command-endpoint.js';
 import { type CommandTransaction, runCommands } from '../command-write.js';
@@ -99,9 +99,9 @@ export function registerTagRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			readPayload: readTagCreatePayload,
-			build: ({ payload, agency }) =>
+			build: ({ payload, organization }) =>
 				createTagCommand({
-					...agency,
+					...organization,
 					tagId: payload.id,
 					tagName: payload.tagName,
 					description: payload.description,
@@ -127,7 +127,8 @@ export function registerTagRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency, param }) => deleteTagCommand({ ...agency, tagId: param('tagId') }),
+			build: ({ organization, param }) =>
+				deleteTagCommand({ ...organization, tagId: param('tagId') }),
 			run,
 		}),
 	);
@@ -391,7 +392,7 @@ function buildTagUpdateCommands(
 	if (hasDetailChange) {
 		const commandResult = createCommand(() =>
 			updateTagCommand({
-				...agencyCommandContext(authContext),
+				...organizationCommandContext(authContext),
 				tagId,
 				...(payload.tagName === undefined ? {} : { tagName: payload.tagName }),
 				...(payload.description === undefined ? {} : { description: payload.description }),
@@ -408,11 +409,11 @@ function buildTagUpdateCommands(
 		const commandResult = createCommand(() =>
 			payload.isActive
 				? activateTagCommand({
-						...agencyCommandContext(authContext),
+						...organizationCommandContext(authContext),
 						tagId,
 					})
 				: deactivateTagCommand({
-						...agencyCommandContext(authContext),
+						...organizationCommandContext(authContext),
 						tagId,
 					}),
 		);

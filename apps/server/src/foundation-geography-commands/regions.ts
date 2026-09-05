@@ -12,7 +12,6 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	commandEndpoint,
@@ -21,6 +20,7 @@ import {
 	type FoundationTransaction,
 	geojsonToGeom,
 	invalidUpdate,
+	organizationCommandContext,
 	type RegionRow,
 	type RouteOptions,
 	regionReturnColumns,
@@ -41,7 +41,7 @@ export function registerRegionRoutes(
 		'/foundation/regions',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				createRegionCommand({
 					...ctx,
 					regionId: readText(payload.id) ?? '',
@@ -72,7 +72,7 @@ export function registerRegionRoutes(
 			// `optional`, not `none`: the flag arrives in a body, and a DELETE that
 			// refused to read one was the half of #165 that made this unaskable.
 			body: 'optional',
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				deleteRegionCommand({
 					...ctx,
 					regionId: param('regionId'),
@@ -88,7 +88,7 @@ function buildRegionUpdateCommands(
 	regionId: string,
 	payload: Record<string, unknown>,
 ): CommandsResult {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: FoundationCommand[] = [];
 
 	if ('name' in payload || 'description' in payload || 'metadata' in payload) {

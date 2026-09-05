@@ -345,9 +345,10 @@ export function importPartCount(geometry: ImportGeometry): number {
 /**
  * True when every position is a plausible WGS84 `[lng, lat]` pair.
  *
- * Agency exports are often in a projected CRS (State Plane feet, UTM metres),
- * whose coordinates parse as valid GeoJSON but land nowhere on earth — the
- * server's geometry validation rejects them, and the map would fly to nothing.
+ * Exports from an Organization are often in a projected CRS (State Plane feet,
+ * UTM metres), whose coordinates parse as valid GeoJSON but land nowhere on
+ * earth. The server's geometry validation rejects them, and the map would fly
+ * to nothing.
  * Catching it here lets a caller say so before the user fills out a whole form.
  *
  * Every piece, not the first one. Reading a multi shape as a single-part one

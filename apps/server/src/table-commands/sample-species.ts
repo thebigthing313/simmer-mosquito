@@ -41,9 +41,9 @@ export function sampleSpeciesTableCommands(
 			key: 'sampleSpecies',
 		},
 		intents: {
-			'larvalSurveillance.addSampleSpeciesCount': ({ payload, agency, id }) =>
+			'larvalSurveillance.addSampleSpeciesCount': ({ payload, organization, id }) =>
 				addSampleSpeciesCountCommand({
-					...agency,
+					...organization,
 					sampleSpeciesId: id,
 					sampleId: readText(payload.sample_id) ?? '',
 					speciesId: readText(payload.species_id) ?? '',
@@ -55,9 +55,9 @@ export function sampleSpeciesTableCommands(
 			// Four independently optional fields, so presence is genuinely the question
 			// here — a count corrected from 12 to 8 says nothing about the species, and
 			// re-sending the species would be this layer inventing an edit.
-			'larvalSurveillance.updateSampleSpeciesCount': ({ payload, agency, id }) =>
+			'larvalSurveillance.updateSampleSpeciesCount': ({ payload, organization, id }) =>
 				updateSampleSpeciesCountCommand({
-					...agency,
+					...organization,
 					sampleSpeciesId: id,
 					...(payload.species_id !== undefined
 						? { speciesId: readText(payload.species_id) ?? '' }
@@ -75,8 +75,8 @@ export function sampleSpeciesTableCommands(
 
 			// No acknowledgement: nothing hangs off a species count, so removing one
 			// takes nothing with it.
-			'larvalSurveillance.deleteSampleSpeciesCount': ({ agency, id }) =>
-				deleteSampleSpeciesCountCommand({ ...agency, sampleSpeciesId: id }),
+			'larvalSurveillance.deleteSampleSpeciesCount': ({ organization, id }) =>
+				deleteSampleSpeciesCountCommand({ ...organization, sampleSpeciesId: id }),
 		},
 	};
 }

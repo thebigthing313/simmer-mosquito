@@ -32,10 +32,10 @@ import type { AuthContext } from './auth-context.js';
 import { type CommandContext, CommandError, handleCommandError } from './command-endpoint.js';
 import { resolveCommandOwnership } from './command-ownership.js';
 import {
-	type AgencyCommandType,
 	authorizeCommands,
 	type CommandActor,
-	denyUnauthorizedAgencyCommands,
+	denyUnauthorizedOrganizationCommands,
+	type OrganizationCommandType,
 } from './command-permissions.js';
 
 export type CommandDb = Kysely<SimmerDatabase>;
@@ -43,7 +43,7 @@ export type CommandTransaction = Transaction<SimmerDatabase>;
 
 /** The shape the write loop needs of a command: enough to authorize it. */
 export interface WritableCommand {
-	readonly type: AgencyCommandType;
+	readonly type: OrganizationCommandType;
 	readonly payload: unknown;
 }
 
@@ -246,7 +246,7 @@ export async function runCommands<TCommand extends WritableCommand, TRow>(
 	commands: readonly TCommand[],
 	createdStatus?: 201,
 ): Promise<Response> {
-	const denial = denyUnauthorizedAgencyCommands(context, commands);
+	const denial = denyUnauthorizedOrganizationCommands(context, commands);
 	if (denial !== null) {
 		return denial;
 	}

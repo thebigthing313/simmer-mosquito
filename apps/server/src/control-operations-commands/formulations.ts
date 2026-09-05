@@ -12,7 +12,6 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { acknowledged, readNullableText, readNumber, readText } from '../command-payload.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	type ControlOperationsDb,
@@ -23,6 +22,7 @@ import {
 	type FormulationUpdateColumns,
 	formulationReturnColumns,
 	invalidUpdate,
+	organizationCommandContext,
 	type RouteOptions,
 	runCommands,
 	softDelete,
@@ -40,7 +40,7 @@ export function registerFormulationRoutes(
 		'/control-operations/formulations',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				createFormulationCommand({
 					...ctx,
 					formulationId: readText(payload.id) ?? '',
@@ -68,7 +68,7 @@ export function registerFormulationRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				deleteFormulationCommand({
 					...ctx,
 					formulationId: param('formulationId'),
@@ -84,7 +84,7 @@ function buildFormulationUpdateCommands(
 	formulationId: string,
 	payload: Record<string, unknown>,
 ): CommandsResult {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: ControlOperationsCommand[] = [];
 
 	const hasName = 'formulationName' in payload;

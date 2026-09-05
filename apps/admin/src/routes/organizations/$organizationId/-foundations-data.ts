@@ -16,7 +16,7 @@ import { getServerUrl } from '../../../api';
  * a member of the agency, through the same domain command builders — so a region
  * created here and a region created there are validated by one set of rules and
  * attributed to a real person. They require the session to be inside the agency;
- * `AgencySessionGate` is what puts it there.
+ * `OrganizationSessionGate` is what puts it there.
  *
  * Commands carry client-generated ids, so every create mints one here rather
  * than reading one back.
@@ -78,7 +78,7 @@ export interface FoundationTrap {
 	readonly isActive: boolean;
 }
 
-export interface AgencyFoundations {
+export interface OrganizationFoundations {
 	readonly addresses: readonly FoundationAddress[];
 	readonly regionFolders: readonly FoundationRegionFolder[];
 	readonly regions: readonly FoundationRegion[];
@@ -98,13 +98,13 @@ export type LookupKind = 'collection_methods' | 'collection_lures' | 'habitat_ty
 
 const foundationKeys = {
 	all: ['admin', 'foundations'] as const,
-	agency: (organizationId: string) => [...foundationKeys.all, organizationId] as const,
+	organization: (organizationId: string) => [...foundationKeys.all, organizationId] as const,
 };
 
-export function useAgencyFoundations(organizationId: string) {
-	return useQuery<AgencyFoundations>({
-		queryKey: foundationKeys.agency(organizationId),
-		queryFn: () => getJson<AgencyFoundations>(foundationsPath(organizationId)),
+export function useOrganizationFoundations(organizationId: string) {
+	return useQuery<OrganizationFoundations>({
+		queryKey: foundationKeys.organization(organizationId),
+		queryFn: () => getJson<OrganizationFoundations>(foundationsPath(organizationId)),
 	});
 }
 
@@ -154,12 +154,12 @@ interface TrapInput {
 export function useCreateFoundation(organizationId: string) {
 	const queryClient = useQueryClient();
 	const invalidate = async () => {
-		await queryClient.invalidateQueries({ queryKey: foundationKeys.agency(organizationId) });
+		await queryClient.invalidateQueries({ queryKey: foundationKeys.organization(organizationId) });
 	};
 
 	const regionFolder = useMutation({
 		mutationFn: (input: RegionFolderInput) =>
-			postJson(agencyPath('/foundation/region-folders'), {
+			postJson(organizationPath('/foundation/region-folders'), {
 				id: newId(),
 				name: input.name,
 				description: nullable(input.description),
@@ -169,7 +169,7 @@ export function useCreateFoundation(organizationId: string) {
 
 	const region = useMutation({
 		mutationFn: (input: RegionInput) =>
-			postJson(agencyPath('/foundation/regions'), {
+			postJson(organizationPath('/foundation/regions'), {
 				id: newId(),
 				name: input.name,
 				regionFolderId: input.regionFolderId,
@@ -181,7 +181,7 @@ export function useCreateFoundation(organizationId: string) {
 
 	const address = useMutation({
 		mutationFn: (input: AddressInput) =>
-			postJson(agencyPath('/foundation/addresses'), {
+			postJson(organizationPath('/foundation/addresses'), {
 				id: newId(),
 				displayName: input.displayName,
 				country: input.country.toUpperCase(),
@@ -197,7 +197,7 @@ export function useCreateFoundation(organizationId: string) {
 
 	const species = useMutation({
 		mutationFn: (speciesId: string) =>
-			postJson(agencyPath('/foundation/organization-species'), { id: newId(), speciesId }),
+			postJson(organizationPath('/foundation/organization-species'), { id: newId(), speciesId }),
 		onSuccess: invalidate,
 	});
 
@@ -206,7 +206,7 @@ export function useCreateFoundation(organizationId: string) {
 			// The agency create takes no `isActive`: a catalog entry is created live
 			// and retired later, which is an update. The form's toggle is honoured by
 			// simply not offering the create path a way to be born inactive.
-			postJson(agencyPath(`/foundation/${lookupPaths[kind]}`), {
+			postJson(organizationPath(`/foundation/${lookupPaths[kind]}`), {
 				id: newId(),
 				name: input.name,
 				description: nullable(input.description),
@@ -217,7 +217,7 @@ export function useCreateFoundation(organizationId: string) {
 
 	const trap = useMutation({
 		mutationFn: (input: TrapInput) =>
-			postJson(agencyPath('/adult-surveillance/traps'), {
+			postJson(organizationPath('/adult-surveillance/traps'), {
 				id: newId(),
 				// A trap carries a domain location source, never a raw geometry
 				// column: the server snapshots the point inside its own transaction.
@@ -257,7 +257,7 @@ function newId(): string {
  * An agency endpoint. It takes no organization in its path — the organization is
  * the session's, which is the whole point of entering the agency first.
  */
-function agencyPath(path: string): string {
+function organizationPath(path: string): string {
 	return `${getServerUrl()}${path}`;
 }
 

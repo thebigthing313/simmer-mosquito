@@ -28,7 +28,7 @@ import { appAuthController } from '../app-auth';
  *
  * WorkOS can still interrupt before it will mint a session: with a verification
  * code, or with an organization choice when the account belongs to more than one
- * — which operators routinely do, since `createAdminAgency`'s
+ * — which operators routinely do, since `createAdminOrganization`'s
  * `linkRequesterAsOwner` makes them the new agency's first owner.
  *
  * The code is collected. The organization is not: see `resolveOrganization`.

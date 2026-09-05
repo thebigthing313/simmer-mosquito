@@ -26,7 +26,6 @@ import {
 } from './assignment-lifecycle.js';
 import {
 	type AssignmentRow,
-	agencyCommandContext,
 	assignmentPlacementRef,
 	assignmentReturnColumns,
 	type CommandContext,
@@ -38,6 +37,7 @@ import {
 	invalidUpdate,
 	localDateColumn,
 	nowLocalDate,
+	organizationCommandContext,
 	type RouteOptions,
 	readDate,
 	readItemMappings,
@@ -60,7 +60,7 @@ export function registerAssignmentRoutes(
 		'/field-work/assignments',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				createAssignmentCommand({
 					...ctx,
 					assignmentId: readText(payload.id) ?? '',
@@ -77,7 +77,7 @@ export function registerAssignmentRoutes(
 		'/field-work/assignments/from-route',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				createAssignmentFromRouteCommand({
 					...ctx,
 					assignmentId: readText(payload.id) ?? '',
@@ -96,7 +96,7 @@ export function registerAssignmentRoutes(
 		'/field-work/assignments/self-assign-route',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				selfAssignRouteCommand({
 					...ctx,
 					assignmentId: readText(payload.id) ?? '',
@@ -122,7 +122,7 @@ export function registerAssignmentRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ agency: ctx, param, payload }) =>
+			build: ({ organization: ctx, param, payload }) =>
 				deleteAssignmentCommand({
 					...ctx,
 					assignmentId: param('assignmentId'),
@@ -139,7 +139,7 @@ export function registerAssignmentRoutes(
 		'/field-work/assignments/:assignmentId/move-items',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				moveAssignmentItemsCommand({
 					...ctx,
 					assignmentId: param('assignmentId'),
@@ -156,7 +156,7 @@ function buildAssignmentUpdateCommands(
 	assignmentId: string,
 	payload: Record<string, unknown>,
 ): CommandsResult {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: FieldWorkCommand[] = [];
 
 	const detailKeys = ['assignmentDate', 'assignmentName', 'assignedToProfileId', 'dueAt'];

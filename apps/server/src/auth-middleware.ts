@@ -90,7 +90,7 @@ export function createAuthContextMiddleware(options: {
  * of the two things to be told.
  */
 export function createGlobalReadMiddleware(options: {
-	readonly agency: MiddlewareHandler<{ Variables: AuthVariables }>;
+	readonly organization: MiddlewareHandler<{ Variables: AuthVariables }>;
 	readonly operator: MiddlewareHandler<{ Variables: AuthVariables }>;
 }) {
 	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
@@ -99,7 +99,7 @@ export function createGlobalReadMiddleware(options: {
 			admitted = true;
 		};
 
-		const agencyRefusal = await options.agency(context, markAdmitted);
+		const organizationRefusal = await options.organization(context, markAdmitted);
 		if (admitted) {
 			return next();
 		}
@@ -109,7 +109,7 @@ export function createGlobalReadMiddleware(options: {
 			return next();
 		}
 
-		return agencyRefusal;
+		return organizationRefusal;
 	});
 }
 

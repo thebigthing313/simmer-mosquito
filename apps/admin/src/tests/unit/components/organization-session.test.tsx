@@ -47,12 +47,12 @@ vi.mock('../../../app-auth', () => ({
 
 vi.mock('sonner', () => ({ toast: { error: (message: string) => toastError(message) } }));
 
-const { AgencySessionGate } = await import('../../../components/agency-session');
+const { OrganizationSessionGate } = await import('../../../components/organization-session');
 
 const SIMMER_ORGANIZATION_ID = '2f4a1f1c-4a3a-4d21-9d1a-0d9d2f5d4b11';
 const WORKOS_ORGANIZATION_ID = 'org_01JQZ7Y8ZQ0000000000000000';
 
-describe('AgencySessionGate', () => {
+describe('OrganizationSessionGate', () => {
 	beforeEach(() => {
 		authSnapshot = null;
 		switchOrganization.mockReset();
@@ -180,13 +180,13 @@ describe('AgencySessionGate', () => {
 function renderGate(workosOrganizationId: string | null = WORKOS_ORGANIZATION_ID) {
 	return render(
 		<Providers>
-			<AgencySessionGate
-				agencyName="Kern County MVCD"
+			<OrganizationSessionGate
+				organizationName="Kern County MVCD"
 				organizationId={SIMMER_ORGANIZATION_ID}
 				workosOrganizationId={workosOrganizationId}
 			>
 				<p>The foundations panel</p>
-			</AgencySessionGate>
+			</OrganizationSessionGate>
 		</Providers>,
 	);
 }

@@ -33,7 +33,7 @@ export function registerAdditionalPersonnelRoutes(
 		'/field-work/additional-personnel',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				addAdditionalPersonnelCommand({
 					...ctx,
 					additionalPersonnelId: readText(payload.id) ?? '',
@@ -50,7 +50,7 @@ export function registerAdditionalPersonnelRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			build: ({ organization: ctx, param }) =>
 				removeAdditionalPersonnelCommand({
 					...ctx,
 					additionalPersonnelId: param('additionalPersonnelId'),

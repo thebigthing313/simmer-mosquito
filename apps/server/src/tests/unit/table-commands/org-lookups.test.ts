@@ -14,7 +14,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AuthContext } from '../../../auth-context.js';
 import type { CommandTable } from '../../../command-payload.js';
-import type { AgencyCommandType } from '../../../command-permissions.js';
+import type { OrganizationCommandType } from '../../../command-permissions.js';
 import type { WritableCommand } from '../../../command-write.js';
 import type { IntentRequest, TableCommands } from '../../../table-commands/dispatch.js';
 import {
@@ -30,7 +30,7 @@ const ROW = '33333333-3333-4333-8333-333333333333';
 function request(payload: Record<string, unknown>): IntentRequest<CommandTable, string> {
 	return {
 		payload,
-		agency: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
+		organization: { organizationId: ORGANIZATION, actorProfileId: ACTOR },
 		authContext: {
 			organization: { id: ORGANIZATION, settings: null },
 			profile: { id: ACTOR },
@@ -42,7 +42,7 @@ function request(payload: Record<string, unknown>): IntentRequest<CommandTable, 
 
 function build<TCommand extends WritableCommand>(
 	spec: TableCommands<CommandTable, TCommand, unknown, string>,
-	intent: AgencyCommandType,
+	intent: OrganizationCommandType,
 	intentRequest: IntentRequest<CommandTable, string>,
 ): TCommand {
 	const builder = spec.intents[intent];
@@ -85,7 +85,7 @@ describe('org lookup catalogs', () => {
 			table: catalog.spec.table,
 			command: build(
 				catalog.spec,
-				catalog.create as AgencyCommandType,
+				catalog.create as OrganizationCommandType,
 				request({ name: 'Gravid trap' }),
 			),
 		}));

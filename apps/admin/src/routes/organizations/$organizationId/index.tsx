@@ -4,23 +4,23 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { AdminAgency } from '../../../api';
+import type { AdminOrganization } from '../../../api';
 import { AdminError, AdminPage } from '../../../components/admin-page';
 import { subscriptionTone } from '../../../lib/tones';
-import { useAgencies } from '../-agency-data';
+import { useOrganizations } from '../-organization-data';
 
 const OrganizationIcon = iconRegistry.entities.organization.icon;
 const ContactIcon = iconRegistry.entities.contact.icon;
 const SettingsIcon = iconRegistry.generic.settings.icon;
 
 export const Route = createFileRoute('/organizations/$organizationId/')({
-	component: AgencyDetailRoute,
+	component: OrganizationDetailRoute,
 });
 
-function AgencyDetailRoute() {
+function OrganizationDetailRoute() {
 	const { organizationId } = Route.useParams();
-	const { data, isPending, error } = useAgencies();
-	const agency = (data ?? []).find((row) => row.id === organizationId);
+	const { data, isPending, error } = useOrganizations();
+	const organization = (data ?? []).find((row) => row.id === organizationId);
 
 	if (error !== null) {
 		return (
@@ -38,7 +38,7 @@ function AgencyDetailRoute() {
 		);
 	}
 
-	if (agency === undefined) {
+	if (organization === undefined) {
 		return (
 			<AdminPage
 				description="This agency is not on the platform."
@@ -70,16 +70,16 @@ function AgencyDetailRoute() {
 			}
 			description="Support metadata for this agency. Operational records belong to the agency and live in the SIMMER web app."
 			icon={OrganizationIcon}
-			title={agency.name}
+			title={organization.name}
 		>
 			<div className="grid gap-5 lg:grid-cols-2">
 				<Panel icon={<OrganizationIcon aria-hidden="true" />} title="Identity">
 					<FactList
 						facts={[
-							{ label: 'Agency id', value: agency.id, mono: true },
+							{ label: 'Agency id', value: organization.id, mono: true },
 							{
 								label: 'WorkOS organization',
-								value: agency.workosOrganizationId,
+								value: organization.workosOrganizationId,
 								mono: true,
 								/*
 								 * Without this link nobody in the agency can sign in, so an
@@ -88,10 +88,10 @@ function AgencyDetailRoute() {
 								 */
 								missing: 'Not linked — nobody can sign in yet',
 							},
-							{ label: 'Slug', value: agency.slug, mono: true },
-							{ label: 'Owner linked', value: agency.ownerLinked ? 'Yes' : 'No' },
-							{ label: 'Created', value: formatDate(agency.createdAt) },
-							{ label: 'Updated', value: formatDate(agency.updatedAt) },
+							{ label: 'Slug', value: organization.slug, mono: true },
+							{ label: 'Owner linked', value: organization.ownerLinked ? 'Yes' : 'No' },
+							{ label: 'Created', value: formatDate(organization.createdAt) },
+							{ label: 'Updated', value: formatDate(organization.updatedAt) },
 						]}
 					/>
 				</Panel>
@@ -100,18 +100,21 @@ function AgencyDetailRoute() {
 					<div className="px-4 pt-4">
 						<Badge
 							className="capitalize"
-							tone={subscriptionTone(agency.subscription.subscriptionStatus)}
+							tone={subscriptionTone(organization.subscription.subscriptionStatus)}
 							variant="outline"
 						>
-							{agency.subscription.subscriptionStatus}
+							{organization.subscription.subscriptionStatus}
 						</Badge>
 					</div>
 					<FactList
 						facts={[
-							{ label: 'Billing mode', value: agency.subscription.billingMode.replace(/_/g, ' ') },
-							{ label: 'Billing contact', value: agency.subscription.billingContactName },
-							{ label: 'Billing email', value: agency.subscription.billingContactEmail },
-							{ label: 'Notes', value: agency.subscription.subscriptionNotes },
+							{
+								label: 'Billing mode',
+								value: organization.subscription.billingMode.replace(/_/g, ' '),
+							},
+							{ label: 'Billing contact', value: organization.subscription.billingContactName },
+							{ label: 'Billing email', value: organization.subscription.billingContactEmail },
+							{ label: 'Notes', value: organization.subscription.subscriptionNotes },
 						]}
 					/>
 				</Panel>
@@ -119,9 +122,9 @@ function AgencyDetailRoute() {
 				<Panel className="lg:col-span-2" icon={<ContactIcon aria-hidden="true" />} title="Contact">
 					<FactList
 						facts={[
-							{ label: 'Main contact email', value: agency.contact.mainContactEmail },
-							{ label: 'Phone', value: agency.contact.phoneNumber },
-							{ label: 'Address', value: mailingAddress(agency) },
+							{ label: 'Main contact email', value: organization.contact.mainContactEmail },
+							{ label: 'Phone', value: organization.contact.phoneNumber },
+							{ label: 'Address', value: mailingAddress(organization) },
 						]}
 					/>
 				</Panel>
@@ -161,14 +164,14 @@ function FactList({ facts }: { readonly facts: readonly Fact[] }) {
 	);
 }
 
-function mailingAddress(agency: AdminAgency): string | null {
+function mailingAddress(organization: AdminOrganization): string | null {
 	const parts = [
-		agency.contact.mailingAddressLine1,
-		agency.contact.mailingAddressLine2,
-		agency.contact.mailingLocality,
-		agency.contact.mailingRegion,
-		agency.contact.mailingPostalCode,
-		agency.contact.mailingCountry,
+		organization.contact.mailingAddressLine1,
+		organization.contact.mailingAddressLine2,
+		organization.contact.mailingLocality,
+		organization.contact.mailingRegion,
+		organization.contact.mailingPostalCode,
+		organization.contact.mailingCountry,
 	].filter((part): part is string => part !== null && part.trim() !== '');
 
 	return parts.length === 0 ? null : parts.join(', ');

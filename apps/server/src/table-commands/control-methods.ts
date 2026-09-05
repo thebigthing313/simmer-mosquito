@@ -56,7 +56,7 @@ import {
 	updateSourceReductionMethodCommand,
 } from '@simmer-mosquito/domain';
 import { readText } from '../command-payload.js';
-import type { AgencyCommandType } from '../command-permissions.js';
+import type { OrganizationCommandType } from '../command-permissions.js';
 import type { CommandDb } from '../command-write.js';
 import {
 	type ControlMethodCommand,
@@ -97,11 +97,11 @@ interface MethodBuilders {
 }
 
 interface MethodIntents {
-	readonly create: AgencyCommandType;
-	readonly update: AgencyCommandType;
-	readonly deactivate: AgencyCommandType;
-	readonly reactivate: AgencyCommandType;
-	readonly remove: AgencyCommandType;
+	readonly create: OrganizationCommandType;
+	readonly update: OrganizationCommandType;
+	readonly deactivate: OrganizationCommandType;
+	readonly reactivate: OrganizationCommandType;
+	readonly remove: OrganizationCommandType;
 }
 
 type MethodResponse = Awaited<ReturnType<typeof writeControlMethodCommand>>;
@@ -127,8 +127,8 @@ function methodTableCommands(
 	names: MethodIntents,
 	build: MethodBuilders,
 ): TableCommands<ControlMethodTable, ControlMethodCommand, NonNullable<MethodResponse>> {
-	const target = ({ payload: _payload, agency, id }: MethodRequest) => ({
-		...agency,
+	const target = ({ payload: _payload, organization, id }: MethodRequest) => ({
+		...organization,
 		id,
 	});
 
@@ -171,7 +171,7 @@ function methodTableCommands(
 			notFound: 'control_method_not_found',
 			key: 'method',
 		},
-		// The keys are `AgencyCommandType` values held in `names`, so a typo is
+		// The keys are `OrganizationCommandType` values held in `names`, so a typo is
 		// still a build error at the four call sites below; what the cast restores
 		// is only what computed keys erase.
 		intents: intents as IntentMap<ControlMethodTable, ControlMethodCommand>,

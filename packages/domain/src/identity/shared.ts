@@ -1,4 +1,8 @@
-import { createIssues, requiredUuid, validateAgencyCommandContext } from '../command-validation.js';
+import {
+	createIssues,
+	requiredUuid,
+	validateOrganizationCommandContext,
+} from '../command-validation.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 
 /**
@@ -27,33 +31,35 @@ export interface IdentityDomainCommand<TType extends IdentityCommandType, TPaylo
 	readonly payload: TPayload;
 }
 
-export interface AgencyIdentityCommandInput {
+export interface OrganizationIdentityCommandInput {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
 }
 
-export interface AgencyIdentityCommandPayload {
+export interface OrganizationIdentityCommandPayload {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
 }
 
-export function agencyPayload(input: AgencyIdentityCommandInput): AgencyIdentityCommandPayload {
+export function organizationPayload(
+	input: OrganizationIdentityCommandInput,
+): OrganizationIdentityCommandPayload {
 	return { organizationId: input.organizationId, actorProfileId: input.actorProfileId };
 }
 
-export function validateAgencyBase(
-	input: AgencyIdentityCommandInput,
+export function validateOrganizationBase(
+	input: OrganizationIdentityCommandInput,
 	issues: DomainValidationIssue[],
 ): void {
-	validateAgencyCommandContext(input, issues);
+	validateOrganizationCommandContext(input, issues);
 }
 
-export function validateAgencyIdCommand<T extends AgencyIdentityCommandInput>(
+export function validateOrganizationIdCommand<T extends OrganizationIdentityCommandInput>(
 	input: T,
 	idKey: keyof T & string,
 ): DomainValidationIssue[] {
 	const issues = createIssues();
-	validateAgencyBase(input, issues);
+	validateOrganizationBase(input, issues);
 	requiredUuid(input[idKey] as string | undefined, idKey, issues);
 	return issues;
 }

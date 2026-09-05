@@ -18,7 +18,6 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import { assertCitedHistoryAcknowledged } from '../record-history.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	commandEndpoint,
@@ -26,6 +25,7 @@ import {
 	geojsonToGeom,
 	insertRegistrationType,
 	invalidUpdate,
+	organizationCommandContext,
 	type PublicEngagementDb,
 	type PublicEngagementTransaction,
 	type RegistrationRow,
@@ -52,7 +52,7 @@ export function registerNotificationRegistrationRoutes(
 		'/public-engagement/notification-registrations',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				createNotificationRegistrationCommand({
 					...ctx,
 					notificationRegistrationId: readText(payload.id) ?? '',
@@ -82,7 +82,7 @@ export function registerNotificationRegistrationRoutes(
 		'/public-engagement/notification-registrations/:notificationRegistrationId/contact',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				updateNotificationRegistrationContactCommand({
 					...ctx,
 					notificationRegistrationId: param('notificationRegistrationId'),
@@ -100,7 +100,7 @@ export function registerNotificationRegistrationRoutes(
 		'/public-engagement/notification-registrations/:notificationRegistrationId/location',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				updateNotificationRegistrationLocationCommand({
 					...ctx,
 					notificationRegistrationId: param('notificationRegistrationId'),
@@ -116,7 +116,7 @@ export function registerNotificationRegistrationRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			build: ({ organization: ctx, param }) =>
 				deleteNotificationRegistrationCommand({
 					...ctx,
 					notificationRegistrationId: param('notificationRegistrationId'),
@@ -131,7 +131,7 @@ function buildRegistrationUpdateCommands(
 	notificationRegistrationId: string,
 	payload: Record<string, unknown>,
 ): CommandsResult {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: PublicEngagementCommand[] = [];
 
 	if ('hasBees' in payload || 'isNoSpray' in payload) {

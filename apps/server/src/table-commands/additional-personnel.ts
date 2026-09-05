@@ -42,9 +42,9 @@ export function additionalPersonnelTableCommands(
 			key: 'additionalPersonnel',
 		},
 		intents: {
-			'fieldWork.addAdditionalPersonnel': ({ payload, agency, id }) =>
+			'fieldWork.addAdditionalPersonnel': ({ payload, organization, id }) =>
 				addAdditionalPersonnelCommand({
-					...agency,
+					...organization,
 					additionalPersonnelId: id,
 					target: readEntityTarget(payload.entity_type, payload.entity_id),
 					personnelProfileId: readText(payload.personnel_profile_id) ?? '',
@@ -52,8 +52,8 @@ export function additionalPersonnelTableCommands(
 
 			// Only the link row's id: which record the Profile worked is what the
 			// server looks up, and it is also how the ownership check reaches it.
-			'fieldWork.removeAdditionalPersonnel': ({ agency, id }) =>
-				removeAdditionalPersonnelCommand({ ...agency, additionalPersonnelId: id }),
+			'fieldWork.removeAdditionalPersonnel': ({ organization, id }) =>
+				removeAdditionalPersonnelCommand({ ...organization, additionalPersonnelId: id }),
 		},
 	};
 }

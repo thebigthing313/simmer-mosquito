@@ -7,7 +7,7 @@
  * Two things here are unlike the rest of the app. The station's point is an
  * argument rather than a location source, because the point is the record. And
  * both tables allow a null `organization_id`, for the provider feed no command
- * writes, so the row an agency create builds has to name the Agency itself;
+ * writes, so the row a create builds has to name the Organization itself;
  * nothing downstream would object to a null, it would just be a station nobody
  * owns.
  *
@@ -95,8 +95,8 @@ describe('a weather station write', () => {
 
 	it("builds the new station as the acting agency's own, not as an unowned feed", async () => {
 		// `organization_id` is nullable on this table for the provider rows, so a
-		// missing Agency here is a station that syncs to nobody rather than an
-		// error, and `source_type` is what the server will set regardless.
+		// missing Organization here is a station that syncs to nobody rather than
+		// an error, and `source_type` is what the server will set regardless.
 		const { result } = renderHook(() => useWeatherStationMutations());
 
 		await result.current.create(RECORD, stationFields(), PIN as never);

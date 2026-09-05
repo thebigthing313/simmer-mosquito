@@ -106,9 +106,9 @@ export function assignmentTableCommands(
 		table: 'assignments',
 		run: { db, write: writeAssignmentCommand, notFound: 'assignment_not_found', key: 'assignment' },
 		intents: {
-			'fieldWork.createAssignment': ({ payload, agency, id }) =>
+			'fieldWork.createAssignment': ({ payload, organization, id }) =>
 				createAssignmentCommand({
-					...agency,
+					...organization,
 					assignmentId: id,
 					assignmentDate: readText(payload.assignment_date) ?? '',
 					assignmentName: readNullableText(payload.assignment_name),
@@ -116,9 +116,9 @@ export function assignmentTableCommands(
 					dueAt: readDate(payload.due_at),
 				}),
 
-			'fieldWork.createAssignmentFromRoute': ({ payload, agency, id }) =>
+			'fieldWork.createAssignmentFromRoute': ({ payload, organization, id }) =>
 				createAssignmentFromRouteCommand({
-					...agency,
+					...organization,
 					assignmentId: id,
 					routeId: readText(payload.route_id) ?? '',
 					assignmentDate: readText(payload.assignment_date) ?? '',
@@ -128,17 +128,17 @@ export function assignmentTableCommands(
 					assignmentItemIds: assignmentItemSources(payload),
 				}),
 
-			'fieldWork.selfAssignRoute': ({ payload, agency, id }) =>
+			'fieldWork.selfAssignRoute': ({ payload, organization, id }) =>
 				selfAssignRouteCommand({
-					...agency,
+					...organization,
 					assignmentId: id,
 					routeId: readText(payload.route_id) ?? '',
 					assignmentItemIds: assignmentItemSources(payload),
 				}),
 
-			'fieldWork.updateAssignmentDetails': ({ payload, agency, id }) =>
+			'fieldWork.updateAssignmentDetails': ({ payload, organization, id }) =>
 				updateAssignmentDetailsCommand({
-					...agency,
+					...organization,
 					assignmentId: id,
 					...(payload.assignment_date !== undefined
 						? { assignmentDate: readText(payload.assignment_date) ?? '' }
@@ -155,23 +155,23 @@ export function assignmentTableCommands(
 			// The four lifecycle commands read one column each, and only for *when*:
 			// absent means now, which is what an online client sends. A device that
 			// recorded the work offline states the moment it happened.
-			'fieldWork.startAssignment': ({ payload, agency, id }) =>
+			'fieldWork.startAssignment': ({ payload, organization, id }) =>
 				startAssignmentCommand({
-					...agency,
+					...organization,
 					assignmentId: id,
 					startedAt: readDate(payload.started_at),
 				}),
 
-			'fieldWork.completeAssignment': ({ payload, agency, id }) =>
+			'fieldWork.completeAssignment': ({ payload, organization, id }) =>
 				completeAssignmentCommand({
-					...agency,
+					...organization,
 					assignmentId: id,
 					completedAt: readDate(payload.completed_at),
 				}),
 
-			'fieldWork.cancelAssignment': ({ payload, agency, id }) =>
+			'fieldWork.cancelAssignment': ({ payload, organization, id }) =>
 				cancelAssignmentCommand({
-					...agency,
+					...organization,
 					assignmentId: id,
 					cancelledAt: readDate(payload.cancelled_at),
 					cancellationReason: readNullableText(payload.cancellation_reason),
@@ -180,12 +180,12 @@ export function assignmentTableCommands(
 			// Reads nothing. Which of the two closed states it is coming back from is
 			// the server's to look up, and clearing both columns is the same write
 			// either way.
-			'fieldWork.reopenAssignment': ({ agency, id }) =>
-				reopenAssignmentCommand({ ...agency, assignmentId: id }),
+			'fieldWork.reopenAssignment': ({ organization, id }) =>
+				reopenAssignmentCommand({ ...organization, assignmentId: id }),
 
-			'fieldWork.deleteAssignment': ({ payload, agency, id }) =>
+			'fieldWork.deleteAssignment': ({ payload, organization, id }) =>
 				deleteAssignmentCommand({
-					...agency,
+					...organization,
 					assignmentId: id,
 					acknowledgedAssignmentItemDeletion: acknowledged(
 						payload,
@@ -195,9 +195,9 @@ export function assignmentTableCommands(
 
 			// A move restacks the worklist and answers with the assignment. See
 			// `routes.ts` for why that puts it on the parent.
-			'fieldWork.moveAssignmentItems': ({ payload, agency, id }) =>
+			'fieldWork.moveAssignmentItems': ({ payload, organization, id }) =>
 				moveAssignmentItemsCommand({
-					...agency,
+					...organization,
 					assignmentId: id,
 					assignmentItemIds: readStringArray(payload.assignment_item_ids),
 					placement: payload.placement as AssignmentItemPlacement,

@@ -18,8 +18,8 @@
 import type { Organization } from '@simmer-mosquito/sync';
 import { describe, expect, it } from 'vitest';
 import {
-	type AgencyDetailsFields,
-	agencyDetailsPlan,
+	type OrganizationDetailsFields,
+	organizationDetailsPlan,
 } from '../../../../hooks/mutations/use-organization-settings-mutations';
 
 const TIMEZONE = 'America/Los_Angeles';
@@ -43,7 +43,7 @@ const STORED: Organization = {
 	updated_by_profile_id: null,
 };
 
-function fields(overrides: Partial<AgencyDetailsFields> = {}): AgencyDetailsFields {
+function fields(overrides: Partial<OrganizationDetailsFields> = {}): OrganizationDetailsFields {
 	return {
 		name: STORED.name,
 		mainContactEmail: STORED.main_contact_email,
@@ -58,23 +58,23 @@ function fields(overrides: Partial<AgencyDetailsFields> = {}): AgencyDetailsFiel
 	};
 }
 
-describe('agencyDetailsPlan', () => {
+describe('organizationDetailsPlan', () => {
 	it('sends nothing when the sheet was opened and closed', () => {
-		expect(agencyDetailsPlan(fields(), STORED, TIMEZONE)).toEqual({
+		expect(organizationDetailsPlan(fields(), STORED, TIMEZONE)).toEqual({
 			details: null,
 			timezone: null,
 		});
 	});
 
 	it('sends only the details when only a column moved', () => {
-		const plan = agencyDetailsPlan(fields({ phoneNumber: '555-0199' }), STORED, TIMEZONE);
+		const plan = organizationDetailsPlan(fields({ phoneNumber: '555-0199' }), STORED, TIMEZONE);
 
 		expect(plan.timezone).toBeNull();
 		expect(plan.details).toMatchObject({ phoneNumber: '555-0199', name: 'Coastal MAD' });
 	});
 
 	it('sends only the command when only the timezone moved', () => {
-		const plan = agencyDetailsPlan(fields({ timezone: 'America/Denver' }), STORED, TIMEZONE);
+		const plan = organizationDetailsPlan(fields({ timezone: 'America/Denver' }), STORED, TIMEZONE);
 
 		// The details write is skipped entirely rather than sent unchanged: the row
 		// would be rewritten to its own values, and its `updated_at` would move for
@@ -84,7 +84,7 @@ describe('agencyDetailsPlan', () => {
 	});
 
 	it('sends both when the sheet changed one of each', () => {
-		const plan = agencyDetailsPlan(
+		const plan = organizationDetailsPlan(
 			fields({ name: 'Coastal Vector Control', timezone: 'America/Denver' }),
 			STORED,
 			TIMEZONE,
@@ -97,11 +97,11 @@ describe('agencyDetailsPlan', () => {
 	it('treats clearing an optional line as a change', () => {
 		// `''` never reaches here — the form converts an emptied input to `null` —
 		// so the comparison is `null` against a stored string, which it has to see.
-		const plan = agencyDetailsPlan(fields({ mailingAddressLine2: null }), STORED, TIMEZONE);
+		const plan = organizationDetailsPlan(fields({ mailingAddressLine2: null }), STORED, TIMEZONE);
 
 		expect(plan.details).toBeNull();
 
-		const cleared = agencyDetailsPlan(fields({ mailingLocality: null }), STORED, TIMEZONE);
+		const cleared = organizationDetailsPlan(fields({ mailingLocality: null }), STORED, TIMEZONE);
 		expect(cleared.details?.mailingLocality).toBeNull();
 	});
 
@@ -109,7 +109,7 @@ describe('agencyDetailsPlan', () => {
 		// There is no country field: the address is US-shaped, so the plan states
 		// `US` and compares it. An agency whose row predates that gets it written
 		// on the next save rather than staying null forever.
-		const plan = agencyDetailsPlan(fields(), { ...STORED, mailing_country: null }, TIMEZONE);
+		const plan = organizationDetailsPlan(fields(), { ...STORED, mailing_country: null }, TIMEZONE);
 
 		expect(plan.details?.mailingCountry).toBe('US');
 	});

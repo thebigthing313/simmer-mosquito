@@ -14,7 +14,6 @@ import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables } from '../auth-middleware.js';
 import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	type ControlOperationsDb,
@@ -26,6 +25,7 @@ import {
 	invalidUpdate,
 	locationContextColumns,
 	locationContextInput,
+	organizationCommandContext,
 	type RequestedControlActionRow,
 	type RouteOptions,
 	readControlActionContext,
@@ -49,7 +49,7 @@ export function registerRequestedControlActionRoutes(
 		'/control-operations/requested-control-actions',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				requestControlActionCommand({
 					...ctx,
 					requestedControlActionId: readText(payload.id) ?? '',
@@ -86,7 +86,7 @@ export function registerRequestedControlActionRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ agency: ctx, param, payload }) =>
+			build: ({ organization: ctx, param, payload }) =>
 				deleteRequestedControlActionCommand({
 					...ctx,
 					requestedControlActionId: param('requestedControlActionId'),
@@ -103,7 +103,7 @@ function buildRequestedControlActionUpdateCommands(
 	requestedControlActionId: string,
 	payload: Record<string, unknown>,
 ): CommandsResult {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: ControlOperationsCommand[] = [];
 
 	const fieldKeys = [

@@ -56,13 +56,13 @@ export type SyncShapeScope =
 	| 'organization'
 	/** `organization_id = $1` — the table has no `deleted_at`. */
 	| 'organization-no-soft-delete'
-	/** Agency rows plus the platform-owned ones (`organization_id is null`). */
+	/** Organization rows plus the platform-owned ones (`organization_id is null`). */
 	| 'organization-or-global'
-	/** Agency-or-global on a table with no `deleted_at`. */
+	/** Organization-or-global on a table with no `deleted_at`. */
 	| 'organization-or-global-no-soft-delete'
-	/** `id = $1` — the agency's own `organizations` row, and only that row. */
+	/** `id = $1` — the organization's own `organizations` row, and only that row. */
 	| 'organization-row'
-	/** No predicate at all: reference data every agency reads the same way. */
+	/** No predicate at all: reference data every organization reads the same way. */
 	| 'global';
 
 /**

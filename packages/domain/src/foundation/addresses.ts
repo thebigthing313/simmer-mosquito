@@ -8,21 +8,21 @@ import {
 } from '../command-validation.js';
 import type { DomainId, GeoJsonPoint, JsonObject } from '../shared.js';
 import {
-	type AgencyFoundationCommandInput,
-	type AgencyFoundationCommandPayload,
-	agencyPayload,
 	type FoundationDomainCommand,
 	normalizeCountry,
 	normalizePostalCode,
 	normalizeRequiredDomainId,
 	normalizeUsRegion,
-	validateAgencyBase,
-	validateAgencyIdCommand,
+	type OrganizationFoundationCommandInput,
+	type OrganizationFoundationCommandPayload,
+	organizationPayload,
 	validateIdList,
+	validateOrganizationBase,
+	validateOrganizationIdCommand,
 	validatePointGeometry,
 } from './shared.js';
 
-export interface CreateAddressCommandInput extends AgencyFoundationCommandInput {
+export interface CreateAddressCommandInput extends OrganizationFoundationCommandInput {
 	readonly addressId: DomainId;
 	readonly displayName: string;
 	readonly geometry: unknown;
@@ -37,7 +37,7 @@ export interface CreateAddressCommandInput extends AgencyFoundationCommandInput 
 
 export type CreateAddressCommand = FoundationDomainCommand<
 	'foundation.createAddress',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly addressId: DomainId;
 		readonly displayName: string;
 		readonly geometry: GeoJsonPoint;
@@ -51,7 +51,7 @@ export type CreateAddressCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateAddressDetailsCommandInput extends AgencyFoundationCommandInput {
+export interface UpdateAddressDetailsCommandInput extends OrganizationFoundationCommandInput {
 	readonly addressId: DomainId;
 	readonly displayName?: string;
 	readonly addressLine1?: string | null;
@@ -64,7 +64,7 @@ export interface UpdateAddressDetailsCommandInput extends AgencyFoundationComman
 
 export type UpdateAddressDetailsCommand = FoundationDomainCommand<
 	'foundation.updateAddressDetails',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly addressId: DomainId;
 		readonly changes: Readonly<{
 			readonly displayName?: string;
@@ -78,29 +78,29 @@ export type UpdateAddressDetailsCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateAddressLocationCommandInput extends AgencyFoundationCommandInput {
+export interface UpdateAddressLocationCommandInput extends OrganizationFoundationCommandInput {
 	readonly addressId: DomainId;
 	readonly geometry: unknown;
 }
 
 export type UpdateAddressLocationCommand = FoundationDomainCommand<
 	'foundation.updateAddressLocation',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly addressId: DomainId;
 		readonly geometry: GeoJsonPoint;
 	}
 >;
 
-export interface AddressIdCommandInput extends AgencyFoundationCommandInput {
+export interface AddressIdCommandInput extends OrganizationFoundationCommandInput {
 	readonly addressId: DomainId;
 }
 
 export type DeleteAddressCommand = FoundationDomainCommand<
 	'foundation.deleteAddress',
-	AgencyFoundationCommandPayload & { readonly addressId: DomainId }
+	OrganizationFoundationCommandPayload & { readonly addressId: DomainId }
 >;
 
-export interface MergeAddressesCommandInput extends AgencyFoundationCommandInput {
+export interface MergeAddressesCommandInput extends OrganizationFoundationCommandInput {
 	readonly targetAddressId: DomainId;
 	readonly sourceAddressIds: readonly DomainId[];
 	readonly acknowledgedMergeConsolidatesHistory?: boolean;
@@ -108,7 +108,7 @@ export interface MergeAddressesCommandInput extends AgencyFoundationCommandInput
 
 export type MergeAddressesCommand = FoundationDomainCommand<
 	'foundation.mergeAddresses',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly targetAddressId: DomainId;
 		readonly sourceAddressIds: readonly DomainId[];
 		readonly acknowledgedMergeConsolidatesHistory: true;
@@ -117,7 +117,7 @@ export type MergeAddressesCommand = FoundationDomainCommand<
 
 export function createAddressCommand(input: CreateAddressCommandInput): CreateAddressCommand {
 	const issues = createIssues();
-	validateAgencyBase(input, issues);
+	validateOrganizationBase(input, issues);
 	requireUuid(input.addressId, 'addressId', issues);
 	const displayName = normalizeRequiredText(input.displayName, 'displayName', issues, 200);
 	const geometry = validatePointGeometry(input.geometry, 'geometry', issues);
@@ -130,7 +130,7 @@ export function createAddressCommand(input: CreateAddressCommandInput): CreateAd
 	return {
 		type: 'foundation.createAddress',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			addressId: normalizeRequiredDomainId(input.addressId),
 			displayName,
 			geometry,
@@ -148,7 +148,7 @@ export function createAddressCommand(input: CreateAddressCommandInput): CreateAd
 export function updateAddressDetailsCommand(
 	input: UpdateAddressDetailsCommandInput,
 ): UpdateAddressDetailsCommand {
-	const issues = validateAgencyIdCommand(input, 'addressId');
+	const issues = validateOrganizationIdCommand(input, 'addressId');
 	const hasDisplayName = input.displayName !== undefined;
 	const hasAddress1 = input.addressLine1 !== undefined;
 	const hasAddress2 = input.addressLine2 !== undefined;
@@ -182,7 +182,7 @@ export function updateAddressDetailsCommand(
 	return {
 		type: 'foundation.updateAddressDetails',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			addressId: normalizeRequiredDomainId(input.addressId),
 			changes: {
 				...(displayName !== undefined ? { displayName } : {}),
@@ -206,13 +206,13 @@ export function updateAddressDetailsCommand(
 export function updateAddressLocationCommand(
 	input: UpdateAddressLocationCommandInput,
 ): UpdateAddressLocationCommand {
-	const issues = validateAgencyIdCommand(input, 'addressId');
+	const issues = validateOrganizationIdCommand(input, 'addressId');
 	const geometry = validatePointGeometry(input.geometry, 'geometry', issues);
 	throwIfIssues('Update address location command is invalid.', issues);
 	return {
 		type: 'foundation.updateAddressLocation',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			addressId: normalizeRequiredDomainId(input.addressId),
 			geometry,
 		},
@@ -220,17 +220,20 @@ export function updateAddressLocationCommand(
 }
 
 export function deleteAddressCommand(input: AddressIdCommandInput): DeleteAddressCommand {
-	const issues = validateAgencyIdCommand(input, 'addressId');
+	const issues = validateOrganizationIdCommand(input, 'addressId');
 	throwIfIssues('Delete address command is invalid.', issues);
 	return {
 		type: 'foundation.deleteAddress',
-		payload: { ...agencyPayload(input), addressId: normalizeRequiredDomainId(input.addressId) },
+		payload: {
+			...organizationPayload(input),
+			addressId: normalizeRequiredDomainId(input.addressId),
+		},
 	};
 }
 
 export function mergeAddressesCommand(input: MergeAddressesCommandInput): MergeAddressesCommand {
 	const issues = createIssues();
-	validateAgencyBase(input, issues);
+	validateOrganizationBase(input, issues);
 	requireUuid(input.targetAddressId, 'targetAddressId', issues);
 	const sourceAddressIds = validateIdList(input.sourceAddressIds, 'sourceAddressIds', issues);
 	const targetAddressId = normalizeRequiredDomainId(input.targetAddressId);
@@ -250,7 +253,7 @@ export function mergeAddressesCommand(input: MergeAddressesCommandInput): MergeA
 	return {
 		type: 'foundation.mergeAddresses',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			targetAddressId,
 			sourceAddressIds,
 			acknowledgedMergeConsolidatesHistory: true,

@@ -29,7 +29,7 @@ import { appAuthController } from '../app-auth';
 const EnterIcon = iconRegistry.entities.organization.icon;
 
 /** Whether this operator session is currently inside the given agency. */
-function useInsideAgency(organizationId: string): boolean {
+function useInsideOrganization(organizationId: string): boolean {
 	const snapshot = useSyncExternalStore(
 		appAuthController.subscribe,
 		() => appAuthController.snapshot,
@@ -50,34 +50,37 @@ function useInsideAgency(organizationId: string): boolean {
  * and the fix is a membership, which is a deliberate act somebody has to
  * perform. Reporting that plainly is more useful than a disabled button.
  */
-export function AgencySessionGate({
+export function OrganizationSessionGate({
 	organizationId,
 	workosOrganizationId,
-	agencyName,
+	organizationName,
 	children,
 }: {
 	readonly organizationId: string;
 	readonly workosOrganizationId: string | null;
-	readonly agencyName: string | undefined;
+	readonly organizationName: string | undefined;
 	readonly children: ReactNode;
 }) {
-	const inside = useInsideAgency(organizationId);
+	const inside = useInsideOrganization(organizationId);
 
 	return inside ? (
 		<>{children}</>
 	) : (
-		<AgencyEntry name={agencyName ?? 'this agency'} workosOrganizationId={workosOrganizationId} />
+		<OrganizationEntry
+			name={organizationName ?? 'this agency'}
+			workosOrganizationId={workosOrganizationId}
+		/>
 	);
 }
 
-function AgencyEntry({
+function OrganizationEntry({
 	name,
 	workosOrganizationId,
 }: {
 	readonly name: string;
 	readonly workosOrganizationId: string | null;
 }) {
-	const enter = useEnterAgency(workosOrganizationId, name);
+	const enter = useEnterOrganization(workosOrganizationId, name);
 	const unlinked = workosOrganizationId === null;
 
 	return (
@@ -103,7 +106,7 @@ function AgencyEntry({
 }
 
 /** Re-seal the session against the agency, then forget everything read as who we were. */
-function useEnterAgency(
+function useEnterOrganization(
 	workosOrganizationId: string | null,
 	name: string,
 ): {

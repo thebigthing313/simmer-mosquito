@@ -32,7 +32,6 @@ import {
 } from './mission-acknowledgements.js';
 import { assertMissionItemProgress, autoStartMissionIfScheduled } from './mission-lifecycle.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	type CommandsResult,
 	commandEndpoint,
@@ -44,6 +43,7 @@ import {
 	type MissionDispatchTransaction,
 	type MissionItemRow,
 	missionItemReturnColumns,
+	organizationCommandContext,
 	type RouteOptions,
 	readDate,
 	readItemLifecycleTransition,
@@ -66,7 +66,7 @@ export function registerMissionItemRoutes(
 		'/mission-dispatch/mission-items',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) => {
+			build: ({ payload, organization: ctx }) => {
 				const fromRca = readNullableText(payload.requestedControlActionId);
 				const hasLocation = payload.locationSource !== undefined || payload.geometry !== undefined;
 				return fromRca !== null && !hasLocation
@@ -141,7 +141,7 @@ export function registerMissionItemRoutes(
 			// Optional, not none: a delete that removes a stop's progress has a
 			// question to answer, and a body is the only place the answer fits.
 			body: 'optional',
-			build: ({ agency: ctx, param, payload }) =>
+			build: ({ organization: ctx, param, payload }) =>
 				removeMissionItemCommand({
 					...ctx,
 					missionItemId: param('missionItemId'),
@@ -163,7 +163,7 @@ export function registerMissionItemRoutes(
 		'/mission-dispatch/missions/:missionId/move-items',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				moveMissionItemsCommand({
 					...ctx,
 					missionId: param('missionId'),
@@ -184,7 +184,7 @@ function buildMissionItemUpdateCommands(
 	missionItemId: string,
 	payload: Record<string, unknown>,
 ): CommandsResult {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: MissionDispatchCommand[] = [];
 
 	const hasLocationLink =

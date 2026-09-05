@@ -139,9 +139,9 @@ function missionPlacement(payload: ActionPayload) {
 	};
 }
 
-function missionStop({ payload, agency, id }: IntentRequest<ActionTable, ActionArgument>) {
+function missionStop({ payload, organization, id }: IntentRequest<ActionTable, ActionArgument>) {
 	return {
-		...agency,
+		...organization,
 		missionItemId: readText(payload.mission_item_id) ?? '',
 		...missionPlacement(payload),
 		id,
@@ -193,9 +193,9 @@ export function sourceReductionTableCommands(
 			key: 'sourceReduction',
 		},
 		intents: {
-			'controlOperations.recordSourceReduction': ({ payload, agency, id }) =>
+			'controlOperations.recordSourceReduction': ({ payload, organization, id }) =>
 				recordSourceReductionCommand({
-					...agency,
+					...organization,
 					sourceReductionId: id,
 					sourceReductionMethodId: readText(payload.source_reduction_method_id) ?? '',
 					technicianProfileId: readNullableText(payload.technician_profile_id),
@@ -219,9 +219,9 @@ export function sourceReductionTableCommands(
 				});
 			},
 
-			'controlOperations.updateSourceReductionFieldDetails': ({ payload, agency, id }) =>
+			'controlOperations.updateSourceReductionFieldDetails': ({ payload, organization, id }) =>
 				updateSourceReductionFieldDetailsCommand({
-					...agency,
+					...organization,
 					sourceReductionId: id,
 					...sharedFieldChanges(payload),
 					...(payload.source_reduction_date !== undefined
@@ -241,16 +241,20 @@ export function sourceReductionTableCommands(
 						: {}),
 				}),
 
-			'controlOperations.updateSourceReductionLocationAndContext': ({ payload, agency, id }) =>
+			'controlOperations.updateSourceReductionLocationAndContext': ({
+				payload,
+				organization,
+				id,
+			}) =>
 				updateSourceReductionLocationAndContextCommand({
-					...agency,
+					...organization,
 					sourceReductionId: id,
 					...placementChanges(payload),
 				}),
 
-			'controlOperations.deleteSourceReduction': ({ payload, agency, id }) =>
+			'controlOperations.deleteSourceReduction': ({ payload, organization, id }) =>
 				deleteSourceReductionCommand({
-					...agency,
+					...organization,
 					sourceReductionId: id,
 					acknowledgedSupportRecordDeletion: acknowledged(
 						payload,
@@ -273,9 +277,9 @@ export function outreachActionTableCommands(
 			key: 'outreachAction',
 		},
 		intents: {
-			'controlOperations.recordOutreachAction': ({ payload, agency, id }) =>
+			'controlOperations.recordOutreachAction': ({ payload, organization, id }) =>
 				recordOutreachActionCommand({
-					...agency,
+					...organization,
 					outreachActionId: id,
 					outreachMethodId: readText(payload.outreach_method_id) ?? '',
 					technicianProfileId: readNullableText(payload.technician_profile_id),
@@ -300,9 +304,9 @@ export function outreachActionTableCommands(
 				});
 			},
 
-			'controlOperations.updateOutreachActionFieldDetails': ({ payload, agency, id }) =>
+			'controlOperations.updateOutreachActionFieldDetails': ({ payload, organization, id }) =>
 				updateOutreachActionFieldDetailsCommand({
-					...agency,
+					...organization,
 					outreachActionId: id,
 					...sharedFieldChanges(payload),
 					...(payload.outreach_date !== undefined
@@ -317,16 +321,16 @@ export function outreachActionTableCommands(
 						: {}),
 				}),
 
-			'controlOperations.updateOutreachActionLocationAndContext': ({ payload, agency, id }) =>
+			'controlOperations.updateOutreachActionLocationAndContext': ({ payload, organization, id }) =>
 				updateOutreachActionLocationAndContextCommand({
-					...agency,
+					...organization,
 					outreachActionId: id,
 					...placementChanges(payload),
 				}),
 
-			'controlOperations.deleteOutreachAction': ({ payload, agency, id }) =>
+			'controlOperations.deleteOutreachAction': ({ payload, organization, id }) =>
 				deleteOutreachActionCommand({
-					...agency,
+					...organization,
 					outreachActionId: id,
 					acknowledgedSupportRecordDeletion: acknowledged(
 						payload,
@@ -349,9 +353,9 @@ export function biocontrolActionTableCommands(
 			key: 'biocontrolAction',
 		},
 		intents: {
-			'controlOperations.recordBiocontrolAction': ({ payload, agency, id }) =>
+			'controlOperations.recordBiocontrolAction': ({ payload, organization, id }) =>
 				recordBiocontrolActionCommand({
-					...agency,
+					...organization,
 					biocontrolActionId: id,
 					biocontrolMethodId: readText(payload.biocontrol_method_id) ?? '',
 					technicianProfileId: readNullableText(payload.technician_profile_id),
@@ -374,9 +378,9 @@ export function biocontrolActionTableCommands(
 				});
 			},
 
-			'controlOperations.updateBiocontrolActionFieldDetails': ({ payload, agency, id }) =>
+			'controlOperations.updateBiocontrolActionFieldDetails': ({ payload, organization, id }) =>
 				updateBiocontrolActionFieldDetailsCommand({
-					...agency,
+					...organization,
 					biocontrolActionId: id,
 					...sharedFieldChanges(payload),
 					...(payload.biocontrol_date !== undefined
@@ -393,16 +397,20 @@ export function biocontrolActionTableCommands(
 						: {}),
 				}),
 
-			'controlOperations.updateBiocontrolActionLocationAndContext': ({ payload, agency, id }) =>
+			'controlOperations.updateBiocontrolActionLocationAndContext': ({
+				payload,
+				organization,
+				id,
+			}) =>
 				updateBiocontrolActionLocationAndContextCommand({
-					...agency,
+					...organization,
 					biocontrolActionId: id,
 					...placementChanges(payload),
 				}),
 
-			'controlOperations.deleteBiocontrolAction': ({ payload, agency, id }) =>
+			'controlOperations.deleteBiocontrolAction': ({ payload, organization, id }) =>
 				deleteBiocontrolActionCommand({
-					...agency,
+					...organization,
 					biocontrolActionId: id,
 					acknowledgedSupportRecordDeletion: acknowledged(
 						payload,

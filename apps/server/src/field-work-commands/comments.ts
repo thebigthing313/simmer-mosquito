@@ -39,7 +39,7 @@ export function registerCommentRoutes(
 		'/field-work/comments',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				addCommentCommand({
 					...ctx,
 					commentId: readText(payload.id) ?? '',
@@ -55,7 +55,7 @@ export function registerCommentRoutes(
 		'/field-work/comments/:commentId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) => {
+			build: ({ payload, organization: ctx, param }) => {
 				const commentId = param('commentId');
 				const commands: FieldWorkCommand[] = [];
 				if ('commentText' in payload) {
@@ -85,7 +85,7 @@ export function registerCommentRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			build: ({ organization: ctx, param }) =>
 				deleteCommentCommand({ ...ctx, commentId: param('commentId') }),
 			run: (context, commands) => runCommentCommands(context, options.db, commands),
 		}),

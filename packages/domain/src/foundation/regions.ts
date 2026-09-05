@@ -9,18 +9,18 @@ import {
 } from '../command-validation.js';
 import type { DomainId, JsonObject } from '../shared.js';
 import {
-	type AgencyFoundationCommandInput,
-	type AgencyFoundationCommandPayload,
-	agencyPayload,
 	type FoundationDomainCommand,
 	normalizeRequiredDomainId,
+	type OrganizationFoundationCommandInput,
+	type OrganizationFoundationCommandPayload,
+	organizationPayload,
 	type RegionGeometry,
-	validateAgencyBase,
-	validateAgencyIdCommand,
+	validateOrganizationBase,
+	validateOrganizationIdCommand,
 	validateRegionGeometry,
 } from './shared.js';
 
-export interface CreateRegionFolderCommandInput extends AgencyFoundationCommandInput {
+export interface CreateRegionFolderCommandInput extends OrganizationFoundationCommandInput {
 	readonly regionFolderId: DomainId;
 	readonly name: string;
 	readonly description?: string | null;
@@ -28,14 +28,14 @@ export interface CreateRegionFolderCommandInput extends AgencyFoundationCommandI
 
 export type CreateRegionFolderCommand = FoundationDomainCommand<
 	'foundation.createRegionFolder',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly regionFolderId: DomainId;
 		readonly name: string;
 		readonly description: string | null;
 	}
 >;
 
-export interface UpdateRegionFolderCommandInput extends AgencyFoundationCommandInput {
+export interface UpdateRegionFolderCommandInput extends OrganizationFoundationCommandInput {
 	readonly regionFolderId: DomainId;
 	readonly name?: string;
 	readonly description?: string | null;
@@ -43,7 +43,7 @@ export interface UpdateRegionFolderCommandInput extends AgencyFoundationCommandI
 
 export type UpdateRegionFolderCommand = FoundationDomainCommand<
 	'foundation.updateRegionFolder',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly regionFolderId: DomainId;
 		readonly changes: Readonly<{
 			readonly name?: string;
@@ -52,20 +52,20 @@ export type UpdateRegionFolderCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface DeleteRegionFolderCommandInput extends AgencyFoundationCommandInput {
+export interface DeleteRegionFolderCommandInput extends OrganizationFoundationCommandInput {
 	readonly regionFolderId: DomainId;
 	readonly acknowledgedRegionDetach?: boolean;
 }
 
 export type DeleteRegionFolderCommand = FoundationDomainCommand<
 	'foundation.deleteRegionFolder',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly regionFolderId: DomainId;
 		readonly acknowledgedRegionDetach: boolean;
 	}
 >;
 
-export interface CreateRegionCommandInput extends AgencyFoundationCommandInput {
+export interface CreateRegionCommandInput extends OrganizationFoundationCommandInput {
 	readonly regionId: DomainId;
 	readonly regionFolderId?: DomainId | null;
 	readonly name: string;
@@ -76,7 +76,7 @@ export interface CreateRegionCommandInput extends AgencyFoundationCommandInput {
 
 export type CreateRegionCommand = FoundationDomainCommand<
 	'foundation.createRegion',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly regionId: DomainId;
 		readonly regionFolderId: DomainId | null;
 		readonly name: string;
@@ -86,7 +86,7 @@ export type CreateRegionCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateRegionDetailsCommandInput extends AgencyFoundationCommandInput {
+export interface UpdateRegionDetailsCommandInput extends OrganizationFoundationCommandInput {
 	readonly regionId: DomainId;
 	readonly name?: string;
 	readonly description?: string | null;
@@ -95,7 +95,7 @@ export interface UpdateRegionDetailsCommandInput extends AgencyFoundationCommand
 
 export type UpdateRegionDetailsCommand = FoundationDomainCommand<
 	'foundation.updateRegionDetails',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly regionId: DomainId;
 		readonly changes: Readonly<{
 			readonly name?: string;
@@ -105,20 +105,20 @@ export type UpdateRegionDetailsCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface MoveRegionToFolderCommandInput extends AgencyFoundationCommandInput {
+export interface MoveRegionToFolderCommandInput extends OrganizationFoundationCommandInput {
 	readonly regionId: DomainId;
 	readonly regionFolderId: DomainId | null;
 }
 
 export type MoveRegionToFolderCommand = FoundationDomainCommand<
 	'foundation.moveRegionToFolder',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly regionId: DomainId;
 		readonly regionFolderId: DomainId | null;
 	}
 >;
 
-export interface UpdateRegionGeometryCommandInput extends AgencyFoundationCommandInput {
+export interface UpdateRegionGeometryCommandInput extends OrganizationFoundationCommandInput {
 	readonly regionId: DomainId;
 	readonly geometry: unknown;
 	readonly acknowledgedRegionBoundaryChange?: boolean;
@@ -126,21 +126,21 @@ export interface UpdateRegionGeometryCommandInput extends AgencyFoundationComman
 
 export type UpdateRegionGeometryCommand = FoundationDomainCommand<
 	'foundation.updateRegionGeometry',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly regionId: DomainId;
 		readonly geometry: RegionGeometry;
 		readonly acknowledgedRegionBoundaryChange: true;
 	}
 >;
 
-export interface DeleteRegionCommandInput extends AgencyFoundationCommandInput {
+export interface DeleteRegionCommandInput extends OrganizationFoundationCommandInput {
 	readonly regionId: DomainId;
 	readonly acknowledgedRegionDelete?: boolean;
 }
 
 export type DeleteRegionCommand = FoundationDomainCommand<
 	'foundation.deleteRegion',
-	AgencyFoundationCommandPayload & {
+	OrganizationFoundationCommandPayload & {
 		readonly regionId: DomainId;
 		readonly acknowledgedRegionDelete: true;
 	}
@@ -150,14 +150,14 @@ export function createRegionFolderCommand(
 	input: CreateRegionFolderCommandInput,
 ): CreateRegionFolderCommand {
 	const issues = createIssues();
-	validateAgencyBase(input, issues);
+	validateOrganizationBase(input, issues);
 	requireUuid(input.regionFolderId, 'regionFolderId', issues);
 	const name = normalizeRequiredText(input.name, 'name', issues, 200);
 	throwIfIssues('Create region folder command is invalid.', issues);
 	return {
 		type: 'foundation.createRegionFolder',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			regionFolderId: normalizeRequiredDomainId(input.regionFolderId),
 			name,
 			description: normalizeNullableText(input.description, 'description', issues, 2_000),
@@ -168,7 +168,7 @@ export function createRegionFolderCommand(
 export function updateRegionFolderCommand(
 	input: UpdateRegionFolderCommandInput,
 ): UpdateRegionFolderCommand {
-	const issues = validateAgencyIdCommand(input, 'regionFolderId');
+	const issues = validateOrganizationIdCommand(input, 'regionFolderId');
 	const hasName = input.name !== undefined;
 	const hasDescription = input.description !== undefined;
 	if (!hasName && !hasDescription) {
@@ -179,7 +179,7 @@ export function updateRegionFolderCommand(
 	return {
 		type: 'foundation.updateRegionFolder',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			regionFolderId: normalizeRequiredDomainId(input.regionFolderId),
 			changes: {
 				...(name !== undefined ? { name } : {}),
@@ -194,12 +194,12 @@ export function updateRegionFolderCommand(
 export function deleteRegionFolderCommand(
 	input: DeleteRegionFolderCommandInput,
 ): DeleteRegionFolderCommand {
-	const issues = validateAgencyIdCommand(input, 'regionFolderId');
+	const issues = validateOrganizationIdCommand(input, 'regionFolderId');
 	throwIfIssues('Delete region folder command is invalid.', issues);
 	return {
 		type: 'foundation.deleteRegionFolder',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			regionFolderId: normalizeRequiredDomainId(input.regionFolderId),
 			acknowledgedRegionDetach: input.acknowledgedRegionDetach ?? false,
 		},
@@ -208,7 +208,7 @@ export function deleteRegionFolderCommand(
 
 export function createRegionCommand(input: CreateRegionCommandInput): CreateRegionCommand {
 	const issues = createIssues();
-	validateAgencyBase(input, issues);
+	validateOrganizationBase(input, issues);
 	requireUuid(input.regionId, 'regionId', issues);
 	const regionFolderId = normalizeOptionalUuid(input.regionFolderId, 'regionFolderId', issues);
 	const name = normalizeRequiredText(input.name, 'name', issues, 200);
@@ -218,7 +218,7 @@ export function createRegionCommand(input: CreateRegionCommandInput): CreateRegi
 	return {
 		type: 'foundation.createRegion',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			regionId: normalizeRequiredDomainId(input.regionId),
 			regionFolderId,
 			name,
@@ -232,7 +232,7 @@ export function createRegionCommand(input: CreateRegionCommandInput): CreateRegi
 export function updateRegionDetailsCommand(
 	input: UpdateRegionDetailsCommandInput,
 ): UpdateRegionDetailsCommand {
-	const issues = validateAgencyIdCommand(input, 'regionId');
+	const issues = validateOrganizationIdCommand(input, 'regionId');
 	const hasName = input.name !== undefined;
 	const hasDescription = input.description !== undefined;
 	const hasMetadata = input.metadata !== undefined;
@@ -247,7 +247,7 @@ export function updateRegionDetailsCommand(
 	return {
 		type: 'foundation.updateRegionDetails',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			regionId: normalizeRequiredDomainId(input.regionId),
 			changes: {
 				...(name !== undefined ? { name } : {}),
@@ -263,13 +263,13 @@ export function updateRegionDetailsCommand(
 export function moveRegionToFolderCommand(
 	input: MoveRegionToFolderCommandInput,
 ): MoveRegionToFolderCommand {
-	const issues = validateAgencyIdCommand(input, 'regionId');
+	const issues = validateOrganizationIdCommand(input, 'regionId');
 	const regionFolderId = normalizeOptionalUuid(input.regionFolderId, 'regionFolderId', issues);
 	throwIfIssues('Move region to folder command is invalid.', issues);
 	return {
 		type: 'foundation.moveRegionToFolder',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			regionId: normalizeRequiredDomainId(input.regionId),
 			regionFolderId,
 		},
@@ -279,7 +279,7 @@ export function moveRegionToFolderCommand(
 export function updateRegionGeometryCommand(
 	input: UpdateRegionGeometryCommandInput,
 ): UpdateRegionGeometryCommand {
-	const issues = validateAgencyIdCommand(input, 'regionId');
+	const issues = validateOrganizationIdCommand(input, 'regionId');
 	const geometry = validateRegionGeometry(input.geometry, 'geometry', issues);
 	if (input.acknowledgedRegionBoundaryChange !== true) {
 		issues.push({
@@ -291,7 +291,7 @@ export function updateRegionGeometryCommand(
 	return {
 		type: 'foundation.updateRegionGeometry',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			regionId: normalizeRequiredDomainId(input.regionId),
 			geometry,
 			acknowledgedRegionBoundaryChange: true,
@@ -300,7 +300,7 @@ export function updateRegionGeometryCommand(
 }
 
 export function deleteRegionCommand(input: DeleteRegionCommandInput): DeleteRegionCommand {
-	const issues = validateAgencyIdCommand(input, 'regionId');
+	const issues = validateOrganizationIdCommand(input, 'regionId');
 	if (input.acknowledgedRegionDelete !== true) {
 		issues.push({
 			path: 'acknowledgedRegionDelete',
@@ -311,7 +311,7 @@ export function deleteRegionCommand(input: DeleteRegionCommandInput): DeleteRegi
 	return {
 		type: 'foundation.deleteRegion',
 		payload: {
-			...agencyPayload(input),
+			...organizationPayload(input),
 			regionId: normalizeRequiredDomainId(input.regionId),
 			acknowledgedRegionDelete: true,
 		},

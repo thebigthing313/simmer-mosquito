@@ -90,9 +90,9 @@ export function contactTableCommands(
 		table: 'contacts',
 		run: { db, write: writeContactCommand, notFound: 'contact_not_found', key: 'contact' },
 		intents: {
-			'publicEngagement.createContact': ({ payload, agency, id }) =>
+			'publicEngagement.createContact': ({ payload, organization, id }) =>
 				createContactCommand({
-					...agency,
+					...organization,
 					contactId: id,
 					contactName: readNullableText(payload.contact_name),
 					preferredPhone: readNullableText(payload.preferred_phone),
@@ -109,9 +109,9 @@ export function contactTableCommands(
 			// Who they are and how to reach them are two commands, because the second
 			// carries consent — a phone number and a `wants_phone` move together, and
 			// changing a job title is not the same kind of edit.
-			'publicEngagement.updateContactDetails': ({ payload, agency, id }) =>
+			'publicEngagement.updateContactDetails': ({ payload, organization, id }) =>
 				updateContactDetailsCommand({
-					...agency,
+					...organization,
 					contactId: id,
 					...(payload.contact_name !== undefined
 						? { contactName: readNullableText(payload.contact_name) }
@@ -123,9 +123,9 @@ export function contactTableCommands(
 					...(payload.title !== undefined ? { title: readNullableText(payload.title) } : {}),
 				}),
 
-			'publicEngagement.updateContactCommunication': ({ payload, agency, id }) =>
+			'publicEngagement.updateContactCommunication': ({ payload, organization, id }) =>
 				updateContactCommunicationCommand({
-					...agency,
+					...organization,
 					contactId: id,
 					...(payload.preferred_phone !== undefined
 						? { preferredPhone: readNullableText(payload.preferred_phone) }
@@ -142,16 +142,16 @@ export function contactTableCommands(
 			// The row this write names is the *target* — the contact that survives —
 			// and the sources come from the body, because there is no column for
 			// "contacts being folded into this one".
-			'publicEngagement.mergeContacts': ({ payload, agency, id }) =>
+			'publicEngagement.mergeContacts': ({ payload, organization, id }) =>
 				mergeContactsCommand({
-					...agency,
+					...organization,
 					targetContactId: id,
 					sourceContactIds: readIdList(payload.sourceContactIds),
 					acknowledgedContactMerge: acknowledged(payload, 'acknowledgedContactMerge'),
 				}),
 
-			'publicEngagement.deleteContact': ({ agency, id }) =>
-				deleteContactCommand({ ...agency, contactId: id }),
+			'publicEngagement.deleteContact': ({ organization, id }) =>
+				deleteContactCommand({ ...organization, contactId: id }),
 		},
 	};
 }
@@ -173,9 +173,9 @@ export function serviceRequestTableCommands(
 			key: 'serviceRequest',
 		},
 		intents: {
-			'publicEngagement.createServiceRequest': ({ payload, agency, id }) =>
+			'publicEngagement.createServiceRequest': ({ payload, organization, id }) =>
 				createServiceRequestCommand({
-					...agency,
+					...organization,
 					serviceRequestId: id,
 					// Both untyped for the reason `locationSource` is: which shapes a
 					// reference may take is the domain builder's rule.
@@ -187,9 +187,9 @@ export function serviceRequestTableCommands(
 					receivedByProfileId: readNullableText(payload.received_by_profile_id),
 				}),
 
-			'publicEngagement.updateServiceRequestDetails': ({ payload, agency, id }) =>
+			'publicEngagement.updateServiceRequestDetails': ({ payload, organization, id }) =>
 				updateServiceRequestDetailsCommand({
-					...agency,
+					...organization,
 					serviceRequestId: id,
 					...(payload.request_date !== undefined
 						? { requestDate: readText(payload.request_date) ?? '' }
@@ -204,9 +204,9 @@ export function serviceRequestTableCommands(
 					acknowledgedClosedRequestChange: acknowledged(payload, 'acknowledgedClosedRequestChange'),
 				}),
 
-			'publicEngagement.updateServiceRequestContact': ({ payload, agency, id }) =>
+			'publicEngagement.updateServiceRequestContact': ({ payload, organization, id }) =>
 				updateServiceRequestContactCommand({
-					...agency,
+					...organization,
 					serviceRequestId: id,
 					contact: payload.contact as ContactReferenceInput,
 					acknowledgedHistoricalContactChange: acknowledged(
@@ -215,9 +215,9 @@ export function serviceRequestTableCommands(
 					),
 				}),
 
-			'publicEngagement.updateServiceRequestLocation': ({ payload, agency, id }) =>
+			'publicEngagement.updateServiceRequestLocation': ({ payload, organization, id }) =>
 				updateServiceRequestLocationCommand({
-					...agency,
+					...organization,
 					serviceRequestId: id,
 					location: payload.location as ServiceRequestLocationInput,
 					acknowledgedHistoricalLocationChange: acknowledged(
@@ -228,27 +228,27 @@ export function serviceRequestTableCommands(
 
 			// A resolution is a comment, and closing without recording why is not
 			// offered. `closed_at` is the one column of the three.
-			'publicEngagement.closeServiceRequest': ({ payload, agency, id }) =>
+			'publicEngagement.closeServiceRequest': ({ payload, organization, id }) =>
 				closeServiceRequestCommand({
-					...agency,
+					...organization,
 					serviceRequestId: id,
 					resolutionCommentId: readText(payload.resolutionCommentId) ?? '',
 					resolutionSummary: readText(payload.resolutionSummary) ?? '',
 					closedAt: readDate(payload.closed_at),
 				}),
 
-			'publicEngagement.reopenServiceRequest': ({ payload, agency, id }) =>
+			'publicEngagement.reopenServiceRequest': ({ payload, organization, id }) =>
 				reopenServiceRequestCommand({
-					...agency,
+					...organization,
 					serviceRequestId: id,
 					reopenCommentId: readText(payload.reopenCommentId) ?? '',
 					reopenReason: readText(payload.reopenReason) ?? '',
 					reopenedAt: readDate(payload.reopenedAt),
 				}),
 
-			'publicEngagement.deleteServiceRequest': ({ payload, agency, id }) =>
+			'publicEngagement.deleteServiceRequest': ({ payload, organization, id }) =>
 				deleteServiceRequestCommand({
-					...agency,
+					...organization,
 					serviceRequestId: id,
 					acknowledgedClosedRequestDeletion: acknowledged(
 						payload,

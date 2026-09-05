@@ -15,13 +15,13 @@ import {
 } from '../../../api';
 import { AdminError, AdminPage } from '../../../components/admin-page';
 import { membershipStatusTone, roleTone } from '../../../lib/tones';
-import { useAgencyMemberships, useInvalidateAgencies } from '../-agency-data';
+import { useInvalidateOrganizations, useOrganizationMemberships } from '../-organization-data';
 
 const ContactIcon = iconRegistry.entities.contact.icon;
 const SendIcon = iconRegistry.actions.send.icon;
 
 export const Route = createFileRoute('/organizations/$organizationId/members')({
-	component: AgencyMembersRoute,
+	component: OrganizationMembersRoute,
 });
 
 /**
@@ -39,10 +39,10 @@ const ROLE_OPTIONS = [
 	{ value: 'owner', label: 'Owner — full control' },
 ];
 
-function AgencyMembersRoute() {
+function OrganizationMembersRoute() {
 	const { organizationId } = Route.useParams();
-	const { data, isPending, error } = useAgencyMemberships(organizationId);
-	const invalidateAgencies = useInvalidateAgencies();
+	const { data, isPending, error } = useOrganizationMemberships(organizationId);
+	const invalidateOrganizations = useInvalidateOrganizations();
 	const [inviteError, setInviteError] = useState<string | null>(null);
 
 	const form = useAppForm({
@@ -55,7 +55,7 @@ function AgencyMembersRoute() {
 					displayName: value.displayName.trim(),
 					role: value.role,
 				});
-				await invalidateAgencies();
+				await invalidateOrganizations();
 				formApi.reset();
 				toast.success(inviteOutcome(result, value));
 			} catch (caught) {

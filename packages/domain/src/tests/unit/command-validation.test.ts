@@ -8,8 +8,8 @@ import {
 	requiredText,
 	requiredUuid,
 	throwIfIssues,
-	validateAgencyCommandContext,
 	validateOperatorCommandContext,
+	validateOrganizationCommandContext,
 } from '../../command-validation.js';
 import { DomainValidationError } from '../../shared.js';
 
@@ -19,14 +19,14 @@ const operatorUserId = '33333333-3333-4333-8333-333333333333';
 
 describe('command validation', () => {
 	it('normalizes agency and operator command contexts', () => {
-		const agencyIssues = createIssues();
+		const organizationIssues = createIssues();
 		expect(
-			validateAgencyCommandContext(
+			validateOrganizationCommandContext(
 				{ organizationId: ` ${organizationId} `, actorProfileId },
-				agencyIssues,
+				organizationIssues,
 			),
 		).toEqual({ organizationId, actorProfileId });
-		expect(agencyIssues).toEqual([]);
+		expect(organizationIssues).toEqual([]);
 
 		const operatorIssues = createIssues();
 		expect(validateOperatorCommandContext({ operatorUserId }, operatorIssues)).toEqual({

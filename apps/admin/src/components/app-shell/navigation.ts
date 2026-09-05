@@ -17,28 +17,28 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
  * endpoint or to none of them, so there is nothing per-item to filter and no
  * `shellDomainsForRole` equivalent to write.
  *
- * Agency drill-downs (an agency's detail, members, and foundations) are reached
+ * Organization drill-downs (its detail, members, and foundations) are reached
  * from the directory and read as breadcrumbs, the same way web treats a record
  * page. They are destinations, not navigation.
  */
 export const adminShellDomains: readonly ShellDomain[] = [
 	{
-		id: 'agencies',
+		id: 'organizations',
 		label: 'Agencies',
 		summary: 'Mosquito control agencies on the platform, and the people in them',
 		icon: iconRegistry.entities.organization.icon,
 		groups: [
 			{
-				id: 'agencies-main',
+				id: 'organizations-main',
 				items: [
 					{
-						id: 'agencies-directory',
+						id: 'organizations-directory',
 						label: 'Directory',
 						to: '/organizations',
 						icon: iconRegistry.entities.organization.icon,
 					},
 					{
-						id: 'agencies-create',
+						id: 'organizations-create',
 						label: 'Create Agency',
 						to: '/organizations/create',
 						icon: iconRegistry.actions.add.icon,

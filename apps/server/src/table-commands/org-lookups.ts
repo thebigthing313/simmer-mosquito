@@ -60,7 +60,7 @@ import {
 	updateHabitatTypeCommand,
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
-import type { AgencyCommandType } from '../command-permissions.js';
+import type { OrganizationCommandType } from '../command-permissions.js';
 import { type CommandDb, readNumberOrNull } from '../command-write.js';
 import type { LookupCommand } from '../foundation-commands/shared.js';
 import { writeFoundationLookupCommand } from '../foundation-commands/tags.js';
@@ -113,11 +113,11 @@ interface LookupBuilders {
 }
 
 interface LookupIntents {
-	readonly create: AgencyCommandType;
-	readonly update: AgencyCommandType;
-	readonly deactivate: AgencyCommandType;
-	readonly reactivate: AgencyCommandType;
-	readonly remove: AgencyCommandType;
+	readonly create: OrganizationCommandType;
+	readonly update: OrganizationCommandType;
+	readonly deactivate: OrganizationCommandType;
+	readonly reactivate: OrganizationCommandType;
+	readonly remove: OrganizationCommandType;
 }
 
 /** The two columns that are not on all three. `name` and `description` are. */
@@ -143,8 +143,8 @@ function orgLookupTableCommands(
 	db: CommandDb,
 	catalog: OrgLookupCatalog,
 ): TableCommands<OrgLookupTable, LookupCommand, OrgLookupRow> {
-	const target = ({ payload: _payload, agency, id }: LookupRequest) => ({
-		...agency,
+	const target = ({ payload: _payload, organization, id }: LookupRequest) => ({
+		...organization,
 		id,
 	});
 
@@ -199,7 +199,7 @@ function orgLookupTableCommands(
 			notFound: catalog.notFound,
 			key: catalog.key,
 		},
-		// The keys are `AgencyCommandType` values held in `names`, so a typo is
+		// The keys are `OrganizationCommandType` values held in `names`, so a typo is
 		// still a build error at the three call sites below; what the cast restores
 		// is only what computed keys erase.
 		intents: intents as IntentMap<OrgLookupTable, LookupCommand>,

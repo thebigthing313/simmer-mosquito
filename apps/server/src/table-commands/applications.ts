@@ -161,9 +161,9 @@ export function applicationTableCommands(
 			key: 'application',
 		},
 		intents: {
-			'controlOperations.recordChemicalApplication': ({ payload, agency, id }) =>
+			'controlOperations.recordChemicalApplication': ({ payload, organization, id }) =>
 				recordChemicalApplicationCommand({
-					...agency,
+					...organization,
 					applicationId: id,
 					...applicationFields(payload),
 					applicationBatches: applicationBatches(payload),
@@ -174,9 +174,9 @@ export function applicationTableCommands(
 					metadata: payload.metadata ?? null,
 				}),
 
-			'missionDispatch.recordChemicalApplicationForMissionItem': ({ payload, agency, id }) =>
+			'missionDispatch.recordChemicalApplicationForMissionItem': ({ payload, organization, id }) =>
 				recordChemicalApplicationForMissionItemCommand({
-					...agency,
+					...organization,
 					applicationId: id,
 					missionItemId: readText(payload.mission_item_id) ?? '',
 					...applicationFields(payload),
@@ -192,9 +192,9 @@ export function applicationTableCommands(
 					...readMissionExecutionOptions(payload),
 				}),
 
-			'controlOperations.updateChemicalApplicationFieldDetails': ({ payload, agency, id }) =>
+			'controlOperations.updateChemicalApplicationFieldDetails': ({ payload, organization, id }) =>
 				updateChemicalApplicationFieldDetailsCommand({
-					...agency,
+					...organization,
 					applicationId: id,
 					...(payload.application_date !== undefined
 						? { applicationDate: readText(payload.application_date) ?? '' }
@@ -227,9 +227,13 @@ export function applicationTableCommands(
 					acknowledgedBatchClearance: acknowledged(payload, 'acknowledgedBatchClearance'),
 				}),
 
-			'controlOperations.updateChemicalApplicationLocationAndContext': ({ payload, agency, id }) =>
+			'controlOperations.updateChemicalApplicationLocationAndContext': ({
+				payload,
+				organization,
+				id,
+			}) =>
 				updateChemicalApplicationLocationAndContextCommand({
-					...agency,
+					...organization,
 					applicationId: id,
 					...(payload.locationSource !== undefined
 						? { locationSource: payload.locationSource as ControlActionLocationSourceInput }
@@ -243,9 +247,9 @@ export function applicationTableCommands(
 						: {}),
 				}),
 
-			'controlOperations.deleteChemicalApplication': ({ payload, agency, id }) =>
+			'controlOperations.deleteChemicalApplication': ({ payload, organization, id }) =>
 				deleteChemicalApplicationCommand({
-					...agency,
+					...organization,
 					applicationId: id,
 					acknowledgedSupportRecordDeletion: acknowledged(
 						payload,
@@ -269,9 +273,9 @@ export function applicationBatchTableCommands(
 			key: 'applicationBatch',
 		},
 		intents: {
-			'controlOperations.addChemicalApplicationBatch': ({ payload, agency, id }) =>
+			'controlOperations.addChemicalApplicationBatch': ({ payload, organization, id }) =>
 				addChemicalApplicationBatchCommand({
-					...agency,
+					...organization,
 					applicationBatchId: id,
 					applicationId: readText(payload.application_id) ?? '',
 					insecticideBatchId: readText(payload.insecticide_batch_id) ?? '',
@@ -280,8 +284,8 @@ export function applicationBatchTableCommands(
 			// Only the link row's id: which application it belonged to is what the
 			// server looks up, and it is also how the permission check reaches the
 			// application's performer.
-			'controlOperations.removeChemicalApplicationBatch': ({ agency, id }) =>
-				removeChemicalApplicationBatchCommand({ ...agency, applicationBatchId: id }),
+			'controlOperations.removeChemicalApplicationBatch': ({ organization, id }) =>
+				removeChemicalApplicationBatchCommand({ ...organization, applicationBatchId: id }),
 		},
 	};
 }

@@ -30,7 +30,7 @@ export interface WeatherStation {
 	readonly latitude: number;
 	readonly longitude: number;
 	readonly geometryKind: string;
-	/** Agency-specific notes. Round-tripped by the edit form. */
+	/** Organization-specific notes. Round-tripped by the edit form. */
 	readonly metadata: unknown;
 }
 

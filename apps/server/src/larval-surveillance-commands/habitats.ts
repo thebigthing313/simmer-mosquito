@@ -26,7 +26,6 @@ import type { AuthVariables } from '../auth-middleware.js';
 import { CommandError } from '../command-endpoint.js';
 import { acknowledged, readNullableText, readText } from '../command-payload.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
@@ -39,6 +38,7 @@ import {
 	invalidUpdate,
 	type LarvalSurveillanceDb,
 	type LarvalSurveillanceTransaction,
+	organizationCommandContext,
 	resolveLocationGeom,
 	runCommands,
 	updateRow,
@@ -59,7 +59,7 @@ export function registerHabitatRoutes(
 		'/larval-surveillance/habitats',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) => {
+			build: ({ payload, organization: ctx }) => {
 				const inspectionId = readNullableText(payload.inspectionId);
 				return inspectionId !== null && payload.locationSource === undefined
 					? createHabitatFromInspectionCommand({
@@ -100,7 +100,7 @@ export function registerHabitatRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'optional',
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				deleteHabitatCommand({
 					...ctx,
 					habitatId: param('habitatId'),
@@ -120,7 +120,7 @@ function buildHabitatUpdateCommands(
 ):
 	| { readonly ok: true; readonly commands: readonly LarvalSurveillanceCommand[] }
 	| { readonly ok: false; readonly body: InvalidCommandBody } {
-	const ctx = agencyCommandContext(authContext);
+	const ctx = organizationCommandContext(authContext);
 	const commands: LarvalSurveillanceCommand[] = [];
 
 	const hasName = 'habitatName' in payload;

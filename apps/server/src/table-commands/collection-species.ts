@@ -46,9 +46,9 @@ export function collectionSpeciesTableCommands(
 			key: 'collectionSpecies',
 		},
 		intents: {
-			'adultSurveillance.addCollectionSpeciesCount': ({ payload, agency, id }) =>
+			'adultSurveillance.addCollectionSpeciesCount': ({ payload, organization, id }) =>
 				addCollectionSpeciesCountCommand({
-					...agency,
+					...organization,
 					collectionSpeciesId: id,
 					collectionId: readText(payload.collection_id) ?? '',
 					speciesId: readText(payload.species_id) ?? '',
@@ -65,9 +65,9 @@ export function collectionSpeciesTableCommands(
 			// Six independently optional fields, so presence is genuinely the question
 			// here — a count corrected from 40 to 38 says nothing about the species,
 			// and re-sending the rest would be this layer inventing an edit.
-			'adultSurveillance.updateCollectionSpeciesCount': ({ payload, agency, id }) =>
+			'adultSurveillance.updateCollectionSpeciesCount': ({ payload, organization, id }) =>
 				updateCollectionSpeciesCountCommand({
-					...agency,
+					...organization,
 					collectionSpeciesId: id,
 					...(payload.count !== undefined
 						? { count: readNumber(payload.count) ?? Number.NaN }
@@ -87,8 +87,8 @@ export function collectionSpeciesTableCommands(
 
 			// No acknowledgement: nothing hangs off a species count, so removing one
 			// takes nothing with it.
-			'adultSurveillance.deleteCollectionSpeciesCount': ({ agency, id }) =>
-				deleteCollectionSpeciesCountCommand({ ...agency, collectionSpeciesId: id }),
+			'adultSurveillance.deleteCollectionSpeciesCount': ({ organization, id }) =>
+				deleteCollectionSpeciesCountCommand({ ...organization, collectionSpeciesId: id }),
 		},
 	};
 }

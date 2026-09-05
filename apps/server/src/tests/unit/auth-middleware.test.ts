@@ -80,7 +80,7 @@ describe('createOperatorAuthContextMiddleware', () => {
 		// membership (ADR 0011), and while their session is that agency's they are
 		// acting as a member of it — the console is not theirs to reach until they
 		// switch back.
-		const response = await operatorApp({ workosOrganizationId: 'org_an_agency' }).request(
+		const response = await operatorApp({ workosOrganizationId: 'org_an_organization' }).request(
 			'/admin/organizations',
 		);
 

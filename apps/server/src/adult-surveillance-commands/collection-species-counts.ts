@@ -36,7 +36,7 @@ export function registerCollectionSpeciesRoutes(
 		'/adult-surveillance/collection-species',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx }) =>
+			build: ({ payload, organization: ctx }) =>
 				addCollectionSpeciesCountCommand({
 					...ctx,
 					collectionSpeciesId: readText(payload.id) ?? '',
@@ -56,7 +56,7 @@ export function registerCollectionSpeciesRoutes(
 		'/adult-surveillance/collection-species/:collectionSpeciesId',
 		options.authContextMiddleware,
 		commandEndpoint({
-			build: ({ payload, agency: ctx, param }) =>
+			build: ({ payload, organization: ctx, param }) =>
 				updateCollectionSpeciesCountCommand({
 					...ctx,
 					collectionSpeciesId: param('collectionSpeciesId'),
@@ -80,7 +80,7 @@ export function registerCollectionSpeciesRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency: ctx, param }) =>
+			build: ({ organization: ctx, param }) =>
 				deleteCollectionSpeciesCountCommand({
 					...ctx,
 					collectionSpeciesId: param('collectionSpeciesId'),

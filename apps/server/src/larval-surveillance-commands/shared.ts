@@ -12,13 +12,13 @@ import {
 	resolveOrganizationSettings,
 } from '@simmer-mosquito/domain';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	CommandError,
 	commandEndpoint,
 	createCommand,
 	type InvalidCommandBody,
 	invalidUpdate,
+	organizationCommandContext,
 } from '../command-endpoint.js';
 import { readNullableText, readText } from '../command-payload.js';
 import {
@@ -32,7 +32,6 @@ import { resolveLocationGeom } from '../location-source.js';
 export type LarvalSurveillanceDb = CommandDb;
 export type LarvalSurveillanceTransaction = CommandTransaction;
 export {
-	agencyCommandContext,
 	type CommandContext,
 	commandEndpoint,
 	createCommand,
@@ -40,6 +39,7 @@ export {
 	type InvalidCommandBody,
 	invalidUpdate,
 	localDateColumn,
+	organizationCommandContext,
 	resolveLocationGeom,
 	runCommands,
 	updateRow,

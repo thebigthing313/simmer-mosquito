@@ -1,9 +1,9 @@
 /**
  * Recording, correcting and removing a source reduction.
  *
- * The three writes one record supports, bound to the acting Profile and Agency so
- * a form's submit handler passes only what the user typed. See `shared.ts` for
- * why this folder is hooks rather than plain functions.
+ * The three writes one record supports, bound to the acting Profile and
+ * Organization so a form's submit handler passes only what the user typed. See
+ * `shared.ts` for why this folder is hooks rather than plain functions.
  *
  * ## Four things this hook knows so the pages do not
  *

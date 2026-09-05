@@ -30,16 +30,16 @@ export function profileTableCommands(
 		table: 'profiles',
 		run: { db, write: writeIdentityCommand, notFound: 'profile_not_found', key: 'profile' },
 		intents: {
-			'identity.createProfile': ({ payload, agency, id }) =>
+			'identity.createProfile': ({ payload, organization, id }) =>
 				createProfileCommand({
-					...agency,
+					...organization,
 					profileId: id,
 					displayName: readText(payload.display_name) ?? '',
 					isActive: payload.is_active !== false,
 				}),
-			'identity.updateProfile': ({ payload, agency, id }) =>
+			'identity.updateProfile': ({ payload, organization, id }) =>
 				updateProfileCommand({
-					...agency,
+					...organization,
 					profileId: id,
 					...(payload.display_name !== undefined
 						? { displayName: readText(payload.display_name) ?? '' }

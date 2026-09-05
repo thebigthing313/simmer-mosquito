@@ -55,17 +55,17 @@ export function vehicleTableCommands(
 		table: 'vehicles',
 		run: assetRun(db),
 		intents: {
-			'controlOperations.createVehicle': ({ payload, agency, id }) =>
+			'controlOperations.createVehicle': ({ payload, organization, id }) =>
 				createVehicleCommand({
-					...agency,
+					...organization,
 					vehicleId: id,
 					vehicleName: readText(payload.vehicle_name) ?? '',
 					metadata: payload.metadata ?? null,
 				}),
 
-			'controlOperations.updateVehicle': ({ payload, agency, id }) =>
+			'controlOperations.updateVehicle': ({ payload, organization, id }) =>
 				updateVehicleCommand({
-					...agency,
+					...organization,
 					vehicleId: id,
 					...(payload.vehicle_name !== undefined
 						? { vehicleName: readText(payload.vehicle_name) ?? '' }
@@ -79,14 +79,14 @@ export function vehicleTableCommands(
 
 			// `is_active` is a column a client can watch change; which way it moved is
 			// the command's to say. The old PATCH read the boolean for its direction.
-			'controlOperations.deactivateVehicle': ({ agency, id }) =>
-				deactivateVehicleCommand({ ...agency, vehicleId: id }),
+			'controlOperations.deactivateVehicle': ({ organization, id }) =>
+				deactivateVehicleCommand({ ...organization, vehicleId: id }),
 
-			'controlOperations.reactivateVehicle': ({ agency, id }) =>
-				reactivateVehicleCommand({ ...agency, vehicleId: id }),
+			'controlOperations.reactivateVehicle': ({ organization, id }) =>
+				reactivateVehicleCommand({ ...organization, vehicleId: id }),
 
-			'controlOperations.deleteVehicle': ({ agency, id }) =>
-				deleteVehicleCommand({ ...agency, vehicleId: id }),
+			'controlOperations.deleteVehicle': ({ organization, id }) =>
+				deleteVehicleCommand({ ...organization, vehicleId: id }),
 		},
 	};
 }
@@ -98,18 +98,18 @@ export function equipmentTableCommands(
 		table: 'equipment',
 		run: assetRun(db),
 		intents: {
-			'controlOperations.createEquipment': ({ payload, agency, id }) =>
+			'controlOperations.createEquipment': ({ payload, organization, id }) =>
 				createEquipmentCommand({
-					...agency,
+					...organization,
 					equipmentId: id,
 					equipmentName: readText(payload.equipment_name) ?? '',
 					serialNumber: readNullableText(payload.serial_number),
 					metadata: payload.metadata ?? null,
 				}),
 
-			'controlOperations.updateEquipment': ({ payload, agency, id }) =>
+			'controlOperations.updateEquipment': ({ payload, organization, id }) =>
 				updateEquipmentCommand({
-					...agency,
+					...organization,
 					equipmentId: id,
 					...(payload.equipment_name !== undefined
 						? { equipmentName: readText(payload.equipment_name) ?? '' }
@@ -126,14 +126,14 @@ export function equipmentTableCommands(
 					),
 				}),
 
-			'controlOperations.deactivateEquipment': ({ agency, id }) =>
-				deactivateEquipmentCommand({ ...agency, equipmentId: id }),
+			'controlOperations.deactivateEquipment': ({ organization, id }) =>
+				deactivateEquipmentCommand({ ...organization, equipmentId: id }),
 
-			'controlOperations.reactivateEquipment': ({ agency, id }) =>
-				reactivateEquipmentCommand({ ...agency, equipmentId: id }),
+			'controlOperations.reactivateEquipment': ({ organization, id }) =>
+				reactivateEquipmentCommand({ ...organization, equipmentId: id }),
 
-			'controlOperations.deleteEquipment': ({ agency, id }) =>
-				deleteEquipmentCommand({ ...agency, equipmentId: id }),
+			'controlOperations.deleteEquipment': ({ organization, id }) =>
+				deleteEquipmentCommand({ ...organization, equipmentId: id }),
 		},
 	};
 }

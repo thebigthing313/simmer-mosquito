@@ -41,7 +41,7 @@ import { optimisticStamp } from './shared';
 export interface WeatherStationFields {
 	readonly name: string;
 	readonly code: string | null;
-	/** Agency-specific notes. Not part of the station's identity. */
+	/** Organization-specific notes. Not part of the station's identity. */
 	readonly metadata: unknown;
 }
 

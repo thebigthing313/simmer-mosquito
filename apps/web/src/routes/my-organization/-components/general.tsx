@@ -47,10 +47,10 @@ import {
 	US_TIMEZONE_OPTIONS,
 } from './constants';
 import {
-	AgencyDetailLine,
-	agencyDetailsFieldsFrom,
-	agencyDetailsFormValues,
 	formatMailingAddress,
+	OrganizationDetailLine,
+	organizationDetailsFieldsFrom,
+	organizationDetailsFormValues,
 	unitDefaultsFormValues,
 	unitDefaultsFrom,
 	unitOptionsForDefault,
@@ -59,14 +59,14 @@ import {
 } from './helpers';
 import { DomainSection } from './layout/layout';
 import type {
-	AgencyDetailsFormValues,
+	OrganizationDetailsFormValues,
 	SettingField,
 	TagFormValues,
 	UnitDefaultsFormValues,
 } from './types';
 
 export function GeneralOrganizationSection({
-	agencyFields,
+	organizationFields,
 	canManage,
 	canManageTags,
 	organization,
@@ -76,7 +76,7 @@ export function GeneralOrganizationSection({
 	unitFields,
 	units,
 }: {
-	readonly agencyFields: readonly SettingField[];
+	readonly organizationFields: readonly SettingField[];
 	readonly canManage: boolean;
 	/**
 	 * The tag catalog is `MANAGER` on the server (`fieldWork.createTag` and its
@@ -99,19 +99,19 @@ export function GeneralOrganizationSection({
 				canManage={canManage}
 				editDescription="Update the agency profile details available to organization members."
 				editAction={
-					<EditAgencyDetailsSheet
-						defaultValues={agencyDetailsFormValues(organization, settings)}
+					<EditOrganizationDetailsSheet
+						defaultValues={organizationDetailsFormValues(organization, settings)}
 						description="Update the agency profile details available to organization members."
 						title={`Edit ${organizationName}`}
 					/>
 				}
-				fields={agencyFields}
+				fields={organizationFields}
 				id="agency"
 				meta="Current agency details"
 				setupItems={[]}
 				title={organizationName}
 			>
-				<AgencyDetailsSummary organization={organization} timezone={timezone} />
+				<OrganizationDetailsSummary organization={organization} timezone={timezone} />
 			</DomainSection>
 
 			<DomainSection
@@ -533,17 +533,17 @@ function TagEditorTableRow({
 	);
 }
 
-function EditAgencyDetailsSheet({
+function EditOrganizationDetailsSheet({
 	defaultValues,
 	description,
 	title,
 }: {
-	readonly defaultValues: AgencyDetailsFormValues;
+	readonly defaultValues: OrganizationDetailsFormValues;
 	readonly description: string;
 	readonly title: string;
 }) {
 	const [open, setOpen] = useState(false);
-	const { canWrite, saveAgencyDetails } = useOrganizationSettingsMutations();
+	const { canWrite, saveOrganizationDetails } = useOrganizationSettingsMutations();
 	const form = useAppForm({
 		defaultValues,
 		validators: {
@@ -554,9 +554,9 @@ function EditAgencyDetailsSheet({
 				// The conversion throws on an empty required field, so it runs before
 				// the sheet closes — a save that never left should not look like one
 				// that did.
-				const fields = agencyDetailsFieldsFrom(value);
+				const fields = organizationDetailsFieldsFrom(value);
 				setOpen(false);
-				watchWrite(saveAgencyDetails(fields), 'Unable to save agency details.');
+				watchWrite(saveOrganizationDetails(fields), 'Unable to save agency details.');
 			} catch (saveError) {
 				toast.error(errorMessageForSave(saveError));
 			}
@@ -758,7 +758,7 @@ function EditUnitDefaultsSheet({
 	);
 }
 
-function AgencyDetailsSummary({
+function OrganizationDetailsSummary({
 	organization,
 	timezone,
 }: {
@@ -782,9 +782,9 @@ function AgencyDetailsSummary({
 			</div>
 			<div className="grid min-w-0 content-start gap-2">
 				<span className="text-xs leading-tight font-semibold text-muted-foreground">Contact</span>
-				<AgencyDetailLine label="Email" value={organization.main_contact_email} />
-				<AgencyDetailLine label="Phone" value={organization.phone_number} />
-				<AgencyDetailLine label="Timezone" value={timezone} />
+				<OrganizationDetailLine label="Email" value={organization.main_contact_email} />
+				<OrganizationDetailLine label="Phone" value={organization.phone_number} />
+				<OrganizationDetailLine label="Timezone" value={timezone} />
 			</div>
 			<div className="grid min-w-0 content-start gap-2">
 				<span className="text-xs leading-tight font-semibold text-muted-foreground">

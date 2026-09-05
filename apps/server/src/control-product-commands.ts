@@ -38,7 +38,6 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from './auth-context.js';
 import type { AuthVariables } from './auth-middleware.js';
 import {
-	agencyCommandContext,
 	type CommandContext,
 	CommandError,
 	type CommandsResult,
@@ -46,10 +45,11 @@ import {
 	createCommand,
 	handleCommandError,
 	invalidUpdate,
+	organizationCommandContext,
 	type PayloadResult,
 } from './command-endpoint.js';
 import { acknowledged, isRecord } from './command-payload.js';
-import { denyUnauthorizedAgencyCommands } from './command-permissions.js';
+import { denyUnauthorizedOrganizationCommands } from './command-permissions.js';
 import { runCommands } from './command-write.js';
 import { assertCitedHistoryAcknowledged } from './record-history.js';
 
@@ -134,9 +134,9 @@ export function registerControlProductCommandRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			readPayload: readInsecticidePayload,
-			build: ({ payload, agency }) =>
+			build: ({ payload, organization }) =>
 				createInsecticideCommand({
-					...agency,
+					...organization,
 					insecticideId: payload.id,
 					tradeName: payload.tradeName ?? '',
 					activeIngredient: payload.activeIngredient ?? '',
@@ -168,8 +168,8 @@ export function registerControlProductCommandRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency, param }) =>
-				deleteInsecticideCommand({ ...agency, insecticideId: param('insecticideId') }),
+			build: ({ organization, param }) =>
+				deleteInsecticideCommand({ ...organization, insecticideId: param('insecticideId') }),
 			run: runInsecticide,
 		}),
 	);
@@ -179,9 +179,9 @@ export function registerControlProductCommandRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			readPayload: readInsecticideBatchPayload,
-			build: ({ payload, agency }) =>
+			build: ({ payload, organization }) =>
 				createInsecticideBatchCommand({
-					...agency,
+					...organization,
 					insecticideBatchId: payload.id,
 					insecticideId: payload.insecticideId,
 					batchName: payload.batchName ?? '',
@@ -206,8 +206,8 @@ export function registerControlProductCommandRoutes(
 		options.authContextMiddleware,
 		commandEndpoint({
 			body: 'none',
-			build: ({ agency, param }) =>
-				deleteInsecticideBatchCommand({ ...agency, insecticideBatchId: param('batchId') }),
+			build: ({ organization, param }) =>
+				deleteInsecticideBatchCommand({ ...organization, insecticideBatchId: param('batchId') }),
 			run: runBatch,
 		}),
 	);
@@ -219,7 +219,7 @@ function buildInsecticideUpdateCommands(
 	payload: InsecticidePayload,
 ): CommandsResult<InsecticideCommand> {
 	const commands: InsecticideCommand[] = [];
-	const context = agencyCommandContext(authContext);
+	const context = organizationCommandContext(authContext);
 	const hasDetailChange =
 		payload.tradeName !== undefined ||
 		payload.activeIngredient !== undefined ||
@@ -286,7 +286,7 @@ function buildInsecticideBatchUpdateCommands(
 	payload: InsecticideBatchPayload,
 ): CommandsResult<InsecticideBatchCommand> {
 	const commands: InsecticideBatchCommand[] = [];
-	const context = agencyCommandContext(authContext);
+	const context = organizationCommandContext(authContext);
 
 	if (payload.batchName !== undefined) {
 		const commandResult = createCommand(() =>

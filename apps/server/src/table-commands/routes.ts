@@ -56,33 +56,33 @@ export function routeTableCommands(
 		intents: {
 			// `route_type` decides which records the route may hold and cannot be
 			// changed afterwards, which is why only the create reads it.
-			'fieldWork.createRoute': ({ payload, agency, id }) =>
+			'fieldWork.createRoute': ({ payload, organization, id }) =>
 				createRouteCommand({
-					...agency,
+					...organization,
 					routeId: id,
 					routeName: readText(payload.route_name) ?? '',
 					routeType: (readText(payload.route_type) ?? '') as never,
 				}),
 
-			'fieldWork.updateRouteDetails': ({ payload, agency, id }) =>
+			'fieldWork.updateRouteDetails': ({ payload, organization, id }) =>
 				updateRouteDetailsCommand({
-					...agency,
+					...organization,
 					routeId: id,
 					routeName: readText(payload.route_name) ?? '',
 				}),
 
 			// Deleting a route deletes its stops with it. The acknowledgement is how a
 			// client says it has told the user so.
-			'fieldWork.deleteRoute': ({ payload, agency, id }) =>
+			'fieldWork.deleteRoute': ({ payload, organization, id }) =>
 				deleteRouteCommand({
-					...agency,
+					...organization,
 					routeId: id,
 					acknowledgedRouteItemDeletion: acknowledged(payload, 'acknowledgedRouteItemDeletion'),
 				}),
 
-			'fieldWork.moveRouteItems': ({ payload, agency, id }) =>
+			'fieldWork.moveRouteItems': ({ payload, organization, id }) =>
 				moveRouteItemsCommand({
-					...agency,
+					...organization,
 					routeId: id,
 					routeItemIds: readStringArray(payload.route_item_ids),
 					// Untyped, as the location sources are: which placements are legal is
