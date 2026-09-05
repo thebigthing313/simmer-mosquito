@@ -7,10 +7,11 @@ import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 /**
  * The operator console's domains: the three things a SIMMER operator owns.
  *
- * This is platform-side administration, not agency administration. Agencies are
- * the customers; taxonomy and units are the global reference data every agency
- * reads. Anything an agency owns for itself — its habitats, traps, catalogs, and
- * people-facing settings — belongs in `apps/web` and is deliberately absent.
+ * This is platform-side administration, not organization administration.
+ * Organizations are the customers; taxonomy and units are the global reference
+ * data every organization reads. Anything an organization owns for itself — its
+ * habitats, traps, catalogs, and people-facing settings — belongs in `apps/web`
+ * and is deliberately absent.
  *
  * Unlike web's navigation there are no role floors here. Access is all or
  * nothing: the server's operator allowlist admits an account to every `/admin/*`

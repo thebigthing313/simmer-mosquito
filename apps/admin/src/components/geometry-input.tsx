@@ -25,12 +25,12 @@ const CheckIcon = iconRegistry.actions.check.icon;
 /**
  * Geometry, without a map.
  *
- * The agency workspace draws boundaries on a Mapbox canvas. The console
+ * The organization workspace draws boundaries on a Mapbox canvas. The console
  * deliberately has none: `components/map` and `use-map-draw` are inseparable
  * from `mapbox-gl`, which is 1.7 MB and would land in the boot payload of a
- * console whose every other page is a table. It is also the wrong tool here — an
- * operator standing an agency up is loading the boundary file the customer sent,
- * not tracing a district freehand.
+ * console whose every other page is a table. It is also the wrong tool here —
+ * an operator standing an organization up is loading the boundary file the
+ * customer sent, not tracing a district freehand.
  *
  * Shapes therefore come from a KML, KMZ, or GeoJSON file, parsed with the shared
  * `@simmer-mosquito/mapping` importer (the same parser the web app's bulk region

@@ -58,13 +58,13 @@ function trimmed(values: OrganizationFormValues): OrganizationFormValues {
 }
 
 /**
- * Creating an agency.
+ * Creating an organization.
  *
  * This replaces a slide-over sheet on the directory page. A sheet was the wrong
  * container for it: the form is fourteen fields across three concerns, and the
  * one that most needs deliberation — `linkRequesterAsOwner`, which makes the
- * operator the agency's first owner — was below the fold of a 520px panel.
- * On its own page the whole decision is visible at once.
+ * operator the organization's first owner — was below the fold of a 520px
+ * panel. On its own page the whole decision is visible at once.
  */
 function CreateOrganizationRoute() {
 	const navigate = useNavigate();

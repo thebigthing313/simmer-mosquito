@@ -10,9 +10,9 @@ import { theme } from '../theme/theme';
  * What it renders is `/auth/me` — the same resolved `AuthContext` the web app
  * gets, read over a SecureStore-held session rather than a cookie. That is the
  * scaffold's entire claim: the field app can hold a real SIMMER session and be
- * recognised by the server as a member of an agency with a role. Everything
- * under `docs/sync.md`'s mobile matrix builds on top of this and none of it is
- * here yet.
+ * recognised by the server as a member of an organization with a role.
+ * Everything under `docs/sync.md`'s mobile matrix builds on top of this and
+ * none of it is here yet.
  */
 export default function HomeScreen() {
 	const { state, signOut } = useAuth();
@@ -47,8 +47,8 @@ export default function HomeScreen() {
  * One labelled fact, including the case where there isn't one.
  *
  * The row owns its own empty state rather than taking a pre-resolved string, so
- * a missing agency or role reads as absent — greyed — instead of looking like a
- * value somebody entered.
+ * a missing organization or role reads as absent — greyed — instead of looking
+ * like a value somebody entered.
  */
 function Row({
 	label,

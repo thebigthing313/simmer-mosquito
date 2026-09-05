@@ -53,7 +53,7 @@ export function CatalogRow({
 	readonly title: string;
 	readonly subtitle?: string | null | undefined;
 	readonly badges?: ReactNode | undefined;
-	/** Omitted on read-only lists — the agency foundations are create-only. */
+	/** Omitted on read-only lists — the organization foundations are create-only. */
 	readonly actions?: ReactNode | undefined;
 }) {
 	return (
@@ -95,8 +95,8 @@ export function CatalogList({ children }: { readonly children: ReactNode }) {
  * Counts on the left, filter on the right.
  *
  * The filter only appears once the list is long enough to need one — the same
- * threshold the agency workspace uses. A search box above five rows is chrome
- * pretending to be a feature.
+ * threshold the organization workspace uses. A search box above five rows is
+ * chrome pretending to be a feature.
  */
 function CatalogToolbar({
 	total,
@@ -208,9 +208,10 @@ export function EditRecordButton({
 /**
  * Delete, behind a confirmation that names the record.
  *
- * These are global reference rows every agency reads, so a deletion is not a
- * local mistake — it is one an operator makes on everyone's behalf. The dialog
- * therefore states what will be removed rather than asking "are you sure?".
+ * These are global reference rows every organization reads, so a deletion is
+ * not a local mistake — it is one an operator makes on everyone's behalf. The
+ * dialog therefore states what will be removed rather than asking "are you
+ * sure?".
  */
 export function DeleteRecordButton({
 	recordLabel,

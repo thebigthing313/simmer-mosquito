@@ -49,26 +49,27 @@ export const Route = createFileRoute('/organizations/$organizationId/foundations
 });
 
 /**
- * The agency-bootstrap page.
+ * The organization-bootstrap page.
  *
  * Everything here is **create-only**. That is a deliberate shape rather than an
- * omission: an operator's job is to get a new agency to the point where its own
- * people can work, and from then on the agency maintains its catalogs in the web
- * app, where editing and deleting exist. The copy says so rather than leaving an
- * operator hunting for an edit control that was never built.
+ * omission: an operator's job is to get a new organization to the point where
+ * its own people can work, and from then on the organization maintains its
+ * catalogs in the web app, where editing and deleting exist. The copy says so
+ * rather than leaving an operator hunting for an edit control that was never
+ * built.
  *
- * The writes are the agency's own endpoints, which means this page only works
- * from inside the agency (ADR 0011) — `OrganizationSessionGate` is what puts the
- * session there, and what explains the way in when it is not.
+ * The writes are the organization's own endpoints, which means this page only
+ * works from inside the organization (ADR 0011) — `OrganizationSessionGate` is
+ * what puts the session there, and what explains the way in when it is not.
  *
  * The layout is a **sequence, not a grid**. These eight things are not eight
  * peers to compare — they have a dependency order (a trap needs a collection
- * method; a region can want a folder) and a natural grouping, and the operator's
- * real question on arrival is "what is still missing before this agency can
- * work?". Eight equal cards answer that question worst of all: every one looks
- * as urgent as every other, and the order they happen to sit in is the order
- * they were written. So the page opens with what is outstanding and then reads
- * top to bottom in the order the work actually happens.
+ * method; a region can want a folder) and a natural grouping, and the
+ * operator's real question on arrival is "what is still missing before this
+ * organization can work?". Eight equal cards answer that question worst of all:
+ * every one looks as urgent as every other, and the order they happen to sit in
+ * is the order they were written. So the page opens with what is outstanding
+ * and then reads top to bottom in the order the work actually happens.
  *
  * The two shapes are also deliberately different. Vocabulary and species are
  * bare names — they scan far better as wrapped chips than as a column of rows
@@ -102,11 +103,11 @@ function OrganizationFoundationsRoute() {
 }
 
 /**
- * The agency's name and WorkOS organization, from the directory's cache.
+ * The organization's name and WorkOS organization, from the directory's cache.
  *
  * Read rather than fetched: the operator arrived through that list, so it is
- * already warm. The WorkOS id is what entering the agency switches the session
- * to.
+ * already warm. The WorkOS id is what entering the organization switches the
+ * session to.
  */
 function useOrganizationIdentity(organizationId: string): {
 	readonly name: string | undefined;
@@ -134,12 +135,12 @@ function FoundationsFrame({ children }: { readonly children: ReactNode }) {
 
 /**
  * Everything the page shows once there is data and the session is inside the
- * agency.
+ * organization.
  *
  * Split from the route because the route's job is now three questions — did the
- * read fail, has it arrived, are we in the agency — and answering them inline
- * around two hundred lines of panels made the whole thing one function nobody
- * could see the shape of.
+ * read fail, has it arrived, are we in the organization — and answering them
+ * inline around two hundred lines of panels made the whole thing one function
+ * nobody could see the shape of.
  */
 function FoundationPanels({
 	data,
@@ -316,7 +317,7 @@ interface ReadinessStep {
 }
 
 /**
- * The four things that have to exist before an agency's crews can record
+ * The four things that have to exist before an organization's crews can record
  * anything, in the order they have to happen.
  *
  * Addresses, lures, and folders are absent on purpose: all three are genuinely
@@ -934,8 +935,8 @@ function LookupForm({
 		>
 			<TextRow label="Name" onChange={setName} required value={name} />
 			<TextAreaRow label="Description" onChange={setDescription} value={description} />
-			{/* No "Active" toggle: a catalog entry is created live and retired
-			    later, which is an update the agency makes in its own workspace. */}
+			{/* No "Active" toggle: a catalog entry is created live and retired later,
+			    which is an update the organization makes in its own workspace. */}
 			<Field>
 				<FieldLabel htmlFor="lookup-threshold">Action threshold</FieldLabel>
 				<Input

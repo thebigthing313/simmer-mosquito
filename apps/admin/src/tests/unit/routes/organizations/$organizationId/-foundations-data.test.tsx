@@ -11,10 +11,10 @@ import {
 } from '../../../../../routes/organizations/$organizationId/-foundations-data';
 
 /**
- * What the console posts when it stands an agency up.
+ * What the console posts when it stands an organization up.
  *
  * These six mutations used to write the operator endpoints, which took whatever
- * the panel handed them. #120 moved them onto the agency's own command
+ * the panel handed them. #120 moved them onto the organization's own command
  * endpoints, and each body now has to satisfy a domain command contract instead
  * — a contract nothing in this app enforces, and which no type checks, because
  * the bodies are object literals posted as JSON.
@@ -50,7 +50,7 @@ describe('foundation creates', () => {
 		cleanup();
 	});
 
-	it('posts a region folder to the agency endpoint, with a client-generated id', async () => {
+	it('posts a region folder to the organization endpoint, with a client-generated id', async () => {
 		await create((mutations) =>
 			mutations.regionFolder.mutate({ name: 'North County', description: '  ' }),
 		);
@@ -64,9 +64,9 @@ describe('foundation creates', () => {
 		]);
 	});
 
-	// The agency command names the field `geometry`; the operator endpoint called
-	// it `geojson`. Posting the old name is a validation failure on a required
-	// field, not a silently unlocated region.
+	// The organization command names the field `geometry`; the operator endpoint
+	// called it `geojson`. Posting the old name is a validation failure on a
+	// required field, not a silently unlocated region.
 	it('posts a region with `geometry`, not `geojson`', async () => {
 		await create((mutations) =>
 			mutations.region.mutate({
@@ -129,7 +129,7 @@ describe('foundation creates', () => {
 	});
 
 	// A catalog entry is created live and retired later, which is an update; the
-	// agency create rejects an `isActive` it has no way to honour.
+	// organization create rejects an `isActive` it has no way to honour.
 	it('posts a lookup without `isActive`', async () => {
 		await create((mutations) =>
 			mutations.lookup.mutate({
@@ -147,7 +147,7 @@ describe('foundation creates', () => {
 	});
 
 	// The one thing on this page with no type behind it at all: a snake_case
-	// `LookupKind` has to become the hyphenated segment the agency route is
+	// `LookupKind` has to become the hyphenated segment the organization route is
 	// registered under. A typo is a 404 at runtime and nothing else notices —
 	// the same failure mode `sync-shapes.test.ts` guards for shape paths.
 	it.each([
@@ -197,9 +197,9 @@ describe('foundation creates', () => {
 		});
 	});
 
-	// Every agency endpoint takes the organization from the session, never from
-	// the path — that is what entering the agency is for. An operator id leaking
-	// into a write path would mean the gate was decorative.
+	// Every organization endpoint takes the organization from the session, never
+	// from the path — that is what entering the organization is for. An operator
+	// id leaking into a write path would mean the gate was decorative.
 	it('names no organization in any write path', async () => {
 		await create((mutations) =>
 			mutations.regionFolder.mutate({ name: 'North County', description: '' }),

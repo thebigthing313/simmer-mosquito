@@ -14,21 +14,22 @@ import { toast } from 'sonner';
 import { switchOrganization } from '../api';
 import { appAuthController } from '../app-auth';
 
-// --- being inside an agency ---------------------------------------------------
+// --- being inside an organization
+// ---------------------------------------------------
 //
-// ADR 0011: an operator does not write an agency's records from outside it. They
-// hold a membership in that agency and act through the ordinary agency routes,
-// which means holding an ordinary agency session — and a session belongs to one
-// organization at a time.
+// ADR 0011: an operator does not write an organization's records from outside
+// it. They hold a membership in that organization and act through the ordinary
+// organization routes, which means holding an ordinary organization session —
+// and a session belongs to one organization at a time.
 //
-// So a page that writes agency records asks first: is this session in *this*
-// agency? If it is not, there is nothing useful to render, because every write
-// on the page would land in whichever agency the session is actually in. The
-// gate is the page.
+// So a page that writes organization records asks first: is this session in
+// *this* organization? If it is not, there is nothing useful to render, because
+// every write on the page would land in whichever organization the session is
+// actually in. The gate is the page.
 
 const EnterIcon = iconRegistry.entities.organization.icon;
 
-/** Whether this operator session is currently inside the given agency. */
+/** Whether this operator session is currently inside the given organization. */
 function useInsideOrganization(organizationId: string): boolean {
 	const snapshot = useSyncExternalStore(
 		appAuthController.subscribe,
@@ -42,13 +43,13 @@ function useInsideOrganization(organizationId: string): boolean {
 }
 
 /**
- * Render `children` only when this session is inside the agency; otherwise offer
- * the way in.
+ * Render `children` only when this session is inside the organization;
+ * otherwise offer the way in.
  *
- * The refusal case is worth reading rather than hiding. An operator who is not a
- * member of the agency cannot be let in from here — WorkOS declines the switch,
- * and the fix is a membership, which is a deliberate act somebody has to
- * perform. Reporting that plainly is more useful than a disabled button.
+ * The refusal case is worth reading rather than hiding. An operator who is not
+ * a member of the organization cannot be let in from here — WorkOS declines the
+ * switch, and the fix is a membership, which is a deliberate act somebody has
+ * to perform. Reporting that plainly is more useful than a disabled button.
  */
 export function OrganizationSessionGate({
 	organizationId,
@@ -105,7 +106,7 @@ function OrganizationEntry({
 	);
 }
 
-/** Re-seal the session against the agency, then forget everything read as who we were. */
+/** Re-seal the session against the organization, then forget everything read as who we were. */
 function useEnterOrganization(
 	workosOrganizationId: string | null,
 	name: string,
@@ -123,12 +124,12 @@ function useEnterOrganization(
 
 		setPending(true);
 		try {
-			// Through `exchange`, not straight at the endpoint. Re-sealing the session
-			// against another agency spends the same single-use refresh token a
-			// renewal spends, and a shape stream that met an expired access token at
-			// this moment would be renewing through `/auth/me`. Spending it twice is
-			// what WorkOS reads as reuse, and it ends the session (#301), so the two
-			// take turns.
+			// Through `exchange`, not straight at the endpoint. Re-sealing the
+			// session against another organization spends the same single-use refresh
+			// token a renewal spends, and a shape stream that met an expired access
+			// token at this moment would be renewing through `/auth/me`. Spending it
+			// twice is what WorkOS reads as reuse, and it ends the session (#301), so
+			// the two take turns.
 			//
 			// The switch alone goes inside. Reading who we now are is `refresh`, which
 			// takes the same browser-wide lock, and that lock is not reentrant: asking
@@ -152,7 +153,7 @@ function useEnterOrganization(
 
 			await appAuthController.refresh();
 			// Everything already fetched was fetched as somebody else, in another
-			// agency. None of it describes where this session now is.
+			// organization. None of it describes where this session now is.
 			await queryClient.invalidateQueries();
 		} finally {
 			setPending(false);

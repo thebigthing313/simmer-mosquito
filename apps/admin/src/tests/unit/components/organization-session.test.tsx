@@ -6,10 +6,10 @@ import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * The gate is the page (ADR 0011): a console page that writes an agency's
- * records renders nothing until the session is inside that agency, because every
- * write on it would otherwise land in whichever agency the session is actually
- * in.
+ * The gate is the page (ADR 0011): a console page that writes an organization's
+ * records renders nothing until the session is inside that organization,
+ * because every write on it would otherwise land in whichever organization the
+ * session is actually in.
  *
  * All four collaborators are faked. `switchOrganization` is the network call
  * under test — what it is *handed* is the thing worth pinning — and the auth
@@ -65,7 +65,7 @@ describe('OrganizationSessionGate', () => {
 
 	afterEach(cleanup);
 
-	it('renders the page when the session is already inside the agency', () => {
+	it('renders the page when the session is already inside the organization', () => {
 		authSnapshot = signedInTo(SIMMER_ORGANIZATION_ID);
 
 		renderGate();
@@ -74,7 +74,7 @@ describe('OrganizationSessionGate', () => {
 		expect(screen.queryByRole('button', { name: /Enter/ })).toBeNull();
 	});
 
-	it('offers the way in when the session is inside some other agency', () => {
+	it('offers the way in when the session is inside some other organization', () => {
 		authSnapshot = signedInTo('c0ffee00-0000-4000-8000-000000000000');
 
 		renderGate();
@@ -83,9 +83,10 @@ describe('OrganizationSessionGate', () => {
 		expect(screen.getByRole('button', { name: 'Enter Kern County MVCD' })).toBeTruthy();
 	});
 
-	// The two ids live on the same agency object one line apart, and swapping
-	// them is not a type error: both are strings, and the only symptom is a
-	// silent refusal from WorkOS, which knows nothing about SIMMER's own ids.
+	// The two ids live on the same organization object one line apart, and
+	// swapping them is not a type error: both are strings, and the only symptom
+	// is a silent refusal from WorkOS, which knows nothing about SIMMER's own
+	// ids.
 	it('switches to the WorkOS organization id, not the SIMMER one', async () => {
 		authSnapshot = signedInTo(null);
 		switchOrganization.mockResolvedValue({ status: 'switched' });
@@ -119,9 +120,9 @@ describe('OrganizationSessionGate', () => {
 		expect(switchOrganization).toHaveBeenCalledOnce();
 	});
 
-	// A refusal means the operator holds no membership in the agency, which is
-	// somebody's deliberate act to fix. Reloading the session would only confirm
-	// it is still the session it was.
+	// A refusal means the operator holds no membership in the organization, which
+	// is somebody's deliberate act to fix. Reloading the session would only
+	// confirm it is still the session it was.
 	//
 	// The words are the fix, not the code WorkOS refused with: `invalid_grant`
 	// tells an operator nothing about what to do next.
@@ -157,7 +158,7 @@ describe('OrganizationSessionGate', () => {
 		expect(refresh).not.toHaveBeenCalled();
 	});
 
-	it('has nothing to enter, and says so, when the agency has no WorkOS organization', () => {
+	it('has nothing to enter, and says so, when the organization has no WorkOS organization', () => {
 		authSnapshot = signedInTo(null);
 
 		renderGate(null);

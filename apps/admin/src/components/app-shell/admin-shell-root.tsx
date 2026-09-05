@@ -18,13 +18,14 @@ import { adminShellDomains, adminStandalonePages } from './navigation';
  *
  * The web workspace binds its chrome to synced organization and profile
  * collections; there is nothing equivalent to bind here. An operator is not a
- * member of the agencies they administer while they are here — a session in the
- * SIMMER organization is the whole grant — so the identity in the chrome comes
- * from the auth snapshot alone and needs no sync at all.
+ * member of the organizations they administer while they are here — a session
+ * in the SIMMER organization is the whole grant — so the identity in the chrome
+ * comes from the auth snapshot alone and needs no sync at all.
  *
- * The switcher slot therefore names the control plane rather than an agency.
- * Leaving it showing an agency name would be worse than useless: it would imply
- * the console is scoped to one, when every page here spans all of them.
+ * The switcher slot therefore names the control plane rather than an
+ * organization. Leaving it showing an organization name would be worse than
+ * useless: it would imply the console is scoped to one, when every page here
+ * spans all of them.
  */
 export function AdminShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 	const navigate = useNavigate();

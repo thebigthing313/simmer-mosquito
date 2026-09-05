@@ -7,13 +7,14 @@ import {
 } from '../../api';
 
 /**
- * The agency reads, as react-query.
+ * The organization reads, as react-query.
  *
- * Agencies and memberships come from plain `/admin/*` JSON endpoints rather than
- * an Electric shape — they are operator-scoped, not agency-scoped, so there is
- * no tenant to authorize a shape against and nothing to stream. That makes them
- * the same case `apps/web` already uses `useQuery` for (see
- * `routes/gis/addresses/-address-data.ts`): fetch, cache, invalidate on write.
+ * Organizations and memberships come from plain `/admin/*` JSON endpoints
+ * rather than an Electric shape — they are operator-scoped, not
+ * organization-scoped, so there is no tenant to authorize a shape against and
+ * nothing to stream. That makes them the same case `apps/web` already uses
+ * `useQuery` for (see `routes/gis/addresses/-address-data.ts`): fetch, cache,
+ * invalidate on write.
  *
  * The keys are shared from here so a create or an invite invalidates the exact
  * lists that just went stale, rather than each page inventing its own key and
@@ -40,7 +41,7 @@ export function useOrganizationMemberships(organizationId: string) {
 	});
 }
 
-/** Invalidate everything agency-shaped. Used after a create or an invitation. */
+/** Invalidate everything organization-shaped. Used after a create or an invitation. */
 export function useInvalidateOrganizations(): () => Promise<void> {
 	const queryClient = useQueryClient();
 	return async () => {

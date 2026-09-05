@@ -4,19 +4,21 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { getServerUrl } from '../../../api';
 
 /**
- * Standing a new agency up: its regions and addresses, the method/lure/habitat
- * lookups its forms read from, the species it sees locally, and its first traps.
+ * Standing a new organization up: its regions and addresses, the
+ * method/lure/habitat lookups its forms read from, the species it sees locally,
+ * and its first traps.
  *
- * The **read** is an operator read — one `GET /admin/organizations/:id/foundations`
- * returns all of it at once, which is why this is a single query rather than
- * eight, and it answers for an agency the operator is merely looking at.
+ * The **read** is an operator read — one `GET
+ * /admin/organizations/:id/foundations` returns all of it at once, which is why
+ * this is a single query rather than eight, and it answers for an organization
+ * the operator is merely looking at.
  *
- * The **writes are agency writes** (ADR 0011). They go to the same
+ * The **writes are organization writes** (ADR 0011). They go to the same
  * `/foundation/*` and `/adult-surveillance/*` endpoints `apps/web` posts to, as
- * a member of the agency, through the same domain command builders — so a region
- * created here and a region created there are validated by one set of rules and
- * attributed to a real person. They require the session to be inside the agency;
- * `OrganizationSessionGate` is what puts it there.
+ * a member of the organization, through the same domain command builders — so a
+ * region created here and a region created there are validated by one set of
+ * rules and attributed to a real person. They require the session to be inside
+ * the organization; `OrganizationSessionGate` is what puts it there.
  *
  * Commands carry client-generated ids, so every create mints one here rather
  * than reading one back.
@@ -203,9 +205,10 @@ export function useCreateFoundation(organizationId: string) {
 
 	const lookup = useMutation({
 		mutationFn: ({ kind, input }: { readonly kind: LookupKind; readonly input: LookupInput }) =>
-			// The agency create takes no `isActive`: a catalog entry is created live
-			// and retired later, which is an update. The form's toggle is honoured by
-			// simply not offering the create path a way to be born inactive.
+			// The organization create takes no `isActive`: a catalog entry is created
+			// live and retired later, which is an update. The form's toggle is
+			// honoured by simply not offering the create path a way to be born
+			// inactive.
 			postJson(organizationPath(`/foundation/${lookupPaths[kind]}`), {
 				id: newId(),
 				name: input.name,
@@ -241,7 +244,7 @@ function nullable(value: string): string | null {
 	return trimmed === '' ? null : trimmed;
 }
 
-/** The path segment each lookup catalog is registered under agency-side. */
+/** The path segment each lookup catalog is registered under organization-side. */
 const lookupPaths: Record<LookupKind, string> = {
 	collection_methods: 'collection-methods',
 	collection_lures: 'collection-lures',
@@ -254,8 +257,9 @@ function newId(): string {
 }
 
 /**
- * An agency endpoint. It takes no organization in its path — the organization is
- * the session's, which is the whole point of entering the agency first.
+ * An organization endpoint. It takes no organization in its path — the
+ * organization is the session's, which is the whole point of entering the
+ * organization first.
  */
 function organizationPath(path: string): string {
 	return `${getServerUrl()}${path}`;
