@@ -70,6 +70,7 @@ import type { Tag } from '../hooks/queries/tag-view';
 import {
 	useApplicationMethodRoster,
 	useHabitatTypeRoster,
+	useSourceReductionMethodRoster,
 } from '../hooks/queries/use-catalog-rosters';
 import {
 	type HabitatHistoryApplication,
@@ -77,6 +78,7 @@ import {
 	type HabitatHistoryRequest,
 	type HabitatHistorySample,
 	type HabitatHistorySampleRow,
+	type HabitatHistorySourceReduction,
 	type HabitatHistorySpecies,
 	useHabitatHistory,
 } from '../hooks/queries/use-habitat-history';
@@ -96,6 +98,18 @@ import type { HabitatGeometry } from './-habitat-geometry-cache';
 import { HabitatInspectionStats } from './-habitat-inspection-stats';
 
 const historyPageSize = 25;
+/**
+ * The leading cell of a history row, as a link to the record it names.
+ *
+ * One shape for all five tabs, settled here rather than per tab: the first cell
+ * carries the link and nothing else in the row is interactive. A keyboard user
+ * gets one stop per row, in reading order, with the same focus ring the routes
+ * list on this page already draws. The row is not clickable, so a page of
+ * history is 25 stops rather than 125, and nothing is reachable by mouse that a
+ * keyboard cannot reach.
+ */
+const historyLinkClassName =
+	'rounded-sm underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 // The larval-surveillance explorer is the only habitats index, so "Back to
 // habitats" always returns there.
 type HabitatDetailBackTo = '/larval-surveillance/habitats';
@@ -526,10 +540,12 @@ function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 		inspections,
 		samples,
 		applications,
+		sourceReductions,
 		requests,
 		isReady,
 		isError,
 		isApplicationsError,
+		isSourceReductionsError,
 		isRequestsError,
 	} = useHabitatHistory(habitatId);
 
@@ -538,8 +554,8 @@ function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 			<CardHeader className="px-4 py-4">
 				<CardTitle>History</CardTitle>
 				<CardDescription>
-					Recent larval inspections, samples, applications, and requests for control at this
-					habitat.
+					Recent larval inspections, samples, applications, source reductions, and requests for
+					control at this habitat.
 				</CardDescription>
 			</CardHeader>
 			<CardContent padding="compact">
@@ -550,11 +566,25 @@ function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 					/>
 				) : isReady ? (
 					<Tabs defaultValue="inspections">
-						<TabsList>
-							<TabsTrigger value="inspections">Inspections ({inspections.length})</TabsTrigger>
-							<TabsTrigger value="samples">Samples ({samples.length})</TabsTrigger>
-							<TabsTrigger value="applications">Applications ({applications.length})</TabsTrigger>
-							<TabsTrigger value="requests">Requests ({requests.length})</TabsTrigger>
+						{/* Five tabs no longer fit a narrow main column, and the strip's
+						    default is to overflow the card rather than shrink. So it
+						    scrolls sideways and each trigger keeps its own width. */}
+						<TabsList className="max-w-full justify-start overflow-x-auto">
+							<TabsTrigger className="shrink-0" value="inspections">
+								Inspections ({inspections.length})
+							</TabsTrigger>
+							<TabsTrigger className="shrink-0" value="samples">
+								Samples ({samples.length})
+							</TabsTrigger>
+							<TabsTrigger className="shrink-0" value="applications">
+								Applications ({applications.length})
+							</TabsTrigger>
+							<TabsTrigger className="shrink-0" value="source-reductions">
+								Source Reductions ({sourceReductions.length})
+							</TabsTrigger>
+							<TabsTrigger className="shrink-0" value="requests">
+								Requests ({requests.length})
+							</TabsTrigger>
 						</TabsList>
 						<TabsContent value="inspections" className="pt-4">
 							<InspectionHistory inspections={inspections} />
@@ -570,6 +600,16 @@ function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 								/>
 							) : (
 								<ApplicationHistory applications={applications} />
+							)}
+						</TabsContent>
+						<TabsContent value="source-reductions" className="pt-4">
+							{isSourceReductionsError ? (
+								<HistoryEmpty
+									title="Source Reductions Unavailable"
+									description="Source reduction history could not be loaded."
+								/>
+							) : (
+								<SourceReductionHistory sourceReductions={sourceReductions} />
 							)}
 						</TabsContent>
 						<TabsContent value="requests" className="pt-4">
@@ -630,7 +670,13 @@ function InspectionHistory({
 						{pageRows.map((inspection) => (
 							<TableRow key={inspection.id}>
 								<TableCell className="whitespace-nowrap">
-									{formatDate(inspection.inspectionDate)}
+									<Link
+										className={historyLinkClassName}
+										params={{ id: inspection.id }}
+										to="/larval-surveillance/inspections/$id"
+									>
+										{formatDate(inspection.inspectionDate)}
+									</Link>
 								</TableCell>
 								<TableCell className="whitespace-nowrap">
 									{inspection.inspectedByProfileId === null ? (
@@ -707,7 +753,15 @@ function SampleHistory({ samples }: { readonly samples: readonly HabitatHistoryS
 					<TableBody>
 						{pageRows.map((sample) => (
 							<TableRow key={sample.id}>
-								<TableCell className="whitespace-nowrap">{sampleName(sample)}</TableCell>
+								<TableCell className="whitespace-nowrap">
+									<Link
+										className={historyLinkClassName}
+										params={{ id: sample.id }}
+										to="/larval-surveillance/samples/$id"
+									>
+										{sampleName(sample)}
+									</Link>
+								</TableCell>
 								<TableCell className="whitespace-nowrap">
 									{formatDate(sample.inspectionDate)}
 								</TableCell>
@@ -764,7 +818,13 @@ function ApplicationHistory({
 						{pageRows.map((application) => (
 							<TableRow key={application.id}>
 								<TableCell className="whitespace-nowrap">
-									{formatDate(application.applicationDate)}
+									<Link
+										className={historyLinkClassName}
+										params={{ id: application.id }}
+										to="/control-operations/chemical/$id"
+									>
+										{formatDate(application.applicationDate)}
+									</Link>
 								</TableCell>
 								<TableCell className="whitespace-nowrap">
 									{application.applicatorProfileId === null ? (
@@ -787,7 +847,7 @@ function ApplicationHistory({
 								</TableCell>
 								<TableCell className="text-right tabular-nums">
 									<Suspense fallback={<span className="text-muted-foreground">…</span>}>
-										<ApplicationAmount
+										<AmountWithUnit
 											amount={application.amountApplied}
 											unitId={application.applicationUnitId}
 										/>
@@ -810,12 +870,98 @@ function ApplicationHistory({
 }
 
 /**
+ * Source reductions carried out at this habitat.
+ *
+ * Every one of them, because the table has no lifecycle column to weigh a row
+ * against. A source reduction is a record that the work happened, so the tab
+ * shows what happened, which is what the card is for.
+ */
+function SourceReductionHistory({
+	sourceReductions,
+}: {
+	readonly sourceReductions: readonly HabitatHistorySourceReduction[];
+}) {
+	const { page, pageCount, pageRows, setPage } = usePagedRows(sourceReductions, historyPageSize);
+
+	if (sourceReductions.length === 0) {
+		return (
+			<HistoryEmpty
+				title="No Source Reductions Yet"
+				description="Source reductions recorded at this habitat will show here."
+			/>
+		);
+	}
+
+	return (
+		<div className="grid gap-2">
+			<ScrollArea className="max-h-[420px]">
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead>Date</TableHead>
+							<TableHead>Technician</TableHead>
+							<TableHead>Method</TableHead>
+							<TableHead className="text-right">Eliminated</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{pageRows.map((reduction) => (
+							<TableRow key={reduction.id}>
+								<TableCell className="whitespace-nowrap">
+									<Link
+										className={historyLinkClassName}
+										params={{ id: reduction.id }}
+										to="/control-operations/source-reduction/$id"
+									>
+										{formatDate(reduction.sourceReductionDate)}
+									</Link>
+								</TableCell>
+								<TableCell className="whitespace-nowrap">
+									{reduction.technicianProfileId === null ? (
+										<EmptyValue />
+									) : (
+										<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+											<ProfileName profileId={reduction.technicianProfileId} />
+										</Suspense>
+									)}
+								</TableCell>
+								<TableCell>
+									<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+										<SourceReductionMethodName
+											sourceReductionMethodId={reduction.sourceReductionMethodId}
+										/>
+									</Suspense>
+								</TableCell>
+								<TableCell className="text-right tabular-nums">
+									<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+										<AmountWithUnit
+											amount={reduction.sourcesEliminatedAmount}
+											unitId={reduction.sourcesEliminatedUnitId}
+										/>
+									</Suspense>
+								</TableCell>
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
+			</ScrollArea>
+			<ExplorerPagination
+				noun={{ one: 'source reduction', many: 'source reductions' }}
+				onPageChange={setPage}
+				page={page}
+				pageCount={pageCount}
+				total={sourceReductions.length}
+			/>
+		</div>
+	);
+}
+
+/**
  * Requests for control raised against this habitat, open and resolved alike.
  *
  * Resolved rows stay: the tab answers "has anyone asked for work here", and a
  * request that was dealt with last week is part of that answer. The status
- * column is what separates the two. Rows do not link out, which is the shape the
- * three tabs beside this one already have.
+ * column is what separates the two.
  */
 function RequestHistory({ requests }: { readonly requests: readonly HabitatHistoryRequest[] }) {
 	const { page, pageCount, pageRows, setPage } = usePagedRows(requests, historyPageSize);
@@ -847,7 +993,13 @@ function RequestHistory({ requests }: { readonly requests: readonly HabitatHisto
 						{pageRows.map((request) => (
 							<TableRow key={request.id}>
 								<TableCell className="whitespace-nowrap">
-									{formatDateTime(request.requestedAt, timeZone)}
+									<Link
+										className={historyLinkClassName}
+										params={{ id: request.id }}
+										to="/operations/requests-for-control/$id"
+									>
+										{formatDateTime(request.requestedAt, timeZone)}
+									</Link>
 								</TableCell>
 								<TableCell className="whitespace-nowrap">
 									{request.requestedByProfileId === null ? (
@@ -938,13 +1090,17 @@ function ApplicationMethodName({
 	return <>{match?.name ?? 'Unknown method'}</>;
 }
 
-function ApplicationAmount({
-	amount,
-	unitId,
+function SourceReductionMethodName({
+	sourceReductionMethodId,
 }: {
-	readonly amount: number;
-	readonly unitId: string;
+	readonly sourceReductionMethodId: string;
 }) {
+	const methods = useSourceReductionMethodRoster();
+	const match = methods.find((method) => method.id === sourceReductionMethodId);
+	return <>{match?.name ?? 'Unknown method'}</>;
+}
+
+function AmountWithUnit({ amount, unitId }: { readonly amount: number; readonly unitId: string }) {
 	const abbreviation = useUnitLabels().byId.get(unitId)?.abbreviation ?? '';
 	return (
 		<>
