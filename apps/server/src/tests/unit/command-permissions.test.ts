@@ -20,12 +20,14 @@ import { registerPublicEngagementRecordRoutes } from '../../public-engagement-re
 import type { ForbiddenBody } from '../../roles.js';
 
 /**
- * The agency half of a scope, which is what almost every case here is about.
+ * The organization half of a scope, which is what almost every case here is
+ * about.
  *
  * `decideCommand` takes a role *and* whether the session is SIMMER's own,
- * because `admin` cannot separate an operator from an agency administrator —
- * they hold the same membership role. These two wrappers keep the role-ladder
- * cases reading as role-ladder cases; the operator arm is exercised directly.
+ * because `admin` cannot separate an operator from an organization
+ * administrator — they hold the same membership role. These two wrappers keep
+ * the role-ladder cases reading as role-ladder cases; the operator arm is
+ * exercised directly.
  */
 function decideAsRole(role: SimmerRole, permission: CommandPermission) {
 	return decideCommand({ role, isOperator: false }, permission);
@@ -48,11 +50,11 @@ describe('the operator floor', () => {
 		'foundation.deleteSpecies',
 	] as const;
 
-	it('refuses every agency role, including the highest', () => {
-		// `genera` and `species` have no `organization_id` — one agency's owner
-		// editing them changes what every other agency reads. The role ladder has
-		// no height that should reach this, which is the whole reason the rule is
-		// not a role.
+	it('refuses every organization role, including the highest', () => {
+		// `genera` and `species` have no `organization_id` — one organization's
+		// owner editing them changes what every other organization reads. The role
+		// ladder has no height that should reach this, which is the whole reason
+		// the rule is not a role.
 		for (const type of TAXONOMY) {
 			for (const role of ['owner', 'admin', 'manager', 'collector', 'viewer'] as const) {
 				expect({ type, role, decision: decideAsRole(role, readCommandPermission(type)) }).toEqual({
@@ -64,7 +66,7 @@ describe('the operator floor', () => {
 		}
 	});
 
-	it('allows an operator whatever their agency role is', () => {
+	it('allows an operator whatever their organization role is', () => {
 		// Operators hold an ordinary membership so their work is attributable
 		// (ADR 0011), and it is beside the point here.
 		for (const role of ['admin', 'viewer'] as const) {
@@ -77,7 +79,7 @@ describe('the operator floor', () => {
 		}
 	});
 
-	it('does not tell a refused agency admin that their role is too low', () => {
+	it('does not tell a refused organization admin that their role is too low', () => {
 		// It is not, and there is no higher one to go looking for.
 		const denial = authorizeAsRole('owner', [{ type: 'foundation.createSpecies' }]);
 
@@ -85,7 +87,7 @@ describe('the operator floor', () => {
 		expect(denial?.reason).not.toContain('role');
 	});
 
-	it('leaves the agency foundation commands on the role ladder', () => {
+	it('leaves the organization foundation commands on the role ladder', () => {
 		// The six taxonomy commands moved; the other thirty did not.
 		expect(decideAsRole('admin', readCommandPermission('foundation.createCollectionMethod'))).toBe(
 			'allow',
@@ -166,7 +168,7 @@ describe('decideCommand', () => {
 	});
 });
 
-describe('decideCommand across the other agency domains', () => {
+describe('decideCommand across the other organization domains', () => {
 	it('refuses a viewer every write in every domain', () => {
 		for (const type of [
 			'foundation.createAddress',
@@ -438,7 +440,7 @@ describe('field-work endpoints', () => {
 // scoping and never looked at the role, so every one of them accepted a
 // viewer's write. `unusableDb` throws on `transaction()`, so each passing case
 // also proves the refusal happens before the database is opened.
-describe('agency endpoints outside field work', () => {
+describe('organization endpoints outside field work', () => {
 	// Deletes, because they carry no body: the role check runs after the command
 	// is built, so a request that would have failed validation first would prove
 	// nothing about the role.

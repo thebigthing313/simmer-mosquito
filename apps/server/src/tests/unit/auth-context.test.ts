@@ -142,7 +142,7 @@ describe('resolveAuthContext', () => {
 	 *
 	 * The failure this guards is quiet in both directions: resolved always-false
 	 * locks SIMMER out of its own taxonomy, and resolved always-true hands every
-	 * agency admin the global catalog.
+	 * organization admin the global catalog.
 	 */
 	async function resolveWith(options: {
 		readonly selectedOrganizationId: string;

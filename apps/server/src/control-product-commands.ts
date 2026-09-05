@@ -54,7 +54,7 @@ import { assertCitedHistoryAcknowledged } from './record-history.js';
  * The list is `docs/control-operations-domain.md`'s, verbatim. The rest of the
  * update command's change set — the label and safety-sheet links, the
  * shorthand, the notes — describes the product rather than names it, so editing
- * one of those alone asks the agency nothing.
+ * one of those alone asks the organization nothing.
  */
 const PRODUCT_IDENTITY_FIELDS = [
 	'tradeName',
@@ -315,13 +315,13 @@ function buildInsecticideBatchUpdateCommands(
 
 /**
  * Refuse retiring a product that other records are still using, unless the
- * agency said to (#341).
+ * organization said to (#341).
  *
  * Nothing is deleted here, which is why the sentence is not the removal one.
  * The batches of a retired product cannot be applied and the formulations
  * naming it cannot be mixed, so the write takes them out of use without
- * touching a row of either, and the count is the only way the agency sees that
- * before it happens.
+ * touching a row of either, and the count is the only way the organization sees
+ * that before it happens.
  *
  * Both kinds arrive in one refusal rather than one per attempt: confirming
  * "3 batches" and then discovering the formulations is the same surprise this

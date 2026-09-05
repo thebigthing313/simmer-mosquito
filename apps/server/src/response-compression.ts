@@ -5,9 +5,9 @@
  * middleware, `Caddyfile.local` has no `encode`, and Railway's edge forwards a
  * body rather than transforming it, so the deployed API sent the same raw bytes
  * as a dev server. Measured against the Middlesex County staging data (14,245
- * active Habitats): the four z9 tiles that frame the agency are 1,177 KB and
- * gzip to 500 KB, and one 50-row page of `/map/habitats` is 32 KB and gzips to
- * 5 KB. The list read wins the ratio, 6.4x, because it is prose-shaped, all
+ * active Habitats): the four z9 tiles that frame the organization are 1,177 KB
+ * and gzip to 500 KB, and one 50-row page of `/map/habitats` is 32 KB and gzips
+ * to 5 KB. The list read wins the ratio, 6.4x, because it is prose-shaped, all
  * repeated camelCase keys and uuids; the tiles win the byte count. Both fire on
  * every pan and zoom, across eleven layers.
  *

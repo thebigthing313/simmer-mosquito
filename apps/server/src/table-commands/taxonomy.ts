@@ -2,10 +2,10 @@
  * The `genera` and `species` tables, as commands — the first operator tables.
  *
  * These are the global mosquito taxonomy. No `organization_id`, and every
- * agency reads them, so an edit here is SIMMER's to make and nobody else's.
- * They reach `/commands/{table}` through the operator door rather than the
- * agency one, because the commands they carry are not agency commands: the
- * domain types them on `OperatorFoundationCommandInput`, which is
+ * organization reads them, so an edit here is SIMMER's to make and nobody
+ * else's. They reach `/commands/{table}` through the operator door rather than
+ * the organization one, because the commands they carry are not organization
+ * commands: the domain types them on `OperatorFoundationCommandInput`, which is
  * `{ operatorUserId }` and nothing else. See `OperatorTableCommands` in
  * `dispatch.ts`, and the `operator` arm of `CommandPermission`.
  *
@@ -79,17 +79,18 @@ async function writeGenusCommand(
 		}
 		case 'foundation.updateGenus': {
 			const changes = command.payload.changes;
-			// Every agency's species sit under this genus, and each of them is read
-			// back as "<genus> <epithet>", so the abbreviation and the name are both
-			// what a renamed genus rewrites. The count is global and says so: the
-			// caller is an operator, who already reads every agency, and a
-			// per-agency breakdown would be a report somebody would then want sorted.
+			// Every organization's species sit under this genus, and each of them is
+			// read back as "<genus> <epithet>", so the abbreviation and the name are
+			// both what a renamed genus rewrites. The count is global and says so:
+			// the caller is an operator, who already reads every organization, and a
+			// per-organization breakdown would be a report somebody would then want
+			// sorted.
 			await assertHistoryAcknowledged(trx, {
 				acknowledgement: 'acknowledgedTaxonomyLabelChange',
 				acknowledged: command.payload.acknowledgedTaxonomyLabelChange,
 				subject: 'genus',
 				rules: [genusSpeciesRule(command.payload.genusId)],
-				message: 'Renaming this genus renames it for every agency that reads the taxonomy.',
+				message: 'Renaming this genus renames it for every organization that reads the taxonomy.',
 			});
 			const row = await trx
 				.updateTable('genera')
@@ -103,7 +104,7 @@ async function writeGenusCommand(
 				.executeTakeFirst();
 			return row ?? null;
 		}
-		// A hard delete, unlike every agency table: the taxonomy has no
+		// A hard delete, unlike every organization table: the taxonomy has no
 		// `deleted_at`, and the foreign keys refuse a genus that still has species.
 		case 'foundation.deleteGenus': {
 			const row = await refusableWrite(
@@ -151,14 +152,14 @@ async function writeSpeciesCommand(
 			// Every field this command changes is part of what an identification
 			// claims: the genus it sits under, the epithet, the common name and the
 			// display name. So the whole change set opens the question, and the
-			// count is every agency's counts and species lists at once.
+			// count is every organization's counts and species lists at once.
 			await assertHistoryAcknowledged(trx, {
 				acknowledgement: 'acknowledgedTaxonomyMeaningChange',
 				acknowledged: command.payload.acknowledgedTaxonomyMeaningChange,
 				subject: 'species',
 				rules: speciesRecordRules(command.payload.speciesId),
 				message:
-					'Renaming this species rewrites what every identification recorded under it claims, for every agency.',
+					'Renaming this species rewrites what every identification recorded under it claims, for every organization.',
 			});
 			const row = await trx
 				.updateTable('species')
@@ -189,7 +190,7 @@ async function writeSpeciesCommand(
 					inUse: {
 						error: 'species_in_use',
 						reason:
-							'This species is still enabled for an agency, or recorded in a count. Remove those first.',
+							'This species is still enabled for an organization, or recorded in a count. Remove those first.',
 					},
 				},
 			);

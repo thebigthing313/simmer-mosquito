@@ -57,10 +57,10 @@ const SETTINGS_TIMEZONE = '/organization-settings/timezone';
 /**
  * The two identity tables on the command surface (ADR 0013, slice 1).
  *
- * The agency's own row is addressed by id, and the script does not know which
- * agency it signed in as. It does not need to: the floor is read before the
- * handler compares the id, so a fresh UUID refuses at the right place for a
- * `deny` and lands on a harmless 400 for an `allow`.
+ * The organization's own row is addressed by id, and the script does not know
+ * which organization it signed in as. It does not need to: the floor is read
+ * before the handler compares the id, so a fresh UUID refuses at the right
+ * place for a `deny` and lands on a harmless 400 for an `allow`.
  */
 const PROFILES_PATH = '/commands/profiles';
 /**
@@ -213,7 +213,7 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 			'organizationSettings.updateTimezone',
 		),
 		deny(
-			'edit the agency’s details',
+			'edit the organization’s details',
 			'PATCH',
 			organizationPath(),
 			details(),
@@ -229,16 +229,16 @@ const CHECKS: Readonly<Record<SimmerRole, readonly Expectation[]>> = {
 		// Deliberately unwritable: `allow` means "not refused", so a 400 for a body
 		// the builder rejects proves the floor let it through. That keeps the check
 		// from writing anything, because a real timezone or profile would be a live
-		// edit to whichever agency the fixtures point at.
+		// edit to whichever organization the fixtures point at.
 		//
 		// The two command routes still carry `intents`, because dispatch reads the
 		// intent list before it consults the floor and a body without one answers
 		// 400 without ever reaching the check this script is making. The
-		// organization id in the path is a fresh UUID rather than the agency's, so
-		// the handler refuses it as not the signed-in agency, which is the same
-		// harmless 400.
+		// organization id in the path is a fresh UUID rather than the
+		// organization's, so the handler refuses it as not the signed-in
+		// organization, which is the same harmless 400.
 		allow('reach settings', 'PATCH', SETTINGS_TIMEZONE, {}),
-		allow('reach the agency’s details', 'PATCH', organizationPath(), {
+		allow('reach the organization’s details', 'PATCH', organizationPath(), {
 			intents: ['identity.updateOrganizationDetails'],
 		}),
 		allow('reach the people surface', 'POST', PROFILES_PATH, {

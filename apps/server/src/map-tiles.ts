@@ -80,10 +80,11 @@ const maxSupportedZoom = 22;
 export const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 /**
- * The region narrowing every map surface accepts. Regions are the agency's own
- * operational geography, so "only this district" is asked of habitats, traps,
- * applications, and everything else alike — one param name across every tileset
- * keeps a deep link from one explorer readable by the next.
+ * The region narrowing every map surface accepts. Regions are the
+ * organization's own operational geography, so "only this district" is asked of
+ * habitats, traps, applications, and everything else alike — one param name
+ * across every tileset keeps a deep link from one explorer readable by the
+ * next.
  */
 const regionFilterParam = 'regionId';
 
@@ -452,9 +453,9 @@ export function registerMapTileRoutes(
 	// filter can each answer part of this; none can reach `additional_personnel`,
 	// and the collections surface has no personnel filter at all.
 	//
-	// Tenancy alone, like every other `/map/*` read: agency data is viewable by
-	// anyone in the agency, and a floor here would be theatre while those five
-	// filters stay open to any member.
+	// Tenancy alone, like every other `/map/*` read: organization data is
+	// viewable by anyone in the organization, and a floor here would be theatre
+	// while those five filters stay open to any member.
 	app.get('/map/profiles/:profileId/activity', options.authContextMiddleware, async (context) => {
 		const profileId = context.req.param('profileId');
 		if (!uuidPattern.test(profileId)) {
@@ -468,9 +469,9 @@ export function registerMapTileRoutes(
 		const { dateFrom, dateTo } = queryResult;
 
 		const organizationId = context.get('authContext').organization.id;
-		// Dates are the agency's, not the database server's: a trap placed at 9pm
-		// belongs to the day the crew worked. Everything timestamped is converted
-		// into this zone before it is filed under a day.
+		// Dates are the organization's, not the database server's: a trap placed at
+		// 9pm belongs to the day the crew worked. Everything timestamped is
+		// converted into this zone before it is filed under a day.
 		const timeZone = resolveOrganizationSettings(
 			await readers.getOrganizationSettings(options.db, { organizationId }),
 		).settings.timezone;
@@ -648,8 +649,8 @@ function registerPagedRoute<TInput, TRow>(
  * was the path of least resistance.
  *
  * The 404 says "not found" for a row that is not there *and* for one that
- * belongs to another agency — the reader scopes by `organizationId`, so the two
- * are indistinguishable from here, deliberately.
+ * belongs to another organization — the reader scopes by `organizationId`, so
+ * the two are indistinguishable from here, deliberately.
  */
 function registerByIdRoute<TRow>(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -865,10 +866,10 @@ interface PageInput<TFilters> {
 	readonly limit: number;
 	readonly offset: number;
 	/**
-	 * The agency's timezone, on every paged read whether or not its surface reads
-	 * one. Uniform rather than per-surface because the surfaces that need it are
-	 * the ones dated by a `timestamptz`, and which those are is a fact about the
-	 * schema that changes without this file changing.
+	 * The organization's timezone, on every paged read whether or not its surface
+	 * reads one. Uniform rather than per-surface because the surfaces that need
+	 * it are the ones dated by a `timestamptz`, and which those are is a fact
+	 * about the schema that changes without this file changing.
 	 */
 	readonly timeZone: string;
 }

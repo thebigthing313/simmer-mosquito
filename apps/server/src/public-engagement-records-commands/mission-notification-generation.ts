@@ -28,7 +28,7 @@
  * that into metres lives in `packages/domain`, keyed by unit code, because the
  * `units` table deliberately carries no factor, and `packages/db` cannot import
  * the domain. So this is the layer that can see both: it reads the unit codes
- * the agency's registrations actually use, prices them through
+ * the organization's registrations actually use, prices them through
  * `convertUnitAmount`, and hands the result down.
  *
  * A unit the conversion table cannot price is a refusal, raised in
@@ -135,7 +135,7 @@ export function registerMissionNotificationGenerationRoute(
 }
 
 /**
- * The agency's registration buffer units, in metres.
+ * The organization's registration buffer units, in metres.
  *
  * Reads the codes actually in use rather than the whole unit catalog, then
  * prices each one. A code the conversion table does not carry, or one that is

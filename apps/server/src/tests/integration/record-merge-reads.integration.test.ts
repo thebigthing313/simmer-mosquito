@@ -10,15 +10,15 @@ import { registerRecordMergeReadRoutes } from '../../record-merge-reads.js';
 /**
  * The merge read over real rows.
  *
- * The unit test covers what it refuses before querying. What only a database can
- * answer is whether the agency filter is actually threaded from the auth context
- * into the read. It takes an organization id as an argument, which is the kind
- * of thing that compiles perfectly while carrying the wrong value, and a
- * duplicate proposal naming another agency's row leads to a merge the writer
- * refuses with an id the user cannot see.
+ * The unit test covers what it refuses before querying. What only a database
+ * can answer is whether the organization filter is actually threaded from the
+ * auth context into the read. It takes an organization id as an argument, which
+ * is the kind of thing that compiles perfectly while carrying the wrong value,
+ * and a duplicate proposal naming another organization's row leads to a merge
+ * the writer refuses with an id the user cannot see.
  */
 describeDbIntegration('merge reads at the HTTP boundary', () => {
-	it('proposes duplicates from the calling agency and no other', async () => {
+	it('proposes duplicates from the calling organization and no other', async () => {
 		await withTestDb(async ({ db }) => {
 			const caller = await createOrganization(db, 'merge_read_caller');
 			const other = await createOrganization(db, 'merge_read_other');
@@ -40,11 +40,11 @@ describeDbIntegration('merge reads at the HTTP boundary', () => {
 		});
 	});
 
-	it('answers nearby habitats for the calling agency, and 404 for anyone else', async () => {
-		// The agency id is threaded from the auth context into the read, which is
-		// the kind of thing that compiles perfectly while carrying the wrong value.
-		// A 404 rather than an empty list, so the endpoint cannot be used to probe
-		// for a habitat another agency owns.
+	it('answers nearby habitats for the calling organization, and 404 for anyone else', async () => {
+		// The organization id is threaded from the auth context into the read,
+		// which is the kind of thing that compiles perfectly while carrying the
+		// wrong value. A 404 rather than an empty list, so the endpoint cannot be
+		// used to probe for a habitat another organization owns.
 		await withTestDb(async ({ db }) => {
 			const caller = await createOrganization(db, 'nearby_route_caller');
 			const other = await createOrganization(db, 'nearby_route_other');
@@ -68,7 +68,7 @@ describeDbIntegration('merge reads at the HTTP boundary', () => {
 		});
 	});
 
-	it('runs the agency default radius when the caller names none', async () => {
+	it('runs the organization default radius when the caller names none', async () => {
 		// The seeded default distance unit is `mile`, which reads as imperial, so
 		// the first step is 250 ft. A habitat 100 m out is past that and one 50 m
 		// out is inside it.

@@ -1,5 +1,5 @@
 /**
- * The agency role ladder, and the one place its ordering is written down.
+ * The organization role ladder, and the one place its ordering is written down.
  *
  * SIMMER authorizes on the server rather than through Postgres RLS, so a
  * membership role only means something where a handler checks it. Route guards
@@ -32,13 +32,13 @@ const ROLE_RANK: Record<SimmerRole, number> = {
  * That is the whole of what `owner` gates; see {@link canGrantRole} for the same
  * reasoning applied to invitations, which name a role too.
  *
- * Every agency write to Postgres now reads its floor from `COMMAND_PERMISSIONS`.
- * There was a second table here, `IDENTITY_FLOORS`, holding the seven writes that
- * were REST routes instead, and the hole it had is what ADR 0013 closed: a
- * command with no floor does not compile, while a route that never consulted the
- * table was nothing that could fail. The one identity surface left on REST is
- * `people.listMemberships`, which is a read behind a POST, and it carries a plain
- * role check on its own route.
+ * Every organization write to Postgres now reads its floor from
+ * `COMMAND_PERMISSIONS`. There was a second table here, `IDENTITY_FLOORS`,
+ * holding the seven writes that were REST routes instead, and the hole it had
+ * is what ADR 0013 closed: a command with no floor does not compile, while a
+ * route that never consulted the table was nothing that could fail. The one
+ * identity surface left on REST is `people.listMemberships`, which is a read
+ * behind a POST, and it carries a plain role check on its own route.
  */
 export type MinimumRole = 'owner' | 'admin' | 'manager' | 'collector';
 

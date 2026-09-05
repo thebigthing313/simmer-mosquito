@@ -6,11 +6,11 @@ import { expect, it } from 'vitest';
  * What the regions read answers about records it should not, or barely, own.
  *
  * The predicate itself is proved by the corpus in `packages/db`. This is the
- * other half: the gates around it. A record another agency owns, a soft-deleted
- * one and an unknown id all have to be indistinguishable, a region another agency
- * owns must never widen an answer. And `weather_sources`, the only one of the
- * fifteen whose `organization_id` is nullable, has to answer with the caller's
- * regions rather than with an empty list.
+ * other half: the gates around it. A record another organization owns, a
+ * soft-deleted one and an unknown id all have to be indistinguishable, a region
+ * another organization owns must never widen an answer. And `weather_sources`,
+ * the only one of the fifteen whose `organization_id` is nullable, has to
+ * answer with the caller's regions rather than with an empty list.
  *
  * One `withTestDb` for all seven cases. The harness applies the whole migration
  * set per call, so a block each would be seven migration runs and seven schemas
@@ -113,7 +113,7 @@ async function seed(db: DbExecutor): Promise<void> {
 				id: id(10),
 				organization_id: other,
 				geom: point(WHERE.notFound),
-				description: 'other agency',
+				description: 'other organization',
 			},
 			{
 				id: id(11),
@@ -185,9 +185,9 @@ describeDbIntegration('the regions-containing-a-record read', () => {
 				read('weather_sources', id(71)),
 			]);
 
-			// A record another agency owns, a soft-deleted one and an id that never
-			// existed have to be indistinguishable. That is why `found` is a body
-			// field and not a status code.
+			// A record another organization owns, a soft-deleted one and an id that
+			// never existed have to be indistinguishable. That is why `found` is a
+			// body field and not a status code.
 			expect({
 				otherOrganization: summarize(otherOrganization),
 				softDeleted: summarize(softDeleted),
@@ -202,8 +202,8 @@ describeDbIntegration('the regions-containing-a-record read', () => {
 			// panel's copy hangs on the difference.
 			expect(summarize(nothingHolds)).toEqual({ found: true, groups: [] });
 
-			// Another agency's region never widens the answer, and a soft-deleted one
-			// never appears.
+			// Another organization's region never widens the answer, and a
+			// soft-deleted one never appears.
 			expect(scoping.groups).toEqual([
 				{ folderId: null, folderName: null, regions: [{ id: id(30), name: 'Ours' }] },
 			]);
@@ -242,8 +242,8 @@ describeDbIntegration('the regions-containing-a-record read', () => {
 				],
 			});
 
-			// The widened gate is for null, not for every value. A row another agency
-			// owns is still invisible.
+			// The widened gate is for null, not for every value. A row another
+			// organization owns is still invisible.
 			expect(summarize(ownedStation)).toEqual({ found: false, groups: [] });
 		});
 	});

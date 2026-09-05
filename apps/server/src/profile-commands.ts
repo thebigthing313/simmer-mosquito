@@ -32,9 +32,9 @@ export function registerProfileCommandRoutes(
 ): void {
 	app.post('/organization/memberships/list', options.authContextMiddleware, async (context) => {
 		const authContext = context.get('authContext');
-		// The people floor: an agency delegates onboarding, so admin rather than
-		// owner. The same rung `identity.invite` and `identity.endMembership` carry
-		// in `COMMAND_PERMISSIONS`.
+		// The people floor: an organization delegates onboarding, so admin rather
+		// than owner. The same rung `identity.invite` and `identity.endMembership`
+		// carry in `COMMAND_PERMISSIONS`.
 		if (!hasAtLeastRole(authContext.role, 'admin')) {
 			return context.json(forbidden('Only organization owners and admins can manage people.'), 403);
 		}

@@ -1,10 +1,10 @@
 /**
- * `PATCH /commands/organizations/{id}`: the agency's own details.
+ * `PATCH /commands/organizations/{id}`: the organization's own details.
  *
  * The one table on this surface a client cannot create or delete a row of. An
- * agency is created by a SIMMER operator through `/admin/organizations`, and
- * nothing removes one, so the module declares an update and nothing else: a POST
- * or DELETE here answers 400 naming the intent it does not accept.
+ * organization is created by a SIMMER operator through `/admin/organizations`,
+ * and nothing removes one, so the module declares an update and nothing else: a
+ * POST or DELETE here answers 400 naming the intent it does not accept.
  *
  * It is also the one table with two write vocabularies until ADR 0013 finishes.
  * The `settings` document is seven `organizationSettings.*` commands on their
@@ -32,8 +32,8 @@ import {
 import type { TableCommands } from './dispatch.js';
 
 /**
- * The row version a write is editing against, which is the agency's own record
- * being edited from two consoles at once.
+ * The row version a write is editing against, which is the organization's own
+ * record being edited from two consoles at once.
  */
 type OrganizationArgument = 'expectedUpdatedAt';
 
@@ -53,12 +53,12 @@ export function organizationTableCommands(
 		},
 		intents: {
 			'identity.updateOrganizationDetails': ({ payload, organization, id }) => {
-				// The path names the agency's own row or it names nothing this session
-				// may write. `organizationId` comes from the session either way, so the
-				// mismatch is refused rather than silently redirected.
+				// The path names the organization's own row or it names nothing this
+				// session may write. `organizationId` comes from the session either
+				// way, so the mismatch is refused rather than silently redirected.
 				if (id !== organization.organizationId) {
 					throw new DomainValidationError('Update organization details command is invalid.', [
-						{ path: 'id', message: 'id must be the signed-in agency.' },
+						{ path: 'id', message: 'id must be the signed-in organization.' },
 					]);
 				}
 				return updateOrganizationDetailsCommand({
@@ -90,6 +90,6 @@ function detailChanges(payload: OrganizationPayload): OrganizationDetailChanges 
 	}
 	// Every field but `name` is nullable, and `name` arriving blank is what the
 	// builder refuses. It reads `null` as absent and answers "name is required"
-	// rather than writing an agency with no name.
+	// rather than writing an organization with no name.
 	return changes as OrganizationDetailChanges;
 }

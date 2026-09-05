@@ -10,7 +10,7 @@
  * It is in its own file because it is the only action with a second table
  * hanging off it. An application records *which* insecticide and how much;
  * `application_batches` records which physical batches of that insecticide came
- * off the shelf, which is the tracking an agency turns on with the
+ * off the shelf, which is the tracking an organization turns on with the
  * `trackInsecticideBatches` setting.
  *
  * ## The two tables are not one map

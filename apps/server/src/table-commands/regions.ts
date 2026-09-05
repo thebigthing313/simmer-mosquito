@@ -1,8 +1,8 @@
 /**
  * The `region_folders` and `regions` tables, as commands.
  *
- * An agency's geography: named polygons, and the folders it files them under.
- * Eight commands, and the writers are the ones
+ * An organization's geography: named polygons, and the folders it files them
+ * under. Eight commands, and the writers are the ones
  * `foundation-geography-commands/` already uses — imported rather than
  * rewritten, so a region written through `/foundation/regions` and one written
  * through `/commands/regions` cannot end up different.

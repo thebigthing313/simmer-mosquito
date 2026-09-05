@@ -1,11 +1,12 @@
 /**
  * `weather.commitWeatherSummaryImport`, and the one route that carries it.
  *
- * An agency reads its weather off a spreadsheet: a gauge log, a station export,
- * a county feed someone downloaded. Parsing that file, mapping its columns, and
- * converting its units are web-client work, `docs/weather-domain.md` puts them
- * there deliberately, so that the server never sees a CSV, and what arrives here
- * is up to 5,000 already-normalized SIMMER rows for one station.
+ * An organization reads its weather off a spreadsheet: a gauge log, a station
+ * export, a county feed someone downloaded. Parsing that file, mapping its
+ * columns, and converting its units are web-client work,
+ * `docs/weather-domain.md` puts them there deliberately, so that the server
+ * never sees a CSV, and what arrives here is up to 5,000 already-normalized
+ * SIMMER rows for one station.
  *
  * ## Why this is not a table command
  *
@@ -154,10 +155,10 @@ export function registerWeatherImportRoute(
 		}
 
 		try {
-			// The agency's calendar day, resolved once here because the writer is
-			// handed a transaction and a command and has no way to reach a setting.
-			// Without it the bulk path would accept next month's forecast while the
-			// two manual paths refuse it.
+			// The organization's calendar day, resolved once here because the writer
+			// is handed a transaction and a command and has no way to reach a
+			// setting. Without it the bulk path would accept next month's forecast
+			// while the two manual paths refuse it.
 			const currentLocalDate = todayInTimeZone(authContext.timeZone);
 			// `writeCommands` rather than a bare transaction, so the ownership
 			// resolver runs here as it does on every other write.
@@ -177,7 +178,7 @@ export function registerWeatherImportRoute(
 	});
 }
 
-/** Today, as the calendar day the agency is currently on. */
+/** Today, as the calendar day the organization is currently on. */
 function todayInTimeZone(timeZone: string): string {
 	return new Intl.DateTimeFormat('en-CA', {
 		timeZone,
@@ -196,7 +197,7 @@ function todayInTimeZone(timeZone: string): string {
 export async function commitWeatherSummaryImport(
 	trx: WeatherTransaction,
 	command: CommitWeatherSummaryImportCommand,
-	/** The agency's calendar day, so a row dated after it fails rather than writes. */
+	/** The organization's calendar day, so a row dated after it fails rather than writes. */
 	currentLocalDate: string,
 ): Promise<WeatherImportResult | null> {
 	const station = await loadStation(
@@ -208,8 +209,8 @@ export async function commitWeatherSummaryImport(
 		return null;
 	}
 	// Unlike a manual create, an import into an inactive station is allowed:
-	// backfilling a gauge log for a station an agency has stopped reading is the
-	// ordinary reason to have a spreadsheet at all.
+	// backfilling a gauge log for a station an organization has stopped reading
+	// is the ordinary reason to have a spreadsheet at all.
 
 	const assessment = assessWeatherSummaryImportRows({
 		rows: command.payload.rows,
@@ -273,10 +274,10 @@ export async function commitWeatherSummaryImport(
  * One assessed row, written or reported.
  *
  * Its own function because the four verdicts are four different writes and the
- * loop above should read as "each row, in order, becomes a result". Nothing here
- * is scoped again: the station was resolved against the agency before the
- * assessment ran, and an `update` names a row read from that station inside this
- * transaction.
+ * loop above should read as "each row, in order, becomes a result". Nothing
+ * here is scoped again: the station was resolved against the organization
+ * before the assessment ran, and an `update` names a row read from that station
+ * inside this transaction.
  */
 async function writeAssessedRow(
 	trx: WeatherTransaction,

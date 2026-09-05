@@ -1,11 +1,11 @@
 /**
  * The `tags` table, as commands.
  *
- * The label vocabulary an agency defines, and the ninth catalog with the same
- * five commands as the other eight — create, update, retire, restore, delete.
- * `tag_items.ts` is the other half and a different surface entirely: assigning a
- * Tag to a record and defining one are not the same permission or the same
- * screen.
+ * The label vocabulary an organization defines, and the ninth catalog with the
+ * same five commands as the other eight — create, update, retire, restore,
+ * delete. `tag_items.ts` is the other half and a different surface entirely:
+ * assigning a Tag to a record and defining one are not the same permission or
+ * the same screen.
  *
  * ## What the old routes inferred
  *

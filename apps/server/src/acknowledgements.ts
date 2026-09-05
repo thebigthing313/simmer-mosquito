@@ -31,10 +31,10 @@
  * A new one is added when no existing mechanism can answer a flag's question
  * honestly, not when a handler wants its own function. `historyCheck` is the
  * seventh because none of the six fitted: `clearanceCheck` counts rows a write
- * removes, and a rename removes nothing — reusing it would tell an agency its
- * history was being deleted when it was being relabelled. `collisionCheck` is
- * the eighth for the same reason in the other direction: the rows it counts do
- * not read under the value being written, they compete with it, and its flag
+ * removes, and a rename removes nothing — reusing it would tell an organization
+ * its history was being deleted when it was being relabelled. `collisionCheck`
+ * is the eighth for the same reason in the other direction: the rows it counts
+ * do not read under the value being written, they compete with it, and its flag
  * takes only an explicit `true`.
  *
  * ## The trap this map does not fix

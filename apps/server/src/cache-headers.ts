@@ -12,9 +12,9 @@
  *
  * `/map/tiles/habitats/13/1310/3166.mvt` carries no organization id. The scope
  * comes from `authContext.organization.id`, read out of the session inside the
- * handler. ADR 0005 lets one login belong to several agencies and `apps/web`
- * switches organization without changing that URL, so the same browser, on the
- * same URL, is entitled to two different tenants' geometry.
+ * handler. ADR 0005 lets one login belong to several organizations and
+ * `apps/web` switches organization without changing that URL, so the same
+ * browser, on the same URL, is entitled to two different tenants' geometry.
  *
  * The tile route sent no `cache-control` at all, which is not the same mistake
  * the sync proxy made — a response with no freshness header, no `ETag` and no
@@ -38,10 +38,10 @@ import type { MiddlewareHandler } from 'hono';
  * `public, max-age=604800` rather than add to nothing.
  *
  * `/search` is here for the same reason `/map/*` is, and one more: the response
- * varies by which agency the caller is currently in, and one login can belong to
- * several. The organization id is nowhere in the URL, so two agencies hit
- * byte-identical URLs. Freshness across keystrokes is client memory, not an HTTP
- * cache.
+ * varies by which organization the caller is currently in, and one login can
+ * belong to several. The organization id is nowhere in the URL, so two
+ * organizations hit byte-identical URLs. Freshness across keystrokes is client
+ * memory, not an HTTP cache.
  *
  * It is `'/search'` and not `'/search*'`. Hono treats `*` as a wildcard only
  * where it is a whole path segment or a trailing `/*`; anywhere else it is

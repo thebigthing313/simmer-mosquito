@@ -1,5 +1,5 @@
 /**
- * Which rows of a table exist for the agency reading it.
+ * Which rows of a table exist for the organization reading it.
  *
  * Every shape route forces two things upstream: the columns, which say what a
  * client may see of a row, and a tenant predicate, which says which rows are
@@ -39,8 +39,8 @@
  *
  * That check is not a substitute for reading the entries. It rules out the
  * predicates a table cannot answer; it cannot know that `organizations` is the
- * agency's own row rather than global reference data, which is why that one table
- * is named in the type.
+ * organization's own row rather than global reference data, which is why that
+ * one table is named in the type.
  */
 
 import type { SimmerDatabase } from '@simmer-mosquito/db';
@@ -96,10 +96,11 @@ type ColumnScopeFor<TTable> = TTable extends { organization_id: infer TOrganizat
 /**
  * What one table may declare.
  *
- * `organizations` is named because no column distinguishes "the agency's own row"
- * from "reference data every agency reads" — both are tables without an
- * `organization_id`. Getting that one wrong publishes every agency's record to
- * every other agency, so it is not left to a judgement the compiler cannot check.
+ * `organizations` is named because no column distinguishes "the organization's
+ * own row" from "reference data every organization reads" — both are tables
+ * without an `organization_id`. Getting that one wrong publishes every
+ * organization's record to every other organization, so it is not left to a
+ * judgement the compiler cannot check.
  */
 type ScopeFor<TName extends keyof SimmerDatabase> =
 	| (TName extends 'organizations' ? 'organization-row' : ColumnScopeFor<SimmerDatabase[TName]>)
@@ -118,24 +119,25 @@ type ScopeFor<TName extends keyof SimmerDatabase> =
 // assertion could not see the difference between `'organization'` and `'global'`.
 export const syncShapeScopes = {
 	/*
-	 * A login, not a person in an agency. `users` has no `organization_id`, and
-	 * the rows an agency may see are the ones its memberships point at — a join,
-	 * which an Electric `where` cannot express: it filters one table's rows and
-	 * has no subqueries. So there is no predicate that both includes an agency's
-	 * colleagues and excludes every other agency's email addresses.
+	 * A login, not a person in an organization. `users` has no `organization_id`,
+	 * and the rows an organization may see are the ones its memberships point at
+	 * — a join, which an Electric `where` cannot express: it filters one table's
+	 * rows and has no subqueries. So there is no predicate that both includes an
+	 * organization's colleagues and excludes every other organization's email
+	 * addresses.
 	 *
-	 * Nothing is lost by withholding it. What an agency needs about a person is
-	 * their Profile — the org-scoped record that exists precisely so attribution
-	 * does not depend on a login.
+	 * Nothing is lost by withholding it. What an organization needs about a
+	 * person is their Profile — the org-scoped record that exists precisely so
+	 * attribution does not depend on a login.
 	 */
 	users: {
 		served: false,
 		reason:
-			'No organization_id, and the agency-visible rows are reachable only through memberships, which a shape predicate cannot join. Read profiles instead.',
+			'No organization_id, and the organization-visible rows are reachable only through memberships, which a shape predicate cannot join. Read profiles instead.',
 	},
 
-	// The agency's own record, and only it. Global would hand every agency the
-	// contact details and settings of every other one.
+	// The organization's own record, and only it. Global would hand every
+	// organization the contact details and settings of every other one.
 	organizations: 'organization-row',
 	profiles: 'organization',
 	// No `deleted_at`: a membership ends by changing status, not by being deleted.
@@ -145,8 +147,8 @@ export const syncShapeScopes = {
 	region_folders: 'organization',
 	regions: 'organization',
 
-	// The taxonomy is platform-owned and identical for everyone. Agencies choose
-	// from it through `organization_species`, which is their own row.
+	// The taxonomy is platform-owned and identical for everyone. Organizations
+	// choose from it through `organization_species`, which is their own row.
 	genera: 'global',
 	species: 'global',
 	organization_species: 'organization',
@@ -202,9 +204,10 @@ export const syncShapeScopes = {
 	notification_registration_types: 'organization',
 	mission_notifications: 'organization',
 
-	// The three weather tables carry a nullable `organization_id`: a null row is a
-	// platform-provided source or summary every agency reads, and a non-null one
-	// is an agency's own. `weather_summaries` has no `deleted_at`.
+	// The three weather tables carry a nullable `organization_id`: a null row is
+	// a platform-provided source or summary every organization reads, and a
+	// non-null one is an organization's own. `weather_summaries` has no
+	// `deleted_at`.
 	weather_sources: 'organization-or-global',
 	weather_source_subscriptions: 'organization',
 	weather_summaries: 'organization-or-global-no-soft-delete',

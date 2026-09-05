@@ -3,8 +3,8 @@
  *
  * The unit tests cover the translation from column names to domain arguments.
  * What they cannot cover is everything these writers exist for, because all of
- * it turns on stored rows: whether the agency owns the station, whether it
- * already holds summaries, whether a bucket overlaps one, and what a station
+ * it turns on stored rows: whether the organization owns the station, whether
+ * it already holds summaries, whether a bucket overlaps one, and what a station
  * delete takes with it.
  *
  * Four of those are worth the round trip in particular:
@@ -61,7 +61,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 	// Stations
 	// ------------------------------------------------------------------
 
-	it('writes a station as its own source, scoped to the agency', async () => {
+	it('writes a station as its own source, scoped to the organization', async () => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId, actorProfileId } = await organization(db, 'station_create');
 			const stationId = uuid(1);
@@ -85,8 +85,8 @@ describeDbIntegration('weather commands against Postgres', () => {
 				// Station and the schema calls it a source.
 				source_name: 'North Gauge',
 				source_code: 'NG-1',
-				// v1 agency stations are always their own source; `nws` is plumbing no
-				// command writes.
+				// v1 organization stations are always their own source; `nws` is
+				// plumbing no command writes.
 				source_type: 'organization',
 				provider_source_id: null,
 				is_active: true,
@@ -113,7 +113,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 			);
 
 			// The unique index is on `lower(trim(source_name))`, so this is the same
-			// name as far as an agency reading a list is concerned.
+			// name as far as an organization reading a list is concerned.
 			const refusal = await refused(
 				writeStation(
 					db,
@@ -131,7 +131,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 		});
 	});
 
-	it('lets another agency use the same station name', async () => {
+	it('lets another organization use the same station name', async () => {
 		await withTestDb(async ({ db }) => {
 			const mine = await organization(db, 'station_name_mine');
 			const theirs = await organization(db, 'station_name_theirs');
@@ -156,7 +156,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 		});
 	});
 
-	it('answers a station the agency does not own as if it were not there', async () => {
+	it('answers a station the organization does not own as if it were not there', async () => {
 		await withTestDb(async ({ db }) => {
 			const owner = await organization(db, 'station_owner');
 			const stranger = await organization(db, 'station_stranger');
@@ -184,7 +184,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 
 			// `null` is what `runCommands` turns into a 404. "Not yours" and "not
 			// there" have to be the same answer, or the endpoint becomes a way to
-			// probe another agency's ids.
+			// probe another organization's ids.
 			expect(answer).toBeNull();
 			const stored = await db
 				.selectFrom('weather_sources')
@@ -389,7 +389,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 	// Summaries
 	// ------------------------------------------------------------------
 
-	it('writes a bucket with the agency on it', async () => {
+	it('writes a bucket with the organization on it', async () => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId, actorProfileId } = await organization(db, 'summary_create');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
@@ -412,7 +412,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 			expect(summary).toMatchObject({
 				weather_source_id: stationId,
 				// `shape-scopes.ts` reads this table as `organization-or-global`, so a
-				// null here would sync one agency's rain to every agency.
+				// null here would sync one organization's rain to every organization.
 				organization_id: organizationId,
 				precipitation_inches: 1.25,
 			});
@@ -579,8 +579,8 @@ describeDbIntegration('weather commands against Postgres', () => {
 				),
 			);
 
-			// An inactive station is one the agency has stopped reading. Correcting
-			// its history stays open; adding to it does not.
+			// An inactive station is one the organization has stopped reading.
+			// Correcting its history stays open; adding to it does not.
 			expect(refusal).toMatchObject({ status: 409, body: { error: 'weather_station_inactive' } });
 		});
 	});
@@ -682,7 +682,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 		});
 	});
 
-	it('answers another agency\u2019s summary as if it were not there', async () => {
+	it('answers another organization\u2019s summary as if it were not there', async () => {
 		await withTestDb(async ({ db }) => {
 			const owner = await organization(db, 'summary_owner');
 			const stranger = await organization(db, 'summary_stranger');
@@ -726,7 +726,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 		});
 	});
 
-	it('keeps a global station out of reach of every agency', async () => {
+	it('keeps a global station out of reach of every organization', async () => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId, actorProfileId } = await organization(db, 'station_global');
 			// A provider-owned row: `organization_id` is null, which is the state the
@@ -999,7 +999,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 		});
 	});
 
-	it('fails a row dated after the agency\u2019s today', async () => {
+	it('fails a row dated after the organization\u2019s today', async () => {
 		await withTestDb(async ({ db }) => {
 			const { organizationId, actorProfileId } = await organization(db, 'import_future');
 			const stationId = await seedStation(db, organizationId, actorProfileId);
@@ -1016,8 +1016,8 @@ describeDbIntegration('weather commands against Postgres', () => {
 						importRow('row-2', uuid(12), '2026-06-30', '2026-06-30', { precipitationInches: 2 }),
 					],
 				}),
-				// The agency's calendar day. A summary records weather that already
-				// happened, and the bulk path used to skip this check entirely.
+				// The organization's calendar day. A summary records weather that
+				// already happened, and the bulk path used to skip this check entirely.
 				'2026-06-15',
 			);
 
@@ -1026,7 +1026,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 		});
 	});
 
-	it('refuses an import against a station the agency does not own', async () => {
+	it('refuses an import against a station the organization does not own', async () => {
 		await withTestDb(async ({ db }) => {
 			const owner = await organization(db, 'import_owner');
 			const stranger = await organization(db, 'import_stranger');

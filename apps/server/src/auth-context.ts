@@ -17,7 +17,7 @@ export interface AuthContext {
 	readonly membership: ActiveLocalAuthIdentity['membership'];
 	readonly role: SimmerRole;
 	/**
-	 * The agency's IANA timezone — the authority for which calendar day a
+	 * The organization's IANA timezone — the authority for which calendar day a
 	 * timestamped record belongs to.
 	 *
 	 * On the context rather than fetched per read because *every* date-bounded
@@ -27,16 +27,17 @@ export interface AuthContext {
 	 */
 	readonly timeZone: string;
 	/**
-	 * Whether this session is signed in **as SIMMER** rather than as an agency.
+	 * Whether this session is signed in **as SIMMER** rather than as an
+	 * organization.
 	 *
 	 * The same test `createOperatorAuthContextMiddleware` makes — the selected
 	 * WorkOS organization is the operator organization — resolved once here so
 	 * that a route serving both kinds of caller can ask without a second query or
 	 * a second middleware.
 	 *
-	 * It exists because operators hold an ordinary agency membership too
-	 * (ADR 0011), so a role alone cannot tell an operator from an agency admin.
-	 * A command that only SIMMER may send says so through
+	 * It exists because operators hold an ordinary organization membership too
+	 * (ADR 0011), so a role alone cannot tell an operator from an organization
+	 * admin. A command that only SIMMER may send says so through
 	 * `CommandPermission`'s `operator` kind, and that kind reads this.
 	 *
 	 * `false` when `SIMMER_OPERATOR_ORG_ID` is unset, which is the safe reading:

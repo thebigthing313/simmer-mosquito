@@ -113,13 +113,13 @@ export interface CommandRefusal {
 /**
  * A write the database may refuse by rule, said in words.
  *
- * The global catalogs are the case this exists for. Every agency table is
- * soft-deleted and settles its blockers before writing, in `applyRecordDeletion`,
- * so a refusal there is a `RecordDeleteBlockedError` raised by a read. `genera`,
- * `species` and `units` have no `deleted_at` and lean on their constraints
- * instead — a foreign key for "still in use", three unique indexes on `units` for
- * "that one already exists" — so the answer only exists once the statement has
- * run.
+ * The global catalogs are the case this exists for. Every organization table is
+ * soft-deleted and settles its blockers before writing, in
+ * `applyRecordDeletion`, so a refusal there is a `RecordDeleteBlockedError`
+ * raised by a read. `genera`, `species` and `units` have no `deleted_at` and
+ * lean on their constraints instead — a foreign key for "still in use", three
+ * unique indexes on `units` for "that one already exists" — so the answer only
+ * exists once the statement has run.
  *
  * Left unhandled that is a 500 with a plain-text body, which the console can only
  * report as "Server response was unreadable" about a rule its own confirmation

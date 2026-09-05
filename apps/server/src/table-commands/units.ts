@@ -2,10 +2,10 @@ import { type SelectedRow, sql } from '@simmer-mosquito/db';
 /**
  * The `units` table, as commands — the third operator table.
  *
- * The global catalog of units of measure. No `organization_id`, and every agency
- * records amounts against them, so an edit here is SIMMER's to make. Same door as
- * the taxonomy: `actor: 'operator'`, and the three commands are typed on
- * `OperatorFoundationCommandInput`.
+ * The global catalog of units of measure. No `organization_id`, and every
+ * organization records amounts against them, so an edit here is SIMMER's to
+ * make. Same door as the taxonomy: `actor: 'operator'`, and the three commands
+ * are typed on `OperatorFoundationCommandInput`.
  *
  * ## What this retires
  *
@@ -67,13 +67,14 @@ const duplicate = {
 /**
  * One refusal for two paths.
  *
- * A foreign key raises it for a unit an agency measures in; `assertUnitNotChosen`
- * raises it for one an agency has merely chosen. The operator is told the same
- * thing either way, because the difference is ours and not theirs.
+ * A foreign key raises it for a unit an organization measures in;
+ * `assertUnitNotChosen` raises it for one an organization has merely chosen.
+ * The operator is told the same thing either way, because the difference is
+ * ours and not theirs.
  */
 const UNIT_IN_USE = {
 	error: 'unit_in_use',
-	reason: "This unit is still referenced by an agency's records or settings.",
+	reason: "This unit is still referenced by an organization's records or settings.",
 } as const;
 
 async function writeUnitCommand(
@@ -121,9 +122,9 @@ async function writeUnitCommand(
 			return row ?? null;
 		}
 		// A hard delete, like the taxonomy: no `deleted_at`, and the foreign keys
-		// refuse a unit an agency still measures in. A unit an agency has merely
-		// *chosen* has no foreign key to refuse it, so `assertUnitNotChosen` reads
-		// the settings documents first. See #131.
+		// refuse a unit an organization still measures in. A unit an organization
+		// has merely *chosen* has no foreign key to refuse it, so
+		// `assertUnitNotChosen` reads the settings documents first. See #131.
 		case 'foundation.deleteUnit': {
 			await assertUnitNotChosen(trx, command.payload.unitId);
 			const row = await refusableWrite(
@@ -143,23 +144,23 @@ async function writeUnitCommand(
 }
 
 /**
- * Refuse a unit any agency has chosen as a default.
+ * Refuse a unit any organization has chosen as a default.
  *
  * Nine columns reference `units` by foreign key and every one of them is a
  * record, so Postgres refuses those itself. `organizations.settings ->
  * 'unitDefaults'` holds unit **codes in a JSON document**, so nothing
- * references the row and nothing refuses: the delete succeeded and the agency's
- * default silently named a unit that was gone.
+ * references the row and nothing refuses: the delete succeeded and the
+ * organization's default silently named a unit that was gone.
  *
  * This is one cross-table invariant enforced in one handler, which is the kind
  * of thing that drifts the moment a second writer appears. It is written this
  * way because the reference is a string inside a document, so the delete
  * registry, which counts rows, cannot see it.
  *
- * The refusal reports that the unit is in use and names no agency: an operator
- * needs to know the row is spoken for, not which customer spoke for it. An
- * agency that is inactive still counts, because an agency coming back to find
- * its area default gone is the failure this prevents.
+ * The refusal reports that the unit is in use and names no organization: an
+ * operator needs to know the row is spoken for, not which customer spoke for
+ * it. An organization that is inactive still counts, because an organization
+ * coming back to find its area default gone is the failure this prevents.
  */
 async function assertUnitNotChosen(trx: CommandTransaction, unitId: string): Promise<void> {
 	const chosen = await trx

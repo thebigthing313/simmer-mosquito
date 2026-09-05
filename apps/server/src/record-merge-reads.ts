@@ -19,7 +19,7 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 import { parseOptionalPositiveNumber, uuidPattern } from './map-tiles.js';
 
-/** What a cleanup page asks for: the duplicate sets this agency's records suggest. */
+/** What a cleanup page asks for: the duplicate sets this organization's records suggest. */
 interface DuplicateCandidatesBody {
 	readonly recordType: string;
 	readonly groups: readonly DuplicateGroup[];
@@ -58,9 +58,9 @@ interface NearbyHabitatsBody {
  * `@simmer-mosquito/db` covering several record types, so a per-domain endpoint
  * would be the same call three times under different paths.
  *
- * Neither is gated above the session. They read the caller's own agency and
- * nothing else, matching `delete-impact`; the manager floor they lead to is on
- * the merge commands themselves, in `command-permissions.ts`.
+ * Neither is gated above the session. They read the caller's own organization
+ * and nothing else, matching `delete-impact`; the manager floor they lead to is
+ * on the merge commands themselves, in `command-permissions.ts`.
  */
 export function registerRecordMergeReadRoutes(
 	app: Hono<{ Variables: AuthVariables }>,
@@ -99,9 +99,9 @@ export function registerRecordMergeReadRoutes(
 		if (!radius.ok) {
 			return context.json({ error: 'invalid_query', reason: radius.reason }, 400);
 		}
-		// Capped rather than clamped. A radius nobody meant to send is a search over
-		// the whole agency, and answering it with a quietly different one hides that
-		// the control on the page is broken.
+		// Capped rather than clamped. A radius nobody meant to send is a search
+		// over the whole organization, and answering it with a quietly different
+		// one hides that the control on the page is broken.
 		if (radius.value !== undefined && radius.value > NEARBY_MAX_METRES) {
 			return context.json(
 				{ error: 'invalid_query', reason: `radiusMetres must be ${NEARBY_MAX_METRES} or less.` },
@@ -126,11 +126,11 @@ export function registerRecordMergeReadRoutes(
 /**
  * The radius a search runs at when the caller names none.
  *
- * From the agency's own default distance unit, so an agency that works in feet
- * gets the first imperial step rather than a round number of metres that reads
- * back as 328 ft. The page sends an explicit radius once it has a control on
- * screen; this is what the endpoint answers before that, and what any other
- * caller gets.
+ * From the organization's own default distance unit, so an organization that
+ * works in feet gets the first imperial step rather than a round number of
+ * metres that reads back as 328 ft. The page sends an explicit radius once it
+ * has a control on screen; this is what the endpoint answers before that, and
+ * what any other caller gets.
  */
 async function defaultRadiusMetres(
 	db: Kysely<SimmerDatabase>,

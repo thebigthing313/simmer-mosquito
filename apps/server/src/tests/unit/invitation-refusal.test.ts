@@ -10,7 +10,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { refuseInvitationRevoke, refuseInvitationSend } from '../../invitation-refusal.js';
 
 const attempt = { membershipId: 'mem-1', organizationId: 'org-1' };
-const leak = 'Email already invited to organization: casey@other-agency.test (user_01ABC).';
+const leak = 'Email already invited to organization: casey@other-organization.test (user_01ABC).';
 
 function workosError(status: number) {
 	return Object.assign(new Error(leak), { status });
@@ -32,7 +32,7 @@ describe('refuseInvitationSend', () => {
 
 		expect(refusal.error).toBe('invitation_refused');
 		expect(refusal.reason).not.toContain('WorkOS');
-		expect(refusal.reason).not.toContain('other-agency');
+		expect(refusal.reason).not.toContain('other-organization');
 		expect(JSON.stringify(refusal)).not.toContain(leak);
 	});
 

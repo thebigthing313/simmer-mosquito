@@ -82,7 +82,7 @@ async function missionIsInProgress(
 	);
 }
 
-/** The mission's own timestamps, or null when it is deleted or another agency's. */
+/** The mission's own timestamps, or null when it is deleted or another organization's. */
 async function missionTimestamps(
 	trx: MissionDispatchTransaction,
 	missionId: string,

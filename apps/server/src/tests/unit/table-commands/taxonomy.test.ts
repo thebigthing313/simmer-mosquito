@@ -2,10 +2,10 @@
  * The two operator tables, and the door they sit behind.
  *
  * `genera` and `species` are the global taxonomy: no `organization_id`, read by
- * every agency. They are the first tables on `/commands/{table}` whose commands
- * are not agency commands — the domain types them on `{ operatorUserId }` — so
- * what is under test is both the translation and the thing that keeps the two
- * kinds of table from being confused for each other.
+ * every organization. They are the first tables on `/commands/{table}` whose
+ * commands are not organization commands — the domain types them on `{
+ * operatorUserId }` — so what is under test is both the translation and the
+ * thing that keeps the two kinds of table from being confused for each other.
  */
 
 import { Hono } from 'hono';
@@ -54,8 +54,8 @@ function build<TCommand extends WritableCommand>(
 describe('the operator door', () => {
 	it('refuses to register a table whose commands are not operator-scoped', () => {
 		// The failure this prevents is a route whose authorization does not match
-		// its door: an agency command served behind operator middleware would be
-		// reachable by any operator regardless of the floor its own map states.
+		// its door: an organization command served behind operator middleware would
+		// be reachable by any operator regardless of the floor its own map states.
 		const wrong: OperatorTableCommands<CommandTable, never, unknown, string> = {
 			table: 'habitats',
 			actor: 'operator',

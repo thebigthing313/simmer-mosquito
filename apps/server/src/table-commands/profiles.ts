@@ -1,10 +1,11 @@
 /**
- * `/commands/profiles`: the agency's people, minus their logins.
+ * `/commands/profiles`: the organization's people, minus their logins.
  *
- * A Profile created here is **historical**: somebody the agency attributes work
- * to with no login behind it. Attaching a login is an invitation, which spans
- * WorkOS and is slice 3's; ending one is `people.endMembership`, also slice 3.
- * So this module writes two columns and never touches `memberships`.
+ * A Profile created here is **historical**: somebody the organization
+ * attributes work to with no login behind it. Attaching a login is an
+ * invitation, which spans WorkOS and is slice 3's; ending one is
+ * `people.endMembership`, also slice 3. So this module writes two columns and
+ * never touches `memberships`.
  *
  * There is no delete. A Profile is what records name, and the way to stop one
  * being offered is `is_active`, which `identity.updateProfile` writes.

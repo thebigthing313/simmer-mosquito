@@ -6,9 +6,9 @@
  * byte. They are the first thing every write endpoint touches, so a change to
  * what counts as an empty string or a usable number has to land in one place.
  *
- * Context-free by design: nothing here knows about the agency, the actor, or
- * the command being built. Ownership, role, and lifecycle checks belong in the
- * command handlers (see `docs/domain-command-contract.md`); these only turn
+ * Context-free by design: nothing here knows about the organization, the actor,
+ * or the command being built. Ownership, role, and lifecycle checks belong in
+ * the command handlers (see `docs/domain-command-contract.md`); these only turn
  * `unknown` into a typed value or nothing.
  *
  * {@link CommandPayload} is the shape those readers are pointed at, and it is

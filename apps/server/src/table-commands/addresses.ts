@@ -1,8 +1,8 @@
 /**
  * The `addresses` table, as commands.
  *
- * The agency address book: the rows habitats, traps and service requests point
- * at so that a place has one spelling. Four of foundation's five address
+ * The organization address book: the rows habitats, traps and service requests
+ * point at so that a place has one spelling. Four of foundation's five address
  * commands are here.
  *
  * ## Two of these were not reachable at all

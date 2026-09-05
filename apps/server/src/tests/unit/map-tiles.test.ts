@@ -835,7 +835,7 @@ describe('map geometry routes', () => {
 		await expect(response.json()).resolves.toEqual({ address: geometry });
 	});
 
-	it('answers a requested control action, and 404s for another agency’s', async () => {
+	it('answers a requested control action, and 404s for another organization’s', async () => {
 		const app = createApp({
 			getRequestedControlActionRow: async (_db, input) =>
 				input.id === requestedControlActionId
@@ -941,16 +941,17 @@ describe('profile activity', () => {
 			total: 2,
 			truncated: false,
 		});
-		// The window and the Profile reach the reader; the agency comes from the
-		// session rather than the URL, so a caller cannot ask for another one.
+		// The window and the Profile reach the reader; the organization comes from
+		// the session rather than the URL, so a caller cannot ask for another one.
 		expect(calls).toEqual([
 			{
 				organizationId,
 				profileId,
 				dateFrom: '2026-08-01',
 				dateTo: '2026-08-01',
-				// The agency's zone, so a trap placed at 9pm is filed under the day
-				// the crew worked rather than the day the database server rolled over.
+				// The organization's zone, so a trap placed at 9pm is filed under the
+				// day the crew worked rather than the day the database server rolled
+				// over.
 				timeZone: 'America/New_York',
 				limit: 2001,
 			},

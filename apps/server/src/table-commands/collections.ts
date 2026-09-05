@@ -81,10 +81,10 @@ type CollectionPayload = CommandPayload<'collections', CollectionArgument>;
 /**
  * How long the trap was out, read from the six columns that record it.
  *
- * Two shapes, because agencies record this two ways and the setting says which —
- * exact timestamps, or a collection date with a duration. See the
- * `adult-collection-timing-modes` note: reading one agency's collections under
- * the other's mode empties a surface without erroring.
+ * Two shapes, because organizations record this two ways and the setting says
+ * which — exact timestamps, or a collection date with a duration. See the
+ * `adult-collection-timing-modes` note: reading one organization's collections
+ * under the other's mode empties a surface without erroring.
  *
  * `collected_at` is what separates a pending collection from a collected one,
  * and it is the one place `readDate`'s null return is load-bearing rather than

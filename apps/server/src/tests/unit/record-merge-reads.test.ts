@@ -59,8 +59,8 @@ describe('GET /records/habitat/:habitatId/nearby', () => {
 	});
 
 	it('refuses a radius wider than the cap rather than quietly narrowing it', async () => {
-		// Clamping would answer a search over the whole agency with a different one
-		// and hide that the control on the page is sending nonsense.
+		// Clamping would answer a search over the whole organization with a
+		// different one and hide that the control on the page is sending nonsense.
 		const response = await app().request(`/records/habitat/${habitatId}/nearby?radiusMetres=50000`);
 
 		expect(response.status).toBe(400);

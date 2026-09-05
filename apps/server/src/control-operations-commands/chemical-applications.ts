@@ -502,9 +502,10 @@ export async function writeApplicationCommand(
  * a link to something that was not applied, so those rows go. The batches of the
  * new product, if any are already linked, stay.
  *
- * Counted before anything is written, because the agency is being told it is
- * about to lose the batch numbers it recorded in the field. An application whose
- * batches all belong to the new insecticide loses nothing and is not asked.
+ * Counted before anything is written, because the organization is being told it
+ * is about to lose the batch numbers it recorded in the field. An application
+ * whose batches all belong to the new insecticide loses nothing and is not
+ * asked.
  */
 async function clearIncompatibleBatches(
 	trx: ControlOperationsTransaction,

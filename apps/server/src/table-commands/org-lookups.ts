@@ -1,9 +1,9 @@
 /**
  * The three org-scoped lookup catalogs, as commands.
  *
- * `collection_methods`, `collection_lures` and `habitat_types` — three tables an
- * agency owns and every surveillance record points at, fifteen commands between
- * them.
+ * `collection_methods`, `collection_lures` and `habitat_types` — three tables
+ * an organization owns and every surveillance record points at, fifteen
+ * commands between them.
  *
  * ## What the old routes inferred
  *

@@ -126,8 +126,8 @@ export interface TableCommands<
 > {
 	/** The Postgres table. Names the routes, and is what the client's collection id is. */
 	readonly table: TTable;
-	/** Omitted means `'agency'`, which is every table but the global catalogs. */
-	readonly actor?: 'agency';
+	/** Omitted means `'organization'`, which is every table but the global catalogs. */
+	readonly actor?: 'organization';
 	readonly run: RunCommandsConfig<TCommand, TRow>;
 	readonly intents: IntentMap<TTable, TCommand, TArgument>;
 }
@@ -135,10 +135,11 @@ export interface TableCommands<
 /**
  * What an operator-scoped builder is handed.
  *
- * No `agency`, because there is none: the commands these tables carry extend
- * `OperatorFoundationCommandInput`, which is `{ operatorUserId }` and nothing
- * else. `genera` and `species` have no `organization_id` and every agency reads
- * them, so an organization is not a thing a caller could sensibly supply.
+ * No `organization`, because there is none: the commands these tables carry
+ * extend `OperatorFoundationCommandInput`, which is `{ operatorUserId }` and
+ * nothing else. `genera` and `species` have no `organization_id` and every
+ * organization reads them, so an organization is not a thing a caller could
+ * sensibly supply.
  */
 export interface OperatorIntentRequest<
 	TTable extends CommandTable,
@@ -194,9 +195,9 @@ type IntentsResult =
  */
 function readIntents(
 	payload: Record<string, unknown>,
-	// Only the names are read, so this fits an agency map and an operator one
-	// alike — their builders take different requests, which is not this function's
-	// business.
+	// Only the names are read, so this fits an organization map and an operator
+	// one alike — their builders take different requests, which is not this
+	// function's business.
 	spec: { readonly table: string; readonly intents: Readonly<Record<string, unknown>> },
 ): IntentsResult {
 	const raw = payload.intents;
@@ -300,10 +301,10 @@ function tableCommandHandler<
  *
  * Checked once at registration, so the process refuses to start rather than
  * serving a route whose authorization does not match its door. It is what makes
- * the operator write path safe without an agency actor: every command it can
- * reach is settled by {@link decideCommand} at the boundary, and none of them
- * is an ownership rule, so there is no stored row left to check and no agency
- * membership needed to check it against.
+ * the operator write path safe without an organization actor: every command it
+ * can reach is settled by {@link decideCommand} at the boundary, and none of
+ * them is an ownership rule, so there is no stored row left to check and no
+ * organization membership needed to check it against.
  */
 function assertOperatorScoped(spec: {
 	readonly table: string;
@@ -314,7 +315,7 @@ function assertOperatorScoped(spec: {
 		if (permission.kind !== 'operator') {
 			throw new Error(
 				`${spec.table} is an operator table, but ${name} is a ${permission.kind} command. ` +
-					'Map it to `OPERATOR` in command-permissions.ts, or serve the table as an agency table.',
+					'Map it to `OPERATOR` in command-permissions.ts, or serve the table as an organization table.',
 			);
 		}
 	}

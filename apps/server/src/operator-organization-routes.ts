@@ -1,5 +1,5 @@
 /**
- * The three operator routes that create and read agencies.
+ * The three operator routes that create and read organizations.
  *
  * They sit beside `admin-invitations.ts` and `admin-foundations.ts`, which is
  * where the rest of `/admin/*` already lives, and they were the last of the
@@ -28,7 +28,7 @@ import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 import { isRecord } from './command-payload.js';
 
-/** What creating an agency needs of the WorkOS client. */
+/** What creating an organization needs of the WorkOS client. */
 export interface OperatorOrganizationAuth {
 	createOrganization(input: {
 		readonly name: string;

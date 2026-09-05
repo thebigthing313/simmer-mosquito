@@ -11,8 +11,8 @@ import { registerTableCommandSurface } from '../../table-commands/index.js';
 
 // --- the floors outside the permission map -----------------------------------
 //
-// `COMMAND_PERMISSIONS` is total: a new agency command cannot be added without
-// deciding who may send it, because the build fails until it appears there.
+// `COMMAND_PERMISSIONS` is total: a new organization command cannot be added
+// without deciding who may send it, because the build fails until it appears there.
 // These three modules are outside it — their commands are not `OrganizationCommandType`
 // — so nothing forced them to declare a floor, and #121 found all three had
 // written the ladder out again by hand instead. They also had zero tests across
@@ -129,8 +129,8 @@ describe('people', () => {
 		await expect(response.json()).resolves.toMatchObject({ error: 'forbidden' });
 	});
 
-	// The floor #121 settled: an agency delegates onboarding rather than routing
-	// every new crew member through one person.
+	// The floor #121 settled: an organization delegates onboarding rather than
+	// routing every new crew member through one person.
 	it('admits an admin managing people', async () => {
 		const response = await post('admin', '/commands/profiles', {
 			intents: ['identity.createProfile'],
@@ -178,7 +178,7 @@ describe('people', () => {
 	});
 
 	// Without the bound, "admins may remove" is "admins may remove every owner",
-	// and an agency with no owner cannot appoint one.
+	// and an organization with no owner cannot appoint one.
 	it('refuses an admin removing an owner', async () => {
 		const response = await endMembership(
 			'admin',
