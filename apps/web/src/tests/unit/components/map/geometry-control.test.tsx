@@ -80,6 +80,7 @@ function fakeController(): MapDrawController {
 		insertVertex: vi.fn(),
 		deleteVertex: vi.fn(),
 		selectVertex: vi.fn(),
+		startReshape: vi.fn(),
 		removePart: vi.fn(),
 		removeHole: vi.fn(),
 		highlightPart: vi.fn(),
@@ -372,6 +373,106 @@ describe('DrawToolbar', () => {
 		);
 
 		expect(screen.getByText('The holes must stay inside the shape.')).toBeDefined();
+	});
+
+	function renderEdit(editedPart: MapDrawController['editedPart']) {
+		render(
+			<DrawToolbar
+				controller={{ ...fakeController(), drawType: 'Polygon', editedPart, isDrawing: true }}
+				geometryType="Polygon"
+			/>,
+		);
+	}
+
+	it('asks for a line once Reshape is pressed', () => {
+		renderEdit({ partNumber: 1, partCount: 1, problem: null, selected: null, sketchVertices: 0 });
+
+		expect(
+			screen.getByText('Click the map to draw a line across the edge of the shape.'),
+		).toBeDefined();
+	});
+
+	it('says a reshape line has to cross the edge twice', () => {
+		renderEdit({
+			partNumber: 2,
+			partCount: 3,
+			problem: 'tooFewCrossings',
+			selected: null,
+			sketchVertices: 2,
+		});
+
+		expect(screen.getByText('The line has to cross the edge twice.')).toBeDefined();
+	});
+
+	// The vertex gestures answer `tooFewVertices` with "add one back", which is
+	// the one thing a reshape cannot do: the line is what took the corners.
+	it('says a reshape that collapsed the piece left nothing of it', () => {
+		renderEdit({
+			partNumber: 2,
+			partCount: 3,
+			problem: 'tooFewVertices',
+			selected: null,
+			sketchVertices: 3,
+		});
+
+		expect(screen.getByText('That leaves nothing of piece 2.')).toBeDefined();
+	});
+
+	it('offers Reshape on an open edit and takes it away while one is running', () => {
+		const controller = fakeController();
+		const editedPart = {
+			partNumber: 1,
+			partCount: 1,
+			problem: null,
+			selected: null,
+			sketchVertices: null,
+		};
+		const { rerender } = render(
+			<DrawToolbar
+				controller={{ ...controller, drawType: 'Polygon', editedPart, isDrawing: true }}
+				geometryType="Polygon"
+			/>,
+		);
+		fireEvent.click(screen.getByText('Reshape'));
+		expect(controller.startReshape).toHaveBeenCalled();
+
+		rerender(
+			<DrawToolbar
+				controller={{
+					...controller,
+					drawType: 'Polygon',
+					editedPart: { ...editedPart, sketchVertices: 0 },
+					isDrawing: true,
+				}}
+				geometryType="Polygon"
+			/>,
+		);
+
+		expect(screen.queryByText('Reshape')).toBeNull();
+		expect(screen.queryByText('Delete vertex')).toBeNull();
+	});
+
+	// A point is one corner with no edge for a line to cross.
+	it('offers no Reshape on a point', () => {
+		render(
+			<DrawToolbar
+				controller={{
+					...fakeController(),
+					drawType: 'Point',
+					editedPart: {
+						partNumber: 1,
+						partCount: 1,
+						problem: null,
+						selected: null,
+						sketchVertices: null,
+					},
+					isDrawing: true,
+				}}
+				geometryType="Point"
+			/>,
+		);
+
+		expect(screen.queryByText('Reshape')).toBeNull();
 	});
 
 	// A continuation opens with the piece's own vertices placed, so a count above

@@ -92,6 +92,84 @@ const ESCAPING_POND = [
 	[-85, 35],
 ] as const;
 
+/**
+ * A line crossing {@link BLOCK}'s northern edge twice, drawn north of it, and
+ * the same line reflected about that edge.
+ *
+ * One reshape gesture in both directions: outside the piece it pushes the edge
+ * out to 38, inside it pulls the edge in to 36. Both cross at -90.5 and -89.5,
+ * so the two results differ only in which side of the edge the line ran.
+ */
+const OUTSIDE_SKETCH = [
+	[-90.5, 36],
+	[-90.5, 38],
+	[-89.5, 38],
+	[-89.5, 36],
+] as const;
+const INSIDE_SKETCH = [
+	[-90.5, 38],
+	[-90.5, 36],
+	[-89.5, 36],
+	[-89.5, 38],
+] as const;
+/** {@link BLOCK} with {@link OUTSIDE_SKETCH} taken into its northern edge. */
+const BULGED_BLOCK = [
+	[-90.5, 37],
+	[-90.5, 38],
+	[-89.5, 38],
+	[-89.5, 37],
+	[-88, 37],
+	[-88, 34],
+	[-91, 34],
+	[-91, 37],
+] as const;
+/** {@link BLOCK} with {@link INSIDE_SKETCH} taken into its northern edge. */
+const NOTCHED_BLOCK = [
+	[-90.5, 37],
+	[-90.5, 36],
+	[-89.5, 36],
+	[-89.5, 37],
+	[-88, 37],
+	[-88, 34],
+	[-91, 34],
+	[-91, 37],
+] as const;
+
+/** Open the first piece, start a reshape, and trace `line` over the map. */
+function sketchOver(
+	fake: FakeMap,
+	result: ControlledHarness['result'],
+	line: readonly (readonly [number, number])[],
+): void {
+	act(() => {
+		result.current.draw.editPart(0);
+	});
+	act(() => {
+		result.current.draw.startReshape();
+	});
+	for (const [longitude, latitude] of line) {
+		act(() => {
+			fake.click(longitude, latitude);
+		});
+	}
+}
+
+/**
+ * Land the reshape line, then commit the piece.
+ *
+ * Finish means both, in that order: the reshaped outline is still a draft the
+ * vertex gestures can work on, so the press that lands the line is not the press
+ * that puts the piece back.
+ */
+function finishReshape(result: ControlledHarness['result']): void {
+	act(() => {
+		result.current.draw.finish();
+	});
+	act(() => {
+		result.current.draw.finish();
+	});
+}
+
 /** Place a ring's vertices and finish it, the way a user draws one. */
 function drawPolygon(
 	fake: FakeMap,
@@ -1275,6 +1353,7 @@ describe('useMapDraw', () => {
 			partCount: 2,
 			problem: null,
 			selected: null,
+			sketchVertices: null,
 		});
 		act(() => {
 			result.current.draw.moveVertex({ ring: 0, vertex: 0 }, [-91, 35]);
@@ -1408,6 +1487,356 @@ describe('useMapDraw', () => {
 		});
 		expect(result.current.draw.editedPart?.selected).toBeNull();
 		expect(result.current.draw.vertexCount).toBe(2);
+	});
+
+	it('extends a piece when the reshape line runs outside it', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		sketchOver(fake, result, OUTSIDE_SKETCH);
+		finishReshape(result);
+
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closed(BULGED_BLOCK)],
+		});
+	});
+
+	// The same line reflected about the edge it crosses. Nothing in the gesture
+	// says which of the two is meant: where the line runs is the whole answer.
+	it('carves a piece away when the reshape line runs inside it', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		sketchOver(fake, result, INSIDE_SKETCH);
+		finishReshape(result);
+
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closed(NOTCHED_BLOCK)],
+		});
+	});
+
+	// The line leaves the piece at -89.5 and comes back, so there are three
+	// crossings. A rule stopping at the second would drop the last third of it.
+	it('replaces the stretch between the first and last of several crossings', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		sketchOver(fake, result, [
+			[-90.5, 38],
+			[-90.5, 36],
+			[-90, 36],
+			[-90, 38],
+			[-89.5, 38],
+			[-89.5, 36],
+		]);
+		finishReshape(result);
+
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [
+				closed([
+					[-90.5, 37],
+					[-90.5, 36],
+					[-90, 36],
+					[-90, 38],
+					[-89.5, 38],
+					[-89.5, 37],
+					[-88, 37],
+					[-88, 34],
+					[-91, 34],
+					[-91, 37],
+				]),
+			],
+		});
+	});
+
+	it('refuses a line that does not cross the edge twice', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		sketchOver(fake, result, [
+			[-90.5, 35],
+			[-89.5, 35],
+		]);
+
+		expect(result.current.draw.editedPart?.problem).toBe('tooFewCrossings');
+		expect(result.current.draw.canFinish).toBe(false);
+		// Red on the map too, so the refusal is not only a greyed-out button.
+		const refused = fake
+			.featuresOf(SOURCE_ID)
+			.filter((feature) => feature.properties?.refused === true);
+		expect(refused.length).toBeGreaterThan(0);
+
+		act(() => {
+			result.current.draw.finish();
+		});
+		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(BLOCK)] });
+	});
+
+	// A line that has not crossed anything yet is a draw in progress, the way one
+	// vertex of a polygon is, so it must not paint the piece red.
+	it('says nothing is wrong until the line has two vertices', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.startReshape();
+		});
+
+		expect(result.current.draw.editedPart?.sketchVertices).toBe(0);
+		expect(result.current.draw.editedPart?.problem).toBeNull();
+		expect(result.current.draw.canFinish).toBe(false);
+	});
+
+	it('carries the holes of the piece it reshapes through untouched', () => {
+		const { fake, result } = mountControlled({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+
+		sketchOver(fake, result, OUTSIDE_SKETCH);
+		finishReshape(result);
+
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closed(BULGED_BLOCK), closed(POND)],
+		});
+	});
+
+	// The same refusal a hole cut outside its piece reports, read from the other
+	// end: here the outline moved rather than the hole.
+	it('refuses a reshape that leaves a hole outside the piece', () => {
+		const { fake, result } = mountControlled({
+			type: 'Polygon',
+			coordinates: [closed(BLOCK), closed(POND)],
+		});
+
+		sketchOver(fake, result, [
+			[-92, 34.5],
+			[-89.5, 34.5],
+			[-89.5, 36.5],
+			[-92, 36.5],
+		]);
+
+		expect(result.current.draw.editedPart?.problem).toBe('holesEscape');
+		expect(result.current.draw.canFinish).toBe(false);
+	});
+
+	it('replaces the stretch of a line between its two crossings', () => {
+		const { fake, result } = mountControlled({
+			type: 'LineString',
+			coordinates: [
+				[-91, 35],
+				[-90, 35],
+				[-89, 35],
+			],
+		});
+
+		sketchOver(fake, result, [
+			[-90.5, 34],
+			[-90.5, 36],
+			[-89.5, 36],
+			[-89.5, 34],
+		]);
+		finishReshape(result);
+
+		expect(result.current.value).toEqual({
+			type: 'LineString',
+			coordinates: [
+				[-91, 35],
+				[-90.5, 35],
+				[-90.5, 36],
+				[-89.5, 36],
+				[-89.5, 35],
+				[-89, 35],
+			],
+		});
+	});
+
+	// A point has one corner and no boundary a line could cross.
+	it('has nothing to reshape on a point', () => {
+		const { fake, result } = mountControlled();
+
+		act(() => {
+			result.current.draw.start('Point');
+		});
+		act(() => {
+			fake.click(-90, 35);
+		});
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.startReshape();
+		});
+
+		expect(result.current.draw.editedPart?.sketchVertices).toBeNull();
+	});
+
+	it('leaves the other pieces alone and keeps the reshaped one at its index', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.startPart();
+		});
+		drawPolygon(fake, result, BLOCK);
+
+		act(() => {
+			result.current.draw.editPart(1);
+		});
+		expect(result.current.draw.editedPart?.partNumber).toBe(2);
+		act(() => {
+			result.current.draw.startReshape();
+		});
+		for (const [longitude, latitude] of OUTSIDE_SKETCH) {
+			act(() => {
+				fake.click(longitude, latitude);
+			});
+		}
+		finishReshape(result);
+
+		expect(result.current.value).toEqual({
+			type: 'MultiPolygon',
+			coordinates: [[closed(FIRST_SQUARE)], [closed(BULGED_BLOCK)]],
+		});
+	});
+
+	it('leaves the committed piece as it was when a reshape is cancelled', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		sketchOver(fake, result, OUTSIDE_SKETCH);
+		act(() => {
+			result.current.draw.cancel();
+		});
+
+		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(BLOCK)] });
+		expect(result.current.draw.isDrawing).toBe(false);
+	});
+
+	// Undo unwinds the line one vertex at a time and closes an empty one, so a
+	// sketch nobody wanted does not cost the whole edit.
+	it('undoes a reshape line vertex by vertex and then closes it', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		sketchOver(fake, result, OUTSIDE_SKETCH);
+		expect(result.current.draw.editedPart?.sketchVertices).toBe(4);
+
+		for (let taken = 0; taken < 4; taken += 1) {
+			act(() => {
+				result.current.draw.undo();
+			});
+		}
+		expect(result.current.draw.editedPart?.sketchVertices).toBe(0);
+		expect(result.current.draw.canUndo).toBe(true);
+
+		act(() => {
+			result.current.draw.undo();
+		});
+		expect(result.current.draw.editedPart?.sketchVertices).toBeNull();
+		expect(result.current.draw.canUndo).toBe(false);
+	});
+
+	// A landed reshape is one gesture, the way a moved vertex is, so Undo takes it
+	// back whole and stops at the piece as it was opened.
+	it('takes a landed reshape back in one step', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		sketchOver(fake, result, OUTSIDE_SKETCH);
+		act(() => {
+			result.current.draw.finish();
+		});
+		expect(result.current.draw.editedPart?.sketchVertices).toBeNull();
+
+		act(() => {
+			result.current.draw.undo();
+		});
+		expect(result.current.draw.canUndo).toBe(false);
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(BLOCK)] });
+	});
+
+	// The toolbar tells the user to double-click, so the gesture has to be the one
+	// a browser sends: two clicks and then `dblclick`. The repeated last vertex is
+	// dropped, which is why the result is the one a single click gives.
+	it('lands the reshape line on a double-click', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.startReshape();
+		});
+		for (const [longitude, latitude] of OUTSIDE_SKETCH.slice(0, -1)) {
+			act(() => {
+				fake.click(longitude, latitude);
+			});
+		}
+		const [longitude, latitude] = OUTSIDE_SKETCH[OUTSIDE_SKETCH.length - 1] ?? [0, 0];
+		act(() => {
+			fake.doubleClick(longitude, latitude);
+		});
+
+		expect(result.current.draw.editedPart?.sketchVertices).toBeNull();
+		act(() => {
+			result.current.draw.finish();
+		});
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closed(BULGED_BLOCK)],
+		});
+	});
+
+	// A line drawn out of the piece and straight back over itself replaces the
+	// whole stretch with a line, which is an outline of two corners. Refused by
+	// the same rule that refuses a vertex deleted below the minimum.
+	it('refuses a reshape that folds the outline back on itself', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		sketchOver(fake, result, [
+			[-90, 33],
+			[-90, 38],
+			[-90, 33],
+		]);
+
+		expect(result.current.draw.editedPart?.problem).toBe('tooFewVertices');
+		expect(result.current.draw.canFinish).toBe(false);
+		act(() => {
+			result.current.draw.finish();
+		});
+		expect(result.current.value).toEqual({ type: 'Polygon', coordinates: [closed(BLOCK)] });
+	});
+
+	// Three corners on one line are three corners and no area. #495 refused it
+	// with nothing to call it; the reshape vocabulary gave the refusal a name, so
+	// the message under the button and the red on the map are one answer.
+	it('names an edit that leaves the outline enclosing nothing', () => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, FIRST_SQUARE);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.moveVertex({ ring: 0, vertex: 2 }, [-90, 37]);
+		});
+
+		expect(result.current.draw.editedPart?.problem).toBe('coversNoGround');
+		expect(result.current.draw.canFinish).toBe(false);
 	});
 
 	it('resolves a requested point on the next click', async () => {
