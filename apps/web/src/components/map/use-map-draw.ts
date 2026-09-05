@@ -10,6 +10,7 @@ import {
 	boundsFromGeoJson,
 	type GeoJsonGeometry,
 	geometryContainsLngLat,
+	reshapePath,
 } from '@simmer-mosquito/mapping';
 import type {
 	CircleLayerSpecification,
@@ -231,14 +232,30 @@ export interface DrawContinueDraft extends DrawPartTarget {
  * has pushed outside the outline, or one that now takes the whole of it.
  * `tooFewVertices` is a ring left below the three distinct corners an area
  * needs, or a line below two, which Delete may do and Finish may not.
+ * `tooFewCrossings` is a reshape sketch that never crosses the boundary twice,
+ * so there is no stretch of it to replace. `coversNoGround` is an outline with
+ * corners enough and no area between them, which a reshape can leave and three
+ * clicks in one spot can too.
  */
-export type DrawEditProblem = DrawContinueProblem | 'tooFewVertices';
+export type DrawEditProblem =
+	| DrawContinueProblem
+	| 'tooFewVertices'
+	| 'tooFewCrossings'
+	| 'coversNoGround';
 
 /** The part being edited, what is wrong with it, and which vertex is picked. */
 export interface DrawEditDraft extends DrawPartTarget {
 	readonly problem: DrawEditProblem | null;
 	/** The vertex Delete would remove, or null while none is picked. */
 	readonly selected: DrawVertexRef | null;
+	/**
+	 * How many vertices the reshape line has, or null while there is no sketch.
+	 *
+	 * One field rather than a flag and a count, because a sketch that has been
+	 * started and has no vertices yet is a real state and the two would have to
+	 * agree on it.
+	 */
+	readonly sketchVertices: number | null;
 }
 
 /**
@@ -312,6 +329,18 @@ export interface MapDrawController {
 	readonly insertVertex: (edge: DrawVertexRef, position: DrawPosition) => void;
 	/** Drop one vertex of the open edit, below the ring minimum included. */
 	readonly deleteVertex: (vertex: DrawVertexRef) => void;
+	/**
+	 * Start sketching a line across the open part's outline. The stretch of the
+	 * outline between the sketch's first and last crossing is replaced by the
+	 * sketch, so a sketch running outside the part extends it and one running
+	 * inside carves it away. {@link finish} lands the sketch, and the one after
+	 * that commits the part.
+	 *
+	 * A no-op with no edit open, and for a point, which has one corner and no
+	 * boundary for a line to cross. The holes the part already had are carried
+	 * through untouched: reshaping a hole ring is not this gesture.
+	 */
+	readonly startReshape: () => void;
 	/** Pick the vertex Delete acts on, or clear the pick with `null`. */
 	readonly selectVertex: (vertex: DrawVertexRef | null) => void;
 	/** Drop one part, demoting to the base shape at one and to nothing at zero. */
@@ -482,13 +511,14 @@ type DrawMode = {
 };
 
 /**
- * A committed part open for vertex editing.
+ * A committed part open for editing.
  *
  * Its own mode rather than another {@link DrawTarget}, because a draw collects
- * one flat list of vertices and an edit holds every ring of the part at once. It
- * is the seam #496 and #497 are specified to preview into, so opening it,
- * painting it and committing it are separate from the three gestures that
- * change it. Neither is built.
+ * one flat list of vertices and an edit holds every ring of the part at once.
+ * Opening it, painting it and committing it are separate from the gestures that
+ * change it, which is what lets reshape preview into the same draft the three
+ * vertex gestures write to. Split (#497) is specified to land here too and is
+ * not built.
  */
 type EditMode = {
 	readonly kind: 'edit';
@@ -505,6 +535,15 @@ type EditMode = {
 	 */
 	readonly history: readonly (readonly DrawRing[])[];
 	readonly selected: DrawVertexRef | null;
+	/**
+	 * The reshape line being sketched, or null while the edit is not one.
+	 *
+	 * Its own list rather than another ring, because it is not part of the shape:
+	 * it previews into the rings and is gone the moment it lands. Empty is a
+	 * sketch that has been started and has no vertices yet, which is not the same
+	 * as no sketch at all.
+	 */
+	readonly sketch: readonly DrawPosition[] | null;
 };
 
 type Mode =
@@ -653,7 +692,8 @@ export function useMapDraw({
 		setVertices,
 	});
 
-	const { selectVertex, moveVertex, insertVertex, deleteVertex } = useDrawVertexActions(setMode);
+	const { selectVertex, moveVertex, insertVertex, deleteVertex, startReshape, sketchVertex } =
+		useDrawVertexActions(setMode);
 
 	const { start, cancel, commit, undo, finish, requestPoint } = useDrawSession({
 		map,
@@ -675,12 +715,14 @@ export function useMapDraw({
 		isLoaded,
 		isEditing: mode.kind === 'edit',
 		modeRef,
+		cursorRef,
 		dragRef,
 		repaint,
 		moveVertex,
 		insertVertex,
 		deleteVertex,
 		selectVertex,
+		sketchVertex,
 	});
 
 	const progress = draftProgress(mode, value, vertices);
@@ -701,6 +743,7 @@ export function useMapDraw({
 		insertVertex,
 		deleteVertex,
 		selectVertex,
+		startReshape,
 		removePart,
 		removeHole,
 		holeDraft,
@@ -849,13 +892,21 @@ function useDrawSession({
 		setVertices((previous) => poppedTo(previous, vertexFloor(modeRef.current)));
 	}, [modeRef, setMode, setVertices]);
 
+	// An open sketch is what Finish lands, and the Finish after that commits the
+	// part. Two presses rather than one because the reshaped outline is still a
+	// draft the other gestures can work on, the way a moved vertex is.
 	const finish = useCallback(() => {
 		const current = modeRef.current;
+		if (current.kind === 'edit' && current.sketch !== null) {
+			cursorRef.current = null;
+			setMode(landedSketch);
+			return;
+		}
 		const finished = finishedPart(current, valueRef.current, verticesRef.current);
 		if (finished !== null) {
 			applyPart(finished.target, finished.part);
 		}
-	}, [applyPart, modeRef, valueRef, verticesRef]);
+	}, [applyPart, cursorRef, modeRef, setMode, valueRef, verticesRef]);
 	finishRef.current = finish;
 
 	const requestPoint = useCallback(
@@ -898,10 +949,11 @@ function finishedPart(
 }
 
 /**
- * The three gestures an open edit answers to, plus the pick Delete reads.
+ * The gestures an open edit answers to: the three that move a corner, the pick
+ * Delete reads, and the reshape sketch.
  *
- * Its own hook because all four write the edit mode and nothing else in the
- * controller does. The three that change the rings land through `changeRings`,
+ * Its own hook because all of them write the edit mode and nothing else in the
+ * controller does. The ones that change the rings land through `changeRings`,
  * so a gesture costs exactly one Undo step and none of them can forget to
  * record one.
  */
@@ -973,7 +1025,31 @@ function useDrawVertexActions(setMode: Dispatch<SetStateAction<Mode>>) {
 		[changeRings],
 	);
 
-	return { selectVertex, moveVertex, insertVertex, deleteVertex };
+	// A point has one corner and no boundary a line could cross, so there is
+	// nothing here to sketch across. The pick goes because the vertex gestures are
+	// off for as long as the sketch is open.
+	const startReshape = useCallback(() => {
+		setMode((previous) =>
+			previous.kind === 'edit' && previous.type !== 'Point'
+				? { ...previous, selected: null, sketch: [] }
+				: previous,
+		);
+	}, [setMode]);
+
+	// Not through `changeRings`: a sketch vertex changes no ring, and Undo pops it
+	// one at a time rather than taking the whole sketch back at once.
+	const sketchVertex = useCallback(
+		(position: DrawPosition) => {
+			setMode((previous) =>
+				previous.kind === 'edit' && previous.sketch !== null
+					? { ...previous, sketch: [...previous.sketch, position] }
+					: previous,
+			);
+		},
+		[setMode],
+	);
+
+	return { selectVertex, moveVertex, insertVertex, deleteVertex, startReshape, sketchVertex };
 }
 
 /**
@@ -993,9 +1069,12 @@ function draftProgress(
 		return {
 			drawType: mode.type,
 			vertexCount: countRingVertices(mode.rings),
-			// The same covers-ground rule a draw runs, read off the rings as edited.
+			// The same covers-ground rule a draw runs, read off the rings as edited,
+			// the open sketch folded in.
 			canFinish: editedPartOf(mode) !== null,
-			canUndo: mode.history.length > 0,
+			// A sketch is always something to take back, even before it has a vertex:
+			// Undo is what closes an empty one.
+			canUndo: mode.sketch !== null || mode.history.length > 0,
 		};
 	}
 	return {
@@ -1133,6 +1212,7 @@ function useDrawPartActions({
 				rings: ringsOfPart(part),
 				history: [],
 				selected: null,
+				sketch: null,
 			});
 		},
 		[cursorRef, dragRef, modeRef, valueRef, setMode, setVertices],
@@ -1426,35 +1506,43 @@ const VERTEX_LAYER = `${SOURCE_ID}-vertex`;
 const EDGE_LAYERS = [`${SOURCE_ID}-outline`, `${SOURCE_ID}-line`];
 
 /**
- * The pointer half of vertex editing: grab, drag, drop, click an edge, and
- * Delete.
+ * The pointer half of editing: grab, drag, drop, click an edge, Delete, and the
+ * clicks that trace a reshape line.
  *
  * Its own hook, live only while a part is open for editing, because none of it
  * belongs on a map that is drawing or idle. What each gesture does to the rings
  * is the controller's; this only says which ring and which vertex was meant.
+ *
+ * An open sketch takes the pointer over completely. Every vertex gesture is off
+ * while it is: a click is another sketch vertex, and there is nothing to grab or
+ * delete until the sketch has landed.
  */
 function useDrawEditEvents({
 	map,
 	isLoaded,
 	isEditing,
 	modeRef,
+	cursorRef,
 	dragRef,
 	repaint,
 	moveVertex,
 	insertVertex,
 	deleteVertex,
 	selectVertex,
+	sketchVertex,
 }: {
 	readonly map: MapboxMap | null;
 	readonly isLoaded: boolean;
 	readonly isEditing: boolean;
 	readonly modeRef: { current: Mode };
+	readonly cursorRef: { current: DrawPosition | null };
 	readonly dragRef: { current: DrawDrag | null };
 	readonly repaint: () => void;
 	readonly moveVertex: (vertex: DrawVertexRef, position: DrawPosition) => void;
 	readonly insertVertex: (edge: DrawVertexRef, position: DrawPosition) => void;
 	readonly deleteVertex: (vertex: DrawVertexRef) => void;
 	readonly selectVertex: (vertex: DrawVertexRef | null) => void;
+	readonly sketchVertex: (position: DrawPosition) => void;
 }): void {
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded || !isEditing) {
@@ -1464,7 +1552,7 @@ function useDrawEditEvents({
 		const canvas = activeMap.getCanvas();
 
 		function handleDown(event: MapMouseEvent) {
-			const vertex = vertexUnder(activeMap, event);
+			const vertex = isSketching(modeRef.current) ? null : vertexUnder(activeMap, event);
 			if (vertex === null) {
 				return;
 			}
@@ -1478,6 +1566,14 @@ function useDrawEditEvents({
 		// A drag repaints from the ref rather than through state, so the vertex
 		// follows the cursor at frame rate and the move lands as one change.
 		function handleMove(event: MapMouseEvent) {
+			// The sketch trails the cursor the way a draw's rubber band does, and the
+			// reshape it would make is repainted with it.
+			if (isSketching(modeRef.current)) {
+				cursorRef.current = [event.lngLat.lng, event.lngLat.lat];
+				canvas.style.cursor = 'crosshair';
+				repaint();
+				return;
+			}
 			const drag = dragRef.current;
 			if (drag !== null) {
 				dragRef.current = { vertex: drag.vertex, position: [event.lngLat.lng, event.lngLat.lat] };
@@ -1509,6 +1605,10 @@ function useDrawEditEvents({
 		}
 
 		function handleClick(event: MapMouseEvent) {
+			if (isSketching(modeRef.current)) {
+				sketchVertex([event.lngLat.lng, event.lngLat.lat]);
+				return;
+			}
 			const vertex = vertexUnder(activeMap, event);
 			if (vertex !== null) {
 				selectVertex(vertex);
@@ -1538,7 +1638,12 @@ function useDrawEditEvents({
 				return;
 			}
 			const current = modeRef.current;
-			if (current.kind !== 'edit' || current.selected === null || isTypingInto(event.target)) {
+			if (
+				current.kind !== 'edit' ||
+				current.selected === null ||
+				current.sketch !== null ||
+				isTypingInto(event.target)
+			) {
 				return;
 			}
 			event.preventDefault();
@@ -1564,13 +1669,20 @@ function useDrawEditEvents({
 		isLoaded,
 		isEditing,
 		modeRef,
+		cursorRef,
 		dragRef,
 		repaint,
 		moveVertex,
 		insertVertex,
 		deleteVertex,
 		selectVertex,
+		sketchVertex,
 	]);
+}
+
+/** Whether a reshape line is open, which takes the pointer over completely. */
+function isSketching(mode: Mode): boolean {
+	return mode.kind === 'edit' && mode.sketch !== null;
 }
 
 /** The vertex under the pointer, read off the feature the map answers with. */
@@ -1607,8 +1719,17 @@ function hitBox(event: MapMouseEvent): [PointLike, PointLike] {
 	];
 }
 
-/** Whether the cursor is trailing a segment, which only a line or an area does. */
+/**
+ * Whether the cursor is trailing a segment, which a line, an area and a reshape
+ * sketch all do.
+ *
+ * It is also what double-click answers to, so a sketch completes the way a draw
+ * does rather than needing a gesture of its own.
+ */
 function isRubberBanding(mode: Mode): boolean {
+	if (mode.kind === 'edit') {
+		return mode.sketch !== null;
+	}
 	return mode.kind === 'draw' && mode.type !== 'Point';
 }
 
@@ -1654,7 +1775,7 @@ function buildFeatures({
 		features.push(...draftFeatures(mode, committed, vertices, cursor));
 	}
 	if (mode.kind === 'edit') {
-		features.push(...editFeatures(mode, drag));
+		features.push(...editFeatures(mode, drag, cursor));
 	}
 
 	return features.length === 0 ? EMPTY : { type: 'FeatureCollection', features };
@@ -1676,16 +1797,26 @@ function draftedPartIndex(mode: Mode): number | null {
  * reads the target off the feature rather than searching the rings for the
  * nearest position. The vertex being dragged is drawn under the cursor before
  * the move lands, which is what makes the drag look like one.
+ *
+ * A reshape sketch previews the same way: the rings drawn are the ones the
+ * sketch would leave, the cursor included, so the result is on the map before
+ * the sketch is finished. The sketch itself is drawn over the top of them, so
+ * what was traced and what it did are both visible.
  */
-function editFeatures(mode: EditMode, drag: DrawDrag | null): GeoJSON.Feature[] {
-	const rings =
+function editFeatures(
+	mode: EditMode,
+	drag: DrawDrag | null,
+	cursor: DrawPosition | null,
+): GeoJSON.Feature[] {
+	const dragged =
 		drag === null
 			? mode.rings
 			: (moveRingVertex(mode.rings, drag.vertex, drag.position) ?? mode.rings);
+	const rings = sketchedRings({ ...mode, rings: dragged }, cursor) ?? dragged;
 	const [shell = [], ...holes] = rings;
 	const shape = previewShape(mode.type, shell);
 	const preview = shape === null ? null : withHoles(shape, holes.map(closeRing));
-	const refused = editedPartOf({ ...mode, rings }) === null;
+	const refused = editProblem({ ...mode, rings: dragged }) !== null;
 	return [
 		...(preview === null ? [] : [geometryFeature(preview, false, refused)]),
 		...rings.flatMap((ring, ringIndex) =>
@@ -1699,6 +1830,31 @@ function editFeatures(mode: EditMode, drag: DrawDrag | null): GeoJSON.Feature[] 
 				}),
 			),
 		),
+		...sketchFeatures(mode, cursor, refused),
+	];
+}
+
+/**
+ * The reshape line as traced, with the cursor on the end of it.
+ *
+ * Drawn over the previewed rings rather than instead of them, because a sketch
+ * that has not crossed the boundary twice leaves the shape as it was and the
+ * line is the only thing on screen saying why.
+ */
+function sketchFeatures(
+	mode: EditMode,
+	cursor: DrawPosition | null,
+	refused: boolean,
+): GeoJSON.Feature[] {
+	if (mode.sketch === null) {
+		return [];
+	}
+	const traced = cursor === null ? mode.sketch : [...mode.sketch, cursor];
+	return [
+		...(traced.length < 2
+			? []
+			: [geometryFeature({ type: 'LineString', coordinates: traced }, false, refused)]),
+		...mode.sketch.map((position) => pointFeature(position, { role: 'vertex', refused })),
 	];
 }
 
@@ -2000,7 +2156,11 @@ function dedupeTrailing(vertices: readonly DrawPosition[]): readonly DrawPositio
  * outline is refused by the same answer read from the other end.
  */
 function editedPartOf(mode: EditMode): DrawPartGeometry | null {
-	const [shell = [], ...holes] = mode.rings;
+	const edited = sketchedRings(mode);
+	if (edited === null) {
+		return null;
+	}
+	const [shell = [], ...holes] = edited;
 	if (mode.type === 'Point') {
 		const position = shell[0];
 		return position === undefined ? null : { type: 'Point', coordinates: position };
@@ -2032,25 +2192,66 @@ function editDraftOf(mode: Mode, committed: DrawGeometry | null): DrawEditDraft 
 		...partTargetOf(committed, mode.partIndex),
 		problem: editProblem(mode),
 		selected: mode.selected,
+		sketchVertices: mode.sketch?.length ?? null,
 	};
 }
 
 /**
- * What is wrong with the rings as edited, or null while nothing has a name.
+ * What is wrong with the rings as edited, or null while nothing is.
  *
- * Null is not the same as finishable. A ring of three distinct corners that lie
- * on one line encloses no area, and {@link editedPartOf} refuses it while there
- * is nothing here to call it, which is how a continuation already behaves. The
- * map paints refused off the part rather than off this, so the refusal shows
- * either way.
+ * Every refusal {@link editedPartOf} makes has a name here, in the order the
+ * rings are read: a sketch that never crossed twice, then a ring with too few
+ * corners, then an outline enclosing nothing, then a hole outside it. This is
+ * what the map paints red, so the message under the button and the colour on
+ * screen are one answer.
+ *
+ * The one place it says null where Finish is still unavailable is a sketch too
+ * short to have crossed anything, which is a draw in progress rather than a
+ * refusal, the way one vertex of a polygon is.
  */
 function editProblem(mode: EditMode): DrawEditProblem | null {
-	const [shell = [], ...holes] = mode.rings;
-	if (mode.rings.some((ring) => !hasDistinctPositions(ring, ringMinimum(mode.type)))) {
+	const rings = sketchedRings(mode);
+	if (rings === null) {
+		// A sketch of one vertex or none has not been drawn yet. Calling that a
+		// refusal would paint the piece red the moment Reshape was pressed.
+		return mode.sketch !== null && mode.sketch.length < 2 ? null : 'tooFewCrossings';
+	}
+	if (rings.some((ring) => !hasDistinctPositions(ring, ringMinimum(mode.type)))) {
 		return 'tooFewVertices';
 	}
-	const outline = partFromVertices(mode.type, shell);
-	return holes.length > 0 && outline !== null && editedPartOf(mode) === null ? 'holesEscape' : null;
+	const [shell = [], ...holes] = rings;
+	if (partFromVertices(mode.type, shell) === null) {
+		return 'coversNoGround';
+	}
+	return holes.length > 0 && editedPartOf(mode) === null ? 'holesEscape' : null;
+}
+
+/**
+ * The rings as the sketch would leave them, the rings themselves when there is
+ * no sketch, or null when the sketch cannot reshape them.
+ *
+ * Only the outline is reshaped. The holes the part already had ride through
+ * untouched, and one the new outline no longer contains is refused by the same
+ * `holesEscape` that refuses a hole cut outside its piece.
+ *
+ * `trailing` is the cursor, so the result the map previews follows the pointer.
+ * Everything that decides whether Finish may land reads the placed vertices
+ * alone, which is how the draw path already separates the two.
+ */
+function sketchedRings(
+	mode: EditMode,
+	trailing: DrawPosition | null = null,
+): readonly DrawRing[] | null {
+	if (mode.sketch === null) {
+		return mode.rings;
+	}
+	const [shell, ...holes] = mode.rings;
+	if (shell === undefined) {
+		return null;
+	}
+	const sketch = dedupeTrailing(trailing === null ? mode.sketch : [...mode.sketch, trailing]);
+	const outcome = reshapePath({ path: shell, sketch, closed: mode.type === 'Polygon' });
+	return outcome.kind === 'reshaped' ? [outcome.path, ...holes] : null;
 }
 
 /** How many distinct positions one ring of `type` needs to be worth anything. */
@@ -2066,13 +2267,41 @@ function countRingVertices(rings: readonly DrawRing[]): number {
 	return rings.reduce((total, ring) => total + ring.length, 0);
 }
 
-/** `mode` with its last gesture taken back, stopping at the part as opened. */
+/**
+ * `mode` with its last gesture taken back, stopping at the part as opened.
+ *
+ * An open sketch is unwound first, one vertex at a time, and an empty one is
+ * what Undo closes. Without that last step a sketch nobody wanted could only be
+ * left by abandoning the whole edit.
+ */
 function undoneEdit(mode: Mode): Mode {
 	if (mode.kind !== 'edit') {
 		return mode;
+	}
+	if (mode.sketch !== null) {
+		return mode.sketch.length === 0
+			? { ...mode, sketch: null }
+			: { ...mode, sketch: mode.sketch.slice(0, -1) };
 	}
 	const rings = mode.history.at(-1);
 	return rings === undefined
 		? mode
 		: { ...mode, rings, history: mode.history.slice(0, -1), selected: null };
+}
+
+/**
+ * `mode` with the sketch folded into the rings, or unchanged when the sketch
+ * cannot reshape them.
+ *
+ * One Undo step, the way a moved vertex is, and the sketch is gone: what it left
+ * behind is an outline the other gestures work on.
+ */
+function landedSketch(mode: Mode): Mode {
+	if (mode.kind !== 'edit' || mode.sketch === null) {
+		return mode;
+	}
+	const rings = sketchedRings(mode);
+	return rings === null
+		? mode
+		: { ...mode, rings, history: [...mode.history, mode.rings], selected: null, sketch: null };
 }

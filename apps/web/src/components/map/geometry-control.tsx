@@ -62,6 +62,7 @@ const UploadIcon = iconRegistry.actions.upload.icon;
 const AddIcon = iconRegistry.actions.add.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
+const ReshapeIcon = iconRegistry.actions.reshape.icon;
 
 export interface GeometryControlProps {
 	readonly controller: MapDrawController;
@@ -414,6 +415,11 @@ export function DrawToolbar({
 	const editedPart = controller.editedPart;
 	const isPoint = geometryType === 'Point' && editedPart === null;
 	const selected = editedPart?.selected ?? null;
+	const isSketching = editedPart?.sketchVertices != null;
+	// A point has one corner and no boundary for a line to cross. Which record
+	// kinds get this far is `OWNED_GEOMETRY_POLICIES` already: the shape being
+	// edited is one the register let the record store.
+	const canReshape = editedPart !== null && controller.drawType !== 'Point';
 
 	return (
 		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
@@ -434,7 +440,9 @@ export function DrawToolbar({
 							Undo
 						</Button>
 					)}
-					{editedPart === null ? null : (
+					{/* Both gestures act on the open edit, and the sketch takes the map
+					    over while it runs, so neither is offered during the other. */}
+					{editedPart === null || isSketching ? null : (
 						<Button
 							disabled={selected === null}
 							onClick={() => {
@@ -450,6 +458,12 @@ export function DrawToolbar({
 							Delete vertex
 						</Button>
 					)}
+					{canReshape && !isSketching ? (
+						<Button onClick={controller.startReshape} size="sm" type="button" variant="ghost">
+							<ReshapeIcon aria-hidden="true" data-icon="inline-start" />
+							Reshape
+						</Button>
+					) : null}
 					<Button onClick={controller.cancel} size="sm" type="button" variant="ghost">
 						<XIcon aria-hidden="true" data-icon="inline-start" />
 						Cancel
@@ -536,13 +550,45 @@ function toolbarInstruction(controller: MapDrawController, type: DrawGeometryTyp
  */
 function editInstruction(draft: DrawEditDraft): string {
 	const named = draft.partCount > 1 ? `piece ${draft.partNumber}` : 'the shape';
+	if (draft.sketchVertices !== null) {
+		return reshapeInstruction(draft, named);
+	}
 	if (draft.problem === 'holesEscape') {
 		return `The holes must stay inside ${named}.`;
 	}
 	if (draft.problem === 'tooFewVertices') {
 		return 'Add a vertex back to finish.';
 	}
+	if (draft.problem === 'coversNoGround') {
+		return `That leaves nothing of ${named}.`;
+	}
 	return `Editing ${named} · drag a vertex, or click an edge to add one.`;
+}
+
+/**
+ * What the toolbar says while a reshape line is being sketched.
+ *
+ * The result is on the map from the second click, so past that the line says
+ * what Finish lands rather than describing the shape back.
+ */
+function reshapeInstruction(draft: DrawEditDraft, named: string): string {
+	if ((draft.sketchVertices ?? 0) < 2) {
+		return `Click the map to draw a line across the edge of ${named}.`;
+	}
+	if (draft.problem === 'tooFewCrossings') {
+		return 'The line has to cross the edge twice.';
+	}
+	// A line that folds the edge back over itself leaves an outline of two
+	// corners, which the vertex gestures name `tooFewVertices` and answer with
+	// "add one back". There is no vertex to add back here: the line took them, and
+	// redrawing it is the only way out. So both read as the collapse they are.
+	if (draft.problem === 'coversNoGround' || draft.problem === 'tooFewVertices') {
+		return `That leaves nothing of ${named}.`;
+	}
+	if (draft.problem === 'holesEscape') {
+		return `The holes must stay inside ${named}.`;
+	}
+	return `Reshaping ${named} · double-click or Finish to keep it.`;
 }
 
 function drawInstruction(

@@ -1305,8 +1305,12 @@ Ruled out on the map, each with the ticket that ruled it.
   draw mode with its vertices preloaded, went out with it here and was built
   afterwards under #445, so a shape that stopped one vertex early is no longer
   redraw-or-nothing. The three gestures themselves were built afterwards too,
-  under #495, over an edit draft seeded with every ring of one part. Reshape and
-  split, #449's other two children, preview into that draft and are not built.
+  under #495, over an edit draft seeded with every ring of one part. Reshape
+  followed under #496 and previews into that same draft: a line sketched across a
+  part's outline replaces the stretch between its first and last crossing, so one
+  gesture extends where it runs outside and carves where it runs inside. Split,
+  #449's last child, reuses the crossing helper #496 put in `packages/mapping`
+  and is not built.
 - Importing a point from a file. No import surface has ever produced a Point, and
   adding one is a new capability with no multipart in it.
 - GeometryCollection as a record geometry. Nothing in mosquito control needs a

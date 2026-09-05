@@ -101,6 +101,14 @@ export {
 	overlayVisibilityFromDefinitions,
 } from './overlays.js';
 export type {
+	PlanarPath,
+	PlanarPosition,
+	ReshapeOutcome,
+	ReshapeRefusal,
+	SketchCrossing,
+} from './sketch.js';
+export { reshapePath, sketchCrossings } from './sketch.js';
+export type {
 	MapTileFilterPrimitive,
 	MapTileFilterValue,
 	MapTileLayerId,

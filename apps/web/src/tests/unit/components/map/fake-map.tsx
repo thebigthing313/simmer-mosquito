@@ -166,6 +166,23 @@ export function createFakeMap() {
 		move(lng: number, lat: number) {
 			this.emit('mousemove', { lngLat: { lng, lat }, point: { x: 0, y: 0 } });
 		},
+		/**
+		 * A double-click, as the browser delivers one: both clicks land first, then
+		 * `dblclick`.
+		 *
+		 * The two clicks are the reason the draw path dedupes a repeated last
+		 * vertex, so a helper that fired `dblclick` alone would test a gesture
+		 * nobody makes.
+		 */
+		doubleClick(lng: number, lat: number) {
+			this.click(lng, lat);
+			this.click(lng, lat);
+			this.emit('dblclick', {
+				lngLat: { lng, lat },
+				point: { x: 0, y: 0 },
+				preventDefault: () => {},
+			});
+		},
 		/** What a basemap switch does before it fires `style.load`. */
 		wipeStyle() {
 			sources.clear();
