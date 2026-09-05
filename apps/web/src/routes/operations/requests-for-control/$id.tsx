@@ -27,6 +27,7 @@ import {
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
+import { RequestStatusBadge } from '../../../components/request-status-badge';
 import { WriteOnly } from '../../../components/write-only';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import {
@@ -53,7 +54,7 @@ import {
 } from '../../../hooks/use-owned-geometry';
 import { CONTROL_REQUEST_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { useCommandRunner } from '../-command-runner';
-import { MissionStatusBadge, RequestStatusBadge } from '../-operations-display';
+import { MissionStatusBadge } from '../-operations-display';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
 const MissionIcon = iconRegistry.entities.route.icon;

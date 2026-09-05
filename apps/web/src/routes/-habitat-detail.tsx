@@ -61,9 +61,11 @@ import {
 	RecordDetailSkeleton,
 	RecordUnavailable,
 } from '../components/record';
+import { RequestStatusBadge } from '../components/request-status-badge';
 import { WriteOnly } from '../components/write-only';
 import { useHabitatMutations } from '../hooks/mutations/use-habitat-mutations';
 import type { Habitat } from '../hooks/queries/habitat-view';
+import { controlTypeLabel, requestStatus } from '../hooks/queries/operations-view';
 import type { Tag } from '../hooks/queries/tag-view';
 import {
 	useApplicationMethodRoster,
@@ -72,6 +74,7 @@ import {
 import {
 	type HabitatHistoryApplication,
 	type HabitatHistoryInspection,
+	type HabitatHistoryRequest,
 	type HabitatHistorySample,
 	type HabitatHistorySampleRow,
 	type HabitatHistorySpecies,
@@ -519,15 +522,24 @@ function TagBadge({ tag }: { readonly tag: Tag }) {
 }
 
 function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
-	const { inspections, samples, applications, isReady, isError, isApplicationsError } =
-		useHabitatHistory(habitatId);
+	const {
+		inspections,
+		samples,
+		applications,
+		requests,
+		isReady,
+		isError,
+		isApplicationsError,
+		isRequestsError,
+	} = useHabitatHistory(habitatId);
 
 	return (
 		<Card variant="surface">
 			<CardHeader className="px-4 py-4">
 				<CardTitle>History</CardTitle>
 				<CardDescription>
-					Recent larval inspections, samples, and applications for this habitat.
+					Recent larval inspections, samples, applications, and requests for control at this
+					habitat.
 				</CardDescription>
 			</CardHeader>
 			<CardContent padding="compact">
@@ -542,6 +554,7 @@ function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 							<TabsTrigger value="inspections">Inspections ({inspections.length})</TabsTrigger>
 							<TabsTrigger value="samples">Samples ({samples.length})</TabsTrigger>
 							<TabsTrigger value="applications">Applications ({applications.length})</TabsTrigger>
+							<TabsTrigger value="requests">Requests ({requests.length})</TabsTrigger>
 						</TabsList>
 						<TabsContent value="inspections" className="pt-4">
 							<InspectionHistory inspections={inspections} />
@@ -557,6 +570,16 @@ function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 								/>
 							) : (
 								<ApplicationHistory applications={applications} />
+							)}
+						</TabsContent>
+						<TabsContent value="requests" className="pt-4">
+							{isRequestsError ? (
+								<HistoryEmpty
+									title="Requests Unavailable"
+									description="Request history could not be loaded."
+								/>
+							) : (
+								<RequestHistory requests={requests} />
 							)}
 						</TabsContent>
 					</Tabs>
@@ -786,6 +809,78 @@ function ApplicationHistory({
 	);
 }
 
+/**
+ * Requests for control raised against this habitat, open and resolved alike.
+ *
+ * Resolved rows stay: the tab answers "has anyone asked for work here", and a
+ * request that was dealt with last week is part of that answer. The status
+ * column is what separates the two. Rows do not link out, which is the shape the
+ * three tabs beside this one already have.
+ */
+function RequestHistory({ requests }: { readonly requests: readonly HabitatHistoryRequest[] }) {
+	const { page, pageCount, pageRows, setPage } = usePagedRows(requests, historyPageSize);
+	const timeZone = useOrganizationTimeZone();
+
+	if (requests.length === 0) {
+		return (
+			<HistoryEmpty
+				title="No Requests Yet"
+				description="Requests for control raised against this habitat will show here."
+			/>
+		);
+	}
+
+	return (
+		<div className="grid gap-2">
+			<ScrollArea className="max-h-[420px]">
+				<Table>
+					<TableHeader>
+						<TableRow>
+							<TableHead>Raised</TableHead>
+							<TableHead>Requested by</TableHead>
+							<TableHead>Type</TableHead>
+							<TableHead>Summary</TableHead>
+							<TableHead>Status</TableHead>
+						</TableRow>
+					</TableHeader>
+					<TableBody>
+						{pageRows.map((request) => (
+							<TableRow key={request.id}>
+								<TableCell className="whitespace-nowrap">
+									{formatDateTime(request.requestedAt, timeZone)}
+								</TableCell>
+								<TableCell className="whitespace-nowrap">
+									{request.requestedByProfileId === null ? (
+										<EmptyValue />
+									) : (
+										<Suspense fallback={<span className="text-muted-foreground">…</span>}>
+											<ProfileName profileId={request.requestedByProfileId} />
+										</Suspense>
+									)}
+								</TableCell>
+								<TableCell className="whitespace-nowrap">
+									{controlTypeLabel(request.controlType)}
+								</TableCell>
+								<TableCell>{requestSummary(request) ?? <EmptyValue />}</TableCell>
+								<TableCell>
+									<RequestStatusBadge status={requestStatus(request)} />
+								</TableCell>
+							</TableRow>
+						))}
+					</TableBody>
+				</Table>
+			</ScrollArea>
+			<ExplorerPagination
+				noun={{ one: 'request', many: 'requests' }}
+				onPageChange={setPage}
+				page={page}
+				pageCount={pageCount}
+				total={requests.length}
+			/>
+		</div>
+	);
+}
+
 function SampleSpeciesSummary({ species }: { readonly species: readonly HabitatHistorySpecies[] }) {
 	if (species.length === 0) {
 		return <span className="text-muted-foreground">No species identified</span>;
@@ -965,6 +1060,17 @@ function habitatDescription(habitat: Habitat): string {
 
 function sampleName(sample: HabitatHistorySample): string {
 	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
+}
+
+/**
+ * A request's summary, or nothing.
+ *
+ * `requestDisplayName` in the read seam falls back to "Application requested",
+ * which is the right subject line where a request has no other name. Here the
+ * Type column already says that, so a blank summary is a dash instead.
+ */
+function requestSummary(request: HabitatHistoryRequest): string | null {
+	return request.summary?.trim() || null;
 }
 
 function locationSummary(geometry: HabitatGeometry | null, isPending: boolean): string {

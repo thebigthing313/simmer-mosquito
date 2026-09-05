@@ -6,7 +6,6 @@ import {
 	MISSION_STATUS_LABELS,
 	type MissionProgressCounts,
 	type MissionStatus,
-	type RequestStatus,
 } from '../../hooks/queries/operations-view';
 import {
 	type MissionItemProgress,
@@ -18,9 +17,12 @@ import {
  * The badges and one-line summaries the operations surfaces share.
  *
  * Split out because a mission reads the same on its map page, its detail page,
- * and inside the card floating over the map, and a request reads the same in the
- * queue and on its own page. Nothing here fetches — every function takes what it
- * renders.
+ * and inside the card floating over the map. Nothing here fetches — every
+ * function takes what it renders.
+ *
+ * A request's status badge used to live here and now sits in
+ * `components/request-status-badge.tsx`, because the habitat's History card
+ * shows one too and pulling this module in would drag the mission reads with it.
  */
 
 const missionStatusTones = {
@@ -34,18 +36,6 @@ export function MissionStatusBadge({ status }: { readonly status: MissionStatus 
 	return (
 		<Badge className="shrink-0" tone={missionStatusTones[status]} variant="outline">
 			{MISSION_STATUS_LABELS[status]}
-		</Badge>
-	);
-}
-
-/**
- * A request is open or it is not. Open takes the louder tone: the queue is read
- * to find what still needs doing.
- */
-export function RequestStatusBadge({ status }: { readonly status: RequestStatus }) {
-	return (
-		<Badge className="shrink-0" tone={status === 'open' ? 'info' : 'success'} variant="outline">
-			{status === 'open' ? 'Open' : 'Resolved'}
 		</Badge>
 	);
 }

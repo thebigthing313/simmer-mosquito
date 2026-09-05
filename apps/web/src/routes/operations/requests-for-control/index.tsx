@@ -23,6 +23,7 @@ import {
 	usePersonnelOptions,
 } from '../../../components/explorer';
 import { MapCanvas } from '../../../components/map';
+import { RequestStatusBadge } from '../../../components/request-status-badge';
 import {
 	CONTROL_TYPES,
 	controlTypeLabel,
@@ -43,7 +44,6 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../../lib/search-filters';
-import { RequestStatusBadge } from '../-operations-display';
 
 const RequestIcon = iconRegistry.domains.controlOperations.icon;
 const RESULT_NOUN = { one: 'request', many: 'requests' };
