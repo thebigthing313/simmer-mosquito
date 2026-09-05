@@ -180,6 +180,7 @@ export function TrapFormPage({
 					<>
 						<MapCanvas onMapReady={location.onMapReady} />
 						<DrawToolbar
+							geometryKind="trap"
 							controller={draw}
 							geometryType="Point"
 							pointPrompt="Click the map to place the trap point."

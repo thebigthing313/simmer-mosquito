@@ -1,10 +1,16 @@
-import { OWNED_GEOMETRY_POLICIES } from '@simmer-mosquito/domain';
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { normalizeOwnedGeometry, OWNED_GEOMETRY_POLICIES } from '@simmer-mosquito/domain';
+import {
+	type GeoJsonGeometry,
+	ownedCentroidFromGeoJson,
+	type PlanarPath,
+	splitRings,
+} from '@simmer-mosquito/mapping';
 import { corpusRegionFor, REGION_MEMBERSHIP_CORPUS } from '@simmer-mosquito/mapping/test-corpus';
 import type { Kysely } from 'kysely';
 import { expect, it } from 'vitest';
 import {
 	createAddress,
+	geojsonToGeom,
 	listHabitatDisplayRowsByBounds,
 	type SimmerDatabase,
 	sql,
@@ -28,6 +34,33 @@ const SHAPE_BY_UPPER_NAME: Readonly<Record<string, string>> = {
 	MULTILINESTRING: 'MultiLineString',
 	MULTIPOLYGON: 'MultiPolygon',
 };
+
+/**
+ * A habitat outline with a pond in it, and a line drawn straight across both.
+ *
+ * The shape of the hard case in the split corpus, at the magnitudes the database
+ * actually stores. The pond straddles the line, so each half of its ring becomes
+ * part of the outline of one piece and neither piece keeps a hole. A clip that
+ * gets that wrong draws fine and is what PostGIS refuses at write, which is why
+ * the answer is read back out of the database rather than off the client's own
+ * covers-ground check.
+ */
+const SPLIT_OUTLINE: PlanarPath = [
+	[-91, 34],
+	[-91, 37],
+	[-88, 37],
+	[-88, 34],
+];
+const SPLIT_POND: PlanarPath = [
+	[-90, 35],
+	[-90, 36],
+	[-89, 36],
+	[-89, 35],
+];
+const SPLIT_LINE: PlanarPath = [
+	[-89.5, 33],
+	[-89.5, 38],
+];
 
 /** The two shapes whose centroid PostGIS weights by length and the client does not. */
 const LINEAR: ReadonlySet<string> = new Set(['LineString', 'MultiLineString']);
@@ -207,6 +240,96 @@ describeDbIntegration('owned geometry columns', () => {
 				expect(owners.get(table), `${table} is in no policy row`).toHaveLength(1);
 			}
 			expect([...storable.keys()].sort()).toEqual([...owners.keys()].sort());
+		});
+	});
+
+	/**
+	 * A split committed the way a location command commits one.
+	 *
+	 * The draw control's own rule is `geometryCoversGround`, which answers for one
+	 * ring at a time and has nothing to say about a hole clipped onto the wrong
+	 * side. `normalizeOwnedGeometry` is the domain half of the location command and
+	 * `geojsonToGeom` is the writer every one of them goes through, so the two of
+	 * them plus a real `geom` column is the round trip.
+	 *
+	 * The two pieces share the line they were cut along, and OGC calls a
+	 * MultiPolygon whose parts meet along an edge invalid. That is not a clip that
+	 * went wrong: cutting one shape in two and keeping both in one geometry always
+	 * ends there, and the alternative is two records, which #497 rules out. So
+	 * `st_isvalid` is false and is asserted false rather than left unread, and the
+	 * measurements that are read back are the ones the operations this schema runs
+	 * depend on. `ST_Intersects` and `ST_Relate` answer correctly over it, which is
+	 * what region membership reads. #518 carries the rest.
+	 */
+	it('writes the two pieces a split leaves, sharing the line they were cut along', async () => {
+		await withTestDb(async ({ db }) => {
+			const organization = await db
+				.insertInto('organizations')
+				.values({
+					workos_organization_id: 'workos_org_split_geometry',
+					name: 'Split Geometry District',
+				})
+				.returning(['id'])
+				.executeTakeFirstOrThrow();
+
+			const cut = splitRings({
+				rings: [SPLIT_OUTLINE, SPLIT_POND],
+				sketch: SPLIT_LINE,
+				closed: true,
+			});
+			if (cut.kind !== 'split') {
+				throw new Error(`The corpus shape did not split: ${cut.refusal}.`);
+			}
+			const geometry = normalizeOwnedGeometry('habitat', {
+				type: 'MultiPolygon',
+				coordinates: cut.parts.map((part) => part.map((ring) => [...ring, ...ring.slice(0, 1)])),
+			});
+
+			const habitat = await db
+				.insertInto('habitats')
+				.values({
+					organization_id: organization.id,
+					geom: geojsonToGeom(geometry),
+					habitat_name: 'Split pond',
+					description: '',
+					metadata: null,
+				})
+				.returning(['id', 'geom_type'])
+				.executeTakeFirstOrThrow();
+
+			const read = await sql<{
+				valid: boolean;
+				pieces: number;
+				rings: number;
+				area: number;
+				holds_pond: boolean;
+				holds_block: boolean;
+			}>`
+				select
+					st_isvalid(geom) as valid,
+					st_numgeometries(geom) as pieces,
+					(select sum(st_nrings(g.geom)) from st_dump(habitats.geom) g) as rings,
+					st_area(geom) as area,
+					st_contains(geom, st_setsrid(st_makepoint(-89.7, 35.5), 4326)) as holds_pond,
+					st_contains(geom, st_setsrid(st_makepoint(-90.5, 35.5), 4326)) as holds_block
+				from habitats
+				where id = ${habitat.id}
+			`.execute(db);
+
+			expect(habitat.geom_type).toBe('st_multipolygon');
+			expect(Number(read.rows[0]?.pieces)).toBe(2);
+			// One ring each: the pond the line crossed is boundary now, not a hole.
+			expect(Number(read.rows[0]?.rings)).toBe(2);
+			// Nine square degrees of block less one of pond, which is the arithmetic
+			// that fails when an arc of the pond lands on the wrong side of the cut.
+			expect(Number(read.rows[0]?.area)).toBeCloseTo(8);
+			// The pond is still out and the rest of the block still in, so the ring
+			// that stopped being a hole is doing the same job as boundary.
+			expect(read.rows[0]?.holds_pond).toBe(false);
+			expect(read.rows[0]?.holds_block).toBe(true);
+			// The shared edge, pinned rather than left unread. A change that made the
+			// pieces disjoint would be a real change and should fail here first.
+			expect(read.rows[0]?.valid).toBe(false);
 		});
 	});
 

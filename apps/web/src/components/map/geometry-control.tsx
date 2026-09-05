@@ -6,6 +6,7 @@ import {
 	ownedGeometryAllowsParts,
 } from '@simmer-mosquito/domain';
 import {
+	formatGeometryTypeLabel,
 	type GeoJsonGeometry,
 	type ImportGeometryKind,
 	isImportGeometryKind,
@@ -63,6 +64,7 @@ const AddIcon = iconRegistry.actions.add.icon;
 const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 const ReshapeIcon = iconRegistry.actions.reshape.icon;
+const SplitIcon = iconRegistry.actions.split.icon;
 
 export interface GeometryControlProps {
 	readonly controller: MapDrawController;
@@ -390,10 +392,16 @@ function GeometrySources({
 export function DrawToolbar({
 	controller,
 	geometryType,
+	geometryKind,
 	pointPrompt = 'Click the map to place the point.',
 }: {
 	readonly controller: MapDrawController;
 	readonly geometryType: DrawGeometryType;
+	/**
+	 * The record kind being drawn. The toolbar reads its policy to say why a
+	 * split refuses, which is the one line here that differs by record.
+	 */
+	readonly geometryKind: OwnedGeometryKind;
 	readonly pointPrompt?: string;
 }) {
 	if (controller.isRequestingPoint) {
@@ -415,17 +423,22 @@ export function DrawToolbar({
 	const editedPart = controller.editedPart;
 	const isPoint = geometryType === 'Point' && editedPart === null;
 	const selected = editedPart?.selected ?? null;
-	const isSketching = editedPart?.sketchVertices != null;
+	const isSketching = editedPart?.sketch != null;
 	// A point has one corner and no boundary for a line to cross. Which record
 	// kinds get this far is `OWNED_GEOMETRY_POLICIES` already: the shape being
 	// edited is one the register let the record store.
-	const canReshape = editedPart !== null && controller.drawType !== 'Point';
+	//
+	// Split is offered on the same terms, on a kind that cannot store a second
+	// piece included. The refusal it draws names the shapes that kind stores,
+	// which is the only place the user finds out why, and a hidden button says
+	// nothing at all.
+	const canSketch = editedPart !== null && controller.drawType !== 'Point';
 
 	return (
 		<div className="pointer-events-none absolute inset-x-4 bottom-4 z-10 flex justify-center motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-2">
 			<div className="pointer-events-auto flex max-w-full flex-col gap-2 rounded-lg border border-border/60 bg-card/95 p-2 shadow-lg backdrop-blur-sm">
 				<p className="m-0 px-1 text-muted-foreground text-xs">
-					{toolbarInstruction(controller, geometryType)}
+					{toolbarInstruction(controller, geometryType, geometryKind)}
 				</p>
 				<div className="flex items-center gap-1.5">
 					{isPoint ? null : (
@@ -458,10 +471,16 @@ export function DrawToolbar({
 							Delete vertex
 						</Button>
 					)}
-					{canReshape && !isSketching ? (
+					{canSketch && !isSketching ? (
 						<Button onClick={controller.startReshape} size="sm" type="button" variant="ghost">
 							<ReshapeIcon aria-hidden="true" data-icon="inline-start" />
 							Reshape
+						</Button>
+					) : null}
+					{canSketch && !isSketching ? (
+						<Button onClick={controller.startSplit} size="sm" type="button" variant="ghost">
+							<SplitIcon aria-hidden="true" data-icon="inline-start" />
+							Split
 						</Button>
 					) : null}
 					<Button onClick={controller.cancel} size="sm" type="button" variant="ghost">
@@ -528,7 +547,11 @@ function drawLabel(type: DrawGeometryType, hasGeometry: boolean): string {
 }
 
 /** What the toolbar says the current draw is, which is one of three things. */
-function toolbarInstruction(controller: MapDrawController, type: DrawGeometryType): string {
+function toolbarInstruction(
+	controller: MapDrawController,
+	type: DrawGeometryType,
+	kind: OwnedGeometryKind,
+): string {
 	if (controller.holeDraft !== null) {
 		return holeInstruction(controller.vertexCount, controller.holeDraft);
 	}
@@ -536,7 +559,7 @@ function toolbarInstruction(controller: MapDrawController, type: DrawGeometryTyp
 		return continueInstruction(controller.vertexCount, controller.continuedPart);
 	}
 	if (controller.editedPart !== null) {
-		return editInstruction(controller.editedPart);
+		return editInstruction(controller.editedPart, kind);
 	}
 	return drawInstruction(type, controller.vertexCount, controller.isAddingPart);
 }
@@ -548,9 +571,12 @@ function toolbarInstruction(controller: MapDrawController, type: DrawGeometryTyp
  * Delete is not: it has a button of its own beside Finish. The piece is named
  * once there are several, the way a hole names the one it is cut into.
  */
-function editInstruction(draft: DrawEditDraft): string {
+function editInstruction(draft: DrawEditDraft, kind: OwnedGeometryKind): string {
 	const named = draft.partCount > 1 ? `piece ${draft.partNumber}` : 'the shape';
-	if (draft.sketchVertices !== null) {
+	if (draft.sketch?.tool === 'split') {
+		return splitInstruction(draft, named, kind);
+	}
+	if (draft.sketch !== null) {
 		return reshapeInstruction(draft, named);
 	}
 	if (draft.problem === 'holesEscape') {
@@ -572,7 +598,7 @@ function editInstruction(draft: DrawEditDraft): string {
  * what Finish lands rather than describing the shape back.
  */
 function reshapeInstruction(draft: DrawEditDraft, named: string): string {
-	if ((draft.sketchVertices ?? 0) < 2) {
+	if ((draft.sketch?.vertices ?? 0) < 2) {
 		return `Click the map to draw a line across the edge of ${named}.`;
 	}
 	if (draft.problem === 'tooFewCrossings') {
@@ -589,6 +615,43 @@ function reshapeInstruction(draft: DrawEditDraft, named: string): string {
 		return `The holes must stay inside ${named}.`;
 	}
 	return `Reshaping ${named} · double-click or Finish to keep it.`;
+}
+
+/**
+ * What the toolbar says while a split line is being sketched.
+ *
+ * The record-kind refusal comes first and stays put, because it is true before
+ * the first click and no line will make it false. It names the shapes off
+ * `OWNED_GEOMETRY_POLICIES` rather than out of a list written here, so a policy
+ * that gains the multi shape changes the sentence with it.
+ */
+function splitInstruction(draft: DrawEditDraft, named: string, kind: OwnedGeometryKind): string {
+	if (draft.problem === 'cannotHoldParts') {
+		return `${storableShapes(kind)}, so there is nowhere to put the second piece.`;
+	}
+	if ((draft.sketch?.vertices ?? 0) < 2) {
+		return `Click the map to draw a line across ${named}.`;
+	}
+	if (draft.problem === 'doesNotDivide') {
+		return `The line has to cross ${named} and come out the other side.`;
+	}
+	if (draft.problem === 'coversNoGround' || draft.problem === 'tooFewVertices') {
+		return 'That leaves nothing on one side of the line.';
+	}
+	if (draft.problem === 'holesEscape') {
+		return `The holes must stay inside ${named}.`;
+	}
+	return `Splitting ${named} in two · double-click or Finish to keep it.`;
+}
+
+/** What a record of `kind` may store, read off the register and said in words. */
+function storableShapes(kind: OwnedGeometryKind): string {
+	const labels = getOwnedGeometryPolicy(kind).allowedTypes.map(formatGeometryTypeLabel);
+	const last = labels.at(-1);
+	if (labels.length < 2 || last === undefined) {
+		return `This record stores one ${last ?? 'shape'}`;
+	}
+	return `This record stores one ${labels.slice(0, -1).join(', ')} or ${last}`;
 }
 
 function drawInstruction(

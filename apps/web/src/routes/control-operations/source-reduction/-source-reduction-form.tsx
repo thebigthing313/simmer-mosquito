@@ -221,7 +221,11 @@ export function SourceReductionFormPage({
 							geoJson={referenceGeometry as unknown as GeoJSON.GeoJSON | null}
 							onMapReady={location.onMapReady}
 						/>
-						<DrawToolbar controller={draw} geometryType={geometryType} />
+						<DrawToolbar
+							geometryKind="controlAction"
+							controller={draw}
+							geometryType={geometryType}
+						/>
 					</>
 				}
 				onSubmit={() => {

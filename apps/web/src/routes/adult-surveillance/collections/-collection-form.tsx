@@ -341,6 +341,7 @@ export function CollectionFormPage({
 							onMapReady={location.onMapReady}
 						/>
 						<DrawToolbar
+							geometryKind="collection"
 							controller={draw}
 							geometryType="Point"
 							pointPrompt="Click the map to place the collection point."

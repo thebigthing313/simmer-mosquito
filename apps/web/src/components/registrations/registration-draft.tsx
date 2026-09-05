@@ -392,6 +392,7 @@ function DraftToolbar({
 
 	return createPortal(
 		<DrawToolbar
+			geometryKind="notificationRegistration"
 			controller={controller}
 			geometryType={geometryType}
 			pointPrompt="Click the map to place this registration."

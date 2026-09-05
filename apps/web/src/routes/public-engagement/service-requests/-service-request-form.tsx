@@ -254,6 +254,7 @@ export function ServiceRequestFormPage({
 					<>
 						<MapCanvas onMapReady={location.onMapReady} />
 						<DrawToolbar
+							geometryKind="serviceRequest"
 							controller={draw}
 							geometryType="Point"
 							pointPrompt="Click the map to place the request location."

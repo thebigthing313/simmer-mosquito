@@ -161,6 +161,7 @@ export function HabitatFormPage({
 							{...(editCamera === undefined ? {} : { camera: editCamera })}
 						/>
 						<DrawToolbar
+							geometryKind="habitat"
 							controller={draw}
 							geometryType={geometryType}
 							pointPrompt="Click the map to place the address point."

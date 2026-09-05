@@ -402,7 +402,11 @@ export function InspectionFormPage({
 							]}
 							onMapReady={location.onMapReady}
 						/>
-						<DrawToolbar controller={draw} geometryType={adhocGeometryType} />
+						<DrawToolbar
+							geometryKind="inspection"
+							controller={draw}
+							geometryType={adhocGeometryType}
+						/>
 					</>
 				}
 				onSubmit={() => {

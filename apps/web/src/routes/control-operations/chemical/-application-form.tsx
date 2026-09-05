@@ -425,7 +425,11 @@ export function ApplicationFormPage({
 				aside={
 					<>
 						<MapCanvas onMapReady={location.onMapReady} />
-						<DrawToolbar controller={draw} geometryType={geometryType} />
+						<DrawToolbar
+							geometryKind="controlAction"
+							controller={draw}
+							geometryType={geometryType}
+						/>
 					</>
 				}
 				onSubmit={() => {
