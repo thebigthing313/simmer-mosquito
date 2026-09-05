@@ -1,3 +1,4 @@
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Avatar, AvatarFallback, AvatarImage } from '@simmer-mosquito/ui-web/components/ui/avatar';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -12,7 +13,7 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
-import { type ReactNode, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { type AuthenticatedMe, requestPasswordReset } from '../auth';
 import { useProfileNames } from '../hooks/queries/use-profile-names';
@@ -95,8 +96,8 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 						<CardDescription>Your sign-in identity.</CardDescription>
 					</CardHeader>
 					<CardContent padding="compact">
-						<dl className="grid gap-2.5">
-							<DetailRow label="Name">{orNotSet(fullName)}</DetailRow>
+						<DetailList>
+							<DetailRow label="Name">{fullName}</DetailRow>
 							<DetailRow label="Email">{user.email}</DetailRow>
 							<DetailRow label="Email verified">
 								{user.emailVerified === true ? (
@@ -109,7 +110,7 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 									</Badge>
 								)}
 							</DetailRow>
-						</dl>
+						</DetailList>
 					</CardContent>
 				</Card>
 
@@ -119,17 +120,13 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 						<CardDescription>How your work is attributed.</CardDescription>
 					</CardHeader>
 					<CardContent padding="compact">
-						<dl className="grid gap-2.5">
-							<DetailRow label="Organization">
-								{orNotSet(localIdentity.organizationName ?? null)}
-							</DetailRow>
+						<DetailList>
+							<DetailRow label="Organization">{localIdentity.organizationName}</DetailRow>
 							<DetailRow label="Role">
 								{formatRole(membership?.role ?? localIdentity.role)}
 							</DetailRow>
 							<DetailRow label="Status">
-								{membership === undefined ? (
-									'—'
-								) : (
+								{membership === undefined ? null : (
 									<Badge
 										tone={membership.status === 'active' ? 'success' : 'neutral'}
 										variant="outline"
@@ -139,11 +136,9 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 								)}
 							</DetailRow>
 							<DetailRow label="Attributed as">
-								{orNotSet(
-									(profileId === null ? undefined : profileNameById.get(profileId)) ?? null,
-								)}
+								{profileId === null ? null : profileNameById.get(profileId)}
 							</DetailRow>
-						</dl>
+						</DetailList>
 					</CardContent>
 				</Card>
 
@@ -184,23 +179,6 @@ function PasswordResetButton({ email }: { readonly email: string }) {
 		<Button disabled={pending} onClick={handleClick} type="button" variant="outline">
 			{pending ? 'Sending…' : 'Send reset link'}
 		</Button>
-	);
-}
-
-function DetailRow({ children, label }: { readonly children: ReactNode; readonly label: string }) {
-	return (
-		<div className="grid grid-cols-[8.5rem_minmax(0,1fr)] items-center gap-3">
-			<dt className="text-muted-foreground text-sm">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground text-sm">{children}</dd>
-		</div>
-	);
-}
-
-function orNotSet(value: string | null): ReactNode {
-	return value === null || value.trim() === '' ? (
-		<span className="text-muted-foreground">—</span>
-	) : (
-		value
 	);
 }
 

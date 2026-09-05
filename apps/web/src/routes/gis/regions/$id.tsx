@@ -1,4 +1,5 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -8,7 +9,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/card';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import type { ReactNode } from 'react';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
@@ -141,11 +141,11 @@ function RegionDetailsCard({
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
-					<DetailRow label="Folder">
-						{folderName ?? <span className="text-muted-foreground">Unfiled</span>}
+				<DetailList>
+					<DetailRow empty="Unfiled" label="Folder">
+						{folderName}
 					</DetailRow>
-				</dl>
+				</DetailList>
 				{description !== null && description.trim().length > 0 ? (
 					<div className="grid gap-1">
 						<span className="font-semibold text-muted-foreground text-xs uppercase">
@@ -156,14 +156,5 @@ function RegionDetailsCard({
 				) : null}
 			</CardContent>
 		</Card>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[90px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
 	);
 }

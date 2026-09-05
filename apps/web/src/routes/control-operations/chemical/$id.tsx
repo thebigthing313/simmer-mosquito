@@ -1,5 +1,7 @@
 import type { InsecticideBatch as InsecticideBatchOption } from '@simmer-mosquito/sync';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -35,7 +37,7 @@ import {
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
@@ -497,26 +499,26 @@ function ApplicationDetailsCard({
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
+				<DetailList>
 					<DetailRow label="Product">{productName}</DetailRow>
 					<DetailRow label="Amount">{amount}</DetailRow>
 					<DetailRow label="Date">{formatActionDate(application.actionDate)}</DetailRow>
-					<DetailRow label="Method">
-						{application.methodName ?? <NotSet>No method</NotSet>}
+					<DetailRow empty="No method" label="Method">
+						{application.methodName}
 					</DetailRow>
-					<DetailRow label="Applicator">
-						{application.applicatorName ?? <NotSet>Unassigned</NotSet>}
+					<DetailRow empty="Unassigned" label="Applicator">
+						{application.applicatorName}
 					</DetailRow>
-					<DetailRow label="Vehicle">{application.vehicleName ?? <NotSet>None</NotSet>}</DetailRow>
-					<DetailRow label="Equipment">
-						{application.equipmentName ?? <NotSet>None</NotSet>}
+					<DetailRow empty="None" label="Vehicle">
+						{application.vehicleName}
 					</DetailRow>
-					<DetailRow label="Habitat">
-						{application.habitatId === null ? (
-							<NotSet>Standalone — no habitat</NotSet>
-						) : (
+					<DetailRow empty="None" label="Equipment">
+						{application.equipmentName}
+					</DetailRow>
+					<DetailRow empty="Standalone, no habitat" label="Habitat">
+						{application.habitatId === null ? null : (
 							<Link
-								className="rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								className={recordLink()}
 								params={{ id: application.habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
@@ -527,24 +529,11 @@ function ApplicationDetailsCard({
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={application.addressId} />
 					</DetailRow>
-				</dl>
+				</DetailList>
 				<AdditionalPersonnelList target={{ type: 'application', id: application.id }} />
 			</CardContent>
 		</Card>
 	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[92px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
-	);
-}
-
-function NotSet({ children }: { readonly children: ReactNode }) {
-	return <span className="text-muted-foreground">{children}</span>;
 }
 
 // --- states ------------------------------------------------------------------

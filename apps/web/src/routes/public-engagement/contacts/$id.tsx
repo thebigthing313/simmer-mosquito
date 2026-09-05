@@ -1,3 +1,5 @@
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -119,12 +121,12 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 					<CardTitle>Identity</CardTitle>
 				</CardHeader>
 				<CardContent padding="compact">
-					<dl className="grid gap-2.5">
-						<DetailRow label="Name">{orNotSet(contact.contactName)}</DetailRow>
-						<DetailRow label="Company">{orNotSet(contact.company)}</DetailRow>
-						<DetailRow label="Department">{orNotSet(contact.department)}</DetailRow>
-						<DetailRow label="Title">{orNotSet(contact.title)}</DetailRow>
-					</dl>
+					<DetailList>
+						<DetailRow label="Name">{contact.contactName}</DetailRow>
+						<DetailRow label="Company">{contact.company}</DetailRow>
+						<DetailRow label="Department">{contact.department}</DetailRow>
+						<DetailRow label="Title">{contact.title}</DetailRow>
+					</DetailList>
 				</CardContent>
 			</Card>
 
@@ -133,11 +135,11 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 					<CardTitle>Communication</CardTitle>
 				</CardHeader>
 				<CardContent className="grid gap-4" padding="compact">
-					<dl className="grid gap-2.5">
-						<DetailRow label="Preferred">{orNotSet(contact.preferredPhone)}</DetailRow>
-						<DetailRow label="Alternate">{orNotSet(contact.alternatePhone)}</DetailRow>
-						<DetailRow label="Email">{emailOrNotSet(contact.email)}</DetailRow>
-					</dl>
+					<DetailList>
+						<DetailRow label="Preferred">{contact.preferredPhone}</DetailRow>
+						<DetailRow label="Alternate">{contact.alternatePhone}</DetailRow>
+						<DetailRow label="Email">{mailtoLink(contact.email)}</DetailRow>
+					</DetailList>
 					<div className="flex flex-wrap gap-1.5">
 						<PreferenceBadge active={contact.wantsEmail} label="Email" />
 						<PreferenceBadge active={contact.wantsSms} label="SMS" />
@@ -219,37 +221,18 @@ function PreferenceBadge({ active, label }: { readonly active: boolean; readonly
 	);
 }
 
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[90px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
-	);
-}
-
 function CardMessage({ children }: { readonly children: ReactNode }) {
 	return <p className="m-0 px-1 py-4 text-center text-muted-foreground text-sm">{children}</p>;
 }
 
-function orNotSet(value: string | null): ReactNode {
-	return value === null || value.trim().length === 0 ? (
-		<span className="text-muted-foreground">Not set</span>
-	) : (
-		value
-	);
-}
-
-function emailOrNotSet(email: string | null): ReactNode {
+/** The address as a link that opens a mail client, or nothing for the row to report. */
+function mailtoLink(email: string | null): ReactNode {
 	const trimmed = email?.trim() ?? '';
 	if (trimmed.length === 0) {
-		return <span className="text-muted-foreground">Not set</span>;
+		return null;
 	}
 	return (
-		<a
-			className="rounded-sm hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-			href={`mailto:${trimmed}`}
-		>
+		<a className={recordLink({ tone: 'inherit', underline: 'hover' })} href={`mailto:${trimmed}`}>
 			{trimmed}
 		</a>
 	);

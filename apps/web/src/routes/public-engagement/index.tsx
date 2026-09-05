@@ -1,7 +1,9 @@
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
 import { type ReactNode, useMemo } from 'react';
 import { OutletSimpleLayout } from '../../components/app-shell';
@@ -154,11 +156,7 @@ function PanelRow({
 				<span className="mt-0.5 shrink-0 text-muted-foreground">{icon}</span>
 			)}
 			<div className="grid min-w-0 flex-1">
-				<Link
-					className="truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					params={params}
-					to={to}
-				>
+				<Link className={cn(recordLink({ size: 'sm' }), 'truncate')} params={params} to={to}>
 					{primary}
 				</Link>
 				<span className="min-w-0 text-muted-foreground text-xs">{secondary}</span>

@@ -1,6 +1,8 @@
 import type { ControlType, LarvalDensity } from '@simmer-mosquito/domain';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -19,9 +21,10 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { CalendarIcon, iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { useQuery } from '@tanstack/react-query';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, Suspense } from 'react';
+import { Suspense } from 'react';
 import { getServerUrl } from '../../../auth';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { AdditionalPersonnelList } from '../../../components/additional-personnel-list';
@@ -264,7 +267,7 @@ function InspectionSubtitle({ inspection }: { readonly inspection: InspectionDet
 		<p className="m-0 inline-flex flex-wrap items-center gap-1.5 text-[0.95rem] text-muted-foreground">
 			<span>at</span>
 			<Link
-				className="rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+				className={recordLink()}
 				params={{ id: inspection.habitatId }}
 				to="/larval-surveillance/habitats/$id"
 			>
@@ -405,13 +408,13 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
-				<dl className="grid gap-2.5">
+				<DetailList>
 					<DetailRow label="Habitat">
 						{inspection.habitatId === null ? (
 							<span className="tabular-nums">{adhocLabel(inspection.lat, inspection.lng)}</span>
 						) : (
 							<Link
-								className="inline-flex items-center gap-1.5 rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+								className={cn(recordLink(), 'inline-flex items-center gap-1.5')}
 								params={{ id: inspection.habitatId }}
 								to="/larval-surveillance/habitats/$id"
 							>
@@ -428,16 +431,14 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 					<DetailRow label="Address">
 						<LinkedAddressValueById addressId={inspection.addressId} />
 					</DetailRow>
-					<DetailRow label="Inspector">
-						{inspection.inspectedByName ?? (
-							<span className="text-muted-foreground">Unassigned</span>
-						)}
+					<DetailRow empty="Unassigned" label="Inspector">
+						{inspection.inspectedByName}
 					</DetailRow>
 					<DetailRow label="Inspected">{formatFullDate(inspection.inspectionDate)}</DetailRow>
 					<DetailRow label="Coordinates">{coordinateLabel(inspection)}</DetailRow>
 					<DetailRow label="Recorded">{formatDateTime(inspection.createdAt, timeZone)}</DetailRow>
 					<DetailRow label="Updated">{formatDateTime(inspection.updatedAt, timeZone)}</DetailRow>
-				</dl>
+				</DetailList>
 				<AdditionalPersonnelList target={{ type: 'inspection', id: inspection.id }} />
 			</CardContent>
 		</Card>
@@ -512,7 +513,7 @@ function SampleItem({ sample }: { readonly sample: SampleEntry }) {
 		<li className="grid gap-2 rounded-md border border-border/40 bg-background/60 px-3 py-2.5">
 			<div className="flex flex-wrap items-center justify-between gap-2">
 				<Link
-					className="rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+					className={recordLink({ size: 'sm' })}
 					params={{ id: sample.id }}
 					to="/larval-surveillance/samples/$id"
 				>
@@ -771,15 +772,6 @@ function LinkedActionsEmpty({
 				<EmptyDescription>{description}</EmptyDescription>
 			</EmptyHeader>
 		</Empty>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[100px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
 	);
 }
 

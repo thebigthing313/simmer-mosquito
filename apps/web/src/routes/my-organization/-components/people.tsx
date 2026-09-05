@@ -1,3 +1,4 @@
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
@@ -21,6 +22,7 @@ import {
 	SheetTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/sheet';
 import { Switch } from '@simmer-mosquito/ui-web/components/ui/switch';
+import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { toast } from 'sonner';
@@ -232,7 +234,7 @@ function ProfileRowItem({
 					    row action goes. Same absence of gates: every member may read
 					    Daily Work, and a deactivated Profile still has records behind it. */}
 					<Link
-						className="w-fit rounded-sm font-medium wrap-anywhere text-foreground text-sm leading-snug hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						className={cn(recordLink({ size: 'sm' }), 'w-fit wrap-anywhere leading-snug')}
 						params={{ profileId: person.profileId }}
 						to="/daily-work/$profileId"
 					>

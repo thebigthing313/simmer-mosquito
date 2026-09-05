@@ -1,3 +1,4 @@
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import {
 	ComponentIcon,
@@ -75,7 +76,7 @@ export function InspectionMapCard({
 					<span className="tabular-nums">{siteLabel}</span>
 				) : (
 					<Link
-						className="rounded-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+						className={recordLink({ tone: 'inherit' })}
 						params={{ id: inspection.habitatId }}
 						to="/larval-surveillance/habitats/$id"
 					>

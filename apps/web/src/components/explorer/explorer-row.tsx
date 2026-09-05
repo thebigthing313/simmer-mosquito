@@ -1,3 +1,4 @@
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { ChevronRightIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { Link, type LinkProps } from '@tanstack/react-router';
@@ -286,7 +287,10 @@ function RowTitle({
 	return (
 		<Link
 			{...link}
-			className="pointer-events-auto relative z-10 block w-fit max-w-full truncate rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
+			className={cn(
+				recordLink({ size: 'sm' }),
+				'pointer-events-auto relative z-10 block w-fit max-w-full truncate',
+			)}
 		>
 			{title}
 		</Link>

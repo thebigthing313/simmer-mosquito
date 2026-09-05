@@ -1,3 +1,5 @@
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -12,7 +14,7 @@ import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { type ReactNode, useCallback, useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
 import type { AskAcknowledged } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { CommentsSection } from '../../../components/comments-section';
@@ -341,10 +343,10 @@ function RequestDetailsCard({
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact">
-				<dl className="grid gap-2.5">
+				<DetailList>
 					<RequestFactRows request={request} />
 					<RequestLinkRows habitatName={habitatName} request={request} />
-				</dl>
+				</DetailList>
 			</CardContent>
 		</Card>
 	);
@@ -360,15 +362,15 @@ function RequestFactRows({ request }: { readonly request: RequestRecord }) {
 	return (
 		<>
 			<DetailRow label="Control type">{controlTypeLabel(request.controlType)}</DetailRow>
-			<DetailRow label="Method">{methodName ?? <NotSet>No method named</NotSet>}</DetailRow>
-			<DetailRow label="Summary">
+			<DetailRow empty="No method named" label="Method">
+				{methodName}
+			</DetailRow>
+			<DetailRow empty="No summary" label="Summary">
 				{request.summary?.trim() ? (
 					<span className="whitespace-pre-wrap">{request.summary}</span>
-				) : (
-					<NotSet>No summary</NotSet>
-				)}
+				) : null}
 			</DetailRow>
-			<DetailRow label="Raised by">{raisedBy ?? <NotSet>Not recorded</NotSet>}</DetailRow>
+			<DetailRow label="Raised by">{raisedBy}</DetailRow>
 			<DetailRow label="Raised">{formatScheduledStart(request.requestedAt, timeZone)}</DetailRow>
 			{request.resolvedAt === null ? null : (
 				<DetailRow label="Resolved">
@@ -393,12 +395,10 @@ function RequestLinkRows({
 			<DetailRow label="Address">
 				<LinkedAddressValueById addressId={request.addressId} />
 			</DetailRow>
-			<DetailRow label="Habitat">
-				{request.habitatId === null ? (
-					<NotSet>None</NotSet>
-				) : (
+			<DetailRow empty="None" label="Habitat">
+				{request.habitatId === null ? null : (
 					<Link
-						className={recordLinkClass}
+						className={recordLink()}
 						params={{ id: request.habitatId }}
 						to="/larval-surveillance/habitats/$id"
 					>
@@ -406,12 +406,10 @@ function RequestLinkRows({
 					</Link>
 				)}
 			</DetailRow>
-			<DetailRow label="Inspection">
-				{request.inspectionId === null ? (
-					<NotSet>None</NotSet>
-				) : (
+			<DetailRow empty="None" label="Inspection">
+				{request.inspectionId === null ? null : (
 					<Link
-						className={recordLinkClass}
+						className={recordLink()}
 						params={{ id: request.inspectionId }}
 						to="/larval-surveillance/inspections/$id"
 					>
@@ -419,12 +417,10 @@ function RequestLinkRows({
 					</Link>
 				)}
 			</DetailRow>
-			<DetailRow label="Collection">
-				{request.collectionId === null ? (
-					<NotSet>None</NotSet>
-				) : (
+			<DetailRow empty="None" label="Collection">
+				{request.collectionId === null ? null : (
 					<Link
-						className={recordLinkClass}
+						className={recordLink()}
 						params={{ id: request.collectionId }}
 						to="/adult-surveillance/collections/$id"
 					>
@@ -435,9 +431,6 @@ function RequestLinkRows({
 		</>
 	);
 }
-
-const recordLinkClass =
-	'rounded-sm font-medium text-foreground hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring';
 
 /**
  * The recommended method's name.
@@ -456,17 +449,4 @@ function useProfileName(profileId: string | null): string | null {
 	return profileId === null
 		? null
 		: (profiles.find((profile) => profile.id === profileId)?.displayName ?? 'Unknown profile');
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[92px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
-		</div>
-	);
-}
-
-function NotSet({ children }: { readonly children: ReactNode }) {
-	return <span className="text-muted-foreground">{children}</span>;
 }

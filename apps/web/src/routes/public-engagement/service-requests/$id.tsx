@@ -1,4 +1,6 @@
 import { boundsFromGeoJson, circlePolygon } from '@simmer-mosquito/mapping';
+import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -322,13 +324,13 @@ function RequestDetailsCard({
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
 				<p className="m-0 whitespace-pre-wrap text-foreground text-sm">{request.details}</p>
-				<dl className="grid gap-2.5 border-border/50 border-t pt-4">
+				<DetailList className="border-border/50 border-t pt-4">
 					<DetailRow label="Intake">{intakeTypeLabel(request.intakeType)}</DetailRow>
 					<DetailRow label="Date">{formatRequestDate(request.requestDate)}</DetailRow>
-					<DetailRow label="Received by">
-						{receivedByName ?? <span className="text-muted-foreground">Unknown</span>}
+					<DetailRow empty="Unknown" label="Received by">
+						{receivedByName}
 					</DetailRow>
-				</dl>
+				</DetailList>
 			</CardContent>
 		</Card>
 	);
@@ -797,7 +799,7 @@ function ContactParty({ contactId }: { readonly contactId: string }) {
 	return (
 		<>
 			<Link
-				className="w-fit rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className={cn(recordLink({ size: 'sm' }), 'w-fit')}
 				params={{ id: contact.id }}
 				to="/public-engagement/contacts/$id"
 			>
@@ -836,7 +838,7 @@ function AddressParty({ addressId }: { readonly addressId: string }) {
 	return (
 		<>
 			<Link
-				className="w-fit rounded-sm font-medium text-foreground text-sm hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+				className={cn(recordLink({ size: 'sm' }), 'w-fit')}
 				params={{ id: address.id }}
 				to="/gis/addresses/$id"
 			>
@@ -876,10 +878,7 @@ function PartyRow({
 				{href === undefined ? (
 					value
 				) : (
-					<a
-						className="rounded-sm hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						href={href}
-					>
+					<a className={recordLink({ tone: 'inherit', underline: 'hover' })} href={href}>
 						{value}
 					</a>
 				)}
@@ -1002,15 +1001,6 @@ function CloseReopenButton({
 				required={false}
 				title={copy.title}
 			/>
-		</div>
-	);
-}
-
-function DetailRow({ label, children }: { readonly label: string; readonly children: ReactNode }) {
-	return (
-		<div className="grid grid-cols-[100px_1fr] items-baseline gap-3 text-sm">
-			<dt className="truncate text-muted-foreground">{label}</dt>
-			<dd className="m-0 min-w-0 text-foreground">{children}</dd>
 		</div>
 	);
 }
