@@ -27,7 +27,7 @@ The public seam re-exports implementation modules under
 - `core.ts` for shared command context, contact/address/location normalizers,
   and notification registration helpers
 
-Commands use the `publicEngagement.*` namespace and carry agency command
+Commands use the `publicEngagement.*` namespace and carry organization command
 context:
 
 - `organizationId`
@@ -35,7 +35,7 @@ context:
 
 Server `AuthContext` remains authoritative and verifies both IDs. SIMMER
 operator support tooling and future public portal intake use separate workflows,
-not these agency commands.
+not these organization commands.
 
 Client-generated IDs are required wherever the client creates a durable row.
 The main exception is `generateMissionNotifications`, where the server derives a
@@ -56,7 +56,11 @@ Contact management is manager-and-above. Collectors may view contacts and use
 shared comment/tag commands where those support workflows allow it. Viewers are
 read-only.
 
-Contacts are durable agency-owned public-person or public-organization records.
+Contacts are durable organization-owned records for a member of the public,
+either a person or a body such as a business or an HOA. That body is never an
+Organization. An Organization is the SIMMER customer that owns the row, and the
+business a Contact names or works for is `company`.
+
 Create requires at least one broad identity field after trimming:
 
 - `contactName`
@@ -170,10 +174,10 @@ Request intake types are:
 - `walk-in`
 - `other`
 
-Agency commands require explicit `requestDate` and `intakeType`; UI may default
-`intakeType` to `online`. `requestDate` is a `LocalDateString`. Pure builders
-validate date shape and real calendar dates. Server handlers enforce non-future
-dates in the organization timezone.
+Organization commands require explicit `requestDate` and `intakeType`; UI may
+default `intakeType` to `online`. `requestDate` is a `LocalDateString`. Pure
+builders validate date shape and real calendar dates. Server handlers enforce
+non-future dates in the organization timezone.
 
 `receivedByProfileId` defaults to the actor when omitted. Explicit `null` is
 allowed for unknown or backfilled external/online-origin requests. Non-null
@@ -354,7 +358,7 @@ Status corrections are allowed regardless of mission lifecycle.
 
 ## Permissions
 
-Public engagement agency command permissions:
+Public engagement organization command permissions:
 
 - owner/admin/manager:
   - manage contacts
@@ -369,9 +373,9 @@ Public engagement agency command permissions:
 - viewer:
   - read-only
 
-SIMMER operators do not bypass agency roles through `publicEngagement.*`
-commands. If a SIMMER operator is also an agency member, they act through that
-agency membership.
+SIMMER operators do not bypass organization roles through `publicEngagement.*`
+commands. If a SIMMER operator is also an organization member, they act through
+that organization membership.
 
 ## Offline and mobile expectations
 
@@ -404,7 +408,7 @@ These landed in
 `202605140001_public_engagement_mission_dispatch_domain_updates.sql`, and the
 database was read back on 2026-08-19: `contacts.fax` is gone, the
 `notification_channel` enum is `email`, `sms`, and `phone` with no `fax`, and
-notification type names are unique per agency through a normalized,
+notification type names are unique per organization through a normalized,
 soft-delete-aware index:
 
 ```sql

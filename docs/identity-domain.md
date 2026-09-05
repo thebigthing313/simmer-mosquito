@@ -67,7 +67,8 @@ The second system is WorkOS, and it is called after the Postgres transaction
 commits. A failure between the two leaves a Membership at `invited` with no
 invitation mail sent, which reads on the People page as somebody invited who
 never got a link. The repair is a re-invitation, and it is the safe direction.
-The other order sends a working link to somebody the agency has no row for.
+The other order sends a working link to somebody the organization has no row
+for.
 
 `identity.reinvite` is a separate command because a second call to
 `identity.invite` cannot be both a retry to swallow and a deliberate redo. It
@@ -98,7 +99,7 @@ replace, and an ended one is a fresh invitation.
 Both invite paths used to answer `reason: error.message`, which put a string
 WorkOS writes straight into a browser (#220). The one seen on staging named an
 address; the next could name an internal id or an account WorkOS holds for
-another agency, and nothing in this repo decides which.
+another organization, and nothing in this repo decides which.
 
 `apps/server/src/invitation-refusal.ts` answers instead, from the HTTP status
 WorkOS replied with rather than from its prose. Three names, because there are
@@ -107,8 +108,8 @@ three next moves:
 - `invitation_refused` — WorkOS turned the address down. Postgres already
   refuses the two cases the People page can see, so what reaches here is drift:
   a membership or invitation WorkOS holds and SIMMER has no row for.
-- `invitation_service_unauthorized` — 401 or 403. SIMMER's own credentials, or
-  an agency wired to a WorkOS organization it cannot write to. A retry
+- `invitation_service_unauthorized` — 401 or 403. SIMMER's own credentials, or a
+  SIMMER Organization wired to a WorkOS organization it cannot write to. A retry
   reproduces it.
 - `invitation_service_unavailable` — 429, a 5xx, or no answer at all. Worth
   retrying.
@@ -123,7 +124,7 @@ a re-invitation whose revoke landed clears the column itself. Either way there i
 nothing to revoke. That is not an error and must not block the re-invitation; it
 mails the replacement and leaves nothing behind.
 
-## The agency's own row has two vocabularies, by shape
+## The organization's own row has two vocabularies, by shape
 
 `organizations.name` and the mailing columns are
 `identity.updateOrganizationDetails`. `organizations.settings` is seven
@@ -134,27 +135,27 @@ has no column diff to read an intent off, so the settings commands cannot go on
 the per-table surface. See "The nine commands that are not on it" in the
 contract.
 
-## An agency address is US-shaped
+## An organization address is US-shaped
 
 Two fields on `identity.updateOrganizationDetails` enforce it. `mailingRegion`
 is upper-cased and must be one of the 51 state and district codes.
 `mailingCountry` is upper-cased and must be `US`. Either one can be `null`,
-because an agency that has not filled its address in is not an error, but
+because an organization that has not filled its address in is not an error, but
 neither can name somewhere else.
 
-The reason is that SIMMER does not expect an agency outside the US. A mosquito
-control district is a US institution, and the assumption is already load-bearing
-elsewhere: the agency timezone picker offers US zones only. Until this rule the
-constraint lived in three places and was stated in none, as a set of state codes
-in the domain, a hardcoded `'US'` in the web mutation plan, and a fixed option
-list in the details form. The country column was the one that had never been
-told, so a direct API caller could write an address in a state of somewhere
-else.
+The reason is that SIMMER does not expect an organization outside the US. A
+mosquito control district is a US institution, and the assumption is already
+load-bearing elsewhere: the organization timezone picker offers US zones only.
+Until this rule the constraint lived in three places and was stated in none, as
+a set of state codes in the domain, a hardcoded `'US'` in the web mutation plan,
+and a fixed option list in the details form. The country column was the one that
+had never been told, so a direct API caller could write an address in a state of
+somewhere else.
 
-A non-US agency would need more than widening these two checks. The region list
-is US states, the timezone picker is US zones, the postal code is validated at
-20 characters of anything, and no field carries a locale. Whoever takes that on
-should read this section first and treat it as the record of why the support
+A non-US organization would need more than widening these two checks. The region
+list is US states, the timezone picker is US zones, the postal code is validated
+at 20 characters of anything, and no field carries a locale. Whoever takes that
+on should read this section first and treat it as the record of why the support
 does not exist yet.
 
 ## Field names
@@ -167,7 +168,7 @@ answers `409 organization_conflict` when the row has moved since.
 The check is worth stating plainly, because a false conflict is possible.
 `updated_at` belongs to the row rather than to the field being edited, so a
 colleague who changed the timezone while the details sheet was open is a
-conflict too. That is the safe direction, and agency-level writes are rare
+conflict too. That is the safe direction, and organization-level writes are rare
 enough that the false conflict is rarer than the real one.
 
 Sending no `expectedUpdatedAt` writes regardless, which is what an editor with
@@ -176,9 +177,9 @@ nothing to compare against does.
 ## A Profile created by command has no login
 
 `identity.createProfile` writes `user_id: null`. That is a **historical**
-Profile: somebody the agency attributes work to who never signed in, or who left
-before SIMMER. Attaching a login is an invitation, which is a different floor and
-a command that spans WorkOS.
+Profile: somebody the organization attributes work to who never signed in, or
+who left before SIMMER. Attaching a login is an invitation, which is a different
+floor and a command that spans WorkOS.
 
 There is no delete. A Profile is what records name, so the way to stop offering
 one is `is_active`, which `identity.updateProfile` writes.

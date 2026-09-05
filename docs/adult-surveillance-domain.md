@@ -49,8 +49,8 @@ Adjacent shared domains own:
 ## Important semantics
 
 `traps` are recurring adult surveillance configurations: collection method,
-point location, optional lure, optional address, and agency display identity.
-They are not physical equipment.
+point location, optional lure, optional address, and organization display
+identity. They are not physical equipment.
 
 Trap management is manager-and-above. Collection method, lure, and organization
 species management is owner/admin only.
@@ -59,7 +59,7 @@ Collections are field collection attempts or collected records. Species counts
 are separate analysis transactions. Collection creation commands must not embed
 species count mutations.
 
-Pending collections exist only for exact timestamp workflows. Agencies that
+Pending collections exist only for exact timestamp workflows. Organizations that
 record adult surveillance only after lab arrival can create collected records
 directly with collection date and duration.
 

@@ -5,7 +5,7 @@ rules live in `docs/domain-command-contract.md`. This file records weather
 vocabulary and exceptions.
 
 This captures the weather command decisions from the domain interview. V1 is
-agency-uploaded weather summary data only. Provider feeds, NWS sources,
+organization-uploaded weather summary data only. Provider feeds, NWS sources,
 subscriptions, server-side raw observation aggregation, persisted import
 sessions, and detailed sync design are deferred.
 
@@ -20,7 +20,7 @@ The top-level file is the public seam. Its current implementation lives behind
 splits can stay inside the weather domain folder without changing caller
 imports.
 
-Commands use the `weather.*` namespace and carry agency command context:
+Commands use the `weather.*` namespace and carry organization command context:
 
 - `organizationId`
 - `actorProfileId`
@@ -34,8 +34,8 @@ stations, summaries, or imports.
 
 ## V1 scope
 
-V1 supports agency-created weather stations and agency-entered bucket summary
-data.
+V1 supports organization-created weather stations and organization-entered
+bucket summary data.
 
 Out of scope for v1:
 
@@ -49,7 +49,7 @@ Out of scope for v1:
 - Per-summary station/location snapshots.
 - Automatic retry, backfill, or recompute jobs.
 
-The existing `weather_sources.source_type` column remains, but agency commands
+The existing `weather_sources.source_type` column remains, but weather commands
 always create and manage `source_type = 'organization'` rows with
 `provider_source_id = null`. The `nws` source type is future plumbing only.
 
@@ -105,7 +105,7 @@ stale, server handlers reject with a conflict. If omitted, last-write-wins.
 
 ## Weather summaries
 
-Weather summaries are agency-managed bucket aggregate records, not raw
+Weather summaries are organization-managed bucket aggregate records, not raw
 observations.
 
 Summary commands:
@@ -115,10 +115,9 @@ Summary commands:
 - `weather.deleteWeatherSummary`
 - `weather.commitWeatherSummaryImport`
 
-Summary date buckets use agency-local calendar dates from organization settings.
-The server resolves the organization timezone, defaulting to
-`America/New_York`, for future-date checks. Summaries do not store a per-row
-timezone.
+Summary date buckets use organization-local calendar dates. The server resolves
+the organization timezone, defaulting to `America/New_York`, for future-date
+checks. Summaries do not store a per-row timezone.
 
 Buckets use inclusive `startDate` and inclusive `endDate`. Same-day buckets
 store `endDate = startDate`; domain commands never emit `endDate = null`.
@@ -246,13 +245,14 @@ blank rows are not deletion requests.
 
 ## Permissions
 
-Weather agency command permissions:
+Weather organization command permissions:
 
 - owner/admin/manager: full station, summary, and import management
 - collector/viewer: read-only
 
-SIMMER operators do not bypass agency roles through `weather.*`. If a SIMMER
-operator is also an agency member, they act through that agency membership.
+SIMMER operators do not bypass organization roles through `weather.*`. If a
+SIMMER operator is also an organization member, they act through that
+organization membership.
 
 ## Sync
 

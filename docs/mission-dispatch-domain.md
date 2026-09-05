@@ -119,10 +119,11 @@ Mission scheduling uses exact instants plus a local rain date:
 When an end time is present it must be strictly after the start time. The server
 validates effective schedule changes against stored values.
 
-`rainDate` is an agency-local calendar date. The server resolves organization
-timezone, defaulting to `America/New_York`, and validates the rain date is on or
-after the agency-local date of `scheduledStartAt`. Rain date is informational
-planning metadata; it does not automatically reschedule or activate a mission.
+`rainDate` is an organization-local calendar date. The server resolves
+organization timezone, defaulting to `America/New_York`, and validates the rain
+date is on or after the organization-local date of `scheduledStartAt`. Rain date
+is informational planning metadata; it does not automatically reschedule or
+activate a mission.
 
 No recurring missions, all-day mission mode, default duration, or default
 notification type are part of v1.
@@ -630,7 +631,7 @@ Collector restrictions:
 
 Viewer is read-only.
 
-SIMMER operators do not bypass agency roles through `missionDispatch.*`.
+SIMMER operators do not bypass organization roles through `missionDispatch.*`.
 
 ## Mobile, offline, sync, and imports
 
