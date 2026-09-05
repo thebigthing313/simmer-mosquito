@@ -9,11 +9,11 @@ import {
 	activityEntryKey,
 	buildActivityMapData,
 	groupActivityByDay,
-} from './-activity-monitor-data';
+} from './-activity-data';
 
 // What a page holding one Profile's field work derives from the response, and
-// how the map and the list stay pointed at the same entry. Two surfaces read
-// this: the Activity Monitor over a range, and Daily Work over one day.
+// how the map and the list stay pointed at the same entry. Daily Work reads it
+// over one day, and the response it reads is still a window's.
 // Dash-prefixed so TanStack Router ignores this file as a route.
 
 /**
@@ -82,8 +82,8 @@ function useActivityView(
 		items: entries,
 		days: useMemo(() => groupActivityByDay(entries), [entries]),
 		mapData: useMemo(() => buildActivityMapData(entries), [entries]),
-		// The camera frames the whole window's work as one MultiPoint, so a person
-		// who covered two townships is not left half off the edge of the map.
+		// The camera frames the whole day's work as one MultiPoint, so a person who
+		// covered two townships is not left half off the edge of the map.
 		bounds: useMemo(
 			() =>
 				entries.length === 0

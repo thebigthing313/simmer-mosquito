@@ -22,8 +22,9 @@ import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import { formatAmount, insecticideDisplayName } from './control-operations/-control-display';
 
 // Data + display helpers for one Profile's field work: the response shape, the
-// grouping, and the wording each surface differs by. The Activity Monitor reads
-// it over a range of days and Daily Work over one.
+// grouping, and the wording the page states around it. Daily Work reads it over
+// one day, and the endpoint behind it still answers a `dateFrom`/`dateTo` range,
+// so the shapes here are a window's rather than a day's.
 // Dash-prefixed so TanStack Router ignores this file as a route.
 
 export interface ActivityEntry {
@@ -113,22 +114,6 @@ export const ACTIVITY_ROLE_LABEL: Readonly<Record<string, string>> = {
  */
 export function activityEntryKey(entry: ActivityEntry): string {
 	return `${entry.category}:${entry.id}:${entry.role}`;
-}
-
-/** How many entries fell in each family, over the whole range. */
-export function countActivityByFamily(
-	items: readonly ActivityEntry[],
-): Readonly<Record<ActivityFamily, number>> {
-	const counts: Record<ActivityFamily, number> = {
-		larval: 0,
-		adult: 0,
-		control: 0,
-		publicEngagement: 0,
-	};
-	for (const item of items) {
-		counts[item.family] += 1;
-	}
-	return counts;
 }
 
 export interface ActivityFamilyGroup {
@@ -281,12 +266,12 @@ export function useActivityLookups(): {
 }
 
 /**
- * The wording one surface differs from the other by.
+ * The wording a page states around the log.
  *
- * Two pages read the same log, the Activity Monitor over a window of days and
- * Daily Work over one, and every difference between them is a sentence about
- * dates. Collected here so a page states its wording once instead of the shared
- * parts spelling "range" at a reader who chose a single day.
+ * The log, the panel states and the pin cloud are all shared; what a page says
+ * about them is a sentence about dates, and that is the only part it owns.
+ * Collected here so a page states its wording once rather than having the shared
+ * parts guess at the window it chose.
  */
 export interface ActivityCopy {
 	/** Nothing was recorded. The explorer frame draws this. */
@@ -299,19 +284,8 @@ export interface ActivityCopy {
 	readonly loadFailureBody: string;
 }
 
-/** The Activity Monitor's wording: a window with two ends the reader can move. */
-export const ACTIVITY_RANGE_COPY: ActivityCopy = {
-	empty: {
-		title: 'No activity in this range',
-		body: 'Nothing is recorded against this person between these dates.',
-	},
-	refusalTitle: 'That range was not read',
-	truncationAdvice: 'Narrow the dates to see all of them.',
-	loadFailureBody: 'The read failed. Try again, or narrow the range.',
-};
-
 /**
- * Which of the four non-log states the panel is in, if any.
+ * Which of the three non-log states the panel is in, if any.
  *
  * A pure resolution rather than a chain of early returns in the component,
  * because the distinction that matters here is a product one: an outage must
@@ -321,19 +295,15 @@ export const ACTIVITY_RANGE_COPY: ActivityCopy = {
  */
 export function activityPanelMessage(
 	state: {
-		readonly hasProfile: boolean;
 		readonly isLoading: boolean;
 		readonly error: Error | null;
 		readonly isEmpty: boolean;
 	},
 	copy: ActivityCopy,
 ): { readonly title: string; readonly body: string } | 'loading' | null {
-	if (!state.hasProfile) {
-		return { title: 'Choose a person', body: 'Pick someone to see their field work.' };
-	}
 	// Loading with entries already on screen is not a loading state: the reader
-	// changed the person or the window and the previous log stays until the new
-	// one lands, rather than the panel blanking under them.
+	// changed the day and the previous log stays until the new one lands, rather
+	// than the panel blanking under them.
 	if (state.isLoading && state.isEmpty) {
 		return 'loading';
 	}
@@ -355,13 +325,11 @@ export function activityPanelMessage(
  *
  * The frame owns the placeholder rows and the empty state on all fifteen
  * explorers, so this hands it those two and keeps the rest. What it keeps names
- * a reason the frame's copy has nowhere to put: no Profile picked yet, a
- * refusal repeating the window the server declined, or an outage that must
- * never read as a quiet day.
+ * a reason the frame's copy has nowhere to put: a refusal repeating the window
+ * the server declined, or an outage that must never read as a quiet day.
  */
 export function activityPanelState(
 	state: {
-		readonly hasProfile: boolean;
 		readonly isLoading: boolean;
 		readonly error: Error | null;
 		readonly isEmpty: boolean;
@@ -608,8 +576,8 @@ export function useProfileActivity(input: {
 		queryFn: ({ signal }) => fetchProfileActivity(profileId as string, dateFrom, dateTo, signal),
 		enabled: profileId !== null && dateFrom !== '' && dateTo !== '',
 		staleTime: 30_000,
-		// The person and both dates are in the key, so without this every change
-		// of either drops a populated log back to placeholder rows. The previous
+		// The person and the day are both in the key, so without this every change
+		// of the day drops a populated log back to placeholder rows. The previous
 		// log stays until the new one lands, which is what the rest of the
 		// explorers do when the map moves.
 		placeholderData: keepPreviousData,

@@ -29,7 +29,7 @@ function overview(): ShellDomain {
 		groups: [
 			{
 				id: 'overview-main',
-				items: [{ id: 'activity-monitor', label: 'Activity Monitor', to: '/activity-monitor' }],
+				items: [{ id: 'dashboard', label: 'Dashboard', to: '/dashboard' }],
 			},
 			{
 				id: 'overview-daily-work',
@@ -55,7 +55,7 @@ function overview(): ShellDomain {
 
 describe('navDestination', () => {
 	it('leaves a plain route alone', () => {
-		expect(navDestination({ to: '/activity-monitor' })).toBe('/activity-monitor');
+		expect(navDestination({ to: '/dashboard' })).toBe('/dashboard');
 	});
 
 	it('fills every $segment from params', () => {

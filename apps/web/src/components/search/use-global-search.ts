@@ -11,7 +11,7 @@ import { getServerUrl } from '../../auth';
  * slow load, and the person never learns the query was refused. `main.tsx` sets
  * only `staleTime` and `refetchOnWindowFocus`, so the default is three automatic
  * retries on everything including a 400, and every caller that cares has to say
- * so — as `-activity-monitor-data.ts` already does.
+ * so — as `-activity-data.ts` already does.
  */
 export class SearchRequestError extends Error {
 	readonly refused: boolean;

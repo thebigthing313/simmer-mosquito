@@ -1,6 +1,6 @@
 import { mapFamily } from '@simmer-mosquito/design-tokens';
 import { describe, expect, it } from 'vitest';
-import type { ActivityEntry } from '../../../../routes/-activity-monitor-data';
+import type { ActivityEntry } from '../../../../routes/-activity-data';
 import { dailyWorkLegend } from '../../../../routes/daily-work/-legend';
 
 // The key names the families the day can actually draw, in the colours the layer

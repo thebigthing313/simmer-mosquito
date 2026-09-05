@@ -1,8 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	ActivityRequestError,
-	activityPanelState,
-} from '../../../../routes/-activity-monitor-data';
+import { ActivityRequestError, activityPanelState } from '../../../../routes/-activity-data';
 import {
 	DAILY_WORK_COPY,
 	dailyWorkDay,
@@ -53,7 +50,6 @@ describe('DAILY_WORK_COPY', () => {
 	it('repeats the server’s own reason for a refused day', () => {
 		const state = activityPanelState(
 			{
-				hasProfile: true,
 				isLoading: false,
 				error: new ActivityRequestError('That date is not a date.', true),
 				isEmpty: true,
@@ -72,7 +68,7 @@ describe('DAILY_WORK_COPY', () => {
 
 	it('hands a genuinely empty day to the frame, in day wording', () => {
 		const state = activityPanelState(
-			{ hasProfile: true, isLoading: false, error: null, isEmpty: true },
+			{ isLoading: false, error: null, isEmpty: true },
 			DAILY_WORK_COPY,
 		);
 
@@ -88,11 +84,11 @@ describe('DAILY_WORK_COPY', () => {
 		expect(DAILY_WORK_COPY.truncationAdvice).toBeNull();
 	});
 
-	// Same reason: the Activity Monitor tells a reader to narrow the range after a
-	// failed read, and this page has no range to narrow.
+	// Same reason: there is no range to narrow, so a failed read says to try
+	// again rather than to move an end the page does not have.
 	it('does not tell a reader to narrow a range after a failed read', () => {
 		const state = activityPanelState(
-			{ hasProfile: true, isLoading: false, error: new Error('boom'), isEmpty: true },
+			{ isLoading: false, error: new Error('boom'), isEmpty: true },
 			DAILY_WORK_COPY,
 		);
 
