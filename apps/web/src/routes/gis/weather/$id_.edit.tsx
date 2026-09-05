@@ -138,5 +138,5 @@ function pointFrom(station: WeatherStation): DrawGeometry | null {
 	return {
 		type: 'Point',
 		coordinates: [station.longitude, station.latitude],
-	} as unknown as DrawGeometry;
+	};
 }

@@ -1,5 +1,4 @@
 import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -291,7 +290,7 @@ function CollectionLocationCard({ collection }: { readonly collection: AdultColl
 		<RecordLocationCard
 			description={`${lat.toFixed(5)}, ${lng.toFixed(5)}`}
 			emptyDescription="This collection has no location to display."
-			geojson={{ type: 'Point', coordinates: [lng, lat] } as GeoJsonGeometry}
+			geojson={{ type: 'Point', coordinates: [lng, lat] }}
 			geomType="Point"
 			height="h-[280px]"
 		/>

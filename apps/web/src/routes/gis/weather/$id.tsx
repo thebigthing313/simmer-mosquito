@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -127,12 +126,10 @@ function StationLocationCard({ station }: { readonly station: WeatherStation }) 
 		<RecordLocationCard
 			description={`${station.latitude.toFixed(5)}, ${station.longitude.toFixed(5)}`}
 			emptyDescription="This weather station has no location to display."
-			geojson={
-				{
-					type: 'Point',
-					coordinates: [station.longitude, station.latitude],
-				} as GeoJsonGeometry
-			}
+			geojson={{
+				type: 'Point',
+				coordinates: [station.longitude, station.latitude],
+			}}
 			geomType={station.geometryKind}
 			height="h-[280px]"
 		/>

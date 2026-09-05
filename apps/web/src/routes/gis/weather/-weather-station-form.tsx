@@ -12,7 +12,11 @@ import { useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry, MapDrawController } from '../../../components/map/use-map-draw';
+import type {
+	DrawGeometry,
+	DrawGeometryType,
+	MapDrawController,
+} from '../../../components/map/use-map-draw';
 import {
 	domainValidator,
 	FORM_VALIDATION_CONTEXT,
@@ -122,7 +126,7 @@ export function WeatherStationFormPage({
 		initialGeometry,
 		missingMessage: 'Place the station on the map before saving.',
 	});
-	const { draw, geometry } = location;
+	const { draw, geometry, geometryType } = location;
 
 	const form = useAppForm({
 		defaultValues,
@@ -172,7 +176,11 @@ export function WeatherStationFormPage({
 				aside={
 					<>
 						<MapCanvas onMapReady={location.onMapReady} />
-						<DrawToolbar geometryKind="weatherStation" controller={draw} geometryType="Point" />
+						<DrawToolbar
+							geometryKind="weatherStation"
+							controller={draw}
+							geometryType={geometryType}
+						/>
 						<MapLegend mode={mode} />
 					</>
 				}
@@ -213,6 +221,7 @@ export function WeatherStationFormPage({
 					controller={draw}
 					error={location.locationError}
 					geometry={geometry}
+					geometryType={geometryType}
 					onClear={location.clear}
 					onDraw={location.startDraw}
 				/>
@@ -240,12 +249,14 @@ export function WeatherStationFormPage({
  */
 function LocationSection({
 	geometry,
+	geometryType,
 	controller,
 	error,
 	onDraw,
 	onClear,
 }: {
 	readonly geometry: DrawGeometry | null;
+	readonly geometryType: DrawGeometryType;
 	readonly controller: MapDrawController;
 	readonly error: string | null;
 	readonly onDraw: () => void;
@@ -260,7 +271,7 @@ function LocationSection({
 			<GeometryControl
 				controller={controller}
 				geometry={geometry}
-				geometryType="Point"
+				geometryType={geometryType}
 				geometryKind="weatherStation"
 				label="Location"
 				onClear={onClear}

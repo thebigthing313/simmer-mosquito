@@ -161,7 +161,7 @@ function ImportRegionsRoute() {
 				type: 'Feature',
 				id: index,
 				properties: { name: item.name },
-				geometry: item.geometry as unknown as GeoJSON.Geometry,
+				geometry: item.geometry,
 			})),
 		}),
 		[items],

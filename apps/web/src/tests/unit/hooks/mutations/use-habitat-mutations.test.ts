@@ -21,7 +21,7 @@ import {
 	habitatUpdatePlan,
 } from '../../../../hooks/mutations/use-habitat-mutations';
 
-const SHAPE: GeoJsonGeometry = { type: 'Point', coordinates: [-74.35, 40.55] } as GeoJsonGeometry;
+const SHAPE: GeoJsonGeometry = { type: 'Point', coordinates: [-74.35, 40.55] };
 
 const REDRAW: HabitatRedraw = {
 	geometry: SHAPE,

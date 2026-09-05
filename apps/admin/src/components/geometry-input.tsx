@@ -96,7 +96,7 @@ export function GeometryFileInput({
 		}
 
 		setSource(others > 0 || result.truncated ? `${fileName} (first shape of several)` : fileName);
-		onChange(first.geometry as GeoJsonGeometry);
+		onChange(first.geometry);
 	}
 
 	async function handleFile(file: File) {

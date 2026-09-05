@@ -116,7 +116,7 @@ export function TrapFormPage({
 		missingMessage: 'Place the trap point on the map.',
 		required: requireLocation,
 	});
-	const { addressCoord, draw, geometry } = location;
+	const { addressCoord, draw, geometry, geometryType } = location;
 
 	const methodOptions = useMemo(
 		() =>
@@ -182,7 +182,7 @@ export function TrapFormPage({
 						<DrawToolbar
 							geometryKind="trap"
 							controller={draw}
-							geometryType="Point"
+							geometryType={geometryType}
 							pointPrompt="Click the map to place the trap point."
 						/>
 					</>
@@ -222,7 +222,7 @@ export function TrapFormPage({
 					<GeometryControl
 						controller={draw}
 						geometry={geometry}
-						geometryType="Point"
+						geometryType={geometryType}
 						geometryKind="trap"
 						label="Point"
 						required={requireLocation}

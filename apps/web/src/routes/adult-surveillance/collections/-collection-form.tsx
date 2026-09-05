@@ -141,7 +141,7 @@ function trapPoint(trap: TrapOption | null): GeoJsonGeometry | null {
 	if (trap === null) {
 		return null;
 	}
-	return { type: 'Point', coordinates: [trap.longitude, trap.latitude] } as GeoJsonGeometry;
+	return { type: 'Point', coordinates: [trap.longitude, trap.latitude] };
 }
 
 export interface CollectionFormValues {
@@ -274,7 +274,7 @@ export function CollectionFormPage({
 		initialReferenceGeometry: trapPoint(selectedTrap),
 		missingMessage: 'Place the collection point on the map.',
 	});
-	const { addressCoord, draw, geometry, referenceGeometry } = location;
+	const { addressCoord, draw, geometry, geometryType, referenceGeometry } = location;
 
 	const methodOptions = useMemo(
 		() =>
@@ -343,7 +343,7 @@ export function CollectionFormPage({
 						<DrawToolbar
 							geometryKind="collection"
 							controller={draw}
-							geometryType="Point"
+							geometryType={geometryType}
 							pointPrompt="Click the map to place the collection point."
 						/>
 					</>
@@ -494,7 +494,7 @@ export function CollectionFormPage({
 									<GeometryControl
 										controller={draw}
 										geometry={geometry}
-										geometryType="Point"
+										geometryType={geometryType}
 										geometryKind="collection"
 										label="Point"
 										required

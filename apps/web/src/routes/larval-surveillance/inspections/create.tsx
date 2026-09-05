@@ -151,11 +151,9 @@ function CreateInspectionRoute() {
 				// The shape the server will snapshot: the drawn one for an ad hoc
 				// inspection, the habitat's own for the other two. Reduced here so the
 				// optimistic row carries the centroid the map card will read.
-				const shape = isAdhoc
-					? ((adhocGeometry ?? null) as GeoJsonGeometry | null)
-					: habitatGeometry;
+				const shape = isAdhoc ? adhocGeometry : habitatGeometry;
 				const centroid = shape === null ? null : ownedCentroidFromGeoJson(shape);
-				if (centroid === null) {
+				if (shape === null || centroid === null) {
 					throw new Error('Unable to determine the inspection location.');
 				}
 
@@ -165,7 +163,7 @@ function CreateInspectionRoute() {
 					placement: isAdhoc
 						? {
 								kind: 'adhoc',
-								geometry: shape as GeoJsonGeometry,
+								geometry: shape,
 								addressId: values.addressId,
 								habitatTypeId:
 									values.habitatTypeId === noHabitatTypeValue ? null : values.habitatTypeId,

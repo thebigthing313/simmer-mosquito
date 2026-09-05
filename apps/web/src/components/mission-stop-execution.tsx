@@ -5,6 +5,7 @@ import { type ReactNode, useCallback } from 'react';
 import type { StopAcknowledgements } from '../lib/acknowledgements';
 import { mission_items } from '../lib/collections/mission_items';
 import { useAcknowledgedWrite } from './acknowledged-write';
+import { toDrawGeometry } from './map/use-map-draw';
 
 /**
  * Recording a control action off a mission stop, from the create page's side.
@@ -70,7 +71,14 @@ export function resolveActionLocation(input: {
 	readonly messages: LocationMessages;
 }): ResolvedActionLocation {
 	if (input.geometry !== null && input.geometry !== undefined) {
-		return drawnLocation(input.geometry as GeoJsonGeometry, input.messages);
+		// The four create pages hand this straight off their form state, so it
+		// arrives untyped. `toDrawGeometry` is the check; casting here would hand
+		// the centroid reader a shape nothing had looked at.
+		const drawn = toDrawGeometry(input.geometry);
+		if (drawn === null) {
+			throw new Error(input.messages.unresolvable);
+		}
+		return drawnLocation(drawn, input.messages);
 	}
 	// Off a mission the point is the only thing that says where the work
 	// happened, so its absence is the crew's to fix.
