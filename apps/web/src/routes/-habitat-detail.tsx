@@ -528,7 +528,15 @@ function TagBadge({ tag }: { readonly tag: Tag }) {
 	);
 }
 
-function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
+/**
+ * What has happened at this habitat, a tab per kind of record.
+ *
+ * Exported for `tests/unit/link-destinations.test.tsx`, which reads the five
+ * destinations the rows carry. The card is the smallest thing that has them:
+ * they are built from four different id fields across five tabs, and only a
+ * `Tabs` renders one tab's rows at a time.
+ */
+export function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }) {
 	const {
 		inspections,
 		samples,
