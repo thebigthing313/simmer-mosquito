@@ -1,5 +1,12 @@
 // @vitest-environment jsdom
 import type { OwnedGeometryKind } from '@simmer-mosquito/domain';
+import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuTrigger,
+} from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
 import {
 	Select,
 	SelectContent,
@@ -342,27 +349,43 @@ async function openSelect(): Promise<HTMLElement> {
 	return (focused ?? option) as HTMLElement;
 }
 
+/** What the `window` listener saw of one press, which is what says why a case passed. */
+interface WatchedPress {
+	readonly reachedWindow: boolean;
+	readonly defaultPrevented: boolean;
+	/** The ARIA role on the pressed element, or `null` where it declares none. */
+	readonly role: string | null;
+	/** Whether the press landed inside the map's own key surface. */
+	readonly onMapSurface: boolean;
+}
+
 /**
- * Press `key` on an open listbox option and report what the `window` listener
- * saw, which is what says why a case passed.
+ * Press `key` on `element` and report what reached `window`.
  *
- * `defaultPrevented` is the half worth pinning: Escape arrives spent and Enter
- * does not, and a case that stopped telling them apart would keep passing while
- * the guard it was written for had gone.
+ * Every one of these cases is about a press that arrives looking like a press
+ * on the map, so the report is what pins each to the reason it was written.
+ * A case that stopped saying `defaultPrevented` was clear, or that the element
+ * declared no role, would keep passing while the hole it covers had moved.
  */
-function pressOnOption(
-	option: HTMLElement,
-	key: string,
-): { readonly reachedWindow: boolean; readonly defaultPrevented: boolean } {
-	const seen = { reachedWindow: false, defaultPrevented: false };
+function pressWatched(element: HTMLElement, key: string, surface: HTMLElement): WatchedPress {
+	let seen: WatchedPress = {
+		reachedWindow: false,
+		defaultPrevented: false,
+		role: null,
+		onMapSurface: false,
+	};
 	function record(event: KeyboardEvent) {
-		seen.reachedWindow = true;
-		seen.defaultPrevented = event.defaultPrevented;
+		seen = {
+			reachedWindow: true,
+			defaultPrevented: event.defaultPrevented,
+			role: event.target instanceof Element ? event.target.getAttribute('role') : null,
+			onMapSurface: event.target instanceof Node && surface.contains(event.target),
+		};
 	}
 	window.addEventListener('keydown', record);
 	try {
 		act(() => {
-			fireEvent.keyDown(option, { key });
+			fireEvent.keyDown(element, { key });
 		});
 	} finally {
 		window.removeEventListener('keydown', record);
@@ -603,23 +626,18 @@ describe('useMapDraw', () => {
 		});
 	});
 
-	// The canvas is a `div` carrying no role, which is what the guards have to
-	// let past. One that swallowed every Enter landing on a `div`, or every Enter
-	// with something open elsewhere on the page, would take the finish with it.
+	// The canvas is the map's key surface, and it carries no role and spends no
+	// default, so it is what the rule has to recognise positively. Pressed in the
+	// real canvas rather than a stand-in `div`, because being that element is now
+	// the whole of why the press counts.
 	it('finishes the shape on an Enter the map canvas got', () => {
 		const { fake, result } = mountControlled();
-		const canvas = document.createElement('div');
-		document.body.append(canvas);
 
 		act(() => {
 			result.current.draw.start('Polygon');
 		});
 		placeVertices(fake, FIRST_SQUARE);
-		try {
-			pressKeyIn(canvas, 'Enter');
-		} finally {
-			canvas.remove();
-		}
+		pressKeyIn(fake.canvas, 'Enter');
 
 		expect(result.current.draw.isDrawing).toBe(false);
 		expect(result.current.value).toEqual({
@@ -628,10 +646,44 @@ describe('useMapDraw', () => {
 		});
 	});
 
+	/**
+	 * The draft takes the canvas when it opens, which is what makes the surface
+	 * rule cost nothing.
+	 *
+	 * Every opener is a button somewhere else on the page, so without this a user
+	 * who clicked Draw and then pressed Escape would be pressing it on that
+	 * button. The canvas is mapbox's own focus target and the element its
+	 * arrow-key panning already needs focused, so nothing new becomes focusable.
+	 */
+	it.each(OPEN_DRAFTS)('hands the map canvas focus when an open $name starts', ({ open }) => {
+		const { fake, result } = mountControlled();
+
+		open(fake, result);
+
+		expect(document.activeElement).toBe(fake.canvas);
+	});
+
+	// Placing a corner keeps the canvas focused rather than taking focus back on
+	// every mode change, because an edit changes mode on every drag and a user
+	// who moved to a field mid-draft would lose the caret.
+	it('leaves focus where the user put it once the draft is open', () => {
+		const { fake, result } = mountControlled();
+		const field = document.createElement('input');
+		document.body.append(field);
+
+		act(() => {
+			result.current.draw.start('Polygon');
+		});
+		field.focus();
+		placeVertices(fake, FIRST_SQUARE);
+
+		expect(document.activeElement).toBe(field);
+		field.remove();
+	});
+
 	// The panel beside the map stays live while a draft is open, so Enter has to
-	// tell a finished shape from a filled-in description. The listener is on
-	// `window` and reads where the key came from, rather than the map holding
-	// focus for a keystroke to land.
+	// tell a finished shape from a filled-in description. A field is never inside
+	// the map's key surface, which is the one reason all of these cases pass.
 	it.each(OPEN_DRAFTS)('leaves an open $name alone when Enter came from a field', ({ open }) => {
 		const { fake, result } = mountControlled();
 
@@ -661,18 +713,18 @@ describe('useMapDraw', () => {
 	});
 
 	/**
-	 * The overlay half, which the field guard cannot answer.
+	 * The overlay half, which no reading of the focused element answers.
 	 *
 	 * Radix's `DismissableLayer` listens on the document in the capture phase,
 	 * calls `preventDefault`, dismisses, and does not stop propagation, so an
-	 * Escape that closed a select still reaches this listener. It leaves the
-	 * listbox's own `div[role="option"]` focused, which is no field, so
-	 * `isTypingInto` says nothing about it. `defaultPrevented` is what does.
+	 * Escape that closed a select still reaches this listener, on the listbox's
+	 * own `div[role="option"]`, which is no field.
 	 *
 	 * The select here is the real one from `ui-web`, opened the way a user opens
 	 * it, because the whole point is what Radix does rather than what it is
-	 * documented to do. A version that stopped calling `preventDefault` while
-	 * still letting the key through is the regression this catches.
+	 * documented to do. A version that stopped spending the Escape while still
+	 * letting the key through is the regression this catches, and the surface
+	 * rule catches it whether the flag is set or not.
 	 */
 	it('leaves the draft alone when Escape dismissed an open select', async () => {
 		const { fake, result } = mountControlled();
@@ -685,22 +737,22 @@ describe('useMapDraw', () => {
 		const before = draftState(result);
 
 		const option = await openSelect();
-		const seen = pressOnOption(option, 'Escape');
+		const seen = pressWatched(option, 'Escape', fake.canvasContainer);
 
 		expect(seen.reachedWindow).toBe(true);
-		expect(seen.defaultPrevented).toBe(true);
+		expect(seen.onMapSurface).toBe(false);
 		expect(draftState(result)).toEqual(before);
 	});
 
 	/**
-	 * The third hole in this handler, and the one neither guard above it reaches.
+	 * Choosing a value, which arrives with nothing in the event to hold against
+	 * it.
 	 *
 	 * Radix's select item calls `preventDefault` for Space alone, to stop the
 	 * page scrolling. Enter has no default worth cancelling on a `div`, so the
 	 * press that picks a value arrives with the flag clear, on a target that is
-	 * no field. Its `role="option"` is what says the key was the listbox's, and
-	 * the case asserts the flag was clear so it cannot start passing for #547's
-	 * reason instead of its own.
+	 * no field. The case asserts the flag was clear so it cannot start passing
+	 * for the dismissal's reason instead of its own.
 	 */
 	it.each(OPEN_DRAFTS)('leaves an open $name alone when Enter chose a value from a select', async ({
 		open,
@@ -713,10 +765,130 @@ describe('useMapDraw', () => {
 		expect(before.canFinish).toBe(true);
 
 		const option = await openSelect();
-		const seen = pressOnOption(option, 'Enter');
+		const seen = pressWatched(option, 'Enter', fake.canvasContainer);
 
 		expect(seen.reachedWindow).toBe(true);
 		expect(seen.defaultPrevented).toBe(false);
+		expect(seen.onMapSurface).toBe(false);
+		expect(draftState(result)).toEqual(before);
+	});
+
+	/**
+	 * #572, and the press that ended the run of guards.
+	 *
+	 * A `<button>` beside the map is what the location panel is made of: the
+	 * pickers in `entity-picker.tsx` and `region-boundary-picker.tsx`, and the
+	 * draw toolbar's own Undo, Cancel and Delete vertex. Enter on a focused one
+	 * fires the button's click as the keypress's default action, so nothing
+	 * calls `preventDefault`, and a `<button>` declares no ARIA role because it
+	 * already is one. The map canvas is role-less and unprevented too, which is
+	 * why the case asserts both: nothing in this event tells the two apart, and
+	 * only where it landed does.
+	 */
+	it.each(OPEN_DRAFTS)('leaves an open $name alone when Enter activated a button beside the map', ({
+		open,
+	}) => {
+		const { fake, result } = mountControlled();
+
+		render(<Button>Undo</Button>);
+		open(fake, result);
+		const before = draftState(result);
+		expect(before.canFinish).toBe(true);
+
+		const button = screen.getByText('Undo');
+		button.focus();
+		const seen = pressWatched(button, 'Enter', fake.canvasContainer);
+
+		expect(seen.reachedWindow).toBe(true);
+		expect(seen.defaultPrevented).toBe(false);
+		expect(seen.role).toBeNull();
+		expect(seen.onMapSurface).toBe(false);
+		expect(draftState(result)).toEqual(before);
+	});
+
+	// The worse half of #572, in the arm below it. Escape on a focused button
+	// beside the map threw the whole draft away, and the draw toolbar's own
+	// Cancel, Undo and Delete vertex are the buttons closest to hand.
+	it.each(OPEN_DRAFTS)('leaves an open $name alone when Escape came from a button', ({ open }) => {
+		const { fake, result } = mountControlled();
+
+		render(<Button>Undo</Button>);
+		open(fake, result);
+		const before = draftState(result);
+		expect(before.canFinish).toBe(true);
+
+		const button = screen.getByText('Undo');
+		button.focus();
+		const seen = pressWatched(button, 'Escape', fake.canvasContainer);
+
+		expect(seen.reachedWindow).toBe(true);
+		expect(seen.defaultPrevented).toBe(false);
+		expect(draftState(result)).toEqual(before);
+	});
+
+	/**
+	 * The same press one element further in, which is why the rule reads the
+	 * canvas container rather than the whole map.
+	 *
+	 * Mapbox builds a control container beside the canvas one and puts its
+	 * attribution and info buttons in it. Those are inside `getContainer()`, so a
+	 * rule written against the map as a whole would finish the shape on an Enter
+	 * that opened the attribution list.
+	 */
+	it.each(OPEN_DRAFTS)("leaves an open $name alone when Enter hit mapbox's own button", ({
+		open,
+	}) => {
+		const { fake, result } = mountControlled();
+
+		open(fake, result);
+		const before = draftState(result);
+		expect(before.canFinish).toBe(true);
+
+		fake.attributionButton.focus();
+		const seen = pressWatched(fake.attributionButton, 'Enter', fake.canvasContainer);
+
+		expect(seen.reachedWindow).toBe(true);
+		expect(fake.container.contains(fake.attributionButton)).toBe(true);
+		expect(seen.onMapSurface).toBe(false);
+		expect(draftState(result)).toEqual(before);
+	});
+
+	/**
+	 * An open menu, where the press lands on the menu itself rather than an item.
+	 *
+	 * Opened with the pointer, Radix focuses the content, so `event.target` is
+	 * `div[role="menu"]` and not one of the `menuitem` roles. Enter there does
+	 * nothing to the menu and arrives with the flag clear, which is a fourth
+	 * shape a rule about where the key must not have come from has to enumerate
+	 * and the surface rule does not.
+	 */
+	it.each(OPEN_DRAFTS)('leaves an open $name alone when Enter came from an open menu', async ({
+		open,
+	}) => {
+		const { fake, result } = mountControlled();
+
+		render(
+			<DropdownMenu>
+				<DropdownMenuTrigger aria-label="Row actions">Actions</DropdownMenuTrigger>
+				<DropdownMenuContent>
+					<DropdownMenuItem>Rename</DropdownMenuItem>
+				</DropdownMenuContent>
+			</DropdownMenu>,
+		);
+		open(fake, result);
+		const before = draftState(result);
+		expect(before.canFinish).toBe(true);
+
+		const trigger = screen.getByLabelText('Row actions');
+		fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
+		fireEvent.click(trigger);
+		await screen.findByText('Rename');
+		const menu = document.activeElement as HTMLElement;
+		const seen = pressWatched(menu, 'Enter', fake.canvasContainer);
+
+		expect(seen.reachedWindow).toBe(true);
+		expect(seen.defaultPrevented).toBe(false);
+		expect(seen.role).toBe('menu');
 		expect(draftState(result)).toEqual(before);
 	});
 
@@ -1968,6 +2140,92 @@ describe('useMapDraw', () => {
 
 		expect(result.current.draw.editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
 		expect(result.current.draw.vertexCount).toBe(4);
+	});
+
+	/**
+	 * #573, the same hole in the arm that deletes rather than the one that
+	 * finishes.
+	 *
+	 * A select open beside the map focuses its own `div[role="option"]`. That is
+	 * no field, and Radix's typeahead does not spend Delete or Backspace, so the
+	 * press arrived here with nothing on it to hold against it and took a corner
+	 * off the shape. Only Delete reaches this arm, so there is one mode rather
+	 * than five: a draw, a hole and a continuation have no picked vertex, and a
+	 * sketch turns the pick off.
+	 */
+	it.each([
+		'Delete',
+		'Backspace',
+	])('leaves the picked corner alone when %s came from an open select', async (key) => {
+		const { fake, result } = mountControlled();
+
+		renderSelect();
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.selectVertex({ ring: 0, vertex: 1 });
+		});
+
+		const option = await openSelect();
+		const seen = pressWatched(option, key, fake.canvasContainer);
+
+		expect(seen.reachedWindow).toBe(true);
+		expect(seen.defaultPrevented).toBe(false);
+		expect(seen.role).toBe('option');
+		expect(result.current.draw.editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
+		expect(result.current.draw.vertexCount).toBe(4);
+	});
+
+	// #572's shape in the Delete arm. The toolbar's own Delete vertex button is a
+	// focused `<button>` beside the map, and a Backspace pressed on it used to
+	// take a second corner off.
+	it.each([
+		'Delete',
+		'Backspace',
+	])('leaves the picked corner alone when %s came from a button', (key) => {
+		const { fake, result } = mountControlled();
+
+		render(<Button>Delete vertex</Button>);
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.selectVertex({ ring: 0, vertex: 1 });
+		});
+
+		const button = screen.getByText('Delete vertex');
+		button.focus();
+		const seen = pressWatched(button, key, fake.canvasContainer);
+
+		expect(seen.reachedWindow).toBe(true);
+		expect(seen.role).toBeNull();
+		expect(seen.onMapSurface).toBe(false);
+		expect(result.current.draw.editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
+		expect(result.current.draw.vertexCount).toBe(4);
+	});
+
+	// The other side of the same rule: the canvas is where a Delete still lands.
+	it.each([
+		'Delete',
+		'Backspace',
+	])('takes the picked corner off on a %s the map canvas got', (key) => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.selectVertex({ ring: 0, vertex: 1 });
+		});
+
+		pressKeyIn(fake.canvas, key);
+
+		expect(result.current.draw.editedPart?.selected).toBeNull();
+		expect(result.current.draw.vertexCount).toBe(3);
 	});
 
 	it('extends a piece when the reshape line runs outside it', () => {

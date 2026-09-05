@@ -13,13 +13,57 @@ import { vi } from 'vitest';
  * asserting is the same for all of them: what the style contains, and what the
  * source is holding, after an add, a restyle, and a teardown.
  */
+/** Every map DOM this module built, for the `afterEach` to take back out. */
+const mapDoms: HTMLElement[] = [];
+
+/**
+ * The map's own DOM, laid out the way mapbox's `_setupContainer` lays it out:
+ * an interactive canvas carrying `tabindex="0"`, `role="region"` and an
+ * `aria-label`, inside a canvas container, beside a control container holding
+ * mapbox's own attribution button.
+ *
+ * Real elements rather than an object with a `style`, because the draw session
+ * reads the canvas container to say whether a key was the map's, and takes the
+ * canvas's focus when a draft opens. A stub answers neither question, and the
+ * control container is what separates the map surface from a `<button>` mapbox
+ * itself put on the page.
+ */
+function createMapDom() {
+	const container = document.createElement('div');
+	container.className = 'mapboxgl-map';
+	const canvasContainer = document.createElement('div');
+	canvasContainer.className = 'mapboxgl-canvas-container mapboxgl-interactive';
+	const canvas = document.createElement('canvas');
+	canvas.className = 'mapboxgl-canvas';
+	canvas.tabIndex = 0;
+	canvas.setAttribute('role', 'region');
+	canvas.setAttribute('aria-label', 'Map');
+	// jsdom lays nothing out, so the size a viewport read wants is declared here
+	// rather than measured. A flat 1000x800, matching the unproject scale below.
+	Object.defineProperty(canvas, 'clientWidth', { value: 1000 });
+	Object.defineProperty(canvas, 'clientHeight', { value: 800 });
+	const controlContainer = document.createElement('div');
+	controlContainer.className = 'mapboxgl-control-container';
+	const attributionButton = document.createElement('button');
+	attributionButton.className = 'mapboxgl-ctrl-attrib-button';
+	controlContainer.append(attributionButton);
+	canvasContainer.append(canvas);
+	container.append(canvasContainer, controlContainer);
+	// In the document, because a key pressed in an element only bubbles out to
+	// the `window` listener from a connected node, and `focus()` on a detached
+	// one moves nothing.
+	document.body.append(container);
+	mapDoms.push(container);
+	return { container, canvasContainer, canvas, attributionButton };
+}
+
 export function createFakeMap() {
 	const sources = new Map<string, { data: GeoJSON.GeoJSON; tiles?: readonly string[] }>();
 	const sourceSpecs = new Map<string, Record<string, unknown>>();
 	const layers = new Map<string, LayerSpecification>();
 	const handlers = new Map<string, Set<(event: unknown) => void>>();
 	const cameraCalls: CameraCall[] = [];
-	const canvas = { style: { cursor: '' }, clientWidth: 1000, clientHeight: 800 };
+	const { container, canvasContainer, canvas, attributionButton } = createMapDom();
 	// A flat 0.001 degrees per pixel from the origin: enough for a test to say
 	// which pixels were unprojected, which is the whole question.
 	const DEGREES_PER_PIXEL = 0.001;
@@ -82,6 +126,8 @@ export function createFakeMap() {
 			filterCalls.push(id);
 		},
 		getCanvas: () => canvas,
+		getCanvasContainer: () => canvasContainer,
+		getContainer: () => container,
 		getZoom: () => 10,
 		unproject([x, y]: [number, number]) {
 			assertLive();
@@ -138,6 +184,12 @@ export function createFakeMap() {
 		sourceSpecs,
 		layers,
 		canvas,
+		/** The div mapbox puts the canvas in, which is the map's key surface. */
+		canvasContainer,
+		/** The whole map, canvas surface and control corner together. */
+		container,
+		/** Mapbox's own button, inside the map but outside its key surface. */
+		attributionButton,
 		/** Every camera move asked for, in order, with the padding it carried. */
 		cameraCalls: cameraCalls as readonly CameraCall[],
 		queryRenderedFeatures: map.queryRenderedFeatures,
@@ -270,9 +322,12 @@ export function renderHook<Props, Result>(
 	};
 }
 
-/** Drop every container this module mounted. Call from an `afterEach`. */
+/**
+ * Drop every container this module mounted, the map DOMs included. Call from an
+ * `afterEach`.
+ */
 export function cleanupRenderedHooks(): void {
-	for (const container of containers.splice(0)) {
+	for (const container of [...containers.splice(0), ...mapDoms.splice(0)]) {
 		container.remove();
 	}
 }
