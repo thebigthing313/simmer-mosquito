@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -69,7 +68,7 @@ function CreateAddressRoute() {
 				values.country.trim().toUpperCase(),
 				geometry,
 			);
-			seedAddressGeometryCache(queryClient, addressId, geometry as unknown as GeoJsonGeometry);
+			seedAddressGeometryCache(queryClient, addressId, geometry);
 			await navigate({ to: '/gis/addresses/$id', params: { id: addressId } });
 		},
 		[mutations, navigate, queryClient, organization],

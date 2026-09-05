@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -105,7 +104,7 @@ function EditAddressLoader({
 				refinedPoint ? geometry : null,
 			);
 			if (refinedPoint && geometry !== null) {
-				seedAddressGeometryCache(queryClient, address.id, geometry as unknown as GeoJsonGeometry);
+				seedAddressGeometryCache(queryClient, address.id, geometry);
 			}
 			await navigate({ to: '/gis/addresses/$id', params: { id: address.id } });
 		},

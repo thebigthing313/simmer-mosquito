@@ -1,4 +1,3 @@
-import type { GeoJsonPoint } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { newRecordId } from '../../../hooks/mutations/shared';
@@ -7,6 +6,7 @@ import { isBelowRole } from '../../../lib/write-access';
 import {
 	type DrawGeometry,
 	defaultWeatherStationFormValues,
+	isStationLocation,
 	WeatherStationFormPage,
 	type WeatherStationFormValues,
 	weatherStationFieldsFrom,
@@ -39,14 +39,10 @@ function CreateWeatherStationRoute() {
 			readonly values: WeatherStationFormValues;
 			readonly geometry: DrawGeometry | null;
 		}) => {
-			if (geometry === null || geometry.type !== 'Point') {
+			if (geometry === null || !isStationLocation(geometry)) {
 				throw new Error('Place the station on the map before saving.');
 			}
-			await mutations.create(
-				stationId,
-				weatherStationFieldsFrom(values),
-				geometry as unknown as GeoJsonPoint,
-			);
+			await mutations.create(stationId, weatherStationFieldsFrom(values), geometry);
 			await navigate({ to: '/gis/weather/$id', params: { id: stationId } });
 		},
 		[mutations, navigate, stationId],

@@ -1,4 +1,4 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -103,7 +103,7 @@ function EditHabitatLoader({
 			readonly geometry: DrawGeometry;
 			readonly geometryChanged: boolean;
 		}) => {
-			const drawn = geometry as unknown as GeoJsonGeometry;
+			const drawn = geometry;
 
 			// Prime the detail's geometry cache so it shows this geometry the moment
 			// we navigate, rather than refetching and flashing an empty state.

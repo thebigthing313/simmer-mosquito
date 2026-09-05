@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
@@ -53,7 +52,7 @@ function CreateRequestForControlRoute() {
 					addressId: values.addressId,
 					habitatId: values.habitatId,
 				},
-				geometry as unknown as GeoJsonGeometry,
+				geometry,
 			);
 			await navigate({ to: '/operations/requests-for-control' });
 		},

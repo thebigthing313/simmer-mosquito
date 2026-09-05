@@ -163,7 +163,7 @@ export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 	// The record's own geometry frames last, so it wins when a reference pick and a
 	// geometry change land on the same render.
 	useFitToGeometry(map, referenceGeometry, draw.isDrawing);
-	useFitToGeometry(map, geometry as unknown as GeoJsonGeometry | null, draw.isDrawing);
+	useFitToGeometry(map, geometry, draw.isDrawing);
 
 	// Seeding from an address (or moving onto one) replaces the drawn shape with a
 	// point, so the tool selector follows it.
@@ -193,7 +193,7 @@ export function useDrawLocation(options: DrawLocationOptions): DrawLocation {
 				setReferenceGeometry(null);
 				return;
 			}
-			setReferenceGeometry(drawn as unknown as GeoJsonGeometry);
+			setReferenceGeometry(drawn);
 		},
 		[geometry],
 	);

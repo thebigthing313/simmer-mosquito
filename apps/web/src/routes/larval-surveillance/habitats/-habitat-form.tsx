@@ -1,6 +1,6 @@
 import { mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
 import { createHabitatCommand } from '@simmer-mosquito/domain';
-import { centroidFromGeoJson, type GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { centroidFromGeoJson } from '@simmer-mosquito/mapping';
 import {
 	customFieldCount,
 	customSchemaFor,
@@ -334,7 +334,7 @@ function cameraForGeometry(geometry: DrawGeometry | null) {
 	if (geometry === null) {
 		return undefined;
 	}
-	const centroid = centroidFromGeoJson(geometry as unknown as GeoJsonGeometry);
+	const centroid = centroidFromGeoJson(geometry);
 	if (centroid === null) {
 		return undefined;
 	}

@@ -1,4 +1,4 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -46,7 +46,7 @@ function CreateHabitatRoute() {
 			readonly values: HabitatFormValues;
 			readonly geometry: DrawGeometry;
 		}) => {
-			const drawn = geometry as unknown as GeoJsonGeometry;
+			const drawn = geometry;
 			const centroid = ownedCentroidFromGeoJson(drawn);
 			if (centroid === null) {
 				throw new Error('Unable to determine the habitat location from the drawn geometry.');

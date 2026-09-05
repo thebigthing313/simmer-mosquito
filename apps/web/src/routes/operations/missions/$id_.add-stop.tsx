@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { RecordFormPage } from '@simmer-mosquito/ui-web/components/form';
 import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -92,7 +91,7 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 		if (actorProfileId === null) {
 			return;
 		}
-		const geometry = location.geometry as unknown as GeoJsonGeometry;
+		const geometry = location.geometry;
 		void run(async () => {
 			await stopWrites.addAtGeometry({
 				missionId: mission.id,

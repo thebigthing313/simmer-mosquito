@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -117,7 +116,7 @@ function EditCollectionLoader({
 				geometry:
 					refinedPoint && geometry.type === 'Point'
 						? {
-								geometry: geometry as unknown as GeoJsonGeometry,
+								geometry: geometry,
 								centroid: {
 									lat: geometry.coordinates[1],
 									lng: geometry.coordinates[0],

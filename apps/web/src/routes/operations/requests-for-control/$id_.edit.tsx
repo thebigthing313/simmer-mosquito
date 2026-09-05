@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
@@ -94,7 +93,7 @@ function EditRequestLoader({ request }: { readonly request: RequestRecord }) {
 				// Only a redrawn shape travels: the server re-resolves `geom` from
 				// whatever source it is handed, so re-sending the stored one would be a
 				// write with no edit behind it.
-				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null,
+				geometryChanged && geometry !== null ? geometry : null,
 			);
 			await navigate({ to: '/operations/requests-for-control/$id', params: { id: request.id } });
 		},

@@ -1,4 +1,4 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
@@ -58,7 +58,7 @@ function CreateTrapRoute() {
 			// The point is the trap's authoritative geometry; the address (if any) is
 			// reference only. The server recomputes geom from the location source; this
 			// centroid seeds the optimistic row so the map/coordinates show immediately.
-			const shape = geometry as unknown as GeoJsonGeometry;
+			const shape = geometry;
 			const centroid = ownedCentroidFromGeoJson(shape);
 			if (centroid === null) {
 				throw new Error('Unable to determine the trap location.');

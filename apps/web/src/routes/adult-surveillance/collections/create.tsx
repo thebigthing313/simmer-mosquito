@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo, useState } from 'react';
 import { z } from 'zod';
@@ -238,5 +237,5 @@ function placementFor(input: {
 	if (input.geometry === null) {
 		throw new Error('Unable to determine the collection location.');
 	}
-	return { kind: 'adhoc', geometry: input.geometry as unknown as GeoJsonGeometry };
+	return { kind: 'adhoc', geometry: input.geometry };
 }
