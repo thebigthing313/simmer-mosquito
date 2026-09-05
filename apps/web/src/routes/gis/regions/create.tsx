@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry, GeoJsonPolygon } from '@simmer-mosquito/mapping';
 import { settleWrite } from '@simmer-mosquito/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
@@ -12,6 +11,7 @@ import { isBelowRole } from '../../../lib/write-access';
 import {
 	type DrawGeometry,
 	defaultRegionFormValues,
+	isRegionBoundary,
 	RegionFormPage,
 	type RegionFormValues,
 	regionFieldsFrom,
@@ -46,15 +46,14 @@ function CreateRegionRoute() {
 			readonly values: RegionFormValues;
 			readonly geometry: DrawGeometry | null;
 		}) => {
-			if (geometry === null || geometry.type !== 'Polygon') {
+			if (geometry === null || !isRegionBoundary(geometry)) {
 				throw new Error('Draw the region boundary before saving.');
 			}
-			const boundary = geometry as unknown as GeoJsonPolygon;
 
-			await settleWrite(mutations.create(regionId, regionFieldsFrom(values), boundary));
+			await settleWrite(mutations.create(regionId, regionFieldsFrom(values), geometry));
 			// Prime the detail's geometry cache so it renders the new boundary on arrival
 			// instead of fetching (and briefly showing an empty state) from scratch.
-			seedRegionGeometryCache(queryClient, regionId, boundary as unknown as GeoJsonGeometry);
+			seedRegionGeometryCache(queryClient, regionId, geometry);
 			await navigate({ to: '/gis/regions/$id', params: { id: regionId } });
 		},
 		[mutations, navigate, queryClient, regionId],

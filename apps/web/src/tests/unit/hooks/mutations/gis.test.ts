@@ -21,6 +21,7 @@
  * `mutateCollection`, plus the four operations that build no plan at all.
  */
 
+import type { RegionGeometry } from '@simmer-mosquito/domain';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook } from '@testing-library/react';
 import { createElement, type ReactNode } from 'react';
@@ -65,6 +66,37 @@ const BOUNDARY = {
 	],
 } as const;
 const PIN = { type: 'Point', coordinates: [-74.35, 40.55] } as const;
+
+/**
+ * A Region drawn in two pieces: a large block, and a small lot 0.2° east of it.
+ *
+ * Typed as `RegionGeometry` on purpose. The write seam takes what a Region may
+ * store, so a hook narrowed back to a single polygon would fail to compile here
+ * rather than reading half of a region's coordinates at run time.
+ */
+const MULTIPART_BOUNDARY: RegionGeometry = {
+	type: 'MultiPolygon',
+	coordinates: [
+		[
+			[
+				[-74.4, 40.5],
+				[-74.2, 40.5],
+				[-74.2, 40.7],
+				[-74.4, 40.7],
+				[-74.4, 40.5],
+			],
+		],
+		[
+			[
+				[-74.0, 40.5],
+				[-73.98, 40.5],
+				[-73.98, 40.52],
+				[-74.0, 40.52],
+				[-74.0, 40.5],
+			],
+		],
+	],
+};
 
 /**
  * A client above the region hooks, which clear the `record-regions` cache.
@@ -123,6 +155,40 @@ describe('a region write', () => {
 
 		expect(lastRow().geom_type).toBe('st_polygon');
 		expect(lastRow().region_folder_id).toBe(FOLDER);
+	});
+
+	it('creates a region drawn in two pieces, at the multipart type the trigger will write', async () => {
+		// ADR 0018 lets a Region hold several areas on one row, and the piece the
+		// user adds is the only thing that says so: `geom` never syncs, so a row
+		// stamped `st_polygon` disagrees with the synced one until Electric
+		// replaces it.
+		const { result } = renderRegions();
+
+		result.current.create(RECORD, regionFields(), MULTIPART_BOUNDARY);
+
+		expect(lastIntents()).toEqual(['foundation.createRegion']);
+		expect(lastWrite().arguments).toEqual({ geometry: MULTIPART_BOUNDARY });
+		expect(lastRow().geom_type).toBe('st_multipolygon');
+		// Area-weighted, so the marker sits in the large block rather than halfway
+		// out to the small lot. An average of the two pieces would put it near
+		// -74.15, and it would jump west the moment the server answered.
+		expect(lastRow().lng as number).toBeGreaterThan(-74.31);
+		expect(lastRow().lng as number).toBeLessThan(-74.29);
+	});
+
+	it('carries a redraw that added a piece, with the multipart centroid beside it', async () => {
+		const { result } = renderRegions();
+
+		await result.current.save({
+			regionId: RECORD,
+			fields: regionFields(),
+			current: regionFields(),
+			geometry: MULTIPART_BOUNDARY,
+		});
+
+		expect(lastIntents()).toEqual(['foundation.updateRegionGeometry']);
+		expect(lastWrite().arguments).toEqual({ geometry: MULTIPART_BOUNDARY });
+		expect(lastChanges().geom_type).toBe('st_multipolygon');
 	});
 
 	it('names every command the edit means, in one write', async () => {

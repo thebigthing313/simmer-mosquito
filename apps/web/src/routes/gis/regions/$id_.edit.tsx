@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry, GeoJsonPolygon } from '@simmer-mosquito/mapping';
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -13,6 +12,7 @@ import { seedRegionGeometryCache, useRegionGeometry } from '../../../hooks/use-r
 import { isBelowRole } from '../../../lib/write-access';
 import {
 	type DrawGeometry,
+	isRegionBoundary,
 	noRegionFolderValue,
 	RegionFormPage,
 	type RegionFormValues,
@@ -77,9 +77,7 @@ function EditRegionLoader({
 			// `null` unless the user actually redrew it: the form holds the boundary it
 			// loaded, and sending that back names a command with nothing to change.
 			const boundary =
-				geometryChanged && geometry !== null && geometry.type === 'Polygon'
-					? (geometry as unknown as GeoJsonPolygon)
-					: null;
+				geometryChanged && geometry !== null && isRegionBoundary(geometry) ? geometry : null;
 
 			// `current` comes back through the same round trip as the edited values, so
 			// a field nobody touched compares equal to itself and the save names only
@@ -91,7 +89,7 @@ function EditRegionLoader({
 				geometry: boundary,
 			});
 			if (boundary !== null) {
-				seedRegionGeometryCache(queryClient, region.id, boundary as unknown as GeoJsonGeometry);
+				seedRegionGeometryCache(queryClient, region.id, boundary);
 			}
 			await navigate({ to: '/gis/regions/$id', params: { id: region.id } });
 		},

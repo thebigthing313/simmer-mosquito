@@ -1,4 +1,4 @@
-import type { GeoJsonPolygon, ImportNote } from '@simmer-mosquito/mapping';
+import type { ImportNote } from '@simmer-mosquito/mapping';
 import { IMPORT_FILE_ACCEPT, readImportFileText } from '@simmer-mosquito/mapping';
 import { isTxIdConfirmationTimeout } from '@simmer-mosquito/sync';
 import { backLink } from '@simmer-mosquito/ui-web/components/back-link';
@@ -229,7 +229,7 @@ function ImportRegionsRoute() {
 						folderId: folderId === UNFILED ? null : folderId,
 						metadata: null,
 					},
-					item.geometry as unknown as GeoJsonPolygon,
+					item.geometry,
 				);
 				// Fold persistence into a promise that never rejects, so once the
 				// timeout wins the race the original rejection (if any) still has a
