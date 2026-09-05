@@ -1,4 +1,4 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
@@ -80,8 +80,7 @@ function EditTrapLoader({
 			// user actually refined the point. Naming the configuration command with the
 			// point the trap already has is a write with no edit behind it, and the
 			// centroid it would reseed is the one already on screen.
-			const shape =
-				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null;
+			const shape = geometryChanged && geometry !== null ? geometry : null;
 			const centroid = shape === null ? null : ownedCentroidFromGeoJson(shape);
 			if (shape !== null && centroid === null) {
 				throw new Error('Unable to determine the trap location.');

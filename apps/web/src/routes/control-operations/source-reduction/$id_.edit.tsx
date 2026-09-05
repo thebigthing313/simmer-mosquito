@@ -1,4 +1,4 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -137,8 +137,7 @@ function EditSourceReductionLoader({
 			// The point and the address/habitat are independent: only state a location
 			// when the user actually refined the point. Absent means "leave it", which
 			// is not the same request as re-sending the shape it already has.
-			const refinedShape =
-				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null;
+			const refinedShape = geometryChanged && geometry !== null ? geometry : null;
 			const centroid = refinedShape === null ? null : ownedCentroidFromGeoJson(refinedShape);
 
 			// Which commands this save means is worked out by the hook, from what

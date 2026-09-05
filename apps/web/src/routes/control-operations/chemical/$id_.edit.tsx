@@ -1,4 +1,4 @@
-import { type GeoJsonGeometry, ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
+import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
@@ -158,8 +158,7 @@ function EditApplicationLoader({
 			// The shape and the address are independent: only state a location when the
 			// user actually redrew it. Absent means "leave it", which is not the same
 			// request as re-sending the shape it already has.
-			const redrawn =
-				geometryChanged && geometry !== null ? (geometry as unknown as GeoJsonGeometry) : null;
+			const redrawn = geometryChanged && geometry !== null ? geometry : null;
 			const centroid = redrawn === null ? null : ownedCentroidFromGeoJson(redrawn);
 
 			// The batch clearance goes out unanswered and comes back as a refusal only

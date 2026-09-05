@@ -1368,7 +1368,7 @@ function useDrawPartActions({
 			if (part === undefined || !isMapLive(map)) {
 				return;
 			}
-			fitMapToGeometry(map, part as unknown as GeoJsonGeometry);
+			fitMapToGeometry(map, part);
 		},
 		[map, valueRef],
 	);
@@ -2265,9 +2265,7 @@ function holeProblem(
 	if (part.type !== 'Polygon') {
 		return null;
 	}
-	const outside = vertices.some(
-		([lng, lat]) => !geometryContainsLngLat(part as unknown as GeoJsonGeometry, { lng, lat }),
-	);
+	const outside = vertices.some(([lng, lat]) => !geometryContainsLngLat(part, { lng, lat }));
 	if (outside) {
 		return 'escapes';
 	}
