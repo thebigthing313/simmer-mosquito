@@ -1217,14 +1217,29 @@ function useDrawPartActions({
 	// away, `part` appends to them, `hole` puts back the one part it names with
 	// its new ring, and the shape that comes out is whatever `geometryFromParts`
 	// says the count makes it.
+	//
+	// A finish that leaves the shape where it was reports nothing. Continuing a
+	// piece and pressing Finish without placing a corner used to publish the same
+	// geometry back, and the form reads any publication as a redraw. On a habitat
+	// a redraw names `updateHabitatLocation`, which sits at the manager floor, so
+	// a collector's details-only save was refused for a shape nobody moved (#472).
+	// The compare is over the geometry about to go out, so a ring closed on Finish
+	// matches the ring it was seeded from, and it runs once per Finish rather than
+	// on any render.
 	const applyParts = useCallback(
 		(target: DrawTarget, parts: readonly DrawPartGeometry[]) => {
 			const existing = drawParts(valueRef.current);
+			const next = geometryFromParts(withParts(existing, target, parts));
+			const unchanged = sameDrawGeometry(next, valueRef.current);
 			cursorRef.current = null;
 			dragRef.current = null;
 			setVertices([]);
 			setMode({ kind: 'idle' });
-			onChangeRef.current(geometryFromParts(withParts(existing, target, parts)));
+			// The draw still ends: the mode, the cursor and the vertices go either
+			// way, and only the change notification is withheld.
+			if (!unchanged) {
+				onChangeRef.current(next);
+			}
 		},
 		[cursorRef, dragRef, valueRef, onChangeRef, setMode, setVertices],
 	);
@@ -1394,6 +1409,37 @@ function withParts(
 		return [...parts, ...finished];
 	}
 	return parts.flatMap((at, index) => (index === target.partIndex ? finished : [at]));
+}
+
+/**
+ * Whether two drawn shapes are the same shape.
+ *
+ * The type, then the coordinates position by position, at whatever depth the
+ * shape nests them: a Point holds one pair, a MultiPolygon holds four levels of
+ * array above the same pairs. One recursion rather than a case per type, because
+ * every shape a draw can hold is arrays of numbers under `coordinates`.
+ *
+ * Exact numbers, not a tolerance. Both sides come from the same stored ring
+ * through the same helpers, so an untouched piece round-trips to the identical
+ * values, and anything the user actually moved differs by a click's worth of
+ * degrees rather than by rounding.
+ */
+function sameDrawGeometry(first: DrawGeometry | null, second: DrawGeometry | null): boolean {
+	if (first === null || second === null) {
+		return first === second;
+	}
+	return first.type === second.type && sameCoordinates(first.coordinates, second.coordinates);
+}
+
+/** {@link sameDrawGeometry}'s recursion over one `coordinates` tree. */
+function sameCoordinates(first: unknown, second: unknown): boolean {
+	if (!Array.isArray(first) || !Array.isArray(second)) {
+		return first === second;
+	}
+	return (
+		first.length === second.length &&
+		first.every((entry, index) => sameCoordinates(entry, second[index]))
+	);
 }
 
 /**

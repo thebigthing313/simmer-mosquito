@@ -895,6 +895,42 @@ describe('useMapDraw', () => {
 		});
 	});
 
+	// #472: the form reads any publication as a redraw, and on a habitat that
+	// names `updateHabitatLocation`, which a collector may not send. A finish that
+	// placed no corner has nothing to report.
+	it('reports nothing when a continuation finishes on the corners it opened with', () => {
+		const { onChange, result } = mount({ type: 'Polygon', coordinates: [closed(FIRST_SQUARE)] });
+
+		act(() => {
+			result.current.continuePart(0);
+		});
+		expect(result.current.vertexCount).toBe(3);
+		act(() => {
+			result.current.finish();
+		});
+
+		expect(onChange).not.toHaveBeenCalled();
+		expect(result.current.isDrawing).toBe(false);
+		expect(result.current.vertexCount).toBe(0);
+	});
+
+	// The guard is on the commit rather than on the continuation, so every gesture
+	// that puts a piece back reads it. An edit opened and finished with nothing
+	// moved is the same shape arriving by the path reshape and split land on.
+	it('reports nothing when an edit finishes on the piece it opened', () => {
+		const { onChange, result } = mount({ type: 'Polygon', coordinates: [closed(BLOCK)] });
+
+		act(() => {
+			result.current.editPart(0);
+		});
+		act(() => {
+			result.current.finish();
+		});
+
+		expect(onChange).not.toHaveBeenCalled();
+		expect(result.current.isDrawing).toBe(false);
+	});
+
 	// A ring adopted from a file or a region is only closed if whoever wrote it
 	// closed it, and slicing one that is not would lose a corner.
 	it('keeps every corner of an unclosed ring it continues', () => {

@@ -24,6 +24,18 @@ import type { DrawGeometry } from '../../../../components/map/use-map-draw';
 import { cleanupRenderedHooks, createFakeMap, renderHook } from './fake-map';
 
 const SAVED: DrawGeometry = { type: 'Point', coordinates: [-74.35, 40.55] };
+/** A saved area, for the gestures a point has nothing to offer. */
+const AREA: DrawGeometry = {
+	type: 'Polygon',
+	coordinates: [
+		[
+			[-74.35, 40.55],
+			[-74.35, 40.56],
+			[-74.34, 40.56],
+			[-74.35, 40.55],
+		],
+	],
+};
 
 afterEach(cleanupRenderedHooks);
 
@@ -61,6 +73,23 @@ describe('useDrawLocation', () => {
 
 		expect(result.current.geometryChanged).toBe(true);
 		expect(result.current.geometry).toEqual({ type: 'Point', coordinates: [-74.4, 40.6] });
+	});
+
+	// #472: the exit that leaves the record alone used to be Cancel alone. Finish
+	// on a continuation that placed no corner republished the same ring, the flag
+	// went true, and the save named a command the collector floor refuses.
+	it('reports no redraw when a continued piece is finished as it was', () => {
+		const { result } = mount({ geometryKind: 'habitat', initialGeometry: AREA });
+
+		act(() => {
+			result.current.draw.continuePart(0);
+		});
+		act(() => {
+			result.current.draw.finish();
+		});
+
+		expect(result.current.geometryChanged).toBe(false);
+		expect(result.current.geometry).toEqual(AREA);
 	});
 
 	it('clears the stale shape when the tool changes', () => {

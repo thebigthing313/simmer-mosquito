@@ -14,8 +14,10 @@
  * seams are different.
  */
 
-import { renderHook } from '@testing-library/react';
+import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import type { DrawGeometry } from '../../../../components/map/use-map-draw';
+import { createFakeMap } from '../../components/map/fake-map';
 import { installMemoryCollections, seedRows } from '../../lib/collections/memory-collections';
 
 const ORGANIZATION = '11111111-1111-4111-8111-111111111111';
@@ -52,6 +54,7 @@ const { assignment_items } = await import('../../../../lib/collections/assignmen
 const { HABITAT_DELETE_REFUSALS, INSPECTION_DELETE_REFUSALS, SAMPLE_DELETE_REFUSALS } =
 	await import('../../../../lib/acknowledgement-copy');
 const { useHabitatMutations } = await import('../../../../hooks/mutations/use-habitat-mutations');
+const { useDrawLocation } = await import('../../../../components/map/use-draw-location');
 const { useInspectionMutations } = await import(
 	'../../../../hooks/mutations/use-inspection-mutations'
 );
@@ -62,6 +65,18 @@ const { useSampleSpeciesMutations } = await import(
 
 const SHAPE = { type: 'Point', coordinates: [-121.49, 38.58] } as const;
 const CENTROID = { lat: 38.58, lng: -121.49, geomType: 'st_point' };
+/** A habitat's saved outline, for the draw gestures a point has nothing to offer. */
+const AREA: DrawGeometry = {
+	type: 'Polygon',
+	coordinates: [
+		[
+			[-121.49, 38.58],
+			[-121.49, 38.59],
+			[-121.48, 38.59],
+			[-121.49, 38.58],
+		],
+	],
+};
 
 beforeEach(() => {
 	installMemoryCollections();
@@ -127,6 +142,44 @@ describe('a habitat write', () => {
 
 		expect(lastIntents()).toEqual(['larvalSurveillance.updateHabitatDetails']);
 		expect(lastWrite().locationSource).toBeUndefined();
+	});
+
+	// #472. The two halves of the refusal are in different files: the draw control
+	// decides whether the shape moved, and the hook turns that into a command
+	// name. Asserting the flag alone leaves the name argued rather than pinned, so
+	// this drives the real control and reads the write that came out.
+	it('names no location command after a continuation that placed no corner', async () => {
+		const map = createFakeMap().map;
+		const { result } = renderHook(() => ({
+			location: useDrawLocation({
+				geometryKind: 'habitat',
+				initialGeometry: AREA,
+				map: map as never,
+				missingMessage: 'Draw the habitat on the map before saving.',
+			}),
+			mutations: useHabitatMutations(),
+		}));
+
+		act(() => {
+			result.current.location.draw.continuePart(0);
+		});
+		act(() => {
+			result.current.location.draw.finish();
+		});
+
+		// What the edit route does with the flag: a redraw only when the map says so.
+		await result.current.mutations.save(
+			RECORD,
+			habitatFields({ description: 'Silted over.' }),
+			habitatFields(),
+			result.current.location.geometryChanged
+				? { geometry: AREA as never, centroid: CENTROID }
+				: null,
+		);
+
+		expect(lastIntents()).toEqual(['larvalSurveillance.updateHabitatDetails']);
+		expect(lastWrite().locationSource).toBeUndefined();
+		expect(result.current.location.geometryChanged).toBe(false);
 	});
 
 	it('dispatches nothing when the form was saved untouched', async () => {
