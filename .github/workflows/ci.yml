@@ -101,6 +101,16 @@ jobs:
       - name: Acknowledgements
         run: pnpm check:acknowledgements
 
+      # A mutation hook is what turns a form submit into a named domain command,
+      # and the suites that assert one are grouped by write surface rather than
+      # by module, so no file name says which hooks are covered. This asserts
+      # every exported hook is named by a suite. Textual on purpose: the four
+      # control-method catalogs are asserted from a table that passes each hook
+      # by reference, so a check for a call site reports three of them as
+      # uncovered. Gated at zero, with no allowance list.
+      - name: Mutation coverage
+        run: pnpm check:mutation-coverage
+
       # `packages/db/src/tables.ts` is generated from `packages/db/schema.sql`,
       # the schema dbmate dumps on migrate. This runs the generator and fails on
       # any difference, which covers both a hand edit and a migration whose
