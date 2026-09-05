@@ -1,5 +1,13 @@
 // @vitest-environment jsdom
 import type { OwnedGeometryKind } from '@simmer-mosquito/domain';
+import {
+	Select,
+	SelectContent,
+	SelectItem,
+	SelectTrigger,
+	SelectValue,
+} from '@simmer-mosquito/ui-web/components/ui/select';
+import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -24,7 +32,19 @@ const LAYER_IDS = [
 	'habitat-draw-point',
 ];
 
+// jsdom ships none of the pointer APIs Radix's select reaches for.
+globalThis.ResizeObserver ??= class {
+	observe() {}
+	unobserve() {}
+	disconnect() {}
+} as unknown as typeof ResizeObserver;
+Element.prototype.scrollIntoView ??= () => {};
+Element.prototype.hasPointerCapture ??= () => false;
+Element.prototype.setPointerCapture ??= () => {};
+Element.prototype.releasePointerCapture ??= () => {};
+
 afterEach(cleanupRenderedHooks);
+afterEach(cleanup);
 
 function mount(value: DrawGeometry | null = null) {
 	const fake = createFakeMap();
@@ -256,13 +276,13 @@ function drawPolygon(
 const TYPED_INTO = ['input', 'textarea', 'select', 'contenteditable'] as const;
 
 /**
- * Press Enter in a field of `kind`, the way the location panel is typed into.
+ * Press `key` in a field of `kind`, the way the location panel is typed into.
  *
  * The field is in the document for the press, because a key pressed in one only
  * reaches the `window` listener by bubbling out to it, and being the element it
  * was pressed in is what puts it on `event.target` for the session to read.
  */
-function pressEnterInField(kind: (typeof TYPED_INTO)[number]): void {
+function pressInField(kind: (typeof TYPED_INTO)[number], key: string): void {
 	const field = document.createElement(kind === 'contenteditable' ? 'div' : kind);
 	if (kind === 'contenteditable') {
 		// jsdom implements no part of contenteditable, so `isContentEditable` is
@@ -272,13 +292,20 @@ function pressEnterInField(kind: (typeof TYPED_INTO)[number]): void {
 	}
 	document.body.append(field);
 	try {
-		pressKeyIn(field, 'Enter');
+		pressKeyIn(field, key);
 	} finally {
 		field.remove();
 	}
 }
 
-/** How far along the open draft is, in the terms a stray Enter would move. */
+/** Press `key` in every kind of field the panel is made of. */
+function pressInEveryField(key: string): void {
+	for (const kind of TYPED_INTO) {
+		pressInField(kind, key);
+	}
+}
+
+/** How far along the open draft is, in the terms a stray key would move. */
 function draftState(result: ControlledHarness['result']) {
 	return {
 		value: result.current.value,
@@ -290,12 +317,13 @@ function draftState(result: ControlledHarness['result']) {
 }
 
 /**
- * A draft of every kind Enter lands in, each opened and left one press from
- * finished.
+ * A draft of every kind Enter and Escape land in, each opened and left one press
+ * from finished.
  *
- * All five reach Finish through one handler, so the guard is one condition. They
- * are all here because a mode that stopped reaching that handler is exactly what
- * would put the bug back, and nothing else would say so.
+ * All five reach Finish through one handler and Cancel through the one below it,
+ * so each guard is one condition. They are all here because a mode that stopped
+ * reaching that handler is exactly what would put the bug back, and nothing else
+ * would say so.
  */
 const OPEN_DRAFTS = [
 	{
@@ -521,9 +549,74 @@ describe('useMapDraw', () => {
 		const before = draftState(result);
 		expect(before.canFinish).toBe(true);
 
-		for (const kind of TYPED_INTO) {
-			pressEnterInField(kind);
-		}
+		pressInEveryField('Enter');
+
+		expect(draftState(result)).toEqual(before);
+	});
+
+	// Escape throws the draft away rather than keeping the shape, so an
+	// unguarded press costs the boundary the user just walked. It is also the key
+	// a select or a popover beside the map is dismissed with, which is the case
+	// below this one.
+	it.each(OPEN_DRAFTS)('leaves an open $name alone when Escape came from a field', ({ open }) => {
+		const { fake, result } = mountControlled();
+
+		open(fake, result);
+		const before = draftState(result);
+		expect(before.canFinish).toBe(true);
+
+		pressInEveryField('Escape');
+
+		expect(draftState(result)).toEqual(before);
+	});
+
+	/**
+	 * The overlay half, which the field guard cannot answer.
+	 *
+	 * Radix's `DismissableLayer` listens on the document in the capture phase,
+	 * calls `preventDefault`, dismisses, and does not stop propagation, so an
+	 * Escape that closed a select still reaches this listener. It leaves the
+	 * listbox's own `div[role="option"]` focused, which is no field, so
+	 * `isTypingInto` says nothing about it. `defaultPrevented` is what does.
+	 *
+	 * The select here is the real one from `ui-web`, opened the way a user opens
+	 * it, because the whole point is what Radix does rather than what it is
+	 * documented to do. A version that stopped calling `preventDefault` while
+	 * still letting the key through is the regression this catches.
+	 */
+	it('leaves the draft alone when Escape dismissed an open select', async () => {
+		const { fake, result } = mountControlled();
+
+		render(
+			<Select>
+				<SelectTrigger aria-label="Habitat type">
+					<SelectValue placeholder="Pick one" />
+				</SelectTrigger>
+				<SelectContent>
+					<SelectItem value="pond">Pond</SelectItem>
+					<SelectItem value="ditch">Ditch</SelectItem>
+				</SelectContent>
+			</Select>,
+		);
+		act(() => {
+			result.current.draw.start('Polygon');
+		});
+		placeVertices(fake, FIRST_SQUARE);
+		const before = draftState(result);
+
+		fireEvent.pointerDown(screen.getByLabelText('Habitat type'), {
+			button: 0,
+			ctrlKey: false,
+			pointerType: 'mouse',
+		});
+		const option = await screen.findByText('Pond');
+		const focused = document.activeElement;
+		// The listbox's own option, so no part of the field guard applies to it.
+		expect(focused?.tagName).toBe('DIV');
+		expect(focused?.getAttribute('role')).toBe('option');
+		act(() => {
+			fireEvent.keyDown(focused ?? option, { key: 'Escape' });
+		});
 
 		expect(draftState(result)).toEqual(before);
 	});
@@ -1711,6 +1804,49 @@ describe('useMapDraw', () => {
 		});
 		expect(result.current.draw.editedPart?.selected).toBeNull();
 		expect(result.current.draw.vertexCount).toBe(2);
+	});
+
+	// Every case above this one calls `deleteVertex`, so nothing had ever pressed
+	// the key that calls it. Both keys, because a laptop keyboard often has only
+	// Backspace and the arm takes either.
+	it.each(['Delete', 'Backspace'])('takes the picked corner off on a %s the map got', (key) => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.selectVertex({ ring: 0, vertex: 1 });
+		});
+
+		pressKey(key);
+
+		expect(result.current.draw.editedPart?.selected).toBeNull();
+		expect(result.current.draw.vertexCount).toBe(3);
+	});
+
+	// The guard the Enter and Escape arms were modelled on, and the one that had
+	// never been pressed: a backspace meant for a description would otherwise take
+	// a corner off the shape.
+	it.each([
+		'Delete',
+		'Backspace',
+	])('leaves the picked corner alone when %s came from a field', (key) => {
+		const { fake, result } = mountControlled();
+
+		drawPolygon(fake, result, BLOCK);
+		act(() => {
+			result.current.draw.editPart(0);
+		});
+		act(() => {
+			result.current.draw.selectVertex({ ring: 0, vertex: 1 });
+		});
+
+		pressInEveryField(key);
+
+		expect(result.current.draw.editedPart?.selected).toEqual({ ring: 0, vertex: 1 });
+		expect(result.current.draw.vertexCount).toBe(4);
 	});
 
 	it('extends a piece when the reshape line runs outside it', () => {
