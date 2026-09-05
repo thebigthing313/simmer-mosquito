@@ -138,6 +138,7 @@ export function RecordCleanup({ recordType }: { readonly recordType: DuplicateRe
 				onSurvivorChange={(groupKey, recordId) =>
 					setSurvivors((current) => ({ ...current, [groupKey]: recordId }))
 				}
+				recordType={recordType}
 				survivors={survivors}
 			/>
 
@@ -170,6 +171,7 @@ function CleanupBody({
 	onExclude,
 	onMerge,
 	onSurvivorChange,
+	recordType,
 	survivors,
 }: {
 	readonly candidates: ReturnType<typeof useDuplicateCandidates>;
@@ -181,6 +183,7 @@ function CleanupBody({
 	readonly onExclude: (groupKey: string, recordId: string) => void;
 	readonly onMerge: (pending: PendingMerge) => void;
 	readonly onSurvivorChange: (groupKey: string, recordId: string) => void;
+	readonly recordType: DuplicateRecordType;
 	readonly survivors: Record<string, string>;
 }) {
 	if (candidates.isPending) {
@@ -229,6 +232,7 @@ function CleanupBody({
 							})
 						}
 						onSurvivorChange={(recordId) => onSurvivorChange(group.key, recordId)}
+						recordType={recordType}
 						records={kept}
 						survivorId={survivor.id}
 					/>

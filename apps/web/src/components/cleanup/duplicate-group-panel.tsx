@@ -15,8 +15,13 @@ import { RadioGroup, RadioGroupItem } from '@simmer-mosquito/ui-web/components/u
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { Link } from '@tanstack/react-router';
 import { useId } from 'react';
-import type { DuplicateGroup, DuplicateRecord } from '../../hooks/use-merge-candidates';
+import type {
+	DuplicateGroup,
+	DuplicateRecord,
+	DuplicateRecordType,
+} from '../../hooks/use-merge-candidates';
 import { WriteOnly } from '../write-only';
+import { type MergeFieldValue, mergeFieldSummary } from './merge-field-plan';
 import {
 	duplicateGroupHeading,
 	type RecordCleanupConfig,
@@ -29,6 +34,8 @@ const MergeIcon = iconRegistry.actions.merge.icon;
 export interface DuplicateGroupPanelProps {
 	readonly group: DuplicateGroup;
 	readonly config: RecordCleanupConfig;
+	/** Which register a row reads its columns from. */
+	readonly recordType: DuplicateRecordType;
 	/** Which record the user has chosen to keep. */
 	readonly survivorId: string;
 	readonly onSurvivorChange: (recordId: string) => void;
@@ -99,6 +106,7 @@ export function DuplicateGroupPanel(props: DuplicateGroupPanelProps) {
 							key={record.id}
 							onExclude={() => props.onExclude(record.id)}
 							record={record}
+							recordType={props.recordType}
 						/>
 					))}
 				</ItemGroup>
@@ -107,18 +115,36 @@ export function DuplicateGroupPanel(props: DuplicateGroupPanelProps) {
 	);
 }
 
+/**
+ * One record in a proposed set, said in full.
+ *
+ * A row is where somebody decides whether two records are one thing, so it
+ * carries every column the merge can carry. It used to carry a name and a
+ * joined line, which meant judging a set of contacts by opening each of them in
+ * a new tab and losing the page you were working through.
+ *
+ * The columns are labelled and stacked rather than run together with separators.
+ * Two phone numbers side by side are two bare numbers; "Preferred phone" and
+ * "Alternate phone" over them is the difference between reading the row and
+ * guessing at it. Stacking is also what keeps the row honest at the 1024px
+ * floor: nothing here truncates, so a long company name takes a second line
+ * rather than losing its end.
+ */
 function CandidateRow({
 	config,
 	isSurvivor,
 	onExclude,
 	record,
+	recordType,
 }: {
 	readonly config: RecordCleanupConfig;
 	readonly isSurvivor: boolean;
 	readonly onExclude: () => void;
 	readonly record: DuplicateRecord;
+	readonly recordType: DuplicateRecordType;
 }) {
 	const radioId = useId();
+	const facts = candidateFacts(recordType, record);
 
 	return (
 		<Item size="sm" variant={isSurvivor ? 'muted' : 'default'}>
@@ -136,12 +162,24 @@ function CandidateRow({
 						</Badge>
 					) : null}
 				</ItemTitle>
-				<ItemDescription className="truncate">
-					{record.detail === null ? null : <>{record.detail} · </>}
-					Added {addedOn(record.createdAt)}
-				</ItemDescription>
+				{facts.length === 0 ? null : (
+					<dl className="grid gap-1">
+						{facts.map((fact) => (
+							<div
+								className="grid grid-cols-[minmax(0,8rem)_minmax(0,1fr)] items-baseline gap-3 text-sm"
+								key={fact.column}
+							>
+								<dt className="m-0 min-w-0 wrap-anywhere text-muted-foreground leading-snug">
+									{fact.label}
+								</dt>
+								<dd className="m-0 min-w-0 wrap-anywhere text-foreground">{fact.value}</dd>
+							</div>
+						))}
+					</dl>
+				)}
+				<ItemDescription>Added {addedOn(record.createdAt)}</ItemDescription>
 			</ItemContent>
-			<ItemActions>
+			<ItemActions className="self-start">
 				<Button asChild size="sm" variant="ghost">
 					<Link params={{ id: record.id }} to={config.detailTo}>
 						Open
@@ -153,6 +191,34 @@ function CandidateRow({
 			</ItemActions>
 		</Item>
 	);
+}
+
+/**
+ * What one row shows: the columns a merge carries, then where the record sits.
+ *
+ * The columns come from the merge register, so the row and the merge form agree
+ * without either restating the other. Coordinates are not one of them and are
+ * here anyway, because a set of addresses can be proposed for standing on the
+ * same point, and that is the one kind of match a reader would otherwise have to
+ * take the group heading's word for.
+ *
+ * They are written the way the heading writes them, straight off the doubles the
+ * key was built from, which is what lets the two be compared at all. Nothing
+ * branches on the record type: a contact carries no geometry, so the server
+ * sends it no coordinates and the row shows none.
+ */
+function candidateFacts(
+	recordType: DuplicateRecordType,
+	record: DuplicateRecord,
+): readonly MergeFieldValue[] {
+	const columns = mergeFieldSummary(recordType, record);
+	if (record.lat === null || record.lng === null) {
+		return columns;
+	}
+	return [
+		...columns,
+		{ column: 'coordinates', label: 'Coordinates', value: `${record.lat}, ${record.lng}` },
+	];
 }
 
 /**
