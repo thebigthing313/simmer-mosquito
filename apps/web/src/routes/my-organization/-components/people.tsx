@@ -238,9 +238,16 @@ function ProfileRowItem({
 		<article className="grid min-w-0 items-start gap-3 rounded-md border border-border/40 bg-card px-3 py-2.5 md:grid-cols-[minmax(220px,1fr)_auto]">
 			<div className="grid min-w-0 gap-1">
 				<div className="flex min-w-0 flex-wrap items-center gap-2">
-					<span className="font-medium wrap-anywhere text-sm leading-snug text-foreground">
+					{/* A Profile has no detail page of its own, so the name goes where the
+					    row action goes. Same absence of gates: every member may read
+					    Daily Work, and a deactivated Profile still has records behind it. */}
+					<Link
+						className="w-fit rounded-sm font-medium wrap-anywhere text-foreground text-sm leading-snug hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						params={{ profileId: person.profileId }}
+						to="/daily-work/$profileId"
+					>
 						{person.displayName}
-					</span>
+					</Link>
 					<Badge tone={person.isActive ? 'success' : 'neutral'} variant="outline">
 						{person.isActive ? 'Active' : 'Inactive'}
 					</Badge>
