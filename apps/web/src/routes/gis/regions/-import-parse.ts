@@ -8,10 +8,9 @@
  * and withholding shapes whose coordinates are not WGS84.
  */
 
-import { getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
+import { getOwnedGeometryPolicy, type OwnedGeometryTypeFor } from '@simmer-mosquito/domain';
 import {
 	collectImportGroups,
-	type ImportArealGeometry,
 	type ImportGeometry,
 	type ImportGeometryKind,
 	type ImportGroup,
@@ -24,8 +23,20 @@ import {
 
 export { declareMissingNamespaces, parseKmlCoordinates } from '@simmer-mosquito/mapping';
 
-/** What a Region's boundary may be: one area, or several carried as one. */
-export type RegionBoundary = ImportArealGeometry;
+/**
+ * What a Region's boundary may be, read off the register rather than named here.
+ *
+ * The parser's union narrowed to the shapes a Region stores, which is the same
+ * list {@link REGION_IMPORT_KINDS} is filtered down to below. It used to be
+ * `ImportArealGeometry`, a hand-written pair that agreed with the register by
+ * coincidence: widen the policy and the filter widens with it, while this type
+ * did not, and `boundaryPositions` in `import.tsx` would have read a Point's
+ * `[lng, lat]` as a ring list with nothing failing to compile.
+ */
+export type RegionBoundary = Extract<
+	ImportGeometry,
+	{ readonly type: OwnedGeometryTypeFor<'region'> }
+>;
 
 export interface ParsedRegion {
 	readonly name: string;
@@ -120,8 +131,9 @@ function finalize(groups: readonly ImportGroup[]): ParseResult {
  * Whether a parsed shape is one a Region stores.
  *
  * The parser was already asked for these kinds and answers with nothing else, so
- * this is a narrowing rather than a second gate. It reads the same derived list
- * the parser was handed, which is what keeps it from becoming one.
+ * this is a narrowing rather than a second gate. Both halves come off the
+ * register: the check reads the list the parser was handed, and
+ * {@link RegionBoundary} is that list as a type.
  */
 function isRegionBoundary(geometry: ImportGeometry): geometry is RegionBoundary {
 	return REGION_IMPORT_KINDS.includes(geometry.type);

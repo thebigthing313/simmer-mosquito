@@ -4,7 +4,6 @@ import {
 	REQUEST_INTAKE_TYPES,
 	type RequestIntakeType,
 } from '@simmer-mosquito/domain';
-import type { GeoJsonPoint } from '@simmer-mosquito/mapping';
 import {
 	FormSection,
 	LocationSection,
@@ -20,6 +19,7 @@ import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-c
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type {
 	DrawGeometry,
+	DrawGeometryFor,
 	DrawGeometryType,
 	MapDrawController,
 } from '../../../components/map/use-map-draw';
@@ -101,14 +101,15 @@ const REQUEST_LOCATION_SHAPES = getOwnedGeometryPolicy('serviceRequest').allowed
  *
  * The draw control takes the same `serviceRequest` policy and offers nothing
  * else, so this narrows what the create route holds to what the write seam takes
- * rather than gating a second time. It reads `allowedTypes` for the same reason
- * the station and Region predicates do: the route used to ask `type === 'Point'`,
- * a copy of the matrix that goes stale the day the policy widens, and on Regions
- * that copy refused a boundary the user could see on the map.
+ * rather than gating a second time. Both halves read the register, for the same
+ * reason the station and Region predicates do: the route used to ask
+ * `type === 'Point'`, a copy of the matrix that goes stale the day the policy
+ * widens, and on Regions that copy refused a boundary the user could see on the
+ * map. `Point` written into the assertion was the last of that copy left.
  */
 export function isRequestLocation(
 	geometry: DrawGeometry,
-): geometry is Extract<DrawGeometry, GeoJsonPoint> {
+): geometry is DrawGeometryFor<'serviceRequest'> {
 	return REQUEST_LOCATION_SHAPES.includes(geometry.type);
 }
 

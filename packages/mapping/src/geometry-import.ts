@@ -80,9 +80,6 @@ export type ImportGeometry =
 	| ImportMultiPolygonGeometry
 	| ImportMultiLineGeometry;
 
-/** The areal shapes: one polygon, or several carried as one. */
-export type ImportArealGeometry = ImportPolygonGeometry | ImportMultiPolygonGeometry;
-
 export type ImportGeometryKind = ImportGeometry['type'];
 
 /**

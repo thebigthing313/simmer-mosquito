@@ -5,7 +5,7 @@ import type { Map as MapboxMap } from 'mapbox-gl';
 import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { nearestRingEdge } from '../../../../components/map/draw-vertex-edit';
-import type { DrawGeometry } from '../../../../components/map/use-map-draw';
+import type { DrawGeometry, DrawGeometryFor } from '../../../../components/map/use-map-draw';
 import {
 	drawHoles,
 	drawParts,
@@ -2700,6 +2700,40 @@ describe('toDrawGeometry', () => {
 
 	it('still reads a geometry collection as nothing', () => {
 		expect(toDrawGeometry({ type: 'GeometryCollection', geometries: [] })).toBeNull();
+	});
+});
+
+/**
+ * What the five form predicates assert, checked by `tsc` rather than by vitest.
+ *
+ * The annotation on each line is the case; the `expect` beside it only proves
+ * the case ran. The `@ts-expect-error` pair is what catches a regression: a
+ * predicate rewritten to assert `DrawGeometry` or a hand-written `GeoJsonPoint`
+ * would make the directive suppress nothing and `tsc` would fail on it.
+ */
+describe('DrawGeometryFor', () => {
+	it('is the drawn shapes the policy names', () => {
+		const boundary: DrawGeometryFor<'region'> = {
+			type: 'MultiPolygon',
+			coordinates: [[closed(FIRST_SQUARE)]],
+		};
+		const placed: DrawGeometryFor<'address'> = { type: 'Point', coordinates: [-74.35, 40.55] };
+
+		expect(boundary.type).toBe('MultiPolygon');
+		expect(placed.type).toBe('Point');
+	});
+
+	it('refuses a shape the policy leaves out', () => {
+		// One line each: `@ts-expect-error` covers the line below it, and an object
+		// literal spread over three puts the error on a line the directive misses.
+		const ring = closed(FIRST_SQUARE);
+		// @ts-expect-error A Region stores areas, so nothing its policy narrows is a Point.
+		const refusedByRegion: DrawGeometryFor<'region'> = { type: 'Point', coordinates: [0, 0] };
+		// @ts-expect-error An Address stores one point, so nothing its policy narrows is a line.
+		const refusedByAddress: DrawGeometryFor<'address'> = { type: 'LineString', coordinates: ring };
+
+		expect(refusedByRegion.type).toBe('Point');
+		expect(refusedByAddress.type).toBe('LineString');
 	});
 });
 

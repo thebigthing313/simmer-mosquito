@@ -45,7 +45,6 @@ export {
 	toLngLat,
 } from './geometry.js';
 export type {
-	ImportArealGeometry,
 	ImportBaseGeometry,
 	ImportBaseGeometryKind,
 	ImportCandidate,

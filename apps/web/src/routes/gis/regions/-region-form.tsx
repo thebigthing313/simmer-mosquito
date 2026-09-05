@@ -1,9 +1,5 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
-import {
-	createRegionCommand,
-	getOwnedGeometryPolicy,
-	type RegionGeometry,
-} from '@simmer-mosquito/domain';
+import { createRegionCommand, getOwnedGeometryPolicy } from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import {
 	LocationSection,
@@ -15,7 +11,7 @@ import { useMemo, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
-import type { DrawGeometry } from '../../../components/map/use-map-draw';
+import type { DrawGeometry, DrawGeometryFor } from '../../../components/map/use-map-draw';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import type { RegionFields } from '../../../hooks/mutations/use-region-mutations';
 import type { RegionFolderListing } from '../../../hooks/queries/use-region-folders';
@@ -39,12 +35,12 @@ const REGION_BOUNDARY_SHAPES = getOwnedGeometryPolicy('region').allowedTypes;
  *
  * The draw control takes the same `region` policy and offers nothing else, so
  * this narrows what the routes hold to what the write seam takes rather than
- * gating a second time. It reads `allowedTypes` for the same reason the control
- * does: a hand-written pair of names here would be a second copy of the matrix.
+ * gating a second time. Both halves read the register: `allowedTypes` for the
+ * check, `DrawGeometryFor` for the type, so a widened policy moves them
+ * together. Naming the pair here would be a second copy of the matrix, and
+ * naming it in the assertion alone was one the compiler could not see.
  */
-export function isRegionBoundary(
-	geometry: DrawGeometry,
-): geometry is Extract<DrawGeometry, RegionGeometry> {
+export function isRegionBoundary(geometry: DrawGeometry): geometry is DrawGeometryFor<'region'> {
 	return REGION_BOUNDARY_SHAPES.includes(geometry.type);
 }
 

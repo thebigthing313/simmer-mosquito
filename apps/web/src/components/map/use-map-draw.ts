@@ -6,6 +6,7 @@ import {
 	isBaseGeometryType,
 	isSupportedGeometryType,
 	type OwnedGeometryKind,
+	type OwnedGeometryTypeFor,
 	ownedGeometryAllowsParts,
 } from '@simmer-mosquito/domain';
 import {
@@ -88,6 +89,22 @@ export type DrawGeometry =
  * bounds reader frames it, and the part row labels it.
  */
 export type DrawPartGeometry = Extract<DrawGeometry, { readonly type: DrawGeometryType }>;
+
+/**
+ * The drawn shapes a record of `Kind` stores.
+ *
+ * What the five form predicates assert, so that none of them names a shape. Each
+ * checks `getOwnedGeometryPolicy(kind).allowedTypes` at run time and used to
+ * hand-write `GeoJsonPoint` beside it; the pair agreed by coincidence, and
+ * widening a policy would have moved the check without moving the type. This
+ * reads the same register the check does, so the two move together and the
+ * routes downstream stop compiling when a policy grows a shape they cannot
+ * handle.
+ */
+export type DrawGeometryFor<Kind extends OwnedGeometryKind> = Extract<
+	DrawGeometry,
+	{ readonly type: OwnedGeometryTypeFor<Kind> }
+>;
 
 /**
  * Whether `value` names a shape the type toggle offers.
