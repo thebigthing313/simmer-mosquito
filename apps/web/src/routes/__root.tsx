@@ -37,7 +37,7 @@ export const Route = createRootRouteWithContext<RouterContext>()({
 		}
 
 		if (auth.localIdentity.organizationId === null) {
-			throw new Error('Authenticated user is missing an active organization.');
+			throw new Error('This Account has no active organization.');
 		}
 	},
 	component: RootComponent,
