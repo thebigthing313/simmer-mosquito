@@ -588,7 +588,7 @@ function validatePointGeometry(
 	issues: DomainValidationIssue[],
 ): GeoJsonPoint {
 	try {
-		return normalizeOwnedGeometry('serviceRequest', value, path) as GeoJsonPoint;
+		return normalizeOwnedGeometry('serviceRequest', value, path);
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);

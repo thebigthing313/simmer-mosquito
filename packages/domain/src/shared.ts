@@ -255,6 +255,29 @@ export type OwnedGeometryTypeFor<Kind extends OwnedGeometryKind> = Extract<
 >['allowedTypes'][number];
 
 /**
+ * The geometries `Kind` may store, as a union of the six shapes.
+ *
+ * {@link OwnedGeometryTypeFor} lifted from the shape names to the shapes
+ * themselves, so {@link normalizeOwnedGeometry} can hand back what the register
+ * says its caller stores. Four validators used to cast that return down to a
+ * shape they had written out by hand, which is the same coincidence one layer
+ * on: the run time read the register, the type did not, and the `as` was what
+ * kept the two from ever being compared.
+ *
+ * The narrow names those validators declare are kept rather than replaced by
+ * this. `CreateRegionCommand.geometry` reading `RegionGeometry` tells a caller
+ * which four shapes cannot be there and `SupportedGeoJsonGeometry` tells it
+ * nothing, and deriving the name would have widened it with the register, which
+ * is where the guarantee lives. What changed is that the compiler now compares
+ * the two: widen a policy and the return stops fitting the name, and the build
+ * fails inside the validator.
+ */
+export type OwnedGeoJsonGeometryFor<Kind extends OwnedGeometryKind> = Extract<
+	SupportedGeoJsonGeometry,
+	{ readonly type: OwnedGeometryTypeFor<Kind> }
+>;
+
+/**
  * The base shape behind each storable one.
  *
  * An object keyed by the type union rather than a list, so the compiler requires
@@ -357,12 +380,39 @@ export function getOwnedGeometryBaseTypes(kind: OwnedGeometryKind): readonly Bas
  * replaced meant the matrix was keyed by call site, so a widened policy reached
  * a validator only if somebody remembered to change the call.
  */
-export function normalizeOwnedGeometry(
-	kind: OwnedGeometryKind,
+export function normalizeOwnedGeometry<Kind extends OwnedGeometryKind>(
+	kind: Kind,
 	input: unknown,
 	path = 'geometry',
-): SupportedGeoJsonGeometry {
-	return normalizeGeometryForTypes(input, getOwnedGeometryPolicy(kind).allowedTypes, path);
+): OwnedGeoJsonGeometryFor<Kind> {
+	const geometry = normalizeGeometryForTypes(
+		input,
+		getOwnedGeometryPolicy(kind).allowedTypes,
+		path,
+	);
+	if (isOwnedGeometry(kind, geometry)) {
+		return geometry;
+	}
+	// Unreachable: `normalizeGeometryForTypes` has already thrown on every shape
+	// outside `allowedTypes`. Restating the test is what lets the compiler see the
+	// narrowing, and a throw is here rather than a cast so that a register the
+	// validator has stopped agreeing with fails loudly instead of quietly.
+	throw new Error(`${kind} geometry validated as ${geometry.type}, which it cannot store.`);
+}
+
+/**
+ * Whether `geometry` is one of the shapes `kind` stores.
+ *
+ * The check reads the register and the type it asserts is read off the same
+ * register, so the two move together. A predicate rather than a cast, because a
+ * cast would be one more place naming a shape by hand, which is the bug this
+ * closes.
+ */
+function isOwnedGeometry<Kind extends OwnedGeometryKind>(
+	kind: Kind,
+	geometry: SupportedGeoJsonGeometry,
+): geometry is OwnedGeoJsonGeometryFor<Kind> {
+	return getOwnedGeometryPolicy(kind).allowedTypes.includes(geometry.type);
 }
 
 export function inferGeometryPrecisionPolicy(

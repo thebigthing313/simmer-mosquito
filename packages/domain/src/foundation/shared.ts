@@ -135,7 +135,7 @@ export function validatePointGeometry(
 	issues: DomainValidationIssue[],
 ): GeoJsonPoint {
 	try {
-		return normalizeOwnedGeometry('address', value, path) as GeoJsonPoint;
+		return normalizeOwnedGeometry('address', value, path);
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);
@@ -160,7 +160,7 @@ export function validateRegionGeometry(
 	issues: DomainValidationIssue[],
 ): RegionGeometry {
 	try {
-		return normalizeOwnedGeometry('region', value, path) as RegionGeometry;
+		return normalizeOwnedGeometry('region', value, path);
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);

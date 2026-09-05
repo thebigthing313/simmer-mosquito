@@ -100,7 +100,7 @@ export function validatePointGeometry(
 	issues: DomainValidationIssue[],
 ): GeoJsonPoint {
 	try {
-		return normalizeOwnedGeometry('weatherStation', value, path) as GeoJsonPoint;
+		return normalizeOwnedGeometry('weatherStation', value, path);
 	} catch (error) {
 		if (error instanceof DomainValidationError) {
 			issues.push(...error.issues);
