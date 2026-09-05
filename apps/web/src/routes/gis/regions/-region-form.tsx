@@ -1,5 +1,9 @@
 import { mapInteraction } from '@simmer-mosquito/design-tokens';
-import { createRegionCommand } from '@simmer-mosquito/domain';
+import {
+	createRegionCommand,
+	getOwnedGeometryPolicy,
+	type RegionGeometry,
+} from '@simmer-mosquito/domain';
 import type { MetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import {
 	LocationSection,
@@ -26,6 +30,23 @@ const REGION_FIELD_PATHS: Readonly<Record<string, string>> = {
 	regionFolderId: 'regionFolderId',
 	metadata: 'metadata',
 };
+
+/** What a Region stores, read off the register rather than named here. */
+const REGION_BOUNDARY_SHAPES = getOwnedGeometryPolicy('region').allowedTypes;
+
+/**
+ * Whether a drawn shape is one a Region stores.
+ *
+ * The draw control takes the same `region` policy and offers nothing else, so
+ * this narrows what the routes hold to what the write seam takes rather than
+ * gating a second time. It reads `allowedTypes` for the same reason the control
+ * does: a hand-written pair of names here would be a second copy of the matrix.
+ */
+export function isRegionBoundary(
+	geometry: DrawGeometry,
+): geometry is Extract<DrawGeometry, RegionGeometry> {
+	return REGION_BOUNDARY_SHAPES.includes(geometry.type);
+}
 
 /** Non-empty sentinel: Radix Select forbids empty-string item values. */
 export const noRegionFolderValue = 'none';
