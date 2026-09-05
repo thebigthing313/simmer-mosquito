@@ -2,9 +2,9 @@
  * Which rows of a table exist for the organization reading it.
  *
  * Every shape route forces two things upstream: the columns, which say what a
- * client may see of a row, and a tenant predicate, which says which rows are
- * there at all. This module owns the second one, for every table in the database
- * rather than for every table someone remembered.
+ * client may see of a row, and an organization predicate, which says which rows
+ * are there at all. This module owns the second one, for every table in the
+ * database rather than for every table someone remembered.
  *
  * It lives here rather than in `packages/sync` because it is an authorization
  * decision, and the server is the only party allowed to make one. A client never
@@ -30,8 +30,8 @@
  *
  * The rules it encodes, all three readable off the columns:
  *
- * - No `organization_id` at all — the table is not tenant-owned, so the only
- *   predicate that can be written is none: `global`.
+ * - No `organization_id` at all — the table is not organization-owned, so the
+ *   only predicate that can be written is none: `global`.
  * - `organization_id` nullable — a null means platform-owned, which is what the
  *   `-or-global` scopes exist to include.
  * - `deleted_at` present or absent — picks between the scope that filters
@@ -46,7 +46,7 @@
 import type { SimmerDatabase } from '@simmer-mosquito/db';
 
 /**
- * The tenant predicate the server forces on a shape.
+ * The organization predicate the server forces on a shape.
  *
  * The `-no-soft-delete` variants are not a decision to show deleted rows. They
  * are for tables with no `deleted_at` column, where naming one is a shape error.

@@ -23,7 +23,8 @@ import {
 // client-side from the eager catalog, so only ids ride in the display rows.
 //
 // The four surfaces differ only in their table, their projection, and their
-// filters; the tenancy scope and the four read shapes come from `mapSurface`.
+// filters; the organization scope and the four read shapes come from
+// `mapSurface`.
 
 // --- chemical applications --------------------------------------------------
 

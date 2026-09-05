@@ -33,7 +33,7 @@ export interface MapTileQuery {
 	/** What each feature carries besides its geometry, e.g. ``sql`h.id` ``. */
 	readonly properties: readonly RawBuilder<unknown>[];
 	/**
-	 * Tenancy, filter, and tile-envelope predicates.
+	 * Organization-scope, filter, and tile-envelope predicates.
 	 *
 	 * These may reference the `bounds` CTE this read declares — the envelope
 	 * intersection is written by the caller rather than added here because the

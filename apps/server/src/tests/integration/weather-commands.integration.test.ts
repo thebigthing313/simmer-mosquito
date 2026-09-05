@@ -13,10 +13,10 @@
  *   constraint that would enforce it, so no-overlap is a handler invariant with
  *   nothing underneath it. A regression here is silent: two straddling buckets
  *   both write, and every report that sums them double-counts.
- * - **Tenancy.** Both tables carry a *nullable* `organization_id`, so they miss
- *   the `OrgOwnedTable` guard the shared helpers apply, and the predicate is
- *   written by hand in `weather-commands/shared.ts`. Written by hand is exactly
- *   what wants proving.
+ * - **Organization scope.** Both tables carry a *nullable* `organization_id`,
+ *   so they miss the `OrgOwnedTable` guard the shared helpers apply, and the
+ *   predicate is written by hand in `weather-commands/shared.ts`. Written by
+ *   hand is exactly what wants proving.
  * - **The station delete.** It hard-deletes summaries and then soft-deletes the
  *   station. Getting that order wrong leaves rows nothing can reach.
  * - **The import.** Its verdict comes from re-reading the database, not from
@@ -695,8 +695,8 @@ describeDbIntegration('weather commands against Postgres', () => {
 				'2026-06-01',
 			);
 
-			// `loadSummary` is the one hand-written tenancy predicate with a join in
-			// it, and the station is where the scoping is anchored.
+			// `loadSummary` is the one hand-written organization predicate with a
+			// join in it, and the station is where the scoping is anchored.
 			const updated = await writeSummary(
 				db,
 				updateWeatherSummaryCommand({

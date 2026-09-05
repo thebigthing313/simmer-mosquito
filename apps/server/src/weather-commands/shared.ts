@@ -13,11 +13,10 @@
  * same reason, and has no `deleted_at` at all, because a summary delete is a
  * hard delete.
  *
- * So the tenancy predicate is written out here instead. It is the same predicate
- * It is the same predicate on `id`, `organization_id`, and for stations
- * `deleted_at is null`, and what
- * makes writing it out safe is that it is written once, here, rather than at
- * each of the ten call sites.
+ * So the organization predicate is written out here instead. It is the same
+ * predicate on `id`, `organization_id`, and for stations `deleted_at is null`,
+ * and what makes writing it out safe is that it is written once, here, rather
+ * than at each of the ten call sites.
  *
  * A null `organization_id` compares unequal to every organization id, so a
  * global row is unreachable through these helpers rather than merely unlikely
@@ -163,10 +162,11 @@ export interface SummaryMetrics {
 /**
  * The organization's own summary, or `undefined`.
  *
- * Joined to the station rather than trusting `weather_summaries.organization_id`
- * alone. The column is what the sync scope reads and every write here sets it,
- * but the station is where the tenancy is anchored, a summary is reachable only
- * through one, and the join is also what enforces "never a deleted station".
+ * Joined to the station rather than trusting
+ * `weather_summaries.organization_id` alone. The column is what the sync scope
+ * reads and every write here sets it, but the station is where the organization
+ * scope is anchored, a summary is reachable only through one, and the join is
+ * also what enforces "never a deleted station".
  *
  * The dates come back as text. A `date` column read as a `Date` is a timestamp at
  * local midnight, and every comparison the overlap rules make is between calendar

@@ -1601,9 +1601,10 @@ export function deleteReferenceScopes(recordType: DeletableRecordType): readonly
  * and a citation's are about to be re-read, and a caller that confused the two
  * would tell the organization its history was being deleted.
  *
- * `match` is the whole `where` clause, including the tenancy and soft-delete
- * filters, because the tables outside the registry — `weather_summaries`, the
- * global taxonomy — do not have the columns the registry's filters assume.
+ * `match` is the whole `where` clause, including the organization and
+ * soft-delete filters, because the tables outside the registry —
+ * `weather_summaries`, the global taxonomy — do not have the columns the
+ * registry's filters assume.
  */
 export interface CitingRule {
 	/** Stable id for this consequence, so the UI can key and test it. */

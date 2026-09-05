@@ -152,7 +152,7 @@ describe('buildElectricShapeUrl', () => {
 			subsetBody: {
 				where: 'habitat_type_id = $1',
 				params: { '1': 'type-3' },
-				// Caller attempts to escape tenant scope — all must be dropped.
+				// Caller attempts to escape organization scope — all must be dropped.
 				table: 'organizations',
 				columns: 'secret',
 				org_id: 'other-org',
@@ -201,8 +201,8 @@ describe('buildElectricShapeUrl', () => {
  */
 const orgScopedWhere = 'organization_id = $1 and deleted_at is null';
 const shapeWhereByTable: Readonly<Record<string, string | null>> = {
-	// Global reference data every organization reads — no tenant predicate at
-	// all.
+	// Global reference data every organization reads — no organization predicate
+	// at all.
 	units: null,
 	genera: null,
 	species: null,
@@ -261,7 +261,7 @@ function refusingOrganizationApp(requests: string[]): Hono<{ Variables: AuthVari
 describe('registerSyncShapeRoutes', () => {
 	it.each(
 		servedTables,
-	)('forces the table, columns and tenant scope of the %s shape', async (table) => {
+	)('forces the table, columns and organization scope of the %s shape', async (table) => {
 		const requests: string[] = [];
 		const response = await recordingApp(requests).request(`/sync/shapes/${table}`);
 		const upstream = new URL(requests[0] ?? '');
@@ -322,7 +322,7 @@ describe('registerSyncShapeRoutes', () => {
 		['/sync/shapes/units', 'units'],
 		['/sync/shapes/genera', 'genera'],
 		['/sync/shapes/species', 'species'],
-	])('serves %s with no tenant predicate', async (path, table) => {
+	])('serves %s with no organization predicate', async (path, table) => {
 		const requests: string[] = [];
 		const response = await recordingApp(requests).request(path);
 		const upstream = new URL(requests[0] ?? '');
@@ -371,13 +371,13 @@ describe('registerSyncShapeRoutes', () => {
 	});
 
 	/*
-	 * And the half that keeps it safe. A tenant-scoped shape reached without an
-	 * organization context would not fail loudly — `shapeScopeFilter` would read
-	 * `undefined` — so the wider door must not be on it at all. The scope decides
-	 * which middleware a route gets, so this is structural rather than a list
-	 * someone maintains.
+	 * And the half that keeps it safe. An organization-scoped shape reached
+	 * without an organization context would not fail loudly — `shapeScopeFilter`
+	 * would read `undefined` — so the wider door must not be on it at all. The
+	 * scope decides which middleware a route gets, so this is structural rather
+	 * than a list someone maintains.
 	 */
-	it('does not admit an operator on a tenant-scoped shape', async () => {
+	it('does not admit an operator on an organization-scoped shape', async () => {
 		const response = await refusingOrganizationApp([]).request('/sync/shapes/habitats');
 
 		expect(response.status).toBe(403);
@@ -599,10 +599,11 @@ describe('registerSyncShapeRoutes', () => {
 describe('shape response caching', () => {
 	/**
 	 * Electric answers every shape request with `public, max-age=604800, …`,
-	 * intended for a CDN in front of a public shape log. Forwarded from this proxy
-	 * it told browsers to keep month-old, org-scoped, cookie-authorized snapshots
-	 * on disk — which both desynced the Electric client from the current log
-	 * position and made per-tenant rows storable by any shared cache.
+	 * intended for a CDN in front of a public shape log. Forwarded from this
+	 * proxy it told browsers to keep month-old, org-scoped, cookie-authorized
+	 * snapshots on disk — which both desynced the Electric client from the
+	 * current log position and made one organization's rows storable by any
+	 * shared cache.
 	 *
 	 * The bug was invisible in review and in the UI: the app rendered, and the
 	 * client blamed a CDN that does not exist. Only the response headers said so,

@@ -302,8 +302,8 @@ export function syncCollectionConfig<TRow extends SyncedRow>(
 
 		shapeOptions: {
 			// One route per table. The server owns the shape: it forces `table`,
-			// `columns`, and the tenant `where` from the session cookie, and strips any
-			// the client sends — so there is no `params` to set here.
+			// `columns`, and the organization `where` from the session cookie, and
+			// strips any the client sends — so there is no `params` to set here.
 			url: `${options.serverUrl}${shapePathFor(options.table)}`,
 
 			// Subset snapshot requests ride in a POST body so a large id set never hits

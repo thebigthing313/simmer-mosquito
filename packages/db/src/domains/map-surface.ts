@@ -77,8 +77,9 @@ export interface MapSurfaceDefinition<TFilters> {
 	/** The from-clause: table + alias, plus any join the predicates reference. */
 	readonly from: RawBuilder<unknown>;
 	/**
-	 * The alias the tenancy and soft-delete predicates are written against — the
-	 * record's own table, which is not always the one the geometry comes from.
+	 * The alias the organization and soft-delete predicates are written against —
+	 * the record's own table, which is not always the one the geometry comes
+	 * from.
 	 */
 	readonly alias: string;
 	/**
@@ -89,9 +90,9 @@ export interface MapSurfaceDefinition<TFilters> {
 	/** What each tile feature carries besides its geometry. */
 	readonly properties: readonly RawBuilder<unknown>[];
 	/**
-	 * Always-on predicates beyond tenancy and soft delete — what a surface reading
-	 * through a join needs to say about the joined row (its own soft delete, its
-	 * geometry being present). Not a place for filters.
+	 * Always-on predicates beyond organization scope and soft delete — what a
+	 * surface reading through a join needs to say about the joined row (its own
+	 * soft delete, its geometry being present). Not a place for filters.
 	 */
 	readonly alwaysWhere?: readonly RawBuilder<boolean>[];
 	/** The predicates the surface's own filters contribute, or none. */
@@ -250,7 +251,8 @@ export function mapRecordSurface<TFilters, TRow>(
 }
 
 /**
- * Tenancy, soft delete, and whatever else the surface is always narrowed by.
+ * Organization scope, soft delete, and whatever else the surface is always
+ * narrowed by.
  *
  * Every reader on every surface starts here — that is the whole point of the
  * factory. A read that answered without these would hand one organization

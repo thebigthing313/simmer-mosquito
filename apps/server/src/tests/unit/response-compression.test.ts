@@ -51,7 +51,7 @@ describe('read compression', () => {
 		expect(new Uint8Array(gunzipSync(raw))).toEqual(tile);
 	});
 
-	it('keeps the tenancy headers and adds its own to them', async () => {
+	it('keeps the organization-scope headers and adds its own to them', async () => {
 		const app = appWithReadMiddleware();
 		app.get('/map/habitats', (context) => context.json(listBody()));
 
@@ -217,7 +217,7 @@ describe('read compression', () => {
 		const app = appWithReadMiddleware();
 		app.get('/sync/shapes/habitats', () => {
 			// What `proxyElectricShape` hands back: Electric's headers minus the
-			// hop-by-hop set it blocks, with the tenancy pair forced on.
+			// hop-by-hop set it blocks, with the organization-scope pair forced on.
 			const headers = new Headers({
 				'content-type': 'application/json',
 				'electric-handle': '42-1690',
@@ -257,7 +257,8 @@ describe('read compression', () => {
 function appWithReadMiddleware(): Hono {
 	const app = new Hono();
 	// The order `main.ts` registers them in: compression outermost, so it appends
-	// to the `vary` the tenancy middleware sets rather than being overwritten.
+	// to the `vary` the organization-scope middleware sets rather than being
+	// overwritten.
 	for (const prefix of COMPRESSED_READ_PREFIXES) {
 		app.use(prefix, compressReads);
 	}

@@ -11,11 +11,11 @@
  * refuses a stale one.
  *
  * The `*_by_profile_id` columns are mirrored optimistically so the row does not
- * flicker between what the page wrote and what the server stamped. They do reach
- * the wire — `withoutServerOwnedColumns` strips the tenant, the centroid and the
- * four audit columns, and these are none of those — and the server ignores them,
- * because a builder reads the fields it takes and the actor is one it takes from
- * the session rather than from the body.
+ * flicker between what the page wrote and what the server stamped. They do
+ * reach the wire — `withoutServerOwnedColumns` strips the organization id, the
+ * centroid and the four audit columns, and these are none of those — and the
+ * server ignores them, because a builder reads the fields it takes and the
+ * actor is one it takes from the session rather than from the body.
  *
  * Reordering is not here: it restacks the worklist and is a command on
  * the assignment, in `use-assignment-mutations.ts`.

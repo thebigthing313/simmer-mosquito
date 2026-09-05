@@ -89,9 +89,9 @@ const rowId = 'b7c0c1d4-8f43-4f6a-9d21-5f9a7b2e14aa';
 const actorProfileId = 'c3d4e5f6-a7b8-4c9d-8e0f-1a2b3c4d5e6f';
 
 describe('org-owned writes', () => {
-	// The tenancy predicate these three share is the reason a guessed id from
-	// another organization cannot reach a row. It was re-typed in seven families
-	// and asserted in none of them.
+	// The organization predicate these three share is the reason a guessed id
+	// from another organization cannot reach a row. It was re-typed in seven
+	// families and asserted in none of them.
 	it.each([
 		[
 			'updateRow',

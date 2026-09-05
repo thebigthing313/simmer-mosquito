@@ -18,10 +18,10 @@ import { registerControlProductCommandRoutes } from '../../control-product-comma
  *
  * `DummyDriver` is what makes this a fast test rather than an integration one:
  * it compiles the real queries and returns no rows for every one of them, which
- * is exactly the state a cross-tenant id produces — the ownership `select`
- * finds nothing. It cannot prove the *predicate* is right (that needs Postgres,
- * and `command-authorization.integration.test.ts` argues the point), but the
- * predicate is not what regressed here. The error mapping is.
+ * is exactly the state a cross-organization id produces — the ownership
+ * `select` finds nothing. It cannot prove the *predicate* is right (that needs
+ * Postgres, and `command-authorization.integration.test.ts` argues the point),
+ * but the predicate is not what regressed here. The error mapping is.
  */
 describe('insecticide batch writes against an insecticide the organization does not own', () => {
 	it('answers 404, not 500, when the insecticide id resolves to nothing', async () => {
@@ -45,8 +45,9 @@ describe('insecticide batch writes against an insecticide the organization does 
 
 	// The cases answer alike on purpose. A refusal that distinguished "another
 	// organization's insecticide" from "no such insecticide" would let a caller
-	// probe for ids across tenants — the same argument `readAssigneeOwnership`
-	// makes for collapsing `elsewhere` and `deleted` into one `missing`.
+	// probe for ids across organizations — the same argument
+	// `readAssigneeOwnership` makes for collapsing `elsewhere` and `deleted` into
+	// one `missing`.
 	it('answers a foreign id and an unknown id identically', async () => {
 		const foreign = await postBatch('admin', {
 			id: '2b7c9e41-5a82-4f13-b6d0-8e1f4c3a7b52',

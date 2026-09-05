@@ -148,9 +148,9 @@ export function refuseIfReadOnly(mutation: WriteTarget): void {
  * edit that changed nothing would still become a request, and the server would
  * refuse it for asking for nothing.
  *
- * The same set for all 55 tables — the tenant, the trigger-maintained centroid,
- * and the four audit columns — so it is a fact about how SIMMER writes rather
- * than knowledge about any one table.
+ * The same set for all 55 tables — the organization id, the trigger-maintained
+ * centroid, and the four audit columns — so it is a fact about how SIMMER
+ * writes rather than knowledge about any one table.
  */
 const serverOwnedColumns: ReadonlySet<string> = new Set([
 	'organization_id',
@@ -180,10 +180,11 @@ function withoutServerOwnedColumns(source: object): CommandBody {
  *
  * `commandRequestFor` builds a single-row write's body out of what the library
  * diffed for it. A transaction has no such mutation to read — it states its own
- * body, because only the caller knows how a parent and its children fit into one
- * command — but the rules about what may be in one do not change: the server
- * still owns the tenant, the centroid and the four audit columns, and the
- * instructions still ride at the top level where the endpoints read them.
+ * body, because only the caller knows how a parent and its children fit into
+ * one command — but the rules about what may be in one do not change: the
+ * server still owns the organization id, the centroid and the four audit
+ * columns, and the instructions still ride at the top level where the endpoints
+ * read them.
  *
  * Restating those in each hook is how one of them ends up sending
  * `organization_id`, or spelling `acknowledgements` as a nested object the

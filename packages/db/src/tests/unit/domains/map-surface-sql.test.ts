@@ -64,7 +64,7 @@ import type { SimmerDatabase } from '../../../index.js';
 // Eleven explorer surfaces each answer the same four questions — the tile, the
 // framed extent, the paged list, the single row — and each answers them with
 // hand-written SQL. What has to hold across all of them is invisible in any one
-// reader: the tenancy predicate, the soft-delete predicate, and (for the
+// reader: the organization predicate, the soft-delete predicate, and (for the
 // spatial reads) the envelope pair. ADR 0008 says a read that drops one of
 // those leaks another organization's records or resurrects deleted ones, and
 // nothing but the eye currently enforces it.
@@ -93,8 +93,8 @@ const dates = { dateFrom: '2026-01-01', dateTo: '2026-06-30' };
  */
 const mapReads: ReadonlyArray<{
 	readonly name: string;
-	/** The alias tenancy + soft delete are written against. */
-	readonly tenancyAlias: string;
+	/** The alias organization scope + soft delete are written against. */
+	readonly organizationAlias: string;
 	/** The alias of the geometry the read projects and tests spatially. */
 	readonly geomAlias: string;
 	/** Whether this read narrows to a `bounds` envelope. */
@@ -104,7 +104,7 @@ const mapReads: ReadonlyArray<{
 	// --- habitats ---
 	{
 		name: 'habitat tile',
-		tenancyAlias: 'h',
+		organizationAlias: 'h',
 		geomAlias: 'h',
 		spatial: true,
 		read: (db) =>
@@ -123,7 +123,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'habitat bbox list',
-		tenancyAlias: 'h',
+		organizationAlias: 'h',
 		geomAlias: 'h',
 		spatial: true,
 		read: (db) =>
@@ -136,7 +136,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'habitat extent',
-		tenancyAlias: 'h',
+		organizationAlias: 'h',
 		geomAlias: 'h',
 		spatial: false,
 		read: (db) =>
@@ -147,7 +147,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'habitat by id',
-		tenancyAlias: 'h',
+		organizationAlias: 'h',
 		geomAlias: 'h',
 		spatial: false,
 		read: (db) => getHabitatDisplayRowById(db, { organizationId, id }),
@@ -156,7 +156,7 @@ const mapReads: ReadonlyArray<{
 	// --- inspections ---
 	{
 		name: 'inspection tile',
-		tenancyAlias: 'i',
+		organizationAlias: 'i',
 		geomAlias: 'i',
 		spatial: true,
 		read: (db) =>
@@ -176,7 +176,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'inspection bbox list',
-		tenancyAlias: 'i',
+		organizationAlias: 'i',
 		geomAlias: 'i',
 		spatial: true,
 		read: (db) =>
@@ -197,7 +197,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'inspection extent',
-		tenancyAlias: 'i',
+		organizationAlias: 'i',
 		geomAlias: 'i',
 		spatial: false,
 		read: (db) =>
@@ -216,16 +216,16 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'inspection by id',
-		tenancyAlias: 'i',
+		organizationAlias: 'i',
 		geomAlias: 'i',
 		spatial: false,
 		read: (db) => getInspectionDisplayRowById(db, { organizationId, id }),
 	},
 
-	// --- samples (tenancy on the sample, geometry on its parent inspection) ---
+	// --- samples (organization on the sample, geometry on its parent inspection) ---
 	{
 		name: 'sample tile',
-		tenancyAlias: 's',
+		organizationAlias: 's',
 		geomAlias: 'i',
 		spatial: true,
 		read: (db) =>
@@ -243,7 +243,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'sample bbox list',
-		tenancyAlias: 's',
+		organizationAlias: 's',
 		geomAlias: 'i',
 		spatial: true,
 		read: (db) =>
@@ -262,7 +262,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'sample extent',
-		tenancyAlias: 's',
+		organizationAlias: 's',
 		geomAlias: 'i',
 		spatial: false,
 		read: (db) =>
@@ -279,7 +279,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'sample by id',
-		tenancyAlias: 's',
+		organizationAlias: 's',
 		geomAlias: 'i',
 		spatial: false,
 		read: (db) => getSampleDisplayRowById(db, { organizationId, id }),
@@ -288,7 +288,7 @@ const mapReads: ReadonlyArray<{
 	// --- traps ---
 	{
 		name: 'trap tile',
-		tenancyAlias: 't',
+		organizationAlias: 't',
 		geomAlias: 't',
 		spatial: true,
 		read: (db) =>
@@ -300,7 +300,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'trap page',
-		tenancyAlias: 't',
+		organizationAlias: 't',
 		geomAlias: 't',
 		spatial: false,
 		read: (db) =>
@@ -312,7 +312,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'trap extent',
-		tenancyAlias: 't',
+		organizationAlias: 't',
 		geomAlias: 't',
 		spatial: false,
 		read: (db) =>
@@ -323,7 +323,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'trap by id',
-		tenancyAlias: 't',
+		organizationAlias: 't',
 		geomAlias: 't',
 		spatial: false,
 		read: (db) => getTrapDisplayRowById(db, { organizationId, id }),
@@ -332,7 +332,7 @@ const mapReads: ReadonlyArray<{
 	// --- collections ---
 	{
 		name: 'collection tile',
-		tenancyAlias: 'c',
+		organizationAlias: 'c',
 		geomAlias: 'c',
 		spatial: true,
 		read: (db) =>
@@ -345,7 +345,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'collection page',
-		tenancyAlias: 'c',
+		organizationAlias: 'c',
 		geomAlias: 'c',
 		spatial: false,
 		read: (db) =>
@@ -358,7 +358,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'collection extent',
-		tenancyAlias: 'c',
+		organizationAlias: 'c',
 		geomAlias: 'c',
 		spatial: false,
 		read: (db) =>
@@ -370,7 +370,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'collection by id',
-		tenancyAlias: 'c',
+		organizationAlias: 'c',
 		geomAlias: 'c',
 		spatial: false,
 		read: (db) => getCollectionDisplayRowById(db, { organizationId, id }),
@@ -379,7 +379,7 @@ const mapReads: ReadonlyArray<{
 	// --- chemical applications ---
 	{
 		name: 'application tile',
-		tenancyAlias: 'a',
+		organizationAlias: 'a',
 		geomAlias: 'a',
 		spatial: true,
 		read: (db) =>
@@ -397,7 +397,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'application page',
-		tenancyAlias: 'a',
+		organizationAlias: 'a',
 		geomAlias: 'a',
 		spatial: false,
 		read: (db) =>
@@ -415,7 +415,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'application extent',
-		tenancyAlias: 'a',
+		organizationAlias: 'a',
 		geomAlias: 'a',
 		spatial: false,
 		read: (db) =>
@@ -432,7 +432,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'application by id',
-		tenancyAlias: 'a',
+		organizationAlias: 'a',
 		geomAlias: 'a',
 		spatial: false,
 		read: (db) => getApplicationDisplayRowById(db, { organizationId, id }),
@@ -441,7 +441,7 @@ const mapReads: ReadonlyArray<{
 	// --- source reduction ---
 	{
 		name: 'source reduction tile',
-		tenancyAlias: 'sr',
+		organizationAlias: 'sr',
 		geomAlias: 'sr',
 		spatial: true,
 		read: (db) =>
@@ -458,7 +458,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'source reduction page',
-		tenancyAlias: 'sr',
+		organizationAlias: 'sr',
 		geomAlias: 'sr',
 		spatial: false,
 		read: (db) =>
@@ -475,7 +475,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'source reduction extent',
-		tenancyAlias: 'sr',
+		organizationAlias: 'sr',
 		geomAlias: 'sr',
 		spatial: false,
 		read: (db) =>
@@ -491,7 +491,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'source reduction by id',
-		tenancyAlias: 'sr',
+		organizationAlias: 'sr',
 		geomAlias: 'sr',
 		spatial: false,
 		read: (db) => getSourceReductionDisplayRowById(db, { organizationId, id }),
@@ -500,7 +500,7 @@ const mapReads: ReadonlyArray<{
 	// --- biocontrol ---
 	{
 		name: 'biocontrol tile',
-		tenancyAlias: 'ba',
+		organizationAlias: 'ba',
 		geomAlias: 'ba',
 		spatial: true,
 		read: (db) =>
@@ -518,7 +518,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'biocontrol page',
-		tenancyAlias: 'ba',
+		organizationAlias: 'ba',
 		geomAlias: 'ba',
 		spatial: false,
 		read: (db) =>
@@ -536,7 +536,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'biocontrol extent',
-		tenancyAlias: 'ba',
+		organizationAlias: 'ba',
 		geomAlias: 'ba',
 		spatial: false,
 		read: (db) =>
@@ -553,7 +553,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'biocontrol by id',
-		tenancyAlias: 'ba',
+		organizationAlias: 'ba',
 		geomAlias: 'ba',
 		spatial: false,
 		read: (db) => getBiocontrolDisplayRowById(db, { organizationId, id }),
@@ -562,7 +562,7 @@ const mapReads: ReadonlyArray<{
 	// --- outreach ---
 	{
 		name: 'outreach tile',
-		tenancyAlias: 'oa',
+		organizationAlias: 'oa',
 		geomAlias: 'oa',
 		spatial: true,
 		read: (db) =>
@@ -574,7 +574,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'outreach page',
-		tenancyAlias: 'oa',
+		organizationAlias: 'oa',
 		geomAlias: 'oa',
 		spatial: false,
 		read: (db) =>
@@ -586,7 +586,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'outreach extent',
-		tenancyAlias: 'oa',
+		organizationAlias: 'oa',
 		geomAlias: 'oa',
 		spatial: false,
 		read: (db) =>
@@ -597,7 +597,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'outreach by id',
-		tenancyAlias: 'oa',
+		organizationAlias: 'oa',
 		geomAlias: 'oa',
 		spatial: false,
 		read: (db) => getOutreachDisplayRowById(db, { organizationId, id }),
@@ -606,7 +606,7 @@ const mapReads: ReadonlyArray<{
 	// --- requested control actions (by-id geometry only; no explorer of its own) ---
 	{
 		name: 'requested control action by id',
-		tenancyAlias: 'rca',
+		organizationAlias: 'rca',
 		geomAlias: 'rca',
 		spatial: false,
 		read: (db) => getRequestedControlActionDisplayRowById(db, { organizationId, id }),
@@ -615,7 +615,7 @@ const mapReads: ReadonlyArray<{
 	// --- addresses ---
 	{
 		name: 'address tile',
-		tenancyAlias: 'a',
+		organizationAlias: 'a',
 		geomAlias: 'a',
 		spatial: true,
 		read: (db) =>
@@ -627,7 +627,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'address extent',
-		tenancyAlias: 'a',
+		organizationAlias: 'a',
 		geomAlias: 'a',
 		spatial: false,
 		read: (db) =>
@@ -637,7 +637,7 @@ const mapReads: ReadonlyArray<{
 	// --- regions ---
 	{
 		name: 'region tile',
-		tenancyAlias: 'r',
+		organizationAlias: 'r',
 		geomAlias: 'r',
 		spatial: true,
 		read: (db) =>
@@ -649,7 +649,7 @@ const mapReads: ReadonlyArray<{
 	},
 	{
 		name: 'region extent',
-		tenancyAlias: 'r',
+		organizationAlias: 'r',
 		geomAlias: 'r',
 		spatial: false,
 		read: (db) =>
@@ -670,10 +670,10 @@ describe('map surface scope', () => {
 
 		expect(queries).toHaveLength(1);
 		const compiled = normalize(queries[0]?.sql ?? '');
-		// The tenancy id is bound, never inlined, on every surface.
+		// The organization id is bound, never inlined, on every surface.
 		expect(queries[0]?.parameters).toContain(organizationId);
-		expect(compiled).toContain(`${mapRead.tenancyAlias}.organization_id = $`);
-		expect(compiled).toContain(`${mapRead.tenancyAlias}.deleted_at is null`);
+		expect(compiled).toContain(`${mapRead.organizationAlias}.organization_id = $`);
+		expect(compiled).toContain(`${mapRead.organizationAlias}.deleted_at is null`);
 	});
 
 	it.each(

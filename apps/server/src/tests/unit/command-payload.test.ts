@@ -57,7 +57,7 @@ describe('a command payload names its table columns', () => {
 	 * `Exclude` in `ColumnOf` turns these four green and the build red.
 	 */
 	it('refuses a column the server owns', () => {
-		// @ts-expect-error tenancy comes from `AuthContext`, never from a body
+		// @ts-expect-error the organization comes from `AuthContext`, not a body
 		expect(habitat.organization_id).toBeUndefined();
 		// @ts-expect-error a delete is a named command, not a timestamp arriving
 		expect(habitat.deleted_at).toBeUndefined();

@@ -360,7 +360,7 @@ async function writeReinvitation(
 }
 
 /**
- * One update, tenant-scoped, written out here.
+ * One update, organization-scoped, written out here.
  *
  * Not `updateRow` from `packages/db`: that takes an `OrgOwnedTable`, which is
  * derived from carrying `deleted_at`, and `memberships` has none. A membership is

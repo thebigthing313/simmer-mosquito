@@ -16,7 +16,8 @@ import type { SimmerDatabase } from '../../../index.js';
 // with its own table alias. These compile the SQL — no database — to prove the
 // predicate lands on the right geometry and, above all, that the region set is
 // scoped to the record's own organization: a filter that skipped that would let
-// a guessed region id from another organization widen a tenant-scoped read.
+// a guessed region id from another organization widen an organization-scoped
+// read.
 
 const organizationId = '9a3d9e12-2a1c-4d5f-8f2b-6d0f47a03c31';
 // The organization's zone. Named rather than defaulted so a collection read
@@ -35,7 +36,8 @@ describe('region membership filter', () => {
 		],
 		[
 			// A sample has no geometry of its own: it is in a region when its parent
-			// inspection is, while tenancy still comes from the sample.
+			// inspection is, while the organization scope still comes from the
+			// sample.
 			'samples',
 			async (db: Kysely<SimmerDatabase>) =>
 				getSampleMapExtent(db, { organizationId, filters: { regionIds } }),
@@ -56,14 +58,14 @@ describe('region membership filter', () => {
 			'a',
 			'a',
 		],
-	])('scopes the %s read to regions of the same organization', async (_surface, read, geomAlias, tenancyAlias) => {
+	])('scopes the %s read to regions of the same organization', async (_surface, read, geomAlias, organizationAlias) => {
 		const { db, queries } = compilingDatabase();
 
 		await read(db);
 
 		const sql = normalize(queries[0]?.sql ?? '');
 		expect(sql).toContain('from regions rf');
-		expect(sql).toContain(`rf.organization_id = ${tenancyAlias}.organization_id`);
+		expect(sql).toContain(`rf.organization_id = ${organizationAlias}.organization_id`);
 		expect(sql).toContain(`st_intersects(rf.geom, ${geomAlias}.geom)`);
 		// The bounding-box operator first, so the GiST index can be used before
 		// the exact test runs.

@@ -7,14 +7,15 @@
  * > `public` is wrong because these routes sit behind the session cookie and
  * > the server *forces* the org-scoped `where` … Two operators hit
  * > byte-identical URLs and must not receive each other's rows, so a response
- * > that any shared cache may store is a tenancy leak waiting on a proxy nobody
- * > remembered was there.
+ * > that any shared cache may store is a leak across organizations waiting on a
+ * > proxy nobody remembered was there.
  *
  * `/map/tiles/habitats/13/1310/3166.mvt` carries no organization id. The scope
  * comes from `authContext.organization.id`, read out of the session inside the
  * handler. ADR 0005 lets one login belong to several organizations and
  * `apps/web` switches organization without changing that URL, so the same
- * browser, on the same URL, is entitled to two different tenants' geometry.
+ * browser, on the same URL, is entitled to two different organizations'
+ * geometry.
  *
  * The tile route sent no `cache-control` at all, which is not the same mistake
  * the sync proxy made — a response with no freshness header, no `ETag` and no
@@ -30,8 +31,8 @@
 import type { MiddlewareHandler } from 'hono';
 
 /**
- * Prefixes whose responses are organization-scoped reads on tenant-identical
- * URLs.
+ * Prefixes whose responses are organization-scoped reads on URLs that are
+ * identical across organizations.
  *
  * `/sync/*` is deliberately absent: `proxyElectricShape` forces the same two
  * headers itself, because it has to *replace* Electric's

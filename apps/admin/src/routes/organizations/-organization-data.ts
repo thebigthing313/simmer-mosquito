@@ -11,8 +11,8 @@ import {
  *
  * Organizations and memberships come from plain `/admin/*` JSON endpoints
  * rather than an Electric shape — they are operator-scoped, not
- * organization-scoped, so there is no tenant to authorize a shape against and
- * nothing to stream. That makes them the same case `apps/web` already uses
+ * organization-scoped, so there is no organization to authorize a shape against
+ * and nothing to stream. That makes them the same case `apps/web` already uses
  * `useQuery` for (see `routes/gis/addresses/-address-data.ts`): fetch, cache,
  * invalidate on write.
  *

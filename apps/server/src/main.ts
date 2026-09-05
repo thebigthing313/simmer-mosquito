@@ -122,18 +122,20 @@ for (const surface of CORS_SURFACES) {
 	app.use(surface.prefix, cors(corsOptionsFor(surface, allowedCorsOrigins())));
 }
 
-// The map and shape reads, gzipped. Registered before the tenancy headers below
-// so it wraps them: it appends `accept-encoding` to the `vary` they set, and
-// appending only works from the outside. `response-compression.ts` has the
-// measurements and says why it is not `hono/compress`.
+// The map and shape reads, gzipped. Registered before the organization-scope
+// headers below so it wraps them: it appends `accept-encoding` to the `vary`
+// they set, and appending only works from the outside.
+// `response-compression.ts` has the measurements and says why it is not
+// `hono/compress`.
 for (const prefix of COMPRESSED_READ_PREFIXES) {
 	app.use(prefix, compressReads);
 }
 
-// Organization-scoped reads on URLs that are byte-identical across tenants.
-// `cache-headers.ts` explains why; the short version is that a tile URL carries
-// no organization id and one login can switch between organizations without the
-// URL changing. Registered before the routes so it wraps them.
+// Organization-scoped reads on URLs that are byte-identical across
+// organizations. `cache-headers.ts` explains why; the short version is that a
+// tile URL carries no organization id and one login can switch between
+// organizations without the URL changing. Registered before the routes so it
+// wraps them.
 for (const prefix of PRIVATE_READ_PREFIXES) {
 	app.use(prefix, privateNoStore);
 }

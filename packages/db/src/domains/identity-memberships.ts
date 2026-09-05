@@ -707,7 +707,7 @@ export async function stageOrganizationInvitation(
  *
  * Scoped by organization as well as by id. The caller has an id it read from
  * its own staging call, and a stamp that could reach another organization's row
- * would be a tenancy hole for the sake of one saved predicate.
+ * would be a hole in that scope for the sake of one saved predicate.
  */
 export async function stampOrganizationInvitation(
 	db: Kysely<SimmerDatabase>,
