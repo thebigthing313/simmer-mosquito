@@ -1,20 +1,6 @@
 // @vitest-environment jsdom
 import type { OwnedGeometryKind } from '@simmer-mosquito/domain';
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import {
-	DropdownMenu,
-	DropdownMenuContent,
-	DropdownMenuItem,
-	DropdownMenuTrigger,
-} from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import {
-	Select,
-	SelectContent,
-	SelectItem,
-	SelectTrigger,
-	SelectValue,
-} from '@simmer-mosquito/ui-web/components/ui/select';
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, screen } from '@testing-library/react';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -29,6 +15,16 @@ import {
 } from '../../../../components/map/use-map-draw';
 import type { FakeMap } from './fake-map';
 import { cleanupRenderedHooks, createFakeMap, pressKey, pressKeyIn, renderHook } from './fake-map';
+import {
+	openMenu,
+	openSelect,
+	pressInEveryField,
+	pressWatched,
+	renderFocusedButton,
+	renderMenu,
+	renderSelect,
+	selectTrigger,
+} from './key-presses';
 
 const SOURCE_ID = 'habitat-draw';
 const LAYER_IDS = [
@@ -38,17 +34,6 @@ const LAYER_IDS = [
 	'habitat-draw-vertex',
 	'habitat-draw-point',
 ];
-
-// jsdom ships none of the pointer APIs Radix's select reaches for.
-globalThis.ResizeObserver ??= class {
-	observe() {}
-	unobserve() {}
-	disconnect() {}
-} as unknown as typeof ResizeObserver;
-Element.prototype.scrollIntoView ??= () => {};
-Element.prototype.hasPointerCapture ??= () => false;
-Element.prototype.setPointerCapture ??= () => {};
-Element.prototype.releasePointerCapture ??= () => {};
 
 afterEach(cleanupRenderedHooks);
 afterEach(cleanup);
@@ -277,120 +262,6 @@ function drawPolygon(
 	act(() => {
 		result.current.draw.finish();
 	});
-}
-
-/** The kinds of field the panel beside the map is made of. */
-const TYPED_INTO = ['input', 'textarea', 'select', 'contenteditable'] as const;
-
-/**
- * Press `key` in a field of `kind`, the way the location panel is typed into.
- *
- * The field is in the document for the press, because a key pressed in one only
- * reaches the `window` listener by bubbling out to it, and being the element it
- * was pressed in is what puts it on `event.target` for the session to read.
- */
-function pressInField(kind: (typeof TYPED_INTO)[number], key: string): void {
-	const field = document.createElement(kind === 'contenteditable' ? 'div' : kind);
-	if (kind === 'contenteditable') {
-		// jsdom implements no part of contenteditable, so `isContentEditable` is
-		// undefined on an element carrying the attribute. That property is what the
-		// guard reads, so the case answers it rather than the attribute.
-		Object.defineProperty(field, 'isContentEditable', { value: true });
-	}
-	document.body.append(field);
-	try {
-		pressKeyIn(field, key);
-	} finally {
-		field.remove();
-	}
-}
-
-/** Press `key` in every kind of field the panel is made of. */
-function pressInEveryField(key: string): void {
-	for (const kind of TYPED_INTO) {
-		pressInField(kind, key);
-	}
-}
-
-/**
- * The real `ui-web` select, which is what a record form puts beside the map.
- *
- * Rendered rather than synthesised, because what Radix does with a key is the
- * whole question. A version that stopped spending Escape, or started spending
- * Enter, would still let the press through, and the cases below would go on
- * passing against a hand-made event.
- */
-function renderSelect(): void {
-	render(
-		<Select>
-			<SelectTrigger aria-label="Habitat type">
-				<SelectValue placeholder="Pick one" />
-			</SelectTrigger>
-			<SelectContent>
-				<SelectItem value="pond">Pond</SelectItem>
-				<SelectItem value="ditch">Ditch</SelectItem>
-			</SelectContent>
-		</Select>,
-	);
-}
-
-/** Open it the way a pointer does, and hand back the option it focused. */
-async function openSelect(): Promise<HTMLElement> {
-	fireEvent.pointerDown(screen.getByLabelText('Habitat type'), {
-		button: 0,
-		ctrlKey: false,
-		pointerType: 'mouse',
-	});
-	const option = await screen.findByText('Pond');
-	const focused = document.activeElement;
-	// The listbox's own option, so no part of the field guard applies to it.
-	expect(focused?.tagName).toBe('DIV');
-	expect(focused?.getAttribute('role')).toBe('option');
-	return (focused ?? option) as HTMLElement;
-}
-
-/** What the `window` listener saw of one press, which is what says why a case passed. */
-interface WatchedPress {
-	readonly reachedWindow: boolean;
-	readonly defaultPrevented: boolean;
-	/** The ARIA role on the pressed element, or `null` where it declares none. */
-	readonly role: string | null;
-	/** Whether the press landed inside the map's own key surface. */
-	readonly onMapSurface: boolean;
-}
-
-/**
- * Press `key` on `element` and report what reached `window`.
- *
- * Every one of these cases is about a press that arrives looking like a press
- * on the map, so the report is what pins each to the reason it was written.
- * A case that stopped saying `defaultPrevented` was clear, or that the element
- * declared no role, would keep passing while the hole it covers had moved.
- */
-function pressWatched(element: HTMLElement, key: string, surface: HTMLElement): WatchedPress {
-	let seen: WatchedPress = {
-		reachedWindow: false,
-		defaultPrevented: false,
-		role: null,
-		onMapSurface: false,
-	};
-	function record(event: KeyboardEvent) {
-		seen = {
-			reachedWindow: true,
-			defaultPrevented: event.defaultPrevented,
-			role: event.target instanceof Element ? event.target.getAttribute('role') : null,
-			onMapSurface: event.target instanceof Node && surface.contains(event.target),
-		};
-	}
-	window.addEventListener('keydown', record);
-	try {
-		act(() => {
-			fireEvent.keyDown(element, { key });
-		});
-	} finally {
-		window.removeEventListener('keydown', record);
-	}
-	return seen;
 }
 
 /** How far along the open draft is, in the terms a stray key would move. */
@@ -790,14 +661,11 @@ describe('useMapDraw', () => {
 	}) => {
 		const { fake, result } = mountControlled();
 
-		render(<Button>Undo</Button>);
 		open(fake, result);
 		const before = draftState(result);
 		expect(before.canFinish).toBe(true);
 
-		const button = screen.getByText('Undo');
-		button.focus();
-		const seen = pressWatched(button, 'Enter', fake.canvasContainer);
+		const seen = pressWatched(renderFocusedButton(), 'Enter', fake.canvasContainer);
 
 		expect(seen.reachedWindow).toBe(true);
 		expect(seen.defaultPrevented).toBe(false);
@@ -812,14 +680,11 @@ describe('useMapDraw', () => {
 	it.each(OPEN_DRAFTS)('leaves an open $name alone when Escape came from a button', ({ open }) => {
 		const { fake, result } = mountControlled();
 
-		render(<Button>Undo</Button>);
 		open(fake, result);
 		const before = draftState(result);
 		expect(before.canFinish).toBe(true);
 
-		const button = screen.getByText('Undo');
-		button.focus();
-		const seen = pressWatched(button, 'Escape', fake.canvasContainer);
+		const seen = pressWatched(renderFocusedButton(), 'Escape', fake.canvasContainer);
 
 		expect(seen.reachedWindow).toBe(true);
 		expect(seen.defaultPrevented).toBe(false);
@@ -867,24 +732,12 @@ describe('useMapDraw', () => {
 	}) => {
 		const { fake, result } = mountControlled();
 
-		render(
-			<DropdownMenu>
-				<DropdownMenuTrigger aria-label="Row actions">Actions</DropdownMenuTrigger>
-				<DropdownMenuContent>
-					<DropdownMenuItem>Rename</DropdownMenuItem>
-				</DropdownMenuContent>
-			</DropdownMenu>,
-		);
+		renderMenu();
 		open(fake, result);
 		const before = draftState(result);
 		expect(before.canFinish).toBe(true);
 
-		const trigger = screen.getByLabelText('Row actions');
-		fireEvent.pointerDown(trigger, { button: 0, ctrlKey: false, pointerType: 'mouse' });
-		fireEvent.click(trigger);
-		await screen.findByText('Rename');
-		const menu = document.activeElement as HTMLElement;
-		const seen = pressWatched(menu, 'Enter', fake.canvasContainer);
+		const seen = pressWatched(await openMenu(), 'Enter', fake.canvasContainer);
 
 		expect(seen.reachedWindow).toBe(true);
 		expect(seen.defaultPrevented).toBe(false);
@@ -903,7 +756,7 @@ describe('useMapDraw', () => {
 		renderSelect();
 		open(fake, result);
 		const before = draftState(result);
-		const trigger = screen.getByLabelText('Habitat type');
+		const trigger = selectTrigger();
 		trigger.focus();
 
 		act(() => {
@@ -2187,7 +2040,6 @@ describe('useMapDraw', () => {
 	])('leaves the picked corner alone when %s came from a button', (key) => {
 		const { fake, result } = mountControlled();
 
-		render(<Button>Delete vertex</Button>);
 		drawPolygon(fake, result, BLOCK);
 		act(() => {
 			result.current.draw.editPart(0);
@@ -2196,9 +2048,7 @@ describe('useMapDraw', () => {
 			result.current.draw.selectVertex({ ring: 0, vertex: 1 });
 		});
 
-		const button = screen.getByText('Delete vertex');
-		button.focus();
-		const seen = pressWatched(button, key, fake.canvasContainer);
+		const seen = pressWatched(renderFocusedButton('Delete vertex'), key, fake.canvasContainer);
 
 		expect(seen.reachedWindow).toBe(true);
 		expect(seen.role).toBeNull();

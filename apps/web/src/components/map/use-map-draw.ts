@@ -47,6 +47,7 @@ import {
 	samePosition,
 	unclosedRing,
 } from './draw-vertex-edit';
+import { isAimedAtMap } from './map-keys';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -1866,40 +1867,6 @@ function vertexUnder(map: MapboxMap, event: MapMouseEvent): DrawVertexRef | null
 	const ring = feature?.properties?.ring;
 	const vertex = feature?.properties?.vertex;
 	return typeof ring === 'number' && typeof vertex === 'number' ? { ring, vertex } : null;
-}
-
-/**
- * Whether the key was the map's.
- *
- * Both listeners are on `window`, because a draft has to answer Escape from the
- * moment it opens and the surface can lose focus under the user, so the
- * question they cannot dodge is which presses are theirs. Four bugs were four
- * answers to the other question, "which presses are not theirs": a field
- * (#517), a spent default (#547), a listbox item's role (#560), and then a
- * focused `<button>` (#572), which carries none of the three and is
- * indistinguishable in the event from the canvas, itself a role-less element
- * nothing prevents a default on. So the rule here is the positive one. The key
- * is the map's when it came from the map's own key surface, and a press that
- * landed anywhere else on the page belongs to whatever it landed on.
- *
- * `getCanvasContainer`, not `getContainer`: mapbox puts its own attribution and
- * info buttons in a control container beside the canvas one, inside the same
- * map. Those are the same `<button>` case #572 is, one element further in, and
- * the canvas container is the div mapbox binds its own keyboard panning to.
- *
- * The second arm is the press nothing claimed. A keydown with no focused
- * element arrives on the body, which is what a browser hands a key when the
- * toolbar button that had focus has just re-rendered away. Read as "the target
- * is no element, or it is the body" rather than as an identity check against
- * `window`: under jsdom the global `window` is not the object a dispatch there
- * puts on `event.target`, and a rule that reads true in a browser and false in
- * every test is worse than no rule.
- */
-function isAimedAtMap(map: MapboxMap, target: EventTarget | null): boolean {
-	if (target instanceof Node && map.getCanvasContainer().contains(target)) {
-		return true;
-	}
-	return !(target instanceof Element) || target === target.ownerDocument.body;
 }
 
 /** Whether the pointer is on a boundary rather than inside or outside a shape. */

@@ -19,6 +19,7 @@ import type {
 	MapMouseEvent,
 } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { isAimedAtMap } from './map-keys';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -297,7 +298,22 @@ export function useMapMeasure({
 			}
 		}
 
+		// A measurement is taken while reading the panel beside the map, which is
+		// exactly where a stray Enter or Escape comes from. So the listener is on
+		// `window` and the keys it answers are the ones the map surface got:
+		// {@link isAimedAtMap} is the rule the draw session settled on, and this
+		// hook had none of it (#574).
+		//
+		// No focus move here, unlike a draw. A draft opens on the first map click
+		// and mapbox spends no default on `mousedown`, so the canvas has focus by
+		// the time there is a shape to finish or throw away. Before that click
+		// there is nothing either key can cost, and taking the canvas on
+		// `selectTool` would pull focus off the tool button the user just pressed,
+		// on every tool switch, for no gain.
 		function handleKey(event: KeyboardEvent) {
+			if (!isAimedAtMap(activeMap, event.target)) {
+				return;
+			}
 			if (event.key === 'Enter') {
 				finishRef.current();
 			}
