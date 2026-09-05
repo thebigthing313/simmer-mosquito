@@ -1,21 +1,35 @@
 /**
  * Emits a standalone preview harness for the four styles.
  *
- * A Mapbox style is unreviewable as JSON — the whole design lives in how zoom
+ * A Mapbox style is unreviewable as JSON. The whole design lives in how zoom
  * stops interact, and no amount of reading the source tells you whether the
- * staged reveal actually feels right. This page exists so the styles can be
- * walked before anything is uploaded to Studio.
+ * staged reveal feels right. This page exists so the styles can be walked
+ * before anything is uploaded to Studio.
  *
  * The styles are inlined rather than fetched so the file opens straight off
  * disk. `fetch('./simmer-day.json')` would need a static server, which is one
  * more step between a change and seeing it.
  */
 
+/**
+ * What is on screen in each zoom range, read out as the map is dragged.
+ *
+ * A stage is named by its zoom range and nothing else. Each label used to open
+ * with a scale word as well, and two of the four were `district` and `site`,
+ * which `CONTEXT.md` refuses because each reads as a different record to the
+ * next person: District is the Organization or a Region, Site is a Habitat or a
+ * Trap. A camera distance is neither, so the word was standing in for a number
+ * it could only blur. `z12-14` is exactly how far out the camera is, and it is
+ * also what you edit in `layers.mjs` when a stop lands wrong. The stage table in
+ * `layers.mjs`, and the copy of it in the README beside it, have always been
+ * keyed on the zoom range alone. This file was the only place a scale word
+ * appeared. Issue #592 is the ruling, so do not put the words back.
+ */
 const STAGES = [
-	[0, 9, 'z3-8 · organization overview — water, wetland, boundaries. Land flat, no roads.'],
-	[9, 12, 'z9-11 · district — land cover in, terrain fading in, major roads only.'],
-	[12, 15, 'z12-14 · neighbourhood — full road network + names, land cover fading out.'],
-	[15, 24, 'z15+ · site — buildings in, terrain and land cover gone.'],
+	[0, 9, 'z3-8 · water, wetland, boundaries. Land flat, no roads.'],
+	[9, 12, 'z9-11 · land cover in, terrain fading in, major roads only.'],
+	[12, 15, 'z12-14 · full road network and names, land cover fading out.'],
+	[15, 24, 'z15+ · buildings in, terrain and land cover gone.'],
 ];
 
 export function renderPreview(styles) {
