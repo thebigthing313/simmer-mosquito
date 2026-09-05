@@ -1,5 +1,5 @@
 /**
- * The most recent Habitat Inspections, newest first, as many as asked for.
+ * A window of Habitat Inspections, in the order the reader asked for.
  *
  * The inspections table's read. It has no date window and no filters: the table
  * opens on the newest work and the reader extends the window by asking for more,
@@ -14,12 +14,7 @@
  * So Postgres does the sorting and the browser holds one window of rows. Raising
  * the limit asks for the next window rather than sorting a bigger pile locally.
  *
- * Both sort keys are columns of `inspections`. That is a constraint rather than a
- * preference: the cursor follows the *first* `orderBy` clause to whichever
- * collection it names, so sorting by a joined column, the inspector's name for
- * instance, would window `profiles` and leave the inspections side with no limit
- * at all. It returns the right rows in the right order and quietly loads the
- * whole filtered set to do it.
+ * Which columns that leaves sortable is {@link INSPECTION_SORT_KEYS}.
  *
  * The four joins are labels only. Two of them are eager tables the app already
  * holds; `habitats` and `addresses` are on-demand, and the compiler asks each for
@@ -37,7 +32,66 @@ import { inspections } from '../../lib/collections/inspections';
 import { profiles } from '../../lib/collections/profiles';
 import type { InspectionTableRow } from './larval-activity-view';
 
-export function useInspectionTable(limit: number): {
+/**
+ * What the table sorts by, and the whole of it.
+ *
+ * Every key names an indexed column of `inspections` itself, which is a
+ * constraint rather than a preference. The cursor that windows an on-demand
+ * collection follows the *first* `orderBy` clause to whichever collection it
+ * names, so ordering by a joined column windows that collection and leaves the
+ * inspections side with no limit at all. It returns the right rows in the right
+ * order and pulls the organization's whole history into the browser to do it.
+ * Site, Habitat type and Inspector are joined names, so they render and they do
+ * not sort.
+ *
+ * Density is a column of `inspections` and still not here, for a different
+ * reason. Postgres orders `larval_density` by the type's own order, `none`
+ * through `very_heavy`, which is the order `COLUMN_VOCABULARIES` declares and
+ * the legend and the map ramp read. The browser compares the same five values as
+ * strings and gets `heavy, light, medium, none, very_heavy`. Both halves have to
+ * agree. The browser re-sorts the window it was sent, and the cursor for the
+ * next window is built from the browser's order and read back by Postgres, so a
+ * density sort would show a window in the wrong order and then page past rows it
+ * never asked for. Neither half takes a comparator of its own, so the fix is a
+ * rank on the row, which is a migration rather than a header.
+ *
+ * The keys are the URL's vocabulary, so they are the reader's words rather than
+ * the column names: `?sort=dips`, not `?sort=dip_count`.
+ */
+export const INSPECTION_SORT_KEYS = ['date', 'water', 'dips', 'larvae'] as const;
+
+export type InspectionSortKey = (typeof INSPECTION_SORT_KEYS)[number];
+
+export const SORT_DIRECTIONS = ['asc', 'desc'] as const;
+
+export type SortDirection = (typeof SORT_DIRECTIONS)[number];
+
+export interface InspectionSort {
+	readonly key: InspectionSortKey;
+	readonly direction: SortDirection;
+}
+
+/** What the table opens on, and what a reset returns it to. */
+export const DEFAULT_INSPECTION_SORT: InspectionSort = { key: 'date', direction: 'desc' };
+
+/**
+ * Where a click on a column header leaves the sort.
+ *
+ * A column that is already sorted turns around. Any other column opens
+ * descending, which is the end each of these is read from: the newest work, the
+ * wet sites, the most dips, the most larvae.
+ */
+export function nextSort(current: InspectionSort, key: InspectionSortKey): InspectionSort {
+	if (current.key !== key) {
+		return { key, direction: 'desc' };
+	}
+	return { key, direction: current.direction === 'asc' ? 'desc' : 'asc' };
+}
+
+export function useInspectionTable(
+	sort: InspectionSort,
+	limit: number,
+): {
 	readonly rows: readonly InspectionTableRow[];
 	readonly isReady: boolean;
 	readonly isError: boolean;
@@ -70,11 +124,29 @@ export function useInspectionTable(limit: number): {
 						({ inspection, address }) => eq(inspection.address_id, address.id),
 						'left',
 					)
+					.orderBy(
+						({ inspection }) => {
+							const columns = {
+								date: inspection.inspection_date,
+								water: inspection.is_wet,
+								dips: inspection.dip_count,
+								larvae: inspection.larvae_count,
+							} satisfies Record<InspectionSortKey, unknown>;
+							return columns[sort.key];
+						},
+						// `nulls` is part of what the collection's index is built with, so
+						// the two declarations agree or the cursor is silently dropped.
+						// `compileOrderByClause` in `@tanstack/electric-db-collection`
+						// writes it into the shape's `order_by` as well, so Postgres is
+						// told `NULLS LAST` in both directions. That keeps an inspection
+						// nobody counted out of the top of "most dips first", and out of
+						// the top of the other end too, where it would read as a zero.
+						{ direction: sort.direction, nulls: 'last' },
+					)
 					// `created_at` breaks the tie and gets no column of its own. A day's
 					// work is entered in the order it was done, so without it the rows
 					// within a date come back in whatever order the engine keyed them and
 					// move under the reader as the next window arrives.
-					.orderBy(({ inspection }) => inspection.inspection_date, 'desc')
 					.orderBy(({ inspection }) => inspection.created_at, 'desc')
 					.limit(limit)
 					.select(({ inspection, habitat, type, inspector, address }) => ({
@@ -125,7 +197,7 @@ export function useInspectionTable(limit: number): {
 						hasPupae: inspection.has_pupae,
 					})),
 		},
-		[limit],
+		[sort.key, sort.direction, limit],
 	);
 
 	return { rows: result.data, isReady: result.isReady, isError: result.isError };

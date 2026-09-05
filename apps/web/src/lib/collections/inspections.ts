@@ -22,10 +22,28 @@ export const inspections = declareCollection<Inspection>({
 	mutations: true,
 	create: createInspectionsCollection,
 
-	// The inspections table, which windows by date. An `orderBy` with a `limit`
-	// pages lazily only while the first sort key is indexed here; without this the
-	// compiler warns once and then loads every inspection the organization has.
+	/*
+	 * One index per column the inspections table sorts on.
+	 *
+	 * An `orderBy` with a `limit` pages lazily only while the first sort key is
+	 * indexed here, and only while that index was built with the compare options
+	 * the clause asks for. Miss either and the compiler warns once and then loads
+	 * every inspection the organization has, with the right rows in the right
+	 * order and nothing thrown. `INSPECTION_SORT_KEYS` in
+	 * `hooks/queries/use-inspection-table.ts` is the other half of this list; a
+	 * key added there without a column here is a silent full load, which is what
+	 * the sort-key loop in that hook's suite catches.
+	 */
 	index: (collection) => {
-		collection.createIndex((row) => row.inspection_date, { indexType: BasicIndex });
+		// The collection's own options with one change, rather than a copy of the
+		// library's defaults. `nulls` is the only part the table decides.
+		const sorted = {
+			indexType: BasicIndex,
+			options: { compareOptions: { ...collection.compareOptions, nulls: 'last' as const } },
+		};
+		collection.createIndex((row) => row.inspection_date, sorted);
+		collection.createIndex((row) => row.is_wet, sorted);
+		collection.createIndex((row) => row.dip_count, sorted);
+		collection.createIndex((row) => row.larvae_count, sorted);
 	},
 });
