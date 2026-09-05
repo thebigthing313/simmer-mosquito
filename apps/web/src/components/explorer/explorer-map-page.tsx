@@ -62,7 +62,7 @@ interface ExplorerRowResults<TRow> extends ExplorerResultsBase {
 
 /**
  * The rows slot, filled by a caller whose records are not a flat list: the
- * Regions folder tree, the Activity Monitor's day-grouped log.
+ * Regions folder tree, Daily Work's family-grouped log.
  *
  * The frame still draws the placeholder rows, the failure state and the empty
  * state around it, so a body caller says whether it is empty rather than having

@@ -21,12 +21,8 @@ import {
 	searchValidator,
 	useSearchFilters,
 } from '../../lib/search-filters';
+import { activityPanelState, useActivityLookups, useProfileActivity } from '../-activity-data';
 import { ActivityFocusCard, ActivityLog } from '../-activity-log';
-import {
-	activityPanelState,
-	useActivityLookups,
-	useProfileActivity,
-} from '../-activity-monitor-data';
 import { activityReach, useActivitySelection } from '../-activity-view';
 import { DAILY_WORK_COPY, dailyWorkDay, dailyWorkWindow, isProfileId } from './-daily-work';
 import { dailyWorkLegend } from './-legend';
@@ -34,11 +30,10 @@ import { dailyWorkLegend } from './-legend';
 /**
  * One Profile's field work for one day, on one map.
  *
- * The Activity Monitor asks the same endpoint over a window, with the person in
- * a picker beside the dates. That made a supervisor set two controls to reach
- * the question they were already holding: what did this person do today. Here
- * the person is the address, so the page is a link, and the only control left is
- * which day.
+ * The person is the address rather than a picker, so the page is a link
+ * somebody can be sent, and the only control on it is which day. That is what
+ * the surface this replaced made a supervisor set two controls to reach: what
+ * did this person do today.
  *
  * One day rather than a range is also what makes the map readable. A week of
  * work is a cloud with no order in it, because six of the nine record kinds
@@ -97,7 +92,6 @@ function DailyWorkPage({ profileId, name }: { readonly profileId: string; readon
 	const reach = activityReach(activity.data, view.items.length);
 	const panelState = activityPanelState(
 		{
-			hasProfile: true,
 			isLoading: activity.isLoading,
 			error: activity.error,
 			isEmpty: view.days.length === 0,

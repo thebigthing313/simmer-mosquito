@@ -26,7 +26,7 @@ import {
 	describeActivityEntry,
 	formatActivityTime,
 	type useActivityLookups,
-} from './-activity-monitor-data';
+} from './-activity-data';
 import { HabitatMapCard } from './-habitat-map-card';
 import { CollectionMapCard } from './adult-surveillance/-collection-map-card';
 import { TrapMapCard } from './adult-surveillance/-trap-map-card';
@@ -39,8 +39,9 @@ import { OutreachMapCard } from './public-engagement/-outreach-map-card';
 import { ServiceRequestMapCard } from './public-engagement/-service-request-map-card';
 
 // One Profile's field work as a log, and the card that opens on the record a row
-// or a pin names. The Activity Monitor reads it over a range and Daily Work over
-// one day. Dash-prefixed so TanStack Router ignores this file as a route.
+// or a pin names. Daily Work reads it over one day; the grouping below still
+// takes a window, because the endpoint behind it answers one.
+// Dash-prefixed so TanStack Router ignores this file as a route.
 
 /** The resolved lookup names + unit formatter every row's description needs. */
 export type ActivityLookups = ReturnType<typeof useActivityLookups>;
@@ -58,9 +59,9 @@ export function ActivityLog({
 }: {
 	readonly days: readonly ActivityDayGroup[];
 	/**
-	 * A reason the frame's empty copy cannot carry: no Profile picked, a refusal
-	 * naming the window the server declined, or an outage. Loading and an empty
-	 * window are the frame's, so they never arrive here.
+	 * A reason the frame's empty copy cannot carry: a refusal naming the window
+	 * the server declined, or an outage. Loading and an empty window are the
+	 * frame's, so they never arrive here.
 	 */
 	readonly message: { readonly title: string; readonly body: string } | null;
 	readonly truncated: boolean;

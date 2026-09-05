@@ -4,11 +4,11 @@ import { renderHook, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-// The read itself, not the arranging: whether changing the person or the window
-// keeps the log that is already on screen. The person and both dates are in the
-// query key, so without `keepPreviousData` react-query has no data for the new
-// key and the panel reports itself empty for as long as the read takes — which
-// is the one surface where a reader watched a full log blank under them.
+// The read itself, not the arranging: whether moving the day keeps the log that
+// is already on screen. The person and the day are both in the query key, so
+// without `keepPreviousData` react-query has no data for the new key and the
+// panel reports itself empty for as long as the read takes, which is how a
+// reader watched a full log blank under them.
 
 /** Every pending read, so a test can answer them one at a time. */
 const pending: ((items: readonly unknown[]) => void)[] = [];
@@ -26,7 +26,7 @@ vi.mock('@simmer-mosquito/sync', async (importOriginal) => ({
 		}),
 }));
 
-const { useProfileActivity } = await import('../../../routes/-activity-monitor-data');
+const { useProfileActivity } = await import('../../../routes/-activity-data');
 
 function wrapper({ children }: { readonly children: ReactNode }) {
 	const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -34,7 +34,7 @@ function wrapper({ children }: { readonly children: ReactNode }) {
 }
 
 describe('useProfileActivity', () => {
-	it('keeps the log on screen while a new person or window loads', async () => {
+	it('keeps the log on screen while a new day loads', async () => {
 		const { result, rerender } = renderHook(
 			(input: { profileId: string; dateFrom: string; dateTo: string }) => useProfileActivity(input),
 			{
@@ -46,10 +46,10 @@ describe('useProfileActivity', () => {
 		pending.shift()?.([{ id: 'first-log' }]);
 		await waitFor(() => expect(result.current.data?.items).toHaveLength(1));
 
-		rerender({ profileId: 'p-2', dateFrom: '2026-08-01', dateTo: '2026-08-01' });
+		rerender({ profileId: 'p-1', dateFrom: '2026-08-02', dateTo: '2026-08-02' });
 		await waitFor(() => expect(result.current.isFetching).toBe(true));
 
-		// The second read is still out. The first person's log is what is on screen,
+		// The second read is still out. The first day's log is what is on screen,
 		// and `isLoading` is false, so nothing above this reports a first load.
 		expect(result.current.data?.items).toHaveLength(1);
 		expect(result.current.isLoading).toBe(false);

@@ -265,11 +265,12 @@ function ProfileRowItem({
 			    its own. */}
 			<div className="flex items-center gap-2">
 				{/* Straight from the roster to this person's day. Not gated on
-				    `canManage`: agency records are readable by anyone in the agency,
-				    and the Activity Monitor is an ordinary agency read. */}
+				    `canManage`, and not on `isActive` either: a deactivated Profile
+				    still has a day's worth of records behind it, and Daily Work is an
+				    ordinary Organization read that any member may make. */}
 				<Button asChild size="sm" variant="outline">
-					<Link search={{ profile: person.profileId }} to="/activity-monitor">
-						Activity
+					<Link params={{ profileId: person.profileId }} to="/daily-work/$profileId">
+						Daily Work
 					</Link>
 				</Button>
 				{canManage ? (

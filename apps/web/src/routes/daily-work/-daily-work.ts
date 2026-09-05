@@ -1,4 +1,4 @@
-import type { ActivityCopy } from '../-activity-monitor-data';
+import type { ActivityCopy } from '../-activity-data';
 
 // The three rules Daily Work is: which day it is showing, what that day sends to
 // the activity endpoint, and whether the path names a Profile at all.

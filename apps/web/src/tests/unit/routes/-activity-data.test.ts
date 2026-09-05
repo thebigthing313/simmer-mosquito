@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-	ACTIVITY_RANGE_COPY,
 	type ActivityEntry,
 	ActivityRequestError,
 	activityEntryKey,
@@ -8,15 +7,16 @@ import {
 	activityPanelState,
 	activityStatus,
 	buildActivityMapData,
-	countActivityByFamily,
 	describeActivityEntry,
 	groupActivityByDay,
-} from '../../../routes/-activity-monitor-data';
+} from '../../../routes/-activity-data';
+import { DAILY_WORK_COPY } from '../../../routes/daily-work/-daily-work';
 
-// The Activity Monitor's pure half: how a flat, time-ordered array becomes days,
-// families, counts and pins. The server answers a data contract and this is what
-// arranges it, so a regression here is a supervisor reading the wrong shape of a
-// person's week rather than an error.
+// The pure half of one Profile's field work: how a flat, time-ordered array
+// becomes days, families and pins, and which of the non-log states the panel is
+// in. The server answers a data contract and this is what arranges it, so a
+// regression here is a supervisor reading the wrong shape of somebody's day
+// rather than an error.
 
 function entry(overrides: Partial<ActivityEntry> = {}): ActivityEntry {
 	return {
@@ -48,18 +48,6 @@ describe('activityEntryKey', () => {
 		const collected = entry({ category: 'collection', role: 'collected', id: 'c-1' });
 
 		expect(activityEntryKey(set)).not.toBe(activityEntryKey(collected));
-	});
-});
-
-describe('countActivityByFamily', () => {
-	it('counts every family, including the ones with nothing in them', () => {
-		const counts = countActivityByFamily([
-			entry({ family: 'larval' }),
-			entry({ family: 'larval' }),
-			entry({ family: 'control' }),
-		]);
-
-		expect(counts).toEqual({ larval: 2, adult: 0, control: 1, publicEngagement: 0 });
 	});
 });
 
@@ -183,56 +171,49 @@ describe('describeActivityEntry', () => {
 // a product one: an outage must never read as an empty day, because the two are
 // indistinguishable on the page and one of them is a conclusion about a colleague.
 describe('activityPanelMessage', () => {
-	const ready = { hasProfile: true, isLoading: false, error: null, isEmpty: false };
+	const ready = { isLoading: false, error: null, isEmpty: false };
 
 	it('shows the log once there is one', () => {
-		expect(activityPanelMessage(ready, ACTIVITY_RANGE_COPY)).toBeNull();
-	});
-
-	it('asks for a person before anything else', () => {
-		expect(
-			activityPanelMessage({ ...ready, hasProfile: false, isLoading: true }, ACTIVITY_RANGE_COPY),
-		).toMatchObject({
-			title: 'Choose a person',
-		});
+		expect(activityPanelMessage(ready, DAILY_WORK_COPY)).toBeNull();
 	});
 
 	it('distinguishes a failed read from a day with no work in it', () => {
 		const failed = activityPanelMessage(
 			{ ...ready, error: new Error('boom'), isEmpty: true },
-			ACTIVITY_RANGE_COPY,
+			DAILY_WORK_COPY,
 		);
-		const empty = activityPanelMessage({ ...ready, isEmpty: true }, ACTIVITY_RANGE_COPY);
+		const empty = activityPanelMessage({ ...ready, isEmpty: true }, DAILY_WORK_COPY);
 
 		expect(failed).not.toEqual(empty);
 		expect(failed).toMatchObject({ title: 'Activity could not be loaded' });
-		expect(empty).toMatchObject({ title: 'No activity in this range' });
+		expect(empty).toMatchObject({ title: 'Nothing recorded on this day' });
 	});
 
-	// A refused range is the server declining the question, so it repeats the
-	// server's own reason rather than the generic failure copy.
-	it('repeats the reason when the server refuses the range', () => {
+	// A refusal is the server declining the question, so the panel repeats the
+	// server's own reason rather than the generic failure copy. The endpoint still
+	// reads a window, so a caller can still be told the window was too wide.
+	it('repeats the reason when the server refuses the window', () => {
 		const refused = new ActivityRequestError('The date range may span at most 92 days.', true);
 
 		expect(
-			activityPanelMessage({ ...ready, error: refused, isEmpty: true }, ACTIVITY_RANGE_COPY),
+			activityPanelMessage({ ...ready, error: refused, isEmpty: true }, DAILY_WORK_COPY),
 		).toEqual({
-			title: 'That range was not read',
+			title: 'That day was not read',
 			body: 'The date range may span at most 92 days.',
 		});
 	});
 
 	it('loads before it reports emptiness', () => {
 		expect(
-			activityPanelMessage({ ...ready, isLoading: true, isEmpty: true }, ACTIVITY_RANGE_COPY),
+			activityPanelMessage({ ...ready, isLoading: true, isEmpty: true }, DAILY_WORK_COPY),
 		).toBe('loading');
 	});
 
-	// The person and both dates are in the query key, so a change of any of them
+	// The person and the day are both in the query key, so a change of the day
 	// used to hand back an empty log for as long as the read took. A refetch with
 	// entries on screen is not a loading state.
 	it('is not loading while there is a log to keep reading', () => {
-		expect(activityPanelMessage({ ...ready, isLoading: true }, ACTIVITY_RANGE_COPY)).toBeNull();
+		expect(activityPanelMessage({ ...ready, isLoading: true }, DAILY_WORK_COPY)).toBeNull();
 	});
 });
 
@@ -240,19 +221,11 @@ describe('activityPanelMessage', () => {
 // explorers. This is which of the panel's states go to it and which the body
 // keeps, and the ones it keeps are the ones that name a reason.
 describe('activityPanelState', () => {
-	const ready = { hasProfile: true, isLoading: false, error: null, isEmpty: false };
-
-	it('hands an empty range to the frame rather than drawing it in the body', () => {
-		expect(activityPanelState({ ...ready, isEmpty: true }, ACTIVITY_RANGE_COPY)).toMatchObject({
-			isEmpty: true,
-			message: null,
-			emptyTitle: 'No activity in this range',
-		});
-	});
+	const ready = { isLoading: false, error: null, isEmpty: false };
 
 	it('hands a first load to the frame, so it draws placeholder rows', () => {
 		expect(
-			activityPanelState({ ...ready, isLoading: true, isEmpty: true }, ACTIVITY_RANGE_COPY),
+			activityPanelState({ ...ready, isLoading: true, isEmpty: true }, DAILY_WORK_COPY),
 		).toMatchObject({
 			isEmpty: true,
 			message: null,
@@ -269,17 +242,17 @@ describe('activityPanelState', () => {
 				error: new ActivityRequestError('The date range may span at most 92 days.', true),
 				isEmpty: true,
 			},
-			ACTIVITY_RANGE_COPY,
+			DAILY_WORK_COPY,
 		);
 		const outage = activityPanelState(
 			{ ...ready, error: new Error('boom'), isEmpty: true },
-			ACTIVITY_RANGE_COPY,
+			DAILY_WORK_COPY,
 		);
 
 		expect(refused).toMatchObject({
 			isEmpty: false,
 			message: {
-				title: 'That range was not read',
+				title: 'That day was not read',
 				body: 'The date range may span at most 92 days.',
 			},
 		});
@@ -289,18 +262,9 @@ describe('activityPanelState', () => {
 		});
 	});
 
-	it('keeps the ask for a person in the body', () => {
-		expect(
-			activityPanelState({ ...ready, hasProfile: false, isEmpty: true }, ACTIVITY_RANGE_COPY),
-		).toMatchObject({
-			isEmpty: false,
-			message: { title: 'Choose a person' },
-		});
-	});
-
 	// Story 26: reloading with a log on screen leaves the log there.
-	it('leaves the log alone while a new person or window loads', () => {
-		expect(activityPanelState({ ...ready, isLoading: true }, ACTIVITY_RANGE_COPY)).toMatchObject({
+	it('leaves the log alone while a new day loads', () => {
+		expect(activityPanelState({ ...ready, isLoading: true }, DAILY_WORK_COPY)).toMatchObject({
 			isEmpty: false,
 			message: null,
 		});

@@ -1,6 +1,6 @@
 import { mapFamily } from '@simmer-mosquito/design-tokens';
 import type { MapLegendEntry } from '../../components/map';
-import { ACTIVITY_FAMILY_LABELS, type ActivityEntry } from '../-activity-monitor-data';
+import { ACTIVITY_FAMILY_LABELS, type ActivityEntry } from '../-activity-data';
 
 /**
  * The key, cut down to the families the day actually puts on the map.
