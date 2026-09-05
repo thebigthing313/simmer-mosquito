@@ -6,17 +6,17 @@
  * Two things this adds on top of `changeset version`:
  *
  * **The floor bump.** A version number answers "which build are you on", so it
- * has to move for every build an agency can be on — a refactor that ships is a
- * new build even though it belongs in no changelog. Changesets can only bump
- * what a changeset names, and changesets are user-visible copy, so an app with
- * nothing pending gets a synthetic `patch` with an empty summary written for it
- * here. The version moves, the changelog page draws the release as a
+ * has to move for every build an organization can be on — a refactor that ships
+ * is a new build even though it belongs in no changelog. Changesets can only
+ * bump what a changeset names, and changesets are user-visible copy, so an app
+ * with nothing pending gets a synthetic `patch` with an empty summary written
+ * for it here. The version moves, the changelog page draws the release as a
  * maintenance one, and nobody has to remember anything at the time of the PR.
  *
  * **The date stamp.** Changesets writes a bare `## 0.2.0` heading and has no
  * hook for the date, but a product changelog without dates cannot answer "is
- * this the build we got last Tuesday" — which is most of what an agency asks
- * it. Only headings that do not already carry a date are stamped.
+ * this the build we got last Tuesday" — which is most of what an organization
+ * asks it. Only headings that do not already carry a date are stamped.
  *
  * Both halves are safe to re-run. The floor bump is skipped once an app's
  * version has already moved past the released one, so a second run on the same

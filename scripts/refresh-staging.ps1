@@ -134,8 +134,8 @@ Write-Host @'
 NEXT:
   1. Redeploy the staging Electric service once. Its stored shape state predates
      the reload, so it needs a clean re-snapshot before the sandbox reads right.
-  2. Sign in to staging as a production identity and check the agency you land
-     in is the one that identity belongs to. The reload replaces `users` and
-     `organizations` wholesale with production rows, so a row still carrying a
-     WorkOS staging id afterwards is a row the clone did not reach.
+  2. Sign in to staging as a production identity and check the organization you
+     land in is the one that identity belongs to. The reload replaces `users`
+     and `organizations` wholesale with production rows, so a row still carrying
+     a WorkOS staging id afterwards is a row the clone did not reach.
 '@ -ForegroundColor DarkGray

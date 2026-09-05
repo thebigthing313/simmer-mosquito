@@ -14,7 +14,7 @@
 -- while leaving a database that syncs, re-snapshots, and restores in a fraction
 -- of the time.
 --
--- What is NOT pruned: reference data an agency accumulates rather than
+-- What is NOT pruned: reference data an organization accumulates rather than
 -- performs. Habitats, traps, addresses, regions, contacts, routes, taxonomy,
 -- methods, products, units, profiles, memberships. Deleting those would change
 -- what the app *is*, not how much history it holds, and a habitat is still the
@@ -210,9 +210,9 @@ delete from outreach_actions where outreach_date < :'cutoff';
 delete from requested_control_actions where requested_at < :'cutoff';
 
 -- A collection is dated by `collected_at` OR `collection_date`, whichever the
--- agency's timing mode records — reading one alone is how a surface silently
--- empties. `coalesce` keeps a row datable under either mode, and undatable
--- under neither.
+-- organization's timing mode records — reading one alone is how a surface
+-- silently empties. `coalesce` keeps a row datable under either mode, and
+-- undatable under neither.
 delete from collections
 where coalesce(collected_at::date, collection_date) < :'cutoff';
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env pwsh
 # Reload the Railway STAGING database from a PRODUCTION dump, so the sandbox
-# agency staff sign into shows their own data.
+# organization staff sign into shows their own data.
 #
 # Prefer scripts/refresh-staging.ps1 over calling this directly. The refresh is
 # the gated job: it refuses the clone unless prod and staging already hold the

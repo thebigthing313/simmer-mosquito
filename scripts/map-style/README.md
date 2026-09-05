@@ -101,9 +101,9 @@ z15+    water + roads + buildings; terrain and land cover off entirely.
 ```
 
 Water is the one group present at every zoom. It is not context — breeding habitat
-is the job — so it holds tonal weight at the agency overview where everything else
-has faded out. Hillshade peaks at z11, where terrain explains where water collects,
-and is gone by z14 before it can muddy dense marks.
+is the job — so it holds tonal weight at the organization overview where
+everything else has faded out. Hillshade peaks at z11, where terrain explains
+where water collects, and is gone by z14 before it can muddy dense marks.
 
 ### Water treatment
 
@@ -138,7 +138,7 @@ font outside the verified-available set.
 
 Neutral grey, clearly subordinate — `#9aa8a6` county at 0.8px dashed against a
 SIMMER Region's 2px solid `#2d46b6` plus fill wash. Nothing drawn by the basemap
-can be mistaken for an agency object.
+can be mistaken for an organization's own record.
 
 ### POIs
 
