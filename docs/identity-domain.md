@@ -91,8 +91,8 @@ that was revoked, which is the only record of who is locked out.
 The People page names both effects on the invited row before it fires: the
 address, the role it will set, and that the earlier link stops working. The
 dialog is the confirmation and there is no step after it, and the control is only
-drawn on a Membership still at `invited` — an active member has no link to
-replace, and an ended one is a fresh invitation.
+drawn on a Membership still at `invited`, because an active member has no link
+to replace and an ended one is a fresh invitation.
 
 ## A failed send is named here, not by WorkOS
 
@@ -105,13 +105,13 @@ another organization, and nothing in this repo decides which.
 WorkOS replied with rather than from its prose. Three names, because there are
 three next moves:
 
-- `invitation_refused` — WorkOS turned the address down. Postgres already
+- `invitation_refused` is WorkOS turning the address down. Postgres already
   refuses the two cases the People page can see, so what reaches here is drift:
   a membership or invitation WorkOS holds and SIMMER has no row for.
-- `invitation_service_unauthorized` — 401 or 403. SIMMER's own credentials, or a
-  SIMMER Organization wired to a WorkOS organization it cannot write to. A retry
-  reproduces it.
-- `invitation_service_unavailable` — 429, a 5xx, or no answer at all. Worth
+- `invitation_service_unauthorized` is a 401 or 403, from SIMMER's own
+  credentials or from a SIMMER Organization wired to a WorkOS organization it
+  cannot write to. A retry reproduces it.
+- `invitation_service_unavailable` is a 429, a 5xx, or no answer at all. Worth
   retrying.
 
 The `reason` beside each is the sentence a person reads: `apps/web` and

@@ -362,9 +362,9 @@ only one that describes a record delete. Four more raise the same 409:
   `acknowledgedDuplicateTrapCode`: trap codes are indexed but not unique, so two
   traps may legitimately share one and the collision is a question rather than a
   rule. `assertNoColliding` counts the traps already carrying the code. Kept out
-  of the citation check on purpose — those rows do not read under the value,
-  they compete with it — and it is one of the four that refuse unless the flag
-  is explicitly `true`, because a collision cannot arrive pre-answered.
+  of the citation check on purpose: those rows compete with the value rather
+  than reading under it. It is one of the four that refuse unless the flag is
+  explicitly `true`, because a collision cannot arrive pre-answered.
 
 The last two mechanisms are the pure command builder, which pushes a validation
 issue unless the flag is `true` and so answers `400 invalid_command` naming the
@@ -468,8 +468,8 @@ goes through one of the two seams. Its allowlist is for a column set from
 
 The two weather tables are outside all of this. Their `organization_id` is
 nullable, kept that way for a provider-owned station, and `organization_id = $1`
-compares unequal to null — this gate would read a global station as belonging to
-nobody and refuse it. `weather-commands/shared.ts` writes that predicate out
+compares unequal to null, so this gate would read a global station as belonging
+to nobody and refuse it. `weather-commands/shared.ts` writes that predicate out
 itself.
 
 ## Offline and sync

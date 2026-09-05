@@ -61,6 +61,16 @@ first paint".
 - No decorative emoji.
 - Straight quotes.
 
+The dash rule is the one a machine can hold, and `pnpm check:prose` holds it.
+Biome reads no markdown, so nothing checked a word of this document's own
+subject until #594, and fourteen em dashes had collected under `docs/`. The gate
+reads every tracked `.md` except the generated changelogs, for an em dash
+anywhere and an en dash between spaces. An unspaced en dash in a range is
+correct and is left alone. A dash that is right carries a marker on the line
+above, `<!-- prose-ignore: one sentence ending in a full stop. -->`, and a
+marker that excuses nothing fails. Nothing else here is gated, and the rest of
+this document binds the same either way.
+
 ## Talking to the user
 
 - No "I hope this helps", "Let me know if", "Of course!", "Certainly!".

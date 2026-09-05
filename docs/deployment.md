@@ -185,8 +185,8 @@ $env:STAGING_DATABASE_URL = '<staging public proxy URL>?sslmode=disable'
 holds migrations prod has not seen, by design, because that is what a soak is. A
 dump carries prod's `schema_migrations` along with prod's schema, so a clone
 taken mid-soak erases every unshipped migration and leaves the deployed staging
-branch running against a schema behind it. That failure is silent — the app
-starts answering wrong rather than erroring — so the refusal has to come before
+branch running against a schema behind it. That failure is silent, because the
+app starts answering wrong rather than erroring. The refusal has to come before
 the wipe. A refresh is therefore only safe **just after a promotion**, when
 `main` has shipped everything `staging` holds. It refuses the rest of the time,
 naming what diverged.
@@ -218,9 +218,9 @@ production, so the ids the dump carries are the ones staging wants. Signing in
 afterwards as a production identity and landing in the right organization is the
 check that the reload reached `users` and `organizations`.
 
-The daily `schema-drift.yml` run stays. It answers a different question — has
-staging drifted from the migration set — and a refresh that runs a few times a
-year is no substitute for asking every morning.
+The daily `schema-drift.yml` run stays. It answers a different question: has
+staging drifted from the migration set? A refresh that runs a few times a year
+is no substitute for asking every morning.
 
 ### How much history a local clone keeps
 
@@ -736,7 +736,7 @@ manual deploy to a chosen environment from its matching branch.
 `schema-drift.yml` asks the question `db-migrate.yml` cannot: is staging's
 schema still the one `packages/db/migrations` produces? It runs at 16:00 UTC
 daily and on `workflow_dispatch`, and it covers what the migration workflow does
-not — a migration applied by hand, a `dbmate` run that half-failed, a fix made
+not: a migration applied by hand, a `dbmate` run that half-failed, a fix made
 straight on staging. It reads staging and writes nothing there: the expected
 schema is built by `dbmate` in a service container beside the job, and the
 comparison script opens both sessions read only before its first query. That

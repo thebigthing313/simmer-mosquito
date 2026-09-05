@@ -138,8 +138,9 @@ API-driven check.
 `scripts/clone-prod-db.ps1` drops everything, so the ladder is seeded again each
 time. The WorkOS side survives a clone and is set up once: an organization named
 "Role Ladder Test District" in WorkOS **staging** with the five accounts as its
-members, and each account in that organization *only* — a second organization
-makes which organization a sign-in lands in a question rather than an answer.
+members, and each account in that organization *only*, because a second
+organization makes which organization a sign-in lands in a question rather than
+an answer.
 
 ```sh
 # 1. Seed. One line per rung, plus the WorkOS organization behind them.
@@ -181,8 +182,8 @@ which is the first run since the ladder moved off staging (#407). Two of the
 cases had stopped meaning anything and were fixed there: the settings refusal
 names `organizationSettings.updateTimezone` since settings became commands, and
 the role change moved to `PATCH /commands/memberships/:id`, so the script had
-been asking `/organization/memberships/:id/role` — a route that no longer
-exists. Every rung got a 404 from it, and because the owner case reads a 404 as
+been asking `/organization/memberships/:id/role`, a route that no longer exists.
+Every rung got a 404 from it, and because the owner case reads a 404 as
 "the floor passed", the one endpoint where an escalation would matter was
 passing on a missing route.
 
