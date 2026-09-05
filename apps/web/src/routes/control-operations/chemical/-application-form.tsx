@@ -486,7 +486,7 @@ export function ApplicationFormPage({
 				</FormSection>
 
 				<LocationSection
-					description="The geometry is where the product was applied — a point for a spot treatment, a line or area for a treated swath. An address is optional reference, and a habitat links the treatment to a known larval site."
+					description="The geometry is where the product was applied — a point for a spot treatment, a line or area for a treated swath. An address is optional reference, and the habitat is the one the treatment was applied to."
 					error={location.locationError}
 				>
 					<form.AppField name="addressId">

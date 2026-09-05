@@ -426,7 +426,7 @@ function InspectionsTable({
 						<SortableHead onSort={onSort} sort={sort} sortKey="date">
 							Date
 						</SortableHead>
-						<TableHead>Site</TableHead>
+						<TableHead>Habitat</TableHead>
 						<TableHead>Habitat type</TableHead>
 						<TableHead>Inspector</TableHead>
 						<SortableHead onSort={onSort} sort={sort} sortKey="water">

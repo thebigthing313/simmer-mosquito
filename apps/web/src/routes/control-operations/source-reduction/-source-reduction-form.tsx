@@ -281,7 +281,7 @@ export function SourceReductionFormPage({
 				</FormSection>
 
 				<LocationSection
-					description="The geometry is where the sources were eliminated — a point for a single site, a line or area for a treated stretch. An address is optional reference, and a habitat links the work to a known larval site."
+					description="The geometry is where the sources were eliminated — a point for a single source, a line or area for a treated stretch. An address is optional reference, and the habitat is the one the work was done at."
 					error={location.locationError}
 				>
 					<form.AppField name="addressId">

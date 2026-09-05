@@ -143,7 +143,7 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 
 			<LocationSection
 				geometryKind="missionItem"
-				description="A point for one site, a line for a run, an area for a block. The stop stores the shape as drawn."
+				description="A point for one spot, a line for a run, an area for a block. The stop stores the shape as drawn."
 				location={location}
 				organizationId={mission.organizationId}
 			>

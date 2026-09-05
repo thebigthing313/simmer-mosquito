@@ -195,7 +195,7 @@ export function RequestFormPage({
 
 				<LocationSection
 					geometryKind="requestedControlAction"
-					description="A point for a single site, a line or area for a stretch. An address is optional reference."
+					description="A point for a single spot, a line or area for a stretch. An address is optional reference."
 					location={location}
 					organizationId={organizationId}
 				>
@@ -220,7 +220,7 @@ export function RequestFormPage({
 					<form.AppField name="controlType">
 						{(field) => (
 							<ControlTypeToggle
-								description="Which kind of control work the site needs."
+								description="Which kind of control work is needed."
 								onChange={(next) => {
 									field.handleChange(next);
 									// The recommended method is polymorphic by control type, so
@@ -277,7 +277,7 @@ export function RequestFormPage({
 							)}
 						</form.AppField>
 						<p className="m-0 text-muted-foreground text-xs">
-							Link the request to a known larval site so it shows on that habitat’s history.
+							Link the request to a known habitat so it shows on that habitat’s history.
 						</p>
 					</div>
 				</FormSection>

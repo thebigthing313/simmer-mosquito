@@ -119,8 +119,8 @@ function WhatThisDoesNotShow() {
 			<ul className="mt-2 grid gap-1.5 text-muted-foreground text-xs">
 				<li>
 					Habitats and traps are listed as <span className="font-medium">Created</span>, which means
-					the record was entered — not that the person stood at the site. Every other kind of entry
-					here names someone who did the work.
+					the record was entered — not that the person stood there. Every other kind of entry here
+					names someone who did the work.
 				</li>
 				<li>
 					Only three kinds of entry carry a time of day. The rest are dated to the day, so the order
@@ -128,8 +128,8 @@ function WhatThisDoesNotShow() {
 				</li>
 				<li>
 					Assisting crew can only be recorded on inspections, collections, chemical applications,
-					source reduction, biocontrol, and outreach. Site records and service requests have nowhere
-					to name them.
+					source reduction, biocontrol, and outreach. Habitats, traps, and service requests have
+					nowhere to name them.
 				</li>
 				<li>
 					A trap recorded with a date and a duration, rather than exact timestamps, has no separate
