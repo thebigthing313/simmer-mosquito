@@ -13,7 +13,7 @@ import {
 	useMapDraw,
 } from '../../../../components/map/use-map-draw';
 import type { FakeMap } from './fake-map';
-import { cleanupRenderedHooks, createFakeMap, pressKey, renderHook } from './fake-map';
+import { cleanupRenderedHooks, createFakeMap, pressKey, pressKeyIn, renderHook } from './fake-map';
 
 const SOURCE_ID = 'habitat-draw';
 const LAYER_IDS = [
@@ -226,6 +226,15 @@ function finishReshape(result: ControlledHarness['result']): void {
 	});
 }
 
+/** Click a ring's corners onto the map, leaving the draft open. */
+function placeVertices(fake: FakeMap, ring: readonly (readonly [number, number])[]): void {
+	for (const [longitude, latitude] of ring) {
+		act(() => {
+			fake.click(longitude, latitude);
+		});
+	}
+}
+
 /** Place a ring's vertices and finish it, the way a user draws one. */
 function drawPolygon(
 	fake: FakeMap,
@@ -237,15 +246,104 @@ function drawPolygon(
 			result.current.draw.start('Polygon');
 		});
 	}
-	for (const [longitude, latitude] of ring) {
-		act(() => {
-			fake.click(longitude, latitude);
-		});
-	}
+	placeVertices(fake, ring);
 	act(() => {
 		result.current.draw.finish();
 	});
 }
+
+/** The kinds of field the panel beside the map is made of. */
+const TYPED_INTO = ['input', 'textarea', 'select', 'contenteditable'] as const;
+
+/**
+ * Press Enter in a field of `kind`, the way the location panel is typed into.
+ *
+ * The field is in the document for the press, because a key pressed in one only
+ * reaches the `window` listener by bubbling out to it, and being the element it
+ * was pressed in is what puts it on `event.target` for the session to read.
+ */
+function pressEnterInField(kind: (typeof TYPED_INTO)[number]): void {
+	const field = document.createElement(kind === 'contenteditable' ? 'div' : kind);
+	if (kind === 'contenteditable') {
+		// jsdom implements no part of contenteditable, so `isContentEditable` is
+		// undefined on an element carrying the attribute. That property is what the
+		// guard reads, so the case answers it rather than the attribute.
+		Object.defineProperty(field, 'isContentEditable', { value: true });
+	}
+	document.body.append(field);
+	try {
+		pressKeyIn(field, 'Enter');
+	} finally {
+		field.remove();
+	}
+}
+
+/** How far along the open draft is, in the terms a stray Enter would move. */
+function draftState(result: ControlledHarness['result']) {
+	return {
+		value: result.current.value,
+		isDrawing: result.current.draw.isDrawing,
+		canFinish: result.current.draw.canFinish,
+		vertexCount: result.current.draw.vertexCount,
+		sketchVertices: result.current.draw.editedPart?.sketch?.vertices ?? null,
+	};
+}
+
+/**
+ * A draft of every kind Enter lands in, each opened and left one press from
+ * finished.
+ *
+ * All five reach Finish through one handler, so the guard is one condition. They
+ * are all here because a mode that stopped reaching that handler is exactly what
+ * would put the bug back, and nothing else would say so.
+ */
+const OPEN_DRAFTS = [
+	{
+		name: 'draw',
+		open: (fake: FakeMap, result: ControlledHarness['result']) => {
+			act(() => {
+				result.current.draw.start('Polygon');
+			});
+			placeVertices(fake, FIRST_SQUARE);
+		},
+	},
+	{
+		name: 'hole',
+		open: (fake: FakeMap, result: ControlledHarness['result']) => {
+			drawPolygon(fake, result, BLOCK);
+			act(() => {
+				result.current.draw.startHole(0);
+			});
+			placeVertices(fake, POND);
+		},
+	},
+	{
+		name: 'continuation',
+		open: (fake: FakeMap, result: ControlledHarness['result']) => {
+			drawPolygon(fake, result, BLOCK);
+			act(() => {
+				result.current.draw.continuePart(0);
+			});
+			placeVertices(fake, [[-89, 33]]);
+		},
+	},
+	{
+		name: 'edit',
+		open: (fake: FakeMap, result: ControlledHarness['result']) => {
+			drawPolygon(fake, result, BLOCK);
+			act(() => {
+				result.current.draw.editPart(0);
+			});
+		},
+	},
+	{
+		name: 'sketch',
+		open: (fake: FakeMap, result: ControlledHarness['result']) => {
+			drawPolygon(fake, result, BLOCK);
+			sketchOver(fake, result, OUTSIDE_SKETCH);
+		},
+	},
+];
 
 function closed(ring: readonly (readonly [number, number])[]): (readonly [number, number])[] {
 	return [...ring, ring[0] as readonly [number, number]];
@@ -394,6 +492,40 @@ describe('useMapDraw', () => {
 		expect(result.current.isDrawing).toBe(false);
 		expect(result.current.vertexCount).toBe(0);
 		expect(fake.featuresOf(SOURCE_ID)).toEqual([]);
+	});
+
+	it('finishes the shape on an Enter the map got', () => {
+		const { fake, result } = mountControlled();
+
+		act(() => {
+			result.current.draw.start('Polygon');
+		});
+		placeVertices(fake, FIRST_SQUARE);
+		pressKey('Enter');
+
+		expect(result.current.draw.isDrawing).toBe(false);
+		expect(result.current.value).toEqual({
+			type: 'Polygon',
+			coordinates: [closed(FIRST_SQUARE)],
+		});
+	});
+
+	// The panel beside the map stays live while a draft is open, so Enter has to
+	// tell a finished shape from a filled-in description. The listener is on
+	// `window` and reads where the key came from, rather than the map holding
+	// focus for a keystroke to land.
+	it.each(OPEN_DRAFTS)('leaves an open $name alone when Enter came from a field', ({ open }) => {
+		const { fake, result } = mountControlled();
+
+		open(fake, result);
+		const before = draftState(result);
+		expect(before.canFinish).toBe(true);
+
+		for (const kind of TYPED_INTO) {
+			pressEnterInField(kind);
+		}
+
+		expect(draftState(result)).toEqual(before);
 	});
 
 	it('undoes the last placed vertex', () => {

@@ -1590,9 +1590,17 @@ function useDrawMapEvents({
 			}
 		}
 
+		// The field guard is here for the reason it is on the Delete arm: the
+		// location panel sits beside the map and its fields stay live while a draw
+		// is open, so an Enter meant for a description would otherwise finish the
+		// shape. One arm covers every mode this listener is registered for, because
+		// a draw, a hole, a continuation, an edit and an open sketch all reach
+		// Finish through the same `finishRef`.
 		function handleKeyDown(event: KeyboardEvent) {
 			if (event.key === 'Enter') {
-				finishRef.current();
+				if (!isTypingInto(event.target)) {
+					finishRef.current();
+				}
 				return;
 			}
 			if (event.key !== 'Escape') {
