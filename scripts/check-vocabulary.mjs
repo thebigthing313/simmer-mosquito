@@ -43,18 +43,27 @@
  * not match `agency_id` or `agencyName`, because an underscore and a capital are
  * both word characters.
  *
- * ## Four words, not seventeen
+ * ## Six words, not seventeen
  *
- * `ENFORCED` is `agency`, `tenant`, `site` and `seat`. A word joins when the ban
- * on it is unconditional, or when the exceptions can be named one at a time.
+ * `ENFORCED` is `agency`, `tenant`, `site`, `seat`, `login` and `user`. A word
+ * joins when the ban on it is unconditional, or when the exceptions can be named
+ * one at a time.
  *
- * `account`, `user` and `login` are not that. `account` is banned as a name for
- * an Organization or a Profile and is the right word for what a person signs in
- * with, which is the **Account** term, and all 22 pieces of copy saying it mean
- * the second one. Enforcing it would mean 22 markers all giving the same reason,
- * which is a list of correct code written out longhand. Widening the list means
- * answering "how do we tell the banned sense from the allowed one" for the word
- * being added, and for those three the answer is still no.
+ * `login` and `user` joined in #587 and #588, and neither needed a marker.
+ * `login` was two badges, both saying a Profile has no Account against it, and
+ * both lost the noun rather than swapping it: the People directory prints "No
+ * email" where the address goes, and the console says "Never signed in". `user`
+ * was two strings and two arrow functions, and the arrow functions were
+ * `copy-strings.mjs` reading `=>` as the `>` that opens a run of JSX text.
+ *
+ * `account` is the one that cannot join, and that is settled rather than
+ * pending. It is banned as a name for an Organization or a Profile and is the
+ * right word for what a person signs in with, which is the **Account** term, and
+ * all 22 pieces of copy saying it mean the second one. Enforcing it would mean
+ * 22 markers all giving the same reason, which is a list of correct code written
+ * out longhand. Widening the list means answering "how do we tell the banned
+ * sense from the allowed one" for the word being added, and for `account` the
+ * answer is no.
  *
  * ## Markers, not an allowance
  *
@@ -93,18 +102,22 @@
  * a comment: written inside a string literal it exempts nothing, and the string
  * itself is copy that gets reported.
  *
- * One known hole, and it is `masked-source.mjs`'s rather than this file's. A
- * `//` typed into JSX children is read as a comment there, so it does work as a
- * marker, and it also renders on screen for every user of that page. The same
- * masking is why a line of JSX text opening with `//` is invisible to the copy
- * scan at all, marker or not. Nothing has ever written one.
+ * ### A comment between two tags is refused outright
+ *
+ * JSX children are text, so `//` opens no comment there. It renders on screen,
+ * and `masked-source.mjs` blanks it anyway, which took the line out of the copy
+ * scan and let a `// vocabulary-ignore` count as a marker while a page rendered
+ * it. Nothing in the workspace has ever written one. The gate refuses the shape
+ * rather than trying to read it: `commentsInJsxText` in `copy-strings.mjs` finds
+ * a comment on lines of its own between two tags, and this reports it as a bug
+ * in the page rather than a question about vocabulary (#588).
  */
 
 import { readFileSync } from 'node:fs';
 import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { copyStrings } from './lib/copy-strings.mjs';
+import { commentsInJsxText, copyStrings } from './lib/copy-strings.mjs';
 import { maskedSource } from './lib/masked-source.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
 
@@ -125,7 +138,7 @@ const COPY_ROOTS = ['apps/web/src', 'apps/admin/src', 'apps/mobile/src'];
  * Each must be refused somewhere in `CONTEXT.md`, and the gate fails if one is
  * not: a word nobody bans any more is a word this should stop checking.
  */
-const ENFORCED = ['agency', 'tenant', 'site', 'seat'];
+const ENFORCED = ['agency', 'tenant', 'site', 'seat', 'login', 'user'];
 
 /** Below this the Core language table has been reformatted and its parse has stopped working. */
 const MINIMUM_TERMS = 12;
@@ -314,7 +327,20 @@ function readFile(root, file) {
 		lines,
 		findings: findingsIn(source, where),
 		markers: markersIn(lines, masked, where),
+		rendered: renderedIn(source, where),
 	};
+}
+
+/**
+ * Every comment this file writes between two tags, where `//` is text a person
+ * reads rather than a comment.
+ */
+function renderedIn(source, where) {
+	return commentsInJsxText(source).map((comment) => ({
+		where,
+		line: lineOf(source, comment.index),
+		text: source.slice(comment.index, comment.end).split('\n')[0].trim(),
+	}));
 }
 
 function findingsIn(source, where) {
@@ -454,11 +480,15 @@ function report(files, register) {
 	process.exit(1);
 }
 
-/** Everything wrong in one file: copy with no marker over it, and markers over nothing. */
+/**
+ * Everything wrong in one file: copy with no marker over it, markers over
+ * nothing, and comments a browser puts on screen.
+ */
 function problemsIn(file, register) {
 	return [
 		...unmarkedIn(file).map((finding) => unmarkedMessage(finding, register)),
 		...staleIn(file).map(staleMessage),
+		...file.rendered.map(renderedMessage),
 	];
 }
 
@@ -532,6 +562,25 @@ function unmarkedMessage(finding, register) {
 		'If the word is right here, say why on the line above:',
 		'',
 		`  // ${MARKER_WORD} ${finding.word}: one sentence ending in a full stop.`,
+	].join('\n');
+}
+
+/**
+ * A comment between two tags, which is text on a screen.
+ *
+ * Both directions are wrong and the message says both, because whoever wrote it
+ * meant one of them. It renders, and the copy scan cannot read it, so a
+ * `vocabulary-ignore` typed there exempts a line while being visible to every
+ * user of the page.
+ */
+function renderedMessage(comment) {
+	return [
+		`check-vocabulary: ${comment.where}:${comment.line} writes a comment between two tags.`,
+		'',
+		`  ${trim(comment.text)}`,
+		'',
+		'JSX children are text, so this renders on screen, and the copy scan reads it as a comment and never checks it.',
+		'Wrap it in braces to make it a comment: {/* ... */}.',
 	].join('\n');
 }
 

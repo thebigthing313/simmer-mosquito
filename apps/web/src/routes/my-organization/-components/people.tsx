@@ -256,7 +256,7 @@ function ProfileRowItem({
 					)}
 				</div>
 				<p className="m-0 text-sm leading-snug text-muted-foreground">
-					{person.email ?? 'No login link'}
+					{person.email ?? 'No email'}
 				</p>
 			</div>
 			{/* One grid cell, however many actions: the article's second column is

@@ -90,7 +90,9 @@ export function AppShellRoot({ auth }: { readonly auth: AuthMe | null }) {
 		name: organization?.name ?? localIdentity?.organizationName ?? 'Organization',
 	};
 	const shellUser: ShellUser = {
-		name: profileName ?? user?.displayName ?? 'SIMMER User',
+		// Last resort, and the same shape as the Organization fallback above: the
+		// Profile has no name and the Account carries none either.
+		name: profileName ?? user?.displayName ?? 'Account',
 		email: user?.email ?? '',
 		role: formatRole(localIdentity?.role),
 	};

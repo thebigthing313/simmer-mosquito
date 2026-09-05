@@ -191,7 +191,7 @@ function MemberRow({ membership }: { readonly membership: AdminMembership }) {
 			 */}
 			{membership.userId === null ? (
 				<Badge tone="neutral" variant="outline">
-					No login yet
+					Never signed in
 				</Badge>
 			) : null}
 			{membership.isDefault ? (
