@@ -176,13 +176,24 @@ async function columnsOf(db: Kysely<SimmerDatabase>, table: string): Promise<Rea
 }
 
 /**
- * Every foreign key a command body can name has a registry entry.
+ * Every foreign key a command body can name has a registry entry, and every
+ * registry entry is a foreign key.
  *
  * The registry is hand-written and a hand-written list cannot notice what it
  * omits — the same argument the catalog coverage test above makes, asked of the
  * other half. A column added by a later migration that points at an
  * organization-owned record would otherwise take its id from the payload with
  * nothing checking whose it was, which is #200 all over again.
+ *
+ * The reverse direction went unasked until #600. An entry naming a column no
+ * table has is inert, because `recordReferencesIn` reads the values of a write
+ * and simply never finds the key, so it costs nothing at runtime and would sit
+ * there indefinitely. It matters for two reasons. It is the added half of a swap
+ * that `MINIMUM_REFERENCE_COLUMNS` cannot see, since a delete and an add hold the
+ * count. And it is what a rename leaves behind: `habitat_id` renamed in a
+ * migration takes every write naming it out of the gate's scope, and the dead
+ * entry stays sitting exactly where a reader would look to check that it is
+ * covered.
  *
  * Four kinds of column are exempt, and each is exempt for a reason a query can
  * see rather than by name:
@@ -207,10 +218,11 @@ describeDbIntegration('record reference registry coverage', () => {
 			]);
 			const nullableOrgParents = new Set(['weather_sources', 'weather_summaries']);
 
+			const references = await orgOwnedReferences(db);
 			const unregistered: string[] = [];
 			const misdirected: string[] = [];
 
-			for (const reference of await orgOwnedReferences(db)) {
+			for (const reference of references) {
 				if (
 					catalogs.has(reference.parent) ||
 					attribution.has(reference.column) ||
@@ -230,10 +242,20 @@ describeDbIntegration('record reference registry coverage', () => {
 				}
 			}
 
+			// Read off the same query, so asking the second direction costs no second
+			// throwaway schema.
+			const real = new Set(
+				references.map((reference) => `${reference.column} -> ${reference.parent}`),
+			);
+			const dead = [...registry]
+				.map(([column, record]) => `${column} -> ${record}`)
+				.filter((pair) => !real.has(pair));
+
 			expect(unregistered).toEqual([]);
 			// The registry is keyed by column, which only works while no column name
 			// points at two tables. This is the assertion that keeps that true.
 			expect(misdirected).toEqual([]);
+			expect(dead).toEqual([]);
 		});
 	});
 });

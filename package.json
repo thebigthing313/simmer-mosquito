@@ -17,6 +17,7 @@
 		"check:mutation-coverage": "node scripts/check-mutation-coverage.mjs",
 		"check:prose": "node scripts/check-prose.mjs",
 		"check:schema-drift": "node scripts/check-schema-drift.mjs",
+		"check:schemas": "node scripts/generate-table-schemas.mjs --check",
 		"check:search-corpus": "node scripts/check-search-corpus.mjs",
 		"check:table-types": "node scripts/generate-table-types.mjs --check",
 		"check:tileset-keys": "node scripts/check-tileset-keys.mjs",
