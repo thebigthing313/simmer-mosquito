@@ -160,6 +160,14 @@ jobs:
       - name: Table types
         run: pnpm check:table-types
 
+      # The client half of the same columns. The collection factories, the two
+      # barrels and the drift suite are compared byte for byte; a row schema is
+      # scaffolded and then hand-owned, so only its field list is. That list is
+      # where withholding lives: a column taken out of `WITHHELD` and left in a
+      # schema is a column Electric streams to every client on the shape.
+      - name: Collection schemas
+        run: pnpm check:schemas
+
       - name: Typecheck
         run: pnpm typecheck
 

@@ -233,10 +233,14 @@ See `docs/deployment.md`, "Local development".
   do not leak one org's rows into another. Global tables such as `units`,
   `genera`, and `species` intentionally return the same rows for every org.
 - The applied migrations are the source of truth for every synced column, and
-  the row schemas are generated from them by
-  `scripts/generate-table-schemas.mjs` rather than written by hand. A column a
+  the row schemas are scaffolded from them by
+  `scripts/generate-table-schemas.mjs` rather than written from nothing. Which
+  columns are in a schema is that script's decision; the zod expression beside
+  each one, the order and the prose are a person's, and a second run adds and
+  removes field lines in place rather than writing the file over. A column a
   migration adds, renames, or drops fails the drift check until the schema is
-  regenerated, so the two cannot disagree quietly.
+  regenerated, so the two cannot disagree quietly, and `pnpm check:schemas`
+  fails on the same thing without waiting for a build.
 - A full browser smoke requires an authenticated WorkOS session, because app
   shape routes are protected by the selected-organization auth context.
 

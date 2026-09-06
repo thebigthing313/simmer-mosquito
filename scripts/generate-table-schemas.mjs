@@ -5,10 +5,11 @@
  * the factories and the type-level drift check that holds the schemas to the
  * database.
  *
- * Run it once when a migration adds or changes a table, then own the output by
- * hand — a schema is where a table's client-side decisions live (which enum a
- * column really is, which shape its metadata takes), and those do not survive a
- * regeneration. The drift check is what catches the ones you forget.
+ * Run it when a migration adds or changes a table, then own the output by hand —
+ * a schema is where a table's client-side decisions live (which enum a column
+ * really is, which shape its metadata takes). Running it again does not undo
+ * them: a row schema that already exists has fields added and removed in place,
+ * so the order, the prose and the expression beside each column survive.
  *
  * The one decision that must *not* be owned by hand is which columns a client
  * never receives, because a regeneration would put them back. `OMIT` below and
@@ -19,6 +20,7 @@
  * lines with a table name substituted, because everything a table can differ by is
  * either in its schema or declared by the client calling the factory. Editing one
  * by hand is a signal that something belongs in `functions/sync-collection.ts`.
+ * The same goes for the two barrels and the drift suite, which are emitted whole.
  *
  * It reads two sources. `packages/db/src/tables.ts` gives the columns and their
  * TypeScript types. The migrations give which tables exist and which columns are
@@ -28,8 +30,30 @@
  * ```sh
  * pnpm generate:schemas          # dry run: reports what it would emit
  * pnpm generate:schemas --write  # write the files
- * pnpm check:write               # the output is not written pre-formatted
+ * pnpm check:schemas             # fail if the checked-in files are not what this emits
  * ```
+ *
+ * ## `--check`, and the two kinds of ownership
+ *
+ * `check:table-types` can compare its one file byte for byte because nothing in
+ * it is anybody's to edit. Here, two of the five outputs are and three are not,
+ * so the gate asks a different question of each.
+ *
+ * The collection factories, the two barrels and the drift suite are **generated**.
+ * They are compared byte for byte, which is what caught the barrel's list of
+ * `functions/` modules sitting one short: `session-fetch.ts` shipped in #298 and
+ * was exported by hand, so every regeneration since would have dropped it.
+ *
+ * A row schema is **scaffolded**. Which columns are in it is this script's
+ * decision, taken from `tables.ts`, `OMIT` and `WITHHELD`; the zod expression
+ * against each column, the order, and the prose are a person's. So the gate
+ * compares the field names as a set and nothing else. That is the whole of what
+ * withholding is, and it is why deleting a `WITHHELD` entry now fails here as
+ * well as at the floor in `withheld-columns.mjs`.
+ *
+ * Everything emitted goes through Biome first, so the two sides are compared on
+ * the same footing and `pnpm generate:schemas --write` leaves nothing for a later
+ * `pnpm check:write` to tidy into a diff nobody asked for.
  *
  * It is regex over TypeScript, so it is exactly as robust as that sounds. The
  * drift check is the backstop, and it has already caught this script dropping
@@ -37,8 +61,9 @@
  * and resolving an `extends` clause to nothing.
  */
 
+import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { WITHHELD, withheldColumnsFor } from './withheld-columns.mjs';
 
@@ -46,6 +71,16 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
 const COLLECTIONS = join(ROOT, 'packages/sync/src/collections');
 const OUT = join(COLLECTIONS, 'tables');
 const WRITE = process.argv.includes('--write');
+const CHECK = process.argv.includes('--check');
+
+/**
+ * Everything this run produces, with who owns each file.
+ *
+ * `generated` is emitted whole and compared byte for byte. `scaffolded` is a row
+ * schema: the generator decides which columns are in it and a person decides
+ * everything else, so only the field list is compared. See `--check` below.
+ */
+const artifacts = [];
 
 const tablesSrc = readFileSync(join(ROOT, 'packages/db/src/tables.ts'), 'utf8');
 
@@ -256,8 +291,9 @@ for (const [name] of bodies) {
 			: `\n * ${wrapComment(
 					`This table withholds ${[...withheld].map((c) => `\`${c}\``).join(', ')} as well. ` +
 						`They are ${WITHHELD[table].reason}. Say so in \`WITHHELD\` in ` +
-						'`scripts/withheld-columns.mjs`, never by deleting a line below — that ' +
-						'lasts until the next regeneration, and the drift check reads the same list.',
+						'`scripts/withheld-columns.mjs`, never by deleting a line below: ' +
+						'`pnpm check:schemas` refuses a field list that is not the one that file ' +
+						'generates, and the drift check reads the same list.',
 				)}\n *`;
 
 	// `Summaries` -> `Summary`, then `Batches` -> `Batch` (a plural in `-es` after a
@@ -302,7 +338,7 @@ ${lines.join('\n')}
 
 export type ${singular} = z.infer<typeof ${schemaName}>;
 `;
-	if (WRITE) writeFileSync(join(OUT, `${table}.ts`), file, 'utf8');
+	artifacts.push({ path: join(OUT, `${table}.ts`), source: file, ownership: 'scaffolded' });
 
 	const collection = `/**
  * The \`${table}\` collection.
@@ -342,7 +378,11 @@ export function ${factoryName}(options: SyncCollectionClientOptions) {
 	);
 }
 `;
-	if (WRITE) writeFileSync(join(COLLECTIONS, `${table}.ts`), collection, 'utf8');
+	artifacts.push({
+		path: join(COLLECTIONS, `${table}.ts`),
+		source: collection,
+		ownership: 'generated',
+	});
 }
 
 // ---------------------------------------------------------------------------
@@ -538,19 +578,21 @@ const barrel = `/**
  * means no \`columnMapper\`, and the predicates a live query pushes down as subset
  * requests compile to SQL that needs no identifier rewriting.
  *
- * Five modules from \`functions/\` are exported alongside them, because a caller
+ * Six modules from \`functions/\` are exported alongside them, because a caller
  * cannot use a factory without them: the options each one takes, the two wrappers
- * that name a write's command, the refusal a rejected write throws, and the route
- * derivation the server registers against. The rest of \`functions/\` is how the
- * factories are built and is nobody else's business.
+ * that name a write's command, the refusal a rejected write throws, the route
+ * derivation the server registers against, and the hook an app installs so a
+ * request refused for a stale session is renewed once and asked again. The rest
+ * of \`functions/\` is how the factories are built and is nobody else's business.
  *
  * Generated by \`pnpm generate:schemas\`. Biome sorts the exports below, so the
- * five are somewhere in the middle of the list rather than at the top.
+ * six are somewhere in the middle of the list rather than at the top.
  */
 
 export * from './functions/command-transaction.js';
 export * from './functions/mutate-collection.js';
 export * from './functions/routes.js';
+export * from './functions/session-fetch.js';
 export * from './functions/sync-collection.js';
 export * from './functions/write-command.js';
 
@@ -562,9 +604,141 @@ ${emitted
 	.join('\n')}
 `;
 
+artifacts.push(
+	{ path: join(COLLECTIONS, 'index.ts'), source: barrel, ownership: 'generated' },
+	{ path: join(OUT, 'index.ts'), source: schemaRegistry, ownership: 'generated' },
+	{
+		path: join(ROOT, 'packages/sync/src/tests/unit/collections/tables/drift.test.ts'),
+		source: driftTest,
+		ownership: 'generated',
+	},
+);
+
+// ---------------------------------------------------------------------------
+// Formatting, then either writing or checking.
+// ---------------------------------------------------------------------------
+
+/**
+ * Biome, over stdin, on one emitted file.
+ *
+ * `check --write` rather than `format`, because the import and export ordering is
+ * an assist action and not a formatter rule, and half of what a hand-written file
+ * would differ by is that ordering.
+ *
+ * The path goes with the content so Biome resolves the same configuration it
+ * would on the real file. Through a shell and by path: on Windows the workspace
+ * binary is a `.CMD` shim that Node refuses to spawn directly, and it is not on
+ * PATH either way.
+ */
+function formatted(source, path) {
+	const biome = spawnSync(
+		`"${join(ROOT, 'node_modules/.bin/biome')}"`,
+		['check', '--write', `--stdin-file-path=${relative(ROOT, path).replace(/\\/g, '/')}`],
+		{ cwd: ROOT, input: source, encoding: 'utf8', shell: true },
+	);
+
+	if (biome.status !== 0) {
+		console.error(`Biome could not format ${relative(ROOT, path)}.`);
+		console.error(biome.stderr || biome.error?.message);
+		process.exit(1);
+	}
+
+	return biome.stdout;
+}
+
+/** The field a schema line names, or `null` when it names none. */
+const fieldOf = (line) => line.match(/^\t([a-z0-9_]+):/)?.[1] ?? null;
+
+/**
+ * The one `z.object` in a row schema, as its body lines and the field each names.
+ *
+ * Every row schema this script has ever written is flat, so a field is a line
+ * indented by exactly one tab. Reading the names rather than the text is what
+ * lets the zod expression beside each one stay a person's to choose.
+ */
+function schemaBody(source) {
+	const text = source.replace(/\r\n/g, '\n');
+	const match = text.match(/(z\.object\(\{\n)([\s\S]*?)(\n\}\);)/);
+	if (!match) return null;
+
+	const lines = match[2].split('\n');
+	return {
+		text,
+		lines,
+		fields: lines.map(fieldOf),
+		start: match.index + match[1].length,
+		end: match.index + match[1].length + match[2].length,
+	};
+}
+
+/** The field names of a row schema, or `null` when there is no object to read. */
+function schemaFields(source) {
+	const body = schemaBody(source);
+	return body === null ? null : new Set(body.fields.filter((field) => field !== null));
+}
+
+/**
+ * A row schema with the fields this run emits, and nothing else touched.
+ *
+ * The generator owns which columns are in a schema and a person owns everything
+ * around them, so a regeneration adds and removes field lines in place rather
+ * than writing the file again. Rewriting it whole reordered columns somebody had
+ * grouped and reflowed prose somebody had edited, across 52 files, which is how
+ * `pnpm generate:schemas --write` became a thing nobody could run (#534).
+ *
+ * A new field lands after the last field ahead of it in the emitted order that
+ * the file already has, so a column a migration appended appends here too.
+ */
+function mergedSchema(current, emitted) {
+	const held = schemaBody(current);
+	const wanted = schemaBody(emitted);
+	if (held === null || wanted === null) return null;
+
+	const merged = mergedLines(held, linesByField(wanted));
+	return held.text.slice(0, held.start) + merged.join('\n') + held.text.slice(held.end);
+}
+
+/** The body of the merge: the surviving lines, with the new ones placed among them. */
+function mergedLines(held, wantedLines) {
+	const order = [...wantedLines.keys()];
+	const missing = order.filter((field) => !held.fields.includes(field));
+	// A field this run does not emit goes. A line naming no field is a comment or
+	// a blank somebody put there, and stays where it is.
+	const surviving = held.lines.filter(
+		(_, index) => held.fields[index] === null || wantedLines.has(held.fields[index]),
+	);
+	const placed = surviving.flatMap((line) => [
+		...missingBefore(missing, order, fieldOf(line), wantedLines),
+		line,
+	]);
+
+	return [...placed, ...missing.map((field) => wantedLines.get(field))];
+}
+
+/** Each field's line, keyed by field, in the order the generator writes them. */
+function linesByField(body) {
+	return new Map(
+		body.fields
+			.map((field, index) => [field, body.lines[index]])
+			.filter(([field]) => field !== null),
+	);
+}
+
+/**
+ * The fields still to be placed that belong ahead of `field`, taken off the list.
+ *
+ * A line naming no field ranks at `-1` and nothing sorts before that, so a
+ * comment in the middle of the object never has a new column landed on top of it.
+ */
+function missingBefore(missing, order, field, wantedLines) {
+	const due = missing.filter((candidate) => order.indexOf(candidate) < order.indexOf(field));
+	for (const placed of due) missing.splice(missing.indexOf(placed), 1);
+	return due.map((placed) => wantedLines.get(placed));
+}
+
 console.log(`tables in migrations: ${realTables.size}`);
 console.log(
-	`schemas and collections emitted: ${emitted.length}${WRITE ? ' (written)' : ' (dry run)'}`,
+	`schemas and collections emitted: ${emitted.length}${WRITE ? ' (written)' : CHECK ? ' (checking)' : ' (dry run)'}`,
 );
 console.log(`uuid columns detected: ${uuidColumns.size}`);
 
@@ -575,11 +749,113 @@ if (uncovered.length) console.log(`\nno Kysely interface, so not emitted: ${unco
 for (const line of report) console.log(line);
 
 if (WRITE) {
-	writeFileSync(join(COLLECTIONS, 'index.ts'), barrel, 'utf8');
-	writeFileSync(join(OUT, 'index.ts'), schemaRegistry, 'utf8');
-	writeFileSync(
-		join(ROOT, 'packages/sync/src/tests/unit/collections/tables/drift.test.ts'),
-		driftTest,
-		'utf8',
-	);
+	for (const { path, source, ownership } of artifacts) {
+		const current = ownership === 'scaffolded' ? readIfPresent(path) : null;
+		let text = source;
+		if (current !== null) {
+			text = mergedSchema(current, source);
+			if (text === null) {
+				console.log(
+					`${relative(ROOT, path)} has no z.object to merge into, so it is scaffolded again.`,
+				);
+				text = source;
+			}
+		}
+		writeFileSync(path, formatted(text, path), 'utf8');
+	}
+}
+
+/** The file, or `null` when there is none to merge into. */
+function readIfPresent(path) {
+	try {
+		return readFileSync(path, 'utf8');
+	} catch {
+		return null;
+	}
+}
+
+if (!CHECK) process.exit(0);
+
+const findings = [];
+
+for (const { path, source, ownership } of artifacts) {
+	const name = relative(ROOT, path).replace(/\\/g, '/');
+	let current;
+	try {
+		current = readFileSync(path, 'utf8').replace(/\r\n/g, '\n');
+	} catch {
+		findings.push(`${name} does not exist. Write it: pnpm generate:schemas --write`);
+		continue;
+	}
+
+	if (ownership === 'generated') {
+		const expected = formatted(source, path).replace(/\r\n/g, '\n');
+		if (current === expected) continue;
+		findings.push(`${name} is not what the generator emits.`);
+		for (const line of firstDifferences(current, expected)) findings.push(line);
+		findings.push('  Regenerate it: pnpm generate:schemas --write');
+		continue;
+	}
+
+	const held = schemaFields(current);
+	if (held === null) {
+		findings.push(
+			`${name} has no z.object this check can read, so nothing holds its field list to the ` +
+				'database. Restore the generated shape, or teach schemaFields in ' +
+				'scripts/generate-table-schemas.mjs the new one.',
+		);
+		continue;
+	}
+
+	const wanted = schemaFields(source);
+	const extra = [...held].filter((field) => !wanted.has(field));
+	const missing = [...wanted].filter((field) => !held.has(field));
+	if (extra.length === 0 && missing.length === 0) continue;
+
+	if (extra.length > 0) {
+		findings.push(
+			`${name} carries ${extra.join(', ')}, which this generator does not emit. A client ` +
+				'receives every field in this schema, so a column added here by hand is a column on ' +
+				'the wire. If it is withheld, take it out; if it is meant to reach clients, take it ' +
+				'out of WITHHELD in scripts/withheld-columns.mjs and regenerate.',
+		);
+	}
+	if (missing.length > 0) {
+		findings.push(
+			`${name} is missing ${missing.join(', ')}, which this generator emits. Either a ` +
+				'migration nobody regenerated after, or a column that has left WITHHELD in ' +
+				'scripts/withheld-columns.mjs and should go back. Regenerate: pnpm generate:schemas ' +
+				'--write',
+		);
+	}
+}
+
+if (findings.length === 0) {
+	console.log(`\nthe checked-in files are what this emits: ${artifacts.length} files.`);
+	process.exit(0);
+}
+
+console.error('');
+for (const line of findings) console.error(line);
+process.exit(1);
+
+/**
+ * The first few differing lines, with their line numbers.
+ *
+ * A whole diff buries the answer; a count is not one at all. Same shape as
+ * `generate-table-types.mjs`, which gates its one file the same way.
+ */
+function firstDifferences(current, expected, limit = 4) {
+	const left = current.split('\n');
+	const right = expected.split('\n');
+	const at = (lines, index) => lines[index] ?? '(end of file)';
+
+	return [...Array(Math.max(left.length, right.length)).keys()]
+		.filter((index) => left[index] !== right[index])
+		.slice(0, limit)
+		.flatMap((index) => [
+			`  line ${index + 1}`,
+			`    checked in: ${at(left, index)}`,
+			`    generator:  ${at(right, index)}`,
+		]);
 }

@@ -360,11 +360,17 @@ file is hand-maintained, and `pnpm check:table-types` in CI's `verify` job fails
 on a difference between it and the dump.
 
 The client's half of the same columns is the row schemas in `packages/sync`,
-written by `pnpm generate:schemas` and then owned by hand. What holds the two
+scaffolded by `pnpm generate:schemas` and then owned by hand. What holds the two
 together is the type-level drift check in
 `packages/sync/src/tests/unit/collections/tables/drift.test.ts`, which fails
 `tsc` when a table has a column no schema covers, a schema has a field no column
-covers, or the two disagree about a column's type.
+covers, or the two disagree about a column's type. `pnpm check:schemas` in the
+`verify` job asks the same question of the generator rather than of the
+compiler: it holds each row schema's field list to what the generator emits, and
+the collection factories, the two barrels and that drift suite to the emitted
+text byte for byte. The field list is where withholding lives, so a column
+dropped from `WITHHELD` in `scripts/withheld-columns.mjs` fails there rather
+than quietly going back on the wire.
 
 These legacy tables from the old system are deliberately absent until a
 workflow needs them: `deleted_data`, `roles`, `tag_groups`, `species_groups`,
