@@ -746,12 +746,13 @@ boundary is the mod-2 union of its parts' endpoints rather than the plain union,
 so an interior-only rule would answer differently for one LineString than for the
 MultiLineString built from its two halves.
 
-### The corpus grows from 22 to 32
+### The corpus grows from 22 to 34
 
 `CorpusGeomType` (`packages/mapping/src/test-corpus.ts:72`) opens to six names,
 `CorpusCase.record` gains the three multipart GeoJSON types, and
 `membershipBranchFor` (`:363-365`) widens to the two areal names.
-`REGION_MEMBERSHIP_CORPUS_SIZE` becomes 32. Two assertions in
+`REGION_MEMBERSHIP_CORPUS_SIZE` becomes 32 with the ten cases below, and 34 with
+the two #518 added beside them once Split shipped. Two assertions in
 `test-corpus.test.ts` hard-code three dimensions and need six.
 
 | Case | Arm | Expected |
@@ -766,18 +767,29 @@ MultiLineString built from its two halves.
 | `multilinestring-touching-at-a-node` | plain | true |
 | `multipolygon-region-record-in-one-part` | interior | true |
 | `multipolygon-region-record-between-parts` | interior | false |
+| `multipolygon-split-parts-touching-the-southern-edge` | interior | false |
+| `multipolygon-split-parts-across-the-southern-edge` | interior | true |
 
 The first two are the discriminating pair.
 `multipolygon-all-parts-sharing-an-edge` is the case that fails today.
 `multipolygon-one-part-inside` proves the union is existential rather than
 universal. The MultiPoint pair pins the existential reading on the plain arm,
 where boundary contact still counts. The MultiLineString node touch is the mod-2
-tripwire. The last two use the so-far unused `CorpusCase.region` field to give a
+tripwire. The next two use the so-far unused `CorpusCase.region` field to give a
 MultiPolygon region.
 
-Deliberately excluded: any invalid MultiPolygon, a three-part case, because part
-count is not a variable the predicate reads, and a redundant MultiLineString
-crossing.
+The last two arrived with #518 and are the shape the Split gesture writes: one
+lot cut in two, both pieces still on the line they were cut along. They are the
+only invalid geometry in the corpus, and they are in it because both engines
+define a relate over a shared edge and return the same matrix. It takes two of
+them. A predicate that refused the shape outright and answered false would pass
+the touching case, so the case that straddles the edge is what separates
+answering the rule from refusing the shape.
+
+Three shapes are deliberately excluded. A self-intersecting ring, because
+`ST_Relate` is undefined over one and no hand-written expectation can be right.
+A three-part case, because part count is not a variable the predicate reads. A
+redundant MultiLineString crossing.
 
 ### The corpus lands inside the migration slice
 
@@ -1302,7 +1314,9 @@ tolerate two answers until that slice ships.
   slice 2, which is the slice that starts raising one from inside.
 - #437, 15 production Regions hold self-intersecting rings and membership on them
   is undefined. Not a blocker. It is here because the corpus deliberately excludes
-  invalid geometry and somebody will ask why.
+  that ring and somebody will ask why. The corpus does hold invalid geometry of
+  the other kind since #518, which is the distinction to keep: a shared edge is
+  defined and agreed on by both engines, a crossed ring is neither.
 
 ## Out of scope
 
@@ -1328,7 +1342,11 @@ Ruled out on the map, each with the ticket that ruled it.
   read off `OWNED_GEOMETRY_POLICIES`: a Notification Registration stores a Point
   or a Polygon and neither multi shape, so the second piece has nowhere to go.
   The two pieces share the line they were cut along, which OGC calls an invalid
-  MultiPolygon and nothing in this schema refuses. #518 carries that.
+  MultiPolygon and nothing in this schema refuses. #518 carried that and answered
+  it by pinning the shape rather than by refusing or repairing it: two corpus
+  cases hold the membership answer, and a map surface case holds the tile answer,
+  which is that `ST_AsMVTGeom` dissolves the shared edge and hands back a valid
+  Polygon of the same area. A split record draws what an uncut one draws.
 - Importing a point from a file. No import surface has ever produced a Point, and
   adding one is a new capability with no multipart in it.
 - GeometryCollection as a record geometry. Nothing in mosquito control needs a

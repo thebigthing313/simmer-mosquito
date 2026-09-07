@@ -354,7 +354,7 @@ data.
 The SQL half seeds and asserts in a single `it()` with one `withTestDb`, calling
 the shipped helper rather than inline SQL. `withTestDb` applies the whole
 migration set per call, about 1s against a local container and 9s against a
-remote one, so thirty-two `it()` blocks would be thirty-two migration runs.
+remote one, so thirty-four `it()` blocks would be thirty-four migration runs.
 Seed once: one organization per distinct region, one record per case in
 `habitats` (it is `geometry(Geometry, 4326)` held to all six shapes, so it holds
 every case), then one assertion pass. The organizations are what scope each case
@@ -485,7 +485,7 @@ The corpus is the gate mobile passes before it answers offline.
 ### When web and mobile disagree
 
 They can, and the first person to find out will be someone looking at the same
-record on a phone and a laptop. The corpus is thirty-two cases;
+record on a phone and a laptop. The corpus is thirty-four cases;
 organization-drawn polygons are not the corpus, and the failure mode of a
 hand-rolled overlay is a wrong boolean on one record with nothing to make it
 visible.

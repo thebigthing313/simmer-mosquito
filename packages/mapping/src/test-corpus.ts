@@ -44,10 +44,10 @@
  *
  * ## Multipart
  *
- * ADR 0018 lets a record hold several parts, so ten of the thirty-two cases are
- * multipart. The rule does not change: a MultiPolygon's interior is the union of
- * its parts' interiors, so the interior cell reads "does any part's interior meet
- * the region's". That is existential, and the two cases that prove it are
+ * ADR 0018 lets a record hold several parts, so twelve of the thirty-four cases
+ * are multipart. The rule does not change: a MultiPolygon's interior is the union
+ * of its parts' interiors, so the interior cell reads "does any part's interior
+ * meet the region's". That is existential, and the two cases that prove it are
  * `multipolygon-all-parts-sharing-an-edge` and `multipolygon-one-part-inside`.
  *
  * MultiPoint and MultiLineString stay on plain intersection, where boundary
@@ -56,14 +56,31 @@
  * than the plain union, so an interior-only rule would answer differently for one
  * LineString than for the MultiLineString built from its halves.
  *
- * Every multipart geometry here has parts that are disjoint. PostGIS forbids
- * parts that share an edge or overlap, and its functions assume valid input.
+ * ## Two kinds of invalid, and why only one is here
+ *
+ * Two multipart cases have parts that share the line they were cut along, which
+ * OGC calls an invalid MultiPolygon. They are here because the draw control's
+ * Split gesture writes that shape every time somebody uses it: both pieces keep
+ * the cut line, nothing refuses the write, and the row stores. `ST_Relate` and
+ * `ST_Intersects` are defined over it, PostGIS and `jsts` return the same matrix
+ * to the last cell, and neither throws, so the answer is a rule the corpus can
+ * hold rather than a coincidence. The pair is
+ * `multipolygon-split-parts-touching-the-southern-edge` and
+ * `multipolygon-split-parts-across-the-southern-edge`, and it takes two of them:
+ * a predicate that started refusing the shape outright and answering false would
+ * still pass the first, so the second is what separates answering the rule from
+ * refusing the shape.
+ *
+ * A ring that crosses itself is the other kind, and the two must not be
+ * collapsed. GEOS leaves a relate on one undefined, so no hand-written
+ * expectation there can be right; those cases live outside the corpus, in the SQL
+ * suite's own list beside it. Every multipart geometry here other than the split
+ * pair has parts that are disjoint.
  *
  * ## What is deliberately absent
  *
- * No invalid geometry. Fifteen production Regions hold self-intersecting rings
- * and `ST_Relate` is undefined on them, which is #437 rather than a rule to pin
- * down here.
+ * No self-intersecting ring. Fifteen production Regions hold one and `ST_Relate`
+ * is undefined on them, which is #437 rather than a rule to pin down here.
  *
  * No three-part case. Part count is not a variable the predicate reads, so a
  * third part tests the same arm twice.
@@ -91,9 +108,9 @@ import type {
  *
  * Asserted alongside the boolean, and not redundant with it. An areal record
  * wrongly routed through plain intersection answers correctly on every case here
- * except `polygon-sharing-one-edge` and `multipolygon-all-parts-sharing-an-edge`,
- * so without this field two cases out of thirty-two are the whole defence against
- * a misroute.
+ * except `polygon-sharing-one-edge`, `multipolygon-all-parts-sharing-an-edge` and
+ * `multipolygon-split-parts-touching-the-southern-edge`, so without this field
+ * three cases out of thirty-four are the whole defence against a misroute.
  */
 export type MembershipBranch = 'plain-intersection' | 'interior-intersection';
 
@@ -137,7 +154,7 @@ export interface CorpusCase {
  * Outer: lng -90.00 to -89.90, lat 30.00 to 30.10.
  * Hole: lng -89.97 to -89.94, lat 30.03 to 30.06.
  *
- * Thirty of the thirty-two cases run against it. The two that do not carry
+ * Thirty-two of the thirty-four cases run against it. The two that do not carry
  * `MULTIPART_REGION` instead.
  */
 export const CORPUS_REGION: GeoJsonPolygon = {
@@ -513,6 +530,31 @@ const MULTIPOLYGON_CASES: readonly CorpusCase[] = [
 			'against a multipart record exactly as it does against a single one.',
 	},
 	{
+		id: 'multipolygon-split-parts-touching-the-southern-edge',
+		geomType: 'st_multipolygon',
+		branch: 'interior-intersection',
+		record: multiBox(box(-89.99, 29.98, -89.97, 30.0), box(-89.97, 29.98, -89.95, 30.0)),
+		inside: false,
+		because:
+			'One lot south of the district, cut in two and still sitting on the line it was cut ' +
+			'along. Together the pieces share a stretch of the southern edge and overlap it ' +
+			'nowhere, and the union of two empty interior intersections is empty, so this is work ' +
+			'next to the district. Plain intersection answers true, which makes it the branch ' +
+			'tripwire in the shape Split writes.',
+	},
+	{
+		id: 'multipolygon-split-parts-across-the-southern-edge',
+		geomType: 'st_multipolygon',
+		branch: 'interior-intersection',
+		record: multiBox(box(-89.99, 29.99, -89.97, 30.01), box(-89.97, 29.99, -89.95, 30.01)),
+		inside: true,
+		because:
+			'The same cut lot moved north until it straddles the southern edge, so both pieces ' +
+			'reach ground the district covers and the interiors meet. A predicate that answered ' +
+			'false for any shape with a shared edge would pass the case above and fail here, which ' +
+			'is why the pair is what pins the answer rather than either half alone.',
+	},
+	{
 		id: 'multipolygon-region-record-in-one-part',
 		geomType: 'st_polygon',
 		branch: 'interior-intersection',
@@ -537,7 +579,7 @@ const MULTIPOLYGON_CASES: readonly CorpusCase[] = [
 ];
 
 /**
- * Every case. Thirty-two of them, and `REGION_MEMBERSHIP_CORPUS_SIZE` is checked
+ * Every case. Thirty-four of them, and `REGION_MEMBERSHIP_CORPUS_SIZE` is checked
  * in beside the list so a case lost to a bad merge fails rather than quietly
  * shrinking the suite.
  */
@@ -550,7 +592,7 @@ export const REGION_MEMBERSHIP_CORPUS: readonly CorpusCase[] = [
 	...MULTIPOLYGON_CASES,
 ];
 
-export const REGION_MEMBERSHIP_CORPUS_SIZE = 32;
+export const REGION_MEMBERSHIP_CORPUS_SIZE = 34;
 
 /**
  * The branch a `geom_type` takes. The rule, in one place, for both halves.
