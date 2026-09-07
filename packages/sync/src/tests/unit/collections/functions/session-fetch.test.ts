@@ -14,11 +14,27 @@ import {
 	setSessionRecovery,
 } from '../../../../collections/functions/session-fetch.js';
 
-function stubResponses(...statuses: readonly number[]) {
+function respondingWith(...statuses: readonly number[]) {
 	const remaining = [...statuses];
-	const fetchMock = vi.fn<typeof fetch>(
-		async () => new Response(null, { status: remaining.shift() ?? 200 }),
-	);
+	return vi.fn<typeof fetch>(async () => new Response(null, { status: remaining.shift() ?? 200 }));
+}
+
+/**
+ * This app's transport, installed the way an app installs one.
+ *
+ * Every case here installs one, because since #694 a send with none installed
+ * throws rather than reaching the bare global. The case asserting that refusal
+ * installs nothing, and it is the only one.
+ */
+function stubResponses(...statuses: readonly number[]) {
+	const fetchMock = respondingWith(...statuses);
+	setSessionFetcher(fetchMock);
+	return fetchMock;
+}
+
+/** The bare global, which no request in this package may reach. */
+function stubGlobalFetch(...statuses: readonly number[]) {
+	const fetchMock = respondingWith(...statuses);
 	vi.stubGlobal('fetch', fetchMock);
 	return fetchMock;
 }
@@ -116,6 +132,20 @@ describe('sessionFetch', () => {
 		});
 	});
 
+	it('refuses to send at all when no app installed a transport', async () => {
+		// #694. The fallback used to be bare `fetch`, which omits the cookie
+		// cross-origin: every read and every write would go out unauthenticated and
+		// the app would draw as empty rather than as refused. Nothing here can pick
+		// a credential in its place, so the request does not happen and the error
+		// says which call is missing.
+		const globalFetch = stubGlobalFetch(200);
+
+		await expect(sessionFetch('https://example.test/sync/shapes/units')).rejects.toThrow(
+			/setSessionFetcher/,
+		);
+		expect(globalFetch).not.toHaveBeenCalled();
+	});
+
 	it('retries a request that carried a body, rather than one already spent', async () => {
 		// Subset reads and every command write are POSTs with a body, and a
 		// `Request` can only be read once. Retrying the spent object throws instead
@@ -143,9 +173,8 @@ describe('sessionFetch', () => {
 		// can carry: `apps/mobile` holds the sealed session in the device keystore
 		// and sends it as a bearer (ADR 0016), and this package has no way to know
 		// which of the two it is running under.
-		const installed = vi.fn<typeof fetch>(async () => new Response(null, { status: 200 }));
-		setSessionFetcher(installed);
-		const globalFetch = stubResponses(200);
+		const installed = stubResponses(200);
+		const globalFetch = stubGlobalFetch(200);
 
 		await sessionFetch('https://example.test/sync/shapes/units');
 
@@ -157,13 +186,9 @@ describe('sessionFetch', () => {
 		// A retry on the bare global would go out with no credential at all and be
 		// refused a second time — a renewal that looks like it worked and a request
 		// that never had a chance.
-		const remaining = [401, 200];
-		const installed = vi.fn<typeof fetch>(
-			async () => new Response(null, { status: remaining.shift() ?? 200 }),
-		);
-		setSessionFetcher(installed);
+		const installed = stubResponses(401, 200);
 		setSessionRecovery(async () => true);
-		const globalFetch = stubResponses(200, 200);
+		const globalFetch = stubGlobalFetch(200, 200);
 
 		const response = await sessionFetch('https://example.test/sync/shapes/units');
 

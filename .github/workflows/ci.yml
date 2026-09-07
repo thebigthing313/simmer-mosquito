@@ -258,6 +258,19 @@ jobs:
       - name: Server-owned columns
         run: pnpm check:server-owned-columns
 
+      # Since #614 the credential every shape stream and every command write
+      # carries is the host's, installed once with `setSessionFetcher`. An app
+      # that installed none used to be answered by a fallback to bare `fetch`,
+      # which omits the cookie cross-origin, so every read and every write was
+      # refused and the workspace drew as empty rather than as broken. #695
+      # swept the thirty call sites that had been carrying their own credential
+      # through that fallback, which made the hole total. `sessionFetch` now
+      # refuses to send with no transport installed, and this is the other half:
+      # an app that imports the collection barrel and calls the installer
+      # nowhere, caught on the branch that writes it.
+      - name: Session fetcher
+        run: pnpm check:session-fetcher
+
       - name: Typecheck
         run: pnpm typecheck
 

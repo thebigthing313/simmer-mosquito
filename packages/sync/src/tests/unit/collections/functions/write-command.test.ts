@@ -13,13 +13,23 @@
  * here, where it holds for every table.
  */
 
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { setSessionFetcher } from '../../../../collections/functions/session-fetch.js';
 import { CommandError, writeCommand } from '../../../../collections/functions/write-command.js';
+import { globalTransport } from './global-transport.js';
 
 const URL = 'http://localhost:3002/commands/memberships';
 
 describe('writeCommand', () => {
+	// What each case stubs is the answer, not the credential, so the transport
+	// installed here defers to the stub. Without one `sessionFetch` refuses the
+	// send (#694) and every case below reports that instead of what it asserts.
+	beforeEach(() => {
+		setSessionFetcher(globalTransport);
+	});
+
 	afterEach(() => {
+		setSessionFetcher(null);
 		vi.unstubAllGlobals();
 	});
 
