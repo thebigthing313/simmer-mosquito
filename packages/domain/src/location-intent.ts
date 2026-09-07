@@ -8,6 +8,7 @@ import {
 	type OwnedGeoJsonGeometryFor,
 	type OwnedGeometryKind,
 	type OwnedGeometryTypeFor,
+	type SupportedGeoJsonGeometry,
 	validateGeometry,
 } from './shared.js';
 
@@ -230,19 +231,21 @@ export type ControlActionLocationSource = LocationSourceFor<'controlAction'>;
  * which the validators below have already applied by the time a command reaches
  * a handler.
  *
- * Read off the register across every flow rather than written out, so it is the
- * sources some flow permits by construction. Resolving over this union rather
- * than over `{ kind: string }` is what makes a new source term a build error in
- * the resolver instead of a 400 at run time.
+ * Read off the term map and the six shapes rather than off the flow register,
+ * which is the whole difference between the two: this is every source term that
+ * exists, so narrowing a flow row leaves the resolver total, and a term added to
+ * the map is a build error there instead of a 400 at run time.
  */
-export type LocationSource = LocationSourceFor<LocationSourceFlowName>;
+export type LocationSource =
+	| { readonly kind: 'geometry'; readonly geometry: SupportedGeoJsonGeometry }
+	| IdentifiedLocationSourceByKind[keyof IdentifiedLocationSourceByKind];
 
 export function validateTrapLocationSource(
 	input: unknown,
 	path: string,
 	issues: DomainValidationIssue[],
 ): TrapLocationSource {
-	return validateLocationSourceFlow(input, path, issues, 'trap');
+	return validateLocationSourceFlow(input, 'trap', path, issues);
 }
 
 export function validateAdultCollectionLocationSource(
@@ -250,7 +253,7 @@ export function validateAdultCollectionLocationSource(
 	path: string,
 	issues: DomainValidationIssue[],
 ): AdultCollectionLocationSource {
-	return validateLocationSourceFlow(input, path, issues, 'adultCollection');
+	return validateLocationSourceFlow(input, 'adultCollection', path, issues);
 }
 
 export function validateHabitatLocationSource(
@@ -258,7 +261,7 @@ export function validateHabitatLocationSource(
 	path: string,
 	issues: DomainValidationIssue[],
 ): HabitatLocationSource {
-	return validateLocationSourceFlow(input, path, issues, 'habitat');
+	return validateLocationSourceFlow(input, 'habitat', path, issues);
 }
 
 export function validateAdHocInspectionLocationSource(
@@ -266,7 +269,7 @@ export function validateAdHocInspectionLocationSource(
 	path: string,
 	issues: DomainValidationIssue[],
 ): AdHocInspectionLocationSource {
-	return validateLocationSourceFlow(input, path, issues, 'adHocInspection');
+	return validateLocationSourceFlow(input, 'adHocInspection', path, issues);
 }
 
 export function validateRequestedControlActionLocationSource(
@@ -274,7 +277,7 @@ export function validateRequestedControlActionLocationSource(
 	path: string,
 	issues: DomainValidationIssue[],
 ): RequestedControlActionLocationSource {
-	return validateLocationSourceFlow(input, path, issues, 'requestedControlAction');
+	return validateLocationSourceFlow(input, 'requestedControlAction', path, issues);
 }
 
 export function validateMissionItemLocationSource(
@@ -282,7 +285,7 @@ export function validateMissionItemLocationSource(
 	path: string,
 	issues: DomainValidationIssue[],
 ): MissionItemLocationSource {
-	return validateLocationSourceFlow(input, path, issues, 'missionItem');
+	return validateLocationSourceFlow(input, 'missionItem', path, issues);
 }
 
 export function validateControlActionLocationSource(
@@ -290,7 +293,7 @@ export function validateControlActionLocationSource(
 	path: string,
 	issues: DomainValidationIssue[],
 ): ControlActionLocationSource {
-	return validateLocationSourceFlow(input, path, issues, 'controlAction');
+	return validateLocationSourceFlow(input, 'controlAction', path, issues);
 }
 
 /**
@@ -311,10 +314,10 @@ export function validateLocationSourceInput<TFlow extends LocationSourceFlowName
 	issues: DomainValidationIssue[],
 ): LocationSourceFor<TFlow> {
 	if (input.locationSource !== undefined) {
-		return validateLocationSourceFlow(input.locationSource, 'locationSource', issues, flow);
+		return validateLocationSourceFlow(input.locationSource, flow, 'locationSource', issues);
 	}
 	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateLocationSourceFlow(fallbackLocationSource(), 'locationSource', issues, flow);
+	return validateLocationSourceFlow(fallbackLocationSource(), flow, 'locationSource', issues);
 }
 
 /**
@@ -328,9 +331,9 @@ export function validateLocationSourceInput<TFlow extends LocationSourceFlowName
  */
 function validateLocationSourceFlow<TFlow extends LocationSourceFlowName>(
 	input: unknown,
+	flow: TFlow,
 	path: string,
 	issues: DomainValidationIssue[],
-	flow: TFlow,
 ): LocationSourceFor<TFlow> {
 	const source = readLocationSource(input, path, issues, LOCATION_SOURCE_FLOWS[flow]);
 	if (isFlowLocationSource(flow, source)) {

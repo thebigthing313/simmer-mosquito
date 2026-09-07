@@ -9,6 +9,7 @@ import {
 import {
 	type ControlActionLocationSource,
 	type ControlActionLocationSourceInput,
+	type LocationSourceFlowName,
 	type RequestedControlActionLocationSource,
 	type RequestedControlActionLocationSourceInput,
 	validateLocationSourceInput,
@@ -137,7 +138,16 @@ export function idCommand<
 	};
 }
 
-export type LocationSourceFlow = 'controlAction' | 'requestedControlAction';
+/**
+ * The two flows a control command patches a location on.
+ *
+ * Extracted from the register's own key union rather than written out, so a row
+ * that is renamed fails here instead of narrowing what these helpers accept.
+ */
+export type LocationSourceFlow = Extract<
+	LocationSourceFlowName,
+	'controlAction' | 'requestedControlAction'
+>;
 
 export function validateLocationContextPatchBase<TInput extends ControlCommandInput>(
 	input: TInput,
@@ -157,7 +167,7 @@ export function validateLocationContextPatchBase<TInput extends ControlCommandIn
 		});
 	}
 	if (hasLocation) {
-		validatePatchLocationSource(
+		validateLocationSourceInput(
 			input as {
 				readonly locationSource?:
 					| ControlActionLocationSourceInput
@@ -203,7 +213,7 @@ export function locationContextChanges(
 	return {
 		...(hasLocation
 			? {
-					locationSource: validatePatchLocationSource(input, flow, issues),
+					locationSource: validateLocationSourceInput(input, flow, issues),
 				}
 			: {}),
 		...(hasAddress
@@ -220,18 +230,6 @@ export function locationContextChanges(
 				}
 			: {}),
 	};
-}
-
-function validatePatchLocationSource(
-	input: {
-		readonly locationSource?:
-			| ControlActionLocationSourceInput
-			| RequestedControlActionLocationSourceInput;
-	},
-	flow: LocationSourceFlow,
-	issues: DomainValidationIssue[],
-): ControlActionLocationSource | RequestedControlActionLocationSource {
-	return validateLocationSourceInput(input, flow, issues);
 }
 
 export function normalizePositiveFiniteNumber(

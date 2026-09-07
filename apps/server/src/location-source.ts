@@ -13,8 +13,8 @@
  * the discrimination it had just discarded, with `as string` casts and a switch.
  *
  * Those four switches were also a second, looser copy of the whitelist: the
- * larval one accepted `serviceRequest`, which `HABITAT_LOCATION_SOURCE_KINDS`
- * forbids. That arm was unreachable, and nothing said so.
+ * larval one accepted `serviceRequest`, which the habitat row of
+ * `LOCATION_SOURCE_FLOWS` forbids. That arm was unreachable, and nothing said so.
  *
  * `docs/domain-command-contract.md` gives the split this module keeps: builders
  * own which sources a workflow permits, handlers own the lookup and snapshot.
