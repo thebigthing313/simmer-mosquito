@@ -2,7 +2,7 @@ import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useTrapMutations } from '../../../hooks/mutations/use-trap-mutations';
 import {
 	type CatalogListing,
@@ -40,17 +40,17 @@ function EditTrapRoute() {
 	const lures = useCollectionLureRoster();
 	const { trap, isReady, isError } = useTrapRecord(id);
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="trap" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
-	}
-	if (trap === undefined) {
-		return <RecordUnavailable layout="centered" noun="trap" reason="not-found" />;
-	}
-
-	return <EditTrapLoader collectionLures={lures} collectionMethods={methods} trap={trap} />;
+	return (
+		<RecordEditFrame
+			noun="trap"
+			reading={{ isError, isReady, record: trap }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => (
+				<EditTrapLoader collectionLures={lures} collectionMethods={methods} trap={record} />
+			)}
+		</RecordEditFrame>
+	);
 }
 
 function EditTrapLoader({

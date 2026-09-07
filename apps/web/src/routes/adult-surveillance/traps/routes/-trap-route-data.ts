@@ -44,6 +44,11 @@ export function useTrapRoutes(): {
 	readonly routes: readonly RouteSummary[];
 	readonly isReady: boolean;
 	readonly isLoading: boolean;
+	/**
+	 * The read failed. Distinct from a ready query holding no route: the edit
+	 * page offers a retry for one and "no such record" for the other.
+	 */
+	readonly isError: boolean;
 } {
 	const result = useLiveQuery(
 		(query) =>
@@ -55,7 +60,12 @@ export function useTrapRoutes(): {
 		[],
 	);
 
-	return { routes: result.data, isReady: result.isReady, isLoading: !result.isReady };
+	return {
+		routes: result.data,
+		isReady: result.isReady,
+		isLoading: !result.isReady,
+		isError: result.isError,
+	};
 }
 
 /** Stop counts per trap route, from the on-demand `route_items` subset. */

@@ -3,7 +3,7 @@ import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useApplicationMutations } from '../../../hooks/mutations/use-application-mutations';
 import type { ChemicalApplication } from '../../../hooks/queries/control-action-view';
@@ -70,31 +70,29 @@ function EditApplicationRoute() {
 	// on-demand, so this is status-gated rather than suspending; see the hook.
 	const { application, isReady, isError } = useApplication(id, { gcTime: applicationGcTimeMs });
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="application" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
-	}
-	if (application === undefined) {
-		return <RecordUnavailable layout="centered" noun="application" reason="not-found" />;
-	}
-
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
 	return (
-		<EditApplicationLoader
-			application={application}
-			applicationMethods={methods}
-			canSubmit={organization !== null && actorProfileId !== null}
-			equipment={equipment}
-			insecticides={insecticides}
-			organizationId={organization?.id ?? ''}
-			profiles={profiles}
-			units={units}
-			vehicles={vehicles}
-		/>
+		<RecordEditFrame
+			noun="application"
+			reading={{ isError, isReady, record: application }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => (
+				<EditApplicationLoader
+					application={record}
+					applicationMethods={methods}
+					canSubmit={organization !== null && actorProfileId !== null}
+					equipment={equipment}
+					insecticides={insecticides}
+					organizationId={organization?.id ?? ''}
+					profiles={profiles}
+					units={units}
+					vehicles={vehicles}
+				/>
+			)}
+		</RecordEditFrame>
 	);
 }
 

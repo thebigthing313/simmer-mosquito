@@ -2,7 +2,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { STATION_REFUSALS } from '../../../lib/acknowledgement-copy';
@@ -34,15 +34,17 @@ function EditWeatherStationRoute() {
 	const { id } = Route.useParams();
 	// Stations are eager and carry their own coordinates, so unlike a region there
 	// is no separate geometry fetch to wait on.
-	const { station, isReady } = useWeatherStation(id);
+	const { station, isReady, isError } = useWeatherStation(id);
 
-	if (!isReady) {
-		return <EditFormSkeleton rows={[['h-9', 'h-9'], 'h-24']} />;
-	}
-	if (station === undefined) {
-		return <RecordUnavailable layout="centered" noun="weather station" reason="not-found" />;
-	}
-	return <EditWeatherStationForm station={station} />;
+	return (
+		<RecordEditFrame
+			noun="weather station"
+			reading={{ isError, isReady, record: station }}
+			skeleton={<EditFormSkeleton rows={[['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => <EditWeatherStationForm station={record} />}
+		</RecordEditFrame>
+	);
 }
 
 function EditWeatherStationForm({ station }: { readonly station: WeatherStation }) {

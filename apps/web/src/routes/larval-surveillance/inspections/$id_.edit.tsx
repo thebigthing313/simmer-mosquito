@@ -7,7 +7,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import { toDrawGeometry } from '../../../components/map/use-map-draw';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useInspectionMutations } from '../../../hooks/mutations/use-inspection-mutations';
 import { useSampleMutations } from '../../../hooks/mutations/use-sample-mutations';
@@ -77,30 +77,33 @@ function EditInspectionRoute() {
 		[id],
 	);
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="inspection" reason="error" />;
-	}
-	if (!isReady || !personnel.isReady) {
-		return <EditFormSkeleton rows={['h-9', 'h-24', ['h-9', 'h-9']]} />;
-	}
-	if (inspection === undefined) {
-		return <RecordUnavailable layout="centered" noun="inspection" reason="not-found" />;
-	}
-
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
+	const skeleton = <EditFormSkeleton rows={['h-9', 'h-24', ['h-9', 'h-9']]} />;
 
 	return (
-		<EditInspectionLoader
-			canSubmit={organization !== null && actorProfileId !== null}
-			existingPersonnel={personnel.rows}
-			habitatTypes={habitatTypes}
-			inspection={inspection}
-			organizationId={organization?.id ?? ''}
-			personnelProfileIds={personnel.profileIds}
-			policy={settings.larvalSurveillance.inspectionEntryPolicy}
-			profiles={profiles}
-		/>
+		<RecordEditFrame
+			noun="inspection"
+			reading={{ isError, isReady, record: inspection }}
+			skeleton={skeleton}
+		>
+			{(record) =>
+				personnel.isReady ? (
+					<EditInspectionLoader
+						canSubmit={organization !== null && actorProfileId !== null}
+						existingPersonnel={personnel.rows}
+						habitatTypes={habitatTypes}
+						inspection={record}
+						organizationId={organization?.id ?? ''}
+						personnelProfileIds={personnel.profileIds}
+						policy={settings.larvalSurveillance.inspectionEntryPolicy}
+						profiles={profiles}
+					/>
+				) : (
+					skeleton
+				)
+			}
+		</RecordEditFrame>
 	);
 }
 

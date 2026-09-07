@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import {
 	type RegionFolderListing,
@@ -34,20 +34,27 @@ function EditRegionRoute() {
 	const { region, isReady, isError } = useRegionRecord(id);
 	const geometryQuery = useRegionGeometry(id);
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="region" reason="error" />;
-	}
-	if (!isReady || geometryQuery.isLoading) {
-		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
-	}
-	if (region === undefined) {
-		return <RecordUnavailable layout="centered" noun="region" reason="not-found" />;
-	}
-
 	const initialGeometry = (geometryQuery.data?.geojson ?? null) as DrawGeometry | null;
+	const skeleton = <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
 
 	return (
-		<EditRegionLoader initialGeometry={initialGeometry} region={region} regionFolders={folders} />
+		<RecordEditFrame
+			noun="region"
+			reading={{ isError, isReady, record: region }}
+			skeleton={skeleton}
+		>
+			{(record) =>
+				geometryQuery.isLoading ? (
+					skeleton
+				) : (
+					<EditRegionLoader
+						initialGeometry={initialGeometry}
+						region={record}
+						regionFolders={folders}
+					/>
+				)
+			}
+		</RecordEditFrame>
 	);
 }
 

@@ -85,6 +85,11 @@ export function useHabitatRoutes(): {
 	readonly routes: readonly RouteSummary[];
 	readonly isLoading: boolean;
 	readonly isReady: boolean;
+	/**
+	 * The read failed. Distinct from a ready query holding no route: the edit
+	 * page offers a retry for one and "no such record" for the other.
+	 */
+	readonly isError: boolean;
 } {
 	const result = useLiveQuery(
 		(query) =>
@@ -96,7 +101,12 @@ export function useHabitatRoutes(): {
 		[],
 	);
 
-	return { routes: result.data, isLoading: result.isLoading, isReady: result.isReady };
+	return {
+		routes: result.data,
+		isLoading: result.isLoading,
+		isReady: result.isReady,
+		isError: result.isError,
+	};
 }
 
 /**

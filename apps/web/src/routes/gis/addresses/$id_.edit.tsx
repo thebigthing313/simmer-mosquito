@@ -1,7 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import {
 	type AddressFields,
 	useAddressMutations,
@@ -38,26 +38,33 @@ function EditAddressRoute() {
 	const address = addressResult.address;
 	const geometryQuery = useAddressGeometry(id);
 
-	if (addressResult.isError) {
-		return <RecordUnavailable layout="centered" noun="address" reason="error" />;
-	}
-	if (!addressResult.isReady || geometryQuery.isLoading) {
-		return <EditFormSkeleton rows={[['h-9', 'h-9', 'h-9', 'h-9'], 'h-24']} />;
-	}
-	if (address === undefined) {
-		return <RecordUnavailable layout="centered" noun="address" reason="not-found" />;
-	}
-
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 	const initialGeometry = (geometryQuery.data?.geojson ?? null) as AddressPointGeometry | null;
+	const skeleton = <EditFormSkeleton rows={[['h-9', 'h-9', 'h-9', 'h-9'], 'h-24']} />;
 
 	return (
-		<EditAddressLoader
-			address={address}
-			canSubmit={organization !== null && actorProfileId !== null}
-			initialGeometry={initialGeometry}
-		/>
+		<RecordEditFrame
+			noun="address"
+			reading={{
+				isError: addressResult.isError,
+				isReady: addressResult.isReady,
+				record: address,
+			}}
+			skeleton={skeleton}
+		>
+			{(record) =>
+				geometryQuery.isLoading ? (
+					skeleton
+				) : (
+					<EditAddressLoader
+						address={record}
+						canSubmit={organization !== null && actorProfileId !== null}
+						initialGeometry={initialGeometry}
+					/>
+				)
+			}
+		</RecordEditFrame>
 	);
 }
 

@@ -2,7 +2,7 @@ import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useBiocontrolActionMutations } from '../../../hooks/mutations/use-biocontrol-action-mutations';
 import type { BiocontrolAction } from '../../../hooks/queries/control-action-view';
@@ -53,28 +53,26 @@ function EditBiocontrolActionRoute() {
 
 	const { action, isReady, isError } = useBiocontrolAction(id, { gcTime: biocontrolGcTimeMs });
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="biocontrol action" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
-	}
-	if (action === undefined) {
-		return <RecordUnavailable layout="centered" noun="biocontrol action" reason="not-found" />;
-	}
-
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
 	return (
-		<EditBiocontrolActionLoader
-			action={action}
-			biocontrolMethods={methods}
-			canSubmit={organization !== null && actorProfileId !== null}
-			organizationId={organization?.id ?? ''}
-			profiles={profiles}
-			units={units}
-		/>
+		<RecordEditFrame
+			noun="biocontrol action"
+			reading={{ isError, isReady, record: action }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => (
+				<EditBiocontrolActionLoader
+					action={record}
+					biocontrolMethods={methods}
+					canSubmit={organization !== null && actorProfileId !== null}
+					organizationId={organization?.id ?? ''}
+					profiles={profiles}
+					units={units}
+				/>
+			)}
+		</RecordEditFrame>
 	);
 }
 

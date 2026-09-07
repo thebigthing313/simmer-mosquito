@@ -1,7 +1,7 @@
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useCollectionMutations } from '../../../hooks/mutations/use-collection-mutations';
 import {
@@ -56,25 +56,23 @@ function EditCollectionRoute() {
 	const { id } = Route.useParams();
 	const { collection, isReady, isError } = useCollectionRecord(id);
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="collection" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
-	}
-	if (collection === undefined) {
-		return <RecordUnavailable layout="centered" noun="collection" reason="not-found" />;
-	}
-
 	return (
-		<EditCollectionLoader
-			collection={collection}
-			collectionLures={lures}
-			collectionMethods={methods}
-			profiles={profiles}
-			traps={traps}
-			units={units}
-		/>
+		<RecordEditFrame
+			noun="collection"
+			reading={{ isError, isReady, record: collection }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => (
+				<EditCollectionLoader
+					collection={record}
+					collectionLures={lures}
+					collectionMethods={methods}
+					profiles={profiles}
+					traps={traps}
+					units={units}
+				/>
+			)}
+		</RecordEditFrame>
 	);
 }
 
