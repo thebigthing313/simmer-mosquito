@@ -8,7 +8,38 @@ import {
 	geometryContainsLngLat,
 	ownedCentroidFromGeoJson,
 	parseBoundingBox,
+	toLngLat,
 } from '../../geometry.js';
+import { type CorpusCase, corpusRegionFor, REGION_MEMBERSHIP_CORPUS } from '../../test-corpus.js';
+
+/**
+ * The point and multipoint cases, counted. Six and two today.
+ *
+ * Checked in beside the filter for the reason `REGION_MEMBERSHIP_CORPUS_SIZE` is
+ * checked in beside the corpus: a filter that stops matching would otherwise
+ * leave an empty loop passing.
+ */
+const CORPUS_POINT_CASE_COUNT = 8;
+
+/**
+ * The predicate's answer for a corpus case, read existentially over the record's
+ * coordinates.
+ *
+ * A Point has one coordinate and a MultiPoint has several, and the corpus reads
+ * a MultiPoint as inside when any of its points is, so one `some` covers both.
+ */
+function containsAnyCoordinate(corpusCase: CorpusCase): boolean {
+	const region = corpusRegionFor(corpusCase);
+	const { record } = corpusCase;
+	if (record.type !== 'Point' && record.type !== 'MultiPoint') {
+		// Refused rather than answered false, so a corpus case the filter starts
+		// selecting arrives as a failure naming the case.
+		throw new Error(`${corpusCase.id} is a ${record.type}, which this case does not read.`);
+	}
+	const positions = record.type === 'Point' ? [record.coordinates] : record.coordinates;
+
+	return positions.some((position) => geometryContainsLngLat(region, toLngLat(position)));
+}
 
 describe('geometry helpers', () => {
 	it('parses and formats canonical bounding boxes', () => {
@@ -107,6 +138,41 @@ describe('geometry helpers', () => {
 		} as const;
 
 		expect(geometryContainsLngLat(line, { lng: 5, lat: 5 })).toBe(false);
+	});
+
+	/**
+	 * The corpus, on the arm this predicate implements.
+	 *
+	 * ADR 0015 makes `REGION_MEMBERSHIP_CORPUS` the gate every membership
+	 * predicate passes, and only the SQL half crossed it. The two suites that run
+	 * it live in `packages/db` behind `describeDbIntegration`, which skips
+	 * silently without `TEST_DATABASE_URL`, so on a machine with no container the
+	 * corpus reached the jsts oracle and no shipping code.
+	 *
+	 * The point and multipoint cases are the ones this predicate can answer. It
+	 * reads point against area and returns false for every other shape, so the
+	 * line and areal cases would assert its silence rather than the rule.
+	 *
+	 * A multipoint answer is existential, which is what the corpus says a set of
+	 * catch basins means: it is in the district when any of its points is.
+	 *
+	 * The four cases above stay as they are. They cover a LineString answering
+	 * false and a plain square, which the corpus does not phrase that way.
+	 */
+	it('answers the corpus point and multipoint cases', () => {
+		const cases = REGION_MEMBERSHIP_CORPUS.filter(
+			(corpusCase) => corpusCase.geomType === 'st_point' || corpusCase.geomType === 'st_multipoint',
+		);
+		// A filter that selects nothing agrees with everything.
+		expect(cases).toHaveLength(CORPUS_POINT_CASE_COUNT);
+
+		const answers = Object.fromEntries(
+			cases.map((corpusCase) => [corpusCase.id, containsAnyCoordinate(corpusCase)]),
+		);
+
+		expect(answers).toEqual(
+			Object.fromEntries(cases.map((corpusCase) => [corpusCase.id, corpusCase.inside])),
+		);
 	});
 
 	it('calculates simple bounds and centroid fallbacks for GeoJSON', () => {
