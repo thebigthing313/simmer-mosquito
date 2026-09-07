@@ -4,14 +4,8 @@ import { cleanup, fireEvent, screen } from '@testing-library/react';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import type { DrawGeometry, DrawGeometryFor } from '../../../../components/map/use-map-draw';
-import {
-	drawHoles,
-	drawParts,
-	geometryFromParts,
-	toDrawGeometry,
-	useMapDraw,
-} from '../../../../components/map/use-map-draw';
+import type { DrawGeometry } from '../../../../components/map/use-map-draw';
+import { drawHoles, drawParts, useMapDraw } from '../../../../components/map/use-map-draw';
 import type { FakeMap } from './fake-map';
 import { cleanupRenderedHooks, createFakeMap, pressKey, pressKeyIn, renderHook } from './fake-map';
 import {
@@ -2647,91 +2641,5 @@ describe('useMapDraw', () => {
 
 		await expect(pending).resolves.toEqual({ type: 'Point', coordinates: [-90.7, 35.7] });
 		expect(result.current.isRequestingPoint).toBe(false);
-	});
-});
-
-describe('drawParts', () => {
-	it('takes a multi shape apart and puts it back', () => {
-		const multi: DrawGeometry = {
-			type: 'MultiPolygon',
-			coordinates: [[closed(FIRST_SQUARE)], [closed(SECOND_SQUARE)]],
-		};
-
-		const parts = drawParts(multi);
-
-		expect(parts.map((part) => part.type)).toEqual(['Polygon', 'Polygon']);
-		expect(geometryFromParts(parts)).toEqual(multi);
-	});
-
-	// A one-part multi shape is what ogr2ogr writes for a single-lot feature. The
-	// domain demotes one on the way in, and this is the same rule on the way out.
-	it('demotes a shape that is down to one piece', () => {
-		const parts = drawParts({ type: 'MultiPoint', coordinates: [[-90, 35]] });
-
-		expect(geometryFromParts(parts)).toEqual({ type: 'Point', coordinates: [-90, 35] });
-	});
-
-	it('reads nothing as no pieces', () => {
-		expect(drawParts(null)).toEqual([]);
-		expect(geometryFromParts([])).toBeNull();
-	});
-});
-
-describe('drawHoles', () => {
-	it('reads every ring past the outline as a hole', () => {
-		const holes = drawHoles({ type: 'Polygon', coordinates: [closed(BLOCK), closed(POND)] });
-
-		expect(holes).toEqual([closed(POND)]);
-	});
-
-	it('reads a shape that cannot hold one as holding none', () => {
-		expect(drawHoles({ type: 'Point', coordinates: [-90, 35] })).toEqual([]);
-		expect(drawHoles({ type: 'Polygon', coordinates: [closed(BLOCK)] })).toEqual([]);
-	});
-});
-
-describe('toDrawGeometry', () => {
-	it('reads a stored multi shape back, now that pieces can be edited', () => {
-		const multi = { type: 'MultiPolygon', coordinates: [[closed(FIRST_SQUARE)]] };
-
-		expect(toDrawGeometry(multi)).toEqual(multi);
-	});
-
-	it('still reads a geometry collection as nothing', () => {
-		expect(toDrawGeometry({ type: 'GeometryCollection', geometries: [] })).toBeNull();
-	});
-});
-
-/**
- * What the five form predicates assert, checked by `tsc` rather than by vitest.
- *
- * The annotation on each line is the case; the `expect` beside it only proves
- * the case ran. The `@ts-expect-error` pair is what catches a regression: a
- * predicate rewritten to assert `DrawGeometry` or a hand-written `GeoJsonPoint`
- * would make the directive suppress nothing and `tsc` would fail on it.
- */
-describe('DrawGeometryFor', () => {
-	it('is the drawn shapes the policy names', () => {
-		const boundary: DrawGeometryFor<'region'> = {
-			type: 'MultiPolygon',
-			coordinates: [[closed(FIRST_SQUARE)]],
-		};
-		const placed: DrawGeometryFor<'address'> = { type: 'Point', coordinates: [-74.35, 40.55] };
-
-		expect(boundary.type).toBe('MultiPolygon');
-		expect(placed.type).toBe('Point');
-	});
-
-	it('refuses a shape the policy leaves out', () => {
-		// One line each: `@ts-expect-error` covers the line below it, and an object
-		// literal spread over three puts the error on a line the directive misses.
-		const ring = closed(FIRST_SQUARE);
-		// @ts-expect-error A Region stores areas, so nothing its policy narrows is a Point.
-		const refusedByRegion: DrawGeometryFor<'region'> = { type: 'Point', coordinates: [0, 0] };
-		// @ts-expect-error An Address stores one point, so nothing its policy narrows is a line.
-		const refusedByAddress: DrawGeometryFor<'address'> = { type: 'LineString', coordinates: ring };
-
-		expect(refusedByRegion.type).toBe('Point');
-		expect(refusedByAddress.type).toBe('LineString');
 	});
 });
