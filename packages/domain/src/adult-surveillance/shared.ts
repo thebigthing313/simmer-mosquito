@@ -111,42 +111,6 @@ export function validateTrapDisplay(
 	}
 }
 
-export function validateTrapLocationSourceInput(
-	input: {
-		readonly locationSource?: TrapLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): TrapLocationSource {
-	const hasLocationSource = input.locationSource !== undefined;
-	if (hasLocationSource) {
-		return validateTrapLocationSource(input.locationSource, 'locationSource', issues);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateTrapLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
-
-export function validateAdultCollectionLocationSourceInput(
-	input: {
-		readonly locationSource?: AdultCollectionLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): AdultCollectionLocationSource {
-	const hasLocationSource = input.locationSource !== undefined;
-	if (hasLocationSource) {
-		return validateAdultCollectionLocationSource(input.locationSource, 'locationSource', issues);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateAdultCollectionLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
-
 /** Where a Trap sits, as an update command's field descriptor names it. */
 export const trapLocationSourceField: UpdateFieldNormalizer<
 	TrapLocationSourceInput | undefined,

@@ -12,9 +12,10 @@ import {
 	validateBase,
 	validateIdCommand,
 } from '../command-validation.js';
-import type {
-	RequestedControlActionLocationSource,
-	RequestedControlActionLocationSourceInput,
+import {
+	type RequestedControlActionLocationSource,
+	type RequestedControlActionLocationSourceInput,
+	validateLocationSourceInput,
 } from '../location-intent.js';
 import {
 	type ControlActionContext,
@@ -42,7 +43,6 @@ import {
 	idCommand,
 	locationContextChanges,
 	validateLocationContextPatchBase,
-	validateRequestedControlActionLocationSourceInput,
 } from './core.js';
 export interface RequestControlActionCommandInput extends ControlCommandInput {
 	readonly requestedControlActionId: DomainId;
@@ -155,7 +155,7 @@ export function requestControlActionCommand(
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.requestedControlActionId, 'requestedControlActionId', issues);
-	const locationSource = validateRequestedControlActionLocationSourceInput(input, issues);
+	const locationSource = validateLocationSourceInput(input, 'requestedControlAction', issues);
 	const controlType = normalizeStringUnion(input.controlType, CONTROL_TYPES, 'controlType', issues);
 	const context = validateControlActionContext(
 		input.context ?? { kind: 'none' },

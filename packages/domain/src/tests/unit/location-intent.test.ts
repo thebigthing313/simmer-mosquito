@@ -1,24 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import type {
-	AdHocControlActionLocationSource,
-	AdHocInspectionLocationSource,
-	AdultCollectionLocationSource,
-	ControlActionLocationSource,
-	HabitatLocationSource,
-	MissionItemLocationSource,
-	RequestedControlActionLocationSource,
-	TrapLocationSource,
-} from '../../location-intent.js';
 import {
-	AD_HOC_INSPECTION_LOCATION_SOURCE_KINDS,
-	ADULT_COLLECTION_LOCATION_SOURCE_KINDS,
-	CONTROL_ACTION_LOCATION_SOURCE_KINDS,
-	HABITAT_LOCATION_SOURCE_KINDS,
+	type AdHocInspectionLocationSource,
+	type AdultCollectionLocationSource,
+	type ControlActionLocationSource,
+	type HabitatLocationSource,
+	LOCATION_SOURCE_FLOWS,
 	type LocationSource,
+	type LocationSourceFlowName,
 	type LocationSourceKind,
-	MISSION_ITEM_LOCATION_SOURCE_KINDS,
-	REQUESTED_CONTROL_ACTION_LOCATION_SOURCE_KINDS,
-	TRAP_LOCATION_SOURCE_KINDS,
+	type MissionItemLocationSource,
+	type RequestedControlActionLocationSource,
+	type TrapLocationSource,
 	validateAdHocInspectionLocationSource,
 	validateAdultCollectionLocationSource,
 	validateControlActionLocationSource,
@@ -153,9 +145,11 @@ describe('location source flows', () => {
 });
 
 // The spot checks above take one accepted kind and one rejected kind per flow.
-// What the server now relies on is stronger: that these seven lists are the whole
-// policy, because the geometry resolver no longer re-checks the kind. So drive the
-// assertion off the exported lists and cover every kind, accepted and rejected.
+// What the server relies on is stronger: that the register is the whole policy,
+// because the geometry resolver no longer re-checks the kind. So cover every kind
+// per flow, accepted and rejected, against lists written out here rather than read
+// off the register. Driving the expectation off the thing under test is what the
+// old suite did: it held each validator to its array and held the array to nothing.
 
 const ALL_KINDS: readonly LocationSourceKind[] = [
 	'geometry',
@@ -182,30 +176,68 @@ const SOURCE_BY_KIND: { readonly [K in LocationSourceKind]: LocationSource } = {
 	missionItem: { kind: 'missionItem', missionItemId },
 };
 
-describe('location source whitelists are the whole policy', () => {
-	it.each([
-		['trap', validateTrapLocationSource, TRAP_LOCATION_SOURCE_KINDS],
-		[
-			'adult collection',
-			validateAdultCollectionLocationSource,
-			ADULT_COLLECTION_LOCATION_SOURCE_KINDS,
-		],
-		['habitat', validateHabitatLocationSource, HABITAT_LOCATION_SOURCE_KINDS],
-		[
-			'ad hoc inspection',
-			validateAdHocInspectionLocationSource,
-			AD_HOC_INSPECTION_LOCATION_SOURCE_KINDS,
-		],
-		[
-			'requested control action',
-			validateRequestedControlActionLocationSource,
-			REQUESTED_CONTROL_ACTION_LOCATION_SOURCE_KINDS,
-		],
-		['mission item', validateMissionItemLocationSource, MISSION_ITEM_LOCATION_SOURCE_KINDS],
-		['control action', validateControlActionLocationSource, CONTROL_ACTION_LOCATION_SOURCE_KINDS],
-	])('the %s flow accepts exactly its listed kinds', (_flow, validate, allowedKinds) => {
-		const allowed = new Set<string>(allowedKinds);
+type FlowCase = readonly [
+	flow: LocationSourceFlowName,
+	validate: (input: unknown, path: string, issues: DomainValidationIssue[]) => LocationSource,
+	expectedKinds: readonly LocationSourceKind[],
+];
 
+/**
+ * The seven flows and what each takes, written out here.
+ *
+ * A second copy of the register, which is the point: the register moves and this
+ * does not, so a widened row arrives as a failure naming the kind.
+ */
+const FLOW_CASES: readonly FlowCase[] = [
+	['trap', validateTrapLocationSource, ['geometry', 'address']],
+	['adultCollection', validateAdultCollectionLocationSource, ['geometry', 'address', 'trap']],
+	['habitat', validateHabitatLocationSource, ['geometry', 'address', 'inspection']],
+	[
+		'adHocInspection',
+		validateAdHocInspectionLocationSource,
+		['geometry', 'address', 'habitat', 'serviceRequest'],
+	],
+	[
+		'requestedControlAction',
+		validateRequestedControlActionLocationSource,
+		['geometry', 'address', 'habitat', 'trap', 'collection', 'inspection', 'serviceRequest'],
+	],
+	[
+		'missionItem',
+		validateMissionItemLocationSource,
+		[
+			'geometry',
+			'address',
+			'habitat',
+			'trap',
+			'collection',
+			'inspection',
+			'serviceRequest',
+			'requestedControlAction',
+		],
+	],
+	[
+		'controlAction',
+		validateControlActionLocationSource,
+		[
+			'geometry',
+			'address',
+			'serviceRequest',
+			'habitat',
+			'inspection',
+			'requestedControlAction',
+			'missionItem',
+		],
+	],
+];
+
+describe('the location source register is the whole policy', () => {
+	it.each(
+		FLOW_CASES,
+	)('the %s flow accepts exactly the kinds this suite lists', (flow, validate, expectedKinds) => {
+		expect(LOCATION_SOURCE_FLOWS[flow].kinds).toEqual(expectedKinds);
+
+		const allowed = new Set<string>(expectedKinds);
 		for (const kind of ALL_KINDS) {
 			const issues = collectIssues((collected) =>
 				validate(SOURCE_BY_KIND[kind], 'locationSource', collected),
@@ -222,16 +254,14 @@ describe('location source whitelists are the whole policy', () => {
 		}
 	});
 
+	it('covers every flow the register declares', () => {
+		expect(FLOW_CASES.map(([flow]) => flow).sort()).toEqual(
+			Object.keys(LOCATION_SOURCE_FLOWS).sort(),
+		);
+	});
+
 	it('lists no kind that is not a location source', () => {
-		const listed = new Set<string>([
-			...TRAP_LOCATION_SOURCE_KINDS,
-			...ADULT_COLLECTION_LOCATION_SOURCE_KINDS,
-			...HABITAT_LOCATION_SOURCE_KINDS,
-			...AD_HOC_INSPECTION_LOCATION_SOURCE_KINDS,
-			...REQUESTED_CONTROL_ACTION_LOCATION_SOURCE_KINDS,
-			...MISSION_ITEM_LOCATION_SOURCE_KINDS,
-			...CONTROL_ACTION_LOCATION_SOURCE_KINDS,
-		]);
+		const listed = new Set<string>(FLOW_CASES.flatMap(([, , kinds]) => kinds));
 
 		expect([...listed].sort()).toEqual([...ALL_KINDS].sort());
 	});
@@ -239,7 +269,7 @@ describe('location source whitelists are the whole policy', () => {
 
 // The server's resolver switches over `LocationSource`. Every per-workflow union
 // has to be assignable to it, or a handler could hold a source the resolver has no
-// arm for — the property the four hand-written resolvers never had.
+// arm for, the property the four hand-written resolvers never had.
 type AssignableToLocationSource<T extends LocationSource> = T;
 type _PerWorkflowUnionsNarrowLocationSource =
 	| AssignableToLocationSource<TrapLocationSource>
@@ -248,5 +278,58 @@ type _PerWorkflowUnionsNarrowLocationSource =
 	| AssignableToLocationSource<AdHocInspectionLocationSource>
 	| AssignableToLocationSource<RequestedControlActionLocationSource>
 	| AssignableToLocationSource<MissionItemLocationSource>
-	| AssignableToLocationSource<AdHocControlActionLocationSource>
 	| AssignableToLocationSource<ControlActionLocationSource>;
+
+/**
+ * Each flow's union holds exactly the kinds this suite lists, in both directions.
+ *
+ * The runtime table above holds the register to the same lists, so a kind added to
+ * a row and missing from the union fails here, and a kind in the union that no row
+ * lists fails there. `Equal` rather than `extends`, because a subset check is what
+ * the old type-level case did and it passes a union that has quietly lost an arm.
+ */
+type KindsOf<T> = T extends { readonly kind: infer K } ? K : never;
+type Equal<A, B> =
+	(<T>() => T extends A ? 1 : 2) extends <T>() => T extends B ? 1 : 2 ? true : false;
+type Exactly<T extends true> = T;
+type _FlowUnionsHoldTheirKinds =
+	| Exactly<Equal<KindsOf<TrapLocationSource>, 'geometry' | 'address'>>
+	| Exactly<Equal<KindsOf<AdultCollectionLocationSource>, 'geometry' | 'address' | 'trap'>>
+	| Exactly<Equal<KindsOf<HabitatLocationSource>, 'geometry' | 'address' | 'inspection'>>
+	| Exactly<
+			Equal<
+				KindsOf<AdHocInspectionLocationSource>,
+				'geometry' | 'address' | 'habitat' | 'serviceRequest'
+			>
+	  >
+	| Exactly<
+			Equal<
+				KindsOf<RequestedControlActionLocationSource>,
+				'geometry' | 'address' | 'habitat' | 'trap' | 'collection' | 'inspection' | 'serviceRequest'
+			>
+	  >
+	| Exactly<
+			Equal<
+				KindsOf<MissionItemLocationSource>,
+				| 'geometry'
+				| 'address'
+				| 'habitat'
+				| 'trap'
+				| 'collection'
+				| 'inspection'
+				| 'serviceRequest'
+				| 'requestedControlAction'
+			>
+	  >
+	| Exactly<
+			Equal<
+				KindsOf<ControlActionLocationSource>,
+				| 'geometry'
+				| 'address'
+				| 'serviceRequest'
+				| 'habitat'
+				| 'inspection'
+				| 'requestedControlAction'
+				| 'missionItem'
+			>
+	  >;

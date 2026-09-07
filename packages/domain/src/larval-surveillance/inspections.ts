@@ -10,9 +10,10 @@ import {
 	validateIdCommand,
 	validateNotFutureLocalDate,
 } from '../command-validation.js';
-import type {
-	AdHocInspectionLocationSource,
-	AdHocInspectionLocationSourceInput,
+import {
+	type AdHocInspectionLocationSource,
+	type AdHocInspectionLocationSourceInput,
+	validateLocationSourceInput,
 } from '../location-intent.js';
 import type { DomainId, DomainValidationIssue, LocalDateString } from '../shared.js';
 import {
@@ -33,7 +34,6 @@ import {
 	type LarvalCommandInput,
 	type LarvalCommandPayload,
 	type LarvalDomainCommand,
-	validateAdHocInspectionLocationSourceInput,
 } from './shared.js';
 
 export type {
@@ -142,7 +142,7 @@ export function recordAdHocInspectionCommand(
 	input: RecordAdHocInspectionCommandInput,
 ): RecordAdHocInspectionCommand {
 	const issues = validateInspectionBase(input);
-	const locationSource = validateAdHocInspectionLocationSourceInput(input, issues);
+	const locationSource = validateLocationSourceInput(input, 'adHocInspection', issues);
 	const addressId = normalizeOptionalUuid(input.addressId, 'addressId', issues);
 	const habitatTypeId = normalizeOptionalUuid(input.habitatTypeId, 'habitatTypeId', issues);
 	throwIfIssues('Record ad hoc inspection command is invalid.', issues);

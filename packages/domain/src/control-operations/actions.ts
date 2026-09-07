@@ -9,9 +9,10 @@ import {
 	validateBase,
 	validateIdCommand,
 } from '../command-validation.js';
-import type {
-	ControlActionLocationSource,
-	ControlActionLocationSourceInput,
+import {
+	type ControlActionLocationSource,
+	type ControlActionLocationSourceInput,
+	validateLocationSourceInput,
 } from '../location-intent.js';
 import type { UnitType } from '../organization-settings/index.js';
 import {
@@ -47,7 +48,6 @@ import {
 	normalizePositiveFiniteNumber,
 	normalizePositiveInteger,
 	SOURCE_REDUCTION_UNIT_TYPES,
-	validateControlActionLocationSourceInput,
 	validateLocationContextPatchBase,
 } from './core.js';
 export interface RecordChemicalApplicationCommandInput extends ControlCommandInput {
@@ -430,7 +430,7 @@ export function recordChemicalApplicationCommand(
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.applicationId, 'applicationId', issues);
-	const locationSource = validateControlActionLocationSourceInput(input, issues);
+	const locationSource = validateLocationSourceInput(input, 'controlAction', issues);
 	const metadata = normalizeMetadata(input.metadata, 'metadata', issues);
 	const context = validateControlActionContext(
 		input.context ?? { kind: 'none' },
@@ -808,7 +808,7 @@ export function isBiocontrolUnitType(unitType: UnitType): boolean {
 
 function validateActionBase(input: ActionBaseInput, issues: DomainValidationIssue[]): void {
 	validateBase(input, issues);
-	validateControlActionLocationSourceInput(input, issues);
+	validateLocationSourceInput(input, 'controlAction', issues);
 	normalizeOptionalUuid(input.addressId, 'addressId', issues);
 	normalizeOptionalUuid(input.requestedControlActionId, 'requestedControlActionId', issues);
 	normalizeMetadata(input.metadata, 'metadata', issues);
@@ -821,7 +821,7 @@ function actionBasePayload(
 ): ActionBasePayload {
 	return {
 		...basePayload(input),
-		locationSource: validateControlActionLocationSourceInput(input, issues),
+		locationSource: validateLocationSourceInput(input, 'controlAction', issues),
 		addressId: normalizeOptionalUuid(input.addressId, 'addressId', issues),
 		requestedControlActionId: normalizeOptionalUuid(
 			input.requestedControlActionId,

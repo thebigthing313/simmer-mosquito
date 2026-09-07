@@ -11,7 +11,11 @@ import {
 	validateBase,
 	validateIdCommand,
 } from '../command-validation.js';
-import type { HabitatLocationSource, HabitatLocationSourceInput } from '../location-intent.js';
+import {
+	type HabitatLocationSource,
+	type HabitatLocationSourceInput,
+	validateLocationSourceInput,
+} from '../location-intent.js';
 import type { DomainId, JsonObject } from '../shared.js';
 import {
 	jsonObjectField,
@@ -23,12 +27,7 @@ import {
 	type UpdateFieldsInput,
 	updateFieldsCommand,
 } from '../update-command-fields.js';
-import {
-	type LarvalCommandInput,
-	type LarvalCommandPayload,
-	type LarvalDomainCommand,
-	validateHabitatLocationSourceInput,
-} from './shared.js';
+import type { LarvalCommandInput, LarvalCommandPayload, LarvalDomainCommand } from './shared.js';
 
 export interface CreateHabitatCommandInput extends LarvalCommandInput {
 	readonly habitatId: DomainId;
@@ -194,7 +193,7 @@ export function createHabitatCommand(input: CreateHabitatCommandInput): CreateHa
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.habitatId, 'habitatId', issues);
-	const locationSource = validateHabitatLocationSourceInput(input, issues);
+	const locationSource = validateLocationSourceInput(input, 'habitat', issues);
 	const addressId = normalizeOptionalUuid(input.addressId, 'addressId', issues);
 	const habitatTypeId = normalizeOptionalUuid(input.habitatTypeId, 'habitatTypeId', issues);
 	const description = normalizeRequiredText(input.description, 'description', issues);
@@ -260,7 +259,7 @@ export function updateHabitatLocationCommand(
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.habitatId, 'habitatId', issues);
-	const locationSource = validateHabitatLocationSourceInput(input, issues);
+	const locationSource = validateLocationSourceInput(input, 'habitat', issues);
 	if (input.acknowledgedHabitatLocationSemanticsChange !== true) {
 		issues.push({
 			path: 'acknowledgedHabitatLocationSemanticsChange',

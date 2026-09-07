@@ -2,10 +2,7 @@ import { createIssues, requiredUuid as requireUuid, validateBase } from '../comm
 import {
 	type AdHocInspectionLocationSource,
 	type AdHocInspectionLocationSourceInput,
-	type HabitatLocationSource,
-	type HabitatLocationSourceInput,
 	validateAdHocInspectionLocationSource,
-	validateHabitatLocationSource,
 } from '../location-intent.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 import type { UpdateFieldNormalizer } from '../update-command-fields.js';
@@ -111,39 +108,3 @@ export const larvaeCountField: UpdateFieldNormalizer<number | undefined, number>
 	validatePositiveInteger(value, path, issues);
 	return value as number;
 };
-
-export function validateHabitatLocationSourceInput(
-	input: {
-		readonly locationSource?: HabitatLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): HabitatLocationSource {
-	const hasLocationSource = input.locationSource !== undefined;
-	if (hasLocationSource) {
-		return validateHabitatLocationSource(input.locationSource, 'locationSource', issues);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateHabitatLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
-
-export function validateAdHocInspectionLocationSourceInput(
-	input: {
-		readonly locationSource?: AdHocInspectionLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): AdHocInspectionLocationSource {
-	const hasLocationSource = input.locationSource !== undefined;
-	if (hasLocationSource) {
-		return validateAdHocInspectionLocationSource(input.locationSource, 'locationSource', issues);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateAdHocInspectionLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}

@@ -9,7 +9,7 @@ import {
 	validateBase,
 	validateIdCommand,
 } from '../command-validation.js';
-import type { TrapLocationSource } from '../location-intent.js';
+import { type TrapLocationSource, validateLocationSourceInput } from '../location-intent.js';
 import type { DomainId } from '../shared.js';
 import {
 	normalizeUpdateFields,
@@ -25,7 +25,6 @@ import {
 	type DomainCommand,
 	trapLocationSourceField,
 	validateTrapDisplay,
-	validateTrapLocationSourceInput,
 } from './shared.js';
 
 export interface CreateTrapCommandInput extends AdultCommandInput {
@@ -145,7 +144,7 @@ export function createTrapCommand(input: CreateTrapCommandInput): CreateTrapComm
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.trapId, 'trapId', issues);
-	const locationSource = validateTrapLocationSourceInput(input, issues);
+	const locationSource = validateLocationSourceInput(input, 'trap', issues);
 	requireUuid(input.collectionMethodId, 'collectionMethodId', issues);
 
 	const trapName = normalizeNullableText(input.trapName);

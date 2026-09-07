@@ -9,10 +9,10 @@ import {
 import {
 	type ControlActionLocationSource,
 	type ControlActionLocationSourceInput,
+	type LocationSourceFlowName,
 	type RequestedControlActionLocationSource,
 	type RequestedControlActionLocationSourceInput,
-	validateControlActionLocationSource,
-	validateRequestedControlActionLocationSource,
+	validateLocationSourceInput,
 } from '../location-intent.js';
 import type { ControlActionContext } from '../performed-control-actions.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
@@ -138,45 +138,16 @@ export function idCommand<
 	};
 }
 
-export type LocationSourceFlow = 'controlAction' | 'requestedControlAction';
-
-export function validateControlActionLocationSourceInput(
-	input: {
-		readonly locationSource?: ControlActionLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): ControlActionLocationSource {
-	if (input.locationSource !== undefined) {
-		return validateControlActionLocationSource(input.locationSource, 'locationSource', issues);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateControlActionLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
-
-export function validateRequestedControlActionLocationSourceInput(
-	input: {
-		readonly locationSource?: RequestedControlActionLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): RequestedControlActionLocationSource {
-	if (input.locationSource !== undefined) {
-		return validateRequestedControlActionLocationSource(
-			input.locationSource,
-			'locationSource',
-			issues,
-		);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateRequestedControlActionLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
+/**
+ * The two flows a control command patches a location on.
+ *
+ * Extracted from the register's own key union rather than written out, so a row
+ * that is renamed fails here instead of narrowing what these helpers accept.
+ */
+export type LocationSourceFlow = Extract<
+	LocationSourceFlowName,
+	'controlAction' | 'requestedControlAction'
+>;
 
 export function validateLocationContextPatchBase<TInput extends ControlCommandInput>(
 	input: TInput,
@@ -196,7 +167,7 @@ export function validateLocationContextPatchBase<TInput extends ControlCommandIn
 		});
 	}
 	if (hasLocation) {
-		validatePatchLocationSource(
+		validateLocationSourceInput(
 			input as {
 				readonly locationSource?:
 					| ControlActionLocationSourceInput
@@ -242,7 +213,7 @@ export function locationContextChanges(
 	return {
 		...(hasLocation
 			? {
-					locationSource: validatePatchLocationSource(input, flow, issues),
+					locationSource: validateLocationSourceInput(input, flow, issues),
 				}
 			: {}),
 		...(hasAddress
@@ -259,26 +230,6 @@ export function locationContextChanges(
 				}
 			: {}),
 	};
-}
-
-function validatePatchLocationSource(
-	input: {
-		readonly locationSource?:
-			| ControlActionLocationSourceInput
-			| RequestedControlActionLocationSourceInput;
-	},
-	flow: LocationSourceFlow,
-	issues: DomainValidationIssue[],
-): ControlActionLocationSource | RequestedControlActionLocationSource {
-	return flow === 'controlAction'
-		? validateControlActionLocationSourceInput(
-				input as { readonly locationSource?: ControlActionLocationSourceInput },
-				issues,
-			)
-		: validateRequestedControlActionLocationSourceInput(
-				input as { readonly locationSource?: RequestedControlActionLocationSourceInput },
-				issues,
-			);
 }
 
 export function normalizePositiveFiniteNumber(

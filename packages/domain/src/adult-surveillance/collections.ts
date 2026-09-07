@@ -9,7 +9,10 @@ import {
 	validateBase,
 	validateIdCommand,
 } from '../command-validation.js';
-import type { AdultCollectionLocationSource } from '../location-intent.js';
+import {
+	type AdultCollectionLocationSource,
+	validateLocationSourceInput,
+} from '../location-intent.js';
 import type { DomainId } from '../shared.js';
 import {
 	jsonObjectField,
@@ -33,7 +36,6 @@ import {
 	type CollectionTiming,
 	collectionBasePayload,
 	type DomainCommand,
-	validateAdultCollectionLocationSourceInput,
 	validateCollectedTiming,
 	validateCollectionBase,
 	validateOperationalDate,
@@ -288,7 +290,7 @@ export function setAdHocCollectionCommand(
 ): SetAdHocCollectionCommand {
 	const issues = validateCollectionBase(input);
 	requireUuid(input.collectionMethodId, 'collectionMethodId', issues);
-	const locationSource = validateAdultCollectionLocationSourceInput(input, issues);
+	const locationSource = validateLocationSourceInput(input, 'adultCollection', issues);
 	validateOperationalDate(input.startedAt, 'startedAt', issues);
 	throwIfIssues('Set ad hoc collection command is invalid.', issues);
 
@@ -336,7 +338,7 @@ export function recordCollectedAdHocCollectionCommand(
 ): RecordCollectedAdHocCollectionCommand {
 	const issues = validateCollectionBase(input);
 	requireUuid(input.collectionMethodId, 'collectionMethodId', issues);
-	const locationSource = validateAdultCollectionLocationSourceInput(input, issues);
+	const locationSource = validateLocationSourceInput(input, 'adultCollection', issues);
 	const timing = validateCollectedTiming(input.timing, 'timing', issues);
 	throwIfIssues('Record collected ad hoc collection command is invalid.', issues);
 
