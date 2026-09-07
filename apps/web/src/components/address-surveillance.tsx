@@ -87,7 +87,7 @@ export function AddressSurveillanceCard({ addressId }: { readonly addressId: str
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Habitats and Traps</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact">

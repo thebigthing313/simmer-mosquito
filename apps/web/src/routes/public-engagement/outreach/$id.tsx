@@ -181,7 +181,7 @@ function OutreachDetailsCard({
 	// addresses sync on demand, so resolve just the linked one as a bounded subset.
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">

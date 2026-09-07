@@ -319,7 +319,7 @@ function RequestDetailsCard({
 }) {
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
@@ -501,7 +501,7 @@ function NearbyPanel({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle className="flex items-center gap-2">
 					<MapPinnedIcon aria-hidden="true" className="size-4 text-muted-foreground" />
 					Nearby Activity
@@ -750,7 +750,7 @@ function RequestPartiesCard({
 }) {
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Contact &amp; Location</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-5" padding="compact">
