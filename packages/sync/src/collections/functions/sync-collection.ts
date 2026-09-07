@@ -40,7 +40,6 @@
  */
 
 import type { SyncMode } from '@tanstack/db';
-import type { z } from 'zod';
 import { createMutationHandlers } from './mutation-handlers.js';
 import { shapePathFor } from './routes.js';
 import { sessionFetch } from './session-fetch.js';
@@ -60,10 +59,11 @@ import { sessionFetch } from './session-fetch.js';
  */
 export const serverOnlyGeometryColumns: readonly string[] = ['geom', 'geojson'];
 
-/** The columns a schema declares, which is what its shape route must serve. */
-export function syncedColumnsOf(schema: z.ZodObject<z.ZodRawShape>): readonly string[] {
-	return Object.keys(schema.shape);
-}
+/**
+ * Re-exported from `synced-columns.ts`, where it moved so the contract entry can
+ * name it without this module's write path coming too. See that file.
+ */
+export { syncedColumnsOf } from './synced-columns.js';
 
 /**
  * How Electric's text wire format becomes the values a row holds, keyed by

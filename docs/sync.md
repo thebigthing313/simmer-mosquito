@@ -340,6 +340,18 @@ the same rows on a different sync policy without a second copy of the schema.
   how a request carries the session, and `setSessionRecovery`, which says what
   to do when one is refused.
 
+It offers that through two doors. The root entry is the client half, and
+importing it evaluates all 56 collection factories and, through them,
+`@tanstack/db` and `@tanstack/electric-db-collection`. The `./contract` entry is
+the row schemas, `shapePathFor`, `commandPathFor` and `syncedColumnsOf`, and
+reaches nothing but `zod`. `apps/server` comes in by the second one: it registers
+the routes and forces each shape's column list, and never creates a collection,
+so it has no business evaluating a browser library at boot (#628). A module added
+to `src/contract.ts` that value-imports either TanStack package puts the whole
+stack back, and `packages/sync/src/tests/unit/contract.test.ts` is what refuses
+it. Two doors into one package is not two packages: the boundary above is
+unchanged.
+
 `apps/web` owns:
 
 - the fifty-three collection declarations in `src/lib/collections`, one per

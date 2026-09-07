@@ -47,7 +47,7 @@
 import { DomainValidationError } from '@simmer-mosquito/domain';
 // The client derives the same path from the same function, so the route the
 // server registers and the URL a collection posts to cannot drift apart.
-import { commandPathFor } from '@simmer-mosquito/sync';
+import { commandPathFor } from '@simmer-mosquito/sync/contract';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthContext } from '../auth-context.js';
 import type { AuthVariables, OperatorAuthContext } from '../auth-middleware.js';

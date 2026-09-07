@@ -1,4 +1,4 @@
-import { tableSchemas } from '@simmer-mosquito/sync';
+import { tableSchemas } from '@simmer-mosquito/sync/contract';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { describe, expect, it } from 'vitest';
