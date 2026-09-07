@@ -144,15 +144,20 @@ function* scannedFiles() {
 	yield* scriptsUnder(SCRIPTS);
 }
 
+/** Every file under a directory, `node_modules` aside. */
+function* filesUnder(directory) {
+	for (const entry of readdirSync(directory, { withFileTypes: true })) {
+		if (entry.name === 'node_modules') continue;
+		const path = join(directory, entry.name);
+		if (entry.isDirectory()) yield* filesUnder(path);
+		else yield path;
+	}
+}
+
 /** Every `.mjs` under the scripts tree. */
 function* scriptsUnder(directory) {
-	for (const entry of readdirSync(directory, { withFileTypes: true })) {
-		const path = join(directory, entry.name);
-		if (entry.isDirectory()) {
-			if (entry.name !== 'node_modules') yield* scriptsUnder(path);
-			continue;
-		}
-		if (entry.name.endsWith('.mjs')) yield path;
+	for (const path of filesUnder(directory)) {
+		if (path.endsWith('.mjs')) yield path;
 	}
 }
 
