@@ -359,7 +359,7 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 					<h1 className="m-0 text-balance font-bold text-2xl text-foreground leading-tight">
 						{heading}
 					</h1>
-					<p className="m-0 max-w-[68ch] text-base text-muted-foreground leading-[var(--leading-body)]">
+					<p className="m-0 max-w-[68ch] text-base text-muted-foreground leading-body">
 						{content?.summary ??
 							`The shell, navigation, and routing are wired. The ${heading.toLowerCase()} screen will land here.`}
 					</p>
@@ -378,7 +378,7 @@ export function UpcomingPage({ title }: { readonly title?: string }) {
 										aria-hidden="true"
 										className="mt-0.5 size-4 shrink-0 text-primary"
 									/>
-									<span className="leading-[var(--leading-body)]">{capability}</span>
+									<span className="leading-body">{capability}</span>
 								</li>
 							))}
 						</ul>

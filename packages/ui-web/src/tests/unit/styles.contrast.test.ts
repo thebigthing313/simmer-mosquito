@@ -1,7 +1,7 @@
-import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { contrastRatio, parseCssColor, type RgbColor } from '@simmer-mosquito/design-tokens/color';
 import { describe, expect, it } from 'vitest';
+import { readDeclarations } from '../../../../../scripts/lib/stylesheet-tokens.mjs';
 
 /**
  * Contrast guard for the semantic token set.
@@ -29,12 +29,17 @@ import { describe, expect, it } from 'vitest';
  * for a mix the browser leaves see-through. Chrome settled it in #706 and the
  * register is what it settled on.
  *
- * What stays here is the token walker below, which is the half a browser does
- * for free: reading `--name: value` pairs out of the stylesheets and
- * substituting `var()` until what is left is colour syntax. The design-token
- * screen in `apps/preview` gets that substitution from `getComputedStyle` and
- * hands the same kind of text to the same parser, which is why the parser is
- * the shared half and the walker is not.
+ * What stays here is the `var()` substitution below, which is the half a
+ * browser does for free: following a token's chain until what is left is
+ * colour syntax the parser can read. The design-token screen in `apps/preview`
+ * gets that substitution from `getComputedStyle` and hands the same kind of
+ * text to the same parser, which is why the parser is the shared half and the
+ * substitution is not.
+ *
+ * The declaration reader is not here either. `scripts/lib/stylesheet-tokens.mjs`
+ * holds it, because `check-registered-tokens.mjs` asks a different question of
+ * the same two files and a second parse of them would be the copy that drifts
+ * (#632).
  */
 
 const TOKENS_CSS = fileURLToPath(
@@ -50,25 +55,8 @@ const WHITE: RgbColor = { r: 255, g: 255, b: 255 };
 function readVariables(): ReadonlyMap<string, string> {
 	const vars = new Map<string, string>();
 	for (const file of [TOKENS_CSS, STYLES_CSS]) {
-		const css = readFileSync(file, 'utf8')
-			.replace(/\/\*[\s\S]*?\*\//g, '')
-			.replace(/\s+/g, ' ');
-		// balanced-paren capture: values contain nested `color-mix(...)`
-		const re = /(--[a-z0-9-]+)\s*:/gi;
-		let match = re.exec(css);
-		while (match !== null) {
-			let depth = 0;
-			let i = match.index + match[0].length;
-			let end = i;
-			for (; i < css.length; i++) {
-				const ch = css[i];
-				if (ch === '(') depth++;
-				else if (ch === ')') depth--;
-				else if (ch === ';' && depth === 0) break;
-			}
-			end = i;
-			vars.set(match[1] as string, css.slice(match.index + match[0].length, end).trim());
-			match = re.exec(css);
+		for (const { name, value } of readDeclarations(file)) {
+			vars.set(name, value);
 		}
 	}
 	return vars;
@@ -178,11 +166,17 @@ describe('semantic token contrast', () => {
 		});
 
 		it('form control borders are distinguishable from their surface', () => {
-			for (const surface of ['--background', '--card']) {
-				expect(
-					ratio('--input', surface),
-					`--input on ${surface} must clear ${NON_TEXT_AA}:1 (WCAG 1.4.11)`,
-				).toBeGreaterThanOrEqual(NON_TEXT_AA);
+			// `--border-strong` is the same job by the other name: DESIGN.md puts it
+			// on a 3:1 floor because it draws control boundaries rather than
+			// dividers. It was unreachable as a utility until #632 registered it, so
+			// the floor had never been asserted.
+			for (const border of ['--input', '--border-strong']) {
+				for (const surface of ['--background', '--card']) {
+					expect(
+						ratio(border, surface),
+						`${border} on ${surface} must clear ${NON_TEXT_AA}:1 (WCAG 1.4.11)`,
+					).toBeGreaterThanOrEqual(NON_TEXT_AA);
+				}
 			}
 		});
 	});

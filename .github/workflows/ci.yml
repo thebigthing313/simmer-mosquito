@@ -181,6 +181,16 @@ jobs:
       - name: Mapping callers
         run: pnpm check:mapping-callers
 
+      # Tailwind emits a utility only for a theme variable it knows about, so a
+      # role declared in `:root` and never registered in `@theme` is CSS no
+      # class can reach: `border-border-strong` compiled to nothing and the
+      # admin foundations swatch drew its ring in the inherited `--border`. The
+      # status palette had already been through this once. This asserts every
+      # `:root` role is named by some `@theme` entry and that no class reaches
+      # for one that is not, at zero with no allowance.
+      - name: Registered tokens
+        run: pnpm check:registered-tokens
+
       # `CONTEXT.md` names every domain term and, beside it, the words that are
       # not that term. Nothing read those Avoid lists until this, which is how
       # agency and organization ended up in one sentence on one screen. It reads

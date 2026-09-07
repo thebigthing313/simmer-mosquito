@@ -21,6 +21,7 @@
 		"check:mutation-coverage": "node scripts/check-mutation-coverage.mjs",
 		"check:preview-coverage": "node scripts/check-preview-coverage.mjs",
 		"check:prose": "node scripts/check-prose.mjs",
+		"check:registered-tokens": "node scripts/check-registered-tokens.mjs",
 		"check:schema-drift": "node scripts/check-schema-drift.mjs",
 		"check:schemas": "node scripts/generate-table-schemas.mjs --check",
 		"check:search-corpus": "node scripts/check-search-corpus.mjs",

@@ -70,7 +70,7 @@
 
 .preview-brand strong {
 	font-size: var(--type-body);
-	line-height: var(--leading-tight);
+	line-height: var(--line-heading);
 }
 
 .preview-brand span,
@@ -80,7 +80,7 @@
 .placeholder-page p {
 	color: var(--muted-foreground);
 	font-size: var(--type-small);
-	line-height: var(--leading-compact);
+	line-height: var(--line-compact);
 }
 
 .preview-nav {
@@ -96,7 +96,7 @@
 	color: var(--muted-foreground);
 	font-size: var(--type-small);
 	font-weight: 700;
-	line-height: var(--leading-tight);
+	line-height: var(--line-heading);
 	text-decoration: none;
 }
 
@@ -123,7 +123,7 @@
 	color: var(--quiet);
 	font-size: var(--type-caption);
 	font-weight: 800;
-	line-height: var(--leading-tight);
+	line-height: var(--line-heading);
 	text-transform: uppercase;
 }
 
@@ -173,7 +173,7 @@
 }
 
 .preview-topbar-title {
-	color: var(--text);
+	color: var(--foreground);
 	font-size: var(--type-small);
 	font-weight: 800;
 }
@@ -206,10 +206,10 @@
 }
 
 .preview-page-header h1 {
-	color: var(--text);
+	color: var(--foreground);
 	font-size: var(--type-heading);
 	font-weight: 800;
-	line-height: var(--leading-tight);
+	line-height: var(--line-heading);
 }
 
 .preview-section,
@@ -227,10 +227,10 @@
 
 .preview-section-header h2,
 .placeholder-page h1 {
-	color: var(--text);
+	color: var(--foreground);
 	font-size: var(--type-title);
 	font-weight: 800;
-	line-height: var(--leading-tight);
+	line-height: var(--line-heading);
 }
 
 .color-grid {
@@ -292,7 +292,7 @@
 	color: var(--muted-foreground);
 	font-family: ui-monospace, "SFMono-Regular", Consolas, "Liberation Mono", monospace;
 	font-size: var(--type-caption);
-	line-height: var(--leading-compact);
+	line-height: var(--line-compact);
 }
 
 .brand-ramp-grid {
@@ -313,7 +313,7 @@
 .color-ramp-header {
 	justify-content: space-between;
 	gap: 10px;
-	color: var(--text);
+	color: var(--foreground);
 	font-size: var(--type-small);
 	font-weight: 800;
 }
@@ -394,7 +394,7 @@
 .alias-chip strong {
 	min-width: 0;
 	overflow: hidden;
-	color: var(--text);
+	color: var(--foreground);
 	text-overflow: ellipsis;
 	white-space: nowrap;
 }
@@ -436,31 +436,31 @@
 .token-type-h1 {
 	font-size: var(--type-heading);
 	font-weight: 800;
-	line-height: var(--leading-tight);
+	line-height: var(--line-heading);
 }
 
 .token-type-h2 {
 	font-size: var(--type-title);
 	font-weight: 800;
-	line-height: var(--leading-tight);
+	line-height: var(--line-heading);
 }
 
 .token-type-body {
 	font-size: var(--type-body);
 	font-weight: 400;
-	line-height: var(--leading-body);
+	line-height: var(--line-body);
 }
 
 .token-type-small {
 	font-size: var(--type-small);
 	font-weight: 500;
-	line-height: var(--leading-compact);
+	line-height: var(--line-compact);
 }
 
 .token-type-caption {
 	font-size: var(--type-caption);
 	font-weight: 800;
-	line-height: var(--leading-tight);
+	line-height: var(--line-heading);
 	text-transform: uppercase;
 }
 
@@ -518,7 +518,7 @@
 	border: 1px solid var(--border);
 	border-radius: var(--simmer-radius-md);
 	background: var(--surface-muted);
-	color: var(--text);
+	color: var(--foreground);
 	font-size: var(--type-caption);
 	font-weight: 700;
 }
@@ -539,7 +539,7 @@
 
 .icon-cell span {
 	grid-area: name;
-	line-height: var(--leading-tight);
+	line-height: var(--line-heading);
 }
 
 .icon-cell-label,
@@ -629,7 +629,7 @@
 .template-toggle span {
 	color: var(--muted-foreground);
 	font-size: var(--type-small);
-	line-height: var(--leading-compact);
+	line-height: var(--line-compact);
 }
 
 .alert-stack {
@@ -743,9 +743,9 @@
 
 .stress-record strong {
 	overflow-wrap: anywhere;
-	color: var(--text);
+	color: var(--foreground);
 	font-size: var(--type-small);
-	line-height: var(--leading-compact);
+	line-height: var(--line-compact);
 }
 
 @media (max-width: 900px) {
