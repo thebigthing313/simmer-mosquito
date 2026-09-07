@@ -19,8 +19,5 @@
 		"@simmer-mosquito/domain": "workspace:*",
 		"@simmer-mosquito/sync": "workspace:*",
 		"hono": "^4.7.0"
-	},
-	"devDependencies": {
-		"@workos-inc/node": "^8.12.0"
 	}
 }

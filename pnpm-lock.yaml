@@ -242,10 +242,6 @@ importers:
       hono:
         specifier: ^4.7.0
         version: 4.12.18
-    devDependencies:
-      '@workos-inc/node':
-        specifier: ^8.12.0
-        version: 8.13.0
 
   apps/web:
     dependencies:

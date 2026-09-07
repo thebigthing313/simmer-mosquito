@@ -12,22 +12,25 @@
  * names it repeated included `listUsers`, which is a WorkOS SDK call and has
  * never been a method of this object (#619).
  *
- * The stubbed SDK below implements only the calls the session and read half
+ * The stubbed client below implements only the calls the session and read half
  * makes. That is the other half of the assertion: a write that reached WorkOS
  * would find nothing to call, so it cannot pass by answering quietly.
  *
- * `@workos-inc/node` is a devDependency of this app for this file alone.
- * `vi.mock` keys on the resolved module, and without the specifier resolving
- * from here it binds nothing: the first run of this suite reached the real
- * WorkOS and came back with 401s, which most of the cases below would have
- * swallowed as a mapped refusal. `sdkCalls` is what holds it, since a stub
- * nothing bound to records no call.
+ * It is handed to `createWorkOsAuth` rather than mocked into it (#714). The
+ * binding used to be `vi.mock('@workos-inc/node')`, which keys on the resolved
+ * module, so the SDK was a devDependency of this app for this file alone and
+ * without the specifier resolving from here it bound nothing: the first run of
+ * this suite reached the real WorkOS and came back with 401s, which most of the
+ * cases below would have swallowed as a mapped refusal. An argument cannot miss
+ * that way. `sdkCalls` stays, because which call arrived is still what says the
+ * object was bound to its target rather than replaced by the throwing shim.
  */
 
 import {
 	createWorkOsAuth,
 	WORKOS_IDENTITY_WRITE_METHODS,
 	WORKOS_SESSION_AND_READ_METHODS,
+	type WorkOsClient,
 	type WorkOsSessionAndReadMethod,
 } from '@simmer-mosquito/auth';
 import { Hono } from 'hono';
@@ -42,15 +45,15 @@ import {
 } from '../../workos-identity-interlock.js';
 
 /** Every WorkOS SDK call the object made, in order. */
-const { sdkCalls } = vi.hoisted(() => ({ sdkCalls: [] as string[] }));
+const sdkCalls: string[] = [];
 
-vi.mock('@workos-inc/node', () => {
-	const authenticated = {
-		user: { id: 'user_1', email: 'signed-in@example.test', emailVerified: true },
-		organizationId: 'org_1',
-		sealedSession: 'sealed',
-	};
+const authenticated = {
+	user: { id: 'user_1', email: 'signed-in@example.test', emailVerified: true },
+	organizationId: 'org_1',
+	sealedSession: 'sealed',
+};
 
+function stubWorkOsClient(): WorkOsClient {
 	const records =
 		<TAnswer>(name: string, answer: TAnswer) =>
 		(): TAnswer => {
@@ -59,36 +62,31 @@ vi.mock('@workos-inc/node', () => {
 		};
 
 	return {
-		WorkOS: class {
-			userManagement = {
-				getAuthorizationUrl: records('getAuthorizationUrl', 'https://workos.test/authorize'),
-				authenticateWithCode: records('authenticateWithCode', Promise.resolve(authenticated)),
-				authenticateWithPassword: records(
-					'authenticateWithPassword',
-					Promise.resolve(authenticated),
-				),
-				authenticateWithEmailVerification: records(
-					'authenticateWithEmailVerification',
-					Promise.resolve(authenticated),
-				),
-				authenticateWithOrganizationSelection: records(
-					'authenticateWithOrganizationSelection',
-					Promise.resolve(authenticated),
-				),
-				findInvitationByToken: records(
-					'findInvitationByToken',
-					Promise.resolve({
-						id: 'invitation_1',
-						email: 'invitee@example.test',
-						state: 'pending',
-						organizationId: 'org_1',
-					}),
-				),
-				listUsers: records('listUsers', Promise.resolve({ data: [] })),
-			};
+		userManagement: {
+			getAuthorizationUrl: records('getAuthorizationUrl', 'https://workos.test/authorize'),
+			authenticateWithCode: records('authenticateWithCode', Promise.resolve(authenticated)),
+			authenticateWithPassword: records('authenticateWithPassword', Promise.resolve(authenticated)),
+			authenticateWithEmailVerification: records(
+				'authenticateWithEmailVerification',
+				Promise.resolve(authenticated),
+			),
+			authenticateWithOrganizationSelection: records(
+				'authenticateWithOrganizationSelection',
+				Promise.resolve(authenticated),
+			),
+			findInvitationByToken: records(
+				'findInvitationByToken',
+				Promise.resolve({
+					id: 'invitation_1',
+					email: 'invitee@example.test',
+					state: 'pending',
+					organizationId: 'org_1',
+				}),
+			),
+			listUsers: records('listUsers', Promise.resolve({ data: [] })),
 		},
-	};
-});
+	} as unknown as WorkOsClient;
+}
 
 const config = {
 	apiKey: 'sk_test',
@@ -96,6 +94,11 @@ const config = {
 	cookiePassword: 'x'.repeat(32),
 	redirectUri: 'https://app.example.test/auth/callback',
 };
+
+/** The object under test, over a client that records rather than calls WorkOS. */
+function stubbedWorkOsAuth() {
+	return createWorkOsAuth(config, stubWorkOsClient());
+}
 
 /**
  * What each session or read call is handed, and the WorkOS call it reaches.
@@ -157,11 +160,11 @@ describe('withoutWorkOsIdentityWrites', () => {
 	it('classifies every method the auth object carries', () => {
 		const classified = [...WORKOS_IDENTITY_WRITE_METHODS, ...WORKOS_SESSION_AND_READ_METHODS];
 
-		expect(Object.keys(createWorkOsAuth(config)).sort()).toEqual(classified.sort());
+		expect(Object.keys(stubbedWorkOsAuth()).sort()).toEqual(classified.sort());
 	});
 
 	it.each(WORKOS_IDENTITY_WRITE_METHODS)('refuses %s', (method) => {
-		const wrapped = withoutWorkOsIdentityWrites(createWorkOsAuth(config));
+		const wrapped = withoutWorkOsIdentityWrites(stubbedWorkOsAuth());
 
 		expect(() => (wrapped[method] as AnyCall)()).toThrow(WorkOsIdentityWritesDisabledError);
 		expect(sdkCalls).toEqual([]);
@@ -169,7 +172,7 @@ describe('withoutWorkOsIdentityWrites', () => {
 
 	it.each(WORKOS_SESSION_AND_READ_METHODS)('passes %s through', async (method) => {
 		const { args, reaches } = SESSION_AND_READS[method];
-		const wrapped = withoutWorkOsIdentityWrites(createWorkOsAuth(config));
+		const wrapped = withoutWorkOsIdentityWrites(stubbedWorkOsAuth());
 
 		const refusal = await refusalFrom(() => (wrapped[method] as AnyCall)(...args));
 
@@ -189,7 +192,7 @@ describe('withoutWorkOsIdentityWrites', () => {
 	});
 
 	it('names the refused method for the log', () => {
-		const wrapped = withoutWorkOsIdentityWrites(createWorkOsAuth(config));
+		const wrapped = withoutWorkOsIdentityWrites(stubbedWorkOsAuth());
 
 		expect(() => wrapped.sendOrganizationInvitation({} as never)).toThrow(
 			expect.objectContaining({ method: 'sendOrganizationInvitation' }),
@@ -210,7 +213,7 @@ describe('withoutWorkOsIdentityWrites', () => {
 	});
 
 	it('answers whether it is the wrapped object', () => {
-		const auth = createWorkOsAuth(config);
+		const auth = stubbedWorkOsAuth();
 
 		expect(workOsIdentityWritesDisabled(auth)).toBe(false);
 		expect(workOsIdentityWritesDisabled(withoutWorkOsIdentityWrites(auth))).toBe(true);
