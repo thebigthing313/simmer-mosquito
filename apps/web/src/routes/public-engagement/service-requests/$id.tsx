@@ -543,7 +543,7 @@ function nearbySummary(response: NearbyResponse | undefined): string {
 	}
 	const count = response.items.length;
 	const radius = formatRadiusLabel(response.radius.amount, response.radius.unitCode);
-	const window = `${formatRequestDate(response.dateFrom)} – ${formatRequestDate(response.dateTo)}`;
+	const window = `${formatRequestDate(response.dateFrom)}–${formatRequestDate(response.dateTo)}`;
 	return `${count === 0 ? 'No' : count} record${count === 1 ? '' : 's'} within ${radius}, ${window}.`;
 }
 

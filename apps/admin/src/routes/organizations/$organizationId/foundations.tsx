@@ -184,7 +184,7 @@ function FoundationPanels({
 				/>
 				<ChipSection
 					addLabel="Add lure"
-					emptyMessage="None yet. Optional — traps can run unbaited."
+					emptyMessage="None yet. Traps can run unbaited, so a lure is optional."
 					names={data.lookups.collectionLures.map(lookupName)}
 					onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'collection_lures' })}
 					title="Collection lures"
@@ -263,7 +263,7 @@ function FoundationPanels({
 					addLabel="Add trap"
 					disabledReason={
 						data.lookups.collectionMethods.length === 0
-							? 'Add a collection method first — a trap records against one.'
+							? 'Add a collection method first. A trap records against one.'
 							: undefined
 					}
 					emptyMessage="No traps yet."
@@ -401,7 +401,7 @@ function Readiness({ steps }: { readonly steps: readonly ReadinessStep[] }) {
 							/>
 						)}
 						<span>{step.label.replace(/^An? /, '')}</span>
-						<span className="sr-only">{step.done ? ' — in place' : ' — still needed'}</span>
+						<span className="sr-only">{step.done ? ' is in place.' : ' is still needed.'}</span>
 					</li>
 				))}
 			</ul>
@@ -892,7 +892,7 @@ function SpeciesForm({
 					{available.map((species) => (
 						<option key={species.id} value={species.id}>
 							{species.displayName}
-							{species.commonName === null ? '' : ` — ${species.commonName}`}
+							{species.commonName === null ? '' : `, ${species.commonName}`}
 						</option>
 					))}
 				</NativeSelect>

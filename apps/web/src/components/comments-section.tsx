@@ -201,7 +201,7 @@ export function CommentsSection({
 					<CommentsEmpty
 						description={
 							canComment
-								? 'Start the thread — leave access notes, field context, or a status update.'
+								? 'Start the thread. Leave access notes, field context, or a status update.'
 								: 'No one has commented on this record yet.'
 						}
 						title="No Comments Yet"

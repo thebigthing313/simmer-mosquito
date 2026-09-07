@@ -462,7 +462,7 @@ export function ApplicationFormPage({
 								emptyValue={noSelectionValue}
 								label="Applicator"
 								options={profileOptions}
-								placeholder="Unassigned — search profiles"
+								placeholder="Search profiles, or leave unassigned"
 							/>
 						)}
 					</form.AppField>
@@ -486,7 +486,7 @@ export function ApplicationFormPage({
 				</FormSection>
 
 				<LocationSection
-					description="The geometry is where the product was applied — a point for a spot treatment, a line or area for a treated swath. An address is optional reference, and the habitat is the one the treatment was applied to."
+					description="The geometry is where the product was applied. Use a point for a spot treatment, a line or area for a treated swath. An address is optional reference, and the habitat is the one the treatment was applied to."
 					error={location.locationError}
 				>
 					<form.AppField name="addressId">

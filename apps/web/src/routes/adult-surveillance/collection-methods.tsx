@@ -78,7 +78,7 @@ function CollectionMethodsRoute() {
 		<CatalogPage
 			action={canManage ? addMethodDialog : undefined}
 			canEdit={canManage}
-			description="Collection methods describe how your crews catch adult mosquitoes — light traps with and without attractant, gravid traps, resting traps, and emergence traps. Manage the labels, action thresholds, and any custom fields recorded against them."
+			description="Collection methods describe how your crews catch adult mosquitoes: light traps with and without attractant, gravid traps, resting traps, and emergence traps. Manage the labels, action thresholds, and any custom fields recorded against them."
 			emptyDescription={
 				<>
 					Every trap records the method that caught its mosquitoes, so you need at least one before

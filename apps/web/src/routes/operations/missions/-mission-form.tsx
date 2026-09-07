@@ -281,7 +281,7 @@ export function MissionFormPage({
 						{(field) => (
 							<field.TextField
 								label="Mission name"
-								placeholder="Optional — a name crews will recognise"
+								placeholder="Optional. A name crews will recognise"
 							/>
 						)}
 					</form.AppField>
@@ -335,7 +335,7 @@ export function MissionFormPage({
 								)}
 							</form.AppField>
 							<p className="m-0 text-muted-foreground text-xs">
-								Optional. Planning metadata — it does not reschedule the mission.
+								Optional planning metadata. It does not reschedule the mission.
 							</p>
 						</div>
 					</div>

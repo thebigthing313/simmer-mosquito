@@ -227,8 +227,8 @@ function ImportShapeList({
 		return (
 			<div className="grid gap-2">
 				<p className="m-0 rounded-md bg-muted/50 p-3 text-muted-foreground text-sm">
-					{parsed.fileName} holds no {noun.many}
-					{parsed.skipped > 0 ? ` — ${parsed.skipped} other geometries were ignored` : ''}.
+					{parsed.fileName} holds no {noun.many}.
+					{parsed.skipped > 0 ? ` ${parsed.skipped} other geometries were ignored.` : ''}
 				</p>
 				<ImportNotes counts={parsed.refusals} noun={noun} />
 			</div>

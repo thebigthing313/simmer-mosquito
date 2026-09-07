@@ -32,11 +32,11 @@ export const Route = createFileRoute('/organizations/$organizationId/members')({
  * invitation whose recipient you have not spoken to.
  */
 const ROLE_OPTIONS = [
-	{ value: 'viewer', label: 'Viewer — read only' },
-	{ value: 'collector', label: 'Collector — records field work' },
-	{ value: 'manager', label: 'Manager — records and manages catalogs' },
-	{ value: 'admin', label: 'Admin — manages the organization' },
-	{ value: 'owner', label: 'Owner — full control' },
+	{ value: 'viewer', label: 'Viewer, read only' },
+	{ value: 'collector', label: 'Collector, records field work' },
+	{ value: 'manager', label: 'Manager, records and manages catalogs' },
+	{ value: 'admin', label: 'Admin, manages the organization' },
+	{ value: 'owner', label: 'Owner, full control' },
 ];
 
 function OrganizationMembersRoute() {
@@ -72,7 +72,7 @@ function OrganizationMembersRoute() {
 		<AdminPage
 			description="People connected to this organization. An invitation creates a WorkOS invite and a pending membership at the role you choose."
 			icon={ContactIcon}
-			title={data === undefined ? 'Members' : `${data.organization.name} — Members`}
+			title={data === undefined ? 'Members' : `Members of ${data.organization.name}`}
 		>
 			{error !== null ? (
 				<AdminError error={error} />

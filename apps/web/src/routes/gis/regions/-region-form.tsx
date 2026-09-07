@@ -230,7 +230,7 @@ export function RegionFormPage({
 				<form.AppField name="description">
 					{(field) => (
 						<field.TextareaField
-							description="Optional context — what this region covers and how it's used."
+							description="Optional. Say what this region covers and how crews use it."
 							label="Description"
 							placeholder="Describe the region…"
 							rows={3}

@@ -87,7 +87,7 @@ function OrganizationDetailRoute() {
 								 * an absent value is a blocking condition rather than a blank —
 								 * it says so instead of rendering an em dash.
 								 */
-								missing: 'Not linked — nobody can sign in yet',
+								missing: 'Not linked, so nobody can sign in yet',
 							},
 							{ label: 'Slug', value: organization.slug, mono: true },
 							{ label: 'Owner linked', value: organization.ownerLinked ? 'Yes' : 'No' },

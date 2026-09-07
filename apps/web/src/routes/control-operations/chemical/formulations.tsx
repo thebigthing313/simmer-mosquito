@@ -139,7 +139,7 @@ function FormulationsRoute() {
 		<CatalogPage
 			action={canManage ? addFormulationDrawer : undefined}
 			canEdit={canManage}
-			description="Tank mixes your crews apply — what one batch makes, and how much of each product goes into it."
+			description="Tank mixes your crews apply, with what one batch makes and how much of each product goes into it."
 			emptyDescription={
 				<>
 					A formulation records a mix once — 0.5 lb of product into 26 gallons of water — so an

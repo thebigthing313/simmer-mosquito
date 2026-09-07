@@ -5,7 +5,7 @@ export const trapRouteSurface: RoutePlanningSurface = {
 	routeType: 'trap',
 	title: 'Trap Routes',
 	stopNounPlural: 'traps',
-	namePlaceholder: 'e.g. North CDC traps — Monday',
+	namePlaceholder: 'e.g. North CDC traps on Monday',
 	indexLink: { to: '/adult-surveillance/traps/routes' },
 	detailLink: (routeId) => ({
 		to: '/adult-surveillance/traps/routes/$id',

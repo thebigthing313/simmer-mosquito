@@ -75,7 +75,7 @@ export function assignmentDisplayName(
 	if (name) {
 		return name;
 	}
-	return assigneeName === null ? row.assignmentDate : `${row.assignmentDate} — ${assigneeName}`;
+	return assigneeName === null ? row.assignmentDate : `${row.assignmentDate}, ${assigneeName}`;
 }
 
 export function formatAssignmentDate(date: string): string {

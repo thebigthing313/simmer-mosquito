@@ -23,8 +23,8 @@ function BiocontrolMethodsRoute() {
 			canManage={canManage}
 			mutations={mutations}
 			records={records}
-			customFieldsDescription="Add fields your crews record on every release — stocking rate, agent life stage, or source hatchery."
-			description="The living controls you release against mosquitoes — mosquitofish stocking, larvivorous fish, predacious copepods, and the like."
+			customFieldsDescription="Add fields your crews record on every release, such as stocking rate, agent life stage, or source hatchery."
+			description="The living controls you release against mosquitoes: mosquitofish stocking, larvivorous fish, predacious copepods, and the like."
 			emptyDescription="Add the biocontrol methods you release so crews can record them in the field."
 			icon={BiocontrolIcon}
 			namePlaceholder="e.g. Mosquitofish stocking"

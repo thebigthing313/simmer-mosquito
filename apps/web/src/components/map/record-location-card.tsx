@@ -146,7 +146,7 @@ export function RecordLocationCard({
 				<CardDescription>
 					{description ??
 						(geojson === null && context !== undefined && contextGeojson !== null
-							? `No geometry of its own — shown at its ${context.kind.toLowerCase()}`
+							? `No geometry of its own, so it is shown at its ${context.kind.toLowerCase()}`
 							: geometrySummary(geojson, geomType, isPending, isError))}
 				</CardDescription>
 				{hasMap ? (

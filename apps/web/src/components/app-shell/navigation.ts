@@ -494,7 +494,7 @@ export const webShellDomains: readonly WebShellDomain[] = [
 	{
 		id: 'public',
 		label: 'Public Engagement',
-		summary: 'Community engagement — service requests, outreach, and the contacts behind them',
+		summary: 'Service requests, outreach, and the contacts behind them',
 		icon: iconRegistry.domains.publicEngagement.icon,
 		groups: [
 			{
