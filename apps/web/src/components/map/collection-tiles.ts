@@ -47,7 +47,6 @@ const colors = {
 	zeroResult: mapStatus.neutral,
 	problem: mapStatus.problem,
 	pointStroke: mapInteraction.pointStroke,
-	selected: mapInteraction.selected,
 } as const;
 
 /**

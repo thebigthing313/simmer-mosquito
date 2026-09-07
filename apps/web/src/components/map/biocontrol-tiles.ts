@@ -37,7 +37,6 @@ const colors = {
 	base: mapDomain.biocontrol,
 	line: mapDomain.biocontrolLine,
 	pointStroke: mapInteraction.pointStroke,
-	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select a biocontrol. Order = hit priority. */

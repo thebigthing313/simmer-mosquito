@@ -47,7 +47,6 @@ const colors = {
 	...HABITAT_STATUS_COLORS,
 	line: mapDomain.connector,
 	pointStroke: mapInteraction.pointStroke,
-	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select a habitat. Order = hit priority. */

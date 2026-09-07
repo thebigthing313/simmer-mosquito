@@ -53,7 +53,6 @@ const colors = {
 	veryHeavy: mapDensity.veryHeavy,
 	pointStroke: mapInteraction.pointStroke,
 	line: mapDomain.connector,
-	selected: mapInteraction.selected,
 } as const;
 
 /**

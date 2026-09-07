@@ -36,7 +36,6 @@ const colors = {
 	base: mapDomain.chemical,
 	line: mapDomain.chemicalLine,
 	pointStroke: mapInteraction.pointStroke,
-	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select a chemical application. Order = hit priority. */
