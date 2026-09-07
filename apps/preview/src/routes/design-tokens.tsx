@@ -1,7 +1,15 @@
 import { green, yellow } from '@simmer-mosquito/design-tokens';
+import {
+	contrastRatio,
+	formatHex,
+	formatRgb,
+	parseCssColor,
+	type RgbColor,
+	type WcagLevel,
+	wcagLevel,
+} from '@simmer-mosquito/design-tokens/color';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { createFileRoute } from '@tanstack/react-router';
-import { contrastRatio, formatHex, formatRgb, parseCssColor } from '../color';
 import { useCssTokens } from '../useCssTokens';
 
 export const Route = createFileRoute('/design-tokens')({
@@ -210,12 +218,30 @@ function AliasChip({ name, value }: { readonly name: string; readonly value: str
 	);
 }
 
+/**
+ * The two surfaces a token is judged against: the paper the page is on and the
+ * ink it is written in.
+ *
+ * They are read live rather than written down. Both were rgb literals here
+ * until #617, and neither was what the token resolved to any more: the
+ * `--foreground` literal was two revisions old, and `--background` is a
+ * `color-mix()` nobody can evaluate by reading it. A number a designer cannot
+ * regenerate is a number they cannot check.
+ *
+ * Module-level, because `useCssTokens` keys its effect on the array identity.
+ */
+const surfaceTokens = ['--background', '--foreground'] as const;
+
+const badgeTone: Record<WcagLevel, 'success' | 'warning' | 'danger'> = {
+	AA: 'success',
+	'Large text': 'warning',
+	Low: 'danger',
+};
+
 function ColorSwatch({ name, value }: { readonly name: string; readonly value: string }) {
+	const surfaces = useCssTokens(surfaceTokens);
 	const rgb = parseCssColor(value);
-	const onSurfaceRatio = rgb === null ? 0 : contrastRatio(rgb, { r: 250, g: 251, b: 250 });
-	const onTextRatio = rgb === null ? 0 : contrastRatio(rgb, { r: 36, g: 49, b: 55 });
-	const bestRatio = Math.max(onSurfaceRatio, onTextRatio);
-	const safety = bestRatio >= 4.5 ? 'AA' : bestRatio >= 3 ? 'Large text' : 'Low';
+	const level = rgb === null ? null : bestLevelAgainst(rgb, surfaces);
 
 	return (
 		<article className="color-card">
@@ -223,12 +249,11 @@ function ColorSwatch({ name, value }: { readonly name: string; readonly value: s
 			<div className="color-card-body">
 				<div className="color-card-title">
 					<strong>{name}</strong>
-					<Badge
-						tone={bestRatio >= 4.5 ? 'success' : bestRatio >= 3 ? 'warning' : 'danger'}
-						variant="outline"
-					>
-						{safety}
-					</Badge>
+					{level === null ? null : (
+						<Badge tone={badgeTone[level]} variant="outline">
+							{level}
+						</Badge>
+					)}
 				</div>
 				<code>{value}</code>
 				{rgb === null ? null : (
@@ -240,4 +265,27 @@ function ColorSwatch({ name, value }: { readonly name: string; readonly value: s
 			</div>
 		</article>
 	);
+}
+
+/**
+ * The better of the two surfaces, because a token that sinks into the paper is
+ * still legible written on the ink, and the swatch is asked which of the two it
+ * works on rather than whether it works on both.
+ *
+ * `null` until the surfaces arrive. `useCssTokens` fills them from an effect, so
+ * the first render has nothing to measure against and the badge is held back
+ * rather than drawn at a ratio of zero.
+ */
+function bestLevelAgainst(
+	colour: RgbColor,
+	surfaces: readonly { readonly value: string }[],
+): WcagLevel | null {
+	let best: number | null = null;
+	for (const surface of surfaces) {
+		const parsed = parseCssColor(surface.value);
+		if (parsed === null) continue;
+		const ratio = contrastRatio(colour, parsed);
+		if (best === null || ratio > best) best = ratio;
+	}
+	return best === null ? null : wcagLevel(best);
 }

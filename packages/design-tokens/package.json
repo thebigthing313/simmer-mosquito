@@ -9,6 +9,11 @@
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
 		},
+		"./color": {
+			"fallow": "./src/color.ts",
+			"types": "./dist/color.d.ts",
+			"import": "./dist/color.js"
+		},
 		"./map-palette": {
 			"fallow": "./src/map-palette.ts",
 			"types": "./dist/map-palette.d.ts",
