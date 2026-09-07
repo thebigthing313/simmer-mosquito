@@ -2,14 +2,12 @@ import {
 	basePayload,
 	createIssues,
 	jsonObject as normalizeMetadata,
-	nullableText as normalizeNullableText,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
 	validateBase,
 	validateIdCommand,
-	validateLocalDate,
 } from '../command-validation.js';
 import type {
 	ControlActionLocationSource,
@@ -26,6 +24,17 @@ import {
 	validateControlActionContext,
 } from '../performed-control-actions.js';
 import type { DomainId, DomainValidationIssue, JsonObject, LocalDateString } from '../shared.js';
+import {
+	jsonObjectField,
+	localDateField,
+	nullableReferenceIdField,
+	nullableTextField,
+	referenceIdField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
 import type {
 	ControlCommandInput,
 	ControlCommandPayload,
@@ -80,35 +89,29 @@ export type RecordChemicalApplicationCommand = ControlOperationsDomainCommand<
 	}
 >;
 
-export interface UpdateChemicalApplicationFieldDetailsCommandInput extends ControlCommandInput {
-	readonly applicationId: DomainId;
-	readonly applicationDate?: LocalDateString;
-	readonly applicatorProfileId?: DomainId | null;
-	readonly applicationMethodId?: DomainId | null;
-	readonly insecticideId?: DomainId;
-	readonly amountApplied?: number;
-	readonly applicationUnitId?: DomainId;
-	readonly vehicleId?: DomainId | null;
-	readonly equipmentId?: DomainId | null;
-	readonly metadata?: unknown | null;
-	readonly acknowledgedBatchClearance?: boolean;
-}
+export const CHEMICAL_APPLICATION_UPDATE_FIELDS = {
+	applicationDate: localDateField,
+	applicatorProfileId: nullableReferenceIdField,
+	applicationMethodId: nullableReferenceIdField,
+	insecticideId: referenceIdField,
+	amountApplied: normalizePositiveFiniteNumber,
+	applicationUnitId: referenceIdField,
+	vehicleId: nullableReferenceIdField,
+	equipmentId: nullableReferenceIdField,
+	metadata: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateChemicalApplicationFieldDetailsCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof CHEMICAL_APPLICATION_UPDATE_FIELDS> & {
+		readonly applicationId: DomainId;
+		readonly acknowledgedBatchClearance?: boolean;
+	};
 
 export type UpdateChemicalApplicationFieldDetailsCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateChemicalApplicationFieldDetails',
 	ControlCommandPayload & {
 		readonly applicationId: DomainId;
-		readonly changes: Readonly<{
-			readonly applicationDate?: LocalDateString;
-			readonly applicatorProfileId?: DomainId | null;
-			readonly applicationMethodId?: DomainId | null;
-			readonly insecticideId?: DomainId;
-			readonly amountApplied?: number;
-			readonly applicationUnitId?: DomainId;
-			readonly vehicleId?: DomainId | null;
-			readonly equipmentId?: DomainId | null;
-			readonly metadata?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof CHEMICAL_APPLICATION_UPDATE_FIELDS>;
 		readonly acknowledgedBatchClearance: boolean;
 	}
 >;
@@ -207,28 +210,25 @@ export type RecordSourceReductionCommand = ControlOperationsDomainCommand<
 	}
 >;
 
-export interface UpdateSourceReductionFieldDetailsCommandInput extends ControlCommandInput {
-	readonly sourceReductionId: DomainId;
-	readonly sourceReductionDate?: LocalDateString;
-	readonly technicianProfileId?: DomainId | null;
-	readonly sourceReductionMethodId?: DomainId;
-	readonly sourcesEliminatedAmount?: number;
-	readonly sourcesEliminatedUnitId?: DomainId;
-	readonly metadata?: unknown | null;
-}
+export const SOURCE_REDUCTION_UPDATE_FIELDS = {
+	sourceReductionDate: localDateField,
+	technicianProfileId: nullableReferenceIdField,
+	sourceReductionMethodId: referenceIdField,
+	sourcesEliminatedAmount: normalizePositiveFiniteNumber,
+	sourcesEliminatedUnitId: referenceIdField,
+	metadata: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateSourceReductionFieldDetailsCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof SOURCE_REDUCTION_UPDATE_FIELDS> & {
+		readonly sourceReductionId: DomainId;
+	};
 
 export type UpdateSourceReductionFieldDetailsCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateSourceReductionFieldDetails',
 	ControlCommandPayload & {
 		readonly sourceReductionId: DomainId;
-		readonly changes: Readonly<{
-			readonly sourceReductionDate?: LocalDateString;
-			readonly technicianProfileId?: DomainId | null;
-			readonly sourceReductionMethodId?: DomainId;
-			readonly sourcesEliminatedAmount?: number;
-			readonly sourcesEliminatedUnitId?: DomainId;
-			readonly metadata?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof SOURCE_REDUCTION_UPDATE_FIELDS>;
 	}
 >;
 
@@ -289,28 +289,25 @@ export type RecordOutreachActionCommand = ControlOperationsDomainCommand<
 	}
 >;
 
-export interface UpdateOutreachActionFieldDetailsCommandInput extends ControlCommandInput {
-	readonly outreachActionId: DomainId;
-	readonly outreachDate?: LocalDateString;
-	readonly technicianProfileId?: DomainId | null;
-	readonly outreachMethodId?: DomainId;
-	readonly reach?: number;
-	readonly reachDescription?: string | null;
-	readonly metadata?: unknown | null;
-}
+export const OUTREACH_ACTION_UPDATE_FIELDS = {
+	outreachDate: localDateField,
+	technicianProfileId: nullableReferenceIdField,
+	outreachMethodId: referenceIdField,
+	reach: normalizePositiveInteger,
+	reachDescription: nullableTextField(2_000),
+	metadata: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateOutreachActionFieldDetailsCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof OUTREACH_ACTION_UPDATE_FIELDS> & {
+		readonly outreachActionId: DomainId;
+	};
 
 export type UpdateOutreachActionFieldDetailsCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateOutreachActionFieldDetails',
 	ControlCommandPayload & {
 		readonly outreachActionId: DomainId;
-		readonly changes: Readonly<{
-			readonly outreachDate?: LocalDateString;
-			readonly technicianProfileId?: DomainId | null;
-			readonly outreachMethodId?: DomainId;
-			readonly reach?: number;
-			readonly reachDescription?: string | null;
-			readonly metadata?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof OUTREACH_ACTION_UPDATE_FIELDS>;
 	}
 >;
 
@@ -371,28 +368,25 @@ export type RecordBiocontrolActionCommand = ControlOperationsDomainCommand<
 	}
 >;
 
-export interface UpdateBiocontrolActionFieldDetailsCommandInput extends ControlCommandInput {
-	readonly biocontrolActionId: DomainId;
-	readonly biocontrolDate?: LocalDateString;
-	readonly technicianProfileId?: DomainId | null;
-	readonly biocontrolMethodId?: DomainId;
-	readonly amountReleased?: number;
-	readonly releaseUnitId?: DomainId;
-	readonly metadata?: unknown | null;
-}
+export const BIOCONTROL_ACTION_UPDATE_FIELDS = {
+	biocontrolDate: localDateField,
+	technicianProfileId: nullableReferenceIdField,
+	biocontrolMethodId: referenceIdField,
+	amountReleased: normalizePositiveFiniteNumber,
+	releaseUnitId: referenceIdField,
+	metadata: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateBiocontrolActionFieldDetailsCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof BIOCONTROL_ACTION_UPDATE_FIELDS> & {
+		readonly biocontrolActionId: DomainId;
+	};
 
 export type UpdateBiocontrolActionFieldDetailsCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateBiocontrolActionFieldDetails',
 	ControlCommandPayload & {
 		readonly biocontrolActionId: DomainId;
-		readonly changes: Readonly<{
-			readonly biocontrolDate?: LocalDateString;
-			readonly technicianProfileId?: DomainId | null;
-			readonly biocontrolMethodId?: DomainId;
-			readonly amountReleased?: number;
-			readonly releaseUnitId?: DomainId;
-			readonly metadata?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof BIOCONTROL_ACTION_UPDATE_FIELDS>;
 	}
 >;
 
@@ -477,72 +471,18 @@ export function recordChemicalApplicationCommand(
 export function updateChemicalApplicationFieldDetailsCommand(
 	input: UpdateChemicalApplicationFieldDetailsCommandInput,
 ): UpdateChemicalApplicationFieldDetailsCommand {
-	const issues = validateIdCommand(input, 'applicationId');
-	const hasDate = input.applicationDate !== undefined;
-	const hasApplicator = input.applicatorProfileId !== undefined;
-	const hasMethod = input.applicationMethodId !== undefined;
-	const hasInsecticide = input.insecticideId !== undefined;
-	const hasAmount = input.amountApplied !== undefined;
-	const hasUnit = input.applicationUnitId !== undefined;
-	const hasVehicle = input.vehicleId !== undefined;
-	const hasEquipment = input.equipmentId !== undefined;
-	const hasMetadata = input.metadata !== undefined;
-	if (
-		!hasDate &&
-		!hasApplicator &&
-		!hasMethod &&
-		!hasInsecticide &&
-		!hasAmount &&
-		!hasUnit &&
-		!hasVehicle &&
-		!hasEquipment &&
-		!hasMetadata
-	) {
-		issues.push({
-			path: 'changes',
-			message: 'At least one chemical application field must change.',
-		});
-	}
-	if (hasDate) {
-		validateLocalDate(input.applicationDate, 'applicationDate', issues);
-	}
-	if (hasInsecticide) {
-		requireUuid(input.insecticideId, 'insecticideId', issues);
-	}
-	if (hasUnit) {
-		requireUuid(input.applicationUnitId, 'applicationUnitId', issues);
-	}
-	const amount = hasAmount
-		? normalizePositiveFiniteNumber(input.amountApplied, 'amountApplied', issues)
-		: undefined;
-	const applicatorProfileId = hasApplicator
-		? normalizeOptionalUuid(input.applicatorProfileId, 'applicatorProfileId', issues)
-		: null;
-	const applicationMethodId = hasMethod
-		? normalizeOptionalUuid(input.applicationMethodId, 'applicationMethodId', issues)
-		: null;
-	const vehicleId = hasVehicle ? normalizeOptionalUuid(input.vehicleId, 'vehicleId', issues) : null;
-	const equipmentId = hasEquipment
-		? normalizeOptionalUuid(input.equipmentId, 'equipmentId', issues)
-		: null;
-	const metadata = hasMetadata ? normalizeMetadata(input.metadata, 'metadata', issues) : undefined;
-	throwIfIssues('Update chemical application field details command is invalid.', issues);
-	return {
+	const command = updateFieldsCommand({
 		type: 'controlOperations.updateChemicalApplicationFieldDetails',
+		input,
+		idKey: 'applicationId',
+		fields: CHEMICAL_APPLICATION_UPDATE_FIELDS,
+		changeNoun: 'chemical application',
+		message: 'Update chemical application field details command is invalid.',
+	});
+	return {
+		type: command.type,
 		payload: {
-			...basePayload(input),
-			applicationId: normalizeRequiredId(input.applicationId),
-			changes: {
-				...(hasDate ? { applicationDate: input.applicationDate } : {}),
-				...(hasApplicator ? { applicatorProfileId } : {}),
-				...(hasMethod ? { applicationMethodId } : {}),
-				...(hasInsecticide ? { insecticideId: normalizeRequiredId(input.insecticideId) } : {}),
-				...(amount !== undefined ? { amountApplied: amount } : {}),
-				...(hasUnit ? { applicationUnitId: normalizeRequiredId(input.applicationUnitId) } : {}),
-				...(hasVehicle ? { vehicleId } : {}),
-				...(hasEquipment ? { equipmentId } : {}),
-				...(hasMetadata ? { metadata: metadata ?? null } : {}),
-			},
+			...command.payload,
 			acknowledgedBatchClearance: input.acknowledgedBatchClearance ?? false,
 		},
 	};
@@ -646,17 +586,14 @@ export function recordSourceReductionCommand(
 export function updateSourceReductionFieldDetailsCommand(
 	input: UpdateSourceReductionFieldDetailsCommandInput,
 ): UpdateSourceReductionFieldDetailsCommand {
-	const issues = validateIdCommand(input, 'sourceReductionId');
-	const changes = sourceReductionFieldChanges(input, issues);
-	throwIfIssues('Update source reduction field details command is invalid.', issues);
-	return {
+	return updateFieldsCommand({
 		type: 'controlOperations.updateSourceReductionFieldDetails',
-		payload: {
-			...basePayload(input),
-			sourceReductionId: normalizeRequiredId(input.sourceReductionId),
-			changes,
-		},
-	};
+		input,
+		idKey: 'sourceReductionId',
+		fields: SOURCE_REDUCTION_UPDATE_FIELDS,
+		changeNoun: 'source reduction',
+		message: 'Update source reduction field details command is invalid.',
+	});
 }
 
 export function updateSourceReductionLocationAndContextCommand(
@@ -730,17 +667,14 @@ export function recordOutreachActionCommand(
 export function updateOutreachActionFieldDetailsCommand(
 	input: UpdateOutreachActionFieldDetailsCommandInput,
 ): UpdateOutreachActionFieldDetailsCommand {
-	const issues = validateIdCommand(input, 'outreachActionId');
-	const changes = outreachFieldChanges(input, issues);
-	throwIfIssues('Update outreach action field details command is invalid.', issues);
-	return {
+	return updateFieldsCommand({
 		type: 'controlOperations.updateOutreachActionFieldDetails',
-		payload: {
-			...basePayload(input),
-			outreachActionId: normalizeRequiredId(input.outreachActionId),
-			changes,
-		},
-	};
+		input,
+		idKey: 'outreachActionId',
+		fields: OUTREACH_ACTION_UPDATE_FIELDS,
+		changeNoun: 'outreach action',
+		message: 'Update outreach action field details command is invalid.',
+	});
 }
 
 export function updateOutreachActionLocationAndContextCommand(
@@ -814,17 +748,14 @@ export function recordBiocontrolActionCommand(
 export function updateBiocontrolActionFieldDetailsCommand(
 	input: UpdateBiocontrolActionFieldDetailsCommandInput,
 ): UpdateBiocontrolActionFieldDetailsCommand {
-	const issues = validateIdCommand(input, 'biocontrolActionId');
-	const changes = biocontrolFieldChanges(input, issues);
-	throwIfIssues('Update biocontrol action field details command is invalid.', issues);
-	return {
+	return updateFieldsCommand({
 		type: 'controlOperations.updateBiocontrolActionFieldDetails',
-		payload: {
-			...basePayload(input),
-			biocontrolActionId: normalizeRequiredId(input.biocontrolActionId),
-			changes,
-		},
-	};
+		input,
+		idKey: 'biocontrolActionId',
+		fields: BIOCONTROL_ACTION_UPDATE_FIELDS,
+		changeNoun: 'biocontrol action',
+		message: 'Update biocontrol action field details command is invalid.',
+	});
 }
 
 export function updateBiocontrolActionLocationAndContextCommand(
@@ -873,144 +804,6 @@ export function isSourceReductionUnitType(unitType: UnitType): boolean {
 
 export function isBiocontrolUnitType(unitType: UnitType): boolean {
 	return BIOCONTROL_UNIT_TYPES.includes(unitType as (typeof BIOCONTROL_UNIT_TYPES)[number]);
-}
-
-function sourceReductionFieldChanges(
-	input: UpdateSourceReductionFieldDetailsCommandInput,
-	issues: DomainValidationIssue[],
-): UpdateSourceReductionFieldDetailsCommand['payload']['changes'] {
-	const hasDate = input.sourceReductionDate !== undefined;
-	const hasTechnician = input.technicianProfileId !== undefined;
-	const hasMethod = input.sourceReductionMethodId !== undefined;
-	const hasAmount = input.sourcesEliminatedAmount !== undefined;
-	const hasUnit = input.sourcesEliminatedUnitId !== undefined;
-	const hasMetadata = input.metadata !== undefined;
-	if (!hasDate && !hasTechnician && !hasMethod && !hasAmount && !hasUnit && !hasMetadata) {
-		issues.push({ path: 'changes', message: 'At least one source reduction field must change.' });
-	}
-	if (hasDate) {
-		validateLocalDate(input.sourceReductionDate, 'sourceReductionDate', issues);
-	}
-	if (hasMethod) {
-		requireUuid(input.sourceReductionMethodId, 'sourceReductionMethodId', issues);
-	}
-	if (hasUnit) {
-		requireUuid(input.sourcesEliminatedUnitId, 'sourcesEliminatedUnitId', issues);
-	}
-	const amount = hasAmount
-		? normalizePositiveFiniteNumber(
-				input.sourcesEliminatedAmount,
-				'sourcesEliminatedAmount',
-				issues,
-			)
-		: undefined;
-	const metadata = hasMetadata ? normalizeMetadata(input.metadata, 'metadata', issues) : undefined;
-	return {
-		...(hasDate ? { sourceReductionDate: input.sourceReductionDate } : {}),
-		...(hasTechnician
-			? {
-					technicianProfileId: normalizeOptionalUuid(
-						input.technicianProfileId,
-						'technicianProfileId',
-						issues,
-					),
-				}
-			: {}),
-		...(hasMethod
-			? { sourceReductionMethodId: normalizeRequiredId(input.sourceReductionMethodId) }
-			: {}),
-		...(amount !== undefined ? { sourcesEliminatedAmount: amount } : {}),
-		...(hasUnit
-			? { sourcesEliminatedUnitId: normalizeRequiredId(input.sourcesEliminatedUnitId) }
-			: {}),
-		...(hasMetadata ? { metadata: metadata ?? null } : {}),
-	};
-}
-
-function outreachFieldChanges(
-	input: UpdateOutreachActionFieldDetailsCommandInput,
-	issues: DomainValidationIssue[],
-): UpdateOutreachActionFieldDetailsCommand['payload']['changes'] {
-	const hasDate = input.outreachDate !== undefined;
-	const hasTechnician = input.technicianProfileId !== undefined;
-	const hasMethod = input.outreachMethodId !== undefined;
-	const hasReach = input.reach !== undefined;
-	const hasDescription = input.reachDescription !== undefined;
-	const hasMetadata = input.metadata !== undefined;
-	if (!hasDate && !hasTechnician && !hasMethod && !hasReach && !hasDescription && !hasMetadata) {
-		issues.push({ path: 'changes', message: 'At least one outreach action field must change.' });
-	}
-	if (hasDate) {
-		validateLocalDate(input.outreachDate, 'outreachDate', issues);
-	}
-	if (hasMethod) {
-		requireUuid(input.outreachMethodId, 'outreachMethodId', issues);
-	}
-	const reach = hasReach ? normalizePositiveInteger(input.reach, 'reach', issues) : undefined;
-	const reachDescription = hasDescription
-		? normalizeNullableText(input.reachDescription, 'reachDescription', issues, 2_000)
-		: undefined;
-	const metadata = hasMetadata ? normalizeMetadata(input.metadata, 'metadata', issues) : undefined;
-	return {
-		...(hasDate ? { outreachDate: input.outreachDate } : {}),
-		...(hasTechnician
-			? {
-					technicianProfileId: normalizeOptionalUuid(
-						input.technicianProfileId,
-						'technicianProfileId',
-						issues,
-					),
-				}
-			: {}),
-		...(hasMethod ? { outreachMethodId: normalizeRequiredId(input.outreachMethodId) } : {}),
-		...(reach !== undefined ? { reach } : {}),
-		...(hasDescription ? { reachDescription: reachDescription ?? null } : {}),
-		...(hasMetadata ? { metadata: metadata ?? null } : {}),
-	};
-}
-
-function biocontrolFieldChanges(
-	input: UpdateBiocontrolActionFieldDetailsCommandInput,
-	issues: DomainValidationIssue[],
-): UpdateBiocontrolActionFieldDetailsCommand['payload']['changes'] {
-	const hasDate = input.biocontrolDate !== undefined;
-	const hasTechnician = input.technicianProfileId !== undefined;
-	const hasMethod = input.biocontrolMethodId !== undefined;
-	const hasAmount = input.amountReleased !== undefined;
-	const hasUnit = input.releaseUnitId !== undefined;
-	const hasMetadata = input.metadata !== undefined;
-	if (!hasDate && !hasTechnician && !hasMethod && !hasAmount && !hasUnit && !hasMetadata) {
-		issues.push({ path: 'changes', message: 'At least one biocontrol action field must change.' });
-	}
-	if (hasDate) {
-		validateLocalDate(input.biocontrolDate, 'biocontrolDate', issues);
-	}
-	if (hasMethod) {
-		requireUuid(input.biocontrolMethodId, 'biocontrolMethodId', issues);
-	}
-	if (hasUnit) {
-		requireUuid(input.releaseUnitId, 'releaseUnitId', issues);
-	}
-	const amount = hasAmount
-		? normalizePositiveFiniteNumber(input.amountReleased, 'amountReleased', issues)
-		: undefined;
-	const metadata = hasMetadata ? normalizeMetadata(input.metadata, 'metadata', issues) : undefined;
-	return {
-		...(hasDate ? { biocontrolDate: input.biocontrolDate } : {}),
-		...(hasTechnician
-			? {
-					technicianProfileId: normalizeOptionalUuid(
-						input.technicianProfileId,
-						'technicianProfileId',
-						issues,
-					),
-				}
-			: {}),
-		...(hasMethod ? { biocontrolMethodId: normalizeRequiredId(input.biocontrolMethodId) } : {}),
-		...(amount !== undefined ? { amountReleased: amount } : {}),
-		...(hasUnit ? { releaseUnitId: normalizeRequiredId(input.releaseUnitId) } : {}),
-		...(hasMetadata ? { metadata: metadata ?? null } : {}),
-	};
 }
 
 function validateActionBase(input: ActionBaseInput, issues: DomainValidationIssue[]): void {

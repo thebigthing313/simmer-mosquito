@@ -15,6 +15,18 @@ import {
 } from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
 import {
+	normalizeUpdateFields,
+	nullableReferenceIdField,
+	nullableTextField,
+	stringUnionField,
+	timestampField,
+	type UpdateFieldNormalizer,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
+import {
 	type MissionDispatchCommandInput,
 	type MissionDispatchCommandPayload,
 	type MissionDispatchDomainCommand,
@@ -60,58 +72,69 @@ export type CreateMissionCommand = MissionDispatchDomainCommand<
 	}
 >;
 
-export interface UpdateMissionDetailsCommandInput extends MissionDispatchCommandInput {
-	readonly missionId: DomainId;
-	readonly missionName?: string | null;
-}
+export const MISSION_DETAILS_UPDATE_FIELDS = {
+	missionName: nullableTextField(200),
+} satisfies UpdateFieldSet;
+
+export type UpdateMissionDetailsCommandInput = MissionDispatchCommandInput &
+	UpdateFieldsInput<typeof MISSION_DETAILS_UPDATE_FIELDS> & {
+		readonly missionId: DomainId;
+	};
 
 export type UpdateMissionDetailsCommand = MissionDispatchDomainCommand<
 	'missionDispatch.updateMissionDetails',
 	MissionDispatchCommandPayload & {
 		readonly missionId: DomainId;
-		readonly changes: Readonly<{ readonly missionName?: string | null }>;
+		readonly changes: UpdateFieldsChanges<typeof MISSION_DETAILS_UPDATE_FIELDS>;
 	}
 >;
 
-export interface UpdateMissionScheduleCommandInput extends MissionDispatchCommandInput {
-	readonly missionId: DomainId;
-	readonly scheduledStartAt?: Date;
-	readonly scheduledEndAt?: Date | null;
-	readonly rainDate?: LocalDateString | null;
-	readonly acknowledgedNotificationTimingChange?: boolean;
-	readonly acknowledgedWorkedMissionScheduleChange?: boolean;
-}
+const missionTimestampField: UpdateFieldNormalizer<Date | undefined, Date> = (
+	value,
+	path,
+	issues,
+) => normalizeTimestamp(value, path, issues, true);
+
+export const MISSION_SCHEDULE_UPDATE_FIELDS = {
+	scheduledStartAt: missionTimestampField,
+	scheduledEndAt: timestampField(true),
+	rainDate: normalizeOptionalLocalDate,
+} satisfies UpdateFieldSet;
+
+export type UpdateMissionScheduleCommandInput = MissionDispatchCommandInput &
+	UpdateFieldsInput<typeof MISSION_SCHEDULE_UPDATE_FIELDS> & {
+		readonly missionId: DomainId;
+		readonly acknowledgedNotificationTimingChange?: boolean;
+		readonly acknowledgedWorkedMissionScheduleChange?: boolean;
+	};
 
 export type UpdateMissionScheduleCommand = MissionDispatchDomainCommand<
 	'missionDispatch.updateMissionSchedule',
 	MissionDispatchCommandPayload & {
 		readonly missionId: DomainId;
-		readonly changes: Readonly<{
-			readonly scheduledStartAt?: Date;
-			readonly scheduledEndAt?: Date | null;
-			readonly rainDate?: LocalDateString | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof MISSION_SCHEDULE_UPDATE_FIELDS>;
 		readonly acknowledgedNotificationTimingChange: boolean;
 		readonly acknowledgedWorkedMissionScheduleChange: boolean;
 	}
 >;
 
-export interface UpdateMissionPlanCommandInput extends MissionDispatchCommandInput {
-	readonly missionId: DomainId;
-	readonly controlType?: ControlType;
-	readonly plannedMethodId?: DomainId | null;
-	readonly acknowledgedNotificationPlanChange?: boolean;
-	readonly acknowledgedWorkedMissionPlanChange?: boolean;
-}
+export const MISSION_PLAN_UPDATE_FIELDS = {
+	controlType: stringUnionField(CONTROL_TYPES),
+	plannedMethodId: nullableReferenceIdField,
+} satisfies UpdateFieldSet;
+
+export type UpdateMissionPlanCommandInput = MissionDispatchCommandInput &
+	UpdateFieldsInput<typeof MISSION_PLAN_UPDATE_FIELDS> & {
+		readonly missionId: DomainId;
+		readonly acknowledgedNotificationPlanChange?: boolean;
+		readonly acknowledgedWorkedMissionPlanChange?: boolean;
+	};
 
 export type UpdateMissionPlanCommand = MissionDispatchDomainCommand<
 	'missionDispatch.updateMissionPlan',
 	MissionDispatchCommandPayload & {
 		readonly missionId: DomainId;
-		readonly changes: Readonly<{
-			readonly controlType?: ControlType;
-			readonly plannedMethodId?: DomainId | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof MISSION_PLAN_UPDATE_FIELDS>;
 		readonly acknowledgedNotificationPlanChange: boolean;
 		readonly acknowledgedWorkedMissionPlanChange: boolean;
 	}
@@ -312,53 +335,34 @@ export function createMissionCommand(input: CreateMissionCommandInput): CreateMi
 export function updateMissionDetailsCommand(
 	input: UpdateMissionDetailsCommandInput,
 ): UpdateMissionDetailsCommand {
-	const issues = validateIdCommand(input, 'missionId');
-	const hasName = input.missionName !== undefined;
-	if (!hasName) {
-		issues.push({ path: 'changes', message: 'At least one mission detail must change.' });
-	}
-	const missionName = hasName
-		? normalizeNullableText(input.missionName, 'missionName', issues, 200)
-		: undefined;
-	throwIfIssues('Update mission details command is invalid.', issues);
-	return {
+	return updateFieldsCommand({
 		type: 'missionDispatch.updateMissionDetails',
-		payload: {
-			...basePayload(input),
-			missionId: normalizeRequiredId(input.missionId),
-			changes: { ...(hasName ? { missionName: missionName ?? null } : {}) },
-		},
-	};
+		input,
+		idKey: 'missionId',
+		fields: MISSION_DETAILS_UPDATE_FIELDS,
+		changeNoun: 'mission',
+		emptyChangeMessage: 'At least one mission detail must change.',
+		message: 'Update mission details command is invalid.',
+	});
 }
 
 export function updateMissionScheduleCommand(
 	input: UpdateMissionScheduleCommandInput,
 ): UpdateMissionScheduleCommand {
 	const issues = validateIdCommand(input, 'missionId');
-	const hasStart = input.scheduledStartAt !== undefined;
-	const hasEnd = input.scheduledEndAt !== undefined;
-	const hasRain = input.rainDate !== undefined;
-	if (!hasStart && !hasEnd && !hasRain) {
-		issues.push({ path: 'changes', message: 'At least one mission schedule field must change.' });
-	}
-	const scheduledStartAt = hasStart
-		? normalizeTimestamp(input.scheduledStartAt, 'scheduledStartAt', issues, true)
-		: undefined;
-	const scheduledEndAt = hasEnd
-		? normalizeOptionalTimestamp(input.scheduledEndAt, 'scheduledEndAt', issues, true)
-		: undefined;
-	if (scheduledStartAt !== undefined && scheduledEndAt !== undefined) {
-		validateTimestampOrder(scheduledStartAt, scheduledEndAt, 'scheduledEndAt', issues);
-	}
-	const rainDate = hasRain
-		? normalizeOptionalLocalDate(input.rainDate, 'rainDate', issues)
-		: undefined;
+	const changes = normalizeUpdateFields(
+		input,
+		MISSION_SCHEDULE_UPDATE_FIELDS,
+		'At least one mission schedule field must change.',
+		issues,
+	);
+	validateTimestampOrder(
+		changes.scheduledStartAt,
+		changes.scheduledEndAt,
+		'scheduledEndAt',
+		issues,
+	);
 	throwIfIssues('Update mission schedule command is invalid.', issues);
-	const changes: UpdateMissionScheduleCommand['payload']['changes'] = {
-		...(hasStart && scheduledStartAt !== undefined ? { scheduledStartAt } : {}),
-		...(hasEnd ? { scheduledEndAt: scheduledEndAt ?? null } : {}),
-		...(hasRain ? { rainDate: rainDate ?? null } : {}),
-	};
 	return {
 		type: 'missionDispatch.updateMissionSchedule',
 		payload: {
@@ -375,29 +379,18 @@ export function updateMissionScheduleCommand(
 export function updateMissionPlanCommand(
 	input: UpdateMissionPlanCommandInput,
 ): UpdateMissionPlanCommand {
-	const issues = validateIdCommand(input, 'missionId');
-	const hasControlType = input.controlType !== undefined;
-	const hasMethod = input.plannedMethodId !== undefined;
-	if (!hasControlType && !hasMethod) {
-		issues.push({ path: 'changes', message: 'At least one mission plan field must change.' });
-	}
-	const controlType = hasControlType
-		? normalizeStringUnion(input.controlType, CONTROL_TYPES, 'controlType', issues)
-		: undefined;
-	const plannedMethodId = hasMethod
-		? normalizeOptionalUuid(input.plannedMethodId, 'plannedMethodId', issues)
-		: undefined;
-	throwIfIssues('Update mission plan command is invalid.', issues);
-	const changes: UpdateMissionPlanCommand['payload']['changes'] = {
-		...(hasControlType && controlType !== undefined ? { controlType } : {}),
-		...(hasMethod ? { plannedMethodId: plannedMethodId ?? null } : {}),
-	};
-	return {
+	const command = updateFieldsCommand({
 		type: 'missionDispatch.updateMissionPlan',
+		input,
+		idKey: 'missionId',
+		fields: MISSION_PLAN_UPDATE_FIELDS,
+		changeNoun: 'mission plan',
+		message: 'Update mission plan command is invalid.',
+	});
+	return {
+		type: command.type,
 		payload: {
-			...basePayload(input),
-			missionId: normalizeRequiredId(input.missionId),
-			changes,
+			...command.payload,
 			acknowledgedNotificationPlanChange: input.acknowledgedNotificationPlanChange ?? false,
 			acknowledgedWorkedMissionPlanChange: input.acknowledgedWorkedMissionPlanChange ?? false,
 		},

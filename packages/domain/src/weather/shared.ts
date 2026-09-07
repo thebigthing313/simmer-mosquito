@@ -9,7 +9,7 @@ import {
 const WEATHER_METRIC_DECIMAL_PLACES = 2;
 export const MAX_WEATHER_IMPORT_ROWS = 5_000;
 
-export const WEATHER_SUMMARY_METRIC_FIELDS = [
+const WEATHER_SUMMARY_METRIC_FIELDS = [
 	'temperatureMinF',
 	'temperatureMaxF',
 	'precipitationInches',

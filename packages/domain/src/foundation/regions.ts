@@ -13,6 +13,15 @@ import {
 } from '../command-validation.js';
 import type { DomainId, JsonObject } from '../shared.js';
 import {
+	jsonObjectField,
+	nullableTextField,
+	requiredTextField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
+import {
 	type FoundationDomainCommand,
 	type OrganizationFoundationCommandInput,
 	type OrganizationFoundationCommandPayload,
@@ -35,20 +44,21 @@ export type CreateRegionFolderCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateRegionFolderCommandInput extends OrganizationFoundationCommandInput {
-	readonly regionFolderId: DomainId;
-	readonly name?: string;
-	readonly description?: string | null;
-}
+export const REGION_FOLDER_UPDATE_FIELDS = {
+	name: requiredTextField(200),
+	description: nullableTextField(2_000),
+} satisfies UpdateFieldSet;
+
+export type UpdateRegionFolderCommandInput = OrganizationFoundationCommandInput &
+	UpdateFieldsInput<typeof REGION_FOLDER_UPDATE_FIELDS> & {
+		readonly regionFolderId: DomainId;
+	};
 
 export type UpdateRegionFolderCommand = FoundationDomainCommand<
 	'foundation.updateRegionFolder',
 	OrganizationFoundationCommandPayload & {
 		readonly regionFolderId: DomainId;
-		readonly changes: Readonly<{
-			readonly name?: string;
-			readonly description?: string | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof REGION_FOLDER_UPDATE_FIELDS>;
 	}
 >;
 
@@ -86,22 +96,22 @@ export type CreateRegionCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateRegionDetailsCommandInput extends OrganizationFoundationCommandInput {
-	readonly regionId: DomainId;
-	readonly name?: string;
-	readonly description?: string | null;
-	readonly metadata?: unknown | null;
-}
+export const REGION_UPDATE_FIELDS = {
+	name: requiredTextField(200),
+	description: nullableTextField(2_000),
+	metadata: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateRegionDetailsCommandInput = OrganizationFoundationCommandInput &
+	UpdateFieldsInput<typeof REGION_UPDATE_FIELDS> & {
+		readonly regionId: DomainId;
+	};
 
 export type UpdateRegionDetailsCommand = FoundationDomainCommand<
 	'foundation.updateRegionDetails',
 	OrganizationFoundationCommandPayload & {
 		readonly regionId: DomainId;
-		readonly changes: Readonly<{
-			readonly name?: string;
-			readonly description?: string | null;
-			readonly metadata?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof REGION_UPDATE_FIELDS>;
 	}
 >;
 
@@ -168,27 +178,14 @@ export function createRegionFolderCommand(
 export function updateRegionFolderCommand(
 	input: UpdateRegionFolderCommandInput,
 ): UpdateRegionFolderCommand {
-	const issues = validateOrganizationIdCommand(input, 'regionFolderId');
-	const hasName = input.name !== undefined;
-	const hasDescription = input.description !== undefined;
-	if (!hasName && !hasDescription) {
-		issues.push({ path: 'changes', message: 'At least one region folder field must change.' });
-	}
-	const name = hasName ? normalizeRequiredText(input.name, 'name', issues, 200) : undefined;
-	throwIfIssues('Update region folder command is invalid.', issues);
-	return {
+	return updateFieldsCommand({
 		type: 'foundation.updateRegionFolder',
-		payload: {
-			...organizationPayload(input),
-			regionFolderId: normalizeRequiredDomainId(input.regionFolderId),
-			changes: {
-				...(name !== undefined ? { name } : {}),
-				...(hasDescription
-					? { description: normalizeNullableText(input.description, 'description', issues, 2_000) }
-					: {}),
-			},
-		},
-	};
+		input,
+		idKey: 'regionFolderId',
+		fields: REGION_FOLDER_UPDATE_FIELDS,
+		changeNoun: 'region folder',
+		message: 'Update region folder command is invalid.',
+	});
 }
 
 export function deleteRegionFolderCommand(
@@ -232,32 +229,15 @@ export function createRegionCommand(input: CreateRegionCommandInput): CreateRegi
 export function updateRegionDetailsCommand(
 	input: UpdateRegionDetailsCommandInput,
 ): UpdateRegionDetailsCommand {
-	const issues = validateOrganizationIdCommand(input, 'regionId');
-	const hasName = input.name !== undefined;
-	const hasDescription = input.description !== undefined;
-	const hasMetadata = input.metadata !== undefined;
-	if (!hasName && !hasDescription && !hasMetadata) {
-		issues.push({ path: 'changes', message: 'At least one region detail must change.' });
-	}
-	const name = hasName ? normalizeRequiredText(input.name, 'name', issues, 200) : undefined;
-	const metadata = hasMetadata
-		? normalizeJsonObject(input.metadata, 'metadata', issues)
-		: undefined;
-	throwIfIssues('Update region details command is invalid.', issues);
-	return {
+	return updateFieldsCommand({
 		type: 'foundation.updateRegionDetails',
-		payload: {
-			...organizationPayload(input),
-			regionId: normalizeRequiredDomainId(input.regionId),
-			changes: {
-				...(name !== undefined ? { name } : {}),
-				...(hasDescription
-					? { description: normalizeNullableText(input.description, 'description', issues, 2_000) }
-					: {}),
-				...(hasMetadata ? { metadata: metadata ?? null } : {}),
-			},
-		},
-	};
+		input,
+		idKey: 'regionId',
+		fields: REGION_UPDATE_FIELDS,
+		changeNoun: 'region',
+		emptyChangeMessage: 'At least one region detail must change.',
+		message: 'Update region details command is invalid.',
+	});
 }
 
 export function moveRegionToFolderCommand(

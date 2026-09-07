@@ -1,9 +1,17 @@
 import {
 	createNamedReferenceCommand,
 	namedReferenceIdCommand,
-	updateNamedReferenceCommand,
 } from '../named-reference-commands.js';
 import type { DomainId, JsonObject } from '../shared.js';
+import {
+	jsonObjectField,
+	nullableTextField,
+	requiredTextField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
 import type {
 	ControlCommandInput,
 	ControlCommandPayload,
@@ -24,21 +32,22 @@ export type CreateVehicleCommand = ControlOperationsDomainCommand<
 	}
 >;
 
-export interface UpdateVehicleCommandInput extends ControlCommandInput {
-	readonly vehicleId: DomainId;
-	readonly vehicleName?: string;
-	readonly metadata?: unknown | null;
-	readonly acknowledgedHistoricalVehicleLabelChange?: boolean;
-}
+export const VEHICLE_UPDATE_FIELDS = {
+	vehicleName: requiredTextField(200),
+	metadata: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateVehicleCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof VEHICLE_UPDATE_FIELDS> & {
+		readonly vehicleId: DomainId;
+		readonly acknowledgedHistoricalVehicleLabelChange?: boolean;
+	};
 
 export type UpdateVehicleCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateVehicle',
 	ControlCommandPayload & {
 		readonly vehicleId: DomainId;
-		readonly changes: Readonly<{
-			readonly vehicleName?: string;
-			readonly metadata?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof VEHICLE_UPDATE_FIELDS>;
 		readonly acknowledgedHistoricalVehicleLabelChange: boolean;
 	}
 >;
@@ -79,23 +88,23 @@ export type CreateEquipmentCommand = ControlOperationsDomainCommand<
 	}
 >;
 
-export interface UpdateEquipmentCommandInput extends ControlCommandInput {
-	readonly equipmentId: DomainId;
-	readonly equipmentName?: string;
-	readonly serialNumber?: string | null;
-	readonly metadata?: unknown | null;
-	readonly acknowledgedHistoricalEquipmentLabelChange?: boolean;
-}
+export const EQUIPMENT_UPDATE_FIELDS = {
+	equipmentName: requiredTextField(200),
+	serialNumber: nullableTextField(500),
+	metadata: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateEquipmentCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof EQUIPMENT_UPDATE_FIELDS> & {
+		readonly equipmentId: DomainId;
+		readonly acknowledgedHistoricalEquipmentLabelChange?: boolean;
+	};
 
 export type UpdateEquipmentCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateEquipment',
 	ControlCommandPayload & {
 		readonly equipmentId: DomainId;
-		readonly changes: Readonly<{
-			readonly equipmentName?: string;
-			readonly serialNumber?: string | null;
-			readonly metadata?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof EQUIPMENT_UPDATE_FIELDS>;
 		readonly acknowledgedHistoricalEquipmentLabelChange: boolean;
 	}
 >;
@@ -135,33 +144,20 @@ export function createVehicleCommand(input: CreateVehicleCommandInput): CreateVe
 }
 
 export function updateVehicleCommand(input: UpdateVehicleCommandInput): UpdateVehicleCommand {
-	const command = updateNamedReferenceCommand({
+	const command = updateFieldsCommand({
 		type: 'controlOperations.updateVehicle',
-		input: {
-			...input,
-			...(input.vehicleName !== undefined ? { name: input.vehicleName } : {}),
-			...(input.acknowledgedHistoricalVehicleLabelChange !== undefined
-				? {
-						acknowledgedHistoricalLabelChange: input.acknowledgedHistoricalVehicleLabelChange,
-					}
-				: {}),
-		},
+		input,
 		idKey: 'vehicleId',
-		fields: { metadata: true },
+		fields: VEHICLE_UPDATE_FIELDS,
 		changeNoun: 'vehicle',
 		message: 'Update vehicle command is invalid.',
 	});
-	const { changes, acknowledgedHistoricalLabelChange, ...payload } = command.payload;
-	const { name, ...remainingChanges } = changes;
 	return {
-		type: 'controlOperations.updateVehicle',
+		type: command.type,
 		payload: {
-			...payload,
-			changes: {
-				...(name !== undefined ? { vehicleName: name } : {}),
-				...remainingChanges,
-			},
-			acknowledgedHistoricalVehicleLabelChange: acknowledgedHistoricalLabelChange,
+			...command.payload,
+			acknowledgedHistoricalVehicleLabelChange:
+				input.acknowledgedHistoricalVehicleLabelChange ?? false,
 		},
 	};
 }
@@ -206,33 +202,20 @@ export function createEquipmentCommand(input: CreateEquipmentCommandInput): Crea
 }
 
 export function updateEquipmentCommand(input: UpdateEquipmentCommandInput): UpdateEquipmentCommand {
-	const command = updateNamedReferenceCommand({
+	const command = updateFieldsCommand({
 		type: 'controlOperations.updateEquipment',
-		input: {
-			...input,
-			...(input.equipmentName !== undefined ? { name: input.equipmentName } : {}),
-			...(input.acknowledgedHistoricalEquipmentLabelChange !== undefined
-				? {
-						acknowledgedHistoricalLabelChange: input.acknowledgedHistoricalEquipmentLabelChange,
-					}
-				: {}),
-		},
+		input,
 		idKey: 'equipmentId',
-		fields: { serialNumber: true, metadata: true },
+		fields: EQUIPMENT_UPDATE_FIELDS,
 		changeNoun: 'equipment',
 		message: 'Update equipment command is invalid.',
 	});
-	const { changes, acknowledgedHistoricalLabelChange, ...payload } = command.payload;
-	const { name, ...remainingChanges } = changes;
 	return {
-		type: 'controlOperations.updateEquipment',
+		type: command.type,
 		payload: {
-			...payload,
-			changes: {
-				...(name !== undefined ? { equipmentName: name } : {}),
-				...remainingChanges,
-			},
-			acknowledgedHistoricalEquipmentLabelChange: acknowledgedHistoricalLabelChange,
+			...command.payload,
+			acknowledgedHistoricalEquipmentLabelChange:
+				input.acknowledgedHistoricalEquipmentLabelChange ?? false,
 		},
 	};
 }

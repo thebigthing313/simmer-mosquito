@@ -1,7 +1,6 @@
 import {
 	basePayload,
 	createIssues,
-	nullableText as normalizeNullableText,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
@@ -10,6 +9,14 @@ import {
 	validateIdList,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
+import {
+	normalizeUpdateFields,
+	nullableTextField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
 import type {
 	CreateContactDetails,
 	CreateContactDetailsInput,
@@ -17,12 +24,7 @@ import type {
 	PublicEngagementCommandPayload,
 	PublicEngagementDomainCommand,
 } from './core.js';
-import {
-	normalizeCreateContactDetails,
-	normalizeEmail,
-	validateBoolean,
-	validatePhonePreferencePatch,
-} from './core.js';
+import { booleanField, normalizeCreateContactDetails, normalizeEmail } from './core.js';
 export interface CreateContactCommandInput
 	extends PublicEngagementCommandInput,
 		CreateContactDetailsInput {
@@ -34,49 +36,45 @@ export type CreateContactCommand = PublicEngagementDomainCommand<
 	PublicEngagementCommandPayload & { readonly contactId: DomainId } & CreateContactDetails
 >;
 
-export interface UpdateContactDetailsCommandInput extends PublicEngagementCommandInput {
-	readonly contactId: DomainId;
-	readonly contactName?: string | null;
-	readonly company?: string | null;
-	readonly department?: string | null;
-	readonly title?: string | null;
-}
+export const CONTACT_DETAILS_UPDATE_FIELDS = {
+	contactName: nullableTextField(200),
+	company: nullableTextField(200),
+	department: nullableTextField(200),
+	title: nullableTextField(200),
+} satisfies UpdateFieldSet;
+
+export type UpdateContactDetailsCommandInput = PublicEngagementCommandInput &
+	UpdateFieldsInput<typeof CONTACT_DETAILS_UPDATE_FIELDS> & {
+		readonly contactId: DomainId;
+	};
 
 export type UpdateContactDetailsCommand = PublicEngagementDomainCommand<
 	'publicEngagement.updateContactDetails',
 	PublicEngagementCommandPayload & {
 		readonly contactId: DomainId;
-		readonly changes: Readonly<{
-			readonly contactName?: string | null;
-			readonly company?: string | null;
-			readonly department?: string | null;
-			readonly title?: string | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof CONTACT_DETAILS_UPDATE_FIELDS>;
 	}
 >;
 
-export interface UpdateContactCommunicationCommandInput extends PublicEngagementCommandInput {
-	readonly contactId: DomainId;
-	readonly preferredPhone?: string | null;
-	readonly alternatePhone?: string | null;
-	readonly email?: string | null;
-	readonly wantsEmail?: boolean;
-	readonly wantsSms?: boolean;
-	readonly wantsPhone?: boolean;
-}
+export const CONTACT_COMMUNICATION_UPDATE_FIELDS = {
+	preferredPhone: nullableTextField(100),
+	alternatePhone: nullableTextField(100),
+	email: normalizeEmail,
+	wantsEmail: booleanField,
+	wantsSms: booleanField,
+	wantsPhone: booleanField,
+} satisfies UpdateFieldSet;
+
+export type UpdateContactCommunicationCommandInput = PublicEngagementCommandInput &
+	UpdateFieldsInput<typeof CONTACT_COMMUNICATION_UPDATE_FIELDS> & {
+		readonly contactId: DomainId;
+	};
 
 export type UpdateContactCommunicationCommand = PublicEngagementDomainCommand<
 	'publicEngagement.updateContactCommunication',
 	PublicEngagementCommandPayload & {
 		readonly contactId: DomainId;
-		readonly changes: Readonly<{
-			readonly preferredPhone?: string | null;
-			readonly alternatePhone?: string | null;
-			readonly email?: string | null;
-			readonly wantsEmail?: boolean;
-			readonly wantsSms?: boolean;
-			readonly wantsPhone?: boolean;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof CONTACT_COMMUNICATION_UPDATE_FIELDS>;
 	}
 >;
 
@@ -119,112 +117,54 @@ export function createContactCommand(input: CreateContactCommandInput): CreateCo
 export function updateContactDetailsCommand(
 	input: UpdateContactDetailsCommandInput,
 ): UpdateContactDetailsCommand {
-	const issues = validateIdCommand(input, 'contactId');
-	const hasName = input.contactName !== undefined;
-	const hasCompany = input.company !== undefined;
-	const hasDepartment = input.department !== undefined;
-	const hasTitle = input.title !== undefined;
-	if (!hasName && !hasCompany && !hasDepartment && !hasTitle) {
-		issues.push({ path: 'changes', message: 'At least one contact detail must change.' });
-	}
-	const contactName = hasName
-		? normalizeNullableText(input.contactName, 'contactName', issues, 200)
-		: undefined;
-	const company = hasCompany
-		? normalizeNullableText(input.company, 'company', issues, 200)
-		: undefined;
-	const department = hasDepartment
-		? normalizeNullableText(input.department, 'department', issues, 200)
-		: undefined;
-	const title = hasTitle ? normalizeNullableText(input.title, 'title', issues, 200) : undefined;
-	throwIfIssues('Update contact details command is invalid.', issues);
-	return {
+	return updateFieldsCommand({
 		type: 'publicEngagement.updateContactDetails',
-		payload: {
-			...basePayload(input),
-			contactId: normalizeRequiredId(input.contactId),
-			changes: {
-				...(hasName ? { contactName: contactName ?? null } : {}),
-				...(hasCompany ? { company: company ?? null } : {}),
-				...(hasDepartment ? { department: department ?? null } : {}),
-				...(hasTitle ? { title: title ?? null } : {}),
-			},
-		},
-	};
+		input,
+		idKey: 'contactId',
+		fields: CONTACT_DETAILS_UPDATE_FIELDS,
+		changeNoun: 'contact',
+		emptyChangeMessage: 'At least one contact detail must change.',
+		message: 'Update contact details command is invalid.',
+	});
 }
 
 export function updateContactCommunicationCommand(
 	input: UpdateContactCommunicationCommandInput,
 ): UpdateContactCommunicationCommand {
 	const issues = validateIdCommand(input, 'contactId');
-	const hasPreferred = input.preferredPhone !== undefined;
-	const hasAlternate = input.alternatePhone !== undefined;
-	const hasEmail = input.email !== undefined;
-	const hasWantsEmail = input.wantsEmail !== undefined;
-	const hasWantsSms = input.wantsSms !== undefined;
-	const hasWantsPhone = input.wantsPhone !== undefined;
-	if (
-		!hasPreferred &&
-		!hasAlternate &&
-		!hasEmail &&
-		!hasWantsEmail &&
-		!hasWantsSms &&
-		!hasWantsPhone
-	) {
-		issues.push({
-			path: 'changes',
-			message: 'At least one contact communication field must change.',
-		});
-	}
-	const preferredPhone = hasPreferred
-		? normalizeNullableText(input.preferredPhone, 'preferredPhone', issues, 100)
-		: undefined;
-	const alternatePhone = hasAlternate
-		? normalizeNullableText(input.alternatePhone, 'alternatePhone', issues, 100)
-		: undefined;
-	const email = hasEmail ? normalizeEmail(input.email, 'email', issues) : undefined;
-	if (hasPreferred && preferredPhone === null && hasAlternate && alternatePhone !== null) {
+	const changes = normalizeUpdateFields(
+		input,
+		CONTACT_COMMUNICATION_UPDATE_FIELDS,
+		'At least one contact communication field must change.',
+		issues,
+	);
+
+	// A contact reachable by phone needs the number the calls go to, so the three
+	// rules below all read the same pair: what this edit leaves the phone as, and
+	// what it asks to be reachable by.
+	if (changes.preferredPhone === null && (changes.alternatePhone ?? null) !== null) {
 		issues.push({
 			path: 'alternatePhone',
 			message: 'alternatePhone cannot be set without preferredPhone.',
 		});
 	}
-	if (hasWantsEmail) {
-		validateBoolean(input.wantsEmail, 'wantsEmail', issues);
-		if (input.wantsEmail === true && hasEmail && email === null) {
-			issues.push({ path: 'wantsEmail', message: 'wantsEmail requires email.' });
-		}
+	if (changes.wantsEmail === true && changes.email === null) {
+		issues.push({ path: 'wantsEmail', message: 'wantsEmail requires email.' });
 	}
-	validatePhonePreferencePatch(
-		input.wantsSms,
-		hasWantsSms,
-		preferredPhone,
-		hasPreferred,
-		'wantsSms',
-		issues,
-	);
-	validatePhonePreferencePatch(
-		input.wantsPhone,
-		hasWantsPhone,
-		preferredPhone,
-		hasPreferred,
-		'wantsPhone',
-		issues,
-	);
+	if (changes.wantsSms === true && changes.preferredPhone === null) {
+		issues.push({ path: 'wantsSms', message: 'wantsSms requires preferredPhone.' });
+	}
+	if (changes.wantsPhone === true && changes.preferredPhone === null) {
+		issues.push({ path: 'wantsPhone', message: 'wantsPhone requires preferredPhone.' });
+	}
 	throwIfIssues('Update contact communication command is invalid.', issues);
+
 	return {
 		type: 'publicEngagement.updateContactCommunication',
 		payload: {
 			...basePayload(input),
 			contactId: normalizeRequiredId(input.contactId),
-			changes: {
-				...(hasPreferred ? { preferredPhone: preferredPhone ?? null } : {}),
-				...(hasAlternate ? { alternatePhone: alternatePhone ?? null } : {}),
-				...(hasEmail ? { email: email ?? null } : {}),
-				...(hasWantsEmail ? { wantsEmail: input.wantsEmail === true } : {}),
-				...(hasWantsSms ? { wantsSms: input.wantsSms === true } : {}),
-				...(hasWantsPhone ? { wantsPhone: input.wantsPhone === true } : {}),
-			},
+			changes,
 		},
 	};
 }

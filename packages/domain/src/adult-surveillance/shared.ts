@@ -16,6 +16,7 @@ import {
 } from '../location-intent.js';
 import type { UnitType } from '../organization-settings/types-and-defaults.js';
 import type { DomainId, DomainValidationIssue, JsonObject } from '../shared.js';
+import type { UpdateFieldNormalizer } from '../update-command-fields.js';
 
 export type {
 	CollectedCollectionTiming,
@@ -145,6 +146,28 @@ export function validateAdultCollectionLocationSourceInput(
 		issues,
 	);
 }
+
+/** Where a Trap sits, as an update command's field descriptor names it. */
+export const trapLocationSourceField: UpdateFieldNormalizer<
+	TrapLocationSourceInput | undefined,
+	TrapLocationSource
+> = (value, path, issues) => validateTrapLocationSource(value, path, issues);
+
+/** Where an ad hoc Collection sits, as an update command's field descriptor names it. */
+export const adultCollectionLocationSourceField: UpdateFieldNormalizer<
+	AdultCollectionLocationSourceInput | undefined,
+	AdultCollectionLocationSource
+> = (value, path, issues) => validateAdultCollectionLocationSource(value, path, issues);
+
+/** How many of one species were counted, as a field descriptor names it. */
+export const speciesCountField: UpdateFieldNormalizer<number | undefined, number> = (
+	value,
+	path,
+	issues,
+) => {
+	validateSpeciesCount(value, path, issues);
+	return value as number;
+};
 
 export function validateSpeciesCount(
 	count: number | undefined,

@@ -10,6 +10,14 @@ import {
 	validateIdCommand,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
+import {
+	nullableTextField,
+	requiredTextField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
 import type {
 	PublicEngagementCommandInput,
 	PublicEngagementCommandPayload,
@@ -30,21 +38,22 @@ export type CreateNotificationTypeCommand = PublicEngagementDomainCommand<
 	}
 >;
 
-export interface UpdateNotificationTypeCommandInput extends PublicEngagementCommandInput {
-	readonly notificationTypeId: DomainId;
-	readonly name?: string;
-	readonly description?: string | null;
-	readonly acknowledgedHistoricalLabelChange?: boolean;
-}
+export const NOTIFICATION_TYPE_UPDATE_FIELDS = {
+	name: requiredTextField(200),
+	description: nullableTextField(2_000),
+} satisfies UpdateFieldSet;
+
+export type UpdateNotificationTypeCommandInput = PublicEngagementCommandInput &
+	UpdateFieldsInput<typeof NOTIFICATION_TYPE_UPDATE_FIELDS> & {
+		readonly notificationTypeId: DomainId;
+		readonly acknowledgedHistoricalLabelChange?: boolean;
+	};
 
 export type UpdateNotificationTypeCommand = PublicEngagementDomainCommand<
 	'publicEngagement.updateNotificationType',
 	PublicEngagementCommandPayload & {
 		readonly notificationTypeId: DomainId;
-		readonly changes: Readonly<{
-			readonly name?: string;
-			readonly description?: string | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof NOTIFICATION_TYPE_UPDATE_FIELDS>;
 		readonly acknowledgedHistoricalLabelChange: boolean;
 	}
 >;
@@ -98,26 +107,18 @@ export function createNotificationTypeCommand(
 export function updateNotificationTypeCommand(
 	input: UpdateNotificationTypeCommandInput,
 ): UpdateNotificationTypeCommand {
-	const issues = validateIdCommand(input, 'notificationTypeId');
-	const hasName = input.name !== undefined;
-	const hasDescription = input.description !== undefined;
-	if (!hasName && !hasDescription) {
-		issues.push({ path: 'changes', message: 'At least one notification type field must change.' });
-	}
-	const name = hasName ? normalizeRequiredText(input.name, 'name', issues, 200) : undefined;
-	const description = hasDescription
-		? normalizeNullableText(input.description, 'description', issues, 2_000)
-		: undefined;
-	throwIfIssues('Update notification type command is invalid.', issues);
-	return {
+	const command = updateFieldsCommand({
 		type: 'publicEngagement.updateNotificationType',
+		input,
+		idKey: 'notificationTypeId',
+		fields: NOTIFICATION_TYPE_UPDATE_FIELDS,
+		changeNoun: 'notification type',
+		message: 'Update notification type command is invalid.',
+	});
+	return {
+		type: command.type,
 		payload: {
-			...basePayload(input),
-			notificationTypeId: normalizeRequiredId(input.notificationTypeId),
-			changes: {
-				...(name !== undefined ? { name } : {}),
-				...(hasDescription ? { description: description ?? null } : {}),
-			},
+			...command.payload,
 			acknowledgedHistoricalLabelChange: input.acknowledgedHistoricalLabelChange ?? false,
 		},
 	};

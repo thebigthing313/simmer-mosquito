@@ -8,6 +8,12 @@ import {
 	validateIdCommand,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
+import {
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
 import type {
 	ContactReference,
 	ContactReferenceInput,
@@ -20,9 +26,9 @@ import type {
 	PublicEngagementDomainCommand,
 } from './core.js';
 import {
+	booleanField,
 	normalizeBooleanDefault,
 	normalizeBuffer,
-	validateBoolean,
 	validateContactReference,
 	validateNotificationRegistrationLocation,
 	validateRegistrationPurpose,
@@ -103,22 +109,22 @@ export type UpdateNotificationRegistrationBufferCommand = PublicEngagementDomain
 	}
 >;
 
-export interface UpdateNotificationRegistrationFlagsCommandInput
-	extends PublicEngagementCommandInput {
-	readonly notificationRegistrationId: DomainId;
-	readonly hasBees?: boolean;
-	readonly isNoSpray?: boolean;
-	readonly acknowledgedFutureOnlyChange?: boolean;
-}
+export const NOTIFICATION_REGISTRATION_FLAG_UPDATE_FIELDS = {
+	hasBees: booleanField,
+	isNoSpray: booleanField,
+} satisfies UpdateFieldSet;
+
+export type UpdateNotificationRegistrationFlagsCommandInput = PublicEngagementCommandInput &
+	UpdateFieldsInput<typeof NOTIFICATION_REGISTRATION_FLAG_UPDATE_FIELDS> & {
+		readonly notificationRegistrationId: DomainId;
+		readonly acknowledgedFutureOnlyChange?: boolean;
+	};
 
 export type UpdateNotificationRegistrationFlagsCommand = PublicEngagementDomainCommand<
 	'publicEngagement.updateNotificationRegistrationFlags',
 	PublicEngagementCommandPayload & {
 		readonly notificationRegistrationId: DomainId;
-		readonly changes: Readonly<{
-			readonly hasBees?: boolean;
-			readonly isNoSpray?: boolean;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof NOTIFICATION_REGISTRATION_FLAG_UPDATE_FIELDS>;
 		readonly acknowledgedFutureOnlyChange: boolean;
 	}
 >;
@@ -260,31 +266,19 @@ export function updateNotificationRegistrationBufferCommand(
 export function updateNotificationRegistrationFlagsCommand(
 	input: UpdateNotificationRegistrationFlagsCommandInput,
 ): UpdateNotificationRegistrationFlagsCommand {
-	const issues = validateIdCommand(input, 'notificationRegistrationId');
-	const hasHasBees = input.hasBees !== undefined;
-	const hasIsNoSpray = input.isNoSpray !== undefined;
-	if (!hasHasBees && !hasIsNoSpray) {
-		issues.push({
-			path: 'changes',
-			message: 'At least one notification registration flag must change.',
-		});
-	}
-	if (hasHasBees) {
-		validateBoolean(input.hasBees, 'hasBees', issues);
-	}
-	if (hasIsNoSpray) {
-		validateBoolean(input.isNoSpray, 'isNoSpray', issues);
-	}
-	throwIfIssues('Update notification registration flags command is invalid.', issues);
-	return {
+	const command = updateFieldsCommand({
 		type: 'publicEngagement.updateNotificationRegistrationFlags',
+		input,
+		idKey: 'notificationRegistrationId',
+		fields: NOTIFICATION_REGISTRATION_FLAG_UPDATE_FIELDS,
+		changeNoun: 'notification registration',
+		emptyChangeMessage: 'At least one notification registration flag must change.',
+		message: 'Update notification registration flags command is invalid.',
+	});
+	return {
+		type: command.type,
 		payload: {
-			...basePayload(input),
-			notificationRegistrationId: normalizeRequiredId(input.notificationRegistrationId),
-			changes: {
-				...(hasHasBees ? { hasBees: input.hasBees === true } : {}),
-				...(hasIsNoSpray ? { isNoSpray: input.isNoSpray === true } : {}),
-			},
+			...command.payload,
 			acknowledgedFutureOnlyChange: input.acknowledgedFutureOnlyChange ?? false,
 		},
 	};
