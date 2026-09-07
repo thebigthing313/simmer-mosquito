@@ -85,15 +85,43 @@ let sendWithSession: SessionFetcher | null = null;
 /**
  * Install this app's transport, once, before any collection is used.
  *
- * An app that installs none sends bare `fetch`, which on a browser omits the
- * cookie cross-origin and therefore reaches the server unauthenticated. That is
- * the right default for a package with no opinion about credentials, and it is
- * why both shipping apps install one beside their recovery rather than relying
- * on what this does without one.
+ * An app that installs none is refused rather than defaulted (#694). Until #695
+ * the fallback was bare `fetch` and thirty call sites carried a
+ * `credentials: 'include'` of their own through it, so a host that forgot this
+ * still authenticated. Those are gone, so the fallback now omits the cookie
+ * cross-origin on every read and every write, and an app whose requests are all
+ * refused draws as empty rather than as broken. There is no credential this
+ * package could guess in its place: a browser holds a cookie and `apps/mobile`
+ * holds a bearer, and picking either would be wrong for the other host.
+ *
+ * The other half of the same rule is `pnpm check:session-fetcher`, which refuses
+ * an app that imports the collection barrel and calls this nowhere. The refusal
+ * below catches an installer that exists and has not run yet, which is a fact
+ * about the entry graph at runtime; the gate catches an app with none to run,
+ * which is readable off the source.
  */
 export function setSessionFetcher(fetcher: SessionFetcher | null): void {
 	sendWithSession = fetcher;
 }
+
+/**
+ * What a request does when no app installed a transport: nothing, loudly.
+ *
+ * Thrown at the send rather than checked at import, because there is no moment
+ * in this package that is startup. An app loads the module, installs its
+ * transport, and only then builds a collection, so the first request is the
+ * earliest point at which "none was installed" is an answer rather than a race.
+ */
+const refuseWithoutFetcher: SessionFetcher = () => {
+	throw new Error(
+		'No session fetcher installed. Every shape stream and every command write in ' +
+			'@simmer-mosquito/sync carries the host session through the transport an app installs ' +
+			'with setSessionFetcher, and this app installed none. Install one at module scope, ' +
+			'before any collection is used: cookieFetch from @simmer-mosquito/auth/browser for a ' +
+			'browser app, or the fetch member of the token client for a device holding the session ' +
+			'in a keystore.',
+	);
+};
 
 /**
  * The app's transport, with one renewal and one retry on a refusal.
@@ -111,9 +139,12 @@ export function setSessionFetcher(fetcher: SessionFetcher | null): void {
  * what is wrong. An ended membership is a 403 too, and the route guard already
  * sends that reader to the front door on the next navigation.
  *
- * **Both attempts go through the installed fetcher.** A retry on bare `fetch`
- * would carry no credential at all and be refused a second time, which reads as
- * a renewal that worked and a request that never had a chance.
+ * **Both attempts go through the installed fetcher**, and there is nothing else
+ * for either to go through. A send with no transport installed throws here
+ * rather than falling back to bare `fetch`, which would carry no credential at
+ * all: on the first attempt that is an app reading as empty, and on a retry it
+ * is a renewal that looks like it worked over a request that never had a
+ * chance.
  *
  * **A caller passes no `credentials`.** The installed fetcher answers that, and
  * a call site restating it is either inert or wrong: `cookieFetch` forces
@@ -123,7 +154,7 @@ export function setSessionFetcher(fetcher: SessionFetcher | null): void {
  * its own tiles and never reaches this function.
  */
 export const sessionFetch: typeof fetch = async (request, init) => {
-	const send = sendWithSession ?? fetch;
+	const send = sendWithSession ?? refuseWithoutFetcher;
 
 	// Cloned before the first attempt, because a `Request` body can only be read
 	// once and subset requests are POSTs carrying one. Retrying the spent object

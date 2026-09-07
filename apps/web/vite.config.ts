@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import { version } from './package.json' with { type: 'json' };
 
 export default defineConfig({
@@ -17,6 +17,20 @@ export default defineConfig({
 	 */
 	define: {
 		__APP_VERSION__: JSON.stringify(version),
+	},
+	/*
+	 * The one thing every suite here needs that no suite sets up for itself: a
+	 * session transport, which `packages/sync` refuses to send without (#694).
+	 * The app installs one at module scope in `app-auth.ts`; the setup file
+	 * installs one that defers to whatever a case stubbed. See the file.
+	 *
+	 * This block is why `defineConfig` comes from `vitest/config` rather than
+	 * from `vite`: vite's own type has no `test` key. The shipped build reads
+	 * this file too, and the image builds with devDependencies in place, so
+	 * nothing about production changes.
+	 */
+	test: {
+		setupFiles: ['./src/tests/session-transport.ts'],
 	},
 	build: {
 		outDir: 'dist',

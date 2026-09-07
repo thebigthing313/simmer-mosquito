@@ -76,7 +76,14 @@ export function* typeScriptFilesUnder(directory, generatedPaths = [], options = 
 const isGenerated = (path, generatedPaths) =>
 	generatedPaths.some((generated) => path.endsWith(generated));
 
-function isDirectory(path) {
+/**
+ * Whether a path is a directory, with a missing one answering no.
+ *
+ * Exported because `check-session-fetcher.mjs` asks the same question of
+ * `apps/<name>/src` before walking it, and a second copy of a `statSync` in a
+ * `try` is a copy of code already in scope.
+ */
+export function isDirectory(path) {
 	try {
 		return statSync(path).isDirectory();
 	} catch {
