@@ -16,6 +16,7 @@ import { iconRegistry, type RegistryIcon } from '@simmer-mosquito/ui-web/icons/r
 import { createFileRoute } from '@tanstack/react-router';
 import { type ReactNode, useState } from 'react';
 import { toast } from 'sonner';
+import type { OrganizationFoundations } from '../../../api';
 import { AdminError, AdminPage } from '../../../components/admin-page';
 import { CatalogList, CatalogRow, RecordDialog } from '../../../components/catalog';
 import { GeometryFileInput, PointInput } from '../../../components/geometry-input';
@@ -23,7 +24,6 @@ import { OrganizationSessionGate } from '../../../components/organization-sessio
 import { useOrganizations } from '../-organization-data';
 import {
 	type LookupKind,
-	type OrganizationFoundations,
 	useCreateFoundation,
 	useOrganizationFoundations,
 } from './-foundations-data';

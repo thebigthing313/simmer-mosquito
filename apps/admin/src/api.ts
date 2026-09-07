@@ -19,8 +19,11 @@ const DEFAULT_SERVER_URL = 'http://localhost:3000';
 export type { AuthMe, AuthOrganizationChoice } from '@simmer-mosquito/auth/browser';
 
 /**
- * A failed `/admin/*` request, carrying the server's machine-readable `error`
- * code alongside the human message.
+ * A failed request from the console, carrying the server's machine-readable
+ * `error` code alongside the human message.
+ *
+ * Every `/admin/*` call raises one, and so does a Foundations write, which
+ * reaches an organization endpoint through {@link postOrganizationCommand}.
  *
  * The code matters for two cases, and they are the ones that decide whether the
  * console works at all. Both are 403s from
@@ -129,6 +132,78 @@ export interface OrganizationMembershipsResult {
 	readonly memberships: AdminMembership[];
 }
 
+export interface FoundationAddress {
+	readonly id: string;
+	readonly displayName: string;
+	readonly locality: string | null;
+	readonly region: string | null;
+	readonly postalCode: string | null;
+	readonly country: string;
+}
+
+export interface FoundationRegionFolder {
+	readonly id: string;
+	readonly name: string;
+	readonly description: string | null;
+}
+
+export interface FoundationRegion {
+	readonly id: string;
+	readonly regionFolderId: string | null;
+	readonly name: string;
+	readonly description: string | null;
+}
+
+export interface FoundationGenus {
+	readonly id: string;
+	readonly name: string;
+	readonly abbreviation: string;
+}
+
+export interface FoundationSpecies {
+	readonly id: string;
+	readonly genusId: string | null;
+	readonly displayName: string;
+	readonly commonName: string | null;
+}
+
+export interface FoundationOrganizationSpecies {
+	readonly id: string;
+	readonly speciesId: string;
+}
+
+export interface FoundationLookup {
+	readonly id: string;
+	readonly name: string;
+	readonly description: string | null;
+	readonly actionThreshold: number | null;
+	readonly isActive: boolean;
+}
+
+export interface FoundationTrap {
+	readonly id: string;
+	readonly collectionMethodId: string;
+	readonly trapName: string | null;
+	readonly trapCode: string | null;
+	readonly isActive: boolean;
+}
+
+/** Everything a new organization needs standing up, in one operator read. */
+export interface OrganizationFoundations {
+	readonly addresses: readonly FoundationAddress[];
+	readonly regionFolders: readonly FoundationRegionFolder[];
+	readonly regions: readonly FoundationRegion[];
+	readonly genera: readonly FoundationGenus[];
+	readonly species: readonly FoundationSpecies[];
+	readonly organizationSpecies: readonly FoundationOrganizationSpecies[];
+	readonly lookups: {
+		readonly collectionMethods: readonly FoundationLookup[];
+		readonly collectionLures: readonly FoundationLookup[];
+		readonly habitatTypes: readonly FoundationLookup[];
+	};
+	readonly traps: readonly FoundationTrap[];
+}
+
 export interface CreateAdminOrganizationInput {
 	readonly name: string;
 	readonly subscriptionStatus: AdminOrganization['subscription']['subscriptionStatus'];
@@ -222,52 +297,64 @@ export function adminLogoutUrl(serverUrl = getServerUrl()): string {
 export async function listAdminOrganizations(
 	serverUrl = getServerUrl(),
 ): Promise<AdminOrganization[]> {
-	const response = await sessionFetch(`${serverUrl}/admin/organizations`, {
-		credentials: 'include',
-		headers: { accept: 'application/json' },
-	});
-	const body = await readResponseBody<
-		| { readonly organizations: AdminOrganization[] }
-		| { readonly error: string; readonly reason?: string }
-	>(response);
-
-	if (!response.ok || !('organizations' in body)) {
-		throw adminApiError(response, body, 'Unable to load organizations.');
+	const unreadable = 'Unable to load organizations.';
+	const { organizations } = await getJson<{ readonly organizations?: AdminOrganization[] }>(
+		'/admin/organizations',
+		unreadable,
+		serverUrl,
+	);
+	// A 200 carrying neither the list nor an `error` is a fault, not a refusal.
+	// Handing the directory `undefined` would draw the empty state, which reads
+	// as "the platform has no organizations on it".
+	if (organizations === undefined) {
+		throw new Error(unreadable);
 	}
 
-	return body.organizations;
+	return organizations;
 }
 
 export async function createAdminOrganization(
 	input: CreateAdminOrganizationInput,
 	serverUrl = getServerUrl(),
 ): Promise<AdminOrganization> {
-	return postJson<AdminOrganization>(`${serverUrl}/admin/organizations`, {
-		...input,
-		billingMode: 'manual_invoice',
-	});
+	return postJson<AdminOrganization>(
+		'/admin/organizations',
+		{ ...input, billingMode: 'manual_invoice' },
+		serverUrl,
+	);
 }
 
 export async function listOrganizationMemberships(
 	organizationId: string,
 	serverUrl = getServerUrl(),
 ): Promise<OrganizationMembershipsResult> {
-	const response = await sessionFetch(
-		`${serverUrl}/admin/organizations/${organizationId}/memberships`,
-		{
-			credentials: 'include',
-			headers: { accept: 'application/json' },
-		},
+	return getJson<OrganizationMembershipsResult>(
+		`/admin/organizations/${organizationId}/memberships`,
+		'Unable to load memberships.',
+		serverUrl,
 	);
-	const body = await readResponseBody<
-		OrganizationMembershipsResult | { readonly error: string; readonly reason?: string }
-	>(response);
+}
 
-	if (!response.ok || 'error' in body) {
-		throw adminApiError(response, body, 'Unable to load memberships.');
-	}
-
-	return body;
+/**
+ * One read for everything the Foundations page stands an organization up with:
+ * its regions and addresses, the lookups its forms choose from, the species it
+ * sees locally, and its traps.
+ *
+ * It lives here because the console has one door to `/admin/*`. The page built
+ * its own until #612, which threw a plain `Error`, so the code never reached
+ * {@link isOperatorNotConfiguredError} or {@link isAdminRefusal}: the page drew
+ * a red box saying "operator not configured" and the query client retried the
+ * 403 three times first.
+ */
+export async function getOrganizationFoundations(
+	organizationId: string,
+	serverUrl = getServerUrl(),
+): Promise<OrganizationFoundations> {
+	return getJson<OrganizationFoundations>(
+		`/admin/organizations/${organizationId}/foundations`,
+		'Unable to load foundations.',
+		serverUrl,
+	);
 }
 
 export interface InviteAdminUserResult {
@@ -285,18 +372,43 @@ export async function inviteAdminUser(
 	serverUrl = getServerUrl(),
 ): Promise<InviteAdminUserResult> {
 	return postJson<InviteAdminUserResult>(
-		`${serverUrl}/admin/organizations/${organizationId}/invitations`,
+		`/admin/organizations/${organizationId}/invitations`,
 		input,
+		serverUrl,
 	);
 }
 
-async function postJson<T>(url: string, input: unknown): Promise<T> {
-	return writeJson<T>(url, 'POST', input);
+/**
+ * A write to one of the *organization's* own endpoints, sent from the console.
+ *
+ * The Foundations page creates through `/foundation/*` and
+ * `/adult-surveillance/*` as a member of the organization it entered (ADR
+ * 0011), so what it posts and where is that page's to decide, and the bodies
+ * stay there. What it cannot decide on its own is the refusal, because a second
+ * reader is how the same 403 came to read two ways. So the path comes from the
+ * page and the answer is read here.
+ *
+ * A thin call onto the same {@link postJson} the two `/admin/*` writes use, and
+ * named rather than exported bare on purpose: the name is what keeps this from
+ * becoming a second door to `/admin/*`.
+ */
+export async function postOrganizationCommand<T>(path: string, command: unknown): Promise<T> {
+	return postJson<T>(path, command, getServerUrl());
 }
 
-async function writeJson<T>(url: string, method: 'POST', input: unknown): Promise<T> {
-	const response = await sessionFetch(url, {
-		method,
+/** Every `/admin/*` read. The path is a path, so the server URL is applied once. */
+async function getJson<T>(path: string, fallback: string, serverUrl: string): Promise<T> {
+	const response = await sessionFetch(`${serverUrl}${path}`, {
+		credentials: 'include',
+		headers: { accept: 'application/json' },
+	});
+
+	return readJsonResponse<T>(response, fallback);
+}
+
+async function postJson<T>(path: string, input: unknown, serverUrl: string): Promise<T> {
+	const response = await sessionFetch(`${serverUrl}${path}`, {
+		method: 'POST',
 		credentials: 'include',
 		headers: {
 			accept: 'application/json',
@@ -305,15 +417,15 @@ async function writeJson<T>(url: string, method: 'POST', input: unknown): Promis
 		body: JSON.stringify(input),
 	});
 
-	return readJsonResponse<T>(response);
+	return readJsonResponse<T>(response, 'Request failed.');
 }
 
-async function readJsonResponse<T>(response: Response): Promise<T> {
+async function readJsonResponse<T>(response: Response, fallback: string): Promise<T> {
 	const body = await readResponseBody<T | { readonly error: string; readonly reason?: string }>(
 		response,
 	);
 	if (!response.ok || (isRecord(body) && 'error' in body)) {
-		throw adminApiError(response, body, 'Request failed.');
+		throw adminApiError(response, body, fallback);
 	}
 
 	return body as T;
