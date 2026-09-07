@@ -1,4 +1,5 @@
 import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -48,7 +49,6 @@ import { CollectCollectionDialog } from '../../../components/collect-collection-
 import { CommentsSection } from '../../../components/comments-section';
 import { CustomFieldsCard } from '../../../components/custom-fields-card';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
-import { EmptyValue } from '../../../components/empty-value';
 import { LinkedAddressValueById } from '../../../components/linked-address';
 import { RecordLocationCard } from '../../../components/map/record-location-card';
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
@@ -523,10 +523,10 @@ function ReadOnlySpeciesRow({
 				<span className="italic">{speciesName}</span>
 			</TableCell>
 			<TableCell>
-				{entry.sex === null ? <EmptyValue /> : <SpeciesSexBadge sex={entry.sex} />}
+				{entry.sex === null ? <AbsentValue /> : <SpeciesSexBadge sex={entry.sex} />}
 			</TableCell>
 			<TableCell>
-				{entry.status === null ? <EmptyValue /> : <SpeciesStatusBadge status={entry.status} />}
+				{entry.status === null ? <AbsentValue /> : <SpeciesStatusBadge status={entry.status} />}
 			</TableCell>
 			{/* The column header already says Count, so the number stands on its own. */}
 			<TableCell className="text-right font-medium tabular-nums">

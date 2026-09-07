@@ -7,6 +7,7 @@ import type {
 	RangeDensity,
 	ResolvedLarvalInspectionEntryPolicy,
 } from '@simmer-mosquito/domain';
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -53,7 +54,6 @@ import { useState } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
 import { CustomFieldsCell } from '../../../components/custom-fields-cell';
-import { EmptyValue } from '../../../components/empty-value';
 import {
 	type CatalogMutations,
 	useHabitatTypeMutations,
@@ -460,7 +460,7 @@ function HabitatTypeTable({
 										<span className="wrap-anywhere">{habitatType.name}</span>
 									</TableCell>
 									<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
-										{habitatType.description ?? <EmptyValue />}
+										{habitatType.description ?? <AbsentValue />}
 									</TableCell>
 									<TableCell className="w-(--habitat-fields-column)">
 										<CustomFieldsCell schema={habitatType.customSchema} />

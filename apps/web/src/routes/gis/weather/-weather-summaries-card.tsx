@@ -1,3 +1,4 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -378,16 +379,22 @@ function SummariesTable({
 								{summaryPeriodLabel(summary)}
 							</TableCell>
 							<TableCell className="text-right tabular-nums">
-								{formatRange(summary.temperatureMinF, summary.temperatureMaxF, '')}
+								{formatRange(summary.temperatureMinF, summary.temperatureMaxF, '') ?? (
+									<AbsentValue />
+								)}
 							</TableCell>
 							<TableCell className="text-right tabular-nums">
-								{formatMeasure(summary.precipitationInches, '')}
+								{formatMeasure(summary.precipitationInches, '') ?? <AbsentValue />}
 							</TableCell>
 							<TableCell className="text-right tabular-nums">
-								{formatRange(summary.relativeHumidityMin, summary.relativeHumidityMax, '')}
+								{formatRange(summary.relativeHumidityMin, summary.relativeHumidityMax, '') ?? (
+									<AbsentValue />
+								)}
 							</TableCell>
 							<TableCell className="text-right tabular-nums">
-								{formatRange(summary.windSpeedMinMph, summary.windSpeedMaxMph, '')}
+								{formatRange(summary.windSpeedMinMph, summary.windSpeedMaxMph, '') ?? (
+									<AbsentValue />
+								)}
 							</TableCell>
 							<TableCell className="text-right">
 								<WriteOnly minimum="manager">

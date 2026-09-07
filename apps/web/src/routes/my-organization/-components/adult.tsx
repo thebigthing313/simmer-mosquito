@@ -1,4 +1,5 @@
 import type { AdultCollectionTimingMode } from '@simmer-mosquito/domain';
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -25,7 +26,6 @@ import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { catalogFields, catalogFormValues, commitCatalogSave } from '../../../components/catalog';
-import { EmptyValue } from '../../../components/empty-value';
 import {
 	type CatalogMutations,
 	useCollectionLureMutations,
@@ -218,7 +218,7 @@ function CollectionLureTable({
 										<span className="wrap-anywhere">{lure.name}</span>
 									</TableCell>
 									<TableCell className="whitespace-normal text-muted-foreground wrap-anywhere">
-										{lure.description ?? <EmptyValue />}
+										{lure.description ?? <AbsentValue />}
 									</TableCell>
 									{canManage ? (
 										<TableCell className="w-(--lure-actions-column) text-right">

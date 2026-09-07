@@ -1,5 +1,6 @@
 import type { OrganizationSettings } from '@simmer-mosquito/domain';
 import type { Organization } from '@simmer-mosquito/sync';
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { ColorPicker } from '@simmer-mosquito/ui-web/components/color-picker';
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -29,7 +30,6 @@ import { Textarea } from '@simmer-mosquito/ui-web/components/ui/textarea';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { CatalogDeleteDialog } from '../../../components/catalog';
-import { EmptyValue } from '../../../components/empty-value';
 import { useOrganizationSettingsMutations } from '../../../hooks/mutations/use-organization-settings-mutations';
 import { type TagFields, useTagMutations } from '../../../hooks/mutations/use-tag-mutations';
 import { type TagRecord, useTagCatalog } from '../../../hooks/queries/use-tag-catalog';
@@ -322,7 +322,7 @@ function TagDisplayTableRow({
 				<TagBadge tag={tag} />
 			</TableCell>
 			<TableCell className="w-(--tag-description-column) whitespace-normal text-muted-foreground wrap-anywhere">
-				{tag.description ?? <EmptyValue />}
+				{tag.description ?? <AbsentValue />}
 			</TableCell>
 			<TableCell className="w-(--tag-color-column)">
 				<TagColorSwatch color={tag.color} />

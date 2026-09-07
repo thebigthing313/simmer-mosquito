@@ -1,3 +1,4 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { useAppForm, validateJsonSchemaValue } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { TableCell, TableHead, TableRow } from '@simmer-mosquito/ui-web/components/ui/table';
@@ -24,7 +25,6 @@ import {
 	useResetOnOpen,
 } from '../../components/catalog';
 import { CustomFieldsCell } from '../../components/custom-fields-cell';
-import { EmptyValue } from '../../components/empty-value';
 import {
 	type CatalogMutations,
 	useCollectionMethodMutations,
@@ -165,7 +165,7 @@ function CollectionMethodSection({
 				<TableRow key={method.id}>
 					<CatalogNameCell isInactive={tone === 'inactive'} name={method.name} />
 					<TableCell className="align-top whitespace-normal text-muted-foreground wrap-anywhere">
-						{method.description ?? <EmptyValue />}
+						{method.description ?? <AbsentValue />}
 					</TableCell>
 					<TableCell className="align-top text-right">
 						<ThresholdValue threshold={method.actionThreshold} />
