@@ -14,6 +14,7 @@ import { additionalPersonnelOptions } from '../../../components/additional-perso
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
@@ -265,7 +266,11 @@ export function SourceReductionFormPage({
 				</FormSection>
 
 				<LocationSection
-					description="The geometry is where the sources were eliminated. Use a point for a single source, a line or area for a treated stretch. An address is optional reference, and the habitat is the one the work was done at."
+					description={locationDescription({
+						geometryKind: 'controlAction',
+						subject: 'The geometry is where the sources were eliminated.',
+						habitat: true,
+					})}
 					error={location.locationError}
 				>
 					<form.AppField name="addressId">

@@ -14,6 +14,7 @@ import { additionalPersonnelOptions } from '../../../components/additional-perso
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
@@ -280,7 +281,11 @@ export function BiocontrolFormPage({
 				</FormSection>
 
 				<LocationSection
-					description="The geometry is where the agents were released. Use a point for a single release, a line or area for a distributed one. An address is optional reference, and the habitat is the one the release was performed against."
+					description={locationDescription({
+						geometryKind: 'controlAction',
+						subject: 'The geometry is where the agents were released.',
+						habitat: true,
+					})}
 					error={location.locationError}
 				>
 					<form.AppField name="addressId">

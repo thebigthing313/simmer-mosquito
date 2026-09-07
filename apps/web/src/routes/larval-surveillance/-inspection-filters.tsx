@@ -34,7 +34,7 @@ import {
 	inspectionFilterCodecs,
 	type WaterFilterValue,
 } from './-inspections-search';
-import { addDaysToDateString, formatMonthDay, todayInTimeZone } from './-overview-data';
+import { addDaysToDateString, dateRangeLabel, todayInTimeZone } from './-overview-data';
 
 /** How far back the map opens, and what Clear all returns it to. */
 const DEFAULT_WINDOW_DAYS = 30;
@@ -376,18 +376,4 @@ export function InspectionFilterChips({
 			{children}
 		</ActiveFilterBar>
 	);
-}
-
-/** The active range chip's words, with either bound possibly open. */
-function dateRangeLabel(from: string, to: string): string {
-	if (from === '' && to === '') {
-		return 'All dates';
-	}
-	if (from === '') {
-		return `Until ${formatMonthDay(to)}`;
-	}
-	if (to === '') {
-		return `From ${formatMonthDay(from)}`;
-	}
-	return `${formatMonthDay(from)}–${formatMonthDay(to)}`;
 }

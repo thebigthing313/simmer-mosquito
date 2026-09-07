@@ -55,8 +55,8 @@ import {
 } from '../../../lib/search-filters';
 import {
 	addDaysToDateString,
+	dateRangeLabel,
 	formatListDate,
-	formatMonthDay,
 	todayInTimeZone,
 } from '../-overview-data';
 import { SampleMapCard } from '../-sample-map-card';
@@ -687,18 +687,4 @@ function _StatusDot({ status }: { readonly status: SampleStatus }) {
 
 function sampleName(sample: SampleFeature): string {
 	return sample.displayName?.trim() || `Sample ${sample.id.slice(0, 8)}`;
-}
-
-/** Human label for the active range chip, tolerating open-ended bounds. */
-function dateRangeLabel(from: string, to: string): string {
-	if (from === '' && to === '') {
-		return 'All dates';
-	}
-	if (from === '') {
-		return `Until ${formatMonthDay(to)}`;
-	}
-	if (to === '') {
-		return `From ${formatMonthDay(from)}`;
-	}
-	return `${formatMonthDay(from)}–${formatMonthDay(to)}`;
 }
