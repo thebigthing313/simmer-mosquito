@@ -25,6 +25,7 @@ import {
 	createCollectionMethod,
 	createContact,
 	createNotificationRegistration,
+	createNotificationRegistrationType,
 	createNotificationType,
 	createOrganization,
 	createOrganizationSpecies,
@@ -439,20 +440,14 @@ function speciesApp(db: Db, operatorUserId: string) {
 // Fixtures
 // ===========================================================================
 
-async function createSubscription(
+function createSubscription(
 	db: Db,
 	organizationId: string,
-	notificationRegistrationId: string,
+	registrationId: string,
 	notificationTypeId: string,
 ): Promise<string> {
-	const row = await db
-		.insertInto('notification_registration_types')
-		.values({
-			organization_id: organizationId,
-			notification_registration_id: notificationRegistrationId,
-			notification_type_id: notificationTypeId,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return createNotificationRegistrationType(db, organizationId, {
+		registrationId,
+		notificationTypeId,
+	});
 }

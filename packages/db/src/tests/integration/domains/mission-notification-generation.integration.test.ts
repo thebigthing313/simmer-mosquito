@@ -18,6 +18,7 @@ import {
 	createNotificationType as insertNotificationType,
 	createOrganization as insertOrganization,
 	createNotificationRegistration as insertRegistration,
+	createNotificationRegistrationType as insertRegistrationType,
 } from '../../../test-support/row-fixtures.js';
 
 /**
@@ -626,12 +627,8 @@ function createRegistration(
 }
 
 async function subscribe(db: Db, world: World, registrationId: string): Promise<void> {
-	await db
-		.insertInto('notification_registration_types')
-		.values({
-			organization_id: world.organizationId,
-			notification_registration_id: registrationId,
-			notification_type_id: world.notificationTypeId,
-		})
-		.execute();
+	await insertRegistrationType(db, world.organizationId, {
+		registrationId,
+		notificationTypeId: world.notificationTypeId,
+	});
 }

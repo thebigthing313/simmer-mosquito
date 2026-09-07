@@ -7,8 +7,10 @@ import {
 	createCollectionMethod,
 	createCollectionSpecies,
 	createContact,
+	createFormulation,
 	createHabitat,
 	createInsecticide,
+	createInsecticideBatch,
 	createOrganization,
 	createProfile,
 	createRegion,
@@ -20,6 +22,7 @@ import {
 	createTrap,
 	createUnit,
 	describeDbIntegration,
+	createFormulationInsecticide as insertFormulationInsecticide,
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
 import { Hono } from 'hono';
@@ -937,54 +940,16 @@ function formulationApp(db: Db, organizationId: string, profileId: string) {
 	return app;
 }
 
-async function createInsecticideBatch(
-	db: Db,
-	organizationId: string,
-	insecticideId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('insecticide_batches')
-		.values({
-			organization_id: organizationId,
-			insecticide_id: insecticideId,
-			batch_name: 'Lot 2026-04',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createFormulation(db: Db, organizationId: string, unitId: string): Promise<string> {
-	const row = await db
-		.insertInto('formulations')
-		.values({
-			organization_id: organizationId,
-			formulation_name: 'Tank mix',
-			batch_size: 100,
-			batch_unit_id: unitId,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createFormulationInsecticide(
+function createFormulationInsecticide(
 	db: Db,
 	organizationId: string,
 	formulationId: string,
 	insecticideId: string,
 	unitId: string,
 ): Promise<string> {
-	const row = await db
-		.insertInto('formulation_insecticides')
-		.values({
-			organization_id: organizationId,
-			formulation_id: formulationId,
-			insecticide_id: insecticideId,
-			amount: 5,
-			unit_id: unitId,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return insertFormulationInsecticide(db, organizationId, {
+		formulationId,
+		insecticideId,
+		unitId,
+	});
 }
