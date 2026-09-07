@@ -42,6 +42,13 @@ export interface CustomFieldDraft {
  * A schema field paired with the record's value for it. `declared: false` marks a
  * value whose key the schema no longer declares — kept visible so history written
  * under an older schema is never silently hidden.
+ *
+ * Keeping it visible is the whole of what happens to it. Whether an already
+ * orphaned value should be moved back under the field it was written for was
+ * measured on 2026-09-07 and closed as #753: zero orphans across all six record
+ * kinds, against 993 values of which every one was declared, so there was
+ * nothing to repair and no migration or remapping screen was built. #622 is what
+ * stopped a rename orphaning a value in the first place.
  */
 export interface CustomFieldEntry extends CustomFieldDescriptor {
 	readonly declared: boolean;
