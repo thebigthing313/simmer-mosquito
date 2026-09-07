@@ -3,13 +3,13 @@ import {
 	checkedValues,
 	type geojsonToGeom,
 	localDateColumn,
-	type SelectedRow,
 	softDelete,
 	updateRow,
 } from '@simmer-mosquito/db';
 import type { ControlActionContext, LocationSource } from '@simmer-mosquito/domain';
 import type { CommandTransaction } from '../../command-write.js';
 import { resolveLocationGeom } from '../../location-source.js';
+import { type CommandRow, returnColumns } from '../../return-columns.js';
 
 export type ControlOperationsTransaction = CommandTransaction;
 export { localDateColumn, softDelete };
@@ -55,7 +55,7 @@ export async function insertApplicationBatch(
 				updated_by_profile_id: input.actorProfileId,
 			}),
 		)
-		.returning(applicationBatchReturnColumns)
+		.returning(returnColumns.application_batches)
 		.executeTakeFirstOrThrow();
 	return row;
 }
@@ -130,138 +130,21 @@ export async function locationContextColumns(
 // Response shaping
 // ===========================================================================
 
-export const formulationReturnColumns = [
-	'id',
-	'organization_id',
-	'formulation_name',
-	'description',
-	'is_active',
-	'batch_size',
-	'batch_unit_id',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
+export type FormulationRow = CommandRow<'formulations'>;
 
-export type FormulationRow = SelectedRow<'formulations', typeof formulationReturnColumns>;
+export type FormulationInsecticideRow = CommandRow<'formulation_insecticides'>;
 
-export const formulationInsecticideReturnColumns = [
-	'id',
-	'organization_id',
-	'formulation_id',
-	'insecticide_id',
-	'amount',
-	'unit_id',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
+export type ApplicationRow = CommandRow<'applications'>;
 
-export type FormulationInsecticideRow = SelectedRow<
-	'formulation_insecticides',
-	typeof formulationInsecticideReturnColumns
->;
+export type ApplicationBatchRow = CommandRow<'application_batches'>;
 
-export const applicationReturnColumns = [
-	'id',
-	'organization_id',
-	'application_method_id',
-	'insecticide_id',
-	'applicator_profile_id',
-	'application_date',
-	'address_id',
-	'vehicle_id',
-	'equipment_id',
-	'amount_applied',
-	'application_unit_id',
-	'habitat_id',
-	'collection_id',
-	'inspection_id',
-	'requested_control_action_id',
-	'mission_item_id',
-	'metadata',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
+export type SourceReductionRow = CommandRow<'source_reductions'>;
 
-export type ApplicationRow = SelectedRow<'applications', typeof applicationReturnColumns>;
+export type OutreachActionRow = CommandRow<'outreach_actions'>;
 
-export const applicationBatchReturnColumns = [
-	'id',
-	'organization_id',
-	'application_id',
-	'insecticide_batch_id',
-	'created_at',
-	'updated_at',
-] as const;
+export type BiocontrolActionRow = CommandRow<'biocontrol_actions'>;
 
-export type ApplicationBatchRow = SelectedRow<
-	'application_batches',
-	typeof applicationBatchReturnColumns
->;
-
-export const sourceReductionReturnColumns = [
-	'id',
-	'organization_id',
-	'metadata',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type SourceReductionRow = SelectedRow<
-	'source_reductions',
-	typeof sourceReductionReturnColumns
->;
-
-export const outreachActionReturnColumns = [
-	'id',
-	'organization_id',
-	'metadata',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type OutreachActionRow = SelectedRow<'outreach_actions', typeof outreachActionReturnColumns>;
-
-export const biocontrolActionReturnColumns = [
-	'id',
-	'organization_id',
-	'metadata',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type BiocontrolActionRow = SelectedRow<
-	'biocontrol_actions',
-	typeof biocontrolActionReturnColumns
->;
-
-export const requestedControlActionReturnColumns = [
-	'id',
-	'organization_id',
-	'control_type',
-	'recommended_method_id',
-	'summary',
-	'habitat_id',
-	'inspection_id',
-	'collection_id',
-	'address_id',
-	'requested_by_profile_id',
-	'requested_at',
-	'resolved_at',
-	'resolved_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type RequestedControlActionRow = SelectedRow<
-	'requested_control_actions',
-	typeof requestedControlActionReturnColumns
->;
+export type RequestedControlActionRow = CommandRow<'requested_control_actions'>;
 
 // ===========================================================================
 // Shared command + request helpers

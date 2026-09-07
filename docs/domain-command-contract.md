@@ -79,6 +79,23 @@ Authorization runs on the names, before any builder does. A role that may not
 send a command is refused without its payload being validated, which is what
 naming the command in the request buys over inferring it from the fields.
 
+### What the answer carries
+
+`{ [key]: row, txid }`, and the row's columns are not a thing a writer decides.
+`returnColumns` in `apps/server/src/return-columns.ts` derives one list per table
+from that table's generated row schema in `packages/sync`, which is the same list
+`sync-shapes.ts` forces on the shape route, so a command response and the sync
+stream carry the same columns by construction. `OMIT` and `WITHHELD` are applied
+in the schema, which is what keeps `geom`, `geojson`, `deleted_at` and
+`deleted_by_profile_id` off every response and a Membership's `invited_email` off
+the one that would have carried it.
+
+So a writer passes `returnColumns.<table>` to `.returning(...)` and types its row
+as `CommandRow<'<table>'>`. Writing the list out instead is what #635 removed: 43
+hand-written lists, 34 of which had drifted from the schema, every one of them by
+omitting a column. A migration that adds a column reaches the response the moment
+it reaches the schema, and nothing has to be edited twice.
+
 ### Declaring a command takes two halves
 
 A `TableCommands` declares its `table`, its `run` config, and an `intents` map

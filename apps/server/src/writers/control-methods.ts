@@ -1,9 +1,4 @@
-import {
-	assertRecordDeletable,
-	type DeletableRecordType,
-	type SelectedRow,
-	sql,
-} from '@simmer-mosquito/db';
+import { assertRecordDeletable, type DeletableRecordType, sql } from '@simmer-mosquito/db';
 import type {
 	CreateApplicationMethodCommand,
 	CreateBiocontrolMethodCommand,
@@ -28,6 +23,7 @@ import type {
 } from '@simmer-mosquito/domain';
 import type { CommandTransaction } from '../command-write.js';
 import { assertCitedHistoryAcknowledged } from '../record-history.js';
+import { type CommandRow, returnColumns } from '../return-columns.js';
 
 type ControlMethodTransaction = CommandTransaction;
 
@@ -287,20 +283,14 @@ export async function writeControlMethodCommand(
 /**
  * What a control method answers with.
  *
- * The four method tables carry the same columns, so one list and one row type
- * serve all of them.
+ * The four method tables declare the same nine fields, so one row type covers
+ * all of them. Each write still reads `returnColumns[table]` off the table it is
+ * writing rather than naming `application_methods` for all four, so a column
+ * added to one of them is a type error here instead of three catalogs quietly
+ * answering short. `return-columns.test.ts` asserts the four agree as well,
+ * which is what says why one row type is enough.
  */
-const controlMethodReturnColumns = [
-	'id',
-	'organization_id',
-	'name',
-	'custom_schema',
-	'is_active',
-	'created_at',
-	'updated_at',
-] as const;
-
-type ControlMethodRow = SelectedRow<'application_methods', typeof controlMethodReturnColumns>;
+type ControlMethodRow = CommandRow<'application_methods'>;
 
 type ControlMethodTableName =
 	| 'application_methods'
@@ -345,7 +335,7 @@ async function createControlMethod(
 			created_by_profile_id: input.actorProfileId,
 			updated_by_profile_id: input.actorProfileId,
 		})
-		.returning(controlMethodReturnColumns)
+		.returning(returnColumns[table])
 		.executeTakeFirstOrThrow();
 
 	return row;
@@ -368,7 +358,7 @@ async function updateControlMethod(
 		.where('id', '=', methodId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(controlMethodReturnColumns)
+		.returning(returnColumns[table])
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -390,7 +380,7 @@ async function setControlMethodActive(
 		.where('id', '=', methodId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(controlMethodReturnColumns)
+		.returning(returnColumns[table])
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -432,7 +422,7 @@ async function deleteControlMethod(
 		.where('id', '=', methodId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(controlMethodReturnColumns)
+		.returning(returnColumns[table])
 		.executeTakeFirst();
 
 	return row ?? null;

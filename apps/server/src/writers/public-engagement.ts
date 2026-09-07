@@ -1,6 +1,5 @@
 import {
 	assertRecordDeletable,
-	type SelectedRow,
 	type SimmerDatabase,
 	sql,
 	type Transaction,
@@ -13,6 +12,7 @@ import type {
 	UpdateNotificationTypeCommand,
 } from '@simmer-mosquito/domain';
 import { assertCitedHistoryAcknowledged } from '../record-history.js';
+import { type CommandRow, returnColumns } from '../return-columns.js';
 
 type PublicEngagementTransaction = Transaction<SimmerDatabase>;
 export type NotificationTypeCommand =
@@ -22,10 +22,7 @@ export type NotificationTypeCommand =
 	| ReactivateNotificationTypeCommand
 	| DeleteNotificationTypeCommand;
 
-export type NotificationTypeRow = SelectedRow<
-	'notification_types',
-	typeof notificationTypeReturnColumns
->;
+export type NotificationTypeRow = CommandRow<'notification_types'>;
 
 export async function writeNotificationTypeCommand(
 	db: PublicEngagementTransaction,
@@ -130,7 +127,7 @@ async function createNotificationType(
 			created_by_profile_id: input.actorProfileId,
 			updated_by_profile_id: input.actorProfileId,
 		})
-		.returning(notificationTypeReturnColumns)
+		.returning(returnColumns.notification_types)
 		.executeTakeFirstOrThrow();
 
 	return row;
@@ -152,7 +149,7 @@ async function updateNotificationType(
 		.where('id', '=', notificationTypeId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(notificationTypeReturnColumns)
+		.returning(returnColumns.notification_types)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -173,7 +170,7 @@ async function setNotificationTypeActive(
 		.where('id', '=', notificationTypeId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(notificationTypeReturnColumns)
+		.returning(returnColumns.notification_types)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -201,18 +198,8 @@ async function deleteNotificationType(
 		.where('id', '=', notificationTypeId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(notificationTypeReturnColumns)
+		.returning(returnColumns.notification_types)
 		.executeTakeFirst();
 
 	return row ?? null;
 }
-
-const notificationTypeReturnColumns = [
-	'id',
-	'organization_id',
-	'name',
-	'description',
-	'is_active',
-	'created_at',
-	'updated_at',
-] as const;

@@ -1,4 +1,4 @@
-import { assertRecordDeletable, type SelectedRow, sql } from '@simmer-mosquito/db';
+import { assertRecordDeletable, sql } from '@simmer-mosquito/db';
 import type {
 	CreateEquipmentCommand,
 	CreateVehicleCommand,
@@ -13,6 +13,7 @@ import type {
 } from '@simmer-mosquito/domain';
 import type { CommandTransaction } from '../command-write.js';
 import { assertCitedHistoryAcknowledged } from '../record-history.js';
+import { type CommandRow, returnColumns } from '../return-columns.js';
 
 type ControlAssetTransaction = CommandTransaction;
 export type ControlAssetCommand =
@@ -27,9 +28,7 @@ export type ControlAssetCommand =
 	| ReactivateEquipmentCommand
 	| DeleteEquipmentCommand;
 
-type ControlAssetRow =
-	| SelectedRow<'vehicles', typeof vehicleReturnColumns>
-	| SelectedRow<'equipment', typeof equipmentReturnColumns>;
+type ControlAssetRow = CommandRow<'vehicles'> | CommandRow<'equipment'>;
 
 export async function writeControlAssetCommand(
 	db: ControlAssetTransaction,
@@ -168,7 +167,7 @@ async function createVehicle(
 			created_by_profile_id: input.actorProfileId,
 			updated_by_profile_id: input.actorProfileId,
 		})
-		.returning(vehicleReturnColumns)
+		.returning(returnColumns.vehicles)
 		.executeTakeFirstOrThrow();
 
 	return row;
@@ -190,7 +189,7 @@ async function createEquipment(
 			created_by_profile_id: input.actorProfileId,
 			updated_by_profile_id: input.actorProfileId,
 		})
-		.returning(equipmentReturnColumns)
+		.returning(returnColumns.equipment)
 		.executeTakeFirstOrThrow();
 
 	return row;
@@ -212,7 +211,7 @@ async function updateVehicle(
 		.where('id', '=', vehicleId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(vehicleReturnColumns)
+		.returning(returnColumns.vehicles)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -235,7 +234,7 @@ async function updateEquipment(
 		.where('id', '=', equipmentId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(equipmentReturnColumns)
+		.returning(returnColumns.equipment)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -256,7 +255,7 @@ async function setVehicleActive(
 		.where('id', '=', vehicleId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(vehicleReturnColumns)
+		.returning(returnColumns.vehicles)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -277,7 +276,7 @@ async function setEquipmentActive(
 		.where('id', '=', equipmentId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(equipmentReturnColumns)
+		.returning(returnColumns.equipment)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -305,7 +304,7 @@ async function deleteVehicle(
 		.where('id', '=', vehicleId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(vehicleReturnColumns)
+		.returning(returnColumns.vehicles)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -333,29 +332,8 @@ async function deleteEquipment(
 		.where('id', '=', equipmentId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(equipmentReturnColumns)
+		.returning(returnColumns.equipment)
 		.executeTakeFirst();
 
 	return row ?? null;
 }
-
-const vehicleReturnColumns = [
-	'id',
-	'organization_id',
-	'vehicle_name',
-	'metadata',
-	'is_active',
-	'created_at',
-	'updated_at',
-] as const;
-
-const equipmentReturnColumns = [
-	'id',
-	'organization_id',
-	'equipment_name',
-	'serial_number',
-	'metadata',
-	'is_active',
-	'created_at',
-	'updated_at',
-] as const;

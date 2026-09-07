@@ -1,11 +1,7 @@
 import { assertWriteReferences } from '@simmer-mosquito/db';
 import { type FieldWorkCommand, toDbEntityType } from '@simmer-mosquito/domain';
-import {
-	type FieldWorkTransaction,
-	softDelete,
-	type TagItemRow,
-	tagItemReturnColumns,
-} from './shared.js';
+import { returnColumns } from '../../return-columns.js';
+import { type FieldWorkTransaction, softDelete, type TagItemRow } from './shared.js';
 
 // ===========================================================================
 // Tag items
@@ -33,7 +29,7 @@ export async function writeTagItemCommand(
 					created_by_profile_id: command.payload.actorProfileId,
 					updated_by_profile_id: command.payload.actorProfileId,
 				})
-				.returning(tagItemReturnColumns)
+				.returning(returnColumns.tag_items)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -44,7 +40,7 @@ export async function writeTagItemCommand(
 				command.payload.tagItemId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				tagItemReturnColumns,
+				returnColumns.tag_items,
 			);
 		default:
 			throw new Error(`Unsupported tag item command: ${command.type}`);

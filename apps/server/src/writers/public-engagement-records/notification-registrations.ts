@@ -1,12 +1,12 @@
 import { applyRecordDeletion, checkedValues } from '@simmer-mosquito/db';
 import type { PublicEngagementCommand } from '@simmer-mosquito/domain';
 import { assertCitedHistoryAcknowledged } from '../../record-history.js';
+import { returnColumns } from '../../return-columns.js';
 import {
 	geojsonToGeom,
 	insertRegistrationType,
 	type PublicEngagementTransaction,
 	type RegistrationRow,
-	registrationReturnColumns,
 	resolveContact,
 	resolveNotificationAddress,
 	softDelete,
@@ -90,7 +90,7 @@ export async function writeRegistrationCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(registrationReturnColumns)
+				.returning(returnColumns.notification_registrations)
 				.executeTakeFirstOrThrow();
 			for (const subscription of command.payload.subscriptions) {
 				await insertRegistrationType(
@@ -209,7 +209,7 @@ export async function writeRegistrationCommand(
 				command.payload.notificationRegistrationId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				registrationReturnColumns,
+				returnColumns.notification_registrations,
 			);
 		default:
 			throw new Error(`Unsupported notification registration command: ${command.type}`);
@@ -228,6 +228,6 @@ async function updateRegistration(
 		notificationRegistrationId,
 		organizationId,
 		set,
-		registrationReturnColumns,
+		returnColumns.notification_registrations,
 	);
 }

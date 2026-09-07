@@ -1,11 +1,11 @@
 import { applyRecordDeletion } from '@simmer-mosquito/db';
 import type { FieldWorkCommand } from '@simmer-mosquito/domain';
 import { moveItems } from '../../ordered-items.js';
+import { returnColumns } from '../../return-columns.js';
 import {
 	type FieldWorkTransaction,
 	type RouteRow,
 	routePlacementRef,
-	routeReturnColumns,
 	softDelete,
 	updateRow,
 } from './shared.js';
@@ -30,7 +30,7 @@ export async function writeRouteCommand(
 					created_by_profile_id: command.payload.actorProfileId,
 					updated_by_profile_id: command.payload.actorProfileId,
 				})
-				.returning(routeReturnColumns)
+				.returning(returnColumns.routes)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -46,7 +46,7 @@ export async function writeRouteCommand(
 						: {}),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				routeReturnColumns,
+				returnColumns.routes,
 			);
 		case 'fieldWork.deleteRoute':
 			await applyRecordDeletion(trx, {
@@ -64,7 +64,7 @@ export async function writeRouteCommand(
 				command.payload.routeId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				routeReturnColumns,
+				returnColumns.routes,
 			);
 		case 'fieldWork.moveRouteItems': {
 			await moveItems(
@@ -96,7 +96,7 @@ async function loadRoute(
 ): Promise<RouteRow | null> {
 	const row = await trx
 		.selectFrom('routes')
-		.select(routeReturnColumns)
+		.select(returnColumns.routes)
 		.where('id', '=', routeId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)

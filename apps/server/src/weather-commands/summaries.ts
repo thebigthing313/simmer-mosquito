@@ -32,6 +32,7 @@
 
 import { sql } from '@simmer-mosquito/db';
 import type { WeatherCommand } from '@simmer-mosquito/domain';
+import { returnColumns } from '../return-columns.js';
 import { refusableWrite } from '../table-commands/shared.js';
 import {
 	assertFresh,
@@ -44,7 +45,6 @@ import {
 	type SummaryMetrics,
 	type WeatherSummaryRow,
 	type WeatherTransaction,
-	weatherSummaryReturnColumns,
 } from './shared.js';
 
 /**
@@ -136,7 +136,7 @@ async function createSummary(
 					created_by_profile_id: payload.actorProfileId,
 					updated_by_profile_id: payload.actorProfileId,
 				})
-				.returning(weatherSummaryReturnColumns)
+				.returning(returnColumns.weather_summaries)
 				.executeTakeFirstOrThrow(),
 		{ duplicate: DUPLICATE_BUCKET },
 	);
@@ -198,7 +198,7 @@ async function updateSummary(
 					updated_at: sql`now()`,
 				})
 				.where('id', '=', summary.id)
-				.returning(weatherSummaryReturnColumns)
+				.returning(returnColumns.weather_summaries)
 				.executeTakeFirst(),
 		{ duplicate: DUPLICATE_BUCKET },
 	);
@@ -219,7 +219,7 @@ async function deleteSummary(
 	const row = await trx
 		.deleteFrom('weather_summaries')
 		.where('id', '=', summary.id)
-		.returning(weatherSummaryReturnColumns)
+		.returning(returnColumns.weather_summaries)
 		.executeTakeFirst();
 	return row ?? null;
 }

@@ -2,7 +2,6 @@ import {
 	assertClearanceAcknowledged,
 	assertRecordDeletable,
 	assertWriteReferences,
-	type SelectedRow,
 	type SimmerDatabase,
 	sql,
 	type Transaction,
@@ -21,6 +20,7 @@ import type {
 	UpdateInsecticideCommand,
 } from '@simmer-mosquito/domain';
 import { assertCitedHistoryAcknowledged } from '../record-history.js';
+import { type CommandRow, returnColumns } from '../return-columns.js';
 
 /**
  * The insecticide fields a past application is read back under.
@@ -51,9 +51,9 @@ export type InsecticideBatchCommand =
 	| ReactivateInsecticideBatchCommand
 	| DeleteInsecticideBatchCommand;
 
-type InsecticideRow = SelectedRow<'insecticides', typeof insecticideReturnColumns>;
+type InsecticideRow = CommandRow<'insecticides'>;
 
-type InsecticideBatchRow = SelectedRow<'insecticide_batches', typeof insecticideBatchReturnColumns>;
+type InsecticideBatchRow = CommandRow<'insecticide_batches'>;
 
 /**
  * Refuse retiring a product that other records are still using, unless the
@@ -282,7 +282,7 @@ async function createInsecticide(
 			created_by_profile_id: input.actorProfileId,
 			updated_by_profile_id: input.actorProfileId,
 		})
-		.returning(insecticideReturnColumns)
+		.returning(returnColumns.insecticides)
 		.executeTakeFirstOrThrow();
 
 	return row;
@@ -315,7 +315,7 @@ async function updateInsecticide(
 		.where('id', '=', insecticideId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(insecticideReturnColumns)
+		.returning(returnColumns.insecticides)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -336,7 +336,7 @@ async function setInsecticideActive(
 		.where('id', '=', insecticideId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(insecticideReturnColumns)
+		.returning(returnColumns.insecticides)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -364,7 +364,7 @@ async function deleteInsecticide(
 		.where('id', '=', insecticideId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(insecticideReturnColumns)
+		.returning(returnColumns.insecticides)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -411,7 +411,7 @@ async function createInsecticideBatch(
 			created_by_profile_id: input.actorProfileId,
 			updated_by_profile_id: input.actorProfileId,
 		})
-		.returning(insecticideBatchReturnColumns)
+		.returning(returnColumns.insecticide_batches)
 		.executeTakeFirstOrThrow();
 
 	return row;
@@ -432,7 +432,7 @@ async function updateInsecticideBatch(
 		.where('id', '=', batchId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(insecticideBatchReturnColumns)
+		.returning(returnColumns.insecticide_batches)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -453,7 +453,7 @@ async function setInsecticideBatchActive(
 		.where('id', '=', batchId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(insecticideBatchReturnColumns)
+		.returning(returnColumns.insecticide_batches)
 		.executeTakeFirst();
 
 	return row ?? null;
@@ -481,35 +481,8 @@ async function deleteInsecticideBatch(
 		.where('id', '=', batchId)
 		.where('organization_id', '=', input.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(insecticideBatchReturnColumns)
+		.returning(returnColumns.insecticide_batches)
 		.executeTakeFirst();
 
 	return row ?? null;
 }
-
-const insecticideReturnColumns = [
-	'id',
-	'organization_id',
-	'trade_name',
-	'active_ingredient',
-	'type',
-	'registration_number',
-	'default_unit_id',
-	'label_url',
-	'msds_url',
-	'shorthand',
-	'metadata',
-	'is_active',
-	'created_at',
-	'updated_at',
-] as const;
-
-const insecticideBatchReturnColumns = [
-	'id',
-	'organization_id',
-	'insecticide_id',
-	'batch_name',
-	'is_active',
-	'created_at',
-	'updated_at',
-] as const;

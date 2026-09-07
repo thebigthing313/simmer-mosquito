@@ -1,8 +1,8 @@
 import { applyRecordDeletion, applyRecordMerge } from '@simmer-mosquito/db';
 import type { PublicEngagementCommand } from '@simmer-mosquito/domain';
+import { returnColumns } from '../../return-columns.js';
 import {
 	type ContactRow,
-	contactReturnColumns,
 	insertContact,
 	type PublicEngagementTransaction,
 	softDelete,
@@ -101,7 +101,7 @@ export async function writeContactCommand(
 					sourceId,
 					command.payload.organizationId,
 					command.payload.actorProfileId,
-					contactReturnColumns,
+					returnColumns.contacts,
 				);
 			}
 			return loadContact(trx, command.payload.targetContactId, command.payload.organizationId);
@@ -123,7 +123,7 @@ export async function writeContactCommand(
 				command.payload.contactId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				contactReturnColumns,
+				returnColumns.contacts,
 			);
 		default:
 			throw new Error(`Unsupported contact command: ${command.type}`);
@@ -136,7 +136,7 @@ async function updateContact(
 	organizationId: string,
 	set: Record<string, unknown>,
 ): Promise<ContactRow | null> {
-	return updateRow(trx, 'contacts', contactId, organizationId, set, contactReturnColumns);
+	return updateRow(trx, 'contacts', contactId, organizationId, set, returnColumns.contacts);
 }
 
 async function loadContact(
@@ -146,7 +146,7 @@ async function loadContact(
 ): Promise<ContactRow | null> {
 	const row = await trx
 		.selectFrom('contacts')
-		.select(contactReturnColumns)
+		.select(returnColumns.contacts)
 		.where('id', '=', contactId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)

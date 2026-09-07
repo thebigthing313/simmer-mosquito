@@ -1,10 +1,10 @@
 import { assertRecordDeletable, sql } from '@simmer-mosquito/db';
 import type { ControlOperationsCommand } from '@simmer-mosquito/domain';
+import { returnColumns } from '../../return-columns.js';
 import {
 	type ControlOperationsTransaction,
 	type FormulationRow,
 	type FormulationUpdateColumns,
-	formulationReturnColumns,
 	softDelete,
 } from './shared.js';
 
@@ -31,7 +31,7 @@ export async function writeFormulationCommand(
 					created_by_profile_id: command.payload.actorProfileId,
 					updated_by_profile_id: command.payload.actorProfileId,
 				})
-				.returning(formulationReturnColumns)
+				.returning(returnColumns.formulations)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -73,7 +73,7 @@ export async function writeFormulationCommand(
 				command.payload.formulationId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				formulationReturnColumns,
+				returnColumns.formulations,
 			);
 		default:
 			throw new Error(`Unsupported formulation command: ${command.type}`);
@@ -92,7 +92,7 @@ async function updateFormulation(
 		.where('id', '=', formulationId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(formulationReturnColumns)
+		.returning(returnColumns.formulations)
 		.executeTakeFirst();
 	return row ?? null;
 }

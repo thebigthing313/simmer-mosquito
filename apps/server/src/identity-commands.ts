@@ -11,42 +11,15 @@
  * until slice 3, which is where the WorkOS half is settled (#186).
  */
 
-import { type SelectedRow, sql, updateRow } from '@simmer-mosquito/db';
+import { sql, updateRow } from '@simmer-mosquito/db';
 import type { IdentityCommand, OrganizationDetailChanges } from '@simmer-mosquito/domain';
 import { CommandError } from './command-endpoint.js';
 import type { ColumnOf } from './command-payload.js';
 import type { CommandTransaction } from './command-write.js';
+import { type CommandRow, returnColumns } from './return-columns.js';
 
-const organizationReturnColumns = [
-	'id',
-	'name',
-	'slug',
-	'main_contact_email',
-	'phone_number',
-	'mailing_country',
-	'mailing_address_line_1',
-	'mailing_address_line_2',
-	'mailing_locality',
-	'mailing_region',
-	'mailing_postal_code',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
-
-const profileReturnColumns = [
-	'id',
-	'organization_id',
-	'user_id',
-	'display_name',
-	'email',
-	'is_active',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type OrganizationRow = SelectedRow<'organizations', typeof organizationReturnColumns>;
-export type ProfileRow = SelectedRow<'profiles', typeof profileReturnColumns>;
+export type OrganizationRow = CommandRow<'organizations'>;
+export type ProfileRow = CommandRow<'profiles'>;
 
 export type IdentityRow = OrganizationRow | ProfileRow;
 
@@ -71,7 +44,7 @@ export async function writeIdentityCommand(
 					email: null,
 					is_active: command.payload.isActive,
 				})
-				.returning(profileReturnColumns)
+				.returning(returnColumns.profiles)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -89,7 +62,7 @@ export async function writeIdentityCommand(
 						? {}
 						: { is_active: command.payload.changes.isActive }),
 				},
-				profileReturnColumns,
+				returnColumns.profiles,
 			);
 		default:
 			throw new Error(`Unsupported identity command: ${(command as IdentityCommand).type}`);
@@ -141,7 +114,7 @@ async function updateOrganizationDetails(
 		} as never)
 		.where('id', '=', payload.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(organizationReturnColumns)
+		.returning(returnColumns.organizations)
 		.executeTakeFirst();
 
 	return row ?? null;

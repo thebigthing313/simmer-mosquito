@@ -1,10 +1,10 @@
 import { checkedValues, sql, updateRow } from '@simmer-mosquito/db';
 import type { LarvalSurveillanceCommand } from '@simmer-mosquito/domain';
+import { returnColumns } from '../../return-columns.js';
 import {
 	type LarvalSurveillanceTransaction,
 	localDateColumn,
 	type SampleSpeciesRow,
-	sampleSpeciesReturnColumns,
 } from './shared.js';
 
 // ---------------------------------------------------------------------------
@@ -33,7 +33,7 @@ export async function writeSampleSpeciesCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(sampleSpeciesReturnColumns)
+				.returning(returnColumns.sample_species)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -55,7 +55,7 @@ export async function writeSampleSpeciesCommand(
 						: {}),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				sampleSpeciesReturnColumns,
+				returnColumns.sample_species,
 			);
 		}
 		case 'larvalSurveillance.deleteSampleSpeciesCount': {
@@ -70,7 +70,7 @@ export async function writeSampleSpeciesCommand(
 				.where('id', '=', command.payload.sampleSpeciesId)
 				.where('organization_id', '=', command.payload.organizationId)
 				.where('deleted_at', 'is', null)
-				.returning(sampleSpeciesReturnColumns)
+				.returning(returnColumns.sample_species)
 				.executeTakeFirst();
 			return row ?? null;
 		}

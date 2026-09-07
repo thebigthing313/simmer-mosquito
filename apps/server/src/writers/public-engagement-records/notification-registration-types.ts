@@ -1,11 +1,11 @@
 import { assertHistoryAcknowledged } from '@simmer-mosquito/db';
 import type { PublicEngagementCommand } from '@simmer-mosquito/domain';
 import { sentNotificationRule } from '../../record-history.js';
+import { returnColumns } from '../../return-columns.js';
 import {
 	insertRegistrationType,
 	type PublicEngagementTransaction,
 	type RegistrationTypeRow,
-	registrationTypeReturnColumns,
 	softDelete,
 } from './shared.js';
 
@@ -58,7 +58,7 @@ export async function writeRegistrationTypeCommand(
 				command.payload.notificationRegistrationTypeId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				registrationTypeReturnColumns,
+				returnColumns.notification_registration_types,
 			);
 		}
 		default:

@@ -9,13 +9,13 @@ import {
 	assertCitedHistoryAcknowledged,
 	assertTrapCodeAcknowledged,
 } from '../../record-history.js';
+import { returnColumns } from '../../return-columns.js';
 import {
 	type AdultSurveillanceTransaction,
 	resolveLocationGeom,
 	surveillanceCatalogReferences,
 	type TrapRow,
 	type TrapUpdateColumns,
-	trapReturnColumns,
 	updateRow,
 } from './shared.js';
 
@@ -63,7 +63,7 @@ export async function writeTrapCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(trapReturnColumns)
+				.returning(returnColumns.traps)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -167,7 +167,7 @@ export async function writeTrapCommand(
 				.where('id', '=', command.payload.trapId)
 				.where('organization_id', '=', command.payload.organizationId)
 				.where('deleted_at', 'is', null)
-				.returning(trapReturnColumns)
+				.returning(returnColumns.traps)
 				.executeTakeFirst();
 			return row ?? null;
 		}
@@ -182,5 +182,5 @@ async function updateTrap(
 	organizationId: string,
 	set: TrapUpdateColumns,
 ): Promise<TrapRow | null> {
-	return updateRow(trx, 'traps', trapId, organizationId, set, trapReturnColumns);
+	return updateRow(trx, 'traps', trapId, organizationId, set, returnColumns.traps);
 }

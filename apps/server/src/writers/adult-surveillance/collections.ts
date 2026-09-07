@@ -16,6 +16,7 @@ import type {
 } from '@simmer-mosquito/domain';
 import { requireStateAcknowledgement } from '../../acknowledgements.js';
 import { CommandError } from '../../command-endpoint.js';
+import { returnColumns } from '../../return-columns.js';
 import { beginExecution, completeExecutedStop } from '../field-work/assignment-lifecycle.js';
 import {
 	type AdultSurveillanceTransaction,
@@ -23,7 +24,6 @@ import {
 	type CollectionRow,
 	type CollectionTimingColumns,
 	type CollectionUpdateColumns,
-	collectionReturnColumns,
 	geojsonToGeom,
 	loadTrapSnapshot,
 	localDateColumn,
@@ -510,7 +510,7 @@ async function insertCollection(
 				...timingColumns(input.timing),
 			}),
 		)
-		.returning(collectionReturnColumns)
+		.returning(returnColumns.collections)
 		.executeTakeFirstOrThrow();
 	return row;
 }
@@ -527,7 +527,7 @@ async function updateCollection(
 		.where('id', '=', collectionId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(collectionReturnColumns)
+		.returning(returnColumns.collections)
 		.executeTakeFirst();
 	return row ?? null;
 }
@@ -563,7 +563,7 @@ async function softDeleteCollection(
 		.where('id', '=', collectionId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(collectionReturnColumns)
+		.returning(returnColumns.collections)
 		.executeTakeFirst();
 	return row ?? null;
 }

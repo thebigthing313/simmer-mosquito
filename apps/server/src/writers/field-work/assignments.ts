@@ -1,6 +1,7 @@
 import { applyRecordDeletion, checkedValues, sql } from '@simmer-mosquito/db';
 import type { FieldWorkCommand } from '@simmer-mosquito/domain';
 import { moveItems } from '../../ordered-items.js';
+import { returnColumns } from '../../return-columns.js';
 import {
 	assertAssignmentTransition,
 	checkCompleteAssignment,
@@ -10,7 +11,6 @@ import {
 import {
 	type AssignmentRow,
 	assignmentPlacementRef,
-	assignmentReturnColumns,
 	type FieldWorkTransaction,
 	localDateColumn,
 	nowLocalDate,
@@ -79,7 +79,7 @@ export async function writeAssignmentCommand(
 					...('dueAt' in changes ? { due_at: changes.dueAt ?? null } : {}),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				assignmentReturnColumns,
+				returnColumns.assignments,
 			);
 		}
 		case 'fieldWork.startAssignment':
@@ -99,7 +99,7 @@ export async function writeAssignmentCommand(
 					assigned_by_profile_id: command.payload.actorProfileId,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				assignmentReturnColumns,
+				returnColumns.assignments,
 			);
 		case 'fieldWork.completeAssignment':
 			await assertAssignmentTransition(
@@ -118,7 +118,7 @@ export async function writeAssignmentCommand(
 						command.payload.completedAt === null ? sql`now()` : command.payload.completedAt,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				assignmentReturnColumns,
+				returnColumns.assignments,
 			);
 		case 'fieldWork.cancelAssignment':
 			return updateRow(
@@ -132,7 +132,7 @@ export async function writeAssignmentCommand(
 					cancellation_reason: command.payload.cancellationReason,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				assignmentReturnColumns,
+				returnColumns.assignments,
 			);
 		case 'fieldWork.reopenAssignment':
 			await assertAssignmentTransition(
@@ -156,7 +156,7 @@ export async function writeAssignmentCommand(
 					cancellation_reason: null,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				assignmentReturnColumns,
+				returnColumns.assignments,
 			);
 		case 'fieldWork.deleteAssignment':
 			await applyRecordDeletion(trx, {
@@ -174,7 +174,7 @@ export async function writeAssignmentCommand(
 				command.payload.assignmentId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				assignmentReturnColumns,
+				returnColumns.assignments,
 			);
 		case 'fieldWork.moveAssignmentItems': {
 			await moveItems(
@@ -226,7 +226,7 @@ async function insertAssignment(
 				updated_by_profile_id: payload.actorProfileId,
 			}),
 		)
-		.returning(assignmentReturnColumns)
+		.returning(returnColumns.assignments)
 		.executeTakeFirstOrThrow();
 	return row;
 }
@@ -281,7 +281,7 @@ async function loadAssignment(
 ): Promise<AssignmentRow | null> {
 	const row = await trx
 		.selectFrom('assignments')
-		.select(assignmentReturnColumns)
+		.select(returnColumns.assignments)
 		.where('id', '=', assignmentId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)

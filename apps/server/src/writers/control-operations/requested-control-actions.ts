@@ -1,11 +1,11 @@
 import { applyRecordDeletion, checkedValues, sql } from '@simmer-mosquito/db';
 import type { ControlOperationsCommand } from '@simmer-mosquito/domain';
+import { returnColumns } from '../../return-columns.js';
 import {
 	type ControlOperationsTransaction,
 	contextIds,
 	locationContextColumns,
 	type RequestedControlActionRow,
-	requestedControlActionReturnColumns,
 	resolveGeom,
 	softDelete,
 	updateActionRow,
@@ -48,7 +48,7 @@ export async function writeRequestedControlActionCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(requestedControlActionReturnColumns)
+				.returning(returnColumns.requested_control_actions)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -73,7 +73,7 @@ export async function writeRequestedControlActionCommand(
 						: {}),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				requestedControlActionReturnColumns,
+				returnColumns.requested_control_actions,
 			);
 		}
 		case 'controlOperations.updateRequestedControlActionLocationAndContext':
@@ -91,7 +91,7 @@ export async function writeRequestedControlActionCommand(
 					)),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				requestedControlActionReturnColumns,
+				returnColumns.requested_control_actions,
 			);
 		case 'controlOperations.resolveRequestedControlAction':
 			return updateActionRow(
@@ -105,7 +105,7 @@ export async function writeRequestedControlActionCommand(
 					resolved_by_profile_id: command.payload.actorProfileId,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				requestedControlActionReturnColumns,
+				returnColumns.requested_control_actions,
 			);
 		case 'controlOperations.reopenRequestedControlAction':
 			return updateActionRow(
@@ -118,7 +118,7 @@ export async function writeRequestedControlActionCommand(
 					resolved_by_profile_id: null,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				requestedControlActionReturnColumns,
+				returnColumns.requested_control_actions,
 			);
 		case 'controlOperations.deleteRequestedControlAction':
 			await applyRecordDeletion(trx, {
@@ -137,7 +137,7 @@ export async function writeRequestedControlActionCommand(
 				command.payload.requestedControlActionId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				requestedControlActionReturnColumns,
+				returnColumns.requested_control_actions,
 			);
 		default:
 			throw new Error(`Unsupported requested control action command: ${command.type}`);

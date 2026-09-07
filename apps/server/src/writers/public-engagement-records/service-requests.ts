@@ -3,6 +3,7 @@ import type { PublicEngagementCommand } from '@simmer-mosquito/domain';
 import { requireStateAcknowledgement } from '../../acknowledgements.js';
 import { insertLifecycleComment } from '../../lifecycle-comment.js';
 import { assertCitedHistoryAcknowledged } from '../../record-history.js';
+import { returnColumns } from '../../return-columns.js';
 import {
 	geojsonToGeom,
 	localDateColumn,
@@ -10,7 +11,6 @@ import {
 	resolveContact,
 	resolveServiceRequestAddress,
 	type ServiceRequestRow,
-	serviceRequestReturnColumns,
 	softDelete,
 	updateRow,
 } from './shared.js';
@@ -86,7 +86,7 @@ async function insertServiceRequest(
 				updated_by_profile_id: payload.actorProfileId,
 			}),
 		)
-		.returning(serviceRequestReturnColumns)
+		.returning(returnColumns.service_requests)
 		.executeTakeFirstOrThrow();
 	return row;
 }
@@ -271,7 +271,7 @@ async function deleteServiceRequest(
 		payload.serviceRequestId,
 		payload.organizationId,
 		payload.actorProfileId,
-		serviceRequestReturnColumns,
+		returnColumns.service_requests,
 	);
 }
 
@@ -326,6 +326,6 @@ async function updateServiceRequest(
 		serviceRequestId,
 		organizationId,
 		set,
-		serviceRequestReturnColumns,
+		returnColumns.service_requests,
 	);
 }

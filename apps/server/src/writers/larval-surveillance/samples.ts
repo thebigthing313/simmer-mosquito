@@ -1,11 +1,7 @@
 import { applyRecordDeletion, checkedValues, sql, updateRow } from '@simmer-mosquito/db';
 import type { LarvalSurveillanceCommand } from '@simmer-mosquito/domain';
-import {
-	type LarvalSurveillanceTransaction,
-	type SampleRow,
-	type SampleUpdateColumns,
-	sampleReturnColumns,
-} from './shared.js';
+import { returnColumns } from '../../return-columns.js';
+import type { LarvalSurveillanceTransaction, SampleRow, SampleUpdateColumns } from './shared.js';
 
 // ---------------------------------------------------------------------------
 // Samples
@@ -82,7 +78,7 @@ export async function writeSampleCommand(
 				.where('id', '=', command.payload.sampleId)
 				.where('organization_id', '=', command.payload.organizationId)
 				.where('deleted_at', 'is', null)
-				.returning(sampleReturnColumns)
+				.returning(returnColumns.samples)
 				.executeTakeFirst();
 			return row ?? null;
 		}
@@ -115,7 +111,7 @@ async function insertSample(
 				updated_by_profile_id: input.actorProfileId,
 			}),
 		)
-		.returning(sampleReturnColumns)
+		.returning(returnColumns.samples)
 		.executeTakeFirstOrThrow();
 	return row;
 }
@@ -126,5 +122,5 @@ async function updateSample(
 	organizationId: string,
 	set: SampleUpdateColumns,
 ): Promise<SampleRow | null> {
-	return updateRow(trx, 'samples', sampleId, organizationId, set, sampleReturnColumns);
+	return updateRow(trx, 'samples', sampleId, organizationId, set, returnColumns.samples);
 }
