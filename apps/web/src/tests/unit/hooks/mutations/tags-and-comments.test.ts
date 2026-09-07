@@ -42,8 +42,18 @@ const { dispatches, lastChanges, lastIntents, lastWrite, resetDispatches, stubAp
 const { useTagMutations } = await import('../../../../hooks/mutations/use-tag-mutations');
 const { useCommentMutations } = await import('../../../../hooks/mutations/use-comment-mutations');
 
-/** Lower-case on purpose: the assertions below are about the case surviving. */
+/**
+ * The colour an organization picked, and the one it picked next.
+ *
+ * Both lower-case on purpose: the assertions below are about the case
+ * surviving. Neither is a token and neither is on `tagPalette`, because the
+ * column takes any hex a picker produces and a suite about storing it exactly
+ * has to write a value nothing else owns.
+ */
+// hex-color-ignore: a Tag colour an organization picked, not a design role.
 const COLOR = '#a3e635';
+// hex-color-ignore: the colour the same Tag is repainted to, picked the same way.
+const REPICKED = '#f43f5e';
 
 beforeEach(() => {
 	installMemoryCollections();
@@ -94,15 +104,16 @@ describe('a tag write', () => {
 	});
 
 	it('stores the colour exactly as the organization picked it', async () => {
-		// Upper-casing it here made `#a3e635` and `#A3E635` two colours, and the
-		// swatch that read the row back stopped matching the one in the picker.
+		// Upper-casing it here made the value the picker sent and the value the
+		// row held two colours, and the swatch that read the row back stopped
+		// matching the one in the picker.
 		const { result } = renderHook(() => useTagMutations());
 
 		await result.current.create(tagFields());
 		expect(lastWrite().row).toMatchObject({ color: COLOR });
 
-		await result.current.save(RECORD, tagFields({ color: '#f43f5e' }), tagFields());
-		expect(lastChanges().color).toBe('#f43f5e');
+		await result.current.save(RECORD, tagFields({ color: REPICKED }), tagFields());
+		expect(lastChanges().color).toBe(REPICKED);
 	});
 
 	it('sends only the columns that moved, because an empty update is refused', async () => {
