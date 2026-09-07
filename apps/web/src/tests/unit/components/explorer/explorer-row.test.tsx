@@ -119,6 +119,28 @@ describe('ExplorerRow', () => {
 		expect(screen.queryByText('2026')).toBeNull();
 	});
 
+	// A `title` paints a hover tooltip and is a weak source for an accessible
+	// name, so the dot names itself with `aria-label` and nothing else.
+	it('names the map-colour dot with a label, not a tooltip', () => {
+		render(
+			<ul>
+				<li>
+					<ExplorerRow
+						detailLabel="View details"
+						detailLink={DETAIL}
+						isSelected={false}
+						selectLabel="Show on the map"
+						swatch={{ color: '#e11d48', label: 'Inaccessible' }}
+						title="CAR - S1 - 12"
+					/>
+				</li>
+			</ul>,
+		);
+
+		const dot = screen.getByRole('img', { name: 'Inaccessible' });
+		expect(dot.getAttribute('title')).toBeNull();
+	});
+
 	// A weather station whose centroid has not synced has nothing to show, and a
 	// control that does nothing is worse than no control.
 	it('draws no map control for a record with no coordinates', () => {
