@@ -547,6 +547,24 @@ function secondSystem(db: unknown, auth: MembershipAuth) {
 }
 
 /**
+ * The rest of the invitation WorkOS answers with.
+ *
+ * Only `id` is read by anything below, and only `id` used to be returned:
+ * `MembershipAuth` narrowed the method to `{ id }` while the real one answers an
+ * `AuthInvitation`, so the double was free to answer a shape no WorkOS response
+ * has (#619).
+ */
+const INVITATION = {
+	email: 'invitee@example.test',
+	state: 'pending',
+	organizationId: 'org_workos',
+	acceptedUserId: null,
+	expiresAt: '2026-01-08T00:00:00.000Z',
+	createdAt: '2026-01-01T00:00:00.000Z',
+	updatedAt: '2026-01-01T00:00:00.000Z',
+} as const;
+
+/**
  * WorkOS, including the rule that made #218 fail on every call.
  *
  * `pending` is the invitation WorkOS is already holding for this address and
@@ -573,7 +591,7 @@ function fakeAuth(
 				throw new Error('Email already invited to organization.');
 			}
 			pending = issues;
-			return { id: issues };
+			return { ...INVITATION, id: issues };
 		}),
 		revokeInvitation: vi.fn(async (invitationId: string) => {
 			options.calls?.push('revoke');

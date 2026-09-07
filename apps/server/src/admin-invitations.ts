@@ -1,3 +1,4 @@
+import type { WorkOsAuth } from '@simmer-mosquito/auth';
 import {
 	assertOrganizationProfileCanBeInvited,
 	getOperatorOrganization,
@@ -19,29 +20,11 @@ import {
 
 type AdminInvitationDb = Parameters<typeof getOperatorOrganization>[0];
 
-export interface AdminInvitationAuth {
-	findOrganizationMember(input: {
-		readonly email: string;
-		readonly workosOrganizationId: string;
-	}): Promise<{
-		readonly workosUserId: string;
-		readonly status: 'active' | 'inactive' | 'pending';
-	} | null>;
-	sendOrganizationInvitation(input: {
-		readonly email: string;
-		readonly workosOrganizationId: string;
-		readonly inviterWorkosUserId?: string;
-	}): Promise<{
-		readonly id: string;
-		readonly email: string;
-		readonly state: 'pending' | 'accepted' | 'expired' | 'revoked';
-		readonly organizationId: string | null;
-		readonly acceptedUserId: string | null;
-		readonly expiresAt: string;
-		readonly createdAt: string;
-		readonly updatedAt: string;
-	}>;
-}
+/** What inviting somebody into an organization needs of the WorkOS client. */
+export type AdminInvitationAuth = Pick<
+	WorkOsAuth,
+	'findOrganizationMember' | 'sendOrganizationInvitation'
+>;
 
 export function registerAdminInvitationRoutes(
 	app: Hono<{ Variables: AuthVariables }>,

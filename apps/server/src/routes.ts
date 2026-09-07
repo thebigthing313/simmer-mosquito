@@ -77,11 +77,11 @@ import { registerWeatherImportRoute } from './weather-commands/index.js';
 /**
  * What the route modules need, as the narrowest shape both callers can build.
  *
- * `auth` is the intersection of the three views the modules take of the WorkOS
- * client rather than the client itself, and `mailer` and `finalizeSession` are
- * interfaces for the same reason. The route walk stands these up inert, because
- * it cannot hold a real WorkOS client or send email to find out which paths
- * exist.
+ * `auth` is the intersection of the five views the modules take of the WorkOS
+ * client rather than the client itself, each of them a `Pick<WorkOsAuth, ...>`,
+ * and `mailer` and `finalizeSession` are interfaces for the same reason. The
+ * route walk stands these up inert, because it cannot hold a real WorkOS client
+ * or send email to find out which paths exist.
  */
 export interface ServerDeps {
 	readonly db: Kysely<SimmerDatabase>;

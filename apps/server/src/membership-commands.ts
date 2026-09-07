@@ -42,6 +42,7 @@
  * names the Profile it creates, and the two rows are written together.
  */
 
+import type { WorkOsAuth } from '@simmer-mosquito/auth';
 import {
 	checkedValues,
 	type Kysely,
@@ -68,23 +69,16 @@ import {
 /**
  * What the second system needs of the auth provider.
  *
- * Structural, and only the four calls these commands make. `main.ts` hands in
- * the real WorkOS client; a test hands in four functions.
+ * Only the three calls these commands make, picked off `WorkOsAuth` rather than
+ * described a second time. `main.ts` hands in the real WorkOS client; a test
+ * hands in three functions, and they now have to answer what the real ones
+ * answer. `sendOrganizationInvitation` was narrowed here to `{ id }`, which let
+ * a double return a shape no WorkOS response has.
  */
-export interface MembershipAuth {
-	sendOrganizationInvitation(input: {
-		readonly email: string;
-		readonly workosOrganizationId: string;
-		readonly inviterWorkosUserId?: string;
-	}): Promise<{ readonly id: string }>;
-	revokeInvitation(
-		invitationId: string,
-	): Promise<{ readonly status: 'revoked' | 'already_settled' }>;
-	deactivateOrganizationMembership(input: {
-		readonly workosUserId: string;
-		readonly workosOrganizationId: string;
-	}): Promise<{ readonly status: 'deactivated' | 'not_a_member' }>;
-}
+export type MembershipAuth = Pick<
+	WorkOsAuth,
+	'sendOrganizationInvitation' | 'revokeInvitation' | 'deactivateOrganizationMembership'
+>;
 
 /**
  * What a client is told about a Membership.
