@@ -106,6 +106,13 @@ describe('parseCssColor', () => {
 		);
 	});
 
+	it('reads a low percentage lightness as a percentage', () => {
+		// The magnitude cannot tell the two forms apart down here, and the sign
+		// can: `1%` is near-black and `1` is white.
+		expect(formatHex(hex('oklch(1% 0 0)'))).toBe('#000000');
+		expect(formatHex(hex('oklch(1 0 0)'))).toBe('#ffffff');
+	});
+
 	it.each([
 		{ label: 'the empty string a CSS variable reads as before it resolves', value: '' },
 		{ label: 'a keyword', value: 'transparent' },
