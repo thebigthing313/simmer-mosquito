@@ -200,7 +200,7 @@ export function TrapFormPage({
 				)}
 
 				<LocationSection
-					description="The point is the trap’s exact location. An address is optional reference — refine the point off it to the precise spot."
+					description="The point is the trap’s exact location. An address is optional reference. Refine the point off it to the precise spot."
 					error={location.locationError}
 				>
 					<form.AppField name="addressId">

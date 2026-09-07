@@ -392,7 +392,7 @@ function CollectionSpecies({
 		);
 	}
 	if (isZeroResult) {
-		return <SpeciesNote>Marked zero result — nothing was collected.</SpeciesNote>;
+		return <SpeciesNote>Marked zero result. Nothing was collected.</SpeciesNote>;
 	}
 	if (entries.length === 0) {
 		return <SpeciesNote>No species have been identified in this collection.</SpeciesNote>;

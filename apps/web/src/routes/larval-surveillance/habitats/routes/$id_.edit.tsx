@@ -398,7 +398,7 @@ function AddStopBar({
 					aria-label="Search habitats to add"
 					className="pl-9"
 					onChange={(event) => setSearchInput(event.target.value)}
-					placeholder="Add a stop — search habitats…"
+					placeholder="Search habitats to add a stop…"
 					type="search"
 					value={searchInput}
 				/>

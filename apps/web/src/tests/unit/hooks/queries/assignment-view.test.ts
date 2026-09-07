@@ -53,7 +53,7 @@ describe('assignmentDisplayName', () => {
 	it('falls back to the date and assignee', () => {
 		expect(
 			assignmentDisplayName({ assignmentName: null, assignmentDate: '2026-08-04' }, 'Rivera'),
-		).toBe('2026-08-04 — Rivera');
+		).toBe('2026-08-04, Rivera');
 	});
 
 	it('falls back to the date alone when nobody is assigned', () => {

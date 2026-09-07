@@ -389,5 +389,5 @@ function dateRangeLabel(from: string, to: string): string {
 	if (to === '') {
 		return `From ${formatMonthDay(from)}`;
 	}
-	return `${formatMonthDay(from)} – ${formatMonthDay(to)}`;
+	return `${formatMonthDay(from)}–${formatMonthDay(to)}`;
 }

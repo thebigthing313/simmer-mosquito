@@ -508,7 +508,7 @@ function OpenSamplesPanel({ since }: { readonly since: string }) {
 			) : isLoading ? (
 				<RowSkeleton count={3} />
 			) : samples.length === 0 ? (
-				<PanelMessage>No samples awaiting identification — nice work.</PanelMessage>
+				<PanelMessage>No samples awaiting identification. Nice work.</PanelMessage>
 			) : (
 				<ul className="divide-y divide-border/60">
 					{samples.map((sample) => (

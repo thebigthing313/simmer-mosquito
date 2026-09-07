@@ -134,7 +134,7 @@ function SpeciesRoute() {
 				<Button
 					disabled={!canAdd}
 					onClick={() => setDialog('new')}
-					title={canAdd ? undefined : 'Add a genus first — species are recorded against one.'}
+					title={canAdd ? undefined : 'Add a genus first. Species are recorded against one.'}
 					type="button"
 				>
 					<AddIcon aria-hidden="true" />

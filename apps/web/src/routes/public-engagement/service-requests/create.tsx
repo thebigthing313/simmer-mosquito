@@ -107,7 +107,7 @@ function CreateServiceRequestRoute() {
 			header={{
 				title: 'New Service Request',
 				description:
-					'Log a request from the public — link or create a contact and address, and place its location.',
+					'Log a request from the public. Link or create a contact and address, then place its location.',
 				backTo: '/public-engagement/service-requests',
 				backLabel: 'Service Requests',
 			}}

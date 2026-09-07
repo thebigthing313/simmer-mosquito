@@ -106,7 +106,7 @@ function HabitatTypesRoute() {
 		<CatalogPage
 			action={canManage ? addHabitatTypeDialog : undefined}
 			canEdit={canManage}
-			description="Habitat types classify the habitats your crews inspect — catch basins, storm drains, ditches, tire piles, and the rest. Manage the labels and any custom fields you record against them."
+			description="Habitat types classify the habitats your crews inspect: catch basins, storm drains, ditches, tire piles, and the rest. Manage the labels and any custom fields you record against them."
 			emptyDescription={
 				<>
 					Habitat types are the classification labels crews pick when recording a larval habitat.

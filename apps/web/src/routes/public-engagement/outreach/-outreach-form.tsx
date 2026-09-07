@@ -278,7 +278,7 @@ export function OutreachFormPage({
 				</FormSection>
 
 				<LocationSection
-					description="The geometry is where the outreach happened — a point for a single stop, a line or area for a canvassed block. An address is optional reference."
+					description="The geometry is where the outreach happened. Use a point for a single stop, a line or area for a canvassed block. An address is optional reference."
 					error={location.locationError}
 				>
 					<form.AppField name="addressId">
@@ -340,7 +340,7 @@ export function OutreachFormPage({
 						{(field) => (
 							<field.TextareaField
 								label="Who was reached"
-								placeholder="e.g. Households on Willow Ct — 12 doors, 3 asked for a follow-up inspection"
+								placeholder="e.g. Households on Willow Ct. 12 doors, 3 asked for a follow-up inspection"
 								rows={4}
 							/>
 						)}

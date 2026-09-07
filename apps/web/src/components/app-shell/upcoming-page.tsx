@@ -269,7 +269,7 @@ const CONTENT: Readonly<Record<string, UpcomingContent>> = {
 			'What was applied and where: product usage, method mix, and treated area across a season.',
 		willLand: [
 			'Product usage by active ingredient, in a single unit across the season',
-			'Method mix — larvicide, adulticide, barrier — over a reporting period',
+			'Larvicide, adulticide, and barrier mix over a reporting period',
 			'Applications per region, beside the surveillance that prompted them',
 		],
 		elsewhere: [applications, insecticides, controlOverview],

@@ -680,7 +680,7 @@ function LinkedActionSummary({ action }: { readonly action: LinkedControlAction 
 					{controlTypeLabel(action.controlType)} requested
 					{action.summary === null || action.summary.trim().length === 0
 						? ''
-						: ` — ${action.summary}`}
+						: ` · ${action.summary}`}
 					{' · '}
 					<span
 						className={

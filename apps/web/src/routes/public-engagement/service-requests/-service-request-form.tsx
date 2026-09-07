@@ -359,7 +359,7 @@ export function ServiceRequestFormPage({
 					<form.AppField name="details">
 						{(field) => (
 							<field.TextareaField
-								description="What the caller reported — location details, mosquito activity, standing water, etc."
+								description="What the caller reported, such as location details, mosquito activity, or standing water."
 								label="Details"
 								required
 								placeholder="Describe the request…"

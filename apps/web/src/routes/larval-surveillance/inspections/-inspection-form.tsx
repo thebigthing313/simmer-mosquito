@@ -769,7 +769,7 @@ function SamplesSection({
 											),
 										)
 									}
-									placeholder={`Sample ${index + 1} — label optional`}
+									placeholder={`Optional label for sample ${index + 1}`}
 									value={sample.label}
 								/>
 								<Button

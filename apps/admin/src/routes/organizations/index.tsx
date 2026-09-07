@@ -131,7 +131,7 @@ function OrganizationDirectoryRow({ organization }: { readonly organization: Adm
 						<span className={linked ? 'text-muted-foreground' : 'font-medium text-warning'}>
 							{linked
 								? (organization.contact.mainContactEmail ?? 'No main contact')
-								: 'No sign-in — identity not linked'}
+								: 'No sign-in until the identity is linked'}
 						</span>
 					</p>
 				</div>

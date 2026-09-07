@@ -368,7 +368,7 @@ function AwaitingIdentificationPanel({ since }: { readonly since: string }) {
 			) : !isReady ? (
 				<RowSkeleton count={3} />
 			) : awaiting.length === 0 ? (
-				<PanelMessage>No collections awaiting identification — nice work.</PanelMessage>
+				<PanelMessage>No collections awaiting identification. Nice work.</PanelMessage>
 			) : (
 				<ul className="divide-y divide-border/60">
 					{awaiting.map((collection) => (

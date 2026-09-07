@@ -122,7 +122,7 @@ export function AssignmentDetailFields({
 					disabled={disabled}
 					id="assignment-name"
 					onChange={(event) => onChange({ ...values, assignmentName: event.target.value })}
-					placeholder="Optional — defaults to the date and assignee"
+					placeholder="Optional, defaults to the date and assignee"
 					value={values.assignmentName}
 				/>
 			</div>

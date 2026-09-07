@@ -598,8 +598,8 @@ export function CollectionFormPage({
 
 				<FormSection title="Results">
 					<p className="m-0 rounded-md border border-border/40 bg-muted/30 px-3 py-2.5 text-muted-foreground text-sm">
-						Record the species identified — and mark a zero result or bycatch — on the collection’s
-						detail page after saving.
+						Record the species identified on the collection’s detail page after saving. Mark a zero
+						result or bycatch there too.
 					</p>
 				</FormSection>
 

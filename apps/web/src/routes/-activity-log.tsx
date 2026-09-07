@@ -119,7 +119,7 @@ function WhatThisDoesNotShow() {
 			<ul className="mt-2 grid gap-1.5 text-muted-foreground text-xs">
 				<li>
 					Habitats and traps are listed as <span className="font-medium">Created</span>, which means
-					the record was entered — not that the person stood there. Every other kind of entry here
+					the record was entered, not that the person stood there. Every other kind of entry here
 					names someone who did the work.
 				</li>
 				<li>
@@ -133,7 +133,7 @@ function WhatThisDoesNotShow() {
 				</li>
 				<li>
 					A trap recorded with a date and a duration, rather than exact timestamps, has no separate
-					set time — both its visits fall on the collection date.
+					set time. Both its visits fall on the collection date.
 				</li>
 			</ul>
 		</details>
