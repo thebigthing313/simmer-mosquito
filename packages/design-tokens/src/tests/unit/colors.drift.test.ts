@@ -40,18 +40,26 @@ function oklchToHex(L: number, C: number, hDeg: number): string {
 	return `#${channels.map((v) => v.toString(16).padStart(2, '0')).join('')}`;
 }
 
-/** `--simmer-green-400: oklch(64.6% 0.112 157);` -> `{ 'green-400': '#4ba272' }` */
+/**
+ * `--simmer-green-400: oklch(64.6% 0.112 157);` -> `{ 'green-400': '#4ba272' }`,
+ * and `--simmer-purple: oklch(0.4937 0.1424 325.97);` -> `{ purple: '#893f8c' }`.
+ *
+ * The step is optional because the three standalone hues are declared without
+ * one. The `oklch(` right after the colon is what keeps the four `var()`
+ * aliases out. The `color-mix()` arguments are out for a different reason. A
+ * token named inside a mix is not followed by a colon at all.
+ */
 function hexFromStylesheet(): ReadonlyMap<string, string> {
 	const css = readFileSync(TOKENS_CSS, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
 	const declaration =
-		/--simmer-(green|yellow)-(\d{2,3})\s*:\s*oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)\s*\)/g;
+		/--simmer-(green|yellow|purple|red|blue)(-\d{2,3})?\s*:\s*oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)\s*\)/g;
 	const out = new Map<string, string>();
 	let match = declaration.exec(css);
 	while (match !== null) {
 		const [, family, step, rawL, percent, chroma, hue] = match;
 		const lightness = Number(rawL);
 		out.set(
-			`${family}-${step}`,
+			`${family}${step ?? ''}`,
 			oklchToHex(percent === '%' ? lightness / 100 : lightness, Number(chroma), Number(hue)),
 		);
 		match = declaration.exec(css);
@@ -63,8 +71,10 @@ const FROM_CSS = hexFromStylesheet();
 
 describe('brand scale hex mirrors tokens.css', () => {
 	it('finds every scale step in the stylesheet', () => {
-		// 10 steps x 2 families. A miss here means the regex drifted, not the colours.
-		expect(FROM_CSS.size).toBe(20);
+		// 10 steps x 2 families, plus the 3 standalone hues. A miss here means the
+		// regex drifted, not the colours. A family it stops matching would leave the
+		// comparison with nothing else saying so.
+		expect(FROM_CSS.size).toBe(23);
 	});
 
 	it.each(Object.keys(green))('green-%s matches its OKLCH source', (step) => {
@@ -82,15 +92,14 @@ describe('brand scale hex mirrors tokens.css', () => {
 		expect(brand.yellow).toBe(yellow[100]);
 	});
 
-	it('matches the standalone brand hues to their tokens.css values', () => {
-		// These are declared directly rather than as scale steps.
-		const standalone: readonly (readonly [string, string])[] = [
-			[brand.purple, oklchToHex(0.4937, 0.1424, 325.97)],
-			[brand.red, oklchToHex(0.6156, 0.2307, 16.37)],
-			[brand.blue, oklchToHex(0.4483, 0.1791, 268.37)],
-		];
-		for (const [declared, derived] of standalone) {
-			expect(declared).toBe(derived);
-		}
+	// The three standalone hues are declared directly rather than as scale steps,
+	// so `FROM_CSS` keys them by name alone. A case each, so a run says which of
+	// the three drifted rather than stopping at the first.
+	it.each([
+		['purple', brand.purple],
+		['red', brand.red],
+		['blue', brand.blue],
+	])('%s matches its OKLCH source', (name, declared) => {
+		expect(declared).toBe(FROM_CSS.get(name));
 	});
 });
