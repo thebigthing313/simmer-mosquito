@@ -11,8 +11,7 @@ import {
 	type ControlActionLocationSourceInput,
 	type RequestedControlActionLocationSource,
 	type RequestedControlActionLocationSourceInput,
-	validateControlActionLocationSource,
-	validateRequestedControlActionLocationSource,
+	validateLocationSourceInput,
 } from '../location-intent.js';
 import type { ControlActionContext } from '../performed-control-actions.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
@@ -140,44 +139,6 @@ export function idCommand<
 
 export type LocationSourceFlow = 'controlAction' | 'requestedControlAction';
 
-export function validateControlActionLocationSourceInput(
-	input: {
-		readonly locationSource?: ControlActionLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): ControlActionLocationSource {
-	if (input.locationSource !== undefined) {
-		return validateControlActionLocationSource(input.locationSource, 'locationSource', issues);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateControlActionLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
-
-export function validateRequestedControlActionLocationSourceInput(
-	input: {
-		readonly locationSource?: RequestedControlActionLocationSourceInput;
-	},
-	issues: DomainValidationIssue[],
-): RequestedControlActionLocationSource {
-	if (input.locationSource !== undefined) {
-		return validateRequestedControlActionLocationSource(
-			input.locationSource,
-			'locationSource',
-			issues,
-		);
-	}
-	issues.push({ path: 'locationSource', message: 'locationSource is required.' });
-	return validateRequestedControlActionLocationSource(
-		{ kind: 'geometry', geometry: { type: 'Point', coordinates: [0, 0] } },
-		'locationSource',
-		issues,
-	);
-}
-
 export function validateLocationContextPatchBase<TInput extends ControlCommandInput>(
 	input: TInput,
 	idKey: keyof TInput & string,
@@ -270,15 +231,7 @@ function validatePatchLocationSource(
 	flow: LocationSourceFlow,
 	issues: DomainValidationIssue[],
 ): ControlActionLocationSource | RequestedControlActionLocationSource {
-	return flow === 'controlAction'
-		? validateControlActionLocationSourceInput(
-				input as { readonly locationSource?: ControlActionLocationSourceInput },
-				issues,
-			)
-		: validateRequestedControlActionLocationSourceInput(
-				input as { readonly locationSource?: RequestedControlActionLocationSourceInput },
-				issues,
-			);
+	return validateLocationSourceInput(input, flow, issues);
 }
 
 export function normalizePositiveFiniteNumber(

@@ -407,8 +407,12 @@ export function normalizeOwnedGeometry<Kind extends OwnedGeometryKind>(
  * register, so the two move together. A predicate rather than a cast, because a
  * cast would be one more place naming a shape by hand, which is the bug this
  * closes.
+ *
+ * Exported for `location-intent.ts`, whose flow validator asks the same question
+ * of a hand-drawn location source. A second copy of the test there would be the
+ * thing this predicate exists to prevent.
  */
-function isOwnedGeometry<Kind extends OwnedGeometryKind>(
+export function isOwnedGeometry<Kind extends OwnedGeometryKind>(
 	kind: Kind,
 	geometry: SupportedGeoJsonGeometry,
 ): geometry is OwnedGeoJsonGeometryFor<Kind> {
