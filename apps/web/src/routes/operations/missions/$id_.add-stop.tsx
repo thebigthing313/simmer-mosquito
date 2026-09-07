@@ -113,10 +113,7 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 			}
 			aside={
 				<>
-					<MapCanvas
-						geoJson={location.referenceGeometry as unknown as GeoJSON.GeoJSON | null}
-						onMapReady={location.onMapReady}
-					/>
+					<MapCanvas geoJson={location.referenceGeometry} onMapReady={location.onMapReady} />
 					<DrawToolbar
 						geometryKind="missionItem"
 						controller={location.draw}

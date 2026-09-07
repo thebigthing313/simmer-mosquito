@@ -1,5 +1,5 @@
 import { mapInteraction, mapLifecycle, mapProgress } from '@simmer-mosquito/design-tokens';
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import type { GeoJsonGeometry, GeoJsonPoint } from '@simmer-mosquito/mapping';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -10,6 +10,7 @@ import type {
 	SymbolLayerSpecification,
 } from 'mapbox-gl';
 import { useEffect, useMemo, useRef } from 'react';
+import { toMapboxGeometry } from './geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -215,14 +216,18 @@ function buildData(stops: readonly RouteStopFeature[]): GeoJSON.FeatureCollectio
 	// A stop whose own shape is a point already has one — the pin. Only lines and
 	// areas add a feature, and they carry the *stop's* id in `properties` so a
 	// click on the area selects the stop, not the shape.
-	const shapes: GeoJSON.Feature[] = located
-		.filter((stop) => isDrawableShape(stop.geometry))
-		.map((stop) => ({
-			type: 'Feature',
-			id: shapeFeatureId(stop.id),
-			geometry: stop.geometry as unknown as GeoJSON.Geometry,
-			properties: { id: stop.id, kind: 'shape', ordinal: stop.ordinal, tone: stop.tone },
-		}));
+	const shapes: GeoJSON.Feature[] = located.flatMap((stop) =>
+		isDrawableShape(stop.geometry)
+			? [
+					{
+						type: 'Feature' as const,
+						id: shapeFeatureId(stop.id),
+						geometry: toMapboxGeometry(stop.geometry),
+						properties: { id: stop.id, kind: 'shape', ordinal: stop.ordinal, tone: stop.tone },
+					},
+				]
+			: [],
+	);
 
 	const line =
 		points.length >= 2
@@ -243,7 +248,9 @@ function buildData(stops: readonly RouteStopFeature[]): GeoJSON.FeatureCollectio
 }
 
 /** Anything but a bare point, which the numbered pin already draws. */
-function isDrawableShape(geometry: GeoJsonGeometry | null | undefined): boolean {
+function isDrawableShape(
+	geometry: GeoJsonGeometry | null | undefined,
+): geometry is Exclude<GeoJsonGeometry, GeoJsonPoint> {
 	return geometry != null && geometry.type !== 'Point';
 }
 

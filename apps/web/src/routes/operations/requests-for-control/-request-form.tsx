@@ -162,10 +162,7 @@ export function RequestFormPage({
 				}
 				aside={
 					<>
-						<MapCanvas
-							geoJson={location.referenceGeometry as unknown as GeoJSON.GeoJSON | null}
-							onMapReady={location.onMapReady}
-						/>
+						<MapCanvas geoJson={location.referenceGeometry} onMapReady={location.onMapReady} />
 						<DrawToolbar
 							geometryKind="requestedControlAction"
 							controller={location.draw}

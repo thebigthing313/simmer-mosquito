@@ -7,6 +7,7 @@ import type {
 	Map as MapboxMap,
 } from 'mapbox-gl';
 import { useEffect, useRef } from 'react';
+import type { MapSourceGeoJson } from './geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -155,7 +156,7 @@ function geoJsonLayers(
 export function useGeoJsonLayer(
 	map: MapboxMap | null,
 	isLoaded: boolean,
-	data: GeoJSON.GeoJSON | null,
+	data: MapSourceGeoJson | null,
 	interaction?: GeoJsonLayerInteraction,
 ): void {
 	const enabled = data !== null;

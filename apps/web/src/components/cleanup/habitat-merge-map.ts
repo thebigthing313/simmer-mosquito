@@ -1,4 +1,8 @@
-import { circlePolygon } from '@simmer-mosquito/mapping';
+import {
+	circlePolygon,
+	type GeoJsonFeature,
+	type GeoJsonFeatureCollection,
+} from '@simmer-mosquito/mapping';
 import type { DuplicateRecord, NearbyHabitat } from '../../hooks/use-merge-candidates';
 
 /**
@@ -13,17 +17,17 @@ export function mergeMapData(
 	target: DuplicateRecord | undefined,
 	candidates: readonly NearbyHabitat[],
 	radiusMetres: number,
-): GeoJSON.FeatureCollection | null {
+): GeoJsonFeatureCollection | null {
 	if (target === undefined || target.lat === null || target.lng === null) {
 		return null;
 	}
 
 	const center = { lat: target.lat, lng: target.lng };
-	const features: GeoJSON.Feature[] = [
+	const features: GeoJsonFeature[] = [
 		{
 			type: 'Feature',
 			properties: { role: 'ring' },
-			geometry: circlePolygon(center, radiusMetres) as unknown as GeoJSON.Polygon,
+			geometry: circlePolygon(center, radiusMetres),
 		},
 	];
 
