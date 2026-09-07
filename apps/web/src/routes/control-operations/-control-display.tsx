@@ -1,5 +1,7 @@
 import { lookupUnitConversion, totalInUnit, type UnitDefaults } from '@simmer-mosquito/domain';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
+import { calendarDateParts } from '../../lib/local-date';
+import { unreadable } from '../../lib/unreadable-input';
 
 /** As much of a unit as anything here reads: its conversion key and its label. */
 interface MeasureUnit {
@@ -43,23 +45,40 @@ export function formatAmount(
  * two places, which no compiled `select` can express.
  */
 export function formatMeasure(amount: number, abbreviation: string | null): string {
-	const value = Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
+	const value = readAmount(amount);
 	return abbreviation === null ? value : `${value} ${abbreviation}`;
 }
 
-/** Date-only columns arrive as `YYYY-MM-DD`; render them without a timezone shift. */
+/**
+ * The number half of {@link formatMeasure}, so its guard is one branch rather
+ * than a repeat of the unit rule.
+ *
+ * A non-finite amount already read as `NaN` or `Infinity` on screen, since
+ * neither is an integer and `toFixed` writes them out. It still does, and now it
+ * warns: an application recorded against a broken amount is a record somebody
+ * has to fix, not a cell to leave sitting there.
+ */
+function readAmount(amount: number): string {
+	if (!Number.isFinite(amount)) {
+		return unreadable('formatMeasure', amount);
+	}
+	return Number.isInteger(amount) ? amount.toString() : amount.toFixed(2);
+}
+
+/**
+ * Date-only columns arrive as `YYYY-MM-DD`; render them without a timezone shift.
+ *
+ * The `Date` here is a local one on purpose. `toLocaleDateString` with no zone
+ * reads the local parts back, so the two cancel and the day is the day that was
+ * recorded. Building it in UTC instead would shift it by one everywhere east of
+ * Greenwich, which is the mirror of the bug the UTC formatters exist to avoid.
+ */
 export function formatActionDate(value: string): string {
-	const [yearPart, monthPart, dayPart] = value.slice(0, 10).split('-');
-	if (yearPart === undefined || monthPart === undefined || dayPart === undefined) {
-		return value;
+	const parts = calendarDateParts(value);
+	if (parts === undefined) {
+		return unreadable('formatActionDate', value);
 	}
-	const year = Number.parseInt(yearPart, 10);
-	const month = Number.parseInt(monthPart, 10);
-	const day = Number.parseInt(dayPart, 10);
-	if (!Number.isFinite(year) || !Number.isFinite(month) || !Number.isFinite(day)) {
-		return value;
-	}
-	return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+	return new Date(parts.year, parts.month - 1, parts.day).toLocaleDateString(undefined, {
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',

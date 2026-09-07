@@ -96,7 +96,10 @@ import { useUnitLabels } from '../hooks/queries/use-unit-labels';
 import { useHabitatGeometry } from '../hooks/use-habitat-geometry';
 import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { HABITAT_DELETE_REFUSALS } from '../lib/acknowledgement-copy';
+import { formatAmount } from '../lib/format-count';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
+import { calendarDateParts } from '../lib/local-date';
+import { unreadable } from '../lib/unreadable-input';
 import type { HabitatGeometry } from './-habitat-geometry-cache';
 import { HabitatInspectionStats } from './-habitat-inspection-stats';
 
@@ -1278,14 +1281,15 @@ function formatSampleResult(sample: HabitatHistorySample): string {
  * bare `YYYY-MM-DD` parses as UTC midnight, which renders as the *previous* day
  * everywhere west of Greenwich. So the parts are read out and put back together
  * in UTC, where the day cannot move.
+ *
+ * It answered `Unknown` for a date it could not read, which named the reader's
+ * problem and not the record's. The value goes back on screen instead, and the
+ * warning is what a developer reads.
  */
-function formatDate(value: string): string {
-	const parts = value.slice(0, 10).split('-');
-	const year = Number(parts[0]);
-	const month = Number(parts[1]);
-	const day = Number(parts[2]);
-	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
-		return 'Unknown';
+export function formatDate(value: string): string {
+	const parts = calendarDateParts(value);
+	if (parts === undefined) {
+		return unreadable('formatDate', value);
 	}
 
 	return new Intl.DateTimeFormat(undefined, {
@@ -1293,17 +1297,7 @@ function formatDate(value: string): string {
 		month: 'short',
 		year: 'numeric',
 		timeZone: 'UTC',
-	}).format(new Date(Date.UTC(year, month - 1, day)));
-}
-
-// Trim trailing zeros from stored decimals (e.g. 2.50 -> 2.5) while keeping whole
-// amounts whole, so applied quantities read naturally next to their unit.
-function formatAmount(value: number): string {
-	if (!Number.isFinite(value)) {
-		return '—';
-	}
-
-	return new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(value);
+	}).format(new Date(Date.UTC(parts.year, parts.month - 1, parts.day)));
 }
 
 /**

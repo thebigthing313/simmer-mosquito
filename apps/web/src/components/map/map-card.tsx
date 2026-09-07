@@ -9,6 +9,8 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
+import { calendarDateParts } from '../../lib/local-date';
+import { unreadable } from '../../lib/unreadable-input';
 import { type MapInset, NO_MAP_INSET } from './map-inset';
 
 export interface MapCardProps {
@@ -255,17 +257,14 @@ export function MapCardEyebrow({
  * `YYYY-MM-DD`; format in UTC so the calendar day never shifts across timezones.
  */
 export function formatMapCardDate(date: string): string {
-	const parts = date.slice(0, 10).split('-');
-	const year = Number(parts[0]);
-	const month = Number(parts[1]);
-	const day = Number(parts[2]);
-	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
-		return date;
+	const parts = calendarDateParts(date);
+	if (parts === undefined) {
+		return unreadable('formatMapCardDate', date);
 	}
 	return new Intl.DateTimeFormat('en-US', {
 		year: 'numeric',
 		month: 'long',
 		day: 'numeric',
 		timeZone: 'UTC',
-	}).format(new Date(Date.UTC(year, month - 1, day)));
+	}).format(new Date(Date.UTC(parts.year, parts.month - 1, parts.day)));
 }

@@ -66,6 +66,8 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { INSPECTION_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { adhocLabel } from '../../../lib/coordinate-label';
+import { formatAmount } from '../../../lib/format-count';
+import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id')({
 	component: RouteComponent,
@@ -884,15 +886,6 @@ function breadcrumbLabel(inspection: InspectionDetailRow): string {
 	return `Inspection · ${formatMonthDayYear(inspection.inspectionDate)}`;
 }
 
-// Trim trailing zeros from stored decimals (2.50 -> 2.5) while keeping whole
-// amounts whole, so applied/eliminated quantities read naturally next to a unit.
-function formatAmount(value: number): string {
-	if (!Number.isFinite(value)) {
-		return '—';
-	}
-	return new Intl.NumberFormat(undefined, { maximumFractionDigits: 3 }).format(value);
-}
-
 function controlTypeLabel(controlType: ControlType): string {
 	switch (controlType) {
 		case 'application':
@@ -911,57 +904,4 @@ function coordinateLabel(inspection: InspectionDetailRow): string {
 		return 'Unknown coordinates';
 	}
 	return `${inspection.lat.toFixed(5)}, ${inspection.lng.toFixed(5)}`;
-}
-
-/** Long-form date from a `YYYY-MM-DD` inspection date (parsed as its own UTC day). */
-function formatFullDate(date: string): string {
-	const parsed = parseDateOnly(date);
-	if (parsed === null) {
-		return date;
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
-}
-
-function formatMonthDayYear(date: string): string {
-	const parsed = parseDateOnly(date);
-	if (parsed === null) {
-		return date;
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
-}
-
-function parseDateOnly(date: string): Date | null {
-	const parts = date.slice(0, 10).split('-');
-	const year = Number(parts[0]);
-	const month = Number(parts[1]);
-	const day = Number(parts[2]);
-	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
-		return null;
-	}
-	return new Date(Date.UTC(year, month - 1, day));
-}
-
-function formatDateTime(value: string, timeZone: string | undefined): string {
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) {
-		return 'Unknown';
-	}
-	return new Intl.DateTimeFormat(undefined, {
-		day: 'numeric',
-		month: 'short',
-		year: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-		...(timeZone === undefined ? {} : { timeZone }),
-	}).format(date);
 }

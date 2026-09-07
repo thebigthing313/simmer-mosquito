@@ -62,6 +62,7 @@ import { sample_species } from '../../../lib/collections/sample_species';
 import { samples } from '../../../lib/collections/samples';
 import { adhocLabel, formatCoordinates } from '../../../lib/coordinate-label';
 import { todayInTimeZone } from '../-overview-data';
+import { formatDateTime, formatFullDate, formatMonthDayYear } from '../-record-dates';
 import { SampleKeyEntryDialog } from '../-sample-key-entry';
 
 export const Route = createFileRoute('/larval-surveillance/samples/$id')({
@@ -1190,57 +1191,4 @@ function coordinateLabel(geo: SampleGeoRow): string {
 
 function messageOf(cause: unknown, fallback: string): string {
 	return cause instanceof Error && cause.message.length > 0 ? cause.message : fallback;
-}
-
-/** Long-form date from a `YYYY-MM-DD` string (parsed as its own UTC day). */
-function formatFullDate(date: string): string {
-	const parsed = parseDateOnly(date);
-	if (parsed === null) {
-		return date;
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'long',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
-}
-
-function formatMonthDayYear(date: string): string {
-	const parsed = parseDateOnly(date);
-	if (parsed === null) {
-		return date;
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		year: 'numeric',
-		month: 'short',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
-}
-
-function parseDateOnly(date: string): Date | null {
-	const parts = date.slice(0, 10).split('-');
-	const year = Number(parts[0]);
-	const month = Number(parts[1]);
-	const day = Number(parts[2]);
-	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
-		return null;
-	}
-	return new Date(Date.UTC(year, month - 1, day));
-}
-
-function formatDateTime(value: string, timeZone: string | undefined): string {
-	const date = new Date(value);
-	if (Number.isNaN(date.getTime())) {
-		return 'Unknown';
-	}
-	return new Intl.DateTimeFormat(undefined, {
-		day: 'numeric',
-		month: 'short',
-		year: 'numeric',
-		hour: 'numeric',
-		minute: '2-digit',
-		...(timeZone === undefined ? {} : { timeZone }),
-	}).format(date);
 }

@@ -5,6 +5,9 @@
 // satisfy it: the camelCase rows the unmigrated surfaces still hold, and the
 // projections the query hooks return.
 
+import { calendarDateParts } from '../../lib/local-date';
+import { unreadable } from '../../lib/unreadable-input';
+
 /**
  * A stable, human-readable title for a service request: its sequential number as
  * `#123`. The server assigns `displayName` after the write commits, so an
@@ -79,16 +82,20 @@ export function isServiceRequestOpen(request: {
 	return request.closedAt === null;
 }
 
-/** Format a `YYYY-MM-DD` request date as a readable, timezone-stable label. */
+/**
+ * Format a `YYYY-MM-DD` request date as a readable, timezone-stable label.
+ *
+ * The `Date` is a local one and the formatter names no zone, so the two cancel
+ * and the day is the day that was recorded. This and `formatActionDate` are the
+ * two that do it this way round; everything else builds in UTC and formats in
+ * UTC, which lands in the same place.
+ */
 export function formatRequestDate(value: string): string {
-	const [year, month, day] = value.slice(0, 10).split('-').map(Number);
-	if (year === undefined || month === undefined || day === undefined) {
-		return value;
+	const parts = calendarDateParts(value);
+	if (parts === undefined) {
+		return unreadable('formatRequestDate', value);
 	}
-	const date = new Date(year, month - 1, day);
-	if (Number.isNaN(date.getTime())) {
-		return value;
-	}
+	const date = new Date(parts.year, parts.month - 1, parts.day);
 	return new Intl.DateTimeFormat(undefined, {
 		year: 'numeric',
 		month: 'short',
