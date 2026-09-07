@@ -5,6 +5,7 @@ import type {
 	LineLayerSpecification,
 	Map as MapboxMap,
 } from 'mapbox-gl';
+import type { MapSourceGeoJson } from './geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
 
 /**
@@ -70,7 +71,7 @@ function contextLayers(): (FillLayerSpecification | LineLayerSpecification)[] {
 export function useContextGeoJsonLayer(
 	map: MapboxMap | null,
 	isLoaded: boolean,
-	data: GeoJSON.GeoJSON | null,
+	data: MapSourceGeoJson | null,
 ): void {
 	useGeoJsonSource({
 		map,

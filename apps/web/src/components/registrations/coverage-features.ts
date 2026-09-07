@@ -1,5 +1,5 @@
 import { convertUnitAmount } from '@simmer-mosquito/domain';
-import { circlePolygon } from '@simmer-mosquito/mapping';
+import { circlePolygon, type GeoJsonFeatureCollection } from '@simmer-mosquito/mapping';
 import type { RegistrationListing } from '../../hooks/queries/use-registration-directory';
 
 /**
@@ -14,7 +14,7 @@ import type { RegistrationListing } from '../../hooks/queries/use-registration-d
 export function coverageFeatures(
 	registrations: readonly RegistrationListing[],
 	unitsById: ReadonlyMap<string, { readonly code: string }>,
-): GeoJSON.FeatureCollection {
+): GeoJsonFeatureCollection {
 	return {
 		type: 'FeatureCollection',
 		features: registrations.map((registration) => {
@@ -39,10 +39,7 @@ export function coverageFeatures(
 						type: 'Feature' as const,
 						id: registration.id,
 						properties,
-						geometry: circlePolygon(
-							{ lng: registration.lng, lat: registration.lat },
-							metres,
-						) as unknown as GeoJSON.Polygon,
+						geometry: circlePolygon({ lng: registration.lng, lat: registration.lat }, metres),
 					};
 		}),
 	};

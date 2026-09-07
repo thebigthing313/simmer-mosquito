@@ -391,7 +391,7 @@ export function InspectionFormPage({
 				aside={
 					<>
 						<MapCanvas
-							geoJson={previewGeometry as unknown as GeoJSON.GeoJSON | null}
+							geoJson={previewGeometry}
 							layers={[
 								{ kind: 'habitats', serverUrl: getServerUrl(), filters: { isActive: true } },
 							]}

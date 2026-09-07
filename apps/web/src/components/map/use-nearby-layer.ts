@@ -7,6 +7,7 @@ import type {
 	Map as MapboxMap,
 } from 'mapbox-gl';
 import { useEffect } from 'react';
+import type { MapSourceGeoJson } from './geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -106,7 +107,7 @@ function selectedFilter(selectedIds: readonly string[]): ExpressionSpecification
 
 export interface NearbyLayerConfig {
 	/** Ring + center + nearby features, each tagged with a `role` property. */
-	readonly data: GeoJSON.GeoJSON | null;
+	readonly data: MapSourceGeoJson | null;
 	/** Currently selected nearby record ids; drives the on-map highlight. */
 	readonly selectedIds?: readonly string[];
 	/** Fired with a nearby record id on click, or null when clicking empty map. */

@@ -19,6 +19,7 @@ import type {
 	MapMouseEvent,
 } from 'mapbox-gl';
 import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
+import { toMapboxGeometry } from './geojson-adapter';
 import { isAimedAtMap } from './map-keys';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
@@ -483,10 +484,10 @@ function shapeFrom(draft: Draft, cursor: LngLat | null): Shape | null {
 	return {
 		id: `measure-${nextShapeId++}`,
 		tool: draft.tool,
-		// The mapping package's `GeoJsonPolygon` is a readonly mirror of the same
-		// shape `@types/geojson` describes; the two are structurally identical and
-		// only differ in mutability, which the GL source does not care about.
-		geometry: polygon as unknown as GeoJSON.Geometry,
+		// A measurement is drawn, not stored, so its feature is assembled in
+		// Mapbox's vocabulary; `geojson-adapter.ts` carries the reason the ring
+		// cannot simply be assigned into it.
+		geometry: toMapboxGeometry(polygon),
 		measurement: {
 			id: `measure-${nextShapeId}`,
 			tool: draft.tool,

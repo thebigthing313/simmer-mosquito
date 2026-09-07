@@ -46,6 +46,7 @@ import {
 	useRef,
 	useState,
 } from 'react';
+import { toMapboxGeometry } from './geojson-adapter';
 import { isAimedAtMap } from './map-keys';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
@@ -2120,7 +2121,7 @@ function geometryFeature(
 	return {
 		type: 'Feature',
 		properties: { highlighted, refused },
-		geometry: geometry as unknown as GeoJSON.Geometry,
+		geometry: toMapboxGeometry(geometry),
 	};
 }
 

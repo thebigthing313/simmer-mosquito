@@ -4,6 +4,7 @@ import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { useEffect, useRef, useState } from 'react';
 import { BasemapSwitcher } from './basemap-switcher';
+import type { MapSourceGeoJson } from './geojson-adapter';
 import { GeolocateControl } from './geolocate-control';
 import { MapContextMenu, type MapContextMenuConfig } from './map-context-menu';
 import { MapFallback } from './map-fallback';
@@ -115,14 +116,14 @@ export function MapCanvas({
 	/** Draw one Profile's field work as a family-coloured pin cloud. */
 	readonly activityLayer?: ActivityLayerConfig;
 	/** Draw a single GeoJSON overlay (e.g. one record's geometry on a detail map). */
-	readonly geoJson?: GeoJSON.GeoJSON | null;
+	readonly geoJson?: MapSourceGeoJson | null;
 	/** Opt into click-to-select + highlight on the GeoJSON overlay's features. */
 	readonly geoJsonInteraction?: GeoJsonLayerInteraction;
 	/**
 	 * A quiet, non-interactive shape drawn *under* `geoJson` — the habitat a
 	 * control action was performed against, and nothing an operator can click.
 	 */
-	readonly contextGeoJson?: GeoJSON.GeoJSON | null;
+	readonly contextGeoJson?: MapSourceGeoJson | null;
 	/**
 	 * Frame the data this canvas draws, on load and on every filter change. Pass
 	 * `true` to fit the mounted tile layer's filtered extent (one request per

@@ -208,10 +208,7 @@ export function SourceReductionFormPage({
 				header={header}
 				aside={
 					<>
-						<MapCanvas
-							geoJson={referenceGeometry as unknown as GeoJSON.GeoJSON | null}
-							onMapReady={location.onMapReady}
-						/>
+						<MapCanvas geoJson={referenceGeometry} onMapReady={location.onMapReady} />
 						<DrawToolbar
 							geometryKind="controlAction"
 							controller={draw}

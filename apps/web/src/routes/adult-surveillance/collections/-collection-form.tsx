@@ -349,10 +349,7 @@ export function CollectionFormPage({
 						{/* The draw layer renders and edits the collection's own point; the
 						    trap's point is separate reference geometry, so only it needs a map
 						    feature of its own. */}
-						<MapCanvas
-							geoJson={referenceGeometry as unknown as GeoJSON.GeoJSON | null}
-							onMapReady={location.onMapReady}
-						/>
+						<MapCanvas geoJson={referenceGeometry} onMapReady={location.onMapReady} />
 						<DrawToolbar
 							geometryKind="collection"
 							controller={draw}
