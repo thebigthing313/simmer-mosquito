@@ -1,13 +1,15 @@
 /** @vitest-environment jsdom */
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, renderHook, waitFor } from '@testing-library/react';
+import { cleanup, render, renderHook, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { getServerUrl } from '../../../../../api';
+import { getServerUrl, isAdminRefusal } from '../../../../../api';
+import { AdminError } from '../../../../../components/admin-page';
 import {
 	type LookupKind,
 	useCreateFoundation,
+	useOrganizationFoundations,
 } from '../../../../../routes/organizations/$organizationId/-foundations-data';
 
 /**
@@ -206,6 +208,47 @@ describe('foundation creates', () => {
 		);
 
 		expect(posted[0]?.url).not.toContain(ORGANIZATION_ID);
+	});
+});
+
+/**
+ * What the operator sees when the read is refused.
+ *
+ * The read reached `/admin/*` on its own until #612 and threw a plain `Error`,
+ * so `AdminError` could not tell either operator refusal from a fault and drew
+ * the generic box for both. On a server with no `SIMMER_OPERATOR_ORG_ID` that
+ * box says "operator_not_configured" and nothing else, and the variable to set
+ * is named only by the screen below.
+ */
+describe('a refused foundations read', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+		cleanup();
+	});
+
+	async function refusal(code: string, status: number): Promise<unknown> {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify({ error: code }), { status })),
+		);
+		const { result } = renderHook(() => useOrganizationFoundations(ORGANIZATION_ID), {
+			wrapper: Providers,
+		});
+		await waitFor(() => {
+			expect(result.current.error).not.toBeNull();
+		});
+		return result.current.error;
+	}
+
+	it('names the server variable to set rather than printing the code', async () => {
+		render(<AdminError error={await refusal('operator_not_configured', 403)} />);
+
+		expect(screen.queryByText('Server Not Configured')).not.toBeNull();
+		expect(screen.queryByText('Could Not Load')).toBeNull();
+	});
+
+	it('is a refusal the query client will not retry', async () => {
+		expect(isAdminRefusal(await refusal('organization_not_found', 404))).toBe(true);
 	});
 });
 

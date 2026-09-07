@@ -1,17 +1,21 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
-import { sessionFetch } from '@simmer-mosquito/sync/session-fetch';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { getServerUrl } from '../../../api';
+import {
+	getOrganizationFoundations,
+	type OrganizationFoundations,
+	postOrganizationCommand,
+} from '../../../api';
 
 /**
  * Standing a new organization up: its regions and addresses, the
  * method/lure/habitat lookups its forms read from, the species it sees locally,
  * and its first traps.
  *
- * The **read** is an operator read — one `GET
+ * The **read** is an operator read. One `GET
  * /admin/organizations/:id/foundations` returns all of it at once, which is why
  * this is a single query rather than eight, and it answers for an organization
- * the operator is merely looking at.
+ * the operator is merely looking at. It lives in `api.ts` with every other
+ * `/admin/*` call, so a refusal arrives carrying the server's code.
  *
  * The **writes are organization writes** (ADR 0011). They go to the same
  * `/foundation/*` and `/adult-surveillance/*` endpoints `apps/web` posts to, as
@@ -24,77 +28,6 @@ import { getServerUrl } from '../../../api';
  * than reading one back.
  */
 
-export interface FoundationAddress {
-	readonly id: string;
-	readonly displayName: string;
-	readonly locality: string | null;
-	readonly region: string | null;
-	readonly postalCode: string | null;
-	readonly country: string;
-}
-
-export interface FoundationRegionFolder {
-	readonly id: string;
-	readonly name: string;
-	readonly description: string | null;
-}
-
-export interface FoundationRegion {
-	readonly id: string;
-	readonly regionFolderId: string | null;
-	readonly name: string;
-	readonly description: string | null;
-}
-
-export interface FoundationGenus {
-	readonly id: string;
-	readonly name: string;
-	readonly abbreviation: string;
-}
-
-export interface FoundationSpecies {
-	readonly id: string;
-	readonly genusId: string | null;
-	readonly displayName: string;
-	readonly commonName: string | null;
-}
-
-export interface FoundationOrganizationSpecies {
-	readonly id: string;
-	readonly speciesId: string;
-}
-
-export interface FoundationLookup {
-	readonly id: string;
-	readonly name: string;
-	readonly description: string | null;
-	readonly actionThreshold: number | null;
-	readonly isActive: boolean;
-}
-
-export interface FoundationTrap {
-	readonly id: string;
-	readonly collectionMethodId: string;
-	readonly trapName: string | null;
-	readonly trapCode: string | null;
-	readonly isActive: boolean;
-}
-
-export interface OrganizationFoundations {
-	readonly addresses: readonly FoundationAddress[];
-	readonly regionFolders: readonly FoundationRegionFolder[];
-	readonly regions: readonly FoundationRegion[];
-	readonly genera: readonly FoundationGenus[];
-	readonly species: readonly FoundationSpecies[];
-	readonly organizationSpecies: readonly FoundationOrganizationSpecies[];
-	readonly lookups: {
-		readonly collectionMethods: readonly FoundationLookup[];
-		readonly collectionLures: readonly FoundationLookup[];
-		readonly habitatTypes: readonly FoundationLookup[];
-	};
-	readonly traps: readonly FoundationTrap[];
-}
-
 /** The three lookup families the server accepts; `readLookupKind` rejects anything else. */
 export type LookupKind = 'collection_methods' | 'collection_lures' | 'habitat_types';
 
@@ -106,7 +39,7 @@ const foundationKeys = {
 export function useOrganizationFoundations(organizationId: string) {
 	return useQuery<OrganizationFoundations>({
 		queryKey: foundationKeys.organization(organizationId),
-		queryFn: () => getJson<OrganizationFoundations>(foundationsPath(organizationId)),
+		queryFn: () => getOrganizationFoundations(organizationId),
 	});
 }
 
@@ -152,6 +85,9 @@ interface TrapInput {
 /**
  * One mutation hook per foundation kind, each invalidating the single aggregate
  * read so the panel it came from reflects the new row without a page reload.
+ *
+ * No path here names the organization. An organization endpoint takes it from
+ * the session, which is the whole point of entering the organization first.
  */
 export function useCreateFoundation(organizationId: string) {
 	const queryClient = useQueryClient();
@@ -161,7 +97,7 @@ export function useCreateFoundation(organizationId: string) {
 
 	const regionFolder = useMutation({
 		mutationFn: (input: RegionFolderInput) =>
-			postJson(organizationPath('/foundation/region-folders'), {
+			postOrganizationCommand('/foundation/region-folders', {
 				id: newId(),
 				name: input.name,
 				description: nullable(input.description),
@@ -171,7 +107,7 @@ export function useCreateFoundation(organizationId: string) {
 
 	const region = useMutation({
 		mutationFn: (input: RegionInput) =>
-			postJson(organizationPath('/foundation/regions'), {
+			postOrganizationCommand('/foundation/regions', {
 				id: newId(),
 				name: input.name,
 				regionFolderId: input.regionFolderId,
@@ -183,7 +119,7 @@ export function useCreateFoundation(organizationId: string) {
 
 	const address = useMutation({
 		mutationFn: (input: AddressInput) =>
-			postJson(organizationPath('/foundation/addresses'), {
+			postOrganizationCommand('/foundation/addresses', {
 				id: newId(),
 				displayName: input.displayName,
 				country: input.country.toUpperCase(),
@@ -199,7 +135,7 @@ export function useCreateFoundation(organizationId: string) {
 
 	const species = useMutation({
 		mutationFn: (speciesId: string) =>
-			postJson(organizationPath('/foundation/organization-species'), { id: newId(), speciesId }),
+			postOrganizationCommand('/foundation/organization-species', { id: newId(), speciesId }),
 		onSuccess: invalidate,
 	});
 
@@ -209,7 +145,7 @@ export function useCreateFoundation(organizationId: string) {
 			// live and retired later, which is an update. The form's toggle is
 			// honoured by simply not offering the create path a way to be born
 			// inactive.
-			postJson(organizationPath(`/foundation/${lookupPaths[kind]}`), {
+			postOrganizationCommand(`/foundation/${lookupPaths[kind]}`, {
 				id: newId(),
 				name: input.name,
 				description: nullable(input.description),
@@ -220,7 +156,7 @@ export function useCreateFoundation(organizationId: string) {
 
 	const trap = useMutation({
 		mutationFn: (input: TrapInput) =>
-			postJson(organizationPath('/adult-surveillance/traps'), {
+			postOrganizationCommand('/adult-surveillance/traps', {
 				id: newId(),
 				// A trap carries a domain location source, never a raw geometry
 				// column: the server snapshots the point inside its own transaction.
@@ -254,57 +190,4 @@ const lookupPaths: Record<LookupKind, string> = {
 /** Commands carry client-generated ids so they are replay- and audit-safe. */
 function newId(): string {
 	return crypto.randomUUID();
-}
-
-/**
- * An organization endpoint. It takes no organization in its path — the
- * organization is the session's, which is the whole point of entering the
- * organization first.
- */
-function organizationPath(path: string): string {
-	return `${getServerUrl()}${path}`;
-}
-
-function foundationsPath(organizationId: string): string {
-	return `${getServerUrl()}/admin/organizations/${organizationId}/foundations`;
-}
-
-async function getJson<T>(url: string): Promise<T> {
-	const response = await sessionFetch(url, {
-		credentials: 'include',
-		headers: { accept: 'application/json' },
-	});
-	return readJson<T>(response);
-}
-
-async function postJson<T>(url: string, body: unknown): Promise<T> {
-	const response = await sessionFetch(url, {
-		method: 'POST',
-		credentials: 'include',
-		headers: { accept: 'application/json', 'content-type': 'application/json' },
-		body: JSON.stringify(body),
-	});
-	return readJson<T>(response);
-}
-
-async function readJson<T>(response: Response): Promise<T> {
-	const text = await response.text();
-	const body: unknown = text.trim() === '' ? {} : JSON.parse(text);
-	if (!response.ok) {
-		throw new Error(errorMessage(body));
-	}
-	return body as T;
-}
-
-function errorMessage(body: unknown): string {
-	if (typeof body === 'object' && body !== null) {
-		const record = body as Record<string, unknown>;
-		if (typeof record.reason === 'string' && record.reason.trim() !== '') {
-			return record.reason;
-		}
-		if (typeof record.error === 'string' && record.error.trim() !== '') {
-			return record.error.replace(/_/g, ' ');
-		}
-	}
-	return 'Request failed.';
 }

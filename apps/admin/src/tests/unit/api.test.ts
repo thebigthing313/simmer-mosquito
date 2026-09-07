@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	adminLogoutUrl,
+	getOrganizationFoundations,
 	isAdminRefusal,
 	isOperatorNotConfiguredError,
 	isOperatorRequiredError,
@@ -98,4 +99,55 @@ describe('retrying a failed admin read', () => {
 			offline: isAdminRefusal(new Error('Failed to fetch')),
 		}).toEqual({ refused: true, notFound: true, faulted: false, offline: false });
 	});
+});
+
+/**
+ * The Foundations read reached `/admin/*` on its own until #612, and threw a
+ * plain `Error` carrying neither the code nor the status. Every decision below
+ * is one the console already made correctly on every other page.
+ */
+describe('the Foundations read', () => {
+	const ORGANIZATION_ID = '2f4a1f1c-4a3a-4d21-9d1a-0d9d2f5d4b11';
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	function refuse(code: string, status: number) {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify({ error: code }), { status })),
+		);
+		return getOrganizationFoundations(ORGANIZATION_ID, 'https://api.simmer-data.com').catch(
+			(error: unknown) => error,
+		);
+	}
+
+	it('reads an unconfigured server off the refusal, as the organizations list does', async () => {
+		expect(isOperatorNotConfiguredError(await refuse('operator_not_configured', 403))).toBe(true);
+	});
+
+	// The route answers this for an id that names no organization. Asking again
+	// cannot make one exist, so the query client must not spend three tries on it.
+	it('treats its own 404 as final rather than retrying it', async () => {
+		expect(isAdminRefusal(await refuse('organization_not_found', 404))).toBe(true);
+	});
+
+	// The page wrote its own message and swapped the underscores out, so one 403
+	// read as "operator required" there and "operator_required" everywhere else.
+	it('says of a payload what every other read says of it', async () => {
+		const fromFoundations = await refuse('operator_required', 403);
+		const fromOrganizations = await listAdminOrganizations('https://api.simmer-data.com').catch(
+			(error: unknown) => error,
+		);
+
+		expect([messageOf(fromFoundations), messageOf(fromOrganizations)]).toEqual([
+			'operator_required',
+			'operator_required',
+		]);
+	});
+
+	function messageOf(error: unknown): string | null {
+		return error instanceof Error ? error.message : null;
+	}
 });
