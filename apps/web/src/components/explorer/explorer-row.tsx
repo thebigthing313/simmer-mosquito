@@ -212,7 +212,9 @@ function SelectOverlay({
  *
  * Labelled, not decorative. On the surfaces that dropped their status pill the
  * dot is the only thing left saying whether a record is active or out of reach,
- * and a `title` on an aria-hidden span reaches a mouse and nothing else.
+ * so `role="img"` with `aria-label` is what names it. No `title` beside it: a
+ * tooltip is a weak source for an accessible name, and one repeating the label
+ * announces the dot twice.
  */
 function SwatchDot({
 	isStacked,
@@ -233,7 +235,6 @@ function SwatchDot({
 			)}
 			role="img"
 			style={{ backgroundColor: swatch.color }}
-			title={swatch.label}
 		/>
 	);
 }
