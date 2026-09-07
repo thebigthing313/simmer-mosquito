@@ -1,6 +1,7 @@
 import type { AuthUser } from '@simmer-mosquito/auth';
+import { createAuthClient } from '@simmer-mosquito/auth/browser';
 import type { ActiveLocalAuthIdentity } from '@simmer-mosquito/db';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { resolveAuthContext, toAuthMeBody } from '../../auth-context.js';
 
 const workosUser: AuthUser = {
@@ -47,6 +48,33 @@ const localIdentity: ActiveLocalAuthIdentity = {
 		isDefault: true,
 	},
 };
+
+/** A live session on the fixture above, resolved the way a request resolves one. */
+async function resolveActiveContext() {
+	const result = await resolveAuthContext({
+		sealedSession: 'sealed',
+		auth: {
+			authenticateSession: async () => ({
+				authenticated: true,
+				user: workosUser,
+				workosOrganizationId: 'workos_org_123',
+				sessionId: 'session-1',
+				role: 'viewer',
+				sealedSession: 'refreshed',
+			}),
+		},
+		localIdentityResolver: {
+			resolveActiveLocalAuthIdentity: async () => localIdentity,
+		},
+		mayRefresh: true,
+	});
+
+	if (!result.ok) {
+		throw new Error('Expected auth context.');
+	}
+
+	return result;
+}
 
 describe('resolveAuthContext', () => {
 	it('returns 401 when WorkOS session is unauthenticated', async () => {
@@ -199,28 +227,7 @@ describe('resolveAuthContext', () => {
 	});
 
 	it('builds context from active local identity and uses SIMMER role', async () => {
-		const result = await resolveAuthContext({
-			sealedSession: 'sealed',
-			auth: {
-				authenticateSession: async () => ({
-					authenticated: true,
-					user: workosUser,
-					workosOrganizationId: 'workos_org_123',
-					sessionId: 'session-1',
-					role: 'viewer',
-					sealedSession: 'refreshed',
-				}),
-			},
-			localIdentityResolver: {
-				resolveActiveLocalAuthIdentity: async () => localIdentity,
-			},
-			mayRefresh: true,
-		});
-
-		expect(result.ok).toBe(true);
-		if (!result.ok) {
-			throw new Error('Expected auth context.');
-		}
+		const result = await resolveActiveContext();
 
 		expect(result.sealedSession).toBe('refreshed');
 		expect(result.context.role).toBe('manager');
@@ -238,5 +245,54 @@ describe('resolveAuthContext', () => {
 				role: 'manager',
 			},
 		});
+	});
+});
+
+/**
+ * The `/auth/me` contract, from producer to reader in one file.
+ *
+ * `toAuthMeBody` is annotated with `AuthenticatedMe`, so the compiler already
+ * refuses a field the client declaration does not carry. What it cannot see is
+ * the trip over the wire, and this is the cheapest place to watch that:
+ * `apps/server` builds the body, `createAuthClient` reads it back through the
+ * same declaration, and nothing here opens a socket or needs a DOM.
+ *
+ * Expected values come from the identity fixture rather than from
+ * `toAuthMeBody`, so an assertion can disagree with the producer.
+ */
+describe('the /auth/me body', () => {
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	it('is read back by the auth client as an authenticated session', async () => {
+		const { context } = await resolveActiveContext();
+		const served = toAuthMeBody(context);
+
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(JSON.stringify(served), {
+						status: 200,
+						headers: { 'content-type': 'application/json' },
+					}),
+			),
+		);
+
+		const me = await createAuthClient({ serverUrl: 'https://simmer.test' }).getAuthMe();
+		if (me.authenticated === false) {
+			throw new Error(`Expected an authenticated session, got ${me.reason}.`);
+		}
+
+		expect(me.user).toEqual(workosUser);
+		expect(me.workosOrganizationId).toBe(localIdentity.organization.workosOrganizationId);
+		expect(me.localIdentity.userId).toBe(localIdentity.user.id);
+		expect(me.localIdentity.organizationId).toBe(localIdentity.organization.id);
+		expect(me.localIdentity.organizationName).toBe(localIdentity.organization.name);
+		expect(me.localIdentity.organizationSlug).toBe(localIdentity.organization.slug);
+		expect(me.localIdentity.profileId).toBe(localIdentity.profile.id);
+		expect(me.localIdentity.membershipId).toBe(localIdentity.membership.id);
+		expect(me.localIdentity.role).toBe(localIdentity.membership.role);
 	});
 });

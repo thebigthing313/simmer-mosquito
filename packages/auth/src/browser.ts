@@ -418,6 +418,17 @@ export function createAuthClient(options: {
 	async function getAuthMe(): Promise<AuthMe> {
 		const response = await authFetch('/auth/me');
 
+		/*
+		 * The one unavoidable step from an untyped parse to a typed value.
+		 * `response.json()` answers `unknown` under this package's own `types`
+		 * and `any` under a DOM lib, so the cast is load-bearing either way: it
+		 * is what stops an `any` spreading through every read site.
+		 *
+		 * What makes it safe is at the other end of the wire. `toAuthMeBody` in
+		 * `apps/server` is the only producer of this body and is annotated with
+		 * {@link AuthenticatedMe}, so this cast names a type the compiler holds
+		 * the producer to rather than a shape restated here (#615).
+		 */
 		const body = (await response.json()) as AuthMe;
 		if (response.ok || body.authenticated === false) {
 			return body;

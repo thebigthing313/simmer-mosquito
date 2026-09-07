@@ -1,5 +1,20 @@
 import { WorkOS } from '@workos-inc/node';
 
+import type { AuthOrganizationChoice, AuthUser } from './browser.js';
+
+/**
+ * The two shapes both halves of this package name, declared once in `./browser`
+ * and re-exported here.
+ *
+ * That direction and not the other: `./browser` is the entry point a browser
+ * bundle reaches, and importing this module would pull `@workos-inc/node` into
+ * it. A type-only re-export erases, so nothing crosses at runtime either way.
+ *
+ * Written out twice until #615, byte for byte, with the WorkOS boundary reading
+ * one copy and the `/auth/me` body declaring the other.
+ */
+export type { AuthOrganizationChoice, AuthUser } from './browser.js';
+
 export const WORKOS_SESSION_COOKIE_NAME = 'wos-session';
 
 export interface WorkOsAuthConfig {
@@ -7,16 +22,6 @@ export interface WorkOsAuthConfig {
 	readonly clientId: string;
 	readonly cookiePassword: string;
 	readonly redirectUri: string;
-}
-
-export interface AuthUser {
-	readonly workosUserId: string;
-	readonly email: string;
-	readonly firstName: string | null;
-	readonly lastName: string | null;
-	readonly displayName: string;
-	readonly emailVerified: boolean | null;
-	readonly profilePictureUrl: string | null;
 }
 
 export interface AuthOrganization {
@@ -94,11 +99,6 @@ export interface PasswordSignInInput {
 export interface PasswordSignUpInput extends PasswordSignInInput {
 	readonly firstName?: string;
 	readonly lastName?: string;
-}
-
-export interface AuthOrganizationChoice {
-	readonly id: string;
-	readonly name: string;
 }
 
 /**
