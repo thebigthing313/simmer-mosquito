@@ -128,11 +128,12 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { commentsInJsxText, copyStrings } from './lib/copy-strings.mjs';
 import { maskedSource } from './lib/masked-source.mjs';
+import { pathFrom } from './lib/relative-path.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
 import {
 	count,
@@ -352,7 +353,7 @@ function scanRoot(root) {
 
 function readFile(root, file) {
 	const source = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
-	const where = relative(workspaceRoot, file).replaceAll('\\', '/');
+	const where = pathFrom(workspaceRoot, file);
 	const lines = source.split('\n');
 	const masked = maskedSource(source).split('\n');
 

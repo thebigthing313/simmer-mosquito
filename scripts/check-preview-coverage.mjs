@@ -113,9 +113,9 @@
  */
 
 import { existsSync, readFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
+import { pathFrom } from './lib/relative-path.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
 import { count, failure } from './lib/style-gate.mjs';
 
@@ -229,7 +229,7 @@ function readModules() {
  */
 const isComponent = (file) => file.endsWith('.tsx');
 
-const asModuleId = (file) => relative(COMPONENTS_ROOT, file).replaceAll('\\', '/');
+const asModuleId = (file) => pathFrom(COMPONENTS_ROOT, file);
 
 /**
  * Every module `apps/preview` imports, as the same ids `readModules` hands

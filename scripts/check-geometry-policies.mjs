@@ -43,8 +43,9 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pathFrom } from './lib/relative-path.mjs';
 import { sourceFiles } from './lib/source-files.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -230,7 +231,7 @@ function checkNoCopies() {
 			continue;
 		}
 		const source = readFileSync(file, 'utf8');
-		const where = relative(workspaceRoot, file).split(sep).join('/');
+		const where = pathFrom(workspaceRoot, file);
 
 		for (const match of source.matchAll(ARRAY_LITERAL)) {
 			const named = GEOMETRY_TYPE_NAMES.filter((name) =>
