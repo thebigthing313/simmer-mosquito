@@ -10,8 +10,12 @@
  * written before.
  */
 
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cookieFetch, createAuthClient, type SessionTransport } from '../../browser.js';
+
+afterEach(() => {
+	vi.unstubAllGlobals();
+});
 
 function stubFetch(response = new Response(null, { status: 200 })) {
 	const fetchMock = vi.fn<typeof fetch>(async () => response);
@@ -108,6 +112,18 @@ describe('AuthClient.fetch', () => {
 		await client.fetch('https://tiles.example.test/map/tiles/habitats/1/2/3');
 
 		expect(sentRequest(fetchMock).url).toBe('https://tiles.example.test/map/tiles/habitats/1/2/3');
+	});
+
+	it('refuses a string that is neither a path nor a whole URL', async () => {
+		// `fetch` would resolve it against the document, which on both front ends
+		// is the SPA rather than the API: the request lands on the static host,
+		// comes back 200 with a page of HTML, and is read as an empty result set.
+		const fetchMock = stubFetch();
+
+		const client = createAuthClient({ serverUrl: 'https://api.example.test' });
+
+		await expect(client.fetch('auth/me')).rejects.toThrow('auth/me');
+		expect(fetchMock).not.toHaveBeenCalled();
 	});
 
 	it('keeps the headers a request already carried', async () => {

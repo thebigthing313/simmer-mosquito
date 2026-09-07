@@ -183,47 +183,79 @@ const SESSION_RESPONSE_HEADER = 'x-simmer-session';
  *
  * `HeadersInit` is three shapes and only one of them survives a spread. A
  * `Headers` instance or a list of pairs would arrive as `{}`, which does not
- * fail — it silently drops whatever the caller set, and a POST that loses its
+ * fail: it silently drops whatever the caller set, and a POST that loses its
  * content type is answered as an empty body rather than refused.
+ *
+ * Names come back lowercased, because these objects are merged by spreading and
+ * a header name is case-insensitive. `Content-Type` from a record literal beside
+ * `content-type` off a `Headers` are two keys to a spread and one header to the
+ * server, which arrives as a value of `"application/json, application/json"`.
  *
  * Structural rather than `instanceof Headers`, for the reason the comment above
  * {@link FetchInit} gives: three runtimes, three declarations of that global.
  */
 function headerEntries(source: unknown): Record<string, string> {
+	const entries: Record<string, string> = {};
+	const add = (value: string, key: string) => {
+		entries[key.toLowerCase()] = value;
+	};
+
 	if (Array.isArray(source)) {
-		return Object.fromEntries(source as readonly (readonly [string, string])[]);
+		for (const [key, value] of source as readonly (readonly [string, string])[]) {
+			add(value, key);
+		}
+
+		return entries;
 	}
 
 	if (typeof source !== 'object' || source === null) {
-		return {};
+		return entries;
 	}
 
 	const headers = source as {
 		readonly forEach?: (fn: (value: string, key: string) => void) => void;
 	};
 	if (typeof headers.forEach !== 'function') {
-		return { ...(source as Record<string, string>) };
+		for (const [key, value] of Object.entries(source as Record<string, string>)) {
+			add(value, key);
+		}
+
+		return entries;
 	}
 
-	const entries: Record<string, string> = {};
-	headers.forEach((value, key) => {
-		entries[key] = value;
-	});
+	headers.forEach(add);
 
 	return entries;
 }
 
+/** A string is already addressed when it names a scheme, which is what `fetch` needs. */
+const ABSOLUTE_URL = /^[a-z][a-z0-9+.-]*:/i;
+
 /**
  * Where a request is going: a string starting with `/` is a path on this
- * client's server, and anything else is already addressed.
+ * client's server, and anything already carrying a scheme is left alone.
  *
  * The second case is what lets `packages/sync` install this client's `fetch`
  * whole. It builds its own URLs from the app's `serverUrl` and passes Electric's
  * `Request` objects straight through, so neither is a path and neither should be
  * rewritten.
+ *
+ * A string that is neither is refused rather than passed on. `fetch` would
+ * resolve it against the document, which on both front ends is the SPA and not
+ * the API: the request lands on the static host, comes back 200 with a page of
+ * HTML, and is read as an empty result set with nothing on screen saying why.
+ * That shape has cost this workspace a debugging session before.
  */
 function addressOn(serverUrl: string, input: FetchInput): FetchInput {
-	return typeof input === 'string' && input.startsWith('/') ? `${serverUrl}${input}` : input;
+	if (typeof input !== 'string' || ABSOLUTE_URL.test(input)) {
+		return input;
+	}
+
+	if (input.startsWith('/')) {
+		return `${serverUrl}${input}`;
+	}
+
+	throw new Error(`Cannot address "${input}": give a path starting with "/" or a whole URL.`);
 }
 
 /** The headers an already-built `Request` brought with it, which are nobody's to drop. */
