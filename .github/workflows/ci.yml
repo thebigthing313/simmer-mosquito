@@ -115,6 +115,22 @@ jobs:
       - name: Mutation coverage
         run: pnpm check:mutation-coverage
 
+      # `docs/architecture.md` says SIMMER uses `apps/preview` where another
+      # workspace would use Storybook, and nothing counted the set, so the app
+      # drifted: the last commit to its routes is dated 2026-05-18, and
+      # `autocomplete.tsx`, `date-picker.tsx` and `number-input.tsx` were added
+      # to `packages/ui-web` after it with no section between them.
+      # This requires every `.tsx` under the four gallery roots to be
+      # imported by `apps/preview/src`, matching on the import rather than on
+      # the text, because half these module names are ordinary English and a
+      # heading reading "Table" would cover one by accident. It ships at the
+      # backlog it found rather than at zero, 62, which is the 64 modules with
+      # no preview section less the two that can have none, and it fails when
+      # the real number moves either way. Those two sit on a permanent allowance
+      # with a written reason each, and an entry there excusing nothing fails.
+      - name: Preview coverage
+        run: pnpm check:preview-coverage
+
       # `@tanstack/db` defaults a join with no third argument to `left`, and
       # #475 found four in `apps/web` whose comments said `inner`. This resolves
       # every `.join()` call's argument list and requires the query-builder ones
