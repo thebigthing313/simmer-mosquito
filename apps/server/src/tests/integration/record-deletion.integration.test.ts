@@ -14,6 +14,7 @@ import {
 	createSpecies,
 	createTrap,
 	describeDbIntegration,
+	createMissionNotification as insertMissionNotification,
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
 import { Hono } from 'hono';
@@ -237,18 +238,10 @@ async function createMissionNotification(
 		readonly typeId: string;
 	},
 ): Promise<string> {
-	const missionId = await createMission(db, organizationId);
-	const row = await db
-		.insertInto('mission_notifications')
-		.values({
-			organization_id: organizationId,
-			mission_id: missionId,
-			notification_registration_id: links.registrationId,
-			contact_id: links.contactId,
-			notification_type_id: links.typeId,
-			channel: 'email' as const,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return insertMissionNotification(db, organizationId, {
+		missionId: await createMission(db, organizationId),
+		registrationId: links.registrationId,
+		contactId: links.contactId,
+		notificationTypeId: links.typeId,
+	});
 }

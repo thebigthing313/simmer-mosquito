@@ -23,6 +23,7 @@ import {
 	createTag,
 	createTagItem,
 	createTrap,
+	createMissionNotification as insertMissionNotification,
 } from '../../../test-support/row-fixtures.js';
 
 /**
@@ -448,18 +449,10 @@ async function createMissionNotification(
 		scheduled_start_at: sql`now() + interval '1 day'`,
 		notification_type_id: notificationTypeId,
 	});
-	const row = await db
-		.insertInto('mission_notifications')
-		.values({
-			organization_id: organizationId,
-			mission_id: missionId,
-			notification_registration_id: registrationId,
-			contact_id: contactId,
-			notification_type_id: notificationTypeId,
-			channel: 'email',
-			destination: 'sam@example.test',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return insertMissionNotification(
+		db,
+		organizationId,
+		{ missionId, registrationId, contactId, notificationTypeId },
+		{ destination: 'sam@example.test' },
+	);
 }

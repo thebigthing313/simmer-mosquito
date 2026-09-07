@@ -10,6 +10,7 @@ import {
 	createAssignmentItem as insertAssignmentItem,
 	createComment as insertComment,
 	createRequestedControlAction as insertRequestedControlAction,
+	createSourceReduction as insertSourceReduction,
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
 import { expect, it } from 'vitest';
@@ -509,20 +510,15 @@ async function createSourceReduction(
 	unitId: string,
 	options: { readonly by: string | null; readonly daysAgo: number },
 ): Promise<string> {
-	const row = await db
-		.insertInto('source_reductions')
-		.values({
-			organization_id: organizationId,
-			source_reduction_method_id: methodId,
+	return insertSourceReduction(
+		db,
+		organizationId,
+		{ methodId, unitId },
+		{
 			technician_profile_id: options.by,
 			source_reduction_date: sql`current_date - ${`${options.daysAgo} days`}::interval`,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			sources_eliminated_amount: 3,
-			sources_eliminated_unit_id: unitId,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+		},
+	);
 }
 
 async function softDelete(

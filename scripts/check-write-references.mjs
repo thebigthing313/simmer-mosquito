@@ -110,17 +110,40 @@ const THE_GATE = new Set([
 	'packages/db/src/domains/org-owned-writes.ts',
 ]);
 
+/**
+ * How many reference writes the scan reaches.
+ *
+ * `MINIMUM_REFERENCE_COLUMNS` floors the register; this floors the scan. The two
+ * fail on different edits. A directory added to `SKIP_DIRS`, a root renamed, or
+ * a `readdirSync` that stops recursing takes writes out of scope without
+ * touching the register, and the summary line would still say "every reference
+ * write is gated" over whatever was left. The number moves with the tree, in the
+ * same commit as whatever moved it.
+ */
+const MINIMUM_REFERENCE_WRITES = 45;
+
 function main() {
 	const columns = readRegistryColumns();
 	const usedAllowances = new Set();
 	const failures = [];
+	let writes = 0;
 
 	for (const file of sourceFiles()) {
+		writes += referenceWrites(file.source, columns).length;
 		failures.push(...checkFile(file, columns, usedAllowances));
 	}
 	failures.push(...staleAllowances(usedAllowances));
 
-	report(failures, columns.size);
+	if (writes < MINIMUM_REFERENCE_WRITES) {
+		throw new Error(
+			`This check reached ${writes} reference writes, fewer than the ` +
+				`${MINIMUM_REFERENCE_WRITES} it expects. Writes have left its scope rather than being ` +
+				'reported: check SKIP_DIRS and ROOTS in scripts/check-write-references.mjs, and lower ' +
+				'MINIMUM_REFERENCE_WRITES in the same commit only once you know why the number moved.',
+		);
+	}
+
+	report(failures, columns.size, writes);
 }
 
 /** The ungated reference writes in one file, as failures. */
@@ -287,7 +310,7 @@ function namedColumns(lines, columns) {
 // Reporting
 // ---------------------------------------------------------------------------
 
-function report(failures, columnCount) {
+function report(failures, columnCount, writeCount) {
 	if (failures.length > 0) {
 		console.error(`check-write-references: ${failures.length} problem(s).\n`);
 		for (const failure of failures) {
@@ -295,7 +318,10 @@ function report(failures, columnCount) {
 		}
 		process.exit(1);
 	}
-	console.log(`check-write-references: every reference write is gated (${columnCount} columns).`);
+	console.log(
+		`check-write-references: all ${writeCount} reference writes are gated ` +
+			`(${columnCount} columns).`,
+	);
 }
 
 main();

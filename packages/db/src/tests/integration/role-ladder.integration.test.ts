@@ -205,7 +205,7 @@ function daysAgo(value: Date): number {
 describeDbIntegration('role ladder fixtures over an existing organization', () => {
 	it('attaches the fixtures to profiles that are already there', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganizationWithCollector(db);
+			const org = await organizationWithCollector(db);
 
 			await seedRoleLadder(db, {
 				organizationId: org.organizationId,
@@ -237,7 +237,7 @@ describeDbIntegration('role ladder fixtures over an existing organization', () =
 
 	it('leaves an existing membership’s role and profile untouched', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganizationWithCollector(db);
+			const org = await organizationWithCollector(db);
 
 			await seedRoleLadder(db, {
 				organizationId: org.organizationId,
@@ -266,7 +266,7 @@ describeDbIntegration('role ladder fixtures over an existing organization', () =
 		await withTestDb(async ({ db }) => {
 			// The footgun: an upsert that set the name would rebrand a live
 			// organization "Role Ladder Test District" on the way past.
-			const org = await createOrganizationWithCollector(db);
+			const org = await organizationWithCollector(db);
 
 			await seedRoleLadder(db, { organizationId: org.organizationId });
 
@@ -284,7 +284,7 @@ describeDbIntegration('role ladder fixtures over an existing organization', () =
 			// Only one collector exists, so the "somebody else's" party has to be
 			// created — otherwise `otherAssignmentId` would be assigned to the same
 			// person and prove nothing.
-			const org = await createOrganizationWithCollector(db);
+			const org = await organizationWithCollector(db);
 
 			await seedRoleLadder(db, {
 				organizationId: org.organizationId,
@@ -302,7 +302,7 @@ describeDbIntegration('role ladder fixtures over an existing organization', () =
 	});
 });
 
-async function createOrganizationWithCollector(
+async function organizationWithCollector(
 	db: Parameters<typeof seedRoleLadder>[0],
 ): Promise<{ readonly organizationId: string; readonly collectorProfileId: string }> {
 	const organizationId = await createOrganization(db, {

@@ -12,6 +12,7 @@ import {
 	createMission as insertMission,
 	createMissionItem as insertMissionItem,
 	createRequestedControlAction as insertRequestedControlAction,
+	createSourceReduction as insertSourceReduction,
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
 import { Hono } from 'hono';
@@ -918,20 +919,12 @@ async function createSourceReduction(
 		name: 'Ditch clearing',
 	});
 	const unitId = await createUnit(db, { unit_name: 'sources', abbreviation: 'src' });
-	const row = await db
-		.insertInto('source_reductions')
-		.values({
-			organization_id: organizationId,
-			source_reduction_method_id: methodId,
-			source_reduction_date: sql`date '2026-08-10'`,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			sources_eliminated_amount: 3,
-			sources_eliminated_unit_id: unitId,
-			mission_item_id: missionItemId,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return insertSourceReduction(
+		db,
+		organizationId,
+		{ methodId, unitId },
+		{ source_reduction_date: sql`date '2026-08-10'`, mission_item_id: missionItemId },
+	);
 }
 
 /**

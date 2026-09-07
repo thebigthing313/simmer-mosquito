@@ -26,9 +26,12 @@ import {
 	createNotificationType,
 	createOrganization,
 	createRequestedControlAction,
+	createSourceReductionMethod,
 	createSpecies,
 	createTrap,
 	createUnit,
+	createMissionNotification as insertMissionNotification,
+	createSourceReduction as insertSourceReduction,
 } from '../../../test-support/row-fixtures.js';
 
 /**
@@ -745,20 +748,12 @@ async function createMissionNotification(
 		readonly registrationId: string;
 	},
 ): Promise<string> {
-	const missionId = await createMission(db, organizationId);
-	const row = await db
-		.insertInto('mission_notifications')
-		.values({
-			organization_id: organizationId,
-			mission_id: missionId,
-			notification_registration_id: links.registrationId,
-			contact_id: links.contactId,
-			notification_type_id: links.notificationTypeId,
-			channel: 'email' as const,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return insertMissionNotification(db, organizationId, {
+		missionId: await createMission(db, organizationId),
+		registrationId: links.registrationId,
+		contactId: links.contactId,
+		notificationTypeId: links.notificationTypeId,
+	});
 }
 
 interface ActionLinks {
@@ -813,26 +808,15 @@ async function createSourceReduction(
 	unitId: string,
 	links: ActionLinks,
 ): Promise<string> {
-	const method = await db
-		.insertInto('source_reduction_methods')
-		.values({ organization_id: organizationId, name: 'Ditch clearing' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const row = await db
-		.insertInto('source_reductions')
-		.values({
-			organization_id: organizationId,
-			source_reduction_method_id: method.id,
-			source_reduction_date: sql`date '2026-08-01'`,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			sources_eliminated_amount: 3,
-			sources_eliminated_unit_id: unitId,
+	return insertSourceReduction(
+		db,
+		organizationId,
+		{ methodId: await createSourceReductionMethod(db, organizationId), unitId },
+		{
 			mission_item_id: links.missionItemId ?? null,
 			requested_control_action_id: links.requestId ?? null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+		},
+	);
 }
 
 async function createOutreachAction(
