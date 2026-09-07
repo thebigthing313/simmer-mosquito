@@ -16,8 +16,8 @@ import { AddressSurveillanceLinks } from '../components/address-surveillance';
 import { searchResultIcon } from '../components/search/search-destinations';
 import { RetiredMarker } from '../components/search/search-result-row';
 import {
+	SEARCH_QUERY_DEBOUNCE_MS,
 	SearchRequestError,
-	useDebouncedQuery,
 	useGlobalSearch,
 } from '../components/search/use-global-search';
 import { useSearchResultOpen } from '../components/search/use-search-navigation';
@@ -25,6 +25,7 @@ import {
 	type AddressSurveillance,
 	useAddressSurveillance,
 } from '../hooks/queries/use-address-surveillance';
+import { useDebouncedValue } from '../hooks/use-debounced-value';
 import {
 	type FilterCodecs,
 	type SearchCodec,
@@ -382,7 +383,7 @@ function useEditableQuery(
 ): [string, (value: string) => void] {
 	const [draft, setDraft] = useState(urlQuery);
 	useEffect(() => setDraft(urlQuery), [urlQuery]);
-	const typed = useDebouncedQuery(draft);
+	const { debounced: typed } = useDebouncedValue(draft, SEARCH_QUERY_DEBOUNCE_MS);
 
 	useEffect(() => {
 		if (typed !== urlQuery) {

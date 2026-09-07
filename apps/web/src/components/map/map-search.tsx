@@ -1,11 +1,10 @@
 import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
-import { InputGroupButton } from '@simmer-mosquito/ui-web/components/ui/input-group';
 import {
 	Popover,
 	PopoverAnchor,
 	PopoverContent,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
-import { Loader2Icon, XIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { type KeyboardEvent, type ReactNode, useEffect, useId, useRef, useState } from 'react';
@@ -242,23 +241,17 @@ export function MapSearch({
 						 * is not on screen is its own broken state.
 						 */
 						aria-owns={panel === 'list' ? listId : undefined}
-						aria-label="Search for a location"
 						autoComplete="off"
 						className={cn('h-10 text-sm shadow-md', MAP_CHROME_SURFACE)}
 						disabled={!canSearch}
-						endAddon={
-							query.length > 0 ? (
-								<InputGroupButton aria-label="Clear search" onClick={resetSearch} size="icon-xs">
-									<XIcon aria-hidden="true" />
-								</InputGroupButton>
-							) : null
-						}
+						label="Search for a location"
 						onChange={(event) => {
 							retrieveController.current?.abort();
 							setSelectingId(null);
 							setQuery(event.target.value);
 							setOpen(true);
 						}}
+						onClear={resetSearch}
 						onFocus={() => setOpen(trimmedQuery.length > 0)}
 						onKeyDown={onKeyDown}
 						placeholder={canSearch ? 'Search for a location…' : 'Mapbox token required'}

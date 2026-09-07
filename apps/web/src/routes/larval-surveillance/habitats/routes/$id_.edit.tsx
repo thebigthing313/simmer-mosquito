@@ -1,5 +1,6 @@
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
@@ -24,12 +25,10 @@ import {
 	iconRegistry,
 	Loader2Icon,
 	PlusIcon,
-	SearchIcon,
-	XIcon,
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import { createFileRoute, Link, redirect, useNavigate } from '@tanstack/react-router';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
@@ -48,6 +47,7 @@ import { useRouteItemMutations } from '../../../../hooks/mutations/use-route-ite
 import { useRouteMutations } from '../../../../hooks/mutations/use-route-mutations';
 import type { Tag } from '../../../../hooks/queries/tag-view';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
+import { useDebouncedValue } from '../../../../hooks/use-debounced-value';
 import { isBelowWriteFloor } from '../../../../lib/write-surfaces';
 import { RouteStopAddressDialog } from '../-route-address-dialog';
 import {
@@ -383,36 +383,27 @@ function AddStopBar({
 	readonly onAdd: (habitat: HabitatSite) => void;
 }) {
 	const [searchInput, setSearchInput] = useState('');
-	const search = useDebouncedValue(searchInput, 220);
+	const { debounced: search, settle } = useDebouncedValue(searchInput, 220);
 	const { results, isFetching, isTooShort } = useHabitatSearch(search);
 	const open = search.trim().length >= 2;
 
 	return (
 		<div className="grid gap-1.5">
-			<div className="relative">
-				<SearchIcon
-					aria-hidden="true"
-					className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-				/>
-				<Input
-					aria-label="Search habitats to add"
-					className="pl-9"
-					onChange={(event) => setSearchInput(event.target.value)}
-					placeholder="Search habitats to add a stop…"
-					type="search"
-					value={searchInput}
-				/>
-				{searchInput.length > 0 ? (
-					<button
-						aria-label="Clear search"
-						className="-translate-y-1/2 absolute top-1/2 right-2 rounded-sm p-1 text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						onClick={() => setSearchInput('')}
-						type="button"
-					>
-						<XIcon aria-hidden="true" className="size-3.5" />
-					</button>
-				) : null}
-			</div>
+			<SearchInput
+				label="Search habitats to add"
+				onChange={(event) => setSearchInput(event.target.value)}
+				/*
+				 * The lookup keeps its previous rows while the next request is in
+				 * flight, so a clear that only empties the box leaves the panel
+				 * listing matches for text that has gone from the screen.
+				 */
+				onClear={() => {
+					setSearchInput('');
+					settle('');
+				}}
+				placeholder="Search habitats to add a stop…"
+				value={searchInput}
+			/>
 
 			{isTooShort ? (
 				<p className="px-1 text-muted-foreground text-xs">Type at least 2 characters to search.</p>
@@ -678,13 +669,4 @@ function EditStopRow({
 			</div>
 		</li>
 	);
-}
-
-function useDebouncedValue<T>(value: T, delayMs: number): T {
-	const [debounced, setDebounced] = useState(value);
-	useEffect(() => {
-		const handle = setTimeout(() => setDebounced(value), delayMs);
-		return () => clearTimeout(handle);
-	}, [value, delayMs]);
-	return debounced;
 }

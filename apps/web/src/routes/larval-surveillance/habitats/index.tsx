@@ -1,4 +1,4 @@
-import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { ComponentIcon } from '@simmer-mosquito/ui-web/icons/registry';
 import { eq, useLiveQuery } from '@tanstack/react-db';
 import { createFileRoute } from '@tanstack/react-router';
@@ -218,9 +218,10 @@ function HabitatsExplorerRoute() {
 			activeFilterCount={activeFilterCount}
 			filters={
 				<>
-					<SearchField
+					<SearchInput
 						label="Search habitats by name or description"
-						onChange={setSearchInput}
+						onChange={(event) => setSearchInput(event.target.value)}
+						onClear={clearSearch}
 						placeholder="Search name or description…"
 						value={searchInput}
 					/>

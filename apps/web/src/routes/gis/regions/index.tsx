@@ -1,5 +1,5 @@
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
-import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Checkbox } from '@simmer-mosquito/ui-web/components/ui/checkbox';
 import {
@@ -86,9 +86,10 @@ function RegionFilters({
 }) {
 	return (
 		<>
-			<SearchField
+			<SearchInput
 				label="Search regions and folders"
-				onChange={onChange}
+				onChange={(event) => onChange(event.target.value)}
+				onClear={onClear}
 				placeholder="Search regions and folders"
 				value={search}
 			/>
@@ -388,10 +389,17 @@ function RegionsExplorerRoute() {
 		(next: string) => setRegionFilters({ search: next }),
 		[setRegionFilters],
 	);
-	const { input: search, setInput: setSearch } = useDebouncedTextFilter(
-		regionQuery.search,
-		commitSearch,
-	);
+	const {
+		input: search,
+		setInput: setSearch,
+		clear: clearSearchInput,
+	} = useDebouncedTextFilter(regionQuery.search, commitSearch);
+	// Both halves: the field the operator is looking at, and the committed term on
+	// the URL that is actually cutting the tree.
+	const clearSearch = useCallback(() => {
+		clearSearchInput();
+		commitSearch('');
+	}, [clearSearchInput, commitSearch]);
 	const [focusedId, setFocusedId] = useState<string | null>(null);
 	const [map, setMap] = useState<MapboxMap | null>(null);
 	const panel = useExplorerPanel();
@@ -466,9 +474,7 @@ function RegionsExplorerRoute() {
 		<>
 			<ExplorerMapPage
 				activeFilterCount={activeFilterCount}
-				filters={
-					<RegionFilters onChange={setSearch} onClear={() => commitSearch('')} search={search} />
-				}
+				filters={<RegionFilters onChange={setSearch} onClear={clearSearch} search={search} />}
 				/*
 				 * Filing and importing sit with Create Region rather than as buttons over
 				 * the tree. All three write regions, none is reached often, and a row of

@@ -1,6 +1,7 @@
 import { type SearchResult, searchResultValue } from '@simmer-mosquito/domain';
 import { useEffect, useState } from 'react';
 import type { AuthMe } from '../../auth';
+import { useDebouncedValue } from '../../hooks/use-debounced-value';
 import { shellSearchCandidates, type WebShellCandidate } from '../app-shell/navigation';
 import {
 	type DestinationResolution,
@@ -14,7 +15,7 @@ import {
 	type PaletteGroups,
 } from './search-matching';
 import { type SeedableTable, seedSearch } from './search-seeds';
-import { useDebouncedQuery, useGlobalSearch } from './use-global-search';
+import { SEARCH_QUERY_DEBOUNCE_MS, useGlobalSearch } from './use-global-search';
 import { useRouteTypeIndex } from './use-search-navigation';
 
 /**
@@ -115,7 +116,7 @@ export function usePaletteContent(
 	/** The action being seeded, which narrows the whole list to one table. */
 	seed: PaletteSeed | null,
 ): PaletteContent {
-	const debouncedQuery = useDebouncedQuery(query);
+	const { debounced: debouncedQuery } = useDebouncedValue(query, SEARCH_QUERY_DEBOUNCE_MS);
 
 	// cmdk compares selection by string, and its only recovery from a selection
 	// whose row has unmounted is an item-unregister cleanup guarded on a node

@@ -1,6 +1,6 @@
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
-import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -142,9 +142,10 @@ export function RoutesIndexPage({
 						</div>
 
 						{routes.length > 0 ? (
-							<SearchField
+							<SearchInput
 								label="Search routes by name"
-								onChange={setSearchInput}
+								onChange={(event) => setSearchInput(event.target.value)}
+								onClear={() => setSearchInput('')}
 								placeholder="Search routes…"
 								value={searchInput}
 							/>
