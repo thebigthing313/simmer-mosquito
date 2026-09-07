@@ -1,5 +1,14 @@
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
-import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
+import {
+	createAssignment,
+	createMission,
+	createOrganization,
+	createProfile,
+	createRequestedControlAction,
+	createRoute,
+	describeDbIntegration,
+	withTestDb,
+} from '@simmer-mosquito/db/test-support';
 import {
 	type AssignmentItemPlacement,
 	addAssignmentItemCommand,
@@ -37,9 +46,9 @@ import type { OrderedItemParentColumn, OrderedItemTable } from '../../ordered-it
 describeDbIntegration('ordered item positions', () => {
 	it('adds a route stop between its neighbours without touching a sibling', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'routeadd');
-			const actor = await createProfile(db, org, 'Supervisor');
-			const route = await createRoute(db, org, 'North line');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Supervisor' });
+			const route = await createRoute(db, org, { route_name: 'North line' });
 
 			const first = await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } });
 			const second = await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } });
@@ -67,9 +76,9 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('adds a route stop at either end outside the current range', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'routeends');
-			const actor = await createProfile(db, org, 'Supervisor');
-			const route = await createRoute(db, org, 'South line');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Supervisor' });
+			const route = await createRoute(db, org, { route_name: 'South line' });
 
 			await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } });
 			const head = await addRouteStop(db, { org, actor, route, placement: { kind: 'start' } });
@@ -86,9 +95,9 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('reads back the order a run of adds and removes asked for', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'routerun');
-			const actor = await createProfile(db, org, 'Supervisor');
-			const route = await createRoute(db, org, 'Creek line');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Supervisor' });
+			const route = await createRoute(db, org, { route_name: 'Creek line' });
 
 			const a = await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } });
 			const b = await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } });
@@ -123,9 +132,13 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('adds an assignment stop between its neighbours without touching a sibling', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'assignadd');
-			const actor = await createProfile(db, org, 'Collector');
-			const assignment = await createAssignment(db, org, actor);
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Collector' });
+			const assignment = await createAssignment(db, org, {
+				assignment_name: 'Tuesday larval',
+				assigned_to_profile_id: actor,
+				assignment_date: new Date('2026-08-18T00:00:00.000Z'),
+			});
 
 			const first = await addAssignmentStop(db, {
 				org,
@@ -158,9 +171,11 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('adds a mission stop between its neighbours without touching a sibling', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'missionadd');
-			const actor = await createProfile(db, org, 'Applicator');
-			const mission = await createMission(db, org);
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Applicator' });
+			const mission = await createMission(db, org, {
+				scheduled_start_at: new Date('2026-08-18T14:00:00.000Z'),
+			});
 
 			const first = await addMissionStop(db, { org, actor, mission, placement: { kind: 'end' } });
 			const second = await addMissionStop(db, { org, actor, mission, placement: { kind: 'end' } });
@@ -182,10 +197,14 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('adds a mission stop from a requested action at the head of the list', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'missionrca');
-			const actor = await createProfile(db, org, 'Applicator');
-			const mission = await createMission(db, org);
-			const requested = await createRequestedControlAction(db, org);
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Applicator' });
+			const mission = await createMission(db, org, {
+				scheduled_start_at: new Date('2026-08-18T14:00:00.000Z'),
+			});
+			const requested = await createRequestedControlAction(db, org, {
+				geom: sql`st_setsrid(st_geomfromgeojson(${JSON.stringify(POINT)}), 4326)`,
+			});
 
 			const existing = await addMissionStop(db, {
 				org,
@@ -221,9 +240,9 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('moves one route stop by writing one row', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'routemove');
-			const actor = await createProfile(db, org, 'Supervisor');
-			const route = await createRoute(db, org, 'Levee line');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Supervisor' });
+			const route = await createRoute(db, org, { route_name: 'Levee line' });
 			const ids: string[] = [];
 			for (let stop = 0; stop < 5; stop += 1) {
 				ids.push(await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } }));
@@ -253,9 +272,9 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('moves a selection by writing one row per moved id', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'routeselect');
-			const actor = await createProfile(db, org, 'Supervisor');
-			const route = await createRoute(db, org, 'Slough line');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Supervisor' });
+			const route = await createRoute(db, org, { route_name: 'Slough line' });
 			const ids: string[] = [];
 			for (let stop = 0; stop < 5; stop += 1) {
 				ids.push(await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } }));
@@ -276,9 +295,9 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('reads back the order every placement asked for', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'routeplace');
-			const actor = await createProfile(db, org, 'Supervisor');
-			const route = await createRoute(db, org, 'Orchard line');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Supervisor' });
+			const route = await createRoute(db, org, { route_name: 'Orchard line' });
 			const ids: string[] = [];
 			for (let stop = 0; stop < 4; stop += 1) {
 				ids.push(await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } }));
@@ -313,9 +332,9 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('falls through to the end when the placement reference is gone', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'routemissing');
-			const actor = await createProfile(db, org, 'Supervisor');
-			const route = await createRoute(db, org, 'Canal line');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Supervisor' });
+			const route = await createRoute(db, org, { route_name: 'Canal line' });
 			const first = await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } });
 			const second = await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } });
 
@@ -334,9 +353,9 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('rewrites the moved row when the move changes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'routenoop');
-			const actor = await createProfile(db, org, 'Supervisor');
-			const route = await createRoute(db, org, 'Ditch line');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Supervisor' });
+			const route = await createRoute(db, org, { route_name: 'Ditch line' });
 			const first = await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } });
 			const second = await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } });
 			const before = await readItems(db, 'route_items', 'route_id', route);
@@ -354,9 +373,9 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('normalizes inside the transaction when the gap cannot hold the run', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'routetight');
-			const actor = await createProfile(db, org, 'Supervisor');
-			const route = await createRoute(db, org, 'Pump line');
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Supervisor' });
+			const route = await createRoute(db, org, { route_name: 'Pump line' });
 			const ids: string[] = [];
 			for (let stop = 0; stop < 4; stop += 1) {
 				ids.push(await addRouteStop(db, { org, actor, route, placement: { kind: 'end' } }));
@@ -386,9 +405,13 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('moves an assignment stop without touching a sibling', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'assignmove');
-			const actor = await createProfile(db, org, 'Collector');
-			const assignment = await createAssignment(db, org, actor);
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Collector' });
+			const assignment = await createAssignment(db, org, {
+				assignment_name: 'Tuesday larval',
+				assigned_to_profile_id: actor,
+				assignment_date: new Date('2026-08-18T00:00:00.000Z'),
+			});
 			const ids: string[] = [];
 			for (let stop = 0; stop < 4; stop += 1) {
 				ids.push(
@@ -422,9 +445,11 @@ describeDbIntegration('ordered item positions', () => {
 
 	it('moves a mission stop without touching a sibling', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'missionmove');
-			const actor = await createProfile(db, org, 'Applicator');
-			const mission = await createMission(db, org);
+			const org = await createOrganization(db);
+			const actor = await createProfile(db, org, { display_name: 'Applicator' });
+			const mission = await createMission(db, org, {
+				scheduled_start_at: new Date('2026-08-18T14:00:00.000Z'),
+			});
 			const ids: string[] = [];
 			for (let stop = 0; stop < 4; stop += 1) {
 				ids.push(await addMissionStop(db, { org, actor, mission, placement: { kind: 'end' } }));
@@ -595,75 +620,4 @@ async function addMissionStop(
 		),
 	);
 	return missionItemId;
-}
-
-async function createOrganization(db: Db, slug: string): Promise<string> {
-	const row = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createProfile(db: Db, organizationId: string, name: string): Promise<string> {
-	const row = await db
-		.insertInto('profiles')
-		.values({ organization_id: organizationId, display_name: name })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createRoute(db: Db, organizationId: string, name: string): Promise<string> {
-	const row = await db
-		.insertInto('routes')
-		.values({ organization_id: organizationId, route_name: name, route_type: 'habitat' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createAssignment(
-	db: Db,
-	organizationId: string,
-	actorProfileId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('assignments')
-		.values({
-			organization_id: organizationId,
-			assignment_name: 'Tuesday larval',
-			assigned_to_profile_id: actorProfileId,
-			assignment_date: new Date('2026-08-18T00:00:00.000Z'),
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createMission(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('missions')
-		.values({
-			organization_id: organizationId,
-			control_type: 'application',
-			scheduled_start_at: new Date('2026-08-18T14:00:00.000Z'),
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createRequestedControlAction(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('requested_control_actions')
-		.values({
-			organization_id: organizationId,
-			control_type: 'application',
-			geom: sql`st_setsrid(st_geomfromgeojson(${JSON.stringify(POINT)}), 4326)`,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
 }

@@ -1,6 +1,13 @@
 import { expect, it } from 'vitest';
 import { type Kysely, type SimmerDatabase, searchDocuments, sql } from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
+import {
+	createCollectionMethod,
+	createHabitat,
+	createOrganization,
+	createRegion,
+	createTrap,
+} from '../../test-support/row-fixtures.js';
 
 /**
  * No test here asserts a score, and none asserts a position that a threshold
@@ -15,7 +22,7 @@ import { describeDbIntegration, withTestDb } from '../../test-support/db-integra
 describeDbIntegration('search documents reader', () => {
 	it('assigns one class per document, best class first', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_classes');
+			const org = await createOrganization(db);
 
 			await seedTrap(db, org, 'TRP-001', 'Roadside gravid trap');
 			await seedTrap(db, org, 'TRP-0012', 'Second trap on the same run');
@@ -38,7 +45,7 @@ describeDbIntegration('search documents reader', () => {
 	// them, which was 32% of the record corpus.
 	it('reaches an exact match on any identifier field, not only the first', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_exact');
+			const org = await createOrganization(db);
 
 			await db
 				.insertInto('contacts')
@@ -72,7 +79,7 @@ describeDbIntegration('search documents reader', () => {
 	// pre-filter that was not a superset would show up.
 	it('reaches a prefix on a later identifier field, above the trigram floor', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_prefix');
+			const org = await createOrganization(db);
 
 			await db
 				.insertInto('contacts')
@@ -98,7 +105,7 @@ describeDbIntegration('search documents reader', () => {
 
 	it('finds a typo through the fuzzy class and names the field it matched', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_fuzzy');
+			const org = await createOrganization(db);
 			await seedRegion(db, org, 'Dunellen');
 
 			const result = await searchDocuments(db, {
@@ -118,7 +125,7 @@ describeDbIntegration('search documents reader', () => {
 	// can only ever land in the weakest class.
 	it('reaches a comment by its text and carries its target in display', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_comments');
+			const org = await createOrganization(db);
 			const habitat = await seedHabitat(db, org, 'MID - S2 - 139', '');
 
 			await db
@@ -150,7 +157,7 @@ describeDbIntegration('search documents reader', () => {
 	// the GIN index at any length, so a two-letter query can still reach a comment.
 	it('runs exact, prefix and text below the fuzzy floor', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_short');
+			const org = await createOrganization(db);
 			await seedRegion(db, org, 'Ea');
 			await seedRegion(db, org, 'Eastern Marsh');
 
@@ -168,7 +175,7 @@ describeDbIntegration('search documents reader', () => {
 
 	it('counts records and comments exactly, and never narrows counts by the filter', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_counts');
+			const org = await createOrganization(db);
 			const habitat = await seedHabitat(db, org, 'Elm Ditch', 'elm lined culvert');
 			await seedRegion(db, org, 'Elm Township');
 
@@ -210,7 +217,7 @@ describeDbIntegration('search documents reader', () => {
 
 	it('walks a stable list by offset and returns the same order twice', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_paging');
+			const org = await createOrganization(db);
 			for (let index = 0; index < 6; index += 1) {
 				await seedRegion(db, org, `Marsh sector ${index}`);
 			}
@@ -246,8 +253,8 @@ describeDbIntegration('search documents reader', () => {
 
 	it('holds one organization to its own documents', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await seedOrganization(db, 'workos_org_search_mine');
-			const theirs = await seedOrganization(db, 'workos_org_search_theirs');
+			const mine = await createOrganization(db);
+			const theirs = await createOrganization(db);
 			await seedRegion(db, mine, 'Shared Name');
 			await seedRegion(db, theirs, 'Shared Name');
 
@@ -267,7 +274,7 @@ describeDbIntegration('search documents reader', () => {
 	// restored, so this also covers the re-insert on the way back.
 	it('drops a soft-deleted record and restores it when the delete is cleared', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_deleted');
+			const org = await createOrganization(db);
 			const region = await seedRegion(db, org, 'Vanishing Marsh');
 
 			await db
@@ -298,7 +305,7 @@ describeDbIntegration('search documents reader', () => {
 	// not indexed, so nothing here can move a rank.
 	it('carries the lifecycle state of the three tables that have one, and no other', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_lifecycle');
+			const org = await createOrganization(db);
 
 			await seedHabitat(db, org, 'Cedar Slough', 'Roadside ditch');
 			await seedTrap(db, org, 'Cedar Slough trap', null);
@@ -321,7 +328,7 @@ describeDbIntegration('search documents reader', () => {
 
 	it('keeps a retired record in the corpus and in the class it already matched', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_retired');
+			const org = await createOrganization(db);
 			const habitat = await seedHabitat(db, org, 'Mill Pond', 'Behind the old mill');
 
 			const before = await searchDocuments(db, {
@@ -365,7 +372,7 @@ describeDbIntegration('search documents reader', () => {
 	it('rewrites the documents of rows that predate the migration, and tracks them after', async () => {
 		await withTestDb(
 			async ({ db, applyHeldBackMigrations }) => {
-				const org = await seedOrganization(db, 'workos_org_search_backfill');
+				const org = await createOrganization(db);
 				const habitat = await seedHabitat(db, org, 'Otter Creek', 'Culvert at the bend');
 				const trap = await seedTrap(db, org, 'Otter Creek trap', null);
 				const station = await seedWeatherSource(db, org, 'Otter Creek station', 'OTR-1');
@@ -451,7 +458,7 @@ describeDbIntegration('search documents reader', () => {
 	 */
 	it('indexes an organization station and leaves a platform-owned one out', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_platform_station');
+			const org = await createOrganization(db);
 			const owned = await seedWeatherSource(db, org, 'Cedar Bend station', 'CDB-1');
 			const platform = await seedWeatherSource(db, null, 'Cedar Bend NWS', 'KCDB');
 
@@ -474,7 +481,7 @@ describeDbIntegration('search documents reader', () => {
 	// every token goes through `quote_literal`. Without that these 500.
 	it('takes operator characters and apostrophes as literal text', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await seedOrganization(db, 'workos_org_search_syntax');
+			const org = await createOrganization(db);
 			await seedRegion(db, org, "O'Brien Tract");
 
 			// The backslash is the one `quote_literal` treats differently, which is
@@ -532,59 +539,30 @@ function displayOf(
 	return rows.find((row) => row.sourceTable === table)?.display;
 }
 
-async function seedOrganization(db: Kysely<SimmerDatabase>, workosId: string): Promise<string> {
-	const row = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: workosId, name: 'Search District' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function seedHabitat(
+/** A habitat whose name and description are the text the index has to find. */
+function seedHabitat(
 	db: Kysely<SimmerDatabase>,
 	organizationId: string,
 	name: string,
 	description: string,
 ): Promise<string> {
-	const row = await db
-		.insertInto('habitats')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			habitat_name: name,
-			description,
-			metadata: null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return createHabitat(db, organizationId, { habitat_name: name, description });
 }
 
+/** A trap and the collection method it needs, whose name is unique per Organization. */
 async function seedTrap(
 	db: Kysely<SimmerDatabase>,
 	organizationId: string,
 	name: string,
 	description: string | null,
 ): Promise<string> {
-	const method = await db
-		.insertInto('collection_methods')
-		.values({ organization_id: organizationId, name: `Gravid trap for ${name}` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-
-	const row = await db
-		.insertInto('traps')
-		.values({
-			organization_id: organizationId,
-			collection_method_id: method.id,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			trap_name: name,
-			description: description ?? '',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	const methodId = await createCollectionMethod(db, organizationId, {
+		name: `Gravid trap for ${name}`,
+	});
+	return createTrap(db, organizationId, methodId, {
+		trap_name: name,
+		description: description ?? '',
+	});
 }
 
 /** A null `organizationId` seeds a platform-owned station, which no product surface writes. */
@@ -608,21 +586,10 @@ async function seedWeatherSource(
 	return row.id;
 }
 
-async function seedRegion(
+function seedRegion(
 	db: Kysely<SimmerDatabase>,
 	organizationId: string,
 	name: string,
 ): Promise<string> {
-	const row = await db
-		.insertInto('regions')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_geomfromtext('POLYGON((-90.6 35.4, -90.4 35.4, -90.4 35.6, -90.6 35.6, -90.6 35.4))'), 4326)`,
-			name,
-			description: '',
-			metadata: null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return createRegion(db, organizationId, { name });
 }

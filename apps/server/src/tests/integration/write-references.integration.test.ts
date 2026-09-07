@@ -1,5 +1,12 @@
-import { type Kysely, ReferenceRefusedError, type SimmerDatabase, sql } from '@simmer-mosquito/db';
-import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
+import { type Kysely, ReferenceRefusedError, type SimmerDatabase } from '@simmer-mosquito/db';
+import {
+	createAddress,
+	createCollectionMethod,
+	createOrganization,
+	createProfile,
+	describeDbIntegration,
+	withTestDb,
+} from '@simmer-mosquito/db/test-support';
 import {
 	createTrapCommand,
 	recordAdHocInspectionCommand,
@@ -32,8 +39,8 @@ import { writeInspectionCommand } from '../../larval-surveillance-commands/inspe
 describeDbIntegration('cross-organization references', () => {
 	it('refuses a create naming another organization’s address, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await seedOrganization(db, 'refs_create_mine');
-			const theirs = await seedOrganization(db, 'refs_create_theirs');
+			const mine = await seedOrganization(db);
+			const theirs = await seedOrganization(db);
 			const theirAddress = await createAddress(db, theirs.organizationId);
 			const trapId = crypto.randomUUID();
 
@@ -65,8 +72,8 @@ describeDbIntegration('cross-organization references', () => {
 
 	it('names the address in the refusal rather than saying which organization owns it', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await seedOrganization(db, 'refs_reason_mine');
-			const theirs = await seedOrganization(db, 'refs_reason_theirs');
+			const mine = await seedOrganization(db);
+			const theirs = await seedOrganization(db);
 			const theirAddress = await createAddress(db, theirs.organizationId);
 
 			const refusal = await capture(() =>
@@ -83,8 +90,8 @@ describeDbIntegration('cross-organization references', () => {
 
 	it('refuses an update that repoints a record at another organization’s address', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await seedOrganization(db, 'refs_update_mine');
-			const theirs = await seedOrganization(db, 'refs_update_theirs');
+			const mine = await seedOrganization(db);
+			const theirs = await seedOrganization(db);
 			const ourAddress = await createAddress(db, mine.organizationId);
 			const theirAddress = await createAddress(db, theirs.organizationId);
 
@@ -113,8 +120,8 @@ describeDbIntegration('cross-organization references', () => {
 
 	it('refuses a create naming another organization’s profile as the inspector', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await seedOrganization(db, 'refs_profile_mine');
-			const theirs = await seedOrganization(db, 'refs_profile_theirs');
+			const mine = await seedOrganization(db);
+			const theirs = await seedOrganization(db);
 
 			// A Profile rather than an Address, because a profile id is the one an
 			// operator moving between organizations is most likely to still be
@@ -148,42 +155,13 @@ interface SeededOrganization {
 	readonly collectionMethodId: string;
 }
 
-async function seedOrganization(db: Db, slug: string): Promise<SeededOrganization> {
-	const organization = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const profile = await db
-		.insertInto('profiles')
-		.values({ organization_id: organization.id, display_name: 'Field tech' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const method = await db
-		.insertInto('collection_methods')
-		.values({ organization_id: organization.id, name: 'CDC light trap', is_active: true })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-
+async function seedOrganization(db: Db): Promise<SeededOrganization> {
+	const organizationId = await createOrganization(db);
 	return {
-		organizationId: organization.id,
-		profileId: profile.id,
-		collectionMethodId: method.id,
+		organizationId,
+		profileId: await createProfile(db, organizationId, { display_name: 'Field tech' }),
+		collectionMethodId: await createCollectionMethod(db, organizationId, { is_active: true }),
 	};
-}
-
-async function createAddress(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('addresses')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			display_name: '14 Levee Road',
-			country: 'US',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
 }
 
 function writeTrapCommandFor(

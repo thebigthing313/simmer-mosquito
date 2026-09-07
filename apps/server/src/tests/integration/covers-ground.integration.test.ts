@@ -1,5 +1,11 @@
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
-import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
+import {
+	createInspection,
+	createOrganization,
+	createProfile,
+	describeDbIntegration,
+	withTestDb,
+} from '@simmer-mosquito/db/test-support';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { expect, it } from 'vitest';
@@ -23,7 +29,7 @@ import { habitatTableCommands } from '../../table-commands/habitats.js';
 describeDbIntegration('a geometry that covers no ground', () => {
 	it('refuses a drawn polygon with no area, and writes no habitat', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'drawn_pinprick');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 
 			const response = await habitatApp(db, org, actor).request('/commands/habitats', {
@@ -58,7 +64,7 @@ describeDbIntegration('a geometry that covers no ground', () => {
 	 */
 	it('refuses an inherited geometry with no area, and names the row it came from', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'inherited_pinprick');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const inspectionId = await createDegenerateInspection(db, org);
 
@@ -84,7 +90,7 @@ describeDbIntegration('a geometry that covers no ground', () => {
 
 	it('takes the same shape once it has area', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'drawn_square');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 
 			const response = await habitatApp(db, org, actor).request('/commands/habitats', {
@@ -160,36 +166,11 @@ function habitatApp(db: Db, organizationId: string, profileId: string) {
 	return app;
 }
 
-async function createOrganization(db: Db, slug: string): Promise<string> {
-	const row = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createProfile(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('profiles')
-		.values({ organization_id: organizationId, display_name: 'Technician' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createDegenerateInspection(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('inspections')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_geomfromtext('POLYGON((-90.5 35.5, -90.5 35.5, -90.5 35.5, -90.5 35.5))'), 4326)`,
-			inspection_date: sql`date '2026-08-01'`,
-			is_wet: true,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+/** An inspection already stored on a zero-area ring, which the rule has to find. */
+function createDegenerateInspection(db: Db, organizationId: string): Promise<string> {
+	return createInspection(db, organizationId, {
+		geom: sql`st_setsrid(st_geomfromtext('POLYGON((-90.5 35.5, -90.5 35.5, -90.5 35.5, -90.5 35.5))'), 4326)`,
+	});
 }
 
 async function countHabitats(db: Db, organizationId: string): Promise<number> {

@@ -10,6 +10,15 @@ import {
 	type UnitMetres,
 } from '../../../index.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
+import {
+	fixturePoint,
+	createContact as insertContact,
+	createMission as insertMission,
+	createMissionItem as insertMissionItem,
+	createNotificationType as insertNotificationType,
+	createOrganization as insertOrganization,
+	createNotificationRegistration as insertRegistration,
+} from '../../../test-support/row-fixtures.js';
 
 /**
  * Who a mission has to notify, decided against real geometry.
@@ -515,33 +524,20 @@ function byChannel(left: { channel: string }, right: { channel: string }): numbe
 
 /** An organization with one scheduled mission, a notification type, and two units. */
 async function seedWorld(db: Db, slug: string): Promise<World> {
-	const organization = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-
-	const notificationType = await db
-		.insertInto('notification_types')
-		.values({ organization_id: organization.id, name: 'Adulticiding' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-
-	const mission = await db
-		.insertInto('missions')
-		.values({
-			organization_id: organization.id,
-			control_type: 'application',
-			scheduled_start_at: sql`now() + interval '1 day'`,
-			notification_type_id: notificationType.id,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
+	const organizationId = await insertOrganization(db, {
+		workos_organization_id: `workos_${slug}`,
+		name: `${slug} District`,
+	});
+	const notificationTypeId = await insertNotificationType(db, organizationId);
+	const missionId = await insertMission(db, organizationId, {
+		scheduled_start_at: sql`now() + interval '1 day'`,
+		notification_type_id: notificationTypeId,
+	});
 
 	return {
-		organizationId: organization.id,
-		missionId: mission.id,
-		notificationTypeId: notificationType.id,
+		organizationId,
+		missionId,
+		notificationTypeId,
 		meterUnitId: await unitByCode(db, 'meter', 'm', 'si'),
 		mileUnitId: await unitByCode(db, 'mile', 'mi', 'us_customary'),
 	};
@@ -583,21 +579,13 @@ async function unitByCode(
 	return row.id;
 }
 
-async function createMissionItem(db: Db, world: World, longitude: number): Promise<string> {
-	const row = await db
-		.insertInto('mission_items')
-		.values({
-			organization_id: world.organizationId,
-			mission_id: world.missionId,
-			geom: sql`st_setsrid(st_makepoint(${longitude}, 35.5), 4326)`,
-			position: 1,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+function createMissionItem(db: Db, world: World, longitude: number): Promise<string> {
+	return insertMissionItem(db, world.organizationId, world.missionId, {
+		geom: fixturePoint(longitude),
+	});
 }
 
-async function createContact(
+function createContact(
 	db: Db,
 	world: World,
 	input: {
@@ -608,25 +596,19 @@ async function createContact(
 		readonly wantsPhone?: boolean;
 	},
 ): Promise<string> {
-	const row = await db
-		.insertInto('contacts')
-		.values({
-			organization_id: world.organizationId,
-			contact_name: 'Sam Rivera',
-			email: input.email ?? null,
-			preferred_phone: input.preferredPhone ?? null,
-			// Email-only by default, so a test that cares about one channel does not
-			// have to state the other two.
-			wants_email: input.wantsEmail ?? true,
-			wants_sms: input.wantsSms ?? false,
-			wants_phone: input.wantsPhone ?? false,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return insertContact(db, world.organizationId, {
+		contact_name: 'Sam Rivera',
+		email: input.email ?? null,
+		preferred_phone: input.preferredPhone ?? null,
+		// Email-only by default, so a test that cares about one channel does not
+		// have to state the other two.
+		wants_email: input.wantsEmail ?? true,
+		wants_sms: input.wantsSms ?? false,
+		wants_phone: input.wantsPhone ?? false,
+	});
 }
 
-async function createRegistration(
+function createRegistration(
 	db: Db,
 	world: World,
 	input: {
@@ -636,18 +618,11 @@ async function createRegistration(
 		readonly contactId: string;
 	},
 ): Promise<string> {
-	const row = await db
-		.insertInto('notification_registrations')
-		.values({
-			organization_id: world.organizationId,
-			contact_id: input.contactId,
-			geom: sql`st_setsrid(st_makepoint(${input.longitude}, 35.5), 4326)`,
-			buffer_distance: input.bufferDistance,
-			buffer_unit_id: input.unitId,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return insertRegistration(db, world.organizationId, input.contactId, {
+		geom: fixturePoint(input.longitude),
+		buffer_distance: input.bufferDistance,
+		buffer_unit_id: input.unitId,
+	});
 }
 
 async function subscribe(db: Db, world: World, registrationId: string): Promise<void> {

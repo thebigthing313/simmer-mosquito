@@ -52,8 +52,19 @@
 	"ignoreFindings": ["packages/ui-web/src/components/ui/**"],
 
 	// The duplication ratchet. CI runs `fallow dupes` with no flags, so this is
-	// what makes it a gate: 5.2% is where the workspace sits, and 5.3 leaves a
+	// what makes it a gate: 5.1% is where the workspace sits, and 5.2 leaves a
 	// tenth of a point of slack so an ordinary change does not fail on rounding.
+	//
+	// It was 5.3 against 5.2% when #616 moved the row builders the integration
+	// suites kept rewriting into `packages/db/src/test-support/row-fixtures.ts`,
+	// and this is the clearest case yet of the ratio measuring the wrong thing.
+	// That branch deleted 102 of 147 builders, `createOrganization` alone having
+	// thirteen byte-identical copies, and the absolute number did not move at
+	// all: 12,462 duplicated lines before and after. Test files are in fallow's
+	// default duplicates ignores, so **this gate never read a line of it**. The
+	// ratio fell a tenth of a point only because about 1,300 lines left the
+	// denominator. Real copies came out, so the ratchet comes down, but do not
+	// read the tenth as having measured them.
 	//
 	// It was 5.4 against 5.2% when #605 checked this number while re-saving the
 	// health baseline, and the tenth of a point it gives back is not a cleanup.
@@ -147,7 +158,7 @@
 	},
 
 	"duplicates": {
-		"threshold": 5.3
+		"threshold": 5.2
 	},
 
 	// `@tanstack/db` is a deliberate pin, not an import. `@tanstack/react-db` and
@@ -201,6 +212,15 @@
 			// describing a column, repeated across ~180 field declarations — they
 			// describe the schema rather than form an API anyone needs to name.
 			"files": ["packages/db/src/tables.ts"],
+			"rules": { "private-type-leaks": "off" }
+		},
+		{
+			// The row fixtures, and the same category as `tables.ts` above.
+			// `Overrides<T>` is local notation for one table's insert shape,
+			// repeated across every builder's second argument. A caller writes an
+			// object literal against it and never names it, so exporting it would
+			// add an unused export rather than a usable one.
+			"files": ["packages/db/src/test-support/row-fixtures.ts"],
 			"rules": { "private-type-leaks": "off" }
 		}
 	]

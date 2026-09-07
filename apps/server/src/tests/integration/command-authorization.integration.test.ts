@@ -1,5 +1,18 @@
 import { type Kysely, type SimmerDatabase, sql, type Transaction } from '@simmer-mosquito/db';
-import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
+import {
+	createHabitat,
+	createOrganization,
+	createProfile,
+	createSourceReductionMethod,
+	createUnit,
+	describeDbIntegration,
+	createAssignment as insertAssignment,
+	createAssignmentItem as insertAssignmentItem,
+	createComment as insertComment,
+	createRequestedControlAction as insertRequestedControlAction,
+	createSourceReduction as insertSourceReduction,
+	withTestDb,
+} from '@simmer-mosquito/db/test-support';
 import { expect, it } from 'vitest';
 import {
 	ACTION_CORRECTION_WINDOW_DAYS,
@@ -35,9 +48,9 @@ describeDbIntegration('command authorization reads', () => {
 
 	it('answers assignee ownership, and treats an unassigned assignment as nobody’s', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'assignee');
-			const collector = await createProfile(db, org, 'Collector');
-			const other = await createProfile(db, org, 'Other');
+			const org = await createOrganization(db);
+			const collector = await createProfile(db, org, { display_name: 'Collector' });
+			const other = await createProfile(db, org, { display_name: 'Other' });
 
 			const mine = await createAssignment(db, org, { assignedTo: collector });
 			const theirs = await createAssignment(db, org, { assignedTo: other });
@@ -60,9 +73,9 @@ describeDbIntegration('command authorization reads', () => {
 
 	it('hides another organization’s assignment and a deleted one behind the same “missing”', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'assignee_scope');
-			const otherOrg = await createOrganization(db, 'assignee_other');
-			const collector = await createProfile(db, org, 'Collector');
+			const org = await createOrganization(db);
+			const otherOrg = await createOrganization(db);
+			const collector = await createProfile(db, org, { display_name: 'Collector' });
 
 			const elsewhere = await createAssignment(db, otherOrg, { assignedTo: null });
 			const deleted = await createAssignment(db, org, { assignedTo: collector });
@@ -84,8 +97,8 @@ describeDbIntegration('command authorization reads', () => {
 
 	it('resolves an item’s parent assignment, and refuses to for a deleted or foreign item', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'item_parent');
-			const otherOrg = await createOrganization(db, 'item_parent_other');
+			const org = await createOrganization(db);
+			const otherOrg = await createOrganization(db);
 			const assignment = await createAssignment(db, org, { assignedTo: null });
 			const item = await createAssignmentItem(db, org, assignment, {});
 			const deletedItem = await createAssignmentItem(db, org, assignment, {});
@@ -105,9 +118,9 @@ describeDbIntegration('command authorization reads', () => {
 
 	it('lets an author correct their own comment until the window closes', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'comment_window');
-			const author = await createProfile(db, org, 'Author');
-			const other = await createProfile(db, org, 'Other');
+			const org = await createOrganization(db);
+			const author = await createProfile(db, org, { display_name: 'Author' });
+			const other = await createProfile(db, org, { display_name: 'Other' });
 			const habitat = await createHabitat(db, org);
 
 			const fresh = await createComment(db, org, habitat, author, 0);
@@ -126,9 +139,9 @@ describeDbIntegration('command authorization reads', () => {
 
 	it('excludes a deleted comment and another organization’s from the authorship read', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'comment_scope');
-			const otherOrg = await createOrganization(db, 'comment_scope_other');
-			const author = await createProfile(db, org, 'Author');
+			const org = await createOrganization(db);
+			const otherOrg = await createOrganization(db);
+			const author = await createProfile(db, org, { display_name: 'Author' });
 			const habitat = await createHabitat(db, org);
 			const deleted = await createComment(db, org, habitat, author, 0);
 			await softDelete(db, 'comments', deleted);
@@ -147,9 +160,9 @@ describeDbIntegration('command authorization reads', () => {
 
 	it('lets the performer correct their own recent action and nobody else’s', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'performer');
-			const technician = await createProfile(db, org, 'Technician');
-			const other = await createProfile(db, org, 'Other');
+			const org = await createOrganization(db);
+			const technician = await createProfile(db, org, { display_name: 'Technician' });
+			const other = await createProfile(db, org, { display_name: 'Other' });
 			const method = await createSourceReductionMethod(db, org);
 			const unit = await createUnit(db);
 
@@ -190,8 +203,8 @@ describeDbIntegration('command authorization reads', () => {
 		await withTestDb(async ({ db }) => {
 			// Backfilling last month's work must not buy a fresh month to change it
 			// in. The row is created now; only `source_reduction_date` is old.
-			const org = await createOrganization(db, 'performer_backfill');
-			const technician = await createProfile(db, org, 'Technician');
+			const org = await createOrganization(db);
+			const technician = await createProfile(db, org, { display_name: 'Technician' });
 			const method = await createSourceReductionMethod(db, org);
 			const unit = await createUnit(db);
 			const backfilled = await createSourceReduction(db, org, method, unit, {
@@ -213,7 +226,7 @@ describeDbIntegration('command authorization reads', () => {
 
 	it('counts stops the same way reading each one and asking would', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'snapshot_counts');
+			const org = await createOrganization(db);
 			const assignment = await createAssignment(db, org, { assignedTo: null, started: true });
 			await createAssignmentItem(db, org, assignment, {});
 			await createAssignmentItem(db, org, assignment, {});
@@ -250,8 +263,8 @@ describeDbIntegration('command authorization reads', () => {
 
 	it('does not find another organization’s assignment or a deleted one', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'snapshot_scope');
-			const otherOrg = await createOrganization(db, 'snapshot_scope_other');
+			const org = await createOrganization(db);
+			const otherOrg = await createOrganization(db);
 			const assignment = await createAssignment(db, org, { assignedTo: null, started: true });
 			const deleted = await createAssignment(db, org, { assignedTo: null, started: true });
 			await softDelete(db, 'assignments', deleted);
@@ -265,7 +278,7 @@ describeDbIntegration('command authorization reads', () => {
 
 	it('serializes two crews completing the same assignment rather than letting both read stale', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'snapshot_lock');
+			const org = await createOrganization(db);
 			const assignment = await createAssignment(db, org, { assignedTo: null, started: true });
 			await createAssignmentItem(db, org, assignment, { completed: true });
 
@@ -318,9 +331,9 @@ describeDbIntegration('command authorization reads', () => {
 	 */
 	it('finds the rows that escalate a collector’s own delete', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'escalation');
-			const collector = await createProfile(db, org, 'Collector');
-			const helper = await createProfile(db, org, 'Helper');
+			const org = await createOrganization(db);
+			const collector = await createProfile(db, org, { display_name: 'Collector' });
+			const helper = await createProfile(db, org, { display_name: 'Helper' });
 			const method = await createSourceReductionMethod(db, org);
 			const unit = await createUnit(db);
 			const actor = { role: 'collector' as const, profileId: collector };
@@ -419,47 +432,24 @@ function sleep(ms: number): Promise<void> {
 /** Stops are ordered per assignment; a shared counter keeps them distinct. */
 let nextPosition = 1;
 
-async function createOrganization(db: Db, slug: string): Promise<string> {
-	const row = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createProfile(db: Db, organizationId: string, name: string): Promise<string> {
-	const row = await db
-		.insertInto('profiles')
-		.values({ organization_id: organizationId, display_name: name })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createAssignment(
+function createAssignment(
 	db: Db,
 	organizationId: string,
 	options: { readonly assignedTo: string | null; readonly started?: boolean },
 ): Promise<string> {
-	const row = await db
-		.insertInto('assignments')
-		.values({
-			organization_id: organizationId,
-			assigned_to_profile_id: options.assignedTo,
-			assignment_date: sql`current_date`,
-			...(options.started === true ? { started_at: sql`now()` } : {}),
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return insertAssignment(db, organizationId, {
+		assignment_name: null,
+		assigned_to_profile_id: options.assignedTo,
+		assignment_date: sql`current_date`,
+		...(options.started === true ? { started_at: sql`now()` } : {}),
+	});
 }
 
 /**
  * A stop on an assignment.
  *
  * Each gets its own habitat: `assignment_items_assignment_entity_unique` means
- * one assignment cannot visit the same site twice, so reusing an id here would
+ * one assignment cannot visit the same record twice, so reusing an id here would
  * fail on the second stop rather than testing anything.
  */
 async function createAssignmentItem(
@@ -469,81 +459,48 @@ async function createAssignmentItem(
 	state: { readonly completed?: boolean; readonly skipped?: boolean },
 ): Promise<string> {
 	const habitatId = await createHabitat(db, organizationId);
-	const row = await db
-		.insertInto('assignment_items')
-		.values({
-			organization_id: organizationId,
-			assignment_id: assignmentId,
-			entity_type: 'habitat',
-			entity_id: habitatId,
+	return insertAssignmentItem(
+		db,
+		organizationId,
+		{ assignmentId, entityType: 'habitat', entityId: habitatId },
+		{
 			position: nextPosition++,
 			...(state.completed === true ? { completed_at: sql`now()` } : {}),
 			...(state.skipped === true ? { skipped_at: sql`now()`, skip_reason: 'Locked gate' } : {}),
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+		},
+	);
 }
 
-async function createHabitat(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('habitats')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			habitat_name: 'Ditch',
-			description: 'Roadside ditch',
-			metadata: null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createComment(
+/** A comment aged by `daysAgo`, which is what the edit window is measured against. */
+function createComment(
 	db: Db,
 	organizationId: string,
 	habitatId: string,
 	authorProfileId: string,
 	daysAgo: number,
 ): Promise<string> {
-	const row = await db
-		.insertInto('comments')
-		.values({
-			organization_id: organizationId,
-			entity_type: 'habitat',
-			entity_id: habitatId,
+	return insertComment(
+		db,
+		organizationId,
+		{ entityType: 'habitat', entityId: habitatId },
+		{
 			comment_text: 'Standing water at the north end.',
 			commented_by_profile_id: authorProfileId,
 			commented_at: sql`now() - ${`${daysAgo} days`}::interval`,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+		},
+	);
 }
 
-async function createSourceReductionMethod(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('source_reduction_methods')
-		.values({ organization_id: organizationId, name: 'Ditch clearing' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createUnit(db: Db): Promise<string> {
-	const row = await db
-		.insertInto('units')
-		.values({
-			code: 'test_sources',
-			unit_name: 'sources',
-			abbreviation: 'src',
-			unit_type: 'count',
-			unit_system: 'si',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+function createRequestedControlAction(
+	db: Db,
+	organizationId: string,
+	requestedBy: string,
+): Promise<string> {
+	return insertRequestedControlAction(db, organizationId, {
+		control_type: 'source_reduction',
+		summary: 'Clear the ditch behind the school.',
+		requested_by_profile_id: requestedBy,
+	});
 }
 
 async function createSourceReduction(
@@ -553,39 +510,15 @@ async function createSourceReduction(
 	unitId: string,
 	options: { readonly by: string | null; readonly daysAgo: number },
 ): Promise<string> {
-	const row = await db
-		.insertInto('source_reductions')
-		.values({
-			organization_id: organizationId,
-			source_reduction_method_id: methodId,
+	return insertSourceReduction(
+		db,
+		organizationId,
+		{ methodId, unitId },
+		{
 			technician_profile_id: options.by,
 			source_reduction_date: sql`current_date - ${`${options.daysAgo} days`}::interval`,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			sources_eliminated_amount: 3,
-			sources_eliminated_unit_id: unitId,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createRequestedControlAction(
-	db: Db,
-	organizationId: string,
-	requestedBy: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('requested_control_actions')
-		.values({
-			organization_id: organizationId,
-			control_type: 'source_reduction',
-			summary: 'Clear the ditch behind the school.',
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			requested_by_profile_id: requestedBy,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+		},
+	);
 }
 
 async function softDelete(
