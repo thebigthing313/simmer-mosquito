@@ -1,4 +1,9 @@
-import type { AuthMe, SignInOutcome } from '@simmer-mosquito/auth/browser';
+import type {
+	AppAuthController,
+	AuthClient,
+	AuthMe,
+	SignInOutcome,
+} from '@simmer-mosquito/auth/browser';
 import {
 	createContext,
 	type ReactNode,
@@ -35,7 +40,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function toState(me: AuthMe | null): AuthState {
+export function toState(me: AuthMe | null): AuthState {
 	if (me === null) {
 		return { status: 'loading' };
 	}
@@ -45,22 +50,46 @@ function toState(me: AuthMe | null): AuthState {
 		: { status: 'signed-out', reason: me.reason };
 }
 
-export function AuthProvider({ children }: { readonly children: ReactNode }) {
-	const [me, setMe] = useState<AuthMe | null>(appAuthController.snapshot);
+/**
+ * The client and the controller, as parameters rather than imports.
+ *
+ * Both default to the singletons in `./client`, and every mount in the app
+ * takes the default: there is one production binding and it is already the
+ * right one, so requiring callers to pass it would move construction into
+ * `_layout.tsx` and buy nothing. The parameters exist so a test can reach the
+ * three states, the sign-in gate and the sign-out path without mocking a module
+ * path, which pins a suite to module layout instead of to behaviour.
+ * `session-store.ts` next door makes the same argument for the same reason.
+ *
+ * Narrowed to the members this file calls, so a stub is a handful of functions
+ * rather than a whole client.
+ */
+interface AuthProviderProps {
+	readonly children: ReactNode;
+	readonly client?: Pick<AuthClient, 'signIn' | 'signOut'>;
+	readonly controller?: Pick<AppAuthController, 'snapshot' | 'subscribe' | 'load' | 'refresh'>;
+}
+
+export function AuthProvider({
+	children,
+	client = authClient,
+	controller = appAuthController,
+}: AuthProviderProps) {
+	const [me, setMe] = useState<AuthMe | null>(controller.snapshot);
 
 	useEffect(() => {
-		const unsubscribe = appAuthController.subscribe(() => {
-			setMe(appAuthController.snapshot);
+		const unsubscribe = controller.subscribe(() => {
+			setMe(controller.snapshot);
 		});
 
-		void appAuthController.load();
+		void controller.load();
 
 		return unsubscribe;
-	}, []);
+	}, [controller]);
 
 	const signIn = useCallback(
 		async (input: { readonly email: string; readonly password: string }) => {
-			const outcome = await authClient.signIn(input);
+			const outcome = await client.signIn(input);
 
 			/*
 			 * Only an outright success moves the session on. The other outcomes —
@@ -69,18 +98,18 @@ export function AuthProvider({ children }: { readonly children: ReactNode }) {
 			 * replace the screen holding that state.
 			 */
 			if (outcome.status === 'authenticated') {
-				await appAuthController.refresh();
+				await controller.refresh();
 			}
 
 			return outcome;
 		},
-		[],
+		[client, controller],
 	);
 
 	const signOut = useCallback(async () => {
-		await authClient.signOut();
-		await appAuthController.refresh();
-	}, []);
+		await client.signOut();
+		await controller.refresh();
+	}, [client, controller]);
 
 	const value = useMemo<AuthContextValue>(
 		() => ({ state: toState(me), signIn, signOut }),
