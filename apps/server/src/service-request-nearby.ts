@@ -5,7 +5,12 @@ import {
 	listNearbyRecords,
 	type SimmerDatabase,
 } from '@simmer-mosquito/db';
-import { resolveOrganizationSettings, serviceRequestContextBounds } from '@simmer-mosquito/domain';
+import {
+	DomainValidationError,
+	resolveOrganizationSettings,
+	type ServiceRequestContextBounds,
+	serviceRequestContextBounds,
+} from '@simmer-mosquito/domain';
 import type { Hono, MiddlewareHandler } from 'hono';
 import type { AuthVariables } from './auth-middleware.js';
 import { parseOptionalDateFilter, parseOptionalPositiveNumber, uuidPattern } from './map-tiles.js';
@@ -45,7 +50,26 @@ export function registerServiceRequestNearbyRoutes(
 			await getOrganizationSettingsRaw(options.db, { organizationId }),
 		).settings;
 		const requestContext = settings.publicEngagement.serviceRequestContext;
-		const defaults = serviceRequestContextBounds(request.requestDate, requestContext);
+
+		// The window is anchored on the stored request date, and `request_date` is a
+		// `date NOT NULL` read back through `to_char`, so there is no row this can
+		// refuse. It is here because the alternative to reporting it is what #681
+		// was: a date nothing could read became a 1970 window, which comes back
+		// empty and draws a map saying nothing happened near this request. A read
+		// that cannot answer says so instead. 500 rather than 400, because nothing
+		// the caller sent is wrong.
+		let defaults: ServiceRequestContextBounds;
+		try {
+			defaults = serviceRequestContextBounds(request.requestDate, requestContext);
+		} catch (error) {
+			if (!(error instanceof DomainValidationError)) {
+				throw error;
+			}
+			return context.json(
+				{ error: 'unreadable_request_date', reason: 'Service request date could not be read.' },
+				500,
+			);
+		}
 
 		const overrides = readNearbyOverrides(new URL(context.req.url).searchParams);
 		if (!overrides.ok) {
