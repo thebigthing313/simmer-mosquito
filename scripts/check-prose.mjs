@@ -95,6 +95,18 @@
  * living here. If that document stops banning the dash, this fails and says to
  * take the rule out, the same way `check:vocabulary` fails when `CONTEXT.md`
  * stops refusing a word it enforces.
+ *
+ * ## Where the halves live
+ *
+ * The dash itself, the sentence banning it and the message a reader gets are in
+ * `lib/dash-rule.mjs`, shared with `check-copy-dashes.mjs`, which holds the
+ * same rule over app copy. Two gates and not one, because a masker, a file
+ * listing and a marker syntax are all corpus shaped; one rule and not two,
+ * because a rule written down twice is a rule that will drift.
+ *
+ * The marker frame is in `lib/style-gate.mjs` with `check:vocabulary`'s. What
+ * is left in this file is the markdown: which files, what to mask, and what
+ * makes a dash on a wrapped line spaced.
  */
 
 import { execFileSync } from 'node:child_process';
@@ -102,8 +114,21 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { DASHES, names, unmarkedMessage, unstatedRules } from './lib/dash-rule.mjs';
+import {
+	count,
+	failure,
+	markersAcross,
+	markersIn,
+	reasonOf,
+	reasonProblem,
+	report,
+} from './lib/style-gate.mjs';
+
+const GATE = 'check-prose';
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REGISTER = join(workspaceRoot, 'docs', 'writing-style.md');
+const fail = failure(GATE);
 
 /**
  * Written by a tool, out of copy that is already published.
@@ -114,27 +139,23 @@ const REGISTER = join(workspaceRoot, 'docs', 'writing-style.md');
 const GENERATED = [/(?:^|\/)CHANGELOG\.md$/, /^\.changeset\//];
 
 /**
- * The dashes, and what `docs/writing-style.md` says to write instead.
+ * The two dashes, with what to write instead of each and when each applies.
  *
- * `says` is the sentence the register has to still carry for the rule to be
- * enforced here.
+ * The character, the label and the sentence in the register are `dash-rule.mjs`
+ * and are shared with `check-copy-dashes`. `applies` is this gate's, because a
+ * markdown line and a piece of app copy answer the spacing question
+ * differently, and so is the advice.
  */
 const RULES = [
 	{
-		name: 'em dash',
-		label: 'an em dash',
-		pattern: /—/g,
+		...DASHES.em,
 		applies: () => true,
-		says: /No em dashes\./,
 		advice:
 			'End the sentence or use a comma. A dash standing in for a colon, a comma, a full stop and a parenthesis are four different repairs, so choose from what the sentence is doing.',
 	},
 	{
-		name: 'spaced en dash',
-		label: 'a spaced en dash',
-		pattern: /–/g,
+		...DASHES.en,
 		applies: isSpaced,
-		says: /an en dash trades one tell for another/,
 		advice:
 			'An en dash between spaces is an em dash in a smaller hat. Repair the sentence. An unspaced en dash in a range, 1.04-1.62, is correct and is not read here.',
 	},
@@ -183,25 +204,25 @@ function main() {
 		);
 	}
 
-	report(files);
+	report(
+		files,
+		{
+			unmarked: unmarkedMessage(
+				GATE,
+				`<!-- ${MARKER_WORD}: one sentence ending in a full stop. -->`,
+			),
+			stale: staleMessage,
+		},
+		() => announce(files),
+	);
 }
 
-/**
- * That `docs/writing-style.md` still bans what this enforces.
- *
- * The document is the register and this file is the reader. A rule enforced
- * here and gone from there is a rule nobody agreed to, and the branch that
- * deletes the sentence should be the branch that deletes the check.
- *
- * Whitespace is collapsed first, because the document is wrapped at 80 and a
- * sentence this looks for spans two lines.
- */
+/** That `docs/writing-style.md` still bans what this enforces. */
 function assertRegisterStillSaysIt() {
-	const register = readFileSync(REGISTER, 'utf8').replace(/\s+/g, ' ');
-	const missing = RULES.filter((rule) => !rule.says.test(register));
+	const missing = unstatedRules(REGISTER, RULES);
 	if (missing.length > 0) {
 		fail(
-			`docs/writing-style.md no longer says what this gate enforces for ${names(missing)}. Take the rule out of RULES in scripts/check-prose.mjs, or put the sentence back in the document it was written in.`,
+			`docs/writing-style.md no longer says what this gate enforces for ${missing.join(' and ')}. Take the rule out of RULES in scripts/check-prose.mjs, or put the sentence back in the document it was written in.`,
 		);
 	}
 }
@@ -233,7 +254,7 @@ function readFile(where) {
 		where,
 		lines,
 		findings: findingsIn(lines, masked, where),
-		markers: markersIn(lines, masked, where),
+		markers: markersOf(lines, masked, where),
 	};
 }
 
@@ -311,32 +332,13 @@ function columnsIn(rule, masked, raw) {
 /**
  * Every marker in one file, well formed or not, and the line each is above.
  *
- * The sweep is for the word anywhere on a line rather than for the shape,
- * because a marker that does not parse is the case worth catching. Somebody
- * wrote it meaning to excuse something, and collecting only the ones that match
- * would report the line below as unmarked with nothing saying why.
- *
- * It sweeps the masked line, which is what lets a document name the marker.
- * `CLAUDE.md` and `docs/writing-style.md` both write the shape out so a reader
- * knows how to type one, and both write it in backticks, so the mask takes it
- * out of this sweep. A marker meant as a marker is not in backticks.
+ * The masked line is what is swept, which is what lets a document name the
+ * marker. `CLAUDE.md` and `docs/writing-style.md` both write the shape out so a
+ * reader knows how to type one, and both write it in backticks, so the mask
+ * takes it out of this sweep. A marker meant as a marker is not in backticks.
  */
-function markersIn(lines, masked, where) {
-	return masked.flatMap((line, at) =>
-		line.includes(MARKER_WORD)
-			? [{ where, line: at + 1, target: targetOf(masked, at) + 1, ...read(lines[at]) }]
-			: [],
-	);
-}
-
-/** The line a marker is above: the first below it that is not another marker. */
-function targetOf(masked, at) {
-	let target = at + 1;
-	while (target < masked.length && masked[target].includes(MARKER_WORD)) {
-		target += 1;
-	}
-	return target;
-}
+const markersOf = (lines, masked, where) =>
+	markersIn(masked, MARKER_WORD, (at) => read(lines[at])).map((marker) => ({ where, ...marker }));
 
 /** One marker as `{ reason }`, or `{ problem }` saying what is wrong with it. */
 function read(line) {
@@ -345,83 +347,25 @@ function read(line) {
 		return { problem: `it does not read "<!-- ${MARKER_WORD}: <reason> -->" on a line of its own` };
 	}
 
-	const reason = marker[1];
-	if (reason.split(/\s+/).filter((word) => word.length > 0).length < 3) {
-		return { problem: 'it carries no reason, and the reason is the point of a marker' };
-	}
-	if (!reason.endsWith('.')) {
-		return { problem: 'its reason does not end in a full stop' };
-	}
-	return { reason };
+	const reason = reasonOf(marker[1]);
+	const problem = reasonProblem(reason);
+	return problem === null ? { reason } : { problem };
 }
 
 // ---------------------------------------------------------------------------
 // Reporting
 // ---------------------------------------------------------------------------
 
-function report(files) {
-	const problems = files.flatMap(problemsIn);
-
-	if (problems.length === 0) {
-		announce(files);
-		return;
-	}
-
-	console.error(problems.join('\n\n'));
-	process.exit(1);
-}
-
-/** A dash with no marker over it, and a marker over no dash. */
-function problemsIn(file) {
-	const { findings, markers, lines } = file;
-	const exempts = (marker, finding) =>
-		marker.problem === undefined && marker.target === finding.line;
-
-	return [
-		...findings
-			.filter((finding) => !markers.some((marker) => exempts(marker, finding)))
-			.map((finding) => unmarkedMessage(finding, lines)),
-		...markers
-			.filter((marker) => !findings.some((finding) => exempts(marker, finding)))
-			.map(staleMessage),
-	];
-}
-
-function unmarkedMessage(finding, lines) {
-	return [
-		`check-prose: ${finding.where}:${finding.line}:${finding.column} writes ${finding.rule.label}.`,
-		'',
-		`  ${trim(lines[finding.line - 1].trim())}`,
-		'',
-		`docs/writing-style.md bans it. ${finding.rule.advice}`,
-		'If the dash is right here, say why on the line above:',
-		'',
-		`  <!-- ${MARKER_WORD}: one sentence ending in a full stop. -->`,
-	].join('\n');
-}
-
-function staleMessage(marker) {
-	return marker.problem === undefined
-		? `check-prose: ${marker.where}:${marker.line} marks line ${marker.target} and exempts nothing.\n\nNothing on that line is a dash this gate reads. Either the prose was fixed and the marker outlived it, or the marker is not the line above the one it means.`
-		: `check-prose: ${marker.where}:${marker.line} is not a marker, because ${marker.problem}.`;
-}
+const staleMessage = (marker) =>
+	marker.problem === undefined
+		? `${GATE}: ${marker.where}:${marker.line} marks line ${marker.target} and exempts nothing.\n\nNothing on that line is a dash this gate reads. Either the prose was fixed and the marker outlived it, or the marker is not the line above the one it means.`
+		: `${GATE}: ${marker.where}:${marker.line} is not a marker, because ${marker.problem}.`;
 
 function announce(files) {
-	const markers = files.reduce((total, file) => total + file.markers.length, 0);
+	const markers = markersAcross(files);
 	console.log(
-		`check-prose: ${count(files.length, 'markdown file')}, ${names(RULES)} at zero, ${count(markers, 'line')} exempted by a marker.`,
+		`${GATE}: ${count(files.length, 'markdown file')}, ${names(RULES)} at zero, ${count(markers, 'line')} exempted by a marker.`,
 	);
-}
-
-const names = (rules) => rules.map((rule) => rule.name).join(' and ');
-
-const trim = (line) => (line.length > 100 ? `${line.slice(0, 100)}...` : line);
-
-const count = (total, noun) => `${total} ${noun}${total === 1 ? '' : 's'}`;
-
-function fail(message) {
-	console.error(`check-prose: ${message}`);
-	process.exit(1);
 }
 
 main();
