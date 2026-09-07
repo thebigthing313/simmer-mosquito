@@ -399,7 +399,6 @@ export async function postOrganizationCommand<T>(path: string, command: unknown)
 /** Every `/admin/*` read. The path is a path, so the server URL is applied once. */
 async function getJson<T>(path: string, fallback: string, serverUrl: string): Promise<T> {
 	const response = await sessionFetch(`${serverUrl}${path}`, {
-		credentials: 'include',
 		headers: { accept: 'application/json' },
 	});
 
@@ -409,7 +408,6 @@ async function getJson<T>(path: string, fallback: string, serverUrl: string): Pr
 async function postJson<T>(path: string, input: unknown, serverUrl: string): Promise<T> {
 	const response = await sessionFetch(`${serverUrl}${path}`, {
 		method: 'POST',
-		credentials: 'include',
 		headers: {
 			accept: 'application/json',
 			'content-type': 'application/json',

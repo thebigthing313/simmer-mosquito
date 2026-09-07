@@ -270,7 +270,7 @@ async function fetchMissionItemGeometry(
 	signal: AbortSignal,
 ): Promise<readonly { readonly id: string; readonly geojson: GeoJsonGeometry }[]> {
 	const url = new URL(`/map/missions/${missionId}/items`, getServerUrl());
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (response.status === 404) {
 		return [];
 	}

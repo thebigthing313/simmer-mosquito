@@ -75,7 +75,7 @@ export function NewAddressForm({
 			url.searchParams.set('q', addressQueryText({ addressLine1, locality, region, postalCode }));
 			url.searchParams.set('country', country);
 			url.searchParams.set('limit', '5');
-			const response = await sessionFetch(url, { credentials: 'include' });
+			const response = await sessionFetch(url);
 			const body = (await response.json().catch(() => null)) as
 				| GeocoderResponse
 				| { readonly error?: string }

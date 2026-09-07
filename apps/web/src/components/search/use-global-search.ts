@@ -81,7 +81,7 @@ async function fetchSearch(
 		url.searchParams.set('class', input.documentClass);
 	}
 
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
 		throw new SearchRequestError(await refusalReason(response), response.status === 400);
 	}

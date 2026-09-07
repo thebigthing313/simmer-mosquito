@@ -67,7 +67,6 @@ export async function commitWeatherImport(input: {
 }): Promise<WeatherImportResult> {
 	const response = await sessionFetch(`${getServerUrl()}/commands/weather_summaries/import`, {
 		method: 'POST',
-		credentials: 'include',
 		headers: { accept: 'application/json', 'content-type': 'application/json' },
 		body: JSON.stringify({
 			// The column name, as everywhere else on the `/commands` surface.

@@ -1105,9 +1105,7 @@ function profileOptions(profiles: readonly ProfileListing[]) {
 
 async function fetchHabitatGeometry(habitatId: string): Promise<GeoJsonGeometry | null> {
 	try {
-		const response = await sessionFetch(new URL(`/map/habitats/${habitatId}`, getServerUrl()), {
-			credentials: 'include',
-		});
+		const response = await sessionFetch(new URL(`/map/habitats/${habitatId}`, getServerUrl()));
 		if (!response.ok) {
 			return null;
 		}

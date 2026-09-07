@@ -149,7 +149,6 @@ export function useGenerateMissionNotifications(): (
 			`${getServerUrl()}/commands/mission_notifications/generate`,
 			{
 				method: 'POST',
-				credentials: 'include',
 				headers: { accept: 'application/json', 'content-type': 'application/json' },
 				// The column name, as everywhere else on the `/commands` surface.
 				body: JSON.stringify({ mission_id: missionId }),

@@ -143,7 +143,7 @@ async function fetchSamplesAwaiting(
 	const url = new URL('/larval-surveillance/samples/awaiting', getServerUrl());
 	url.searchParams.set('since', sinceDate);
 	url.searchParams.set('limit', String(limit));
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
 		throw new Error(`Awaiting samples request failed (${response.status}).`);
 	}

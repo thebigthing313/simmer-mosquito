@@ -164,7 +164,7 @@ export function AddressFormPage({
 			url.searchParams.set('q', addressQueryText(values));
 			url.searchParams.set('country', values.country.trim() || 'US');
 			url.searchParams.set('limit', '5');
-			const response = await sessionFetch(url, { credentials: 'include' });
+			const response = await sessionFetch(url);
 			const body = (await response.json()) as GeocoderResponse | { readonly error: string };
 			if (!response.ok || !('results' in body)) {
 				throw new Error('Unable to geocode address.');

@@ -73,7 +73,6 @@ export async function fetchRegionGeometry(
 	signal: AbortSignal,
 ): Promise<RegionGeometry | null> {
 	const response = await sessionFetch(new URL(`/map/regions/${regionId}`, getServerUrl()), {
-		credentials: 'include',
 		signal,
 	});
 	if (response.status === 404) {

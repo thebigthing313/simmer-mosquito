@@ -106,10 +106,7 @@ export function useServiceRequestNearby(id: string) {
 async function fetchNearby(id: string, signal: AbortSignal): Promise<NearbyResponse> {
 	const response = await sessionFetch(
 		new URL(`/map/service-requests/${id}/nearby`, getServerUrl()),
-		{
-			credentials: 'include',
-			signal,
-		},
+		{ signal },
 	);
 	if (!response.ok) {
 		throw new Error(`Nearby request failed (${response.status}).`);

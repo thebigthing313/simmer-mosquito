@@ -112,7 +112,7 @@ async function fetchOwnedGeometry(
 	signal: AbortSignal,
 ): Promise<OwnedGeometryPayload> {
 	const url = new URL(`/map/${source.segment}/${id}`, getServerUrl());
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (response.status === 404) {
 		return { geojson: null, geomType: null };
 	}

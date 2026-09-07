@@ -806,7 +806,6 @@ async function fetchInspectionDetail(
 	signal: AbortSignal,
 ): Promise<InspectionDetailRow | null> {
 	const response = await sessionFetch(new URL(`/map/inspections/${id}`, getServerUrl()), {
-		credentials: 'include',
 		signal,
 	});
 	if (response.status === 404) {

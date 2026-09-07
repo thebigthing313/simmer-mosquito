@@ -599,7 +599,7 @@ async function fetchProfileActivity(
 	url.searchParams.set('dateFrom', dateFrom);
 	url.searchParams.set('dateTo', dateTo);
 
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
 		throw new ActivityRequestError(await refusalReason(response), response.status === 400);
 	}

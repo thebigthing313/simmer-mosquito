@@ -114,6 +114,13 @@ export function setSessionFetcher(fetcher: SessionFetcher | null): void {
  * **Both attempts go through the installed fetcher.** A retry on bare `fetch`
  * would carry no credential at all and be refused a second time, which reads as
  * a renewal that worked and a request that never had a chance.
+ *
+ * **A caller passes no `credentials`.** The installed fetcher answers that, and
+ * a call site restating it is either inert or wrong: `cookieFetch` forces
+ * `credentials: 'include'` over whatever `init` said, and a token host has no
+ * cookie to include at all. Thirty call sites wrote it anyway and were swept
+ * (#695). The one that stays is `use-mapbox-map.ts`, because Mapbox GL fetches
+ * its own tiles and never reaches this function.
  */
 export const sessionFetch: typeof fetch = async (request, init) => {
 	const send = sendWithSession ?? fetch;

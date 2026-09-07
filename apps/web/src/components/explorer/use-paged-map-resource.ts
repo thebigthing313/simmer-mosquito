@@ -197,7 +197,7 @@ async function fetchPage<TRow>(
 		url.searchParams.set(key, value);
 	}
 
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
 		throw new Error(`${label} request failed (${response.status}).`);
 	}
@@ -218,10 +218,7 @@ async function fetchRecord<TRow>(
 	if (id.length === 0) {
 		return null;
 	}
-	const response = await sessionFetch(new URL(`${path}/${id}`, getServerUrl()), {
-		credentials: 'include',
-		signal,
-	});
+	const response = await sessionFetch(new URL(`${path}/${id}`, getServerUrl()), { signal });
 	if (!response.ok) {
 		return null;
 	}

@@ -312,7 +312,7 @@ export function useHabitatSearch(query: string): {
 async function fetchHabitatSearch(query: string, signal: AbortSignal): Promise<HabitatSite[]> {
 	const url = new URL('/map/habitats/search', getServerUrl());
 	url.searchParams.set('q', query);
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (!response.ok) {
 		throw new Error(`Habitat search failed (${response.status}).`);
 	}
