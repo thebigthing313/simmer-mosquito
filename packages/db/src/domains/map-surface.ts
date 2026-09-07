@@ -2,6 +2,7 @@ import { type RawBuilder, sql } from 'kysely';
 
 import type { DbExecutor } from '../index.js';
 import { type MapExtent, readMapExtent } from './map-extent.js';
+import type { MapTilesetLayer } from './map-layers.js';
 import { readMapTile } from './map-tile.js';
 
 // --- what a map surface is ---------------------------------------------------
@@ -72,8 +73,12 @@ export interface MapPageResult<TRow> {
 
 /** The table, geometry, and filters of one map surface. */
 export interface MapSurfaceDefinition<TFilters> {
-	/** The layer name the client's map style binds to. */
-	readonly layer: string;
+	/**
+	 * The layer name the client's map style binds to, and the `:tileset` segment
+	 * the server answers it on. Narrowed to {@link MapTilesetLayer} so a name the
+	 * server does not register fails `tsc` rather than serving an empty map.
+	 */
+	readonly layer: MapTilesetLayer;
 	/** The from-clause: table + alias, plus any join the predicates reference. */
 	readonly from: RawBuilder<unknown>;
 	/**

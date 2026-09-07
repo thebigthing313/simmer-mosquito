@@ -56,6 +56,7 @@ import {
 	listSourceReductionDisplayRowsPage,
 	listTrapDisplayRowsPage,
 	type MapExtent,
+	type MapTilesetLayer,
 	type OutreachMapFilters,
 	type RegionMvtTileFilters,
 	type SampleListFilters,
@@ -95,11 +96,10 @@ type TileDb = Kysely<SimmerDatabase>;
  *
  * This is the seam the tests substitute at: a route handler must be drivable
  * without Postgres, so each reader has to be replaceable. That was previously
- * done with forty-five optional fields on the registration options and
- * forty-two `??` defaults behind them, plus thirty-two function-type aliases to
- * declare the fields with — an interface as complicated as the thing it hid,
- * and a test helper that spent seventy lines threading ten of the forty-five
- * through conditional spreads.
+ * done with an optional field per reader on the registration options, a `??`
+ * default behind each and a function-type alias to declare each field with — an
+ * interface as complicated as the thing it hid, and a test helper that spent
+ * seventy lines threading ten of them through conditional spreads.
  *
  * One object, one spread. A new route adds a line here and a line at its
  * registration, and it is injectable from the moment it exists — which the old
@@ -197,8 +197,6 @@ type BboxPageInput<TFilters> = PageInput<TFilters> & { readonly bounds: MapBound
 // entry's parse/getTile pair internally type-safe; only the erasure to `unknown`
 // filters crosses the boundary, and the pair is defined together so they can't drift.
 interface TileSetDefinition {
-	/** The `:tileset` path segment this entry answers to. */
-	readonly key: string;
 	readonly parseFilters: (searchParams: URLSearchParams) => FilterResult<unknown>;
 	readonly getTile: (
 		db: TileDb,
@@ -219,7 +217,6 @@ interface TileSetDefinition {
 }
 
 function defineTileSet<F>(def: {
-	readonly key: string;
 	readonly parseFilters: (searchParams: URLSearchParams) => FilterResult<F>;
 	readonly getTile: (
 		db: TileDb,
@@ -705,78 +702,75 @@ function registerByIdRoute<TRow>(
  * tile the map draws and the extent the camera frames. They are declared
  * together because a tileset that framed one filter set while drawing another
  * would look like a map bug and be a wiring bug.
+ *
+ * Keyed by {@link MapTilesetLayer}, `packages/db`'s register of the layer names
+ * its map surfaces declare, so the compiler refuses a key that is not one of
+ * them and demands every one that is. The client register is the half it cannot
+ * reach, and `pnpm check:tileset-keys` is what holds that one; the register's
+ * own header is where the whole mechanism is written down.
  */
 function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSetDefinition> {
-	const tileSets: readonly TileSetDefinition[] = [
-		defineTileSet({
-			key: 'habitats',
+	const tileSets: Record<MapTilesetLayer, TileSetDefinition> = {
+		habitats: defineTileSet({
 			parseFilters: parseHabitatTileFilters,
 			getTile: readers.getHabitatTile,
 			getExtent: readers.getHabitatExtent,
 		}),
-		defineTileSet({
-			key: 'regions',
+		regions: defineTileSet({
 			parseFilters: parseRegionTileFilters,
 			getTile: readers.getRegionTile,
 			getExtent: readers.getRegionExtent,
 		}),
-		defineTileSet({
-			key: 'addresses',
+		addresses: defineTileSet({
 			parseFilters: parseAddressTileFilters,
 			getTile: readers.getAddressTile,
 			getExtent: readers.getAddressExtent,
 		}),
-		defineTileSet({
-			key: 'inspections',
+		inspections: defineTileSet({
 			parseFilters: parseInspectionTileFilters,
 			getTile: readers.getInspectionTile,
 			getExtent: readers.getInspectionExtent,
 		}),
-		defineTileSet({
-			key: 'samples',
+		samples: defineTileSet({
 			parseFilters: parseSampleTileFilters,
 			getTile: readers.getSampleTile,
 			getExtent: readers.getSampleExtent,
 		}),
-		defineTileSet({
-			key: 'chemical',
+		chemical: defineTileSet({
 			parseFilters: parseApplicationMapFilters,
 			getTile: readers.getApplicationTile,
 			getExtent: readers.getApplicationExtent,
 		}),
-		defineTileSet({
-			key: 'source-reduction',
+		'source-reduction': defineTileSet({
 			parseFilters: parseSourceReductionMapFilters,
 			getTile: readers.getSourceReductionTile,
 			getExtent: readers.getSourceReductionExtent,
 		}),
-		defineTileSet({
-			key: 'biocontrol',
+		biocontrol: defineTileSet({
 			parseFilters: parseBiocontrolMapFilters,
 			getTile: readers.getBiocontrolTile,
 			getExtent: readers.getBiocontrolExtent,
 		}),
-		defineTileSet({
-			key: 'outreach',
+		outreach: defineTileSet({
 			parseFilters: parseOutreachMapFilters,
 			getTile: readers.getOutreachTile,
 			getExtent: readers.getOutreachExtent,
 		}),
-		defineTileSet({
-			key: 'traps',
+		traps: defineTileSet({
 			parseFilters: parseTrapMapFilters,
 			getTile: readers.getTrapTile,
 			getExtent: readers.getTrapExtent,
 		}),
-		defineTileSet({
-			key: 'collections',
+		collections: defineTileSet({
 			parseFilters: parseCollectionMapFilters,
 			getTile: readers.getCollectionTile,
 			getExtent: readers.getCollectionExtent,
 		}),
-	];
+	};
 
-	return new Map(tileSets.map((tileSet) => [tileSet.key, tileSet]));
+	// Back to plain string keys: the `:tileset` param is whatever the caller
+	// typed, and a lookup narrowed to the union would have to assert it first.
+	return new Map(Object.entries(tileSets));
 }
 
 /**

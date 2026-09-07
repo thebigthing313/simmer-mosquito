@@ -1,4 +1,4 @@
-import { ACTIVITY_PERSONNEL_ENTITY_TYPES } from '@simmer-mosquito/db';
+import { ACTIVITY_PERSONNEL_ENTITY_TYPES, type MapTilesetLayer } from '@simmer-mosquito/db';
 import { ADDITIONAL_PERSONNEL_TARGET_TYPES, toDbEntityType } from '@simmer-mosquito/domain';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
@@ -1052,7 +1052,7 @@ describe('additional-personnel entity types', () => {
  * An app whose routes read from fakes.
  *
  * Every reader is nameable here, because `registerMapTileRoutes` takes one
- * `readers` object rather than forty-five optional fields. This used to be
+ * `readers` object rather than an optional field per reader. This used to be
  * seventy lines declaring ten of them by hand and spreading each conditionally,
  * so testing a route meant first widening the helper.
  */
@@ -1142,6 +1142,12 @@ const sampleInspectionRow = {
  * tilesets and nineteen of the twenty-seven routes were reached by no test at
  * all.
  *
+ * The list below is another spelling of those names, so it is held to
+ * `MapTilesetLayer`. A typo here already fails, as the `invalid_tileset` the
+ * assertion is not expecting; `satisfies` moves that to `tsc`, where the
+ * message names the register rather than a status code. Neither catches a name
+ * left out, which silently drives one case fewer.
+ *
  * Every case here is answered before the database is touched, which is what
  * makes the table cheap: an unknown tileset, a malformed tile coordinate, an
  * unknown filter param and a non-UUID id are all refusals the route makes on
@@ -1161,7 +1167,7 @@ describe('map read route registration', () => {
 		'outreach',
 		'traps',
 		'collections',
-	] as const;
+	] as const satisfies readonly MapTilesetLayer[];
 
 	function registrationApp() {
 		return createApp({ getHabitatTile: () => Promise.resolve(new Uint8Array()) });
