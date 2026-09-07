@@ -11,6 +11,25 @@ import {
 	sql,
 } from '../../../index.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
+import {
+	createAddress,
+	createCollection,
+	createCollectionMethod,
+	createCollectionSpecies,
+	createComment,
+	createContact,
+	createHabitat,
+	createInspection,
+	createMission,
+	createMissionItem,
+	createNotificationRegistration,
+	createNotificationType,
+	createOrganization,
+	createRequestedControlAction,
+	createSpecies,
+	createTrap,
+	createUnit,
+} from '../../../test-support/row-fixtures.js';
 
 /**
  * Every confirmation given, for the cases that are about what a delete does
@@ -47,11 +66,11 @@ const CONFIRMED: Record<DeleteAcknowledgement, boolean> = {
 describeDbIntegration('record deletion policy', () => {
 	it('detaches a habitat’s inspections and takes its support rows', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'habitat_delete');
+			const org = await createOrganization(db);
 			const habitatId = await createHabitat(db, org);
-			const inspectionId = await createInspection(db, org, habitatId);
-			await createComment(db, org, 'habitat', habitatId);
-			await createComment(db, org, 'inspection', inspectionId);
+			const inspectionId = await createInspection(db, org, { habitat_id: habitatId });
+			await createComment(db, org, { entityType: 'habitat', entityId: habitatId });
+			await createComment(db, org, { entityType: 'inspection', entityId: inspectionId });
 
 			const impact = await readDeleteImpact(db, {
 				recordType: 'habitat',
@@ -90,9 +109,9 @@ describeDbIntegration('record deletion policy', () => {
 
 	it('refuses a habitat delete that withheld the inspection detach, and writes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'habitat_withheld');
+			const org = await createOrganization(db);
 			const habitatId = await createHabitat(db, org);
-			const inspectionId = await createInspection(db, org, habitatId);
+			const inspectionId = await createInspection(db, org, { habitat_id: habitatId });
 
 			const refusal = await db
 				.transaction()
@@ -127,7 +146,7 @@ describeDbIntegration('record deletion policy', () => {
 
 	it('asks nothing of a habitat that has nothing hanging off it', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'habitat_bare');
+			const org = await createOrganization(db);
 			const habitatId = await createHabitat(db, org);
 
 			// Every flag withheld, and it still goes through: the guard counts rows
@@ -149,10 +168,10 @@ describeDbIntegration('record deletion policy', () => {
 
 	it('names one withheld confirmation at a time', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'habitat_two_questions');
+			const org = await createOrganization(db);
 			const unit = await createUnit(db);
 			const habitatId = await createHabitat(db, org);
-			await createInspection(db, org, habitatId);
+			await createInspection(db, org, { habitat_id: habitatId });
 			await createApplication(db, org, unit, { habitatId });
 
 			const first = await habitatRefusal(db, org, habitatId, {});
@@ -170,9 +189,10 @@ describeDbIntegration('record deletion policy', () => {
 
 	it('refuses an address while a trap still names it, and allows it once none do', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'address_block');
+			const org = await createOrganization(db);
 			const addressId = await createAddress(db, org);
-			const trapId = await createTrap(db, org, addressId);
+			const methodId = await createCollectionMethod(db, org);
+			const trapId = await createTrap(db, org, methodId, { address_id: addressId });
 
 			const blocked = await readDeleteImpact(db, {
 				recordType: 'address',
@@ -221,13 +241,16 @@ describeDbIntegration('record deletion policy', () => {
 
 	it('reaches a trap’s collections and their species counts', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'trap_cascade');
+			const org = await createOrganization(db);
 			const methodId = await createCollectionMethod(db, org);
-			const trapId = await createTrap(db, org, null, methodId);
-			const collectionId = await createCollection(db, org, trapId, methodId);
+			const trapId = await createTrap(db, org, methodId);
+			const collectionId = await createCollection(db, org, {
+				trapId: trapId,
+				collectionMethodId: methodId,
+			});
 			const speciesId = await createSpecies(db);
-			await createCollectionSpecies(db, org, collectionId, speciesId);
-			await createComment(db, org, 'collection', collectionId);
+			await createCollectionSpecies(db, org, { collectionId: collectionId, speciesId: speciesId });
+			await createComment(db, org, { entityType: 'collection', entityId: collectionId });
 
 			const impact = await readDeleteImpact(db, {
 				recordType: 'trap',
@@ -276,7 +299,7 @@ describeDbIntegration('record deletion policy', () => {
 	// first and be noticed last.
 	it('reaches a mission’s performed actions through its stops without deleting them', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'mission_reach');
+			const org = await createOrganization(db);
 			const unit = await createUnit(db);
 			const missionId = await createMission(db, org);
 			const itemId = await createMissionItem(db, org, missionId);
@@ -293,7 +316,7 @@ describeDbIntegration('record deletion policy', () => {
 			const untouchedApplication = await createApplication(db, org, unit, {
 				missionItemId: otherMissionItem,
 			});
-			await createComment(db, org, 'mission', missionId);
+			await createComment(db, org, { entityType: 'mission', entityId: missionId });
 
 			const impact = await readDeleteImpact(db, {
 				recordType: 'mission',
@@ -358,7 +381,7 @@ describeDbIntegration('record deletion policy', () => {
 
 	it('clears every reference to a deleted control request and keeps the work', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'request_reach');
+			const org = await createOrganization(db);
 			const unit = await createUnit(db);
 			const requestId = await createRequestedControlAction(db, org);
 
@@ -367,9 +390,9 @@ describeDbIntegration('record deletion policy', () => {
 			const outreachId = await createOutreachAction(db, org, unit, { requestId });
 			const biocontrolId = await createBiocontrolAction(db, org, unit, { requestId });
 			const missionItemId = await createMissionItem(db, org, await createMission(db, org), {
-				requestId,
+				requested_control_action_id: requestId,
 			});
-			await createComment(db, org, 'requested_control_action', requestId);
+			await createComment(db, org, { entityType: 'requested_control_action', entityId: requestId });
 
 			const impact = await readDeleteImpact(db, {
 				recordType: 'requestedControlAction',
@@ -421,8 +444,8 @@ describeDbIntegration('record deletion policy', () => {
 
 	it('reports nothing for a record another organization owns', async () => {
 		await withTestDb(async ({ db }) => {
-			const owner = await createOrganization(db, 'impact_owner');
-			const other = await createOrganization(db, 'impact_other');
+			const owner = await createOrganization(db);
+			const other = await createOrganization(db);
 			const habitatId = await createHabitat(db, owner);
 
 			const impact = await readDeleteImpact(db, {
@@ -455,9 +478,9 @@ describeDbIntegration('record deletion policy', () => {
 
 	it('refuses a collection method a live trap still names, and allows it once the trap is deleted', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'method_block');
+			const org = await createOrganization(db);
 			const methodId = await createCollectionMethod(db, org);
-			const trapId = await createTrap(db, org, null, methodId);
+			const trapId = await createTrap(db, org, methodId);
 
 			const blocked = await readDeleteImpact(db, {
 				recordType: 'collectionMethod',
@@ -496,7 +519,7 @@ describeDbIntegration('record deletion policy', () => {
 
 	it('refuses an insecticide a chemical application used', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'insecticide_block');
+			const org = await createOrganization(db);
 			const unitId = await createUnit(db);
 			const applicationId = await createApplication(db, org, unitId, {});
 			const application = await db
@@ -524,10 +547,10 @@ describeDbIntegration('record deletion policy', () => {
 
 	it('does not let one organization’s referrer block another organization’s catalog row', async () => {
 		await withTestDb(async ({ db }) => {
-			const mine = await createOrganization(db, 'method_mine');
-			const theirs = await createOrganization(db, 'method_theirs');
+			const mine = await createOrganization(db);
+			const theirs = await createOrganization(db);
 			const myMethod = await createCollectionMethod(db, mine);
-			await createTrap(db, theirs, null);
+			await createTrap(db, theirs, await createCollectionMethod(db, theirs));
 
 			await expect(
 				assertRecordDeletable(db, {
@@ -541,10 +564,10 @@ describeDbIntegration('record deletion policy', () => {
 
 	it('refuses a notification registration a live mission notification names', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'registration_block');
-			const contactId = await createContact(db, org);
+			const org = await createOrganization(db);
+			const contactId = await createContact(db, org, { wants_email: true });
 			const typeId = await createNotificationType(db, org);
-			const registrationId = await createRegistration(db, org, contactId);
+			const registrationId = await createNotificationRegistration(db, org, contactId);
 			await subscribeRegistration(db, org, registrationId, typeId);
 			const notificationId = await createMissionNotification(db, org, {
 				contactId,
@@ -601,10 +624,10 @@ describeDbIntegration('record deletion policy', () => {
 
 	it('takes a registration’s subscriptions when nothing has been told about it', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'registration_clean');
-			const contactId = await createContact(db, org);
+			const org = await createOrganization(db);
+			const contactId = await createContact(db, org, { wants_email: true });
 			const typeId = await createNotificationType(db, org);
-			const registrationId = await createRegistration(db, org, contactId);
+			const registrationId = await createNotificationRegistration(db, org, contactId);
 			await subscribeRegistration(db, org, registrationId, typeId);
 
 			const impact = await readDeleteImpact(db, {
@@ -695,215 +718,7 @@ async function liveCommentCount(db: Db, entityType: string, entityId: string): P
 	return rows.length;
 }
 
-async function createOrganization(db: Db, slug: string): Promise<string> {
-	const row = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createHabitat(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('habitats')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			habitat_name: 'Ditch',
-			description: 'Roadside ditch',
-			metadata: null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createInspection(
-	db: Db,
-	organizationId: string,
-	habitatId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('inspections')
-		.values({
-			organization_id: organizationId,
-			habitat_id: habitatId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			inspection_date: sql`date '2026-08-01'`,
-			is_wet: true,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createAddress(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('addresses')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			display_name: 'Depot',
-			country: 'US',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createCollectionMethod(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('collection_methods')
-		.values({ organization_id: organizationId, name: 'CDC light trap' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createTrap(
-	db: Db,
-	organizationId: string,
-	addressId: string | null,
-	collectionMethodId?: string,
-): Promise<string> {
-	const methodId = collectionMethodId ?? (await createCollectionMethod(db, organizationId));
-	const row = await db
-		.insertInto('traps')
-		.values({
-			organization_id: organizationId,
-			collection_method_id: methodId,
-			address_id: addressId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			trap_name: 'North gate',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createCollection(
-	db: Db,
-	organizationId: string,
-	trapId: string,
-	collectionMethodId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('collections')
-		.values({
-			organization_id: organizationId,
-			trap_id: trapId,
-			collection_method_id: collectionMethodId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			// Exact timestamps, so the row satisfies `collections_timing_shape`
-			// without needing a duration unit — the timing mode is incidental here.
-			collection_timing_mode: 'exact_timestamps',
-			started_at: sql`timestamptz '2026-08-01 06:00:00+00'`,
-			metadata: null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createSpecies(db: Db): Promise<string> {
-	const genus = await db
-		.insertInto('genera')
-		.values({ abbreviation: 'Cx', name: 'Culex' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const row = await db
-		.insertInto('species')
-		.values({ genus_id: genus.id, epithet: 'pipiens', display_name: 'Culex pipiens' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createCollectionSpecies(
-	db: Db,
-	organizationId: string,
-	collectionId: string,
-	speciesId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('collection_species')
-		.values({
-			organization_id: organizationId,
-			collection_id: collectionId,
-			species_id: speciesId,
-			count: 12,
-			identified_date: sql`date '2026-08-02'`,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createComment(
-	db: Db,
-	organizationId: string,
-	entityType: string,
-	entityId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('comments')
-		.values({
-			organization_id: organizationId,
-			entity_type: entityType,
-			entity_id: entityId,
-			comment_text: 'Note',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
 // --- Mission dispatch and control-request fixtures -------------------------
-
-async function createContact(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('contacts')
-		.values({
-			organization_id: organizationId,
-			contact_name: 'Sam Rivera',
-			wants_email: true,
-			wants_sms: false,
-			wants_phone: false,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-/** Each type brings its own name: the name is unique per organization. */
-let nextNotificationType = 1;
-
-async function createNotificationType(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('notification_types')
-		.values({ organization_id: organizationId, name: `Adulticiding ${nextNotificationType++}` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createRegistration(
-	db: Db,
-	organizationId: string,
-	contactId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('notification_registrations')
-		.values({
-			organization_id: organizationId,
-			contact_id: contactId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
 
 async function subscribeRegistration(
 	db: Db,
@@ -940,67 +755,6 @@ async function createMissionNotification(
 			contact_id: links.contactId,
 			notification_type_id: links.notificationTypeId,
 			channel: 'email' as const,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createUnit(db: Db): Promise<string> {
-	const row = await db
-		.insertInto('units')
-		.values({
-			code: 'test_units',
-			unit_name: 'units',
-			abbreviation: 'u',
-			unit_type: 'count',
-			unit_system: 'si',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createMission(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('missions')
-		.values({
-			organization_id: organizationId,
-			control_type: 'application' as const,
-			scheduled_start_at: sql`timestamptz '2026-08-05 06:00:00+00'`,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createMissionItem(
-	db: Db,
-	organizationId: string,
-	missionId: string,
-	links: { readonly requestId?: string } = {},
-): Promise<string> {
-	const row = await db
-		.insertInto('mission_items')
-		.values({
-			organization_id: organizationId,
-			mission_id: missionId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			position: 1,
-			requested_control_action_id: links.requestId ?? null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createRequestedControlAction(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('requested_control_actions')
-		.values({
-			organization_id: organizationId,
-			control_type: 'application' as const,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
 		})
 		.returning(['id'])
 		.executeTakeFirstOrThrow();

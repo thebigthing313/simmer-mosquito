@@ -7,6 +7,7 @@ import {
 	sql,
 } from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
+import { createOrganization, createProfile } from '../../test-support/row-fixtures.js';
 
 // --- what one Profile's activity log actually answers -------------------------
 //
@@ -339,8 +340,14 @@ function calendarDate(date: string): Date {
  */
 async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 	const [own, other] = await Promise.all([
-		insertOrganization(db, 'org_activity_own', 'Activity District'),
-		insertOrganization(db, 'org_activity_other', 'Neighbouring District'),
+		createOrganization(db, {
+			workos_organization_id: 'org_activity_own',
+			name: 'Activity District',
+		}),
+		createOrganization(db, {
+			workos_organization_id: 'org_activity_other',
+			name: 'Neighbouring District',
+		}),
 	]);
 
 	const dana = await insertProfile(db, own, 'Dana Reyes');
@@ -578,30 +585,16 @@ async function seedActivityWorld(db: DbExecutor): Promise<ActivityWorld> {
 	};
 }
 
-async function insertOrganization(db: DbExecutor, workosId: string, name: string): Promise<string> {
-	const row = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: workosId, name })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function insertProfile(
+/** A profile whose email is derived from the name, so two rows never collide on it. */
+function insertProfile(
 	db: DbExecutor,
 	organizationId: string,
 	displayName: string,
 ): Promise<string> {
-	const row = await db
-		.insertInto('profiles')
-		.values({
-			organization_id: organizationId,
-			display_name: displayName,
-			email: `${displayName.replace(/\W+/g, '.').toLowerCase()}.${organizationId}@example.test`,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return createProfile(db, organizationId, {
+		display_name: displayName,
+		email: `${displayName.replace(/\W+/g, '.').toLowerCase()}.${organizationId}@example.test`,
+	});
 }
 
 async function insertInspection(

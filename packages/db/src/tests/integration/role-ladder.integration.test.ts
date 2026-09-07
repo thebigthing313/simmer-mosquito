@@ -1,6 +1,7 @@
 import { expect, it } from 'vitest';
 import { roleLadderIds, roleLadderPeople, seedRoleLadder } from '../../seeds/role-ladder.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
+import { createOrganization, createProfile, createUser } from '../../test-support/row-fixtures.js';
 
 /**
  * The role-ladder fixtures, seeded into real tables.
@@ -304,42 +305,28 @@ describeDbIntegration('role ladder fixtures over an existing organization', () =
 async function createOrganizationWithCollector(
 	db: Parameters<typeof seedRoleLadder>[0],
 ): Promise<{ readonly organizationId: string; readonly collectorProfileId: string }> {
-	const organization = await db
-		.insertInto('organizations')
-		.values({
-			workos_organization_id: 'workos_mcmec_test',
-			name: 'Middlesex County Mosquito Extermination Commission',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-
-	const profile = await db
-		.insertInto('profiles')
-		.values({ organization_id: organization.id, display_name: 'Adrian Collector' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-
-	const user = await db
-		.insertInto('users')
-		.values({
-			workos_user_id: 'user_01TESTCOLLECTOR',
-			email: 'you+simmer-collector@gmail.com',
-			display_name: 'Adrian Collector',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
+	const organizationId = await createOrganization(db, {
+		workos_organization_id: 'workos_mcmec_test',
+		name: 'Middlesex County Mosquito Extermination Commission',
+	});
+	const profileId = await createProfile(db, organizationId, { display_name: 'Adrian Collector' });
+	const userId = await createUser(db, {
+		workos_user_id: 'user_01TESTCOLLECTOR',
+		email: 'you+simmer-collector@gmail.com',
+		display_name: 'Adrian Collector',
+	});
 
 	await db
 		.insertInto('memberships')
 		.values({
-			organization_id: organization.id,
-			profile_id: profile.id,
-			user_id: user.id,
+			organization_id: organizationId,
+			profile_id: profileId,
+			user_id: userId,
 			role: 'collector',
 			status: 'active',
 			is_default: true,
 		})
 		.execute();
 
-	return { organizationId: organization.id, collectorProfileId: profile.id };
+	return { organizationId, collectorProfileId: profileId };
 }

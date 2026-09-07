@@ -8,3 +8,7 @@ export { describeDbIntegration, type TestDbContext, withTestDb } from './db-inte
 // the schema. `packages/db` cannot host them: they read the generated row schemas
 // in `packages/sync`, which sits above it.
 export { readUpMigrations, type UpMigration } from './migration-sql.js';
+// The rows an integration suite seeds before it can assert anything. `apps/server`
+// reaches these through `@simmer-mosquito/db/test-support`, the same specifier its
+// suites already take `withTestDb` from.
+export * from './row-fixtures.js';

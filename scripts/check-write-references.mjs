@@ -24,9 +24,14 @@
  * ## What it looks at
  *
  * Every `.values({ … })` and `.set({ … })` in `apps/server/src` and
- * `packages/db/src`, minus tests and seeds, whose object names a column in
- * `RECORD_REFERENCE_COLUMNS`. The registry is read out of the module rather than
- * copied here, so the two cannot drift.
+ * `packages/db/src`, minus tests, seeds and `test-support`, whose object names a
+ * column in `RECORD_REFERENCE_COLUMNS`. The registry is read out of the module
+ * rather than copied here, so the two cannot drift.
+ *
+ * `test-support` is skipped for the reason `tests` is. The row fixtures in it
+ * seed a world for a suite to assert against, so they insert the ids the test
+ * hands them and gate nothing. One of the suites they seed is the gate's own
+ * (#616).
  *
  * An object that names none of those columns is not a reference write and is not
  * this check's business. A column that is in the schema but not in the registry
@@ -60,7 +65,7 @@ import { fileURLToPath } from 'node:url';
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REGISTRY_FILE = join(workspaceRoot, 'packages/db/src/domains/write-references.ts');
 const ROOTS = ['apps/server/src', 'packages/db/src'];
-const SKIP_DIRS = new Set(['tests', 'seeds', 'dist', 'node_modules']);
+const SKIP_DIRS = new Set(['tests', 'seeds', 'test-support', 'dist', 'node_modules']);
 
 /**
  * The writes that name a reference column but take it from the session.

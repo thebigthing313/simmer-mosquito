@@ -1,5 +1,19 @@
 import { type Kysely, type SimmerDatabase, sql } from '@simmer-mosquito/db';
-import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
+import {
+	createAddress,
+	createContact,
+	createNotificationRegistration,
+	createNotificationType,
+	createOrganization,
+	createProfile,
+	createSourceReductionMethod,
+	createUnit,
+	describeDbIntegration,
+	createMission as insertMission,
+	createMissionItem as insertMissionItem,
+	createRequestedControlAction as insertRequestedControlAction,
+	withTestDb,
+} from '@simmer-mosquito/db/test-support';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { expect, it } from 'vitest';
@@ -28,7 +42,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses adding a stop to a mission in progress, and adds none', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'stop_added_in_progress');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 
@@ -50,7 +64,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('adds the stop when the mission has not been started', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'stop_added_scheduled');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {});
 
@@ -72,7 +86,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses reassigning a mission in progress, and leaves the assignee', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'reassign_in_progress');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const crew = await createProfile(db, org);
 			const missionId = await createMission(db, org, {
@@ -104,7 +118,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses moving the schedule of a mission that has been worked, and moves nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'schedule_worked');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {});
 			const stopId = await createStop(db, org, missionId, 0);
@@ -130,7 +144,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('moves the schedule of a mission nobody has recorded work against', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'schedule_unworked');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {});
 			await createStop(db, org, missionId, 0);
@@ -155,12 +169,12 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses changing the plan of a mission that has been worked', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'plan_worked');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {});
 			const stopId = await createStop(db, org, missionId, 0);
 			await createSourceReduction(db, org, stopId);
-			const methodId = await createSourceReductionMethod(db, org, 'Culvert clearing');
+			const methodId = await createSourceReductionMethod(db, org, { name: 'Culvert clearing' });
 
 			const response = await missionApp(db, org, actor).request(
 				`/mission-dispatch/missions/${missionId}`,
@@ -186,7 +200,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses cancelling a mission whose stops have been handled', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'cancel_progressed');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			await createStop(db, org, missionId, 0, { completedAt: '2026-08-10 09:00:00+00' });
@@ -217,7 +231,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses cancelling a mission that has work recorded on it', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'cancel_partial_work');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0);
@@ -244,7 +258,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('cancels a mission nobody has started work on, both flags withheld', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'cancel_untouched');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {});
 			await createStop(db, org, missionId, 0);
@@ -275,7 +289,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses deleting a completed mission, and deletes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'delete_completed');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {
 				startedAt: '2026-08-10 08:00:00+00',
@@ -304,7 +318,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('deletes a mission that never ran', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'delete_scheduled');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {});
 
@@ -329,7 +343,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses moving the link under a stop that was already handled', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'stop_link_progressed');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0, {
@@ -354,7 +368,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses reordering stops a crew has already got through', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'reorder_progressed');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const first = await createStop(db, org, missionId, 1);
@@ -387,7 +401,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses removing a stop that carries progress, and removes nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'stop_removed_progressed');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0, {
@@ -415,7 +429,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses removing a stop that records already cite', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'stop_removed_worked');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0);
@@ -438,7 +452,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses moving the address of a stop that records already cite', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'stop_context_worked');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {});
 			const stopId = await createStop(db, org, missionId, 0);
@@ -462,7 +476,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('removes a stop nobody has reached', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'stop_removed_pending');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0);
@@ -488,10 +502,10 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses a stop whose request recommends a method the mission is not planned for', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'method_mismatch');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
-			const planned = await createSourceReductionMethod(db, org, 'Ditch clearing');
-			const recommended = await createSourceReductionMethod(db, org, 'Culvert clearing');
+			const planned = await createSourceReductionMethod(db, org, { name: 'Ditch clearing' });
+			const recommended = await createSourceReductionMethod(db, org, { name: 'Culvert clearing' });
 			const missionId = await createMission(db, org, { plannedMethodId: planned });
 			const requestId = await createRequestedControlAction(db, org, recommended);
 
@@ -513,9 +527,9 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('says nothing about a method the mission and the request agree on', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'method_agreed');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
-			const methodId = await createSourceReductionMethod(db, org, 'Ditch clearing');
+			const methodId = await createSourceReductionMethod(db, org, { name: 'Ditch clearing' });
 			const missionId = await createMission(db, org, { plannedMethodId: methodId });
 			const requestId = await createRequestedControlAction(db, org, methodId);
 
@@ -538,7 +552,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses scheduling a request that is already a stop somewhere', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'duplicate_missioning');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const firstMission = await createMission(db, org, {});
 			const secondMission = await createMission(db, org, {});
@@ -571,7 +585,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses starting a mission more than twelve hours early, and starts nothing', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'early_start');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {});
 			await createStop(db, org, missionId, 0);
@@ -597,7 +611,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('starts a mission inside the twelve-hour window', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'start_in_window');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {});
 			await createStop(db, org, missionId, 0);
@@ -622,7 +636,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses completing a stop more than twelve hours before the mission was due', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'early_stop_completion');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-08 19:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0);
@@ -654,7 +668,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses moving the schedule of a mission whose notifications have gone out', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'notified_schedule');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createNotifiedMission(db, org);
 
@@ -678,10 +692,10 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses changing the plan of a mission whose notifications have gone out', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'notified_plan');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createNotifiedMission(db, org);
-			const methodId = await createSourceReductionMethod(db, org, 'Culvert clearing');
+			const methodId = await createSourceReductionMethod(db, org, { name: 'Culvert clearing' });
 
 			const response = await missionApp(db, org, actor).request(
 				`/mission-dispatch/missions/${missionId}`,
@@ -703,7 +717,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses clearing the notification type of a mission that has notifications', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'notified_type');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createNotifiedMission(db, org);
 
@@ -727,7 +741,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses adding a stop to a mission whose notifications have gone out', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'notified_geometry');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createNotifiedMission(db, org);
 
@@ -749,7 +763,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('refuses removing a stop from a mission whose notifications have gone out', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'notified_stop_removed');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createNotifiedMission(db, org);
 			const stopId = await onlyStop(db, missionId);
@@ -771,7 +785,7 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 
 	it('says nothing about geometry on a mission nobody has been told about', async () => {
 		await withTestDb(async ({ db }) => {
-			const org = await createOrganization(db, 'unnotified_geometry');
+			const org = await createOrganization(db);
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {});
 			const stopId = await createStop(db, org, missionId, 0);
@@ -844,25 +858,7 @@ function missionApp(db: Db, organizationId: string, profileId: string) {
 // Fixtures
 // ===========================================================================
 
-async function createOrganization(db: Db, slug: string): Promise<string> {
-	const row = await db
-		.insertInto('organizations')
-		.values({ workos_organization_id: `workos_${slug}`, name: `${slug} District` })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createProfile(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('profiles')
-		.values({ organization_id: organizationId, display_name: 'Technician' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createMission(
+function createMission(
 	db: Db,
 	organizationId: string,
 	state: {
@@ -872,30 +868,22 @@ async function createMission(
 		readonly plannedMethodId?: string;
 	},
 ): Promise<string> {
-	const row = await db
-		.insertInto('missions')
-		.values({
-			organization_id: organizationId,
-			control_type: 'source_reduction',
-			mission_name: 'Levee round',
-			scheduled_start_at: sql`timestamptz '2026-08-10 08:00:00+00'`,
-			...(state.startedAt === undefined
-				? {}
-				: { started_at: sql`${state.startedAt}::timestamptz` }),
-			...(state.completedAt === undefined
-				? {}
-				: { completed_at: sql`${state.completedAt}::timestamptz` }),
-			...(state.assignedToProfileId === undefined
-				? {}
-				: { assigned_to_profile_id: state.assignedToProfileId }),
-			...(state.plannedMethodId === undefined ? {} : { planned_method_id: state.plannedMethodId }),
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return insertMission(db, organizationId, {
+		control_type: 'source_reduction',
+		mission_name: 'Levee round',
+		scheduled_start_at: sql`timestamptz '2026-08-10 08:00:00+00'`,
+		...(state.startedAt === undefined ? {} : { started_at: sql`${state.startedAt}::timestamptz` }),
+		...(state.completedAt === undefined
+			? {}
+			: { completed_at: sql`${state.completedAt}::timestamptz` }),
+		...(state.assignedToProfileId === undefined
+			? {}
+			: { assigned_to_profile_id: state.assignedToProfileId }),
+		...(state.plannedMethodId === undefined ? {} : { planned_method_id: state.plannedMethodId }),
+	});
 }
 
-async function createStop(
+function createStop(
 	db: Db,
 	organizationId: string,
 	missionId: string,
@@ -906,39 +894,18 @@ async function createStop(
 		readonly requestedControlActionId?: string;
 	} = {},
 ): Promise<string> {
-	const row = await db
-		.insertInto('mission_items')
-		.values({
-			organization_id: organizationId,
-			mission_id: missionId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			position,
-			...(progress.completedAt === undefined
-				? {}
-				: { completed_at: sql`${progress.completedAt}::timestamptz` }),
-			...(progress.skippedAt === undefined
-				? {}
-				: { skipped_at: sql`${progress.skippedAt}::timestamptz`, skip_reason: 'Locked gate' }),
-			...(progress.requestedControlActionId === undefined
-				? {}
-				: { requested_control_action_id: progress.requestedControlActionId }),
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createSourceReductionMethod(
-	db: Db,
-	organizationId: string,
-	name: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('source_reduction_methods')
-		.values({ organization_id: organizationId, name })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return insertMissionItem(db, organizationId, missionId, {
+		position,
+		...(progress.completedAt === undefined
+			? {}
+			: { completed_at: sql`${progress.completedAt}::timestamptz` }),
+		...(progress.skippedAt === undefined
+			? {}
+			: { skipped_at: sql`${progress.skippedAt}::timestamptz`, skip_reason: 'Locked gate' }),
+		...(progress.requestedControlActionId === undefined
+			? {}
+			: { requested_control_action_id: progress.requestedControlActionId }),
+	});
 }
 
 /** Actual control work filed against a stop, which is what "worked" means. */
@@ -947,18 +914,10 @@ async function createSourceReduction(
 	organizationId: string,
 	missionItemId: string,
 ): Promise<string> {
-	const methodId = await createSourceReductionMethod(db, organizationId, 'Ditch clearing');
-	const unit = await db
-		.insertInto('units')
-		.values({
-			code: 'test_sources',
-			unit_name: 'sources',
-			abbreviation: 'src',
-			unit_type: 'count',
-			unit_system: 'si',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
+	const methodId = await createSourceReductionMethod(db, organizationId, {
+		name: 'Ditch clearing',
+	});
+	const unitId = await createUnit(db, { unit_name: 'sources', abbreviation: 'src' });
 	const row = await db
 		.insertInto('source_reductions')
 		.values({
@@ -967,7 +926,7 @@ async function createSourceReduction(
 			source_reduction_date: sql`date '2026-08-10'`,
 			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
 			sources_eliminated_amount: 3,
-			sources_eliminated_unit_id: unit.id,
+			sources_eliminated_unit_id: unitId,
 			mission_item_id: missionItemId,
 		})
 		.returning(['id'])
@@ -984,41 +943,25 @@ async function createSourceReduction(
  * different module's test.
  */
 async function createNotifiedMission(db: Db, organizationId: string): Promise<string> {
-	const notificationType = await db
-		.insertInto('notification_types')
-		.values({ organization_id: organizationId, name: 'Adulticiding' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
+	const notificationTypeId = await createNotificationType(db, organizationId);
 	const missionId = await createMission(db, organizationId, {});
 	await db
 		.updateTable('missions')
-		.set({ notification_type_id: notificationType.id })
+		.set({ notification_type_id: notificationTypeId })
 		.where('id', '=', missionId)
 		.execute();
 	await createStop(db, organizationId, missionId, 0);
 
-	const contact = await db
-		.insertInto('contacts')
-		.values({ organization_id: organizationId, contact_name: 'R. Alvarez' })
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const registration = await db
-		.insertInto('notification_registrations')
-		.values({
-			organization_id: organizationId,
-			contact_id: contact.id,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
+	const contactId = await createContact(db, organizationId);
+	const registrationId = await createNotificationRegistration(db, organizationId, contactId);
 	await db
 		.insertInto('mission_notifications')
 		.values({
 			organization_id: organizationId,
 			mission_id: missionId,
-			notification_registration_id: registration.id,
-			contact_id: contact.id,
-			notification_type_id: notificationType.id,
+			notification_registration_id: registrationId,
+			contact_id: contactId,
+			notification_type_id: notificationTypeId,
 			channel: 'phone',
 		})
 		.execute();
@@ -1035,37 +978,15 @@ async function onlyStop(db: Db, missionId: string): Promise<string> {
 	return row.id;
 }
 
-async function createRequestedControlAction(
+function createRequestedControlAction(
 	db: Db,
 	organizationId: string,
 	recommendedMethodId: string | null,
 ): Promise<string> {
-	const row = await db
-		.insertInto('requested_control_actions')
-		.values({
-			organization_id: organizationId,
-			control_type: 'source_reduction',
-			recommended_method_id: recommendedMethodId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			summary: 'Standing water behind the levee.',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
-}
-
-async function createAddress(db: Db, organizationId: string): Promise<string> {
-	const row = await db
-		.insertInto('addresses')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			display_name: '14 Levee Road',
-			country: 'US',
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return insertRequestedControlAction(db, organizationId, {
+		control_type: 'source_reduction',
+		recommended_method_id: recommendedMethodId,
+	});
 }
 
 // ===========================================================================
