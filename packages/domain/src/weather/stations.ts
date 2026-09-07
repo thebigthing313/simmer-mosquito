@@ -11,6 +11,15 @@ import {
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue, GeoJsonPoint, JsonObject } from '../shared.js';
 import {
+	jsonObjectField,
+	normalizeUpdateFields,
+	nullableTextField,
+	type UpdateFieldNormalizer,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+} from '../update-command-fields.js';
+import {
 	type ExpectedUpdatedAtInput,
 	type ExpectedUpdatedAtPayload,
 	normalizeExpectedUpdatedAt,
@@ -45,26 +54,28 @@ export type CreateWeatherStationCommand = WeatherDomainCommand<
 	}
 >;
 
-export interface UpdateWeatherStationDetailsCommandInput
-	extends WeatherCommandInput,
-		ExpectedUpdatedAtInput {
-	readonly weatherStationId: DomainId;
-	readonly stationName?: string;
-	readonly stationCode?: string | null;
-	readonly metadata?: unknown | null;
-	readonly acknowledgedHistoricalStationIdentityChange?: boolean;
-}
+const stationNameField: UpdateFieldNormalizer<string | undefined, string> = (value, path, issues) =>
+	normalizeRequiredStationText(value, path, issues, 200);
+
+export const WEATHER_STATION_UPDATE_FIELDS = {
+	stationName: stationNameField,
+	stationCode: nullableTextField(100),
+	metadata: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateWeatherStationDetailsCommandInput = WeatherCommandInput &
+	ExpectedUpdatedAtInput &
+	UpdateFieldsInput<typeof WEATHER_STATION_UPDATE_FIELDS> & {
+		readonly weatherStationId: DomainId;
+		readonly acknowledgedHistoricalStationIdentityChange?: boolean;
+	};
 
 export type UpdateWeatherStationDetailsCommand = WeatherDomainCommand<
 	'weather.updateWeatherStationDetails',
 	WeatherCommandPayload &
 		ExpectedUpdatedAtPayload & {
 			readonly weatherStationId: DomainId;
-			readonly changes: Readonly<{
-				readonly stationName?: string;
-				readonly stationCode?: string | null;
-				readonly metadata?: JsonObject | null;
-			}>;
+			readonly changes: UpdateFieldsChanges<typeof WEATHER_STATION_UPDATE_FIELDS>;
 			readonly acknowledgedHistoricalStationIdentityChange: boolean;
 		}
 >;
@@ -149,21 +160,12 @@ export function updateWeatherStationDetailsCommand(
 	input: UpdateWeatherStationDetailsCommandInput,
 ): UpdateWeatherStationDetailsCommand {
 	const issues = validateStationIdCommand(input);
-	const hasName = input.stationName !== undefined;
-	const hasCode = input.stationCode !== undefined;
-	const hasMetadata = input.metadata !== undefined;
-	if (!hasName && !hasCode && !hasMetadata) {
-		issues.push({ path: 'changes', message: 'At least one station detail must change.' });
-	}
-	const stationName = hasName
-		? normalizeRequiredStationText(input.stationName, 'stationName', issues, 200)
-		: undefined;
-	const stationCode = hasCode
-		? normalizeNullableText(input.stationCode, 'stationCode', issues, 100)
-		: undefined;
-	const metadata = hasMetadata
-		? normalizeJsonObject(input.metadata, 'metadata', issues)
-		: undefined;
+	const changes = normalizeUpdateFields(
+		input,
+		WEATHER_STATION_UPDATE_FIELDS,
+		'At least one station detail must change.',
+		issues,
+	);
 	throwIfIssues('Update weather station details command is invalid.', issues);
 	return {
 		type: 'weather.updateWeatherStationDetails',
@@ -175,11 +177,7 @@ export function updateWeatherStationDetailsCommand(
 				createIssues(),
 			),
 			weatherStationId: normalizeRequiredDomainId(input.weatherStationId),
-			changes: {
-				...(stationName !== undefined ? { stationName } : {}),
-				...(hasCode ? { stationCode: stationCode ?? null } : {}),
-				...(hasMetadata ? { metadata: metadata ?? null } : {}),
-			},
+			changes,
 			acknowledgedHistoricalStationIdentityChange:
 				input.acknowledgedHistoricalStationIdentityChange ?? false,
 		},

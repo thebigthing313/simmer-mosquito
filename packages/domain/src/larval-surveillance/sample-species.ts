@@ -9,9 +9,19 @@ import {
 } from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
 import {
+	actorDefaultProfileIdField,
+	normalizeUpdateFields,
+	notFutureLocalDateField,
+	referenceIdField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+} from '../update-command-fields.js';
+import {
 	type LarvalCommandInput,
 	type LarvalCommandPayload,
 	type LarvalDomainCommand,
+	larvaeCountField,
 	validatePositiveInteger,
 	validateSampleSpeciesBase,
 } from './shared.js';
@@ -39,24 +49,23 @@ export type AddSampleSpeciesCountCommand = LarvalDomainCommand<
 	SampleSpeciesCountPayload
 >;
 
-export interface UpdateSampleSpeciesCountCommandInput extends LarvalCommandInput {
-	readonly sampleSpeciesId: DomainId;
-	readonly speciesId?: DomainId;
-	readonly larvaeCount?: number;
-	readonly identifiedByProfileId?: DomainId | null;
-	readonly identifiedAt?: LocalDateString;
-}
+export const SAMPLE_SPECIES_COUNT_UPDATE_FIELDS = {
+	speciesId: referenceIdField,
+	larvaeCount: larvaeCountField,
+	identifiedByProfileId: actorDefaultProfileIdField,
+	identifiedAt: notFutureLocalDateField,
+} satisfies UpdateFieldSet;
+
+export type UpdateSampleSpeciesCountCommandInput = LarvalCommandInput &
+	UpdateFieldsInput<typeof SAMPLE_SPECIES_COUNT_UPDATE_FIELDS> & {
+		readonly sampleSpeciesId: DomainId;
+	};
 
 export type UpdateSampleSpeciesCountCommand = LarvalDomainCommand<
 	'larvalSurveillance.updateSampleSpeciesCount',
 	LarvalCommandPayload & {
 		readonly sampleSpeciesId: DomainId;
-		readonly changes: Readonly<{
-			readonly speciesId?: DomainId;
-			readonly larvaeCount?: number;
-			readonly identifiedByProfileId?: DomainId;
-			readonly identifiedAt?: LocalDateString;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof SAMPLE_SPECIES_COUNT_UPDATE_FIELDS>;
 	}
 >;
 
@@ -101,25 +110,12 @@ export function updateSampleSpeciesCountCommand(
 	input: UpdateSampleSpeciesCountCommandInput,
 ): UpdateSampleSpeciesCountCommand {
 	const issues = validateSampleSpeciesBase(input);
-	const hasSpecies = input.speciesId !== undefined;
-	const hasLarvaeCount = input.larvaeCount !== undefined;
-	const hasIdentifiedBy = input.identifiedByProfileId !== undefined;
-	const hasIdentifiedAt = input.identifiedAt !== undefined;
-	if (!hasSpecies && !hasLarvaeCount && !hasIdentifiedBy && !hasIdentifiedAt) {
-		issues.push({ path: 'changes', message: 'At least one sample species field must change.' });
-	}
-	if (hasSpecies) {
-		requireUuid(input.speciesId, 'speciesId', issues);
-	}
-	if (hasLarvaeCount) {
-		validatePositiveInteger(input.larvaeCount, 'larvaeCount', issues);
-	}
-	if (hasIdentifiedAt) {
-		validateNotFutureLocalDate(input.identifiedAt, 'identifiedAt', issues);
-	}
-	if (hasIdentifiedBy) {
-		normalizeOptionalUuid(input.identifiedByProfileId, 'identifiedByProfileId', issues);
-	}
+	const changes = normalizeUpdateFields(
+		input,
+		SAMPLE_SPECIES_COUNT_UPDATE_FIELDS,
+		'At least one sample species field must change.',
+		issues,
+	);
 	throwIfIssues('Update sample species count command is invalid.', issues);
 
 	return {
@@ -127,19 +123,7 @@ export function updateSampleSpeciesCountCommand(
 		payload: {
 			...basePayload(input),
 			sampleSpeciesId: normalizeRequiredId(input.sampleSpeciesId),
-			changes: {
-				...(hasSpecies ? { speciesId: normalizeRequiredId(input.speciesId) } : {}),
-				...(hasLarvaeCount ? { larvaeCount: input.larvaeCount } : {}),
-				...(hasIdentifiedBy
-					? {
-							identifiedByProfileId: normalizeActorDefaultProfileId(
-								input.identifiedByProfileId,
-								input.actorProfileId,
-							),
-						}
-					: {}),
-				...(hasIdentifiedAt ? { identifiedAt: input.identifiedAt } : {}),
-			},
+			changes,
 		},
 	};
 }

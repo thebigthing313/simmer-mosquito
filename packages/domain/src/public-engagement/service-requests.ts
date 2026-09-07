@@ -13,6 +13,16 @@ import {
 	validateLocalDate,
 } from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
+import {
+	localDateField,
+	nullableReferenceIdField,
+	requiredTextField,
+	stringUnionField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
 import type {
 	ContactReference,
 	ContactReferenceInput,
@@ -51,25 +61,24 @@ export type CreateServiceRequestCommand = PublicEngagementDomainCommand<
 	}
 >;
 
-export interface UpdateServiceRequestDetailsCommandInput extends PublicEngagementCommandInput {
-	readonly serviceRequestId: DomainId;
-	readonly requestDate?: LocalDateString;
-	readonly intakeType?: RequestIntakeType;
-	readonly receivedByProfileId?: DomainId | null;
-	readonly details?: string;
-	readonly acknowledgedClosedRequestChange?: boolean;
-}
+export const SERVICE_REQUEST_UPDATE_FIELDS = {
+	requestDate: localDateField,
+	intakeType: stringUnionField(REQUEST_INTAKE_TYPES),
+	receivedByProfileId: nullableReferenceIdField,
+	details: requiredTextField(10_000),
+} satisfies UpdateFieldSet;
+
+export type UpdateServiceRequestDetailsCommandInput = PublicEngagementCommandInput &
+	UpdateFieldsInput<typeof SERVICE_REQUEST_UPDATE_FIELDS> & {
+		readonly serviceRequestId: DomainId;
+		readonly acknowledgedClosedRequestChange?: boolean;
+	};
 
 export type UpdateServiceRequestDetailsCommand = PublicEngagementDomainCommand<
 	'publicEngagement.updateServiceRequestDetails',
 	PublicEngagementCommandPayload & {
 		readonly serviceRequestId: DomainId;
-		readonly changes: Readonly<{
-			readonly requestDate?: LocalDateString;
-			readonly intakeType?: RequestIntakeType;
-			readonly receivedByProfileId?: DomainId | null;
-			readonly details?: string;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof SERVICE_REQUEST_UPDATE_FIELDS>;
 		readonly acknowledgedClosedRequestChange: boolean;
 	}
 >;
@@ -192,39 +201,19 @@ export function createServiceRequestCommand(
 export function updateServiceRequestDetailsCommand(
 	input: UpdateServiceRequestDetailsCommandInput,
 ): UpdateServiceRequestDetailsCommand {
-	const issues = validateIdCommand(input, 'serviceRequestId');
-	const hasRequestDate = input.requestDate !== undefined;
-	const hasIntakeType = input.intakeType !== undefined;
-	const hasReceivedBy = input.receivedByProfileId !== undefined;
-	const hasDetails = input.details !== undefined;
-	if (!hasRequestDate && !hasIntakeType && !hasReceivedBy && !hasDetails) {
-		issues.push({ path: 'changes', message: 'At least one service request detail must change.' });
-	}
-	if (hasRequestDate) {
-		validateLocalDate(input.requestDate, 'requestDate', issues);
-	}
-	const intakeType = hasIntakeType
-		? normalizeStringUnion(input.intakeType, REQUEST_INTAKE_TYPES, 'intakeType', issues)
-		: undefined;
-	const receivedByProfileId = hasReceivedBy
-		? normalizeOptionalUuid(input.receivedByProfileId, 'receivedByProfileId', issues)
-		: undefined;
-	const details = hasDetails
-		? normalizeRequiredText(input.details, 'details', issues, 10_000)
-		: undefined;
-	throwIfIssues('Update service request details command is invalid.', issues);
-	const changes: UpdateServiceRequestDetailsCommand['payload']['changes'] = {
-		...(hasRequestDate ? { requestDate: input.requestDate as LocalDateString } : {}),
-		...(hasIntakeType ? { intakeType: intakeType as RequestIntakeType } : {}),
-		...(hasReceivedBy ? { receivedByProfileId: receivedByProfileId ?? null } : {}),
-		...(hasDetails ? { details: details as string } : {}),
-	};
-	return {
+	const command = updateFieldsCommand({
 		type: 'publicEngagement.updateServiceRequestDetails',
+		input,
+		idKey: 'serviceRequestId',
+		fields: SERVICE_REQUEST_UPDATE_FIELDS,
+		changeNoun: 'service request',
+		emptyChangeMessage: 'At least one service request detail must change.',
+		message: 'Update service request details command is invalid.',
+	});
+	return {
+		type: command.type,
 		payload: {
-			...basePayload(input),
-			serviceRequestId: normalizeRequiredId(input.serviceRequestId),
-			changes,
+			...command.payload,
 			acknowledgedClosedRequestChange: input.acknowledgedClosedRequestChange ?? false,
 		},
 	};

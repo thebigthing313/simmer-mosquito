@@ -14,6 +14,15 @@ import {
 } from '../command-validation.js';
 import type { DomainId, GeoJsonPoint, JsonObject } from '../shared.js';
 import {
+	jsonObjectField,
+	nullableTextField,
+	requiredTextField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
+import {
 	type FoundationDomainCommand,
 	normalizeCountry,
 	normalizePostalCode,
@@ -51,30 +60,26 @@ export type CreateAddressCommand = FoundationDomainCommand<
 	}
 >;
 
-export interface UpdateAddressDetailsCommandInput extends OrganizationFoundationCommandInput {
-	readonly addressId: DomainId;
-	readonly displayName?: string;
-	readonly addressLine1?: string | null;
-	readonly addressLine2?: string | null;
-	readonly locality?: string | null;
-	readonly region?: string | null;
-	readonly postalCode?: string | null;
-	readonly geocoderResponse?: unknown | null;
-}
+export const ADDRESS_UPDATE_FIELDS = {
+	displayName: requiredTextField(200),
+	addressLine1: nullableTextField(200),
+	addressLine2: nullableTextField(200),
+	locality: nullableTextField(200),
+	region: normalizeUsRegion,
+	postalCode: normalizePostalCode,
+	geocoderResponse: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateAddressDetailsCommandInput = OrganizationFoundationCommandInput &
+	UpdateFieldsInput<typeof ADDRESS_UPDATE_FIELDS> & {
+		readonly addressId: DomainId;
+	};
 
 export type UpdateAddressDetailsCommand = FoundationDomainCommand<
 	'foundation.updateAddressDetails',
 	OrganizationFoundationCommandPayload & {
 		readonly addressId: DomainId;
-		readonly changes: Readonly<{
-			readonly displayName?: string;
-			readonly addressLine1?: string | null;
-			readonly addressLine2?: string | null;
-			readonly locality?: string | null;
-			readonly region?: string | null;
-			readonly postalCode?: string | null;
-			readonly geocoderResponse?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof ADDRESS_UPDATE_FIELDS>;
 	}
 >;
 
@@ -148,59 +153,15 @@ export function createAddressCommand(input: CreateAddressCommandInput): CreateAd
 export function updateAddressDetailsCommand(
 	input: UpdateAddressDetailsCommandInput,
 ): UpdateAddressDetailsCommand {
-	const issues = validateOrganizationIdCommand(input, 'addressId');
-	const hasDisplayName = input.displayName !== undefined;
-	const hasAddress1 = input.addressLine1 !== undefined;
-	const hasAddress2 = input.addressLine2 !== undefined;
-	const hasLocality = input.locality !== undefined;
-	const hasRegion = input.region !== undefined;
-	const hasPostal = input.postalCode !== undefined;
-	const hasGeocoder = input.geocoderResponse !== undefined;
-	if (
-		!hasDisplayName &&
-		!hasAddress1 &&
-		!hasAddress2 &&
-		!hasLocality &&
-		!hasRegion &&
-		!hasPostal &&
-		!hasGeocoder
-	) {
-		issues.push({ path: 'changes', message: 'At least one address detail must change.' });
-	}
-	const displayName = hasDisplayName
-		? normalizeRequiredText(input.displayName, 'displayName', issues, 200)
-		: undefined;
-	const region = hasRegion ? normalizeUsRegion(input.region, 'region', issues) : undefined;
-	const postalCode = hasPostal
-		? normalizePostalCode(input.postalCode, 'postalCode', issues)
-		: undefined;
-	const geocoderResponse = hasGeocoder
-		? normalizeJsonObject(input.geocoderResponse, 'geocoderResponse', issues)
-		: undefined;
-	throwIfIssues('Update address details command is invalid.', issues);
-
-	return {
+	return updateFieldsCommand({
 		type: 'foundation.updateAddressDetails',
-		payload: {
-			...organizationPayload(input),
-			addressId: normalizeRequiredDomainId(input.addressId),
-			changes: {
-				...(displayName !== undefined ? { displayName } : {}),
-				...(hasAddress1
-					? { addressLine1: normalizeNullableText(input.addressLine1, 'addressLine1', issues, 200) }
-					: {}),
-				...(hasAddress2
-					? { addressLine2: normalizeNullableText(input.addressLine2, 'addressLine2', issues, 200) }
-					: {}),
-				...(hasLocality
-					? { locality: normalizeNullableText(input.locality, 'locality', issues, 200) }
-					: {}),
-				...(hasRegion ? { region: region ?? null } : {}),
-				...(hasPostal ? { postalCode: postalCode ?? null } : {}),
-				...(hasGeocoder ? { geocoderResponse: geocoderResponse ?? null } : {}),
-			},
-		},
-	};
+		input,
+		idKey: 'addressId',
+		fields: ADDRESS_UPDATE_FIELDS,
+		changeNoun: 'address',
+		emptyChangeMessage: 'At least one address detail must change.',
+		message: 'Update address details command is invalid.',
+	});
 }
 
 export function updateAddressLocationCommand(

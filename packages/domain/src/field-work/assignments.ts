@@ -15,6 +15,16 @@ import {
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue, LocalDateString } from '../shared.js';
 import {
+	localDateField,
+	nullableReferenceIdField,
+	nullableTextField,
+	timestampField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
+import {
 	ASSIGNMENT_ITEM_TARGET_TYPES,
 	type AssignmentItemPlacement,
 	type AssignmentItemTarget,
@@ -78,24 +88,23 @@ export type SelfAssignRouteCommand = FieldWorkDomainCommand<
 	}
 >;
 
-export interface UpdateAssignmentDetailsCommandInput extends FieldWorkCommandInput {
-	readonly assignmentId: DomainId;
-	readonly assignmentDate?: LocalDateString;
-	readonly assignmentName?: string | null;
-	readonly assignedToProfileId?: DomainId | null;
-	readonly dueAt?: Date | null;
-}
+export const ASSIGNMENT_UPDATE_FIELDS = {
+	assignmentDate: localDateField,
+	assignmentName: nullableTextField(200),
+	assignedToProfileId: nullableReferenceIdField,
+	dueAt: timestampField(true),
+} satisfies UpdateFieldSet;
+
+export type UpdateAssignmentDetailsCommandInput = FieldWorkCommandInput &
+	UpdateFieldsInput<typeof ASSIGNMENT_UPDATE_FIELDS> & {
+		readonly assignmentId: DomainId;
+	};
 
 export type UpdateAssignmentDetailsCommand = FieldWorkDomainCommand<
 	'fieldWork.updateAssignmentDetails',
 	FieldWorkCommandPayload & {
 		readonly assignmentId: DomainId;
-		readonly changes: Readonly<{
-			readonly assignmentDate?: LocalDateString;
-			readonly assignmentName?: string | null;
-			readonly assignedToProfileId?: DomainId | null;
-			readonly dueAt?: Date | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof ASSIGNMENT_UPDATE_FIELDS>;
 	}
 >;
 
@@ -118,16 +127,20 @@ export type AddAssignmentItemCommand = FieldWorkDomainCommand<
 	}
 >;
 
-export interface UpdateAssignmentItemCommandInput extends FieldWorkCommandInput {
-	readonly assignmentItemId: DomainId;
-	readonly directionsToNextItem?: string | null;
-}
+export const ASSIGNMENT_ITEM_UPDATE_FIELDS = {
+	directionsToNextItem: nullableTextField(4_000),
+} satisfies UpdateFieldSet;
+
+export type UpdateAssignmentItemCommandInput = FieldWorkCommandInput &
+	UpdateFieldsInput<typeof ASSIGNMENT_ITEM_UPDATE_FIELDS> & {
+		readonly assignmentItemId: DomainId;
+	};
 
 export type UpdateAssignmentItemCommand = FieldWorkDomainCommand<
 	'fieldWork.updateAssignmentItem',
 	FieldWorkCommandPayload & {
 		readonly assignmentItemId: DomainId;
-		readonly changes: Readonly<{ readonly directionsToNextItem?: string | null }>;
+		readonly changes: UpdateFieldsChanges<typeof ASSIGNMENT_ITEM_UPDATE_FIELDS>;
 	}
 >;
 
@@ -298,41 +311,15 @@ export function selfAssignRouteCommand(input: SelfAssignRouteCommandInput): Self
 export function updateAssignmentDetailsCommand(
 	input: UpdateAssignmentDetailsCommandInput,
 ): UpdateAssignmentDetailsCommand {
-	const issues = validateIdCommand(input, 'assignmentId');
-	const hasDate = input.assignmentDate !== undefined;
-	const hasName = input.assignmentName !== undefined;
-	const hasAssignedTo = input.assignedToProfileId !== undefined;
-	const hasDueAt = input.dueAt !== undefined;
-	if (!hasDate && !hasName && !hasAssignedTo && !hasDueAt) {
-		issues.push({ path: 'changes', message: 'At least one assignment detail must change.' });
-	}
-	if (hasDate) {
-		validateLocalDate(input.assignmentDate, 'assignmentDate', issues);
-	}
-	const assignmentName = hasName
-		? normalizeNullableText(input.assignmentName, 'assignmentName', issues, 200)
-		: undefined;
-	const assignedToProfileId = hasAssignedTo
-		? normalizeOptionalUuid(input.assignedToProfileId, 'assignedToProfileId', issues)
-		: undefined;
-	const dueAt = hasDueAt
-		? normalizeOptionalTimestamp(input.dueAt, 'dueAt', issues, true)
-		: undefined;
-	throwIfIssues('Update assignment details command is invalid.', issues);
-
-	return {
+	return updateFieldsCommand({
 		type: 'fieldWork.updateAssignmentDetails',
-		payload: {
-			...basePayload(input),
-			assignmentId: normalizeRequiredId(input.assignmentId),
-			changes: {
-				...(hasDate ? { assignmentDate: input.assignmentDate } : {}),
-				...(hasName ? { assignmentName: assignmentName ?? null } : {}),
-				...(hasAssignedTo ? { assignedToProfileId: assignedToProfileId ?? null } : {}),
-				...(hasDueAt ? { dueAt: dueAt ?? null } : {}),
-			},
-		},
-	};
+		input,
+		idKey: 'assignmentId',
+		fields: ASSIGNMENT_UPDATE_FIELDS,
+		changeNoun: 'assignment',
+		emptyChangeMessage: 'At least one assignment detail must change.',
+		message: 'Update assignment details command is invalid.',
+	});
 }
 
 export function addAssignmentItemCommand(
@@ -379,24 +366,14 @@ export function addAssignmentItemCommand(
 export function updateAssignmentItemCommand(
 	input: UpdateAssignmentItemCommandInput,
 ): UpdateAssignmentItemCommand {
-	const issues = validateIdCommand(input, 'assignmentItemId');
-	const hasDirections = input.directionsToNextItem !== undefined;
-	if (!hasDirections) {
-		issues.push({ path: 'changes', message: 'At least one assignment item field must change.' });
-	}
-	const directionsToNextItem = hasDirections
-		? normalizeNullableText(input.directionsToNextItem, 'directionsToNextItem', issues, 4_000)
-		: undefined;
-	throwIfIssues('Update assignment item command is invalid.', issues);
-
-	return {
+	return updateFieldsCommand({
 		type: 'fieldWork.updateAssignmentItem',
-		payload: {
-			...basePayload(input),
-			assignmentItemId: normalizeRequiredId(input.assignmentItemId),
-			changes: { ...(hasDirections ? { directionsToNextItem: directionsToNextItem ?? null } : {}) },
-		},
-	};
+		input,
+		idKey: 'assignmentItemId',
+		fields: ASSIGNMENT_ITEM_UPDATE_FIELDS,
+		changeNoun: 'assignment item',
+		message: 'Update assignment item command is invalid.',
+	});
 }
 
 export function removeAssignmentItemCommand(

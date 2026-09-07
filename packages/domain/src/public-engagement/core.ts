@@ -17,6 +17,7 @@ import {
 	type JsonObject,
 	normalizeOwnedGeometry,
 } from '../shared.js';
+import type { UpdateFieldNormalizer } from '../update-command-fields.js';
 
 export {
 	MISSION_NOTIFICATION_STATUSES,
@@ -555,23 +556,6 @@ export function validateRegistrationPurpose(
 	}
 }
 
-export function validatePhonePreferencePatch(
-	value: boolean | undefined,
-	hasValue: boolean,
-	preferredPhone: string | null | undefined,
-	hasPreferredPhone: boolean,
-	path: string,
-	issues: DomainValidationIssue[],
-): void {
-	if (!hasValue) {
-		return;
-	}
-	validateBoolean(value, path, issues);
-	if (value === true && hasPreferredPhone && preferredPhone === null) {
-		issues.push({ path, message: `${path} requires preferredPhone.` });
-	}
-}
-
 function validateRegistrationGeometry(
 	value: unknown,
 	path: string,
@@ -659,7 +643,14 @@ export function normalizeBooleanDefault(
 	return value === true;
 }
 
-export function validateBoolean(
+/** A flag the field sets, refused when it is not a boolean. */
+export const booleanField: UpdateFieldNormalizer<boolean | undefined, boolean> = (
+	value,
+	path,
+	issues,
+) => normalizeBooleanDefault(value, path, issues, false);
+
+function validateBoolean(
 	value: boolean | undefined,
 	path: string,
 	issues: DomainValidationIssue[],

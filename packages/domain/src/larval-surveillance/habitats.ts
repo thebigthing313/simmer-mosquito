@@ -14,6 +14,16 @@ import {
 import type { HabitatLocationSource, HabitatLocationSourceInput } from '../location-intent.js';
 import type { DomainId, JsonObject } from '../shared.js';
 import {
+	jsonObjectField,
+	normalizeUpdateFields,
+	nullableReferenceIdField,
+	requiredTextField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
+import {
 	type LarvalCommandInput,
 	type LarvalCommandPayload,
 	type LarvalDomainCommand,
@@ -64,22 +74,22 @@ export type CreateHabitatFromInspectionCommand = LarvalDomainCommand<
 	}
 >;
 
-export interface UpdateHabitatDetailsCommandInput extends LarvalCommandInput {
-	readonly habitatId: DomainId;
-	readonly habitatName?: string | null;
-	readonly description?: string;
-	readonly metadata?: unknown | null;
-}
+export const HABITAT_UPDATE_FIELDS = {
+	habitatName: normalizeNullableText,
+	description: requiredTextField(),
+	metadata: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateHabitatDetailsCommandInput = LarvalCommandInput &
+	UpdateFieldsInput<typeof HABITAT_UPDATE_FIELDS> & {
+		readonly habitatId: DomainId;
+	};
 
 export type UpdateHabitatDetailsCommand = LarvalDomainCommand<
 	'larvalSurveillance.updateHabitatDetails',
 	LarvalCommandPayload & {
 		readonly habitatId: DomainId;
-		readonly changes: Readonly<{
-			readonly habitatName?: string | null;
-			readonly description?: string;
-			readonly metadata?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof HABITAT_UPDATE_FIELDS>;
 	}
 >;
 
@@ -98,21 +108,22 @@ export type UpdateHabitatLocationCommand = LarvalDomainCommand<
 	}
 >;
 
-export interface UpdateHabitatConfigurationCommandInput extends LarvalCommandInput {
-	readonly habitatId: DomainId;
-	readonly addressId?: DomainId | null;
-	readonly habitatTypeId?: DomainId | null;
-	readonly acknowledgedHabitatConfigurationSemanticsChange?: boolean;
-}
+export const HABITAT_CONFIGURATION_UPDATE_FIELDS = {
+	addressId: nullableReferenceIdField,
+	habitatTypeId: nullableReferenceIdField,
+} satisfies UpdateFieldSet;
+
+export type UpdateHabitatConfigurationCommandInput = LarvalCommandInput &
+	UpdateFieldsInput<typeof HABITAT_CONFIGURATION_UPDATE_FIELDS> & {
+		readonly habitatId: DomainId;
+		readonly acknowledgedHabitatConfigurationSemanticsChange?: boolean;
+	};
 
 export type UpdateHabitatConfigurationCommand = LarvalDomainCommand<
 	'larvalSurveillance.updateHabitatConfiguration',
 	LarvalCommandPayload & {
 		readonly habitatId: DomainId;
-		readonly changes: Readonly<{
-			readonly addressId?: DomainId | null;
-			readonly habitatTypeId?: DomainId | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof HABITAT_CONFIGURATION_UPDATE_FIELDS>;
 		readonly acknowledgedHabitatConfigurationSemanticsChange: boolean;
 	}
 >;
@@ -232,34 +243,15 @@ export function createHabitatFromInspectionCommand(
 export function updateHabitatDetailsCommand(
 	input: UpdateHabitatDetailsCommandInput,
 ): UpdateHabitatDetailsCommand {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input.habitatId, 'habitatId', issues);
-	const hasName = input.habitatName !== undefined;
-	const hasDescription = input.description !== undefined;
-	const hasMetadata = input.metadata !== undefined;
-	if (!hasName && !hasDescription && !hasMetadata) {
-		issues.push({ path: 'changes', message: 'At least one habitat detail must change.' });
-	}
-	const description = hasDescription
-		? normalizeRequiredText(input.description, 'description', issues)
-		: undefined;
-	const metadata = hasMetadata ? normalizeMetadata(input.metadata, 'metadata', issues) : undefined;
-	throwIfIssues('Update habitat details command is invalid.', issues);
-	const changes: UpdateHabitatDetailsCommand['payload']['changes'] = {
-		...(hasName ? { habitatName: normalizeNullableText(input.habitatName) } : {}),
-		...(description !== undefined ? { description } : {}),
-		...(hasMetadata ? { metadata: metadata ?? null } : {}),
-	};
-
-	return {
+	return updateFieldsCommand({
 		type: 'larvalSurveillance.updateHabitatDetails',
-		payload: {
-			...basePayload(input),
-			habitatId: normalizeRequiredId(input.habitatId),
-			changes,
-		},
-	};
+		input,
+		idKey: 'habitatId',
+		fields: HABITAT_UPDATE_FIELDS,
+		changeNoun: 'habitat',
+		emptyChangeMessage: 'At least one habitat detail must change.',
+		message: 'Update habitat details command is invalid.',
+	});
 }
 
 export function updateHabitatLocationCommand(
@@ -294,20 +286,12 @@ export function updateHabitatConfigurationCommand(
 	const issues = createIssues();
 	validateBase(input, issues);
 	requireUuid(input.habitatId, 'habitatId', issues);
-	const hasAddress = input.addressId !== undefined;
-	const hasType = input.habitatTypeId !== undefined;
-	if (!hasAddress && !hasType) {
-		issues.push({
-			path: 'changes',
-			message: 'At least one habitat configuration field must change.',
-		});
-	}
-	const addressId = hasAddress
-		? normalizeOptionalUuid(input.addressId, 'addressId', issues)
-		: undefined;
-	const habitatTypeId = hasType
-		? normalizeOptionalUuid(input.habitatTypeId, 'habitatTypeId', issues)
-		: undefined;
+	const changes = normalizeUpdateFields(
+		input,
+		HABITAT_CONFIGURATION_UPDATE_FIELDS,
+		'At least one habitat configuration field must change.',
+		issues,
+	);
 	if (input.acknowledgedHabitatConfigurationSemanticsChange !== true) {
 		issues.push({
 			path: 'acknowledgedHabitatConfigurationSemanticsChange',
@@ -315,10 +299,6 @@ export function updateHabitatConfigurationCommand(
 		});
 	}
 	throwIfIssues('Update habitat configuration command is invalid.', issues);
-	const changes: UpdateHabitatConfigurationCommand['payload']['changes'] = {
-		...(hasAddress ? { addressId: addressId ?? null } : {}),
-		...(hasType ? { habitatTypeId: habitatTypeId ?? null } : {}),
-	};
 
 	return {
 		type: 'larvalSurveillance.updateHabitatConfiguration',

@@ -8,6 +8,7 @@ import {
 	validateHabitatLocationSource,
 } from '../location-intent.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
+import type { UpdateFieldNormalizer } from '../update-command-fields.js';
 
 export type ImmatureStageFlag =
 	| 'hasFirstInstar'
@@ -94,6 +95,22 @@ export function validatePositiveInteger(
 		issues.push({ path, message: `${path} must be a positive integer.` });
 	}
 }
+
+/** Where an ad hoc Inspection sits, as an update command's field descriptor names it. */
+export const adHocInspectionLocationSourceField: UpdateFieldNormalizer<
+	AdHocInspectionLocationSourceInput | undefined,
+	AdHocInspectionLocationSource
+> = (value, path, issues) => validateAdHocInspectionLocationSource(value, path, issues);
+
+/** How many larvae one sample held, as a field descriptor names it. */
+export const larvaeCountField: UpdateFieldNormalizer<number | undefined, number> = (
+	value,
+	path,
+	issues,
+) => {
+	validatePositiveInteger(value, path, issues);
+	return value as number;
+};
 
 export function validateHabitatLocationSourceInput(
 	input: {

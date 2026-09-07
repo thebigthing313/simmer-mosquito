@@ -13,6 +13,14 @@ import {
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import {
+	nullableTextField,
+	requiredTextField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
+import {
 	type FieldWorkCommandInput,
 	type FieldWorkCommandPayload,
 	type FieldWorkDomainCommand,
@@ -40,16 +48,20 @@ export type CreateRouteCommand = FieldWorkDomainCommand<
 	}
 >;
 
-export interface UpdateRouteDetailsCommandInput extends FieldWorkCommandInput {
-	readonly routeId: DomainId;
-	readonly routeName?: string;
-}
+export const ROUTE_UPDATE_FIELDS = {
+	routeName: requiredTextField(200),
+} satisfies UpdateFieldSet;
+
+export type UpdateRouteDetailsCommandInput = FieldWorkCommandInput &
+	UpdateFieldsInput<typeof ROUTE_UPDATE_FIELDS> & {
+		readonly routeId: DomainId;
+	};
 
 export type UpdateRouteDetailsCommand = FieldWorkDomainCommand<
 	'fieldWork.updateRouteDetails',
 	FieldWorkCommandPayload & {
 		readonly routeId: DomainId;
-		readonly changes: Readonly<{ readonly routeName?: string }>;
+		readonly changes: UpdateFieldsChanges<typeof ROUTE_UPDATE_FIELDS>;
 	}
 >;
 
@@ -85,16 +97,20 @@ export type AddRouteItemCommand = FieldWorkDomainCommand<
 	}
 >;
 
-export interface UpdateRouteItemCommandInput extends FieldWorkCommandInput {
-	readonly routeItemId: DomainId;
-	readonly directionsToNextItem?: string | null;
-}
+export const ROUTE_ITEM_UPDATE_FIELDS = {
+	directionsToNextItem: nullableTextField(4_000),
+} satisfies UpdateFieldSet;
+
+export type UpdateRouteItemCommandInput = FieldWorkCommandInput &
+	UpdateFieldsInput<typeof ROUTE_ITEM_UPDATE_FIELDS> & {
+		readonly routeItemId: DomainId;
+	};
 
 export type UpdateRouteItemCommand = FieldWorkDomainCommand<
 	'fieldWork.updateRouteItem',
 	FieldWorkCommandPayload & {
 		readonly routeItemId: DomainId;
-		readonly changes: Readonly<{ readonly directionsToNextItem?: string | null }>;
+		readonly changes: UpdateFieldsChanges<typeof ROUTE_ITEM_UPDATE_FIELDS>;
 	}
 >;
 
@@ -144,24 +160,15 @@ export function createRouteCommand(input: CreateRouteCommandInput): CreateRouteC
 export function updateRouteDetailsCommand(
 	input: UpdateRouteDetailsCommandInput,
 ): UpdateRouteDetailsCommand {
-	const issues = validateIdCommand(input, 'routeId');
-	const hasName = input.routeName !== undefined;
-	if (!hasName) {
-		issues.push({ path: 'changes', message: 'At least one route detail must change.' });
-	}
-	const routeName = hasName
-		? normalizeRequiredText(input.routeName, 'routeName', issues, 200)
-		: undefined;
-	throwIfIssues('Update route details command is invalid.', issues);
-
-	return {
+	return updateFieldsCommand({
 		type: 'fieldWork.updateRouteDetails',
-		payload: {
-			...basePayload(input),
-			routeId: normalizeRequiredId(input.routeId),
-			changes: { ...(routeName !== undefined ? { routeName } : {}) },
-		},
-	};
+		input,
+		idKey: 'routeId',
+		fields: ROUTE_UPDATE_FIELDS,
+		changeNoun: 'route',
+		emptyChangeMessage: 'At least one route detail must change.',
+		message: 'Update route details command is invalid.',
+	});
 }
 
 export function deleteRouteCommand(input: DeleteRouteCommandInput): DeleteRouteCommand {
@@ -217,24 +224,14 @@ export function addRouteItemCommand(input: AddRouteItemCommandInput): AddRouteIt
 }
 
 export function updateRouteItemCommand(input: UpdateRouteItemCommandInput): UpdateRouteItemCommand {
-	const issues = validateIdCommand(input, 'routeItemId');
-	const hasDirections = input.directionsToNextItem !== undefined;
-	if (!hasDirections) {
-		issues.push({ path: 'changes', message: 'At least one route item field must change.' });
-	}
-	const directionsToNextItem = hasDirections
-		? normalizeNullableText(input.directionsToNextItem, 'directionsToNextItem', issues, 4_000)
-		: undefined;
-	throwIfIssues('Update route item command is invalid.', issues);
-
-	return {
+	return updateFieldsCommand({
 		type: 'fieldWork.updateRouteItem',
-		payload: {
-			...basePayload(input),
-			routeItemId: normalizeRequiredId(input.routeItemId),
-			changes: { ...(hasDirections ? { directionsToNextItem: directionsToNextItem ?? null } : {}) },
-		},
-	};
+		input,
+		idKey: 'routeItemId',
+		fields: ROUTE_ITEM_UPDATE_FIELDS,
+		changeNoun: 'route item',
+		message: 'Update route item command is invalid.',
+	});
 }
 
 export function removeRouteItemCommand(input: RouteItemIdCommandInput): RemoveRouteItemCommand {

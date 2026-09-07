@@ -420,6 +420,41 @@ export function validatePointGeometry(
 	}
 }
 
+/**
+ * A whole count the field may clear, refused when negative or fractional.
+ *
+ * The action threshold on a catalog row is the only column shaped like this,
+ * and it lived inside the named-reference factory until a field descriptor
+ * needed to name it beside the other normalizers.
+ */
+export function nullableNonnegativeInteger(
+	value: number | null | undefined,
+	path: string,
+	issues: DomainValidationIssue[],
+): number | null {
+	if (value === undefined || value === null) {
+		return null;
+	}
+	if (!Number.isInteger(value) || value < 0) {
+		issues.push({ path, message: `${path} must be a nonnegative integer or null.` });
+	}
+	return value;
+}
+
+/**
+ * A command type as an error message names it: the last segment, split at each
+ * capital, sentence-cased.
+ *
+ * `controlOperations.updateInsecticide` reads as `Update Insecticide`, which is
+ * what the default "... command is invalid." message has always said. Both
+ * command factories default their message through here rather than each
+ * carrying a copy.
+ */
+export function humanizeCommandType(type: string): string {
+	const command = type.split('.').at(-1) ?? type;
+	return command.replace(/([A-Z])/g, ' $1').replace(/^./, (value) => value.toUpperCase());
+}
+
 export function throwIfIssues(message: string, issues: readonly DomainValidationIssue[]): void {
 	if (issues.length > 0) {
 		throw new DomainValidationError(message, issues);

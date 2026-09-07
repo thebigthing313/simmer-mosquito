@@ -14,6 +14,17 @@ import {
 import type { ControlActionLocationSourceInput } from '../location-intent.js';
 import type { ApplicationBatchInput, ControlActionContext } from '../performed-control-actions.js';
 import type { DomainId, JsonObject, LocalDateString } from '../shared.js';
+import {
+	jsonObjectField,
+	nullableTextField,
+	referenceIdField,
+	requiredTextField,
+	stringUnionField,
+	type UpdateFieldSet,
+	type UpdateFieldsChanges,
+	type UpdateFieldsInput,
+	updateFieldsCommand,
+} from '../update-command-fields.js';
 import type {
 	RecordChemicalApplicationCommand,
 	RecordChemicalApplicationCommandInput,
@@ -60,35 +71,29 @@ export type CreateInsecticideCommand = ControlOperationsDomainCommand<
 	}
 >;
 
-export interface UpdateInsecticideCommandInput extends ControlCommandInput {
-	readonly insecticideId: DomainId;
-	readonly tradeName?: string;
-	readonly activeIngredient?: string;
-	readonly type?: InsecticideType;
-	readonly registrationNumber?: string;
-	readonly defaultUnitId?: DomainId;
-	readonly labelUrl?: string | null;
-	readonly msdsUrl?: string | null;
-	readonly shorthand?: string | null;
-	readonly metadata?: unknown | null;
-	readonly acknowledgedHistoricalProductChange?: boolean;
-}
+export const INSECTICIDE_UPDATE_FIELDS = {
+	tradeName: requiredTextField(200),
+	activeIngredient: requiredTextField(500),
+	type: stringUnionField(INSECTICIDE_TYPES),
+	registrationNumber: requiredTextField(500),
+	defaultUnitId: referenceIdField,
+	labelUrl: normalizeNullableUrl,
+	msdsUrl: normalizeNullableUrl,
+	shorthand: nullableTextField(200),
+	metadata: jsonObjectField,
+} satisfies UpdateFieldSet;
+
+export type UpdateInsecticideCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof INSECTICIDE_UPDATE_FIELDS> & {
+		readonly insecticideId: DomainId;
+		readonly acknowledgedHistoricalProductChange?: boolean;
+	};
 
 export type UpdateInsecticideCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateInsecticide',
 	ControlCommandPayload & {
 		readonly insecticideId: DomainId;
-		readonly changes: Readonly<{
-			readonly tradeName?: string;
-			readonly activeIngredient?: string;
-			readonly type?: InsecticideType;
-			readonly registrationNumber?: string;
-			readonly defaultUnitId?: DomainId;
-			readonly labelUrl?: string | null;
-			readonly msdsUrl?: string | null;
-			readonly shorthand?: string | null;
-			readonly metadata?: JsonObject | null;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof INSECTICIDE_UPDATE_FIELDS>;
 		readonly acknowledgedHistoricalProductChange: boolean;
 	}
 >;
@@ -134,17 +139,21 @@ export type CreateInsecticideBatchCommand = ControlOperationsDomainCommand<
 	}
 >;
 
-export interface UpdateInsecticideBatchCommandInput extends ControlCommandInput {
-	readonly insecticideBatchId: DomainId;
-	readonly batchName?: string;
-	readonly acknowledgedHistoricalBatchLabelChange?: boolean;
-}
+export const INSECTICIDE_BATCH_UPDATE_FIELDS = {
+	batchName: requiredTextField(200),
+} satisfies UpdateFieldSet;
+
+export type UpdateInsecticideBatchCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof INSECTICIDE_BATCH_UPDATE_FIELDS> & {
+		readonly insecticideBatchId: DomainId;
+		readonly acknowledgedHistoricalBatchLabelChange?: boolean;
+	};
 
 export type UpdateInsecticideBatchCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateInsecticideBatch',
 	ControlCommandPayload & {
 		readonly insecticideBatchId: DomainId;
-		readonly changes: Readonly<{ readonly batchName?: string }>;
+		readonly changes: UpdateFieldsChanges<typeof INSECTICIDE_BATCH_UPDATE_FIELDS>;
 		readonly acknowledgedHistoricalBatchLabelChange: boolean;
 	}
 >;
@@ -188,24 +197,23 @@ export type CreateFormulationCommand = ControlOperationsDomainCommand<
 	}
 >;
 
-export interface UpdateFormulationDetailsCommandInput extends ControlCommandInput {
-	readonly formulationId: DomainId;
-	readonly formulationName?: string;
-	readonly description?: string | null;
-	readonly batchSize?: number;
-	readonly batchUnitId?: DomainId;
-}
+export const FORMULATION_UPDATE_FIELDS = {
+	formulationName: requiredTextField(200),
+	description: nullableTextField(2_000),
+	batchSize: normalizePositiveFiniteNumber,
+	batchUnitId: referenceIdField,
+} satisfies UpdateFieldSet;
+
+export type UpdateFormulationDetailsCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof FORMULATION_UPDATE_FIELDS> & {
+		readonly formulationId: DomainId;
+	};
 
 export type UpdateFormulationDetailsCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateFormulationDetails',
 	ControlCommandPayload & {
 		readonly formulationId: DomainId;
-		readonly changes: Readonly<{
-			readonly formulationName?: string;
-			readonly description?: string | null;
-			readonly batchSize?: number;
-			readonly batchUnitId?: DomainId;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof FORMULATION_UPDATE_FIELDS>;
 	}
 >;
 
@@ -255,23 +263,23 @@ export type AddFormulationInsecticideCommand = ControlOperationsDomainCommand<
 	}
 >;
 
-export interface UpdateFormulationInsecticideCommandInput extends ControlCommandInput {
-	readonly formulationInsecticideId: DomainId;
-	readonly insecticideId?: DomainId;
-	readonly amount?: number;
-	readonly unitId?: DomainId;
-	readonly acknowledgedDeactivateEmptyFormulation?: boolean;
-}
+export const FORMULATION_INSECTICIDE_UPDATE_FIELDS = {
+	insecticideId: referenceIdField,
+	amount: normalizePositiveFiniteNumber,
+	unitId: referenceIdField,
+} satisfies UpdateFieldSet;
+
+export type UpdateFormulationInsecticideCommandInput = ControlCommandInput &
+	UpdateFieldsInput<typeof FORMULATION_INSECTICIDE_UPDATE_FIELDS> & {
+		readonly formulationInsecticideId: DomainId;
+		readonly acknowledgedDeactivateEmptyFormulation?: boolean;
+	};
 
 export type UpdateFormulationInsecticideCommand = ControlOperationsDomainCommand<
 	'controlOperations.updateFormulationInsecticide',
 	ControlCommandPayload & {
 		readonly formulationInsecticideId: DomainId;
-		readonly changes: Readonly<{
-			readonly insecticideId?: DomainId;
-			readonly amount?: number;
-			readonly unitId?: DomainId;
-		}>;
+		readonly changes: UpdateFieldsChanges<typeof FORMULATION_INSECTICIDE_UPDATE_FIELDS>;
 		readonly acknowledgedDeactivateEmptyFormulation: boolean;
 	}
 >;
@@ -378,69 +386,18 @@ export function createInsecticideCommand(
 export function updateInsecticideCommand(
 	input: UpdateInsecticideCommandInput,
 ): UpdateInsecticideCommand {
-	const issues = validateIdCommand(input, 'insecticideId');
-	const hasTradeName = input.tradeName !== undefined;
-	const hasActiveIngredient = input.activeIngredient !== undefined;
-	const hasType = input.type !== undefined;
-	const hasRegistrationNumber = input.registrationNumber !== undefined;
-	const hasDefaultUnit = input.defaultUnitId !== undefined;
-	const hasLabelUrl = input.labelUrl !== undefined;
-	const hasMsdsUrl = input.msdsUrl !== undefined;
-	const hasShorthand = input.shorthand !== undefined;
-	const hasMetadata = input.metadata !== undefined;
-	if (
-		!hasTradeName &&
-		!hasActiveIngredient &&
-		!hasType &&
-		!hasRegistrationNumber &&
-		!hasDefaultUnit &&
-		!hasLabelUrl &&
-		!hasMsdsUrl &&
-		!hasShorthand &&
-		!hasMetadata
-	) {
-		issues.push({ path: 'changes', message: 'At least one insecticide field must change.' });
-	}
-	if (hasDefaultUnit) {
-		requireUuid(input.defaultUnitId, 'defaultUnitId', issues);
-	}
-	const type = hasType
-		? normalizeStringUnion(input.type, INSECTICIDE_TYPES, 'type', issues)
-		: undefined;
-	const tradeName = hasTradeName
-		? normalizeRequiredText(input.tradeName, 'tradeName', issues, 200)
-		: undefined;
-	const activeIngredient = hasActiveIngredient
-		? normalizeRequiredText(input.activeIngredient, 'activeIngredient', issues, 500)
-		: undefined;
-	const registrationNumber = hasRegistrationNumber
-		? normalizeRequiredText(input.registrationNumber, 'registrationNumber', issues, 500)
-		: undefined;
-	const labelUrl = hasLabelUrl
-		? normalizeNullableUrl(input.labelUrl, 'labelUrl', issues)
-		: undefined;
-	const msdsUrl = hasMsdsUrl ? normalizeNullableUrl(input.msdsUrl, 'msdsUrl', issues) : undefined;
-	const shorthand = hasShorthand
-		? normalizeNullableText(input.shorthand, 'shorthand', issues, 200)
-		: undefined;
-	const metadata = hasMetadata ? normalizeMetadata(input.metadata, 'metadata', issues) : undefined;
-	throwIfIssues('Update insecticide command is invalid.', issues);
-	return {
+	const command = updateFieldsCommand({
 		type: 'controlOperations.updateInsecticide',
+		input,
+		idKey: 'insecticideId',
+		fields: INSECTICIDE_UPDATE_FIELDS,
+		changeNoun: 'insecticide',
+		message: 'Update insecticide command is invalid.',
+	});
+	return {
+		type: command.type,
 		payload: {
-			...basePayload(input),
-			insecticideId: normalizeRequiredId(input.insecticideId),
-			changes: {
-				...(tradeName !== undefined ? { tradeName } : {}),
-				...(activeIngredient !== undefined ? { activeIngredient } : {}),
-				...(type !== undefined ? { type } : {}),
-				...(registrationNumber !== undefined ? { registrationNumber } : {}),
-				...(hasDefaultUnit ? { defaultUnitId: normalizeRequiredId(input.defaultUnitId) } : {}),
-				...(hasLabelUrl ? { labelUrl: labelUrl ?? null } : {}),
-				...(hasMsdsUrl ? { msdsUrl: msdsUrl ?? null } : {}),
-				...(hasShorthand ? { shorthand: shorthand ?? null } : {}),
-				...(hasMetadata ? { metadata: metadata ?? null } : {}),
-			},
+			...command.payload,
 			acknowledgedHistoricalProductChange: input.acknowledgedHistoricalProductChange ?? false,
 		},
 	};
@@ -496,23 +453,18 @@ export function createInsecticideBatchCommand(
 export function updateInsecticideBatchCommand(
 	input: UpdateInsecticideBatchCommandInput,
 ): UpdateInsecticideBatchCommand {
-	const issues = validateIdCommand(input, 'insecticideBatchId');
-	const hasName = input.batchName !== undefined;
-	if (!hasName) {
-		issues.push({ path: 'changes', message: 'At least one insecticide batch field must change.' });
-	}
-	const batchName = hasName
-		? normalizeRequiredText(input.batchName, 'batchName', issues, 200)
-		: undefined;
-	throwIfIssues('Update insecticide batch command is invalid.', issues);
-	return {
+	const command = updateFieldsCommand({
 		type: 'controlOperations.updateInsecticideBatch',
+		input,
+		idKey: 'insecticideBatchId',
+		fields: INSECTICIDE_BATCH_UPDATE_FIELDS,
+		changeNoun: 'insecticide batch',
+		message: 'Update insecticide batch command is invalid.',
+	});
+	return {
+		type: command.type,
 		payload: {
-			...basePayload(input),
-			insecticideBatchId: normalizeRequiredId(input.insecticideBatchId),
-			changes: {
-				...(batchName !== undefined ? { batchName } : {}),
-			},
+			...command.payload,
 			acknowledgedHistoricalBatchLabelChange: input.acknowledgedHistoricalBatchLabelChange ?? false,
 		},
 	};
@@ -568,40 +520,14 @@ export function createFormulationCommand(
 export function updateFormulationDetailsCommand(
 	input: UpdateFormulationDetailsCommandInput,
 ): UpdateFormulationDetailsCommand {
-	const issues = validateIdCommand(input, 'formulationId');
-	const hasName = input.formulationName !== undefined;
-	const hasDescription = input.description !== undefined;
-	const hasBatchSize = input.batchSize !== undefined;
-	const hasBatchUnit = input.batchUnitId !== undefined;
-	if (!hasName && !hasDescription && !hasBatchSize && !hasBatchUnit) {
-		issues.push({ path: 'changes', message: 'At least one formulation field must change.' });
-	}
-	const formulationName = hasName
-		? normalizeRequiredText(input.formulationName, 'formulationName', issues, 200)
-		: undefined;
-	const description = hasDescription
-		? normalizeNullableText(input.description, 'description', issues, 2_000)
-		: undefined;
-	const batchSize = hasBatchSize
-		? normalizePositiveFiniteNumber(input.batchSize, 'batchSize', issues)
-		: undefined;
-	if (hasBatchUnit) {
-		requireUuid(input.batchUnitId, 'batchUnitId', issues);
-	}
-	throwIfIssues('Update formulation details command is invalid.', issues);
-	return {
+	return updateFieldsCommand({
 		type: 'controlOperations.updateFormulationDetails',
-		payload: {
-			...basePayload(input),
-			formulationId: normalizeRequiredId(input.formulationId),
-			changes: {
-				...(formulationName !== undefined ? { formulationName } : {}),
-				...(hasDescription ? { description: description ?? null } : {}),
-				...(batchSize !== undefined ? { batchSize } : {}),
-				...(hasBatchUnit ? { batchUnitId: normalizeRequiredId(input.batchUnitId) } : {}),
-			},
-		},
-	};
+		input,
+		idKey: 'formulationId',
+		fields: FORMULATION_UPDATE_FIELDS,
+		changeNoun: 'formulation',
+		message: 'Update formulation details command is invalid.',
+	});
 }
 
 export function activateFormulationCommand(
@@ -658,36 +584,18 @@ export function addFormulationInsecticideCommand(
 export function updateFormulationInsecticideCommand(
 	input: UpdateFormulationInsecticideCommandInput,
 ): UpdateFormulationInsecticideCommand {
-	const issues = validateIdCommand(input, 'formulationInsecticideId');
-	const hasInsecticide = input.insecticideId !== undefined;
-	const hasAmount = input.amount !== undefined;
-	const hasUnit = input.unitId !== undefined;
-	if (!hasInsecticide && !hasAmount && !hasUnit) {
-		issues.push({
-			path: 'changes',
-			message: 'At least one formulation component field must change.',
-		});
-	}
-	if (hasInsecticide) {
-		requireUuid(input.insecticideId, 'insecticideId', issues);
-	}
-	if (hasUnit) {
-		requireUuid(input.unitId, 'unitId', issues);
-	}
-	const amount = hasAmount
-		? normalizePositiveFiniteNumber(input.amount, 'amount', issues)
-		: undefined;
-	throwIfIssues('Update formulation insecticide command is invalid.', issues);
-	return {
+	const command = updateFieldsCommand({
 		type: 'controlOperations.updateFormulationInsecticide',
+		input,
+		idKey: 'formulationInsecticideId',
+		fields: FORMULATION_INSECTICIDE_UPDATE_FIELDS,
+		changeNoun: 'formulation component',
+		message: 'Update formulation insecticide command is invalid.',
+	});
+	return {
+		type: command.type,
 		payload: {
-			...basePayload(input),
-			formulationInsecticideId: normalizeRequiredId(input.formulationInsecticideId),
-			changes: {
-				...(hasInsecticide ? { insecticideId: normalizeRequiredId(input.insecticideId) } : {}),
-				...(amount !== undefined ? { amount } : {}),
-				...(hasUnit ? { unitId: normalizeRequiredId(input.unitId) } : {}),
-			},
+			...command.payload,
 			acknowledgedDeactivateEmptyFormulation: input.acknowledgedDeactivateEmptyFormulation ?? false,
 		},
 	};
