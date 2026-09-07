@@ -1,10 +1,7 @@
 import { sql } from '@simmer-mosquito/db';
 import type { MissionNotificationStatus, PublicEngagementCommand } from '@simmer-mosquito/domain';
-import {
-	type MissionNotificationRow,
-	missionNotificationReturnColumns,
-	type PublicEngagementTransaction,
-} from './shared.js';
+import { returnColumns } from '../../return-columns.js';
+import type { MissionNotificationRow, PublicEngagementTransaction } from './shared.js';
 
 // ===========================================================================
 // Mission notifications (status transitions)
@@ -51,7 +48,7 @@ export async function writeMissionNotificationCommand(
 		.where('id', '=', payload.missionNotificationId)
 		.where('organization_id', '=', payload.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(missionNotificationReturnColumns)
+		.returning(returnColumns.mission_notifications)
 		.executeTakeFirst();
 	return row ?? null;
 }

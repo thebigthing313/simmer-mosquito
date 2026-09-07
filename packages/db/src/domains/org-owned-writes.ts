@@ -60,6 +60,17 @@ export function localDateColumn(value: string): RawBuilder<Date> {
 }
 
 /**
+ * A column of one table, named the way a returning list names one.
+ *
+ * Written here rather than spelled out at each use so that a caller building a
+ * column list can say what it is holding its names to without reaching for
+ * `Selectable` itself. `apps/server` sees kysely only through this package's
+ * barrel, and `return-columns.ts` there is the caller that needs it.
+ */
+export type RowColumn<TTable extends keyof SimmerDatabase> = string &
+	keyof Selectable<SimmerDatabase[TTable]>;
+
+/**
  * The shape a returning-column list actually produces.
  *
  * Derived from the schema and from the list itself, so the two cannot drift.
@@ -68,7 +79,7 @@ export function localDateColumn(value: string): RawBuilder<Date> {
  */
 export type SelectedRow<
 	TTable extends keyof SimmerDatabase,
-	TColumns extends readonly (keyof Selectable<SimmerDatabase[TTable]> & string)[],
+	TColumns extends readonly RowColumn<TTable>[],
 > = Pick<Selectable<SimmerDatabase[TTable]>, TColumns[number]>;
 
 /**
@@ -88,7 +99,7 @@ export type SelectedRow<
  */
 export async function updateRow<
 	TTable extends OrgOwnedTable,
-	const TColumns extends readonly (keyof Selectable<SimmerDatabase[TTable]> & string)[],
+	const TColumns extends readonly RowColumn<TTable>[],
 >(
 	trx: Transaction<SimmerDatabase>,
 	table: TTable,
@@ -122,7 +133,7 @@ export async function updateRow<
  */
 export async function softDelete<
 	TTable extends OrgOwnedTable,
-	const TColumns extends readonly (keyof Selectable<SimmerDatabase[TTable]> & string)[],
+	const TColumns extends readonly RowColumn<TTable>[],
 >(
 	trx: Transaction<SimmerDatabase>,
 	table: TTable,

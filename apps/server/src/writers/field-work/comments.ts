@@ -1,12 +1,7 @@
 import { checkedValues } from '@simmer-mosquito/db';
 import { type FieldWorkCommand, toDbEntityType } from '@simmer-mosquito/domain';
-import {
-	type CommentRow,
-	commentReturnColumns,
-	type FieldWorkTransaction,
-	softDelete,
-	updateRow,
-} from './shared.js';
+import { returnColumns } from '../../return-columns.js';
+import { type CommentRow, type FieldWorkTransaction, softDelete, updateRow } from './shared.js';
 
 // ===========================================================================
 // Comments
@@ -36,7 +31,7 @@ export async function writeCommentCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(commentReturnColumns)
+				.returning(returnColumns.comments)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -50,7 +45,7 @@ export async function writeCommentCommand(
 					comment_text: command.payload.commentText,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				commentReturnColumns,
+				returnColumns.comments,
 			);
 		case 'fieldWork.pinComment':
 			return updateRow(
@@ -62,7 +57,7 @@ export async function writeCommentCommand(
 					is_pinned: true,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				commentReturnColumns,
+				returnColumns.comments,
 			);
 		case 'fieldWork.unpinComment':
 			return updateRow(
@@ -74,7 +69,7 @@ export async function writeCommentCommand(
 					is_pinned: false,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				commentReturnColumns,
+				returnColumns.comments,
 			);
 		case 'fieldWork.deleteComment':
 			return softDelete(
@@ -83,7 +78,7 @@ export async function writeCommentCommand(
 				command.payload.commentId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				commentReturnColumns,
+				returnColumns.comments,
 			);
 		default:
 			throw new Error(`Unsupported comment command: ${command.type}`);

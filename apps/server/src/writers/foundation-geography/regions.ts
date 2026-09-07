@@ -1,10 +1,10 @@
 import { applyRecordDeletion, checkedValues } from '@simmer-mosquito/db';
 import type { FoundationCommand } from '@simmer-mosquito/domain';
+import { returnColumns } from '../../return-columns.js';
 import {
 	type FoundationTransaction,
 	geojsonToGeom,
 	type RegionRow,
-	regionReturnColumns,
 	softDelete,
 	updateRow,
 } from './shared.js';
@@ -39,7 +39,7 @@ export async function writeRegionCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(regionReturnColumns)
+				.returning(returnColumns.regions)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -82,7 +82,7 @@ export async function writeRegionCommand(
 				command.payload.regionId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				regionReturnColumns,
+				returnColumns.regions,
 			);
 		default:
 			throw new Error(`Unsupported region command: ${command.type}`);
@@ -95,5 +95,5 @@ async function updateRegion(
 	organizationId: string,
 	set: Record<string, unknown>,
 ): Promise<RegionRow | null> {
-	return updateRow(trx, 'regions', regionId, organizationId, set, regionReturnColumns);
+	return updateRow(trx, 'regions', regionId, organizationId, set, returnColumns.regions);
 }

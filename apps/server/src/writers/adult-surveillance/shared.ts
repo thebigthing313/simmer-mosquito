@@ -2,7 +2,6 @@ import {
 	type CatalogReference,
 	geojsonToGeom,
 	localDateColumn,
-	type SelectedRow,
 	updateRow,
 } from '@simmer-mosquito/db';
 import {
@@ -16,6 +15,7 @@ import {
 import { CommandError } from '../../command-endpoint.js';
 import type { CommandTransaction } from '../../command-write.js';
 import { resolveLocationGeom } from '../../location-source.js';
+import type { CommandRow } from '../../return-columns.js';
 
 export type AdultSurveillanceTransaction = CommandTransaction;
 export { geojsonToGeom, localDateColumn, resolveLocationGeom, updateRow };
@@ -71,71 +71,11 @@ export function pendingStartedAt(timing: CollectionTiming): Date {
 // Response shaping
 // ---------------------------------------------------------------------------
 
-export const trapReturnColumns = [
-	'id',
-	'organization_id',
-	'collection_method_id',
-	'address_id',
-	'collection_lure_id',
-	'trap_name',
-	'trap_code',
-	'description',
-	'is_active',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
+export type TrapRow = CommandRow<'traps'>;
 
-export type TrapRow = SelectedRow<'traps', typeof trapReturnColumns>;
+export type CollectionRow = CommandRow<'collections'>;
 
-export const collectionReturnColumns = [
-	'id',
-	'organization_id',
-	'trap_id',
-	'collection_method_id',
-	'collection_lure_id',
-	'address_id',
-	'collected_at',
-	'collected_by_profile_id',
-	'started_at',
-	'set_by_profile_id',
-	'collection_timing_mode',
-	'collection_date',
-	'duration_amount',
-	'duration_unit_id',
-	'has_problem',
-	'is_zero_result',
-	'has_bycatch',
-	'metadata',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type CollectionRow = SelectedRow<'collections', typeof collectionReturnColumns>;
-
-export const collectionSpeciesReturnColumns = [
-	'id',
-	'organization_id',
-	'collection_id',
-	'species_id',
-	'count',
-	'sex',
-	'status',
-	'identified_by_profile_id',
-	'identified_date',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type CollectionSpeciesRow = SelectedRow<
-	'collection_species',
-	typeof collectionSpeciesReturnColumns
->;
+export type CollectionSpeciesRow = CommandRow<'collection_species'>;
 
 export type TrapUpdateColumns = {
 	geom?: ReturnType<typeof geojsonToGeom>;

@@ -1,10 +1,10 @@
 import { assertWriteReferences, sql } from '@simmer-mosquito/db';
 import type { ControlOperationsCommand } from '@simmer-mosquito/domain';
 import { requireStateAcknowledgement } from '../../acknowledgements.js';
+import { returnColumns } from '../../return-columns.js';
 import {
 	type ControlOperationsTransaction,
 	type FormulationInsecticideRow,
-	formulationInsecticideReturnColumns,
 	softDelete,
 } from './shared.js';
 
@@ -152,7 +152,7 @@ export async function writeFormulationInsecticideCommand(
 					created_by_profile_id: command.payload.actorProfileId,
 					updated_by_profile_id: command.payload.actorProfileId,
 				})
-				.returning(formulationInsecticideReturnColumns)
+				.returning(returnColumns.formulation_insecticides)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -194,7 +194,7 @@ export async function writeFormulationInsecticideCommand(
 				.where('id', '=', command.payload.formulationInsecticideId)
 				.where('organization_id', '=', command.payload.organizationId)
 				.where('deleted_at', 'is', null)
-				.returning(formulationInsecticideReturnColumns)
+				.returning(returnColumns.formulation_insecticides)
 				.executeTakeFirst();
 			return row ?? null;
 		}
@@ -206,7 +206,7 @@ export async function writeFormulationInsecticideCommand(
 				command.payload.formulationInsecticideId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				formulationInsecticideReturnColumns,
+				returnColumns.formulation_insecticides,
 			);
 			if (emptied !== null) {
 				await deactivateEmptiedFormulation(

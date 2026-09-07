@@ -1,4 +1,4 @@
-import { type SelectedRow, sql } from '@simmer-mosquito/db';
+import { sql } from '@simmer-mosquito/db';
 /**
  * The `units` table, as commands — the third operator table.
  *
@@ -43,20 +43,11 @@ import {
 import { CommandError } from '../command-endpoint.js';
 import { readText } from '../command-payload.js';
 import type { CommandDb, CommandTransaction } from '../command-write.js';
+import { type CommandRow, returnColumns } from '../return-columns.js';
 import type { OperatorTableCommands } from './dispatch.js';
 import { acknowledged, refusableWrite } from './shared.js';
 
-const UNIT_COLUMNS = [
-	'id',
-	'code',
-	'unit_name',
-	'abbreviation',
-	'unit_type',
-	'unit_system',
-	'created_at',
-] as const;
-
-type UnitRow = SelectedRow<'units', typeof UNIT_COLUMNS>;
+type UnitRow = CommandRow<'units'>;
 
 /** What a caller is told when one of the three unique indexes refuses. */
 const duplicate = {
@@ -95,7 +86,7 @@ async function writeUnitCommand(
 							unit_type: command.payload.unitType,
 							unit_system: command.payload.unitSystem,
 						})
-						.returning(UNIT_COLUMNS)
+						.returning(returnColumns.units)
 						.executeTakeFirstOrThrow(),
 				{ duplicate },
 			);
@@ -115,7 +106,7 @@ async function writeUnitCommand(
 							...('unitSystem' in changes ? { unit_system: changes.unitSystem } : {}),
 						})
 						.where('id', '=', command.payload.unitId)
-						.returning(UNIT_COLUMNS)
+						.returning(returnColumns.units)
 						.executeTakeFirst(),
 				{ duplicate },
 			);
@@ -132,7 +123,7 @@ async function writeUnitCommand(
 					trx
 						.deleteFrom('units')
 						.where('id', '=', command.payload.unitId)
-						.returning(UNIT_COLUMNS)
+						.returning(returnColumns.units)
 						.executeTakeFirst(),
 				{ inUse: UNIT_IN_USE },
 			);

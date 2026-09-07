@@ -1,9 +1,9 @@
 import { applyRecordDeletion } from '@simmer-mosquito/db';
 import type { FoundationCommand } from '@simmer-mosquito/domain';
+import { returnColumns } from '../../return-columns.js';
 import {
 	type FoundationTransaction,
 	type RegionFolderRow,
-	regionFolderReturnColumns,
 	softDelete,
 	updateRow,
 } from './shared.js';
@@ -29,7 +29,7 @@ export async function writeRegionFolderCommand(
 					created_by_profile_id: command.payload.actorProfileId,
 					updated_by_profile_id: command.payload.actorProfileId,
 				})
-				.returning(regionFolderReturnColumns)
+				.returning(returnColumns.region_folders)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -46,7 +46,7 @@ export async function writeRegionFolderCommand(
 						: {}),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				regionFolderReturnColumns,
+				returnColumns.region_folders,
 			);
 		case 'foundation.deleteRegionFolder':
 			// Unfiles the folder's regions before the folder goes. Without it the
@@ -67,7 +67,7 @@ export async function writeRegionFolderCommand(
 				command.payload.regionFolderId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				regionFolderReturnColumns,
+				returnColumns.region_folders,
 			);
 		default:
 			throw new Error(`Unsupported region folder command: ${command.type}`);

@@ -9,6 +9,7 @@ import type {
 	LarvalSurveillanceCommand,
 	RecordHabitatInspectionForAssignmentItemCommand,
 } from '@simmer-mosquito/domain';
+import { returnColumns } from '../../return-columns.js';
 import { beginExecution, completeExecutedStop } from '../field-work/assignment-lifecycle.js';
 import {
 	geojsonToGeom,
@@ -16,7 +17,6 @@ import {
 	type InspectionResultColumns,
 	type InspectionRow,
 	type InspectionUpdateColumns,
-	inspectionReturnColumns,
 	type LarvalSurveillanceTransaction,
 	loadHabitatSnapshot,
 	localDateColumn,
@@ -78,7 +78,7 @@ export async function writeInspectionCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(inspectionReturnColumns)
+				.returning(returnColumns.inspections)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -111,7 +111,7 @@ export async function writeInspectionCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(inspectionReturnColumns)
+				.returning(returnColumns.inspections)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -169,7 +169,7 @@ export async function writeInspectionCommand(
 				.where('id', '=', command.payload.inspectionId)
 				.where('organization_id', '=', command.payload.organizationId)
 				.where('deleted_at', 'is', null)
-				.returning(inspectionReturnColumns)
+				.returning(returnColumns.inspections)
 				.executeTakeFirst();
 			return row ?? null;
 		}
@@ -239,7 +239,7 @@ async function recordInspectionForStop(
 				updated_by_profile_id: payload.actorProfileId,
 			}),
 		)
-		.returning(inspectionReturnColumns)
+		.returning(returnColumns.inspections)
 		.executeTakeFirstOrThrow();
 	if (payload.completeAssignmentItem) {
 		await completeExecutedStop(
@@ -259,7 +259,14 @@ async function updateInspection(
 	organizationId: string,
 	set: InspectionUpdateColumns,
 ): Promise<InspectionRow | null> {
-	return updateRow(trx, 'inspections', inspectionId, organizationId, set, inspectionReturnColumns);
+	return updateRow(
+		trx,
+		'inspections',
+		inspectionId,
+		organizationId,
+		set,
+		returnColumns.inspections,
+	);
 }
 
 function inspectionResultColumns(result: NormalizedInspectionResult): InspectionResultColumns {

@@ -47,6 +47,7 @@ import {
 } from '@simmer-mosquito/db';
 import type { WeatherCommand } from '@simmer-mosquito/domain';
 import { stationSummaryRule } from '../record-history.js';
+import { returnColumns } from '../return-columns.js';
 import { refusableWrite } from '../table-commands/shared.js';
 import {
 	assertFresh,
@@ -54,7 +55,6 @@ import {
 	type StationState,
 	type WeatherStationRow,
 	type WeatherTransaction,
-	weatherStationReturnColumns,
 } from './shared.js';
 
 /**
@@ -147,7 +147,7 @@ async function createStation(
 					created_by_profile_id: payload.actorProfileId,
 					updated_by_profile_id: payload.actorProfileId,
 				})
-				.returning(weatherStationReturnColumns)
+				.returning(returnColumns.weather_sources)
 				.executeTakeFirstOrThrow(),
 		{ duplicate: DUPLICATE_STATION },
 	);
@@ -279,7 +279,7 @@ async function deleteStation(
 		.where('id', '=', station.id)
 		.where('organization_id', '=', payload.organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(weatherStationReturnColumns)
+		.returning(returnColumns.weather_sources)
 		.executeTakeFirst();
 	return row ?? null;
 }
@@ -323,7 +323,7 @@ async function updateStation(
 				.where('id', '=', weatherStationId)
 				.where('organization_id', '=', organizationId)
 				.where('deleted_at', 'is', null)
-				.returning(weatherStationReturnColumns)
+				.returning(returnColumns.weather_sources)
 				.executeTakeFirst(),
 		refusals,
 	);

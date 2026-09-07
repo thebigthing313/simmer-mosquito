@@ -3,12 +3,12 @@ import {
 	checkedValues,
 	geojsonToGeom,
 	localDateColumn,
-	type SelectedRow,
 	softDelete,
 	updateRow,
 } from '@simmer-mosquito/db';
 import { CommandError } from '../../command-endpoint.js';
 import type { CommandTransaction } from '../../command-write.js';
+import { type CommandRow, returnColumns } from '../../return-columns.js';
 
 export type PublicEngagementTransaction = CommandTransaction;
 export { geojsonToGeom, localDateColumn, softDelete, updateRow };
@@ -69,7 +69,7 @@ export async function insertContact(
 				updated_by_profile_id: actorProfileId,
 			}),
 		)
-		.returning(contactReturnColumns)
+		.returning(returnColumns.contacts)
 		.executeTakeFirstOrThrow();
 	return row;
 }
@@ -107,7 +107,7 @@ export async function insertRegistrationType(
 				updated_by_profile_id: actorProfileId,
 			}),
 		)
-		.returning(registrationTypeReturnColumns)
+		.returning(returnColumns.notification_registration_types)
 		.executeTakeFirstOrThrow();
 	return row;
 }
@@ -197,82 +197,12 @@ async function insertAddress(
 // Response shaping
 // ===========================================================================
 
-export const contactReturnColumns = [
-	'id',
-	'organization_id',
-	'contact_name',
-	'preferred_phone',
-	'alternate_phone',
-	'email',
-	'company',
-	'department',
-	'title',
-	'wants_email',
-	'wants_sms',
-	'wants_phone',
-	'created_at',
-	'updated_at',
-] as const;
+export type ContactRow = CommandRow<'contacts'>;
 
-export type ContactRow = SelectedRow<'contacts', typeof contactReturnColumns>;
+export type ServiceRequestRow = CommandRow<'service_requests'>;
 
-export const serviceRequestReturnColumns = [
-	'id',
-	'organization_id',
-	'intake_type',
-	'address_id',
-	'contact_id',
-	'closed_at',
-	'created_at',
-	'updated_at',
-] as const;
+export type RegistrationRow = CommandRow<'notification_registrations'>;
 
-export type ServiceRequestRow = SelectedRow<'service_requests', typeof serviceRequestReturnColumns>;
+export type RegistrationTypeRow = CommandRow<'notification_registration_types'>;
 
-export const registrationReturnColumns = [
-	'id',
-	'organization_id',
-	'contact_id',
-	'address_id',
-	'buffer_distance',
-	'buffer_unit_id',
-	'has_bees',
-	'is_no_spray',
-	'is_active',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type RegistrationRow = SelectedRow<
-	'notification_registrations',
-	typeof registrationReturnColumns
->;
-
-export const registrationTypeReturnColumns = [
-	'id',
-	'organization_id',
-	'notification_registration_id',
-	'notification_type_id',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type RegistrationTypeRow = SelectedRow<
-	'notification_registration_types',
-	typeof registrationTypeReturnColumns
->;
-
-export const missionNotificationReturnColumns = [
-	'id',
-	'organization_id',
-	'mission_id',
-	'status',
-	'status_changed_at',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type MissionNotificationRow = SelectedRow<
-	'mission_notifications',
-	typeof missionNotificationReturnColumns
->;
+export type MissionNotificationRow = CommandRow<'mission_notifications'>;

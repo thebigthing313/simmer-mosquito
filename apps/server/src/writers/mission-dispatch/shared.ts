@@ -3,7 +3,6 @@ import {
 	geojsonToGeom,
 	localDateColumn,
 	type RawBuilder,
-	type SelectedRow,
 	softDelete,
 	updateRow,
 } from '@simmer-mosquito/db';
@@ -11,6 +10,7 @@ import type { MissionItemLocationSource } from '@simmer-mosquito/domain';
 import { CommandError } from '../../command-endpoint.js';
 import type { CommandTransaction } from '../../command-write.js';
 import { loadOr404, resolveLocationGeom } from '../../location-source.js';
+import type { CommandRow } from '../../return-columns.js';
 
 export type MissionDispatchTransaction = CommandTransaction;
 export { loadOr404, localDateColumn, softDelete, updateRow };
@@ -107,41 +107,11 @@ export async function resolveItemGeom(
 	}
 	throw new CommandError(400, { error: 'mission_item_location_required' });
 }
+
 // ===========================================================================
 // Response shaping
 // ===========================================================================
 
-export const missionReturnColumns = [
-	'id',
-	'organization_id',
-	'mission_name',
-	'control_type',
-	'planned_method_id',
-	'assigned_to_profile_id',
-	'scheduled_start_at',
-	'scheduled_end_at',
-	'started_at',
-	'completed_at',
-	'cancelled_at',
-	'notification_type_id',
-	'created_at',
-	'updated_at',
-] as const;
+export type MissionRow = CommandRow<'missions'>;
 
-export type MissionRow = SelectedRow<'missions', typeof missionReturnColumns>;
-
-export const missionItemReturnColumns = [
-	'id',
-	'organization_id',
-	'mission_id',
-	'requested_control_action_id',
-	'address_id',
-	'position',
-	'completed_at',
-	'skipped_at',
-	'skip_reason',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type MissionItemRow = SelectedRow<'mission_items', typeof missionItemReturnColumns>;
+export type MissionItemRow = CommandRow<'mission_items'>;

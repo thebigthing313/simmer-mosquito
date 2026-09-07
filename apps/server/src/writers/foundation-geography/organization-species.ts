@@ -1,10 +1,6 @@
 import type { FoundationCommand } from '@simmer-mosquito/domain';
-import {
-	type FoundationTransaction,
-	type OrganizationSpeciesRow,
-	organizationSpeciesReturnColumns,
-	softDelete,
-} from './shared.js';
+import { returnColumns } from '../../return-columns.js';
+import { type FoundationTransaction, type OrganizationSpeciesRow, softDelete } from './shared.js';
 
 // ===========================================================================
 // Organization species selection
@@ -26,7 +22,7 @@ export async function writeOrganizationSpeciesCommand(
 					created_by_profile_id: command.payload.actorProfileId,
 					updated_by_profile_id: command.payload.actorProfileId,
 				})
-				.returning(organizationSpeciesReturnColumns)
+				.returning(returnColumns.organization_species)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -37,7 +33,7 @@ export async function writeOrganizationSpeciesCommand(
 				command.payload.organizationSpeciesId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				organizationSpeciesReturnColumns,
+				returnColumns.organization_species,
 			);
 		default:
 			throw new Error(`Unsupported organization species command: ${command.type}`);

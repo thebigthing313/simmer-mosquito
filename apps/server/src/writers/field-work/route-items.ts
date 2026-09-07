@@ -1,10 +1,10 @@
 import { checkedValues } from '@simmer-mosquito/db';
 import { type FieldWorkCommand, toDbEntityType } from '@simmer-mosquito/domain';
 import { nextItemPosition } from '../../ordered-items.js';
+import { returnColumns } from '../../return-columns.js';
 import {
 	type FieldWorkTransaction,
 	type RouteItemRow,
-	routeItemReturnColumns,
 	routePlacementRef,
 	softDelete,
 	updateRow,
@@ -64,7 +64,7 @@ export async function writeRouteItemCommand(
 						: {}),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				routeItemReturnColumns,
+				returnColumns.route_items,
 			);
 		case 'fieldWork.removeRouteItem':
 			return softDelete(
@@ -73,7 +73,7 @@ export async function writeRouteItemCommand(
 				command.payload.routeItemId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				routeItemReturnColumns,
+				returnColumns.route_items,
 			);
 		default:
 			throw new Error(`Unsupported route item command: ${command.type}`);
@@ -87,7 +87,7 @@ async function loadRouteItem(
 ): Promise<RouteItemRow | null> {
 	const row = await trx
 		.selectFrom('route_items')
-		.select(routeItemReturnColumns)
+		.select(returnColumns.route_items)
 		.where('id', '=', routeItemId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)

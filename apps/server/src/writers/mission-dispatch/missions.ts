@@ -7,6 +7,7 @@ import {
 } from '@simmer-mosquito/db';
 import type { MissionDispatchCommand } from '@simmer-mosquito/domain';
 import { insertLifecycleComment } from '../../lifecycle-comment.js';
+import { returnColumns } from '../../return-columns.js';
 import {
 	assertCompletedMissionDeletionAcknowledged,
 	assertEarlyStartAcknowledged,
@@ -32,7 +33,6 @@ import {
 	localDateColumn,
 	type MissionDispatchTransaction,
 	type MissionRow,
-	missionReturnColumns,
 	resolveInitialItemGeom,
 	softDelete,
 	updateRow,
@@ -98,7 +98,7 @@ export async function writeMissionCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(missionReturnColumns)
+				.returning(returnColumns.missions)
 				.executeTakeFirstOrThrow();
 			let position = 0;
 			for (const item of command.payload.items) {
@@ -362,7 +362,7 @@ export async function writeMissionCommand(
 				command.payload.missionId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				missionReturnColumns,
+				returnColumns.missions,
 			);
 		/**
 		 * Reordering the stops, which is a command on the mission.
@@ -390,7 +390,7 @@ async function loadMission(
 ): Promise<MissionRow | null> {
 	const row = await trx
 		.selectFrom('missions')
-		.select(missionReturnColumns)
+		.select(returnColumns.missions)
 		.where('id', '=', missionId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
@@ -404,5 +404,5 @@ async function updateMission(
 	organizationId: string,
 	set: Record<string, unknown>,
 ): Promise<MissionRow | null> {
-	return updateRow(trx, 'missions', missionId, organizationId, set, missionReturnColumns);
+	return updateRow(trx, 'missions', missionId, organizationId, set, returnColumns.missions);
 }

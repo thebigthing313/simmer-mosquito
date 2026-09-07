@@ -2,13 +2,13 @@ import {
 	type CatalogReference,
 	geojsonToGeom,
 	localDateColumn,
-	type SelectedRow,
 	updateRow,
 } from '@simmer-mosquito/db';
 import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
 import { CommandError } from '../../command-endpoint.js';
 import type { CommandTransaction } from '../../command-write.js';
 import { resolveLocationGeom } from '../../location-source.js';
+import type { CommandRow } from '../../return-columns.js';
 
 export type LarvalSurveillanceTransaction = CommandTransaction;
 export { geojsonToGeom, localDateColumn, resolveLocationGeom, updateRow };
@@ -71,81 +71,13 @@ export function readDensity(value: unknown): LarvalDensity | null {
 // Response shaping
 // ---------------------------------------------------------------------------
 
-export const habitatReturnColumns = [
-	'id',
-	'organization_id',
-	'address_id',
-	'habitat_type_id',
-	'habitat_name',
-	'description',
-	'is_active',
-	'is_inaccessible',
-	'metadata',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
+export type HabitatRow = CommandRow<'habitats'>;
 
-export type HabitatRow = SelectedRow<'habitats', typeof habitatReturnColumns>;
+export type InspectionRow = CommandRow<'inspections'>;
 
-export const inspectionReturnColumns = [
-	'id',
-	'organization_id',
-	'habitat_id',
-	'habitat_type_id',
-	'address_id',
-	'inspected_by_profile_id',
-	'inspection_date',
-	'is_wet',
-	'dip_count',
-	'density',
-	'larvae_count',
-	'has_first_instar',
-	'has_second_instar',
-	'has_third_instar',
-	'has_fourth_instar',
-	'has_pupae',
-	'has_eggs',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
+export type SampleRow = CommandRow<'samples'>;
 
-export type InspectionRow = SelectedRow<'inspections', typeof inspectionReturnColumns>;
-
-export const sampleReturnColumns = [
-	'id',
-	'organization_id',
-	'inspection_id',
-	'display_name',
-	'is_zero_larvae',
-	'has_non_mosquito',
-	'unidentifiable_reason',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type SampleRow = SelectedRow<'samples', typeof sampleReturnColumns>;
-
-export const sampleSpeciesReturnColumns = [
-	'id',
-	'organization_id',
-	'sample_id',
-	'species_id',
-	'identified_by_profile_id',
-	'identified_at',
-	'larvae_count',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type SampleSpeciesRow = SelectedRow<'sample_species', typeof sampleSpeciesReturnColumns>;
+export type SampleSpeciesRow = CommandRow<'sample_species'>;
 
 // ---------------------------------------------------------------------------
 // Shared command + request helpers

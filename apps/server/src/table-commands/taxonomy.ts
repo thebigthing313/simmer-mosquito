@@ -29,7 +29,7 @@
  * `common_name`, `display_name`.
  */
 
-import { assertHistoryAcknowledged, type SelectedRow, sql } from '@simmer-mosquito/db';
+import { assertHistoryAcknowledged, sql } from '@simmer-mosquito/db';
 import {
 	createGenusCommand,
 	createSpeciesCommand,
@@ -42,23 +42,13 @@ import {
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb, CommandTransaction } from '../command-write.js';
 import { genusSpeciesRule, speciesRecordRules } from '../record-history.js';
+import { type CommandRow, returnColumns } from '../return-columns.js';
 import type { OperatorTableCommands } from './dispatch.js';
 import { acknowledged, refusableWrite } from './shared.js';
 
-const GENUS_COLUMNS = ['id', 'abbreviation', 'name', 'created_at', 'updated_at'] as const;
-const SPECIES_COLUMNS = [
-	'id',
-	'genus_id',
-	'epithet',
-	'common_name',
-	'display_name',
-	'created_at',
-	'updated_at',
-] as const;
+type GenusRow = CommandRow<'genera'>;
 
-type GenusRow = SelectedRow<'genera', typeof GENUS_COLUMNS>;
-
-type SpeciesRow = SelectedRow<'species', typeof SPECIES_COLUMNS>;
+type SpeciesRow = CommandRow<'species'>;
 
 async function writeGenusCommand(
 	trx: CommandTransaction,
@@ -73,7 +63,7 @@ async function writeGenusCommand(
 					abbreviation: command.payload.abbreviation,
 					name: command.payload.name,
 				})
-				.returning(GENUS_COLUMNS)
+				.returning(returnColumns.genera)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -100,7 +90,7 @@ async function writeGenusCommand(
 					updated_at: sql`now()`,
 				})
 				.where('id', '=', command.payload.genusId)
-				.returning(GENUS_COLUMNS)
+				.returning(returnColumns.genera)
 				.executeTakeFirst();
 			return row ?? null;
 		}
@@ -112,7 +102,7 @@ async function writeGenusCommand(
 					trx
 						.deleteFrom('genera')
 						.where('id', '=', command.payload.genusId)
-						.returning(GENUS_COLUMNS)
+						.returning(returnColumns.genera)
 						.executeTakeFirst(),
 				{
 					inUse: {
@@ -143,7 +133,7 @@ async function writeSpeciesCommand(
 					common_name: command.payload.commonName,
 					display_name: command.payload.displayName,
 				})
-				.returning(SPECIES_COLUMNS)
+				.returning(returnColumns.species)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -174,7 +164,7 @@ async function writeSpeciesCommand(
 					updated_at: sql`now()`,
 				})
 				.where('id', '=', command.payload.speciesId)
-				.returning(SPECIES_COLUMNS)
+				.returning(returnColumns.species)
 				.executeTakeFirst();
 			return row ?? null;
 		}
@@ -184,7 +174,7 @@ async function writeSpeciesCommand(
 					trx
 						.deleteFrom('species')
 						.where('id', '=', command.payload.speciesId)
-						.returning(SPECIES_COLUMNS)
+						.returning(returnColumns.species)
 						.executeTakeFirst(),
 				{
 					inUse: {

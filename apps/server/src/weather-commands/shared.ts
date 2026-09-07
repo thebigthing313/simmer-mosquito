@@ -25,11 +25,12 @@
  * sync to every organization. Every insert below sets it.
  */
 
-import { localDateColumn, type SelectedRow, sql } from '@simmer-mosquito/db';
+import { localDateColumn, sql } from '@simmer-mosquito/db';
 import type { MiddlewareHandler } from 'hono';
 import type { AuthVariables } from '../auth-middleware.js';
 import { CommandError } from '../command-endpoint.js';
 import type { CommandDb, CommandTransaction } from '../command-write.js';
+import type { CommandRow } from '../return-columns.js';
 
 export type WeatherDb = CommandDb;
 export type WeatherTransaction = CommandTransaction;
@@ -44,54 +45,9 @@ export interface RouteOptions {
 // Response shaping
 // ===========================================================================
 
-/**
- * `geom` and `geojson` are absent for the same reason they are absent from the
- * client's row schema: geometry is served by the `/map/*` endpoints, and the
- * generated `lat`/`lng`/`geom_type` columns are what a collection carries.
- */
-export const weatherStationReturnColumns = [
-	'id',
-	'organization_id',
-	'lat',
-	'lng',
-	'geom_type',
-	'source_type',
-	'source_name',
-	'source_code',
-	'provider_source_id',
-	'is_active',
-	'metadata',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
+export type WeatherStationRow = CommandRow<'weather_sources'>;
 
-export type WeatherStationRow = SelectedRow<'weather_sources', typeof weatherStationReturnColumns>;
-
-export const weatherSummaryReturnColumns = [
-	'id',
-	'organization_id',
-	'weather_source_id',
-	'start_date',
-	'end_date',
-	'temperature_min_f',
-	'temperature_max_f',
-	'precipitation_inches',
-	'relative_humidity_min',
-	'relative_humidity_max',
-	'wind_speed_min_mph',
-	'wind_speed_max_mph',
-	'created_by_profile_id',
-	'updated_by_profile_id',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type WeatherSummaryRow = SelectedRow<
-	'weather_summaries',
-	typeof weatherSummaryReturnColumns
->;
+export type WeatherSummaryRow = CommandRow<'weather_summaries'>;
 
 // ===========================================================================
 // Scoped reads

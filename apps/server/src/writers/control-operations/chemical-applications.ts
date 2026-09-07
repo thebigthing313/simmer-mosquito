@@ -10,6 +10,7 @@ import type {
 	ControlOperationsCommand,
 	RecordChemicalApplicationForMissionItemCommand,
 } from '@simmer-mosquito/domain';
+import { returnColumns } from '../../return-columns.js';
 import {
 	assertMissionGeometryCovered,
 	beginMissionExecution,
@@ -20,7 +21,6 @@ import {
 import {
 	type ApplicationRow,
 	type ApplicationUpdateColumns,
-	applicationReturnColumns,
 	type ControlOperationsTransaction,
 	contextIds,
 	insertApplicationBatch,
@@ -128,7 +128,7 @@ async function writeMissionApplication(
 				updated_by_profile_id: payload.actorProfileId,
 			}),
 		)
-		.returning(applicationReturnColumns)
+		.returning(returnColumns.applications)
 		.executeTakeFirstOrThrow();
 	for (const batch of payload.applicationBatches) {
 		await insertApplicationBatch(trx, {
@@ -185,7 +185,7 @@ export async function writeApplicationCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(applicationReturnColumns)
+				.returning(returnColumns.applications)
 				.executeTakeFirstOrThrow();
 			for (const batch of command.payload.applicationBatches) {
 				await insertApplicationBatch(trx, {
@@ -266,7 +266,7 @@ export async function writeApplicationCommand(
 				command.payload.applicationId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				applicationReturnColumns,
+				returnColumns.applications,
 			);
 		default:
 			throw new Error(`Unsupported application command: ${command.type}`);
@@ -341,7 +341,7 @@ async function updateApplication(
 		.where('id', '=', applicationId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
-		.returning(applicationReturnColumns)
+		.returning(returnColumns.applications)
 		.executeTakeFirst();
 	return row ?? null;
 }

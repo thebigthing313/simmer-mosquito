@@ -9,11 +9,11 @@ import {
 } from '@simmer-mosquito/db';
 import type { LarvalSurveillanceCommand } from '@simmer-mosquito/domain';
 import { CommandError } from '../../command-endpoint.js';
+import { returnColumns } from '../../return-columns.js';
 import {
 	geojsonToGeom,
 	type HabitatRow,
 	type HabitatUpdateColumns,
-	habitatReturnColumns,
 	habitatTypeReferences,
 	type LarvalSurveillanceTransaction,
 	resolveLocationGeom,
@@ -63,7 +63,7 @@ export async function writeHabitatCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(habitatReturnColumns)
+				.returning(returnColumns.habitats)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -95,7 +95,7 @@ export async function writeHabitatCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(habitatReturnColumns)
+				.returning(returnColumns.habitats)
 				.executeTakeFirstOrThrow();
 			await updateRow(
 				trx,
@@ -216,7 +216,7 @@ export async function writeHabitatCommand(
 					sourceId,
 					command.payload.organizationId,
 					command.payload.actorProfileId,
-					habitatReturnColumns,
+					returnColumns.habitats,
 				);
 			}
 			// The survivor, unchanged: a merge picks which habitat is authoritative
@@ -224,7 +224,7 @@ export async function writeHabitatCommand(
 			// into it.
 			const row = await trx
 				.selectFrom('habitats')
-				.select(habitatReturnColumns)
+				.select(returnColumns.habitats)
 				.where('id', '=', command.payload.targetHabitatId)
 				.where('organization_id', '=', command.payload.organizationId)
 				.where('deleted_at', 'is', null)
@@ -253,7 +253,7 @@ export async function writeHabitatCommand(
 				.where('id', '=', command.payload.habitatId)
 				.where('organization_id', '=', command.payload.organizationId)
 				.where('deleted_at', 'is', null)
-				.returning(habitatReturnColumns)
+				.returning(returnColumns.habitats)
 				.executeTakeFirst();
 			return row ?? null;
 		}
@@ -268,7 +268,7 @@ async function updateHabitat(
 	organizationId: string,
 	set: HabitatUpdateColumns,
 ): Promise<HabitatRow | null> {
-	return updateRow(trx, 'habitats', habitatId, organizationId, set, habitatReturnColumns);
+	return updateRow(trx, 'habitats', habitatId, organizationId, set, returnColumns.habitats);
 }
 
 async function loadInspectionSnapshot(

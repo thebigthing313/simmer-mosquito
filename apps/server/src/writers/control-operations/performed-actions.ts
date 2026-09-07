@@ -10,6 +10,7 @@ import type {
 	RecordOutreachActionForMissionItemCommand,
 	RecordSourceReductionForMissionItemCommand,
 } from '@simmer-mosquito/domain';
+import { returnColumns } from '../../return-columns.js';
 import {
 	assertMissionGeometryCovered,
 	beginMissionExecution,
@@ -19,17 +20,14 @@ import {
 } from '../mission-dispatch/mission-execution.js';
 import {
 	type BiocontrolActionRow,
-	biocontrolActionReturnColumns,
 	type ControlOperationsTransaction,
 	contextIds,
 	localDateColumn,
 	locationContextColumns,
 	type OutreachActionRow,
-	outreachActionReturnColumns,
 	resolveGeom,
 	type SourceReductionRow,
 	softDelete,
-	sourceReductionReturnColumns,
 	updateActionRow,
 } from './shared.js';
 
@@ -88,7 +86,7 @@ async function writeMissionSourceReduction(
 				updated_by_profile_id: payload.actorProfileId,
 			}),
 		)
-		.returning(sourceReductionReturnColumns)
+		.returning(returnColumns.source_reductions)
 		.executeTakeFirstOrThrow();
 	await assertMissionGeometryCovered(trx, payload, payload.sourceReductionId, 'source_reductions');
 	await finishMissionExecution(trx, payload, stop);
@@ -129,7 +127,7 @@ async function writeMissionOutreachAction(
 				updated_by_profile_id: payload.actorProfileId,
 			}),
 		)
-		.returning(outreachActionReturnColumns)
+		.returning(returnColumns.outreach_actions)
 		.executeTakeFirstOrThrow();
 	await assertMissionGeometryCovered(trx, payload, payload.outreachActionId, 'outreach_actions');
 	await finishMissionExecution(trx, payload, stop);
@@ -171,7 +169,7 @@ async function writeMissionBiocontrolAction(
 				updated_by_profile_id: payload.actorProfileId,
 			}),
 		)
-		.returning(biocontrolActionReturnColumns)
+		.returning(returnColumns.biocontrol_actions)
 		.executeTakeFirstOrThrow();
 	await assertMissionGeometryCovered(
 		trx,
@@ -253,7 +251,7 @@ export async function writeSourceReductionCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(sourceReductionReturnColumns)
+				.returning(returnColumns.source_reductions)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -297,7 +295,7 @@ export async function writeSourceReductionCommand(
 					...('metadata' in changes ? { metadata: changes.metadata ?? null } : {}),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				sourceReductionReturnColumns,
+				returnColumns.source_reductions,
 			);
 		}
 		case 'controlOperations.updateSourceReductionLocationAndContext':
@@ -315,7 +313,7 @@ export async function writeSourceReductionCommand(
 					)),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				sourceReductionReturnColumns,
+				returnColumns.source_reductions,
 			);
 		case 'controlOperations.deleteSourceReduction':
 			await applyRecordDeletion(trx, {
@@ -333,7 +331,7 @@ export async function writeSourceReductionCommand(
 				command.payload.sourceReductionId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				sourceReductionReturnColumns,
+				returnColumns.source_reductions,
 			);
 		default:
 			throw new Error(`Unsupported source reduction command: ${command.type}`);
@@ -378,7 +376,7 @@ export async function writeOutreachActionCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(outreachActionReturnColumns)
+				.returning(returnColumns.outreach_actions)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -420,7 +418,7 @@ export async function writeOutreachActionCommand(
 					...('metadata' in changes ? { metadata: changes.metadata ?? null } : {}),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				outreachActionReturnColumns,
+				returnColumns.outreach_actions,
 			);
 		}
 		case 'controlOperations.updateOutreachActionLocationAndContext':
@@ -438,7 +436,7 @@ export async function writeOutreachActionCommand(
 					)),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				outreachActionReturnColumns,
+				returnColumns.outreach_actions,
 			);
 		case 'controlOperations.deleteOutreachAction':
 			await applyRecordDeletion(trx, {
@@ -456,7 +454,7 @@ export async function writeOutreachActionCommand(
 				command.payload.outreachActionId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				outreachActionReturnColumns,
+				returnColumns.outreach_actions,
 			);
 		default:
 			throw new Error(`Unsupported outreach action command: ${command.type}`);
@@ -502,7 +500,7 @@ export async function writeBiocontrolActionCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(biocontrolActionReturnColumns)
+				.returning(returnColumns.biocontrol_actions)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -542,7 +540,7 @@ export async function writeBiocontrolActionCommand(
 					...('metadata' in changes ? { metadata: changes.metadata ?? null } : {}),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				biocontrolActionReturnColumns,
+				returnColumns.biocontrol_actions,
 			);
 		}
 		case 'controlOperations.updateBiocontrolActionLocationAndContext':
@@ -560,7 +558,7 @@ export async function writeBiocontrolActionCommand(
 					)),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				biocontrolActionReturnColumns,
+				returnColumns.biocontrol_actions,
 			);
 		case 'controlOperations.deleteBiocontrolAction':
 			await applyRecordDeletion(trx, {
@@ -578,7 +576,7 @@ export async function writeBiocontrolActionCommand(
 				command.payload.biocontrolActionId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				biocontrolActionReturnColumns,
+				returnColumns.biocontrol_actions,
 			);
 		default:
 			throw new Error(`Unsupported biocontrol action command: ${command.type}`);

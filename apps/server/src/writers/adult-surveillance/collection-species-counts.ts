@@ -1,9 +1,9 @@
 import { checkedValues, sql, updateRow } from '@simmer-mosquito/db';
 import type { AdultSurveillanceCommand } from '@simmer-mosquito/domain';
+import { returnColumns } from '../../return-columns.js';
 import {
 	type AdultSurveillanceTransaction,
 	type CollectionSpeciesRow,
-	collectionSpeciesReturnColumns,
 	localDateColumn,
 } from './shared.js';
 
@@ -35,7 +35,7 @@ export async function writeCollectionSpeciesCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(collectionSpeciesReturnColumns)
+				.returning(returnColumns.collection_species)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -59,7 +59,7 @@ export async function writeCollectionSpeciesCommand(
 						: {}),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				collectionSpeciesReturnColumns,
+				returnColumns.collection_species,
 			);
 		}
 		case 'adultSurveillance.deleteCollectionSpeciesCount': {
@@ -74,7 +74,7 @@ export async function writeCollectionSpeciesCommand(
 				.where('id', '=', command.payload.collectionSpeciesId)
 				.where('organization_id', '=', command.payload.organizationId)
 				.where('deleted_at', 'is', null)
-				.returning(collectionSpeciesReturnColumns)
+				.returning(returnColumns.collection_species)
 				.executeTakeFirst();
 			return row ?? null;
 		}

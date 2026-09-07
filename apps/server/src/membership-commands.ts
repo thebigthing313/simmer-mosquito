@@ -46,7 +46,6 @@ import type { WorkOsAuth } from '@simmer-mosquito/auth';
 import {
 	checkedValues,
 	type Kysely,
-	type SelectedRow,
 	type SimmerDatabase,
 	type SimmerRole,
 	type StageOrganizationInvitationErrorCode,
@@ -60,6 +59,7 @@ import { CommandError } from './command-endpoint.js';
 import type { CommandDb, CommandTransaction } from './command-write.js';
 import { refuseInvitationRevoke, refuseInvitationSend } from './invitation-refusal.js';
 import { forgetInvitation, stampInvitation } from './invitation-stamp.js';
+import { type CommandRow, returnColumns } from './return-columns.js';
 import { canGrantRole, forbidden } from './roles.js';
 import {
 	workOsIdentityWritesDisabled,
@@ -80,26 +80,7 @@ export type MembershipAuth = Pick<
 	'sendOrganizationInvitation' | 'revokeInvitation' | 'deactivateOrganizationMembership'
 >;
 
-/**
- * What a client is told about a Membership.
- *
- * The two withheld columns are absent here as well as from the sync shape. A
- * command response that carried them would put an invited address on a screen the
- * shape deliberately keeps it off.
- */
-const membershipReturnColumns = [
-	'id',
-	'organization_id',
-	'user_id',
-	'profile_id',
-	'role',
-	'status',
-	'is_default',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type MembershipRow = SelectedRow<'memberships', typeof membershipReturnColumns>;
+export type MembershipRow = CommandRow<'memberships'>;
 
 /**
  * Whether an actor may hand out a role, as a refusal rather than a boolean.
@@ -176,7 +157,7 @@ async function writeInvitation(
 ): Promise<MembershipRow> {
 	const alreadyWritten = await trx
 		.selectFrom('memberships')
-		.select(membershipReturnColumns)
+		.select(returnColumns.memberships)
 		.where('id', '=', payload.membershipId)
 		.where('organization_id', '=', payload.organizationId)
 		.executeTakeFirst();
@@ -223,7 +204,7 @@ async function writeInvitation(
 				workos_invitation_id: null,
 			}),
 		)
-		.returning(membershipReturnColumns)
+		.returning(returnColumns.memberships)
 		.executeTakeFirstOrThrow();
 
 	return inserted;
@@ -371,7 +352,7 @@ async function setMembershipColumns(
 		.set({ ...set, updated_at: sql`now()` } as never)
 		.where('id', '=', membershipId)
 		.where('organization_id', '=', organizationId)
-		.returning(membershipReturnColumns)
+		.returning(returnColumns.memberships)
 		.executeTakeFirst();
 
 	return row ?? null;

@@ -1,11 +1,7 @@
 import { checkedValues } from '@simmer-mosquito/db';
 import { type FieldWorkCommand, toDbEntityType } from '@simmer-mosquito/domain';
-import {
-	type AdditionalPersonnelRow,
-	additionalPersonnelReturnColumns,
-	type FieldWorkTransaction,
-	softDelete,
-} from './shared.js';
+import { returnColumns } from '../../return-columns.js';
+import { type AdditionalPersonnelRow, type FieldWorkTransaction, softDelete } from './shared.js';
 
 // ===========================================================================
 // Additional personnel
@@ -30,7 +26,7 @@ export async function writeAdditionalPersonnelCommand(
 						updated_by_profile_id: command.payload.actorProfileId,
 					}),
 				)
-				.returning(additionalPersonnelReturnColumns)
+				.returning(returnColumns.additional_personnel)
 				.executeTakeFirstOrThrow();
 			return row;
 		}
@@ -41,7 +37,7 @@ export async function writeAdditionalPersonnelCommand(
 				command.payload.additionalPersonnelId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				additionalPersonnelReturnColumns,
+				returnColumns.additional_personnel,
 			);
 		default:
 			throw new Error(`Unsupported additional personnel command: ${command.type}`);

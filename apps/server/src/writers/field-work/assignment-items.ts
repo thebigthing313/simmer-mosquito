@@ -1,10 +1,10 @@
 import { checkedValues, sql } from '@simmer-mosquito/db';
 import { type FieldWorkCommand, toDbEntityType } from '@simmer-mosquito/domain';
 import { nextItemPosition } from '../../ordered-items.js';
+import { returnColumns } from '../../return-columns.js';
 import { assertItemProgress } from './assignment-lifecycle.js';
 import {
 	type AssignmentItemRow,
-	assignmentItemReturnColumns,
 	assignmentPlacementRef,
 	type FieldWorkTransaction,
 	softDelete,
@@ -69,7 +69,7 @@ export async function writeAssignmentItemCommand(
 						: {}),
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				assignmentItemReturnColumns,
+				returnColumns.assignment_items,
 			);
 		case 'fieldWork.completeAssignmentItem':
 			await assertItemProgress(
@@ -93,7 +93,7 @@ export async function writeAssignmentItemCommand(
 					skip_reason: null,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				assignmentItemReturnColumns,
+				returnColumns.assignment_items,
 			);
 		case 'fieldWork.reopenAssignmentItem':
 			await assertItemProgress(
@@ -115,7 +115,7 @@ export async function writeAssignmentItemCommand(
 					completed_by_profile_id: null,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				assignmentItemReturnColumns,
+				returnColumns.assignment_items,
 			);
 		case 'fieldWork.skipAssignmentItem':
 			await assertItemProgress(
@@ -138,7 +138,7 @@ export async function writeAssignmentItemCommand(
 					completed_by_profile_id: null,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				assignmentItemReturnColumns,
+				returnColumns.assignment_items,
 			);
 		case 'fieldWork.unskipAssignmentItem':
 			await assertItemProgress(
@@ -159,7 +159,7 @@ export async function writeAssignmentItemCommand(
 					skip_reason: null,
 					updated_by_profile_id: command.payload.actorProfileId,
 				},
-				assignmentItemReturnColumns,
+				returnColumns.assignment_items,
 			);
 		case 'fieldWork.removeAssignmentItem':
 			return softDelete(
@@ -168,7 +168,7 @@ export async function writeAssignmentItemCommand(
 				command.payload.assignmentItemId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				assignmentItemReturnColumns,
+				returnColumns.assignment_items,
 			);
 		default:
 			throw new Error(`Unsupported assignment item command: ${command.type}`);
@@ -182,7 +182,7 @@ async function loadAssignmentItem(
 ): Promise<AssignmentItemRow | null> {
 	const row = await trx
 		.selectFrom('assignment_items')
-		.select(assignmentItemReturnColumns)
+		.select(returnColumns.assignment_items)
 		.where('id', '=', assignmentItemId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)

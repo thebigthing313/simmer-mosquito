@@ -1,5 +1,6 @@
-import { geojsonToGeom, type SelectedRow, softDelete, updateRow } from '@simmer-mosquito/db';
+import { geojsonToGeom, softDelete, updateRow } from '@simmer-mosquito/db';
 import type { CommandTransaction } from '../../command-write.js';
+import type { CommandRow } from '../../return-columns.js';
 
 export type FoundationTransaction = CommandTransaction;
 export { geojsonToGeom, softDelete, updateRow };
@@ -8,39 +9,8 @@ export { geojsonToGeom, softDelete, updateRow };
 // Response shaping
 // ===========================================================================
 
-export const regionFolderReturnColumns = [
-	'id',
-	'organization_id',
-	'name',
-	'description',
-	'created_at',
-	'updated_at',
-] as const;
+export type RegionFolderRow = CommandRow<'region_folders'>;
 
-export type RegionFolderRow = SelectedRow<'region_folders', typeof regionFolderReturnColumns>;
+export type RegionRow = CommandRow<'regions'>;
 
-export const regionReturnColumns = [
-	'id',
-	'organization_id',
-	'region_folder_id',
-	'name',
-	'description',
-	'metadata',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type RegionRow = SelectedRow<'regions', typeof regionReturnColumns>;
-
-export const organizationSpeciesReturnColumns = [
-	'id',
-	'organization_id',
-	'species_id',
-	'created_at',
-	'updated_at',
-] as const;
-
-export type OrganizationSpeciesRow = SelectedRow<
-	'organization_species',
-	typeof organizationSpeciesReturnColumns
->;
+export type OrganizationSpeciesRow = CommandRow<'organization_species'>;

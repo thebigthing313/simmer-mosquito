@@ -1,7 +1,7 @@
 import type { ControlOperationsCommand } from '@simmer-mosquito/domain';
+import { returnColumns } from '../../return-columns.js';
 import {
 	type ApplicationBatchRow,
-	applicationBatchReturnColumns,
 	type ControlOperationsTransaction,
 	insertApplicationBatch,
 	softDelete,
@@ -31,7 +31,7 @@ export async function writeApplicationBatchCommand(
 			command.payload.applicationBatchId,
 			command.payload.organizationId,
 			command.payload.actorProfileId,
-			applicationBatchReturnColumns,
+			returnColumns.application_batches,
 		);
 	}
 	throw new Error(`Unsupported application batch command: ${command.type}`);

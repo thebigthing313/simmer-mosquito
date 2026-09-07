@@ -1,6 +1,7 @@
 import { sql } from '@simmer-mosquito/db';
 import type { MissionDispatchCommand, MissionItemPlacement } from '@simmer-mosquito/domain';
 import { moveItems, nextItemPosition } from '../../ordered-items.js';
+import { returnColumns } from '../../return-columns.js';
 import {
 	assertActualActionContextChangeAcknowledged,
 	assertActualActionDetachAcknowledged,
@@ -19,7 +20,6 @@ import {
 	loadOr404,
 	type MissionDispatchTransaction,
 	type MissionItemRow,
-	missionItemReturnColumns,
 	resolveItemGeom,
 	softDelete,
 	updateRow,
@@ -311,7 +311,7 @@ export async function writeMissionItemCommand(
 				command.payload.missionItemId,
 				command.payload.organizationId,
 				command.payload.actorProfileId,
-				missionItemReturnColumns,
+				returnColumns.mission_items,
 			);
 		case 'missionDispatch.moveMissionItems': {
 			await moveMissionItemRows(trx, command.payload);
@@ -365,7 +365,7 @@ async function updateMissionItemRow(
 		missionItemId,
 		organizationId,
 		set,
-		missionItemReturnColumns,
+		returnColumns.mission_items,
 	);
 }
 
@@ -376,7 +376,7 @@ async function loadMissionItem(
 ): Promise<MissionItemRow | null> {
 	const row = await trx
 		.selectFrom('mission_items')
-		.select(missionItemReturnColumns)
+		.select(returnColumns.mission_items)
 		.where('id', '=', missionItemId)
 		.where('organization_id', '=', organizationId)
 		.where('deleted_at', 'is', null)
