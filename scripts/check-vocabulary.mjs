@@ -121,6 +121,10 @@
  * rather than trying to read it: `commentsInJsxText` in `copy-strings.mjs` finds
  * a comment on lines of its own between two tags, and this reports it as a bug
  * in the page rather than a question about vocabulary (#588).
+ *
+ * The marker frame itself is in `lib/style-gate.mjs`, shared with the two dash
+ * gates. What stays here is the part that is about a word: the register, the
+ * `<word>` a marker names after it, and why a marker exempts nothing.
  */
 
 import { readFileSync } from 'node:fs';
@@ -130,9 +134,20 @@ import { fileURLToPath } from 'node:url';
 import { commentsInJsxText, copyStrings } from './lib/copy-strings.mjs';
 import { maskedSource } from './lib/masked-source.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
+import {
+	count,
+	failure,
+	markersAcross,
+	markersIn,
+	reasonOf,
+	reasonProblem,
+	trim,
+} from './lib/style-gate.mjs';
 
+const GATE = 'check-vocabulary';
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REGISTER = join(workspaceRoot, 'CONTEXT.md');
+const fail = failure(GATE);
 
 /**
  * The roots holding user-facing copy. The server and the packages ship no
@@ -346,7 +361,7 @@ function readFile(root, file) {
 		where,
 		lines,
 		findings: findingsIn(source, where),
-		markers: markersIn(lines, masked, where),
+		markers: markersOf(lines, masked, where),
 		rendered: renderedIn(source, where),
 	};
 }
@@ -405,41 +420,12 @@ const lineOf = (source, index) => source.slice(0, index).split('\n').length;
 // The markers
 // ---------------------------------------------------------------------------
 
-/**
- * Every marker in one file, well formed or not, and what each one is above.
- *
- * The sweep is for the word `vocabulary-ignore` anywhere in the file rather than
- * for the marker shape, because a marker that does not parse is the case worth
- * catching. Somebody wrote it meaning to exempt something, and a scan that only
- * collected the ones matching the pattern would drop it on the floor and report
- * the copy below as unmarked, with nothing saying why the marker did not count.
- */
-function markersIn(lines, masked, where) {
-	const claimed = lines.flatMap((line, at) => (line.includes(MARKER_WORD) ? [at] : []));
-
-	return claimed.map((at) => ({
+/** Every marker in one file, well formed or not, and what each one is above. */
+const markersOf = (lines, masked, where) =>
+	markersIn(lines, MARKER_WORD, (at) => read(lines[at], masked[at])).map((marker) => ({
 		where,
-		line: at + 1,
-		target: targetOf(lines, at) + 1,
-		...read(lines[at], masked[at]),
+		...marker,
 	}));
-}
-
-/**
- * The line a marker is above: the first one below it that is not another marker.
- *
- * Markers stack, because one line of copy can say two refused words and each
- * needs its own reason. Nothing else may come between: a blank line or an
- * ordinary comment under a marker makes the marker exempt that line instead, and
- * it exempts nothing, which is the failure below.
- */
-function targetOf(lines, at) {
-	let target = at + 1;
-	while (target < lines.length && lines[target].includes(MARKER_WORD)) {
-		target += 1;
-	}
-	return target;
-}
 
 /**
  * One marker as `{ word, reason }`, or `{ problem }` saying what is wrong with
@@ -461,7 +447,7 @@ function read(line, masked) {
 	}
 
 	const word = marker[1];
-	const reason = marker[2].replace(/\*\/\s*\}?\s*$/, '').trim();
+	const reason = reasonOf(marker[2]);
 	return problemWith(word, reason) ?? { word, reason };
 }
 
@@ -472,16 +458,9 @@ function problemWith(word, reason) {
 			problem: `"${word}" is not a word this gate enforces, and ENFORCED holds ${ENFORCED.join(', ')}`,
 		};
 	}
-	if (reason.split(/\s+/).filter((each) => each.length > 0).length < 3) {
-		return { problem: 'it carries no reason, and the reason is the point of a marker' };
-	}
-	if (!reason.endsWith('.')) {
-		return {
-			problem:
-				'its reason does not end in a full stop, which is what the first line of a wrapped reason looks like. A marker is one line',
-		};
-	}
-	return null;
+
+	const problem = reasonProblem(reason);
+	return problem === null ? null : { problem };
 }
 
 // ---------------------------------------------------------------------------
@@ -631,19 +610,10 @@ function writeInstead({ terms, refused }, word) {
 }
 
 function announce(files, { terms, refused }) {
-	const markers = files.reduce((total, file) => total + file.markers.length, 0);
+	const markers = markersAcross(files);
 	console.log(
-		`check-vocabulary: ${terms.size} terms and ${refused.length} refused words in CONTEXT.md, ${ENFORCED.length} enforced (${ENFORCED.join(', ')}), ${count(markers, 'string')} exempted by a marker and no others.`,
+		`${GATE}: ${terms.size} terms and ${refused.length} refused words in CONTEXT.md, ${ENFORCED.length} enforced (${ENFORCED.join(', ')}), ${count(markers, 'string')} exempted by a marker and no others.`,
 	);
-}
-
-const trim = (copy) => (copy.length > 100 ? `${copy.slice(0, 100)}...` : copy);
-
-const count = (total, noun) => `${total} ${noun}${total === 1 ? '' : 's'}`;
-
-function fail(message) {
-	console.error(`check-vocabulary: ${message}`);
-	process.exit(1);
 }
 
 main();

@@ -150,6 +150,21 @@ jobs:
       - name: Prose
         run: pnpm check:prose
 
+      # The other half of the same rule, over what a user reads. `check:prose`
+      # reads no TypeScript and `check:vocabulary` enforces the `CONTEXT.md`
+      # register alone, so the dash rule bound on copy through `CLAUDE.md` and
+      # nothing checked it: 62 em dashes and 4 spaced en dashes had collected
+      # there while `docs/` sat at zero (#584). This reads the same copy
+      # `check:vocabulary` does, through the same `copyStrings`, for the same
+      # two dashes. A whole string literal that is nothing but the em dash
+      # passes, because `docs/writing-style.md` says the ban is on punctuation
+      # inside a sentence and `AbsentValue` draws the glyph. A template chunk
+      # padded with spaces between two interpolations is a separator rather than
+      # a lone glyph, so it fails. At zero with no allowance, and a dash that is
+      # right carries a `// copy-dash-ignore:` marker on the line above.
+      - name: Copy dashes
+        run: pnpm check:copy-dashes
+
       # `packages/db/src/tables.ts` is generated from `packages/db/schema.sql`,
       # the schema dbmate dumps on migrate. This runs the generator and fails on
       # any difference, which covers both a hand edit and a migration whose

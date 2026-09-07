@@ -64,15 +64,30 @@ first paint".
 - No decorative emoji.
 - Straight quotes.
 
-The dash rule is the one a machine can hold, and `pnpm check:prose` holds it.
-Biome reads no markdown, so nothing checked a word of this document's own
-subject until #594, and fourteen em dashes had collected under `docs/`. The gate
-reads every tracked `.md` except the generated changelogs, for an em dash
-anywhere and an en dash between spaces. An unspaced en dash in a range is
-correct and is left alone. A dash that is right carries a marker on the line
-above, `<!-- prose-ignore: one sentence ending in a full stop. -->`, and a
-marker that excuses nothing fails. Nothing else here is gated, and the rest of
-this document binds the same either way.
+The dash rule is the one a machine can hold, and two gates hold it.
+
+`pnpm check:prose` has the markdown. Biome reads no markdown, so nothing checked
+a word of this document's own subject until #594, and fourteen em dashes had
+collected under `docs/`. The gate reads every tracked `.md` except the generated
+changelogs, for an em dash anywhere and an en dash between spaces. An unspaced
+en dash in a range is correct and is left alone. A dash that is right carries a
+marker on the line above, and a marker that excuses nothing fails. The marker is
+`<!-- prose-ignore: one sentence ending in a full stop. -->`.
+
+`pnpm check:copy-dashes` has the copy, which was carrying 62 em dashes and 4
+spaced en dashes while `docs/` sat at zero (#584). It reads the string literals
+and JSX text in the three apps that ship screens, through the same `copyStrings`
+that `pnpm check:vocabulary` reads, for the same two dashes. The standalone
+glyph passes: a whole string literal that is nothing but the em dash is the UI
+symbol carved out above. A template's fixed chunk between two interpolations is
+not, because that is a separator in the middle of one sentence. Its marker is
+`// copy-dash-ignore: one sentence ending in a full stop.` and it carries the
+same two rules.
+
+Code comments are read by neither, and that is measured rather than assumed:
+3,059 em dashes live in `.ts`, `.tsx` and `.mjs` here, so widening either gate
+is a sweep and not a flag. Nothing else in this document is gated, and the rest
+of it binds the same either way.
 
 ## Talking to the user
 
