@@ -1,10 +1,13 @@
 import {
+	basePayload,
 	createIssues,
 	actorDefaultProfileId as normalizeActorDefaultProfileId,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 	validateNotFutureLocalDate,
 } from '../command-validation.js';
 import type {
@@ -19,13 +22,10 @@ import {
 	normalizeLarvalInspectionResult,
 } from '../surveillance-records.js';
 import {
-	basePayload,
 	type LarvalCommandInput,
 	type LarvalCommandPayload,
 	type LarvalDomainCommand,
 	validateAdHocInspectionLocationSourceInput,
-	validateBase,
-	validateIdCommand,
 } from './shared.js';
 
 export type {

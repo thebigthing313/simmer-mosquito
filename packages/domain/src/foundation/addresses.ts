@@ -2,24 +2,24 @@ import {
 	createIssues,
 	jsonObject as normalizeJsonObject,
 	nullableText as normalizeNullableText,
+	normalizeRequiredDomainId,
 	requiredText as normalizeRequiredText,
+	organizationPayload,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateIdList,
+	validateOrganizationBase,
+	validateOrganizationIdCommand,
+	validatePointGeometry,
 } from '../command-validation.js';
 import type { DomainId, GeoJsonPoint, JsonObject } from '../shared.js';
 import {
 	type FoundationDomainCommand,
 	normalizeCountry,
 	normalizePostalCode,
-	normalizeRequiredDomainId,
 	normalizeUsRegion,
 	type OrganizationFoundationCommandInput,
 	type OrganizationFoundationCommandPayload,
-	organizationPayload,
-	validateIdList,
-	validateOrganizationBase,
-	validateOrganizationIdCommand,
-	validatePointGeometry,
 } from './shared.js';
 
 export interface CreateAddressCommandInput extends OrganizationFoundationCommandInput {
@@ -120,7 +120,7 @@ export function createAddressCommand(input: CreateAddressCommandInput): CreateAd
 	validateOrganizationBase(input, issues);
 	requireUuid(input.addressId, 'addressId', issues);
 	const displayName = normalizeRequiredText(input.displayName, 'displayName', issues, 200);
-	const geometry = validatePointGeometry(input.geometry, 'geometry', issues);
+	const geometry = validatePointGeometry('address', input.geometry, 'geometry', issues);
 	const country = normalizeCountry(input.country, issues);
 	const region = normalizeUsRegion(input.region, 'region', issues);
 	const postalCode = normalizePostalCode(input.postalCode, 'postalCode', issues);
@@ -207,7 +207,7 @@ export function updateAddressLocationCommand(
 	input: UpdateAddressLocationCommandInput,
 ): UpdateAddressLocationCommand {
 	const issues = validateOrganizationIdCommand(input, 'addressId');
-	const geometry = validatePointGeometry(input.geometry, 'geometry', issues);
+	const geometry = validatePointGeometry('address', input.geometry, 'geometry', issues);
 	throwIfIssues('Update address location command is invalid.', issues);
 	return {
 		type: 'foundation.updateAddressLocation',

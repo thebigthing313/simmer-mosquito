@@ -1,19 +1,12 @@
-import {
-	createIssues,
-	requiredId as normalizeRequiredId,
-	validateLocalDate,
-	validateOrganizationCommandContext,
-} from '../command-validation.js';
+import { createIssues, validateLocalDate } from '../command-validation.js';
 import {
 	type DomainId,
 	DomainValidationError,
 	type DomainValidationIssue,
-	type GeoJsonPoint,
 	type LocalDateString,
-	normalizeOwnedGeometry,
 } from '../shared.js';
 
-export const WEATHER_METRIC_DECIMAL_PLACES = 2;
+const WEATHER_METRIC_DECIMAL_PLACES = 2;
 export const MAX_WEATHER_IMPORT_ROWS = 5_000;
 
 export const WEATHER_SUMMARY_METRIC_FIELDS = [
@@ -26,9 +19,9 @@ export const WEATHER_SUMMARY_METRIC_FIELDS = [
 	'windSpeedMaxMph',
 ] as const;
 
-export type WeatherSummaryMetricField = (typeof WEATHER_SUMMARY_METRIC_FIELDS)[number];
+type WeatherSummaryMetricField = (typeof WEATHER_SUMMARY_METRIC_FIELDS)[number];
 
-export const WEATHER_METRIC_BOUNDS: Readonly<
+const WEATHER_METRIC_BOUNDS: Readonly<
 	Record<WeatherSummaryMetricField, Readonly<{ min: number; max: number }>>
 > = {
 	temperatureMinF: { min: -100, max: 160 },
@@ -83,31 +76,6 @@ export interface ExpectedUpdatedAtInput {
 
 export interface ExpectedUpdatedAtPayload {
 	readonly expectedUpdatedAt: Date | null;
-}
-
-export function validateBase(input: WeatherCommandInput, issues: DomainValidationIssue[]): void {
-	validateOrganizationCommandContext(input, issues);
-}
-
-export function basePayload(input: WeatherCommandInput): WeatherCommandPayload {
-	return validateOrganizationCommandContext(input, createIssues());
-}
-
-/** A Weather Source's geometry, against the Weather Station policy. */
-export function validatePointGeometry(
-	value: unknown,
-	path: string,
-	issues: DomainValidationIssue[],
-): GeoJsonPoint {
-	try {
-		return normalizeOwnedGeometry('weatherStation', value, path);
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			issues.push(...error.issues);
-			return { type: 'Point', coordinates: [0, 0] };
-		}
-		throw error;
-	}
 }
 
 export function normalizeExpectedUpdatedAt(
@@ -205,7 +173,7 @@ export function normalizeSummaryMetrics(
 	};
 }
 
-export type MutableMetricPatch = {
+type MutableMetricPatch = {
 	-readonly [K in keyof WeatherSummaryMetrics]?: WeatherSummaryMetrics[K];
 };
 
@@ -335,8 +303,4 @@ function hasMaxDecimalPlaces(value: number, places: number): boolean {
 	const factor = 10 ** places;
 	const scaled = value * factor;
 	return Math.abs(scaled - Math.round(scaled)) < Number.EPSILON * factor;
-}
-
-export function normalizeRequiredDomainId(value: DomainId): DomainId {
-	return normalizeRequiredId(value);
 }

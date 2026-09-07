@@ -5,10 +5,14 @@ export * from './column-vocabularies.js';
  * The clock-skew allowance, and nothing else from `command-validation.js`.
  *
  * The rest of that module is the builders' own validation machinery and stays
- * internal. This constant is public because the *server* needs it too: a
- * context-dependent rule that compares a device timestamp against a stored one
- * has to allow the same drift the pure builders already allow, and two copies of
- * "two minutes" would be two things to keep in step.
+ * internal, the twelve primitives #646 collapsed into it included. They are
+ * how a command builder is written, not something a caller of one needs, and
+ * `validateBase` and `basePayload` only ever reached this surface because the
+ * weather barrel wrote `export *` over the file declaring them. This constant
+ * is public because the *server* needs it: a context-dependent rule that
+ * compares a device timestamp against a stored one has to allow the same drift
+ * the pure builders already allow, and two copies of "two minutes" would be two
+ * things to keep in step.
  */
 export { CLOCK_SKEW_TOLERANCE_MS, isFutureBeyondClockSkew } from './command-validation.js';
 export type {

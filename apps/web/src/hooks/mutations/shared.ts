@@ -81,10 +81,13 @@ const clockSkewMarginMs = 2_000;
  * `updated_at` is stripped from the outgoing body, and a `started_at` is not.
  * Lifecycle commands take the moment the work happened, so a device that was
  * offline can state it, and the server validates that moment against its own
- * clock with no tolerance — a browser running two seconds fast has every one of
- * these refused as "in the future" (issue #37).
+ * clock. It once did so with no tolerance at all, and a browser running two
+ * seconds fast had every one of these refused as "in the future" (issue #37).
+ * Since #646 collapsed the twelve command primitives, every domain runs the one
+ * `normalizeOptionalTimestamp` and allows `CLOCK_SKEW_TOLERANCE_MS`, so the
+ * two seconds are no longer what stands between a fast clock and a refusal.
  *
- * Two seconds of backdating costs nothing: these are provenance timestamps
+ * They stay because backdating costs nothing: these are provenance timestamps
  * rather than measurements, and nothing reads them to the second.
  *
  * The alternative is to send nothing and let the server date it, which it does

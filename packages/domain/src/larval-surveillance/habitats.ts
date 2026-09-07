@@ -1,23 +1,23 @@
 import {
+	basePayload,
 	createIssues,
 	jsonObject as normalizeMetadata,
+	normalizeNullableText,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 } from '../command-validation.js';
 import type { HabitatLocationSource, HabitatLocationSourceInput } from '../location-intent.js';
 import type { DomainId, JsonObject } from '../shared.js';
 import {
-	basePayload,
 	type LarvalCommandInput,
 	type LarvalCommandPayload,
 	type LarvalDomainCommand,
-	normalizeNullableText,
-	validateBase,
 	validateHabitatLocationSourceInput,
-	validateIdCommand,
 } from './shared.js';
 
 export interface CreateHabitatCommandInput extends LarvalCommandInput {

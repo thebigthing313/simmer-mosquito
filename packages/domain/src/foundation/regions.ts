@@ -3,20 +3,20 @@ import {
 	jsonObject as normalizeJsonObject,
 	nullableText as normalizeNullableText,
 	optionalUuid as normalizeOptionalUuid,
+	normalizeRequiredDomainId,
 	requiredText as normalizeRequiredText,
+	organizationPayload,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateOrganizationBase,
+	validateOrganizationIdCommand,
 } from '../command-validation.js';
 import type { DomainId, JsonObject } from '../shared.js';
 import {
 	type FoundationDomainCommand,
-	normalizeRequiredDomainId,
 	type OrganizationFoundationCommandInput,
 	type OrganizationFoundationCommandPayload,
-	organizationPayload,
 	type RegionGeometry,
-	validateOrganizationBase,
-	validateOrganizationIdCommand,
 	validateRegionGeometry,
 } from './shared.js';
 

@@ -1,17 +1,18 @@
 import {
+	basePayload,
 	createIssues,
 	actorDefaultProfileId as normalizeActorDefaultProfileId,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateIdCommand,
 } from '../command-validation.js';
 import type { AdultCollectionLocationSource } from '../location-intent.js';
 import type { DomainId } from '../shared.js';
 import {
 	type AdultCommandInput,
 	type AdultCommandPayload,
-	basePayload,
 	type CollectedCollectionTiming,
 	type CollectionBaseInput,
 	type CollectionBasePayload,
@@ -21,7 +22,6 @@ import {
 	validateAdultCollectionLocationSourceInput,
 	validateCollectedTiming,
 	validateCollectionBase,
-	validateIdCommand,
 	validateOperationalDate,
 	validateTiming,
 } from './shared.js';

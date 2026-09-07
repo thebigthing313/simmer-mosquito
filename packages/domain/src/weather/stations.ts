@@ -1,19 +1,19 @@
 import {
+	basePayload,
 	createIssues,
 	jsonObject as normalizeJsonObject,
 	nullableText as normalizeNullableText,
+	normalizeRequiredDomainId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validatePointGeometry,
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue, GeoJsonPoint, JsonObject } from '../shared.js';
 import {
-	basePayload,
 	type ExpectedUpdatedAtInput,
 	type ExpectedUpdatedAtPayload,
 	normalizeExpectedUpdatedAt,
-	normalizeRequiredDomainId,
-	validateBase,
-	validatePointGeometry,
 	type WeatherCommandInput,
 	type WeatherCommandPayload,
 	type WeatherDomainCommand,
@@ -129,7 +129,7 @@ export function createWeatherStationCommand(
 	requireUuid(input.weatherStationId, 'weatherStationId', issues);
 	const stationName = normalizeRequiredStationText(input.stationName, 'stationName', issues, 200);
 	const stationCode = normalizeNullableText(input.stationCode, 'stationCode', issues, 100);
-	const geometry = validatePointGeometry(input.geometry, 'geometry', issues);
+	const geometry = validatePointGeometry('weatherStation', input.geometry, 'geometry', issues);
 	const metadata = normalizeJsonObject(input.metadata, 'metadata', issues);
 	throwIfIssues('Create weather station command is invalid.', issues);
 	return {
@@ -190,7 +190,7 @@ export function updateWeatherStationLocationCommand(
 	input: UpdateWeatherStationLocationCommandInput,
 ): UpdateWeatherStationLocationCommand {
 	const issues = validateStationIdCommand(input);
-	const geometry = validatePointGeometry(input.geometry, 'geometry', issues);
+	const geometry = validatePointGeometry('weatherStation', input.geometry, 'geometry', issues);
 	throwIfIssues('Update weather station location command is invalid.', issues);
 	return {
 		type: 'weather.updateWeatherStationLocation',

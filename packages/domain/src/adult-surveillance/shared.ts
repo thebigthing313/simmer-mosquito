@@ -1,9 +1,10 @@
 import {
+	basePayload,
 	createIssues,
 	jsonObject as normalizeMetadata,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
-	validateOrganizationCommandContext,
+	validateBase,
 } from '../command-validation.js';
 import {
 	type AdultCollectionLocationSource,
@@ -75,20 +76,6 @@ export interface CollectionBaseInput extends AdultCommandInput {
 export interface CollectionBasePayload extends AdultCommandPayload {
 	readonly collectionId: DomainId;
 	readonly metadata: JsonObject | null;
-}
-
-export function validateBase(input: AdultCommandInput, issues: DomainValidationIssue[]): void {
-	validateOrganizationCommandContext(input, issues);
-}
-
-export function validateIdCommand<T extends AdultCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
 }
 
 export function validateCollectionBase(input: CollectionBaseInput): DomainValidationIssue[] {
@@ -169,14 +156,6 @@ export function validateSpeciesCount(
 	}
 }
 
-export function normalizeNullableText(value: string | null | undefined): string | null {
-	if (value === undefined || value === null) {
-		return null;
-	}
-	const trimmed = value.trim();
-	return trimmed.length === 0 ? null : trimmed;
-}
-
 export function collectionBasePayload(input: CollectionBaseInput): CollectionBasePayload {
 	const issues = createIssues();
 	return {
@@ -184,10 +163,6 @@ export function collectionBasePayload(input: CollectionBaseInput): CollectionBas
 		collectionId: normalizeRequiredId(input.collectionId),
 		metadata: normalizeMetadata(input.metadata, 'metadata', issues),
 	};
-}
-
-export function basePayload(input: AdultCommandInput): AdultCommandPayload {
-	return validateOrganizationCommandContext(input, createIssues());
 }
 
 /**

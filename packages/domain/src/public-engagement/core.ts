@@ -1,5 +1,4 @@
 import {
-	createIssues,
 	jsonObject as normalizeJsonObject,
 	nullableText as normalizeNullableText,
 	optionalId as normalizeOptionalId,
@@ -7,7 +6,7 @@ import {
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
-	validateOrganizationCommandContext,
+	validatePointGeometry,
 } from '../command-validation.js';
 import {
 	type DomainId,
@@ -216,27 +215,6 @@ export interface NotificationRegistrationSubscription {
 	readonly notificationTypeId: DomainId;
 }
 
-export function validateBase(
-	input: PublicEngagementCommandInput,
-	issues: DomainValidationIssue[],
-): void {
-	validateOrganizationCommandContext(input, issues);
-}
-
-export function validateIdCommand<T extends PublicEngagementCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
-}
-
-export function basePayload(input: PublicEngagementCommandInput): PublicEngagementCommandPayload {
-	return validateOrganizationCommandContext(input, createIssues());
-}
-
 export function validateContactReference(
 	input: ContactReferenceInput,
 	path: string,
@@ -273,7 +251,7 @@ export function validateServiceRequestLocation(
 	}
 	return {
 		address: validateServiceRequestAddress(input.address, `${path}.address`, issues),
-		geometry: validatePointGeometry(input.geometry, `${path}.geometry`, issues),
+		geometry: validatePointGeometry('serviceRequest', input.geometry, `${path}.geometry`, issues),
 	};
 }
 
@@ -475,7 +453,11 @@ function normalizeInlineAddressDetails(
 	}
 	return {
 		displayName: normalizeRequiredText(input.displayName, `${path}.displayName`, issues, 200),
-		geometry: validatePointGeometry(input.geometry, `${path}.geometry`, issues),
+		// An Address, so the Address policy. The private copy this replaced named
+		// the Service Request kind for every geometry in the module, which nothing
+		// could observe while both policies are Point and only one call site is
+		// storing a row in `addresses`.
+		geometry: validatePointGeometry('address', input.geometry, `${path}.geometry`, issues),
 		country: normalizeCountry(input.country, `${path}.country`, issues),
 		addressLine1: normalizeNullableText(input.addressLine1, `${path}.addressLine1`, issues, 200),
 		addressLine2: normalizeNullableText(input.addressLine2, `${path}.addressLine2`, issues, 200),
@@ -590,23 +572,6 @@ export function validatePhonePreferencePatch(
 	}
 }
 
-/** A Service Request's geometry, against the Service Request policy. */
-function validatePointGeometry(
-	value: unknown,
-	path: string,
-	issues: DomainValidationIssue[],
-): GeoJsonPoint {
-	try {
-		return normalizeOwnedGeometry('serviceRequest', value, path);
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			issues.push(...error.issues);
-			return { type: 'Point', coordinates: [0, 0] };
-		}
-		throw error;
-	}
-}
-
 function validateRegistrationGeometry(
 	value: unknown,
 	path: string,
@@ -621,45 +586,6 @@ function validateRegistrationGeometry(
 		}
 		throw error;
 	}
-}
-
-export function validateIdList(
-	values: readonly DomainId[],
-	path: string,
-	issues: DomainValidationIssue[],
-): readonly DomainId[] {
-	if (!Array.isArray(values) || values.length === 0) {
-		issues.push({ path, message: `${path} must include at least one id.` });
-		return [];
-	}
-	const seen = new Set<string>();
-	return values.map((value, index) => {
-		requireUuid(value, `${path}.${index}`, issues);
-		const normalized = normalizeRequiredId(value);
-		if (seen.has(normalized)) {
-			issues.push({ path: `${path}.${index}`, message: `${path} must not contain duplicates.` });
-		}
-		seen.add(normalized);
-		return normalized;
-	});
-}
-
-export function normalizeOptionalTimestamp(
-	value: Date | null | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-): Date | null {
-	if (value === undefined || value === null) {
-		return null;
-	}
-	if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
-		issues.push({ path, message: `${path} must be a valid Date.` });
-		return null;
-	}
-	if (value.getTime() > Date.now()) {
-		issues.push({ path, message: `${path} cannot be in the future.` });
-	}
-	return value;
 }
 
 function normalizeCountry(
@@ -718,19 +644,6 @@ export function normalizeEmail(
 		issues.push({ path, message: `${path} must be a valid email address.` });
 	}
 	return normalized.toLowerCase();
-}
-
-export function normalizeStringUnion<TValue extends string>(
-	value: string | undefined,
-	allowedValues: readonly TValue[],
-	path: string,
-	issues: DomainValidationIssue[],
-): TValue {
-	if (value === undefined || !allowedValues.includes(value as TValue)) {
-		issues.push({ path, message: `${path} is not supported.` });
-		return (allowedValues[0] ?? '') as TValue;
-	}
-	return value as TValue;
 }
 
 export function normalizeBooleanDefault(

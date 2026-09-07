@@ -38,6 +38,7 @@ import {
 } from '../column-vocabularies.js';
 import {
 	createIssues,
+	normalizeRequiredDomainId,
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
 	throwIfIssues,
@@ -45,7 +46,6 @@ import {
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 import {
 	type FoundationDomainCommand,
-	normalizeRequiredDomainId,
 	type OperatorFoundationCommandInput,
 	type OperatorFoundationCommandPayload,
 	operatorPayload,

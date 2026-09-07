@@ -1,10 +1,13 @@
 import {
+	basePayload,
 	createIssues,
 	nullableText as normalizeNullableText,
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import type {
@@ -12,7 +15,6 @@ import type {
 	PublicEngagementCommandPayload,
 	PublicEngagementDomainCommand,
 } from './core.js';
-import { basePayload, validateBase, validateIdCommand } from './core.js';
 export interface CreateNotificationTypeCommandInput extends PublicEngagementCommandInput {
 	readonly notificationTypeId: DomainId;
 	readonly name: string;

@@ -1,11 +1,16 @@
-import { requiredId as normalizeRequiredId, throwIfIssues } from '../command-validation.js';
+import {
+	basePayload,
+	normalizeOptionalTimestamp,
+	requiredId as normalizeRequiredId,
+	throwIfIssues,
+	validateIdCommand,
+} from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import type {
 	PublicEngagementCommandInput,
 	PublicEngagementCommandPayload,
 	PublicEngagementDomainCommand,
 } from './core.js';
-import { basePayload, normalizeOptionalTimestamp, validateIdCommand } from './core.js';
 export interface GenerateMissionNotificationsCommandInput extends PublicEngagementCommandInput {
 	readonly missionId: DomainId;
 }
@@ -110,6 +115,7 @@ function missionNotificationStatusCommand<
 		input.statusChangedAt,
 		'statusChangedAt',
 		issues,
+		false,
 	);
 	throwIfIssues(message, issues);
 	return {

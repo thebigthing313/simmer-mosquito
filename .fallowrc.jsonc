@@ -52,8 +52,13 @@
 	"ignoreFindings": ["packages/ui-web/src/components/ui/**"],
 
 	// The duplication ratchet. CI runs `fallow dupes` with no flags, so this is
-	// what makes it a gate: 5.1% is where the workspace sits, and 5.2 leaves a
+	// what makes it a gate: 5.0% is where the workspace sits, and 5.1 leaves a
 	// tenth of a point of slack so an ordinary change does not fail on rounding.
+	//
+	// It was 5.2 against 5.0% when #646 collapsed the twelve command primitives
+	// `packages/domain` declared 44 times into `command-validation.ts`, and this
+	// one did move the absolute number: 12,572 duplicated lines to 12,118, in
+	// source rather than in tests, so both halves agree for once.
 	//
 	// It was 5.3 against 5.2% when #616 moved the row builders the integration
 	// suites kept rewriting into `packages/db/src/test-support/row-fixtures.ts`,
@@ -158,7 +163,7 @@
 	},
 
 	"duplicates": {
-		"threshold": 5.2
+		"threshold": 5.1
 	},
 
 	// `@tanstack/db` is a deliberate pin, not an import. `@tanstack/react-db` and

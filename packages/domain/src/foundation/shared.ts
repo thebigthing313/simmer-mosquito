@@ -1,17 +1,14 @@
 import {
 	createIssues,
 	nullableText as normalizeNullableText,
-	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	validateOperatorCommandContext,
-	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import {
 	type DomainId,
 	DomainValidationError,
 	type DomainValidationIssue,
 	type GeoJsonMultiPolygon,
-	type GeoJsonPoint,
 	type GeoJsonPolygon,
 	normalizeOwnedGeometry,
 } from '../shared.js';
@@ -94,28 +91,11 @@ export interface OperatorFoundationCommandPayload {
 	readonly operatorUserId: DomainId;
 }
 
-export function validateOrganizationBase(
-	input: OrganizationFoundationCommandInput,
-	issues: DomainValidationIssue[],
-): void {
-	validateOrganizationCommandContext(input, issues);
-}
-
 export function validateOperatorBase(
 	input: OperatorFoundationCommandInput,
 	issues: DomainValidationIssue[],
 ): void {
 	validateOperatorCommandContext(input, issues);
-}
-
-export function validateOrganizationIdCommand<T extends OrganizationFoundationCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateOrganizationBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
 }
 
 export function validateOperatorIdCommand<T extends OperatorFoundationCommandInput>(
@@ -126,23 +106,6 @@ export function validateOperatorIdCommand<T extends OperatorFoundationCommandInp
 	validateOperatorBase(input, issues);
 	requireUuid(input[idKey] as string | undefined, idKey, issues);
 	return issues;
-}
-
-/** An Address's geometry, against the Address policy in the register. */
-export function validatePointGeometry(
-	value: unknown,
-	path: string,
-	issues: DomainValidationIssue[],
-): GeoJsonPoint {
-	try {
-		return normalizeOwnedGeometry('address', value, path);
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			issues.push(...error.issues);
-			return { type: 'Point', coordinates: [0, 0] };
-		}
-		throw error;
-	}
 }
 
 /**
@@ -178,27 +141,6 @@ export function validateRegionGeometry(
 		}
 		throw error;
 	}
-}
-
-export function validateIdList(
-	values: readonly DomainId[],
-	path: string,
-	issues: DomainValidationIssue[],
-): readonly DomainId[] {
-	if (!Array.isArray(values) || values.length === 0) {
-		issues.push({ path, message: `${path} must include at least one id.` });
-		return [];
-	}
-	const seen = new Set<string>();
-	return values.map((value, index) => {
-		requireUuid(value, `${path}.${index}`, issues);
-		const normalized = normalizeRequiredId(value);
-		if (seen.has(normalized)) {
-			issues.push({ path: `${path}.${index}`, message: `${path} must not contain duplicates.` });
-		}
-		seen.add(normalized);
-		return normalized;
-	});
 }
 
 export function normalizeCountry(
@@ -243,18 +185,8 @@ export function normalizePostalCode(
 	return normalized;
 }
 
-export function organizationPayload(
-	input: OrganizationFoundationCommandInput,
-): OrganizationFoundationCommandPayload {
-	return validateOrganizationCommandContext(input, createIssues());
-}
-
 export function operatorPayload(
 	input: OperatorFoundationCommandInput,
 ): OperatorFoundationCommandPayload {
 	return validateOperatorCommandContext(input, createIssues());
-}
-
-export function normalizeRequiredDomainId(value: DomainId): DomainId {
-	return normalizeRequiredId(value);
 }

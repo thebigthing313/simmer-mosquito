@@ -1,8 +1,11 @@
 import {
+	basePayload,
 	createIssues,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import type {
@@ -17,13 +20,10 @@ import type {
 	PublicEngagementDomainCommand,
 } from './core.js';
 import {
-	basePayload,
 	normalizeBooleanDefault,
 	normalizeBuffer,
-	validateBase,
 	validateBoolean,
 	validateContactReference,
-	validateIdCommand,
 	validateNotificationRegistrationLocation,
 	validateRegistrationPurpose,
 	validateSubscriptionList,
