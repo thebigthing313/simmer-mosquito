@@ -1,8 +1,13 @@
 import type { AuthUser } from '@simmer-mosquito/auth';
-import { createAuthClient } from '@simmer-mosquito/auth/browser';
+import { createAuthClient, type ServerAuthRefusal } from '@simmer-mosquito/auth/browser';
 import type { ActiveLocalAuthIdentity } from '@simmer-mosquito/db';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { resolveAuthContext, toAuthMeBody } from '../../auth-context.js';
+import {
+	type AuthContextResult,
+	resolveAuthContext,
+	toAuthFailureBody,
+	toAuthMeBody,
+} from '../../auth-context.js';
 
 const workosUser: AuthUser = {
 	workosUserId: 'workos_user_123',
@@ -294,5 +299,95 @@ describe('the /auth/me body', () => {
 		expect(me.localIdentity.profileId).toBe(localIdentity.profile.id);
 		expect(me.localIdentity.membershipId).toBe(localIdentity.membership.id);
 		expect(me.localIdentity.role).toBe(localIdentity.membership.role);
+	});
+
+	/*
+	 * The other arm, and the one #615 left open. `error` used to travel
+	 * undeclared: the producer inferred it, `UnauthenticatedMe` named only
+	 * `authenticated` and `reason`, and a rename on either side compiled on both
+	 * (#698). The client declaration now carries it, so this reads the category
+	 * back off a parsed body rather than off the object the server built.
+	 */
+	it.each([
+		{
+			label: 'no session',
+			result: {
+				ok: false,
+				status: 401,
+				error: { type: 'unauthenticated', reason: 'no_session_cookie_provided' },
+			},
+			expected: { error: 'unauthenticated', reason: 'no_session_cookie_provided' },
+		},
+		{
+			label: 'no selected Organization',
+			result: {
+				ok: false,
+				status: 403,
+				error: {
+					type: 'organization_required',
+					reason: 'WorkOS session has no selected organization.',
+				},
+			},
+			expected: { error: 'organization_required', reason: 'organization_required' },
+		},
+		{
+			label: 'no active Membership',
+			result: {
+				ok: false,
+				status: 403,
+				error: {
+					type: 'membership_required',
+					reason: 'No active SIMMER membership/profile exists for selected organization.',
+					workosOrganizationId: 'workos_org_123',
+				},
+			},
+			expected: { error: 'membership_required', reason: 'membership_required' },
+		},
+	] as const satisfies readonly {
+		readonly label: string;
+		readonly result: Extract<AuthContextResult, { ok: false }>;
+		readonly expected: { readonly error: ServerAuthRefusal; readonly reason: string };
+	}[])('is read back by the auth client as a refusal: $label', async ({ result, expected }) => {
+		const served = toAuthFailureBody(result);
+
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(
+				async () =>
+					new Response(JSON.stringify(served), {
+						status: result.status,
+						headers: { 'content-type': 'application/json' },
+					}),
+			),
+		);
+
+		const me = await createAuthClient({ serverUrl: 'https://simmer.test' }).getAuthMe();
+		if (me.authenticated === true) {
+			throw new Error('Expected a refusal, got a session.');
+		}
+
+		expect(me.error).toBe(expected.error);
+		expect(me.reason).toBe(expected.reason);
+	});
+
+	/*
+	 * The internal reason on the two 403 arms does not go on the wire: it names
+	 * SIMMER's own tables and says nothing the client can act on that the category
+	 * does not already say. This pins the withholding rather than leaving it to
+	 * the reader of `toAuthFailureBody`.
+	 */
+	it('does not put the internal reason for a 403 on the wire', () => {
+		const body = toAuthFailureBody({
+			ok: false,
+			status: 403,
+			error: {
+				type: 'membership_required',
+				reason: 'No active SIMMER membership/profile exists for selected organization.',
+				workosOrganizationId: 'workos_org_123',
+			},
+		});
+
+		expect(JSON.stringify(body)).not.toContain('membership/profile');
+		expect(Object.keys(body).sort()).toEqual(['authenticated', 'error', 'reason']);
 	});
 });

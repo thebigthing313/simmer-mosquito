@@ -169,7 +169,7 @@ describe('OrganizationSessionGate', () => {
 	});
 
 	it('gates a signed-out session rather than rendering the page', () => {
-		authSnapshot = { authenticated: false, reason: 'No session.' };
+		authSnapshot = { authenticated: false, error: 'unauthenticated', reason: 'No session.' };
 
 		renderGate();
 

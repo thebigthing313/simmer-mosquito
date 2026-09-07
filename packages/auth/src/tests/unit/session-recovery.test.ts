@@ -21,7 +21,11 @@ const SIGNED_IN = {
 	user: { email: 'field@example.test' },
 } as unknown as AuthMe;
 
-const REFUSED: AuthMe = { authenticated: false, reason: 'no_session_cookie_provided' };
+const REFUSED: AuthMe = {
+	authenticated: false,
+	error: 'unauthenticated',
+	reason: 'no_session_cookie_provided',
+};
 
 function recoveryOver(answers: readonly AuthMe[], options?: { readonly acts?: boolean }) {
 	const remaining = [...answers];

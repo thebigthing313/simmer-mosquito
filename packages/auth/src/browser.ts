@@ -51,8 +51,50 @@ export interface AuthenticatedMe {
 	readonly localIdentity: LocalIdentity;
 }
 
+/**
+ * Why the server would not answer with a session, as a fixed set.
+ *
+ * The three are decisions with different fixes, and only the server can tell
+ * them apart: `unauthenticated` means no session was presented or the one
+ * presented could not be renewed, `organization_required` means the session is
+ * real and has selected no Organization, and `membership_required` means it has
+ * selected one the Account holds no active Membership in.
+ *
+ * `AuthContextError` in `apps/server/src/auth-context.ts` is the producer, and
+ * {@link RefusedMeBody} is what holds it to this list: a fourth kind there, or
+ * a renamed one, fails `tsc` on the server rather than arriving here as a
+ * string nothing matches.
+ */
+export type ServerAuthRefusal = 'unauthenticated' | 'organization_required' | 'membership_required';
+
+/**
+ * A refusal as a client holds it, which is the wire refusals plus one the
+ * client makes up.
+ *
+ * `unavailable` is "could not ask", not "was told no": the round trip broke, so
+ * there is no server answer to carry. It is a category of its own because the
+ * two are not the same fact, and reading a network failure as a refusal is what
+ * signs somebody out of a page that is still signed in. Nothing branches on it
+ * today, so the arm a client takes on a network failure is the arm it took
+ * before.
+ */
+export type AuthRefusal = ServerAuthRefusal | 'unavailable';
+
+/**
+ * The refusal body every guarded route answers with, `/auth/me` included.
+ *
+ * Narrower than {@link UnauthenticatedMe}: this is what goes on the wire, and
+ * `unavailable` never does.
+ */
+export interface RefusedMeBody {
+	readonly authenticated: false;
+	readonly error: ServerAuthRefusal;
+	readonly reason: string;
+}
+
 export interface UnauthenticatedMe {
 	readonly authenticated: false;
+	readonly error: AuthRefusal;
 	readonly reason: string;
 }
 
@@ -424,10 +466,11 @@ export function createAuthClient(options: {
 		 * and `any` under a DOM lib, so the cast is load-bearing either way: it
 		 * is what stops an `any` spreading through every read site.
 		 *
-		 * What makes it safe is at the other end of the wire. `toAuthMeBody` in
-		 * `apps/server` is the only producer of this body and is annotated with
-		 * {@link AuthenticatedMe}, so this cast names a type the compiler holds
-		 * the producer to rather than a shape restated here (#615).
+		 * What makes it safe is at the other end of the wire. `toAuthMeBody` and
+		 * `toAuthFailureBody` in `apps/server` are the only producers of this
+		 * body and are annotated with {@link AuthenticatedMe} and
+		 * {@link RefusedMeBody}, so this cast names a type the compiler holds the
+		 * producers to rather than a shape restated here (#615, #698).
 		 */
 		const body = (await response.json()) as AuthMe;
 		if (response.ok || body.authenticated === false) {
@@ -1067,6 +1110,7 @@ export function createAppAuthController(options: {
 			return (
 				snapshot ?? {
 					authenticated: false,
+					error: 'unavailable',
 					reason: error instanceof Error ? error.message : 'Unable to load auth state.',
 				}
 			);

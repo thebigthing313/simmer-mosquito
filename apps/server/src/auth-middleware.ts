@@ -1,4 +1,5 @@
 import type { AuthUser } from '@simmer-mosquito/auth';
+import type { RefusedMeBody } from '@simmer-mosquito/auth/browser';
 import type { ActiveLocalAuthIdentity } from '@simmer-mosquito/db';
 import type { Context, MiddlewareHandler } from 'hono';
 import { createMiddleware } from 'hono/factory';
@@ -150,12 +151,15 @@ export function createOperatorAuthContextMiddleware(options: {
 		});
 
 		if (!session.authenticated) {
+			// The same refusal body `toAuthFailureBody` builds, written out because
+			// there is no `AuthContextResult` here to pass it. `satisfies` is what
+			// keeps the two spellings from drifting.
 			return context.json(
 				{
 					authenticated: false,
 					error: 'unauthenticated',
 					reason: session.reason,
-				},
+				} satisfies RefusedMeBody,
 				401,
 			);
 		}

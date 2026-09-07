@@ -6,7 +6,7 @@ const SIGNED_IN = {
 	user: { email: 'operator@example.test' },
 } as unknown as AuthMe;
 
-const REFUSED: AuthMe = { authenticated: false, reason: 'no session' };
+const REFUSED: AuthMe = { authenticated: false, error: 'unauthenticated', reason: 'no session' };
 
 describe('createAppAuthController', () => {
 	it('asks once and serves the answer from the snapshot', async () => {
@@ -24,8 +24,10 @@ describe('createAppAuthController', () => {
 		const getAuthMe = vi.fn<() => Promise<AuthMe>>().mockResolvedValue(REFUSED);
 		const controller = createAppAuthController({ getAuthMe });
 
-		await expect(controller.load()).resolves.toMatchObject({ authenticated: false });
-		await expect(controller.load()).resolves.toMatchObject({ authenticated: false });
+		// The server's own category survives the cache, so a caller can tell a
+		// refusal apart from a round trip that never landed.
+		await expect(controller.load()).resolves.toEqual(REFUSED);
+		await expect(controller.load()).resolves.toEqual(REFUSED);
 		expect(getAuthMe).toHaveBeenCalledOnce();
 	});
 
@@ -39,7 +41,14 @@ describe('createAppAuthController', () => {
 			.mockResolvedValue(SIGNED_IN);
 		const controller = createAppAuthController({ getAuthMe });
 
-		await expect(controller.load()).resolves.toMatchObject({ authenticated: false });
+		// `unavailable` and not `unauthenticated`: the round trip broke, so there is
+		// no refusal from the server to carry. Nothing branches on the category yet,
+		// which is why the arm is still the same one (#698).
+		await expect(controller.load()).resolves.toEqual({
+			authenticated: false,
+			error: 'unavailable',
+			reason: 'Failed to fetch',
+		});
 
 		// The failure was not recorded, so the next guard asks again and finds the
 		// session that was there all along.
