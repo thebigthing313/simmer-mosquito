@@ -54,11 +54,15 @@ function moduleNames(): readonly string[] {
 let modules: readonly CollectionModule[] = [];
 
 /**
- * Long, because this is fifty modules through Vite's transform and the suite
- * runs four files at a time. It measured 1.3s on an idle machine and blew past
- * 22s with two full runs going at once, so the five-second default was timing
- * the machine rather than anything this file asserts. That is issue #509, and
- * `import-side-effects.test.ts` sizes its own budget the same way.
+ * Long, because this is fifty modules through Vite's transform. It measured
+ * 1.3s on an idle machine and blew past 22s with two full runs going at once,
+ * so the five-second default was timing the machine rather than anything this
+ * file asserts. That is issue #509.
+ *
+ * `import-side-effects.test.ts` no longer sizes a budget at all: its imports
+ * are the assertion rather than setup, so no hook can hold them and they run at
+ * module scope, which vitest times with nothing (#545). Here the import is
+ * setup, and a hook with a budget of its own is enough.
  *
  * A module that genuinely does not resolve still fails: a specifier that names
  * nothing rejects rather than hangs, so the hook reports the resolution error
