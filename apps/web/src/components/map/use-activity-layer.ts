@@ -5,6 +5,7 @@ import type {
 	Map as MapboxMap,
 } from 'mapbox-gl';
 import { useEffect } from 'react';
+import type { MapSourceGeoJson } from './geojson-adapter';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
@@ -50,7 +51,7 @@ function selectedFilter(selectedKey: string | null): ExpressionSpecification {
 
 export interface ActivityLayerConfig {
 	/** The activity points. `null` leaves the layer unmounted entirely. */
-	readonly data: GeoJSON.GeoJSON | null;
+	readonly data: MapSourceGeoJson | null;
 	/** The selected entry's key; drives the on-map highlight. */
 	readonly selectedKey?: string | null;
 	/** Fired with an entry key on click, or null when clicking empty map. */

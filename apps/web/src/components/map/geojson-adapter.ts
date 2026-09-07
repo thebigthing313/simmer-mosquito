@@ -23,8 +23,8 @@ import type {
  * Nothing here validates. Every conversion reinterprets the same object, and
  * callers rely on that: `useGeoJsonSource` holds `data` in an effect dependency,
  * so a copy would re-add the source on every render. A runtime shape check
- * becomes possible now that one function sees every geometry on its way to the
- * renderer, and it is a follow-up rather than part of this.
+ * becomes possible now that one file sees every geometry on its way to the
+ * renderer, and #761 is where that lands.
  */
 
 /** GeoJSON in the app's own vocabulary, as `packages/mapping` spells it. */
@@ -38,26 +38,25 @@ type MapGeoJson = GeoJsonGeometry | GeoJsonFeature | GeoJsonFeatureCollection;
  * compose their own features, the activity cloud and the draw, measure and route
  * sessions among them, build Mapbox shapes for their own reasons and never touch
  * mapping's types.
+ *
+ * So this widens the seam rather than narrowing it: a prop of this type still
+ * does not say which of ADR 0018's six shapes reached it. What changed is that
+ * the conversion has one home. Narrowing it is #761.
  */
 export type MapSourceGeoJson = MapGeoJson | GeoJSON.GeoJSON;
 
 /**
- * The cast, and the only one on this seam.
+ * A geometry, feature or collection, in the shape a Mapbox source takes.
  *
  * `readonly` is the whole reason the conversion cannot be a plain assignment:
  * mapping's coordinates are readonly tuples and Mapbox's are mutable arrays, so
  * the two types do not overlap in TypeScript's sense even though every value
  * reaching here satisfies both at runtime.
  */
-function reinterpret<TMapbox>(value: object): TMapbox {
-	return value as unknown as TMapbox;
-}
-
-/** A geometry, feature or collection, in the shape a Mapbox source takes. */
 export function toMapboxGeoJson(value: MapSourceGeoJson): GeoJSON.GeoJSON;
 export function toMapboxGeoJson(value: MapSourceGeoJson | null): GeoJSON.GeoJSON | null;
 export function toMapboxGeoJson(value: MapSourceGeoJson | null): GeoJSON.GeoJSON | null {
-	return value === null ? null : reinterpret<GeoJSON.GeoJSON>(value);
+	return value === null ? null : (value as unknown as GeoJSON.GeoJSON);
 }
 
 /**
@@ -65,8 +64,8 @@ export function toMapboxGeoJson(value: MapSourceGeoJson | null): GeoJSON.GeoJSON
  *
  * Separate from {@link toMapboxGeoJson} because `GeoJSON.GeoJSON` widens to
  * include `Feature` and `FeatureCollection`, which a feature's `geometry` field
- * will not take.
+ * will not take. Same cast, same reason: `readonly`.
  */
 export function toMapboxGeometry(geometry: GeoJsonGeometry): GeoJSON.Geometry {
-	return reinterpret<GeoJSON.Geometry>(geometry);
+	return geometry as unknown as GeoJSON.Geometry;
 }
