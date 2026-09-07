@@ -1143,8 +1143,10 @@ const sampleInspectionRow = {
  * all.
  *
  * The list below is a fourth spelling of those names, so it is held to
- * `MapTilesetLayer`: a typo here would drop a tileset out of the table while
- * still driving eleven cases.
+ * `MapTilesetLayer`. A typo here already fails, as the `invalid_tileset` the
+ * assertion is not expecting; `satisfies` moves that to `tsc`, where the
+ * message names the register rather than a status code. Neither catches a name
+ * left out, which silently drives one case fewer.
  *
  * Every case here is answered before the database is touched, which is what
  * makes the table cheap: an unknown tileset, a malformed tile coordinate, an
