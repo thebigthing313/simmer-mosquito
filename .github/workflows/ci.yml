@@ -152,6 +152,16 @@ jobs:
       - name: Map palette
         run: pnpm check:map-palette
 
+      # The colour maths behind every contrast answer was written four times
+      # before #617 collapsed it into `packages/design-tokens/src/color.ts`, and
+      # the four had already drifted on the sRGB linearization knee. Nothing was
+      # wrong on screen, because no integer channel falls between the two knees.
+      # This refuses the register's constants anywhere else: the luminance
+      # coefficients, the OKLCH matrix rows and both knees, read out of the
+      # register rather than copied into the gate. At zero with no allowance.
+      - name: Colour maths
+        run: pnpm check:color-maths
+
       # `CONTEXT.md` names every domain term and, beside it, the words that are
       # not that term. Nothing read those Avoid lists until this, which is how
       # agency and organization ended up in one sentence on one screen. It reads

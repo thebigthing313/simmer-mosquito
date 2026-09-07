@@ -48,8 +48,16 @@ const HEX = /^#?([\da-f]{6})$/i;
  * Anchored, and that is the point. Unanchored it matched the first `oklch()`
  * anywhere in the string, so a `color-mix()` read as whichever colour was
  * written first and nothing returned `null` to say so.
+ *
+ * The per-cent sign is captured rather than skipped. Which of the two forms a
+ * value is written in is written down, and reading it off the magnitude gets
+ * `oklch(1% 0 0)` wrong in the loudest way available: near-black comes back as
+ * white. Nothing in the token set is written that way, so this changes no
+ * colour on screen today. It is the resolver in `packages/ui-web`'s contrast
+ * suite that had it right, and folding that copy into this one is no reason to
+ * take the right answer out.
  */
-const OKLCH = /^oklch\(\s*([\d.]+)%?\s+([\d.]+)\s+([\d.]+)(?:deg)?\s*\)$/i;
+const OKLCH = /^oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)(?:deg)?\s*\)$/i;
 
 /** `color-mix(in oklch, …)`, capturing the two colours and their shares. */
 const OKLCH_MIX = /^color-mix\(\s*in\s+oklch\s*,([\s\S]*)\)$/i;
@@ -129,9 +137,9 @@ function parseCssOklch(value: string): ParsedOklch | null {
 		const rawLightness = Number(oklch[1]);
 		return {
 			colour: {
-				lightness: rawLightness > 1 ? rawLightness / 100 : rawLightness,
-				chroma: Number(oklch[2]),
-				hue: Number(oklch[3]),
+				lightness: oklch[2] === '%' ? rawLightness / 100 : rawLightness,
+				chroma: Number(oklch[3]),
+				hue: Number(oklch[4]),
 			},
 			hueMissing: false,
 		};
