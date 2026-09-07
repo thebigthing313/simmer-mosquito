@@ -2,9 +2,6 @@ import { UNIT_TYPES } from '@simmer-mosquito/domain';
 import { ListEmpty } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
-import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -14,21 +11,14 @@ import {
 	CatalogBody,
 	CatalogDialog,
 	type CatalogDialogState,
-	CatalogForm,
 	CatalogList,
 	CatalogRow,
 	DeleteRecordButton,
 	EditRecordButton,
-	useCatalogForm,
 } from '../../components/catalog';
 import { type UnitListing, useUnitCatalog } from '../../hooks/queries/use-unit-catalog';
-import {
-	createUnit,
-	deleteUnit,
-	type UnitSystem,
-	type UnitType,
-	updateUnit,
-} from '../../lib/collections/writes';
+import { createUnit, deleteUnit, type UnitType, updateUnit } from '../../lib/collections/writes';
+import { EMPTY_UNIT, UNIT_SYSTEM_OPTIONS, UnitForm, type UnitFormValues } from './-unit-form';
 
 const UnitIcon = iconRegistry.entities.unit.icon;
 const AddIcon = iconRegistry.actions.add.icon;
@@ -39,28 +29,6 @@ export const Route = createFileRoute('/units/')({
 
 /** The quantities SIMMER measures, alphabetical, which is how the page reads them. */
 const UNIT_TYPE_OPTIONS: readonly UnitType[] = [...UNIT_TYPES].sort();
-
-const UNIT_SYSTEM_OPTIONS: readonly { readonly value: UnitSystem; readonly label: string }[] = [
-	{ value: 'si', label: 'SI' },
-	{ value: 'imperial', label: 'Imperial' },
-	{ value: 'us_customary', label: 'US customary' },
-];
-
-interface UnitFormValues {
-	readonly code: string;
-	readonly unitName: string;
-	readonly abbreviation: string;
-	readonly unitType: UnitType;
-	readonly unitSystem: UnitSystem;
-}
-
-const EMPTY_UNIT: UnitFormValues = {
-	code: '',
-	unitName: '',
-	abbreviation: '',
-	unitType: 'count',
-	unitSystem: 'si',
-};
 
 type UnitDialog = CatalogDialogState<UnitListing>;
 
@@ -284,98 +252,4 @@ function titleCase(value: string): string {
 
 function systemLabel(system: string): string {
 	return UNIT_SYSTEM_OPTIONS.find((entry) => entry.value === system)?.label ?? system;
-}
-
-function UnitForm({
-	values,
-	submitLabel,
-	onCancel,
-	onSubmit,
-}: {
-	readonly values: UnitFormValues;
-	readonly submitLabel: string;
-	readonly onCancel: () => void;
-	readonly onSubmit: (values: UnitFormValues) => Promise<void>;
-}) {
-	const form = useCatalogForm({ initial: values, onSubmit });
-	const { values: draft, setValues } = form;
-
-	return (
-		<CatalogForm
-			disabled={
-				draft.code.trim() === '' || draft.unitName.trim() === '' || draft.abbreviation.trim() === ''
-			}
-			error={form.error}
-			onCancel={onCancel}
-			onSubmit={form.submit}
-			pending={form.pending}
-			submitLabel={submitLabel}
-		>
-			<Field>
-				<FieldLabel htmlFor="unit-name">Name</FieldLabel>
-				<Input
-					id="unit-name"
-					maxLength={120}
-					onChange={(event) => setValues({ ...draft, unitName: event.target.value })}
-					placeholder="e.g. hectare"
-					required
-					value={draft.unitName}
-				/>
-			</Field>
-			<div className="grid gap-4 sm:grid-cols-2">
-				<Field>
-					<FieldLabel htmlFor="unit-code">Code</FieldLabel>
-					<Input
-						id="unit-code"
-						maxLength={32}
-						onChange={(event) => setValues({ ...draft, code: event.target.value })}
-						placeholder="e.g. hectare"
-						required
-						value={draft.code}
-					/>
-				</Field>
-				<Field>
-					<FieldLabel htmlFor="unit-abbreviation">Abbreviation</FieldLabel>
-					<Input
-						id="unit-abbreviation"
-						maxLength={16}
-						onChange={(event) => setValues({ ...draft, abbreviation: event.target.value })}
-						placeholder="e.g. ha"
-						required
-						value={draft.abbreviation}
-					/>
-				</Field>
-				<Field>
-					<FieldLabel htmlFor="unit-type">Measures</FieldLabel>
-					<NativeSelect
-						id="unit-type"
-						onChange={(event) => setValues({ ...draft, unitType: event.target.value as UnitType })}
-						value={draft.unitType}
-					>
-						{UNIT_TYPE_OPTIONS.map((unitType) => (
-							<option key={unitType} value={unitType}>
-								{titleCase(unitType)}
-							</option>
-						))}
-					</NativeSelect>
-				</Field>
-				<Field>
-					<FieldLabel htmlFor="unit-system">System</FieldLabel>
-					<NativeSelect
-						id="unit-system"
-						onChange={(event) =>
-							setValues({ ...draft, unitSystem: event.target.value as UnitSystem })
-						}
-						value={draft.unitSystem}
-					>
-						{UNIT_SYSTEM_OPTIONS.map((system) => (
-							<option key={system.value} value={system.value}>
-								{system.label}
-							</option>
-						))}
-					</NativeSelect>
-				</Field>
-			</div>
-		</CatalogForm>
-	);
 }

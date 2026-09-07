@@ -21,7 +21,7 @@ import {
 	DialogTitle,
 } from '@simmer-mosquito/ui-web/components/ui/dialog';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
-import { type FormEvent, type ReactNode, useState } from 'react';
+import { type ReactNode, useState } from 'react';
 
 /**
  * The chrome the three global catalogs share.
@@ -353,93 +353,5 @@ export function RecordDialog({
 				{children}
 			</DialogContent>
 		</Dialog>
-	);
-}
-
-/**
- * The submit scaffold every catalog form repeats: draft values, a pending flag,
- * and an inline error.
- *
- * Every catalog form now lives in a dialog, so there is no reset-after-save
- * branch: the dialog closes, and the next open mounts a fresh form.
- */
-export function useCatalogForm<TValues>({
-	initial,
-	onSubmit,
-}: {
-	readonly initial: TValues;
-	readonly onSubmit: (values: TValues) => Promise<void>;
-}): {
-	readonly values: TValues;
-	readonly setValues: (next: TValues) => void;
-	readonly pending: boolean;
-	readonly error: string | null;
-	readonly submit: (event: FormEvent<HTMLFormElement>) => void;
-} {
-	const [values, setValues] = useState(initial);
-	const [pending, setPending] = useState(false);
-	const [error, setError] = useState<string | null>(null);
-
-	async function run() {
-		setPending(true);
-		setError(null);
-		try {
-			await onSubmit(values);
-		} catch (caught) {
-			setError(caught instanceof Error ? caught.message : 'Unable to save.');
-		} finally {
-			setPending(false);
-		}
-	}
-
-	return {
-		values,
-		setValues,
-		pending,
-		error,
-		submit: (event) => {
-			event.preventDefault();
-			if (!pending) {
-				void run();
-			}
-		},
-	};
-}
-
-/** The shared body of a catalog form: fields, an error line, and the submit row. */
-export function CatalogForm({
-	error,
-	pending,
-	submitLabel,
-	disabled,
-	onCancel,
-	onSubmit,
-	children,
-}: {
-	readonly error: string | null;
-	readonly pending: boolean;
-	readonly submitLabel: string;
-	readonly disabled: boolean;
-	readonly onCancel: () => void;
-	readonly onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-	readonly children: ReactNode;
-}) {
-	return (
-		<form className="grid gap-4" onSubmit={onSubmit}>
-			{children}
-			{error === null ? null : (
-				<p className="m-0 text-destructive text-sm" role="alert">
-					{error}
-				</p>
-			)}
-			<div className="flex justify-end gap-2">
-				<Button onClick={onCancel} type="button" variant="outline">
-					Cancel
-				</Button>
-				<Button disabled={pending || disabled} type="submit">
-					{pending ? 'Saving…' : submitLabel}
-				</Button>
-			</div>
-		</form>
 	);
 }

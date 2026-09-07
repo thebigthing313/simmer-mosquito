@@ -1,8 +1,6 @@
 import { ListEmpty } from '@simmer-mosquito/ui-web/components/page';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import { useState } from 'react';
@@ -12,15 +10,14 @@ import {
 	CatalogBody,
 	CatalogDialog,
 	type CatalogDialogState,
-	CatalogForm,
 	CatalogList,
 	CatalogRow,
 	DeleteRecordButton,
 	EditRecordButton,
-	useCatalogForm,
 } from '../../components/catalog';
 import { type GenusListing, useGenusRoster } from '../../hooks/queries/use-genus-roster';
 import { createGenus, deleteGenus, updateGenus } from '../../lib/collections/writes';
+import { EMPTY_GENUS, GenusForm, type GenusFormValues } from './-genus-form';
 
 const GenusIcon = iconRegistry.generic.component.icon;
 const AddIcon = iconRegistry.actions.add.icon;
@@ -28,13 +25,6 @@ const AddIcon = iconRegistry.actions.add.icon;
 export const Route = createFileRoute('/taxonomy/genera')({
 	component: GeneraRoute,
 });
-
-interface GenusFormValues {
-	readonly abbreviation: string;
-	readonly name: string;
-}
-
-const EMPTY_GENUS: GenusFormValues = { abbreviation: '', name: '' };
 
 async function addGenus(values: GenusFormValues) {
 	await createGenus({ name: values.name.trim(), abbreviation: values.abbreviation.trim() });
@@ -192,54 +182,5 @@ function GenusListRow({
 			subtitle={genus.abbreviation}
 			title={genus.name}
 		/>
-	);
-}
-
-function GenusForm({
-	values,
-	submitLabel,
-	onCancel,
-	onSubmit,
-}: {
-	readonly values: GenusFormValues;
-	readonly submitLabel: string;
-	readonly onCancel: () => void;
-	readonly onSubmit: (values: GenusFormValues) => Promise<void>;
-}) {
-	const form = useCatalogForm({ initial: values, onSubmit });
-	const { values: draft, setValues } = form;
-
-	return (
-		<CatalogForm
-			disabled={draft.name.trim() === '' || draft.abbreviation.trim() === ''}
-			error={form.error}
-			onCancel={onCancel}
-			onSubmit={form.submit}
-			pending={form.pending}
-			submitLabel={submitLabel}
-		>
-			<Field>
-				<FieldLabel htmlFor="genus-name">Name</FieldLabel>
-				<Input
-					id="genus-name"
-					maxLength={120}
-					onChange={(event) => setValues({ ...draft, name: event.target.value })}
-					placeholder="e.g. Aedes"
-					required
-					value={draft.name}
-				/>
-			</Field>
-			<Field>
-				<FieldLabel htmlFor="genus-abbreviation">Abbreviation</FieldLabel>
-				<Input
-					id="genus-abbreviation"
-					maxLength={16}
-					onChange={(event) => setValues({ ...draft, abbreviation: event.target.value })}
-					placeholder="e.g. Ae."
-					required
-					value={draft.abbreviation}
-				/>
-			</Field>
-		</CatalogForm>
 	);
 }
