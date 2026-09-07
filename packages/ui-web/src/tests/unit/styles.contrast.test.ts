@@ -1,5 +1,12 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import {
+	contrastRatio,
+	type OklchColor,
+	oklchToRgb,
+	type RgbColor,
+	rgbToOklch,
+} from '@simmer-mosquito/design-tokens/color';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -17,6 +24,14 @@ import { describe, expect, it } from 'vitest';
  * than the obvious pairs. They read the real stylesheets and resolve the real
  * `var()` and `color-mix()` chains, so editing a token is what moves them —
  * there is no duplicated copy of the palette here to drift out of sync.
+ *
+ * The colour maths comes from `@simmer-mosquito/design-tokens/color`, which
+ * means `packages/design-tokens` has to be built before this suite runs, the
+ * same way `apps/server`'s integration suites need `packages/db` built. What
+ * stays here is the resolution walker below: this file has no browser, so
+ * `var()` and `color-mix()` are chains it has to follow itself. The design-token
+ * screen in `apps/preview` does have a browser and reads the resolved value out
+ * of it, and that split is deliberate.
  */
 
 const TOKENS_CSS = fileURLToPath(
@@ -24,61 +39,10 @@ const TOKENS_CSS = fileURLToPath(
 );
 const STYLES_CSS = fileURLToPath(new URL('../../styles.css', import.meta.url));
 
-// --- colour maths -----------------------------------------------------------
-
-type Rgb = readonly [number, number, number];
-
-function oklchToRgb(L: number, C: number, hDeg: number): Rgb {
-	const h = (hDeg * Math.PI) / 180;
-	const a = C * Math.cos(h);
-	const b = C * Math.sin(h);
-	const l = (L + 0.3963377774 * a + 0.2158037573 * b) ** 3;
-	const m = (L - 0.1055613458 * a - 0.0638541728 * b) ** 3;
-	const s = (L - 0.0894841775 * a - 1.291485548 * b) ** 3;
-	const lin = [
-		4.0767416621 * l - 3.3077115913 * m + 0.2309699292 * s,
-		-1.2684380046 * l + 2.6097574011 * m - 0.3413193965 * s,
-		-0.0041960863 * l - 0.7034186147 * m + 1.707614701 * s,
-	];
-	return lin.map((v) => {
-		const enc = v <= 0.0031308 ? 12.92 * v : 1.055 * v ** (1 / 2.4) - 0.055;
-		return Math.min(255, Math.max(0, Math.round(enc * 255)));
-	}) as unknown as Rgb;
-}
-
-function rgbToOklch(rgb: Rgb): readonly [number, number, number] {
-	const [r, g, b] = rgb.map((v) => {
-		const c = v / 255;
-		return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-	}) as unknown as Rgb;
-	const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b);
-	const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b);
-	const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b);
-	const L = 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s;
-	const A = 1.9779984951 * l - 2.428592205 * m + 0.4505937099 * s;
-	const B = 0.0259040371 * l + 0.7827717662 * m - 0.808675766 * s;
-	let h = (Math.atan2(B, A) * 180) / Math.PI;
-	if (h < 0) h += 360;
-	return [L, Math.hypot(A, B), h];
-}
-
-function relativeLuminance(rgb: Rgb): number {
-	const [r, g, b] = rgb.map((v) => {
-		const c = v / 255;
-		return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-	}) as unknown as Rgb;
-	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
-}
-
-function contrastRatio(a: Rgb, b: Rgb): number {
-	const la = relativeLuminance(a);
-	const lb = relativeLuminance(b);
-	const hi = Math.max(la, lb);
-	const lo = Math.min(la, lb);
-	return (hi + 0.05) / (lo + 0.05);
-}
-
 // --- token resolution -------------------------------------------------------
+
+const WHITE: RgbColor = { r: 255, g: 255, b: 255 };
+const BLACK: RgbColor = { r: 0, g: 0, b: 0 };
 
 /** `--name: value;` pairs from both stylesheets, later files winning. */
 function readVariables(): ReadonlyMap<string, string> {
@@ -129,7 +93,7 @@ function splitTopLevel(input: string): string[] {
 }
 
 /** Resolves `var()`, `color-mix(in oklch, …)`, `oklch()` and hex to sRGB. */
-function resolve(value: string, seen = new Set<string>()): Rgb {
+function resolve(value: string, seen = new Set<string>()): RgbColor {
 	const v = value.trim();
 
 	const varMatch = /^var\(\s*(--[a-z0-9-]+)\s*\)$/i.exec(v);
@@ -160,49 +124,65 @@ function resolve(value: string, seen = new Set<string>()): Rgb {
 
 		// `transparent` composites toward the other colour, which is what these
 		// tokens rely on for their washes.
-		const toPolar = (arg: { colour: string }, other: Rgb) =>
+		const toPolar = (arg: { colour: string }, other: RgbColor) =>
 			arg.colour === 'transparent' ? rgbToOklch(other) : rgbToOklch(resolve(arg.colour, seen));
-		const bRgbForA =
-			b.colour === 'transparent' ? ([255, 255, 255] as const) : resolve(b.colour, seen);
-		const aRgbForB =
-			a.colour === 'transparent' ? ([255, 255, 255] as const) : resolve(a.colour, seen);
-		const [L1, C1, H1] = toPolar(a, bRgbForA);
-		const [L2, C2, H2] = toPolar(b, aRgbForB);
-		const rect = (L: number, C: number, H: number) =>
-			[L, C * Math.cos((H * Math.PI) / 180), C * Math.sin((H * Math.PI) / 180)] as const;
-		const [la, aa, ba] = rect(L1, C1, H1);
-		const [lb, ab, bb] = rect(L2, C2, H2);
+		const bRgbForA = b.colour === 'transparent' ? WHITE : resolve(b.colour, seen);
+		const aRgbForB = a.colour === 'transparent' ? WHITE : resolve(a.colour, seen);
+		const aPolar = toPolar(a, bRgbForA);
+		const bPolar = toPolar(b, aRgbForB);
+		const rect = ({ lightness, chroma, hue }: OklchColor) =>
+			[
+				lightness,
+				chroma * Math.cos((hue * Math.PI) / 180),
+				chroma * Math.sin((hue * Math.PI) / 180),
+			] as const;
+		const [la, aa, ba] = rect(aPolar);
+		const [lb, ab, bb] = rect(bPolar);
 		const L = la * p + lb * (1 - p);
 		const A = aa * p + ab * (1 - p);
 		const B = ba * p + bb * (1 - p);
 		let h = (Math.atan2(B, A) * 180) / Math.PI;
 		if (h < 0) h += 360;
-		return oklchToRgb(L, Math.hypot(A, B), h);
+		return oklchToRgb({ lightness: L, chroma: Math.hypot(A, B), hue: h });
 	}
 
 	const oklchMatch = /^oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)\s*\)$/i.exec(v);
 	if (oklchMatch) {
 		const rawL = Number(oklchMatch[1]);
-		return oklchToRgb(
-			oklchMatch[2] === '%' ? rawL / 100 : rawL,
-			Number(oklchMatch[3]),
-			Number(oklchMatch[4]),
-		);
+		return oklchToRgb({
+			lightness: oklchMatch[2] === '%' ? rawL / 100 : rawL,
+			chroma: Number(oklchMatch[3]),
+			hue: Number(oklchMatch[4]),
+		});
 	}
 
 	const hexMatch = /^#([0-9a-f]{6})$/i.exec(v);
 	if (hexMatch) {
 		const hex = hexMatch[1] as string;
-		return [0, 2, 4].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)) as unknown as Rgb;
+		const [r, g, b] = [0, 2, 4].map((i) => Number.parseInt(hex.slice(i, i + 2), 16)) as [
+			number,
+			number,
+			number,
+		];
+		return { r, g, b };
 	}
 
-	if (v === 'white') return [255, 255, 255];
-	if (v === 'black') return [0, 0, 0];
+	if (v === 'white') return WHITE;
+	if (v === 'black') return BLACK;
 
 	throw new Error(`unsupported colour value: ${v}`);
 }
 
-const token = (name: string): Rgb => resolve(`var(${name})`);
+const token = (name: string): RgbColor => resolve(`var(${name})`);
+
+/** A colour a browser could paint: three whole channels, none out of range. */
+function expectPaintable({ r, g, b }: RgbColor): void {
+	for (const channel of [r, g, b]) {
+		expect(Number.isInteger(channel)).toBe(true);
+		expect(channel).toBeGreaterThanOrEqual(0);
+		expect(channel).toBeLessThanOrEqual(255);
+	}
+}
 const ratio = (fg: string, bg: string): number => contrastRatio(token(fg), token(bg));
 
 // --- the guard --------------------------------------------------------------
@@ -242,9 +222,7 @@ describe('semantic token contrast', () => {
 		it('destructive fill carries its own foreground', () => {
 			expect(ratio('--destructive-foreground', '--destructive')).toBeGreaterThanOrEqual(TEXT_AA);
 			// The destructive Button variant hard-codes `text-white`.
-			expect(contrastRatio([255, 255, 255], token('--destructive'))).toBeGreaterThanOrEqual(
-				TEXT_AA,
-			);
+			expect(contrastRatio(WHITE, token('--destructive'))).toBeGreaterThanOrEqual(TEXT_AA);
 		});
 
 		it('status tones are readable on their paired backgrounds', () => {
@@ -307,9 +285,9 @@ describe('semantic token contrast', () => {
 	describe('resolver', () => {
 		it('resolves var, nested color-mix, and both oklch lightness forms', () => {
 			// --background -> var -> color-mix(in oklch, var(--simmer-green-50) 54%, oklch(99% …))
-			expect(token('--background')).toHaveLength(3);
+			expectPaintable(token('--background'));
 			// tokens.css writes some values with decimal L rather than percent
-			expect(token('--simmer-purple')).toHaveLength(3);
+			expectPaintable(token('--simmer-purple'));
 			expect(() => token('--does-not-exist')).toThrow(/unknown token/);
 		});
 	});

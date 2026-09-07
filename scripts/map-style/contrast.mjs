@@ -14,10 +14,12 @@
  * graphical objects, so that is the threshold used here.
  *
  * Marks are read from the real `@simmer-mosquito/design-tokens` build rather than
- * restated, so this cannot drift from what the layers actually paint. That does
- * mean `packages/design-tokens` has to be built first.
+ * restated, so this cannot drift from what the layers actually paint, and the
+ * contrast maths comes from that package too. Both mean `packages/design-tokens`
+ * has to be built first.
  */
 
+import { contrastRatio, parseCssColor } from '@simmer-mosquito/design-tokens/color';
 import {
 	mapContext,
 	mapDensity,
@@ -44,24 +46,19 @@ const GROUPS = {
 	density: mapDensity,
 };
 
-function channel(value) {
-	const c = value / 255;
-	return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
-}
-
-function luminance(hex) {
-	const n = Number.parseInt(hex.slice(1), 16);
-	const r = channel((n >> 16) & 255);
-	const g = channel((n >> 8) & 255);
-	const b = channel(n & 255);
-	return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+/**
+ * Every colour on both sides of a comparison here is a hex literal out of a
+ * palette module, so anything else is a bug in the palette rather than a value
+ * to skip past with a zero.
+ */
+function toRgb(value) {
+	const parsed = parseCssColor(value);
+	if (parsed === null) throw new Error(`not a colour: ${value}`);
+	return parsed;
 }
 
 function contrast(a, b) {
-	const la = luminance(a);
-	const lb = luminance(b);
-	const [hi, lo] = la > lb ? [la, lb] : [lb, la];
-	return (hi + 0.05) / (lo + 0.05);
+	return contrastRatio(toRgb(a), toRgb(b));
 }
 
 /**

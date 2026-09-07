@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 
-interface CssToken {
+export interface CssToken {
 	readonly name: string;
 	readonly value: string;
 }

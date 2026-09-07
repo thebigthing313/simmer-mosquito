@@ -11,6 +11,11 @@ Current surface:
 - `src/colors.ts`: matching brand color values for JavaScript consumers,
   including brand green and brand yellow scales from 50 through 900 plus
   semantic `brand` aliases.
+- `src/color.ts`, on the `./color` subpath: the colour maths every contrast
+  answer in the workspace goes through. OKLCH and sRGB both ways, WCAG relative
+  luminance and contrast, and the AA verdict a ratio earns. It lives here
+  because a contrast answer is a statement about the tokens, and it was written
+  four separate times before it did.
 
 Do not add React components, icons, or shadcn component code here. Those belong
 in platform-specific UI packages.
