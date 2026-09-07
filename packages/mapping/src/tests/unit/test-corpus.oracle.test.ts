@@ -20,12 +20,12 @@ import {
  *
  * `jsts` is a **devDependency oracle** and never ships. It is the same JTS
  * lineage PostGIS reaches through GEOS, so agreement with it is not independent
- * evidence that the *rule* is right. What it is evidence of is that the thirty-two
- * hand-written booleans are the ones the rule produces, checked without Postgres
- * and without the implementation under test. When mobile's hand-rolled predicate
- * arrives, a hand-written expectation checked only by a hand-rolled
- * implementation would be one pair of eyes checking itself, and this is the
- * second pair.
+ * evidence that the *rule* is right. What it is evidence of is that the
+ * thirty-four hand-written booleans are the ones the rule produces, checked
+ * without Postgres and without the implementation under test. When mobile's
+ * hand-rolled predicate arrives, a hand-written expectation checked only by a
+ * hand-rolled implementation would be one pair of eyes checking itself, and this
+ * is the second pair.
  *
  * The rule, in JTS terms: `RelateOp.relate(region, record)` once, read as the
  * DE-9IM interior cell for a polygon record and as plain intersection for a point
@@ -67,6 +67,26 @@ describe('region membership corpus, against the jsts oracle', () => {
 		expect(oracleAnswer(sharesAnEdge)).toBe(false);
 		expect(plainIntersection(sharesAnEdge)).toBe(true);
 		expect(oracleAnswer(onePartInside)).toBe(true);
+	});
+
+	it('reads the shape Split writes, whose parts share the line they were cut along', () => {
+		// The pair the table above covers, asserted directly because between them
+		// they answer two different questions. The first is the branch tripwire: it
+		// answers false on the interior arm and true under plain intersection, so a
+		// MultiPolygon that lost the areal branch shows up here. The second is the
+		// refusal tripwire: a predicate that saw an invalid geometry and answered
+		// false without reading it would pass the first case and fail this one.
+		//
+		// No try/catch and no precision model. `RelateOp` is defined over a shared
+		// edge and returns the matrix PostGIS returns, which is what makes this a
+		// corpus case rather than an undefined one, and it is the whole reason a
+		// self-intersecting ring stays out.
+		const touching = caseById('multipolygon-split-parts-touching-the-southern-edge');
+		const across = caseById('multipolygon-split-parts-across-the-southern-edge');
+
+		expect(oracleAnswer(touching)).toBe(false);
+		expect(plainIntersection(touching)).toBe(true);
+		expect(oracleAnswer(across)).toBe(true);
 	});
 });
 

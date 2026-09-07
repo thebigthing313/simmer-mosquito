@@ -1,5 +1,5 @@
 import { VectorTile } from '@mapbox/vector-tile';
-import type { Kysely } from 'kysely';
+import { type Kysely, sql } from 'kysely';
 import { PbfReader } from 'pbf';
 import { expect, it } from 'vitest';
 import {
@@ -54,6 +54,7 @@ import {
 	listSampleDisplayRowsByBounds,
 } from '../../../domains/larval-surveillance.js';
 import type { MapExtent } from '../../../domains/map-extent.js';
+import { MAP_TILE_ENCODING } from '../../../domains/map-tile.js';
 import { getNotificationRegistrationGeometryById } from '../../../domains/public-engagement-map.js';
 import type { SimmerDatabase } from '../../../index.js';
 import {
@@ -236,6 +237,47 @@ const surfaces: readonly SurfaceUnderTest[] = [
 ];
 
 const page = { limit: 50, offset: 0 };
+
+// --- the shape the Split gesture writes --------------------------------------
+//
+// Split cuts one part of a drawn shape in two and puts both pieces back, still
+// sitting on the line they were cut along. OGC calls that an invalid
+// MultiPolygon, nothing in this schema refuses it, and the row stores (#518).
+// `readMapTile` runs every row through `ST_AsMVTGeom`, so what that call does
+// to the shape is what decides whether a split record draws at all.
+//
+// The membership answer for this shape is pinned in the corpus. This is the
+// other half, and it was the open question when #518 was filed: a null geometry
+// here would take the record off the map with nothing on screen to say why.
+//
+// Three shapes, in the tile every other case in this file frames, encoded at
+// `MAP_TILE_ENCODING` so the question is asked at the values the map runs on
+// rather than at a copy of them. All three sit well inside the tile, so nothing
+// is clipped and the two areas are comparable.
+
+/** A lot inside `mapSurfacePlace.tile`, drawn in one piece. */
+const UNCUT_LOT = 'POLYGON((-90.51 35.49, -90.49 35.49, -90.49 35.51, -90.51 35.51, -90.51 35.49))';
+
+/** The same lot cut down the middle, both pieces keeping longitude -90.50. */
+const SPLIT_LOT =
+	'MULTIPOLYGON(((-90.51 35.49, -90.5 35.49, -90.5 35.51, -90.51 35.51, -90.51 35.49)),' +
+	'((-90.5 35.49, -90.49 35.49, -90.49 35.51, -90.5 35.51, -90.5 35.49)))';
+
+/** The cut lot with a third piece east of it, sharing nothing with either half. */
+const SPLIT_LOT_AND_ONE_MORE =
+	'MULTIPOLYGON(((-90.51 35.49, -90.5 35.49, -90.5 35.51, -90.51 35.51, -90.51 35.49)),' +
+	'((-90.5 35.49, -90.49 35.49, -90.49 35.51, -90.5 35.51, -90.5 35.49)),' +
+	'((-90.47 35.49, -90.46 35.49, -90.46 35.51, -90.47 35.51, -90.47 35.49)))';
+
+interface EncodedShapeRow {
+	readonly id: string;
+	readonly stored_valid: boolean;
+	readonly encoded_null: boolean;
+	readonly encoded_type: string | null;
+	readonly encoded_valid: boolean | null;
+	readonly encoded_parts: number | null;
+	readonly encoded_area: number | null;
+}
 
 describeDbIntegration('map surfaces against Postgres', () => {
 	it('draws only this organization’s live records inside the tile', async () => {
@@ -548,7 +590,83 @@ describeDbIntegration('map surfaces against Postgres', () => {
 			expect(opened).toBeUndefined();
 		});
 	});
+
+	it('draws a split record the way it draws an uncut one', async () => {
+		await withTestDb(async ({ db }) => {
+			const encoded = await sql<EncodedShapeRow>`
+				with bounds as (
+					select st_tileenvelope(
+						${mapSurfacePlace.tile.z},
+						${mapSurfacePlace.tile.x},
+						${mapSurfacePlace.tile.y}
+					) as geom_3857
+				),
+				shapes(id, geom) as (
+					values
+						('uncut', st_setsrid(st_geomfromtext(${UNCUT_LOT}::text), 4326)),
+						('split', st_setsrid(st_geomfromtext(${SPLIT_LOT}::text), 4326)),
+						('split-and-disjoint', st_setsrid(st_geomfromtext(${SPLIT_LOT_AND_ONE_MORE}::text), 4326))
+				)
+				select
+					shapes.id,
+					st_isvalid(shapes.geom) as stored_valid,
+					encoded.geom is null as encoded_null,
+					geometrytype(encoded.geom) as encoded_type,
+					st_isvalid(encoded.geom) as encoded_valid,
+					st_numgeometries(encoded.geom) as encoded_parts,
+					st_area(encoded.geom) as encoded_area
+				from shapes
+				cross join bounds
+				cross join lateral (
+					select st_asmvtgeom(
+						st_transform(shapes.geom, 3857),
+						bounds.geom_3857,
+						extent => ${MAP_TILE_ENCODING.extent},
+						buffer => ${MAP_TILE_ENCODING.buffer}
+					) as geom
+				) as encoded
+			`.execute(db);
+
+			const uncut = encodedShape(encoded.rows, 'uncut');
+			const split = encodedShape(encoded.rows, 'split');
+			const splitAndDisjoint = encodedShape(encoded.rows, 'split-and-disjoint');
+
+			// Both cut shapes are invalid where they sit, and the uncut one is not.
+			// Everything below is vacuous without that: a Split that had started
+			// producing valid geometry would make this a test of nothing.
+			expect(uncut.stored_valid).toBe(true);
+			expect(split.stored_valid).toBe(false);
+			expect(splitAndDisjoint.stored_valid).toBe(false);
+			// The area the cut shapes are measured against, so the comparison below
+			// cannot pass by both sides being null.
+			expect(uncut.encoded_area).toBeGreaterThan(0);
+
+			// The encoder dissolves the shared edge. A null here would drop the
+			// record's geometry from the layer with nothing on screen to say why,
+			// and an area that disagreed would mean the cut ate ground.
+			expect(split.encoded_null).toBe(false);
+			expect(split.encoded_type).toBe('POLYGON');
+			expect(split.encoded_valid).toBe(true);
+			expect(split.encoded_area).toBe(uncut.encoded_area);
+
+			// Dissolving reaches only as far as the pieces that touch. A part that
+			// is genuinely somewhere else survives as its own, so a record split
+			// once and pulled apart twice still draws as two.
+			expect(splitAndDisjoint.encoded_type).toBe('MULTIPOLYGON');
+			expect(splitAndDisjoint.encoded_valid).toBe(true);
+			expect(splitAndDisjoint.encoded_parts).toBe(2);
+		});
+	});
 });
+
+/** One encoded shape by name, throwing rather than letting a lost row read as null. */
+function encodedShape(rows: readonly EncodedShapeRow[], id: string): EncodedShapeRow {
+	const row = rows.find((candidate) => candidate.id === id);
+	if (row === undefined) {
+		throw new Error(`The encoder answered nothing for ${id}.`);
+	}
+	return row;
+}
 
 /** Run one read across the surfaces that offer it, keyed by surface name. */
 async function mapSurfaces<T>(

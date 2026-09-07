@@ -30,7 +30,7 @@ import { describeDbIntegration, withTestDb } from '../../../test-support/db-inte
 //
 // One `it()` and one `withTestDb`. The harness applies the whole migration set
 // per call, about a second against a local container and nine against a remote
-// one, so thirty-two blocks would be thirty-two migration runs. Seed once,
+// one, so thirty-four blocks would be thirty-four migration runs. Seed once,
 // assert once, and name the failing case in the diff rather than in the block
 // title.
 //
@@ -291,6 +291,11 @@ describeDbIntegration('region membership corpus, SQL half', () => {
 // corpus rather than in it: mobile cannot be asked to reproduce an undefined
 // answer. A case that starts failing means GEOS changed its mind about invalid
 // input, and the fifteen rows need measuring again.
+//
+// "Invalid" covers two shapes here and only this one is undefined. A
+// MultiPolygon whose parts share the line they were cut along is invalid too,
+// and it is in the corpus proper, because both engines define a relate on it and
+// both return the same matrix. The two kinds live apart on purpose.
 //
 // A second `withTestDb` is a second migration run. The corpus block argues
 // against that for thirty-two blocks; this is one, and it buys an invalid Region
