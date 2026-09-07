@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 /**
- * Holds every colour a map layer paints with to one register.
+ * Holds every colour `apps/web` writes to a register, and the map's to
+ * `packages/design-tokens/src/map-palette.ts`.
  *
  * Mapbox GL evaluates paint properties itself, outside the CSS cascade, so a
  * layer cannot read a custom property and the values have to be literals. That
- * is why `packages/design-tokens/src/map-palette.ts` exists: the literals are
- * unavoidable, scattering them is not. This is what stops them scattering
- * again.
+ * is why the map palette exists: the literals are unavoidable, scattering them
+ * is not. This is what stops them scattering again.
  *
- * Six of the 62 modules under `apps/web/src/components/map` had kept a private
+ * Six of the modules under `apps/web/src/components/map` had kept a private
  * `colors` block through the consolidation that wrote the register, holding 26
  * hex literals between them, and three roles had drifted inside them:
  *
@@ -27,35 +27,96 @@
  *   key names, which is the shape a copy takes when nothing holds it to the
  *   original.
  *
- * One rule, gated at zero with no allowance list: no module under the map
- * directory writes a hex colour. A file that wants an exemption is a file that
- * wants a private colour, which is the thing that drifted.
- *
  * The scan reads whole files rather than masking comments and strings. A hex in
  * a comment is a value somebody is about to paste into a paint property, and
  * the register is where a colour gets talked about.
  *
- * Scoped to `apps/web/src/components/map`, which is where the register's
- * consumers live and where the drift happened. Widening it is less of a sweep
- * than it sounds: seven hex literals live in the rest of `apps/web/src` and all
- * seven are tag colours in two test suites, so it would cost two exemptions
- * rather than a backlog. That is still a decision for its own branch, not one
- * to take while settling a drift.
- *
  * Run it with `pnpm check:map-palette`.
+ *
+ * ## What the corpus is, since #711
+ *
+ * Every `.ts` and `.tsx` file under `apps/web/src`, the suites included. #618
+ * scoped this to the map directory and wrote down that widening it would be a
+ * sweep with a backlog behind it. Measured, that was false: outside the map
+ * directory the app holds eight hex literals in three files and nothing else,
+ * so the whole of `apps/web` sits at the zero the map directory was gated at.
+ *
+ * Widening is not a second rule bolted on. `CLAUDE.md` already says to style
+ * with Tailwind semantic tokens and to keep durable raw values in
+ * `packages/design-tokens`, so a hex literal anywhere in `apps/web` is out of
+ * policy and the map directory was only where somebody had counted. What the
+ * wider scan buys is the case the narrow one could not see: a colour copied
+ * *out* of the map directory. `explorer-row.test.tsx` was passing `#e11d48`
+ * under the label "Inaccessible" while `mapLifecycle.inaccessible` had been
+ * `brand.red`, `#ef2352`, since the register was written. Nothing painted it
+ * and no user saw it, which is exactly why it sat there.
+ *
+ * The suites are in for that reason. `source-files.mjs` skips them by default
+ * because a suite spells a register out as input data, and every finding this
+ * gate has outside the map directory is in one. Skipping them would put the
+ * count at zero, cost no exemptions, and miss the only drift the widening
+ * found.
+ *
+ * ## What is not in it
+ *
+ * Stylesheets. `tokens.css` and an app's globals are where a colour is
+ * *defined* and handed to Tailwind, so a gate reading them would refuse the
+ * register it is pointing people at.
+ *
+ * `apps/admin`, `apps/preview` and `packages/ui-web`. The register's consumers
+ * and the measured drift are in `apps/web`. Each of the others is its own
+ * corpus with its own count, and `apps/preview` exists to draw raw token values
+ * on a screen.
+ *
+ * Three and four digit hex, which is #618's decision and is unchanged. See
+ * `HEX_COLOR`.
+ *
+ * ## The marker, and the one directory that takes none
+ *
+ * A hex that is right carries a comment on the line above:
+ *
+ *     // hex-color-ignore: a Tag colour the organization picked, not a token.
+ *
+ * The word is this gate's own. `prose-ignore` is an HTML comment that cannot be
+ * typed here, `copy-dash-ignore` and `vocabulary-ignore` belong to rules about
+ * words, and sharing a word would make one gate's stale-marker failure fire on
+ * another's exemption. The two rules on a marker are `style-gate.mjs`'s and are
+ * the ones all four gates carry: the reason ends in a full stop, because #291's
+ * wrapped `biome-ignore` is the trap, and a marker that exempts nothing fails,
+ * because an unused allowance is headroom the next violation lands inside.
+ *
+ * Three markers stand, all of them Tag colours in suites. A Tag's colour is a
+ * column an organization writes, not a role anything paints, and a suite
+ * asserting that the value survives a write has to write the value.
+ *
+ * **A marker under `apps/web/src/components/map` is refused.** That directory
+ * keeps #618's rule exactly: no exemption, because a file that wants one is a
+ * file that wants a private colour, which is the thing that drifted.
  */
 
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { maskedSource } from './lib/masked-source.mjs';
 import { pathFrom } from './lib/relative-path.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
-import { count, failure } from './lib/style-gate.mjs';
+import {
+	count,
+	failure,
+	markersAcross,
+	markersIn,
+	reasonOf,
+	reasonProblem,
+	report,
+	trim,
+} from './lib/style-gate.mjs';
 
 const GATE = 'check-map-palette';
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fail = failure(GATE);
 
+/** The corpus, and the directory inside it that takes no exemption. */
+const WEB_SOURCE = join(workspaceRoot, 'apps/web/src');
 const MAP_DIRECTORY = join(workspaceRoot, 'apps/web/src/components/map');
 
 /** The package a map module reads its colours from. */
@@ -71,24 +132,40 @@ const PALETTE_PACKAGE = '@simmer-mosquito/design-tokens';
  */
 const PALETTE_IMPORT = new RegExp(`from\\s+'${PALETTE_PACKAGE}(?:/[^']*)?'`);
 
+/** The word that opens a marker, and the token the sweep for a stale one looks for. */
+const MARKER_WORD = 'hex-color-ignore';
+
 /**
- * The floors under the scan, both of them #591's rule: a walk that has stopped
- * finding the workspace's files must fail rather than report a clean zero.
+ * The floors under the scan, all three of them #591's rule: a walk that has
+ * stopped finding the workspace's files must fail rather than report a clean
+ * zero.
  *
  * A renamed directory, a moved module, or a walk that quietly stops descending
  * all produce the same summary line as a green run, because "no hex literals
- * found" is exactly what finding no files looks like. These two numbers are
- * what tell the cases apart, and moving either is a deliberate edit.
+ * found" is exactly what finding no files looks like. These numbers are what
+ * tell the cases apart, and moving any of them is a deliberate edit.
  *
- * Twenty-two importers and not twenty-six: four of the six modules holding a
- * private block were already reading the register for part of what they paint,
- * which is how a colour drifts in a file that looks consolidated.
+ * They are three because each fails on a different silent pass, and the middle
+ * one is what #711 owed. Widening the corpus to the app made the outer count
+ * large enough to stay green with the map directory renamed away underneath it:
+ * 800 modules found and the 63 that hold every colour ever gated missing reads
+ * as a pass. So the subtree the rule was written for is counted inside the
+ * corpus rather than trusted to be in it.
  *
- * Sixty-one and not sixty-two since #640: `draw-vertex-edit.ts` moved to
- * `packages/mapping`, where it paints nothing, so the module left the corpus
- * rather than the walk losing it.
+ * - `MINIMUM_WEB_MODULES`, that the walk still reaches `apps/web/src` at all.
+ *   869 modules today, suites included.
+ * - `MINIMUM_MAP_MODULES`, that it still descends into the map directory. 63
+ *   today. Sixty-one and not sixty-two since #640: `draw-vertex-edit.ts` moved
+ *   to `packages/mapping`, where it paints nothing, so the module left the
+ *   corpus rather than the walk losing it.
+ * - `MINIMUM_PALETTE_IMPORTERS`, that the files are being read and not merely
+ *   listed, measured inside the map directory where every module is a consumer
+ *   of the register. Twenty-two and not twenty-six: four of the six modules
+ *   holding a private block were already reading the register for part of what
+ *   they paint, which is how a colour drifts in a file that looks consolidated.
  */
-const MINIMUM_MAP_FILES = 61;
+const MINIMUM_WEB_MODULES = 800;
+const MINIMUM_MAP_MODULES = 61;
 const MINIMUM_PALETTE_IMPORTERS = 22;
 
 /**
@@ -102,79 +179,153 @@ const MINIMUM_PALETTE_IMPORTERS = 22;
  * Three and four digits are deliberately not read. This workspace writes issue
  * numbers as `#517` in comments, three digits of hex every one of them, and a
  * scan that took them reported eleven colours in five modules that paint none.
+ * Widening the corpus to the app makes that worse rather than better: every
+ * suite and every docblock under `apps/web/src` cites issues the same way.
  * Shorthand is the one evasion left open, and it is open on purpose: a gate
  * that cries on every issue reference is a gate somebody switches off.
  */
 const HEX_COLOR = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6})\b/g;
 
 function main() {
-	const files = [...typeScriptFilesUnder(MAP_DIRECTORY)];
-	if (files.length < MINIMUM_MAP_FILES) {
+	const files = [...typeScriptFilesUnder(WEB_SOURCE, [], { tests: true })].map(readFile);
+	assertItReadTheApp(files);
+
+	report(files, { unmarked: unmarkedMessage, stale: staleMessage }, () => announce(files));
+}
+
+/** That the walk reached the app and then reached the map directory inside it. */
+function assertItReadTheApp(files) {
+	if (files.length < MINIMUM_WEB_MODULES) {
 		fail(
-			`read ${count(files.length, 'module')} under ${where(MAP_DIRECTORY)}, fewer than the ${MINIMUM_MAP_FILES} this expects. The walk has stopped finding the map directory, so a hex literal in it now passes this. Fix MAP_DIRECTORY in scripts/check-map-palette.mjs, or lower MINIMUM_MAP_FILES if that many modules were genuinely deleted.`,
+			`read ${count(files.length, 'module')} under ${relative(WEB_SOURCE)}, fewer than the ${MINIMUM_WEB_MODULES} this expects. The walk has stopped finding the app, so a hex literal in it now passes this. Fix WEB_SOURCE in scripts/check-map-palette.mjs, or lower MINIMUM_WEB_MODULES if that many modules were genuinely deleted.`,
 		);
 	}
 
-	const { findings, importers } = scan(files);
+	const inMap = files.filter((file) => file.isMap).length;
+	if (inMap < MINIMUM_MAP_MODULES) {
+		fail(
+			`read ${count(inMap, 'module')} under ${relative(MAP_DIRECTORY)}, fewer than the ${MINIMUM_MAP_MODULES} this expects. The app is being walked and the map directory is not inside what it found, which is the one subtree this rule was written for. Fix MAP_DIRECTORY in scripts/check-map-palette.mjs, or lower MINIMUM_MAP_MODULES if that many modules were genuinely deleted.`,
+		);
+	}
+}
 
-	if (findings.length > 0) {
-		report(findings);
-		return;
+// ---------------------------------------------------------------------------
+// The colours
+// ---------------------------------------------------------------------------
+
+/** One file as its findings, its markers, and the two facts the floors count. */
+function readFile(file) {
+	const source = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
+	const where = pathFrom(workspaceRoot, file);
+	const lines = source.split('\n');
+	const masked = maskedSource(source).split('\n');
+	const isMap = file.startsWith(MAP_DIRECTORY);
+
+	return {
+		where,
+		lines,
+		isMap,
+		readsRegister: PALETTE_IMPORT.test(source),
+		findings: findingsIn(lines, where),
+		markers: markersOf(lines, masked, where, isMap),
+	};
+}
+
+/** Every hex literal in one file, as the line a reader can jump to. */
+const findingsIn = (lines, where) =>
+	lines.flatMap((line, at) =>
+		[...line.matchAll(HEX_COLOR)].map((hit) => ({ where, line: at + 1, value: hit[0] })),
+	);
+
+// ---------------------------------------------------------------------------
+// The markers
+// ---------------------------------------------------------------------------
+
+/** Every marker in one file, well formed or not, and the line each one is above. */
+const markersOf = (lines, masked, where, isMap) =>
+	markersIn(lines, MARKER_WORD, readerFor(isMap, lines, masked)).map((marker) => ({
+		where,
+		...marker,
+	}));
+
+/**
+ * How one file's markers are read.
+ *
+ * The map directory takes none, so nothing written there is parsed as one: the
+ * word itself is the problem, and reporting it as malformed would send somebody
+ * to fix a reason that was never going to be read.
+ */
+const readerFor = (isMap, lines, masked) =>
+	isMap
+		? () => ({ problem: 'it is under the map directory, which takes no exemption' })
+		: (at) => read(lines[at], masked[at]);
+
+/**
+ * One marker as `{ reason }`, or `{ problem }` saying what is wrong with it.
+ *
+ * The masked line is what says the word is in a comment. Masking leaves spaces
+ * wherever a comment body or a string body was, so a line still carrying
+ * letters there is code: the marker was typed inside a string literal, where it
+ * exempts nothing.
+ */
+function read(line, masked) {
+	if (/[A-Za-z0-9]/.test(masked)) {
+		return { problem: 'the word is in code or in a string rather than in a comment' };
 	}
 
-	// Only on a clean run. A report full of hex literals has already proved the
-	// walk is reading the tree, and this floor would bury it under a refusal.
+	const marker = line.match(new RegExp(`${MARKER_WORD}\\s*:\\s*(.*)$`));
+	if (marker === null) {
+		return { problem: `it does not read "${MARKER_WORD}: <reason>"` };
+	}
+
+	const reason = reasonOf(marker[1]);
+	const problem = reasonProblem(reason);
+	return problem === null ? { reason } : { problem };
+}
+
+// ---------------------------------------------------------------------------
+// Reporting
+// ---------------------------------------------------------------------------
+
+const unmarkedMessage = (finding, lines) =>
+	`${GATE}: ${finding.where}:${finding.line} writes ${finding.value}.\n\n` +
+	`    ${trim(lines[finding.line - 1].trim())}\n\n` +
+	'A colour a map layer paints with is named in packages/design-tokens/src/map-palette.ts.\n' +
+	'Read the role off the register rather than writing the value out here, and add a role\n' +
+	'with a docblock when there is none that fits. A colour anywhere else in apps/web comes\n' +
+	'from a Tailwind semantic token or from packages/design-tokens, which is where CLAUDE.md\n' +
+	'puts durable raw values. A hex that is data rather than design, a Tag colour an\n' +
+	`organization picked, takes a marker on the line above: // ${MARKER_WORD}: one sentence ending in a full stop.`;
+
+const staleMessage = (marker) =>
+	marker.problem === undefined
+		? `${GATE}: ${marker.where}:${marker.line} marks line ${marker.target} and exempts nothing.\n\nNothing on that line writes a hex colour this gate reads. Either the colour was moved to the register and the marker outlived it, or the marker is not the line above the one it means. A reason wrapped onto a second line does the second of those.`
+		: `${GATE}: ${marker.where}:${marker.line} is not a marker, because ${marker.problem}.`;
+
+/**
+ * The summary line, and the last floor.
+ *
+ * This one runs only on a clean pass, which is the condition it was written
+ * under: a report full of hex literals has already proved the walk is reading
+ * the tree, and the floor would bury it under a refusal.
+ */
+function announce(files) {
+	const importers = files.filter((file) => file.isMap && file.readsRegister).length;
+	const inMap = files.filter((file) => file.isMap).length;
+
 	if (importers < MINIMUM_PALETTE_IMPORTERS) {
 		fail(
-			`${count(importers, 'module')} of ${files.length} import ${PALETTE_PACKAGE}, fewer than the ${MINIMUM_PALETTE_IMPORTERS} this expects. The modules are being found and their imports are not, so this run's clean zero is the scan failing rather than the directory being clean.`,
+			`${count(importers, 'module')} of ${inMap} under ${relative(MAP_DIRECTORY)} import ${PALETTE_PACKAGE}, fewer than the ${MINIMUM_PALETTE_IMPORTERS} this expects. The modules are being found and their imports are not, so this run's clean zero is the scan failing rather than the app being clean.`,
 		);
 	}
 
 	console.log(
-		`Map palette: ${files.length} modules, ${importers} reading the register, no hex literals.`,
+		`${GATE}: ${count(files.length, 'module')} under ${relative(WEB_SOURCE)}, ${inMap} of them map modules with ${importers} reading the register, no hex colours, ${count(markersAcross(files), 'line')} exempted by a marker.`,
 	);
 }
 
-/** Every hex literal in the directory, and how many of its modules read the register. */
-function scan(files) {
-	const findings = [];
-	let importers = 0;
-
-	for (const file of files) {
-		const source = readFileSync(file, 'utf8');
-		if (PALETTE_IMPORT.test(source)) {
-			importers += 1;
-		}
-		for (const match of source.matchAll(HEX_COLOR)) {
-			findings.push(`${where(file)}:${lineOf(source, match.index)} writes ${match[0]}.`);
-		}
-	}
-
-	return { findings, importers };
-}
-
-function report(findings) {
-	console.error(
-		`${GATE}: ${count(findings.length, 'hex colour')} under ${where(MAP_DIRECTORY)}.\n`,
-	);
-	for (const finding of findings) {
-		console.error(`  - ${finding}`);
-	}
-	console.error(
-		'\nEvery colour a map layer paints with is named in ' +
-			'packages/design-tokens/src/map-palette.ts.\nRead the role off the register rather ' +
-			'than writing the value out here, and add a role with a docblock when there is ' +
-			'none that fits.',
-	);
-	process.exitCode = 1;
-}
-
-function where(path) {
+function relative(path) {
 	return pathFrom(workspaceRoot, path);
-}
-
-function lineOf(source, index) {
-	return source.slice(0, index).split('\n').length;
 }
 
 main();

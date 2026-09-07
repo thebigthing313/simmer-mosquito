@@ -1,4 +1,5 @@
 /** @vitest-environment jsdom */
+import { mapLifecycle } from '@simmer-mosquito/design-tokens';
 import { cleanup, render, screen } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -130,7 +131,7 @@ describe('ExplorerRow', () => {
 						detailLink={DETAIL}
 						isSelected={false}
 						selectLabel="Show on the map"
-						swatch={{ color: '#e11d48', label: 'Inaccessible' }}
+						swatch={{ color: mapLifecycle.inaccessible, label: 'Inaccessible' }}
 						title="CAR - S1 - 12"
 					/>
 				</li>

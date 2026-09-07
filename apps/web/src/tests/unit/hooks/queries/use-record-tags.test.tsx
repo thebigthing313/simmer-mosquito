@@ -20,7 +20,17 @@ import { plain, renderRead } from './read-harness';
 const HABITAT = '11111111-1111-4111-8111-111111111111';
 const OTHER = '22222222-2222-4222-8222-222222222222';
 
-function tag(id: string, name: string, color: string | null = '#336699') {
+/**
+ * The colour a seeded Tag carries.
+ *
+ * A hex an organization picked rather than a design role, so it is written here
+ * rather than read off a register, and it is deliberately not a `tagPalette`
+ * entry: the column takes whatever the picker produced.
+ */
+// hex-color-ignore: a Tag colour an organization picked, not a design role.
+const COLOR = '#336699';
+
+function tag(id: string, name: string, color: string | null = COLOR) {
 	return { id, tag_name: name, color, description: null };
 }
 
@@ -40,7 +50,7 @@ describe('useRecordTags', () => {
 		const { result } = await renderRead(() => useRecordTags(HABITAT));
 
 		expect(result.current.map(plain)).toEqual([
-			{ id: 't1', name: 'Roadside', color: '#336699', description: null },
+			{ id: 't1', name: 'Roadside', color: COLOR, description: null },
 		]);
 	});
 
