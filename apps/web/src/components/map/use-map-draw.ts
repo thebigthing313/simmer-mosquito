@@ -11,10 +11,21 @@ import {
 } from '@simmer-mosquito/domain';
 import {
 	boundsFromGeoJson,
+	closeRing,
+	type DrawVertexRef,
 	type GeoJsonGeometry,
 	geometryContainsLngLat,
+	hasDistinctPositions,
+	insertRingVertex,
+	moveRingVertex,
+	nearestRingEdge,
+	type PlanarPath,
+	type PlanarPosition,
+	removeRingVertex,
 	reshapePath,
+	samePlanarPosition,
 	splitRings,
+	unclosedRing,
 } from '@simmer-mosquito/mapping';
 import type {
 	CircleLayerSpecification,
@@ -35,24 +46,11 @@ import {
 	useRef,
 	useState,
 } from 'react';
-import {
-	closeRing,
-	type DrawPosition,
-	type DrawRing,
-	type DrawVertexRef,
-	hasDistinctPositions,
-	insertRingVertex,
-	moveRingVertex,
-	nearestRingEdge,
-	removeRingVertex,
-	samePosition,
-	unclosedRing,
-} from './draw-vertex-edit';
 import { isAimedAtMap } from './map-keys';
 import { useGeoJsonSource } from './use-geojson-source';
 import { isMapLive } from './use-mapbox-map';
 
-type PolygonRings = readonly DrawRing[];
+type PolygonRings = readonly PlanarPath[];
 
 /**
  * The shape the type toggle offers, which is the domain's base shapes.
@@ -68,15 +66,16 @@ export type DrawGeometryType = BaseGeometryType;
  * `locationSource.geometry` expects, so a finished draft can be handed straight
  * to the optimistic mutation without translation.
  *
- * All six shapes, because the control draws in parts. Positions are pairs rather
- * than the domain's optional triple: nothing here places an altitude and the
- * point paths read `coordinates[0]` and `[1]` directly.
+ * All six shapes, because the control draws in parts. Positions are
+ * `PlanarPosition` rather than the domain's optional triple, for the reason that
+ * type carries: nothing here places an altitude, and the point paths read
+ * `coordinates[0]` and `[1]` directly.
  */
 export type DrawGeometry =
-	| { readonly type: 'Point'; readonly coordinates: DrawPosition }
-	| { readonly type: 'LineString'; readonly coordinates: DrawRing }
+	| { readonly type: 'Point'; readonly coordinates: PlanarPosition }
+	| { readonly type: 'LineString'; readonly coordinates: PlanarPath }
 	| { readonly type: 'Polygon'; readonly coordinates: PolygonRings }
-	| { readonly type: 'MultiPoint'; readonly coordinates: DrawRing }
+	| { readonly type: 'MultiPoint'; readonly coordinates: PlanarPath }
 	| { readonly type: 'MultiLineString'; readonly coordinates: PolygonRings }
 	| { readonly type: 'MultiPolygon'; readonly coordinates: readonly PolygonRings[] };
 
@@ -202,7 +201,7 @@ export function geometryFromParts(parts: readonly DrawPartGeometry[]): DrawGeome
  * A polygon's first ring is its outline and every ring after it is a hole, so
  * the hole rows and Remove both read this rather than slicing rings by hand.
  */
-export function drawHoles(part: DrawPartGeometry): readonly DrawRing[] {
+export function drawHoles(part: DrawPartGeometry): readonly PlanarPath[] {
 	return part.type === 'Polygon' ? part.coordinates.slice(1) : [];
 }
 
@@ -362,12 +361,12 @@ export interface MapDrawController {
 	/** The part being edited, or null while the draw is not one. */
 	readonly editedPart: DrawEditDraft | null;
 	/** Put one vertex of the open edit at `position`. */
-	readonly moveVertex: (vertex: DrawVertexRef, position: DrawPosition) => void;
+	readonly moveVertex: (vertex: DrawVertexRef, position: PlanarPosition) => void;
 	/**
 	 * Put `position` on the edge that starts at `edge`, between its two ends
 	 * rather than at the end of the ring, and pick the new vertex.
 	 */
-	readonly insertVertex: (edge: DrawVertexRef, position: DrawPosition) => void;
+	readonly insertVertex: (edge: DrawVertexRef, position: PlanarPosition) => void;
 	/** Drop one vertex of the open edit, below the ring minimum included. */
 	readonly deleteVertex: (vertex: DrawVertexRef) => void;
 	/**
@@ -579,7 +578,7 @@ type EditMode = {
 	readonly type: DrawGeometryType;
 	readonly partIndex: number;
 	/** Ring 0 is the outline; the rest are holes. Closing positions are dropped. */
-	readonly rings: readonly DrawRing[];
+	readonly rings: readonly PlanarPath[];
 	/**
 	 * The rings before each gesture, oldest first.
 	 *
@@ -587,7 +586,7 @@ type EditMode = {
 	 * the vertices it opened with: an edit must not eat into the piece the user
 	 * asked to edit.
 	 */
-	readonly history: readonly (readonly DrawRing[])[];
+	readonly history: readonly (readonly PlanarPath[])[];
 	readonly selected: DrawVertexRef | null;
 	/**
 	 * The line being sketched, or null while the edit is not sketching one.
@@ -612,7 +611,7 @@ type EditMode = {
 /** The line one of the two sketch tools is tracing, and which tool that is. */
 type DrawSketch = {
 	readonly tool: DrawSketchTool;
-	readonly positions: readonly DrawPosition[];
+	readonly positions: readonly PlanarPosition[];
 };
 
 type Mode =
@@ -628,7 +627,7 @@ type Mode =
 /** A vertex the pointer has hold of, drawn where the cursor is until it lands. */
 interface DrawDrag {
 	readonly vertex: DrawVertexRef;
-	readonly position: DrawPosition;
+	readonly position: PlanarPosition;
 }
 
 /**
@@ -663,11 +662,11 @@ export function useMapDraw({
 	readonly geometryKind?: OwnedGeometryKind;
 }): MapDrawController {
 	const [mode, setMode] = useState<Mode>({ kind: 'idle' });
-	const [vertices, setVertices] = useState<readonly DrawPosition[]>([]);
+	const [vertices, setVertices] = useState<readonly PlanarPosition[]>([]);
 
 	// Frequently-changing render inputs live in refs so the rubber band can be
 	// repainted on mousemove without a React re-render per frame.
-	const cursorRef = useRef<DrawPosition | null>(null);
+	const cursorRef = useRef<PlanarPosition | null>(null);
 	const modeRef = useRef(mode);
 	modeRef.current = mode;
 	const verticesRef = useRef(vertices);
@@ -878,7 +877,7 @@ export function fitMapToGeometry(map: MapboxMap, geometry: GeoJsonGeometry): voi
 function useDrawDrafts(
 	mode: Mode,
 	value: DrawGeometry | null,
-	vertices: readonly DrawPosition[],
+	vertices: readonly PlanarPosition[],
 ): {
 	readonly holeDraft: DrawHoleDraft | null;
 	readonly continuedPart: DrawContinueDraft | null;
@@ -894,7 +893,7 @@ function useDrawDrafts(
 }
 
 /** `vertices` with its last one dropped, unless that would go below `floor`. */
-function poppedTo(vertices: readonly DrawPosition[], floor: number): readonly DrawPosition[] {
+function poppedTo(vertices: readonly PlanarPosition[], floor: number): readonly PlanarPosition[] {
 	return vertices.length <= floor ? vertices : vertices.slice(0, -1);
 }
 
@@ -924,15 +923,15 @@ function useDrawSession({
 	readonly map: MapboxMap | null;
 	readonly applyParts: (target: DrawTarget, parts: readonly DrawPartGeometry[]) => void;
 	readonly highlightPart: (index: number | null) => void;
-	readonly cursorRef: { current: DrawPosition | null };
+	readonly cursorRef: { current: PlanarPosition | null };
 	readonly dragRef: { current: DrawDrag | null };
 	readonly modeRef: { current: Mode };
 	readonly valueRef: { current: DrawGeometry | null };
-	readonly verticesRef: { current: readonly DrawPosition[] };
+	readonly verticesRef: { current: readonly PlanarPosition[] };
 	readonly onChangeRef: { current: (value: DrawGeometry | null) => void };
 	readonly finishRef: { current: () => void };
 	readonly setMode: Dispatch<SetStateAction<Mode>>;
-	readonly setVertices: Dispatch<SetStateAction<readonly DrawPosition[]>>;
+	readonly setVertices: Dispatch<SetStateAction<readonly PlanarPosition[]>>;
 }): Pick<MapDrawController, 'start' | 'cancel' | 'commit' | 'undo' | 'finish' | 'requestPoint'> {
 	// Nothing of the last draw survives a mode change: a pending point request is
 	// told it was superseded, and the cursor, the grabbed vertex and the placed
@@ -1025,7 +1024,7 @@ function useDrawSession({
 function finishedParts(
 	mode: Mode,
 	committed: DrawGeometry | null,
-	vertices: readonly DrawPosition[],
+	vertices: readonly PlanarPosition[],
 ): { readonly target: DrawTarget; readonly parts: readonly DrawPartGeometry[] } | null {
 	if (mode.kind === 'edit') {
 		const parts = editedPartsOf(mode);
@@ -1059,8 +1058,8 @@ function useDrawVertexActions(setMode: Dispatch<SetStateAction<Mode>>) {
 
 	const changeRings = useCallback(
 		(
-			change: (rings: readonly DrawRing[]) => readonly DrawRing[] | null,
-			selected: (rings: readonly DrawRing[]) => DrawVertexRef | null,
+			change: (rings: readonly PlanarPath[]) => readonly PlanarPath[] | null,
+			selected: (rings: readonly PlanarPath[]) => DrawVertexRef | null,
 		) => {
 			setMode((previous) => {
 				if (previous.kind !== 'edit') {
@@ -1082,7 +1081,7 @@ function useDrawVertexActions(setMode: Dispatch<SetStateAction<Mode>>) {
 	);
 
 	const moveVertex = useCallback(
-		(vertex: DrawVertexRef, position: DrawPosition) => {
+		(vertex: DrawVertexRef, position: PlanarPosition) => {
 			changeRings(
 				(rings) => moveRingVertex(rings, vertex, position),
 				() => vertex,
@@ -1094,7 +1093,7 @@ function useDrawVertexActions(setMode: Dispatch<SetStateAction<Mode>>) {
 	// The new vertex is picked, so clicking an edge and pressing Delete undoes
 	// itself rather than removing whichever corner happened to be picked before.
 	const insertVertex = useCallback(
-		(edge: DrawVertexRef, position: DrawPosition) => {
+		(edge: DrawVertexRef, position: PlanarPosition) => {
 			changeRings(
 				(rings) => insertRingVertex(rings, edge, position),
 				() => ({ ring: edge.ring, vertex: edge.vertex + 1 }),
@@ -1137,7 +1136,7 @@ function useDrawVertexActions(setMode: Dispatch<SetStateAction<Mode>>) {
 	// Not through `changeRings`: a sketch vertex changes no ring, and Undo pops it
 	// one at a time rather than taking the whole sketch back at once.
 	const sketchVertex = useCallback(
-		(position: DrawPosition) => {
+		(position: PlanarPosition) => {
 			setMode((previous) =>
 				previous.kind === 'edit' && previous.sketch !== null
 					? {
@@ -1175,7 +1174,7 @@ function useDrawVertexActions(setMode: Dispatch<SetStateAction<Mode>>) {
 function draftProgress(
 	mode: Mode,
 	committed: DrawGeometry | null,
-	vertices: readonly DrawPosition[],
+	vertices: readonly PlanarPosition[],
 ): Pick<MapDrawController, 'drawType' | 'vertexCount' | 'canFinish' | 'canUndo'> {
 	if (mode.kind === 'edit') {
 		return {
@@ -1219,13 +1218,13 @@ function useDrawPartActions({
 }: {
 	readonly map: MapboxMap | null;
 	readonly geometryKind: OwnedGeometryKind | undefined;
-	readonly cursorRef: { current: DrawPosition | null };
+	readonly cursorRef: { current: PlanarPosition | null };
 	readonly dragRef: { current: DrawDrag | null };
 	readonly modeRef: { current: Mode };
 	readonly valueRef: { current: DrawGeometry | null };
 	readonly onChangeRef: { current: (value: DrawGeometry | null) => void };
 	readonly setMode: (next: Mode) => void;
-	readonly setVertices: (next: readonly DrawPosition[]) => void;
+	readonly setVertices: (next: readonly PlanarPosition[]) => void;
 }) {
 	const [highlightedPart, setHighlightedPart] = useState<number | null>(null);
 	const highlightedRef = useRef(highlightedPart);
@@ -1471,7 +1470,7 @@ function sameCoordinates(first: unknown, second: unknown): boolean {
  *
  * Null for a point, which is one position with no end to carry on from.
  */
-function continuedVertices(part: DrawPartGeometry): readonly DrawPosition[] | null {
+function continuedVertices(part: DrawPartGeometry): readonly PlanarPosition[] | null {
 	return part.type === 'Point' ? null : (ringsOfPart(part)[0] ?? []);
 }
 
@@ -1483,7 +1482,7 @@ function continuedVertices(part: DrawPartGeometry): readonly DrawPosition[] | nu
  * of a point. A line is left exactly as stored: it has no closing position, and
  * one whose ends happen to meet would lose a real corner to the drop.
  */
-function ringsOfPart(part: DrawPartGeometry): readonly DrawRing[] {
+function ringsOfPart(part: DrawPartGeometry): readonly PlanarPath[] {
 	if (part.type === 'Point') {
 		return [[part.coordinates]];
 	}
@@ -1504,7 +1503,7 @@ function vertexFloor(mode: Mode): number {
  * A continuation redraws the outline and nothing else, so the rings the user cut
  * earlier are not theirs to lose by adding one vertex to it.
  */
-function continuedHoles(mode: DrawMode, committed: DrawGeometry | null): readonly DrawRing[] {
+function continuedHoles(mode: DrawMode, committed: DrawGeometry | null): readonly PlanarPath[] {
 	if (mode.target.kind !== 'continue') {
 		return [];
 	}
@@ -1513,7 +1512,7 @@ function continuedHoles(mode: DrawMode, committed: DrawGeometry | null): readonl
 }
 
 /** `part` with `holes` put back into it, which only an area can hold. */
-function withHoles(part: DrawPartGeometry, holes: readonly DrawRing[]): DrawPartGeometry {
+function withHoles(part: DrawPartGeometry, holes: readonly PlanarPath[]): DrawPartGeometry {
 	return part.type === 'Polygon' && holes.length > 0
 		? { type: 'Polygon', coordinates: [...part.coordinates, ...holes] }
 		: part;
@@ -1544,7 +1543,7 @@ function useDrawMapEvents({
 	readonly isLoaded: boolean;
 	readonly mode: Mode;
 	readonly modeRef: { current: Mode };
-	readonly cursorRef: { current: DrawPosition | null };
+	readonly cursorRef: { current: PlanarPosition | null };
 	readonly dragRef: { current: DrawDrag | null };
 	readonly repaint: () => void;
 	readonly applyParts: (target: DrawTarget, parts: readonly DrawPartGeometry[]) => void;
@@ -1552,8 +1551,8 @@ function useDrawMapEvents({
 	readonly setMode: (next: Mode) => void;
 	readonly setVertices: (
 		next:
-			| readonly DrawPosition[]
-			| ((previous: readonly DrawPosition[]) => readonly DrawPosition[]),
+			| readonly PlanarPosition[]
+			| ((previous: readonly PlanarPosition[]) => readonly PlanarPosition[]),
 	) => void;
 }): void {
 	// Whether this draft has already been handed the canvas. The effect re-runs
@@ -1586,7 +1585,7 @@ function useDrawMapEvents({
 
 		function handleClick(event: MapMouseEvent) {
 			const current = modeRef.current;
-			const position: DrawPosition = [event.lngLat.lng, event.lngLat.lat];
+			const position: PlanarPosition = [event.lngLat.lng, event.lngLat.lat];
 			if (current.kind === 'point') {
 				current.resolve({ type: 'Point', coordinates: position });
 				setMode({ kind: 'idle' });
@@ -1728,14 +1727,14 @@ function useDrawEditEvents({
 	readonly isLoaded: boolean;
 	readonly isEditing: boolean;
 	readonly modeRef: { current: Mode };
-	readonly cursorRef: { current: DrawPosition | null };
+	readonly cursorRef: { current: PlanarPosition | null };
 	readonly dragRef: { current: DrawDrag | null };
 	readonly repaint: () => void;
-	readonly moveVertex: (vertex: DrawVertexRef, position: DrawPosition) => void;
-	readonly insertVertex: (edge: DrawVertexRef, position: DrawPosition) => void;
+	readonly moveVertex: (vertex: DrawVertexRef, position: PlanarPosition) => void;
+	readonly insertVertex: (edge: DrawVertexRef, position: PlanarPosition) => void;
 	readonly deleteVertex: (vertex: DrawVertexRef) => void;
 	readonly selectVertex: (vertex: DrawVertexRef | null) => void;
-	readonly sketchVertex: (position: DrawPosition) => void;
+	readonly sketchVertex: (position: PlanarPosition) => void;
 }): void {
 	useEffect(() => {
 		if (!isMapLive(map) || !isLoaded || !isEditing) {
@@ -1791,7 +1790,7 @@ function useDrawEditEvents({
 			// A click on a vertex is a mousedown and a mouseup in one spot. Landing it
 			// as a move would cost an Undo step that took nothing back.
 			const from = current.rings[drag.vertex.ring]?.[drag.vertex.vertex];
-			if (from !== undefined && !samePosition(from, drag.position)) {
+			if (from !== undefined && !samePlanarPosition(from, drag.position)) {
 				moveVertex(drag.vertex, drag.position);
 			}
 			repaint();
@@ -1808,7 +1807,7 @@ function useDrawEditEvents({
 				return;
 			}
 			const current = modeRef.current;
-			const position: DrawPosition = [event.lngLat.lng, event.lngLat.lat];
+			const position: PlanarPosition = [event.lngLat.lng, event.lngLat.lat];
 			// Only the boundary, not the fill: a click in the middle of an area is not
 			// aimed at an edge, and inserting on the nearest one would be a guess.
 			const edge =
@@ -1938,8 +1937,8 @@ function buildFeatures({
 }: {
 	readonly committed: DrawGeometry | null;
 	readonly mode: Mode;
-	readonly vertices: readonly DrawPosition[];
-	readonly cursor: DrawPosition | null;
+	readonly vertices: readonly PlanarPosition[];
+	readonly cursor: PlanarPosition | null;
 	readonly drag: DrawDrag | null;
 	readonly highlighted: number | null;
 }): GeoJSON.FeatureCollection {
@@ -1986,7 +1985,7 @@ function draftedPartIndex(mode: Mode): number | null {
 function editFeatures(
 	mode: EditMode,
 	drag: DrawDrag | null,
-	cursor: DrawPosition | null,
+	cursor: PlanarPosition | null,
 ): GeoJSON.Feature[] {
 	const dragged =
 		drag === null
@@ -2027,7 +2026,7 @@ function editFeatures(
  */
 function sketchFeatures(
 	mode: EditMode,
-	cursor: DrawPosition | null,
+	cursor: PlanarPosition | null,
 	refused: boolean,
 ): GeoJSON.Feature[] {
 	if (mode.sketch === null) {
@@ -2054,8 +2053,8 @@ function sketchFeatures(
 function draftFeatures(
 	mode: DrawMode,
 	committed: DrawGeometry | null,
-	vertices: readonly DrawPosition[],
-	cursor: DrawPosition | null,
+	vertices: readonly PlanarPosition[],
+	cursor: PlanarPosition | null,
 ): GeoJSON.Feature[] {
 	if (mode.type === 'Point') {
 		return [];
@@ -2083,7 +2082,7 @@ function draftFeatures(
  */
 function previewShape(
 	type: DrawGeometryType,
-	preview: readonly DrawPosition[],
+	preview: readonly PlanarPosition[],
 ): DrawPartGeometry | null {
 	if (type === 'Polygon' && preview.length >= 3) {
 		return { type: 'Polygon', coordinates: [closeRing(preview)] };
@@ -2135,7 +2134,7 @@ function geometryFeature(
  * not have.
  */
 function pointFeature(
-	position: DrawPosition,
+	position: PlanarPosition,
 	properties: GeoJSON.GeoJsonProperties,
 ): GeoJSON.Feature {
 	return {
@@ -2155,7 +2154,7 @@ function pointFeature(
  */
 function partFromVertices(
 	type: DrawGeometryType,
-	vertices: readonly DrawPosition[],
+	vertices: readonly PlanarPosition[],
 ): DrawPartGeometry | null {
 	const part = shapeFromVertices(type, vertices);
 	return part !== null && geometryCoversGround(part) ? part : null;
@@ -2172,7 +2171,7 @@ function partFromVertices(
 function draftPart(
 	mode: DrawMode,
 	committed: DrawGeometry | null,
-	vertices: readonly DrawPosition[],
+	vertices: readonly PlanarPosition[],
 ): DrawPartGeometry | null {
 	if (mode.target.kind === 'hole') {
 		const part = drawParts(committed)[mode.target.partIndex];
@@ -2219,7 +2218,7 @@ function continuationProblem(
  */
 function partWithHole(
 	part: DrawPartGeometry,
-	vertices: readonly DrawPosition[],
+	vertices: readonly PlanarPosition[],
 ): DrawPartGeometry | null {
 	return part.type === 'Polygon'
 		? { type: 'Polygon', coordinates: [...part.coordinates, closeRing(vertices)] }
@@ -2235,7 +2234,7 @@ function partWithHole(
 function holeDraftOf(
 	mode: Mode,
 	committed: DrawGeometry | null,
-	vertices: readonly DrawPosition[],
+	vertices: readonly PlanarPosition[],
 ): DrawHoleDraft | null {
 	if (mode.kind !== 'draw' || mode.target.kind !== 'hole') {
 		return null;
@@ -2257,7 +2256,7 @@ function holeDraftOf(
 function continuedPartOf(
 	mode: Mode,
 	committed: DrawGeometry | null,
-	vertices: readonly DrawPosition[],
+	vertices: readonly PlanarPosition[],
 ): DrawContinueDraft | null {
 	if (mode.kind !== 'draw' || mode.target.kind !== 'continue') {
 		return null;
@@ -2284,7 +2283,7 @@ function partTargetOf(committed: DrawGeometry | null, partIndex: number): DrawPa
  */
 function holeProblem(
 	part: DrawPartGeometry,
-	vertices: readonly DrawPosition[],
+	vertices: readonly PlanarPosition[],
 ): DrawHoleProblem | null {
 	if (part.type !== 'Polygon') {
 		return null;
@@ -2302,7 +2301,7 @@ function holeProblem(
 
 function shapeFromVertices(
 	type: DrawGeometryType,
-	vertices: readonly DrawPosition[],
+	vertices: readonly PlanarPosition[],
 ): DrawPartGeometry | null {
 	if (type === 'Point') {
 		const point = vertices[0];
@@ -2317,13 +2316,13 @@ function shapeFromVertices(
 // A double-click to finish lands as two near-identical clicks; drop a trailing
 // vertex that duplicates the one before it so the saved shape has no zero-length
 // final segment.
-function dedupeTrailing(vertices: readonly DrawPosition[]): readonly DrawPosition[] {
+function dedupeTrailing(vertices: readonly PlanarPosition[]): readonly PlanarPosition[] {
 	if (vertices.length < 2) {
 		return vertices;
 	}
 	const last = vertices[vertices.length - 1];
 	const previous = vertices[vertices.length - 2];
-	if (last !== undefined && previous !== undefined && samePosition(last, previous)) {
+	if (last !== undefined && previous !== undefined && samePlanarPosition(last, previous)) {
 		return vertices.slice(0, -1);
 	}
 	return vertices;
@@ -2358,7 +2357,7 @@ function editedPartsOf(mode: EditMode): readonly DrawPartGeometry[] | null {
 /** One piece of an edit: its outline, then each of its holes cut out in turn. */
 function editedPartFrom(
 	type: DrawGeometryType,
-	rings: readonly DrawRing[],
+	rings: readonly PlanarPath[],
 ): DrawPartGeometry | null {
 	const [shell = [], ...holes] = rings;
 	if (type === 'Point') {
@@ -2438,7 +2437,7 @@ function sketchProblem(sketch: DrawSketch | null): DrawEditProblem | null {
  */
 function piecesProblem(
 	mode: EditMode,
-	parts: readonly (readonly DrawRing[])[],
+	parts: readonly (readonly PlanarPath[])[],
 ): DrawEditProblem | null {
 	if (parts.flat().some((ring) => !hasDistinctPositions(ring, ringMinimum(mode.type)))) {
 		return 'tooFewVertices';
@@ -2468,8 +2467,8 @@ function piecesProblem(
  */
 function editedParts(
 	mode: EditMode,
-	trailing: DrawPosition | null = null,
-): readonly (readonly DrawRing[])[] | null {
+	trailing: PlanarPosition | null = null,
+): readonly (readonly PlanarPath[])[] | null {
 	if (mode.sketch === null) {
 		return [mode.rings];
 	}
@@ -2497,7 +2496,7 @@ function ringMinimum(type: DrawGeometryType): number {
 }
 
 /** Every vertex an edit is holding, the holes' corners included. */
-function countRingVertices(rings: readonly DrawRing[]): number {
+function countRingVertices(rings: readonly PlanarPath[]): number {
 	return rings.reduce((total, ring) => total + ring.length, 0);
 }
 

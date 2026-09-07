@@ -3,15 +3,16 @@
  * gesture names, and what moving, inserting or removing one does to the rings.
  *
  * Positions and nothing else. A part is rings plus a shape, and the shape half
- * stays in `use-map-draw`, so everything here can be read and tested without a
- * map, a record kind, or a geometry type.
+ * stays in the draw control, so everything here can be read and tested without
+ * a map, a record kind, or a geometry type.
+ *
+ * Beside {@link reshapePath} and {@link splitRings} because it is the same
+ * decision: ADR 0018's parts and holes are added and removed by these
+ * operations and reshaped by those, over the one pair type and the one
+ * tolerance {@link samePlanarPosition} reads.
  */
 
-/** One position of a drawn shape: longitude, then latitude. */
-export type DrawPosition = readonly [number, number];
-
-/** One ring of an area, or the whole of a line, in stored order. */
-export type DrawRing = readonly DrawPosition[];
+import { type PlanarPath, type PlanarPosition, samePlanarPosition } from './sketch.js';
 
 /**
  * Which vertex a gesture is aimed at.
@@ -25,13 +26,8 @@ export interface DrawVertexRef {
 	readonly vertex: number;
 }
 
-/** Whether two positions are the same corner, to within a rounding step. */
-export function samePosition(first: DrawPosition, second: DrawPosition): boolean {
-	return Math.abs(first[0] - second[0]) < 1e-9 && Math.abs(first[1] - second[1]) < 1e-9;
-}
-
 /** `ring` with its first position repeated at the end, unless it already is. */
-export function closeRing(ring: DrawRing): DrawRing {
+export function closeRing(ring: PlanarPath): PlanarPath {
 	const first = ring[0];
 	const last = ring.at(-1);
 	if (first === undefined || last === undefined) {
@@ -48,20 +44,17 @@ export function closeRing(ring: DrawRing): DrawRing {
  * region is only closed if whoever wrote it closed it, and slicing one that is
  * not would lose a real corner.
  */
-export function unclosedRing(ring: DrawRing): DrawRing {
-	const first = ring[0];
-	const last = ring.at(-1);
-	const closed =
-		ring.length > 1 && first !== undefined && last !== undefined && samePosition(first, last);
+export function unclosedRing(ring: PlanarPath): PlanarPath {
+	const closed = ring.length > 1 && samePlanarPosition(ring[0], ring.at(-1));
 	return closed ? ring.slice(0, -1) : ring;
 }
 
 /** `rings` with one vertex moved, or null when no ring holds it. */
 export function moveRingVertex(
-	rings: readonly DrawRing[],
+	rings: readonly PlanarPath[],
 	ref: DrawVertexRef,
-	position: DrawPosition,
-): readonly DrawRing[] | null {
+	position: PlanarPosition,
+): readonly PlanarPath[] | null {
 	const ring = rings[ref.ring];
 	if (ring === undefined || ring[ref.vertex] === undefined) {
 		return null;
@@ -82,10 +75,10 @@ export function moveRingVertex(
  * what leaves the ring wound the way it was drawn.
  */
 export function insertRingVertex(
-	rings: readonly DrawRing[],
+	rings: readonly PlanarPath[],
 	edge: DrawVertexRef,
-	position: DrawPosition,
-): readonly DrawRing[] | null {
+	position: PlanarPosition,
+): readonly PlanarPath[] | null {
 	const ring = rings[edge.ring];
 	if (ring === undefined || ring[edge.vertex] === undefined) {
 		return null;
@@ -115,9 +108,9 @@ const RING_FLOOR = 2;
  * be finished and recovers the moment a vertex comes back.
  */
 export function removeRingVertex(
-	rings: readonly DrawRing[],
+	rings: readonly PlanarPath[],
 	ref: DrawVertexRef,
-): readonly DrawRing[] | null {
+): readonly PlanarPath[] | null {
 	const ring = rings[ref.ring];
 	if (ring === undefined || ring[ref.vertex] === undefined || ring.length <= RING_FLOOR) {
 		return null;
@@ -139,8 +132,8 @@ export function removeRingVertex(
  * this settles is which edge it was nearest.
  */
 export function nearestRingEdge(
-	rings: readonly DrawRing[],
-	position: DrawPosition,
+	rings: readonly PlanarPath[],
+	position: PlanarPosition,
 	closesRings: boolean,
 ): DrawVertexRef | null {
 	let nearest: DrawVertexRef | null = null;
@@ -171,10 +164,10 @@ export function nearestRingEdge(
  * positions and no area at all. It stops as soon as it has `minimum` of them, so
  * a ring read out of a file is not compared with itself position by position.
  */
-export function hasDistinctPositions(ring: DrawRing, minimum: number): boolean {
-	const distinct: DrawPosition[] = [];
+export function hasDistinctPositions(ring: PlanarPath, minimum: number): boolean {
+	const distinct: PlanarPosition[] = [];
 	for (const position of ring) {
-		if (!distinct.some((earlier) => samePosition(earlier, position))) {
+		if (!distinct.some((earlier) => samePlanarPosition(earlier, position))) {
 			distinct.push(position);
 			if (distinct.length >= minimum) {
 				return true;
@@ -185,10 +178,10 @@ export function hasDistinctPositions(ring: DrawRing, minimum: number): boolean {
 }
 
 function replaceRing(
-	rings: readonly DrawRing[],
+	rings: readonly PlanarPath[],
 	index: number,
-	ring: DrawRing,
-): readonly DrawRing[] {
+	ring: PlanarPath,
+): readonly PlanarPath[] {
 	return rings.map((at, position) => (position === index ? ring : at));
 }
 
@@ -199,9 +192,9 @@ function replaceRing(
  * taken once per edge of every ring on screen for an answer nothing reads.
  */
 function squaredDistanceToSegment(
-	point: DrawPosition,
-	from: DrawPosition,
-	to: DrawPosition,
+	point: PlanarPosition,
+	from: PlanarPosition,
+	to: PlanarPosition,
 ): number {
 	const runX = to[0] - from[0];
 	const runY = to[1] - from[1];

@@ -21,13 +21,19 @@ import { geometryContainsLngLat } from './geometry.js';
  * One position: longitude, then latitude.
  *
  * Its own pair type rather than `GeoJsonPosition`, which admits an altitude.
- * Everything here computes new positions from old ones, and a third ordinate
- * would have to be either interpolated, which invents an elevation, or dropped
- * silently on the positions that keep it.
+ * The planar arithmetic computes new positions from old ones, and a third
+ * ordinate would have to be either interpolated, which invents an elevation, or
+ * dropped silently on the positions that keep it.
  */
 export type PlanarPosition = readonly [number, number];
 
-/** A ring or a line, in stored order, with no repeated closing position. */
+/**
+ * A ring or a line, in stored order.
+ *
+ * Sketching reads one with no repeated closing position. `closeRing` and
+ * `unclosedRing` in `draw-vertex-edit` are what put that position on for
+ * storage and take it off again for editing.
+ */
 export type PlanarPath = readonly PlanarPosition[];
 
 /**
@@ -332,8 +338,16 @@ function withoutRepeats(positions: PlanarPath): PlanarPath {
 	return kept;
 }
 
-/** Whether two positions are the same one, to within a rounding step. */
-function samePlanarPosition(
+/**
+ * Whether two positions are the same one, to within a rounding step.
+ *
+ * Exported because it is the tolerance, not just a helper: `draw-vertex-edit`
+ * asks the same question of a ring's ends and of two corners a user placed, and
+ * the draw control asks it of a drag that ended where it started. One predicate
+ * on {@link EPSILON} rather than a second copy of the arithmetic beside a second
+ * copy of the number.
+ */
+export function samePlanarPosition(
 	first: PlanarPosition | undefined,
 	second: PlanarPosition | undefined,
 ): boolean {
