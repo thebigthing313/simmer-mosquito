@@ -1,3 +1,13 @@
+export type { DrawVertexRef } from './draw-vertex-edit.js';
+export {
+	closeRing,
+	hasDistinctPositions,
+	insertRingVertex,
+	moveRingVertex,
+	nearestRingEdge,
+	removeRingVertex,
+	unclosedRing,
+} from './draw-vertex-edit.js';
 export type {
 	BoundingBox,
 	GeoJsonFeature,
@@ -89,4 +99,4 @@ export type {
 	SplitPart,
 	SplitRefusal,
 } from './sketch.js';
-export { reshapePath, sketchCrossings, splitRings } from './sketch.js';
+export { reshapePath, samePlanarPosition, sketchCrossings, splitRings } from './sketch.js';

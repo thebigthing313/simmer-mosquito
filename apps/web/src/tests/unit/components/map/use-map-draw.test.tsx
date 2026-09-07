@@ -4,7 +4,6 @@ import { cleanup, fireEvent, screen } from '@testing-library/react';
 import type { Map as MapboxMap } from 'mapbox-gl';
 import { act, useState } from 'react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { nearestRingEdge } from '../../../../components/map/draw-vertex-edit';
 import type { DrawGeometry, DrawGeometryFor } from '../../../../components/map/use-map-draw';
 import {
 	drawHoles,
@@ -2734,45 +2733,5 @@ describe('DrawGeometryFor', () => {
 
 		expect(refusedByRegion.type).toBe('Point');
 		expect(refusedByAddress.type).toBe('LineString');
-	});
-});
-
-/**
- * Which edge a click on the boundary lands on. The map settles that the pointer
- * is on the shape; this settles which of its edges was meant, and a wrong answer
- * puts the new vertex on the far side of the ring.
- */
-describe('nearestRingEdge', () => {
-	const SQUARE = [
-		[0, 0],
-		[0, 10],
-		[10, 10],
-		[10, 0],
-	] as const;
-
-	it('names an edge by the vertex it starts at', () => {
-		expect(nearestRingEdge([SQUARE], [0, 5], true)).toEqual({ ring: 0, vertex: 0 });
-		expect(nearestRingEdge([SQUARE], [5, 10], true)).toEqual({ ring: 0, vertex: 1 });
-	});
-
-	// The closing edge is the one an area has and a line does not, and the one an
-	// insert appended to the end of the list would silently get wrong.
-	it('gives an area the edge that closes it and a line none', () => {
-		expect(nearestRingEdge([SQUARE], [7, 0.5], true)).toEqual({ ring: 0, vertex: 3 });
-		expect(nearestRingEdge([SQUARE], [7, 0.5], false)).toEqual({ ring: 0, vertex: 2 });
-	});
-
-	it('reaches the holes as well as the outline', () => {
-		const hole = [
-			[2, 2],
-			[2, 4],
-			[4, 4],
-		] as const;
-
-		expect(nearestRingEdge([SQUARE, hole], [2, 3], true)).toEqual({ ring: 1, vertex: 0 });
-	});
-
-	it('has no edge to name in an empty ring', () => {
-		expect(nearestRingEdge([[]], [0, 0], true)).toBeNull();
 	});
 });
