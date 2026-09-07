@@ -11,6 +11,7 @@ import type { MapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import {
 	type MapByIdInput,
+	type MapDisplayColumns,
 	type MapFilterInput,
 	type MapPageInput,
 	type MapPageResult,
@@ -500,23 +501,23 @@ export interface SafeTrapDisplayRow {
 
 export type TrapPageResult = MapPageResult<SafeTrapDisplayRow>;
 
-const trapDisplayColumns = sql`
-	t.id,
-	t.organization_id as "organizationId",
-	t.lat,
-	t.lng,
-	t.geojson,
-	t.geom_type as "geomType",
-	t.collection_method_id as "collectionMethodId",
-	t.collection_lure_id as "collectionLureId",
-	t.address_id as "addressId",
-	t.trap_name as "trapName",
-	t.trap_code as "trapCode",
-	t.description,
-	t.is_active as "isActive",
-	t.created_at as "createdAt",
-	t.updated_at as "updatedAt"
-`;
+const trapDisplayColumns: MapDisplayColumns<SafeTrapDisplayRow> = {
+	id: sql`t.id`,
+	organizationId: sql`t.organization_id`,
+	lat: sql`t.lat`,
+	lng: sql`t.lng`,
+	geojson: sql`t.geojson`,
+	geomType: sql`t.geom_type`,
+	collectionMethodId: sql`t.collection_method_id`,
+	collectionLureId: sql`t.collection_lure_id`,
+	addressId: sql`t.address_id`,
+	trapName: sql`t.trap_name`,
+	trapCode: sql`t.trap_code`,
+	description: sql`t.description`,
+	isActive: sql`t.is_active`,
+	createdAt: sql`t.created_at`,
+	updatedAt: sql`t.updated_at`,
+};
 
 const trapSurface = mapRecordSurface<TrapMapFilters, SafeTrapDisplayRow>({
 	layer: 'traps',
@@ -644,6 +645,10 @@ export interface SafeCollectionDisplayRow {
 	readonly hasBycatch: boolean;
 	/** Resolved by precedence; see {@link CollectionStatus}. */
 	readonly status: CollectionStatus;
+	/** Who set the trap, when the organization records it. */
+	readonly setByProfileId: string | null;
+	/** Who emptied it. */
+	readonly collectedByProfileId: string | null;
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
@@ -710,27 +715,27 @@ const collectionStatusExpression = sql`
 	end
 `;
 
-const collectionDisplayColumns = sql`
-	c.id,
-	c.organization_id as "organizationId",
-	c.trap_id as "trapId",
-	c.lat,
-	c.lng,
-	c.geojson,
-	c.geom_type as "geomType",
-	c.collection_method_id as "collectionMethodId",
-	c.collected_at::text as "collectedAt",
-	c.collection_date::text as "collectionDate",
-	c.collection_timing_mode as "collectionTimingMode",
-	c.has_problem as "hasProblem",
-	c.is_zero_result as "isZeroResult",
-	c.has_bycatch as "hasBycatch",
-	(${collectionStatusExpression}) as "status",
-	c.set_by_profile_id as "setByProfileId",
-	c.collected_by_profile_id as "collectedByProfileId",
-	c.created_at as "createdAt",
-	c.updated_at as "updatedAt"
-`;
+const collectionDisplayColumns: MapDisplayColumns<SafeCollectionDisplayRow> = {
+	id: sql`c.id`,
+	organizationId: sql`c.organization_id`,
+	trapId: sql`c.trap_id`,
+	lat: sql`c.lat`,
+	lng: sql`c.lng`,
+	geojson: sql`c.geojson`,
+	geomType: sql`c.geom_type`,
+	collectionMethodId: sql`c.collection_method_id`,
+	collectedAt: sql`c.collected_at::text`,
+	collectionDate: sql`c.collection_date::text`,
+	collectionTimingMode: sql`c.collection_timing_mode`,
+	hasProblem: sql`c.has_problem`,
+	isZeroResult: sql`c.is_zero_result`,
+	hasBycatch: sql`c.has_bycatch`,
+	status: sql`(${collectionStatusExpression})`,
+	setByProfileId: sql`c.set_by_profile_id`,
+	collectedByProfileId: sql`c.collected_by_profile_id`,
+	createdAt: sql`c.created_at`,
+	updatedAt: sql`c.updated_at`,
+};
 
 /**
  * The collections surface, built for one organization's timezone.

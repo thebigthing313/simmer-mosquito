@@ -5,10 +5,12 @@ import type { MapExtent } from './map-extent.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import {
 	type MapByIdInput,
+	type MapDisplayColumns,
 	type MapFilterInput,
 	type MapPageInput,
 	type MapPageResult,
 	type MapTileInput,
+	mapDisplaySelectList,
 	mapRecordSurface,
 } from './map-surface.js';
 
@@ -88,25 +90,25 @@ const applicationDisplayJoins = sql`
 	) batches on true
 `;
 
-const applicationDisplayColumns = sql`
-	a.id,
-	a.organization_id as "organizationId",
-	a.lat,
-	a.lng,
-	a.geojson,
-	a.geom_type as "geomType",
-	a.insecticide_id as "insecticideId",
-	a.application_method_id as "applicationMethodId",
-	a.application_date::text as "applicationDate",
-	a.amount_applied as "amountApplied",
-	a.application_unit_id as "applicationUnitId",
-	a.habitat_id as "habitatId",
-	a.applicator_profile_id as "applicatorProfileId",
-	ap.display_name as "applicatorName",
-	coalesce(batches.batch_names, '[]'::json) as "batchNames",
-	a.created_at as "createdAt",
-	a.updated_at as "updatedAt"
-`;
+const applicationDisplayColumns: MapDisplayColumns<SafeApplicationDisplayRow> = {
+	id: sql`a.id`,
+	organizationId: sql`a.organization_id`,
+	lat: sql`a.lat`,
+	lng: sql`a.lng`,
+	geojson: sql`a.geojson`,
+	geomType: sql`a.geom_type`,
+	insecticideId: sql`a.insecticide_id`,
+	applicationMethodId: sql`a.application_method_id`,
+	applicationDate: sql`a.application_date::text`,
+	amountApplied: sql`a.amount_applied`,
+	applicationUnitId: sql`a.application_unit_id`,
+	habitatId: sql`a.habitat_id`,
+	applicatorProfileId: sql`a.applicator_profile_id`,
+	applicatorName: sql`ap.display_name`,
+	batchNames: sql`coalesce(batches.batch_names, '[]'::json)`,
+	createdAt: sql`a.created_at`,
+	updatedAt: sql`a.updated_at`,
+};
 
 const applicationSurface = mapRecordSurface<ApplicationMapFilters, SafeApplicationDisplayRow>({
 	layer: 'chemical',
@@ -215,6 +217,8 @@ export interface SafeSourceReductionDisplayRow {
 	readonly sourceReductionDate: string;
 	readonly sourcesEliminatedAmount: number;
 	readonly sourcesEliminatedUnitId: string;
+	/** Who did the work, when the organization records it. */
+	readonly technicianProfileId: string | null;
 	readonly habitatId: string | null;
 	readonly inspectionId: string | null;
 	readonly createdAt: Date;
@@ -223,23 +227,23 @@ export interface SafeSourceReductionDisplayRow {
 
 export type SourceReductionPageResult = MapPageResult<SafeSourceReductionDisplayRow>;
 
-const sourceReductionDisplayColumns = sql`
-	sr.id,
-	sr.organization_id as "organizationId",
-	sr.lat,
-	sr.lng,
-	sr.geojson,
-	sr.geom_type as "geomType",
-	sr.source_reduction_method_id as "sourceReductionMethodId",
-	sr.source_reduction_date::text as "sourceReductionDate",
-	sr.sources_eliminated_amount as "sourcesEliminatedAmount",
-	sr.sources_eliminated_unit_id as "sourcesEliminatedUnitId",
-	sr.technician_profile_id as "technicianProfileId",
-	sr.habitat_id as "habitatId",
-	sr.inspection_id as "inspectionId",
-	sr.created_at as "createdAt",
-	sr.updated_at as "updatedAt"
-`;
+const sourceReductionDisplayColumns: MapDisplayColumns<SafeSourceReductionDisplayRow> = {
+	id: sql`sr.id`,
+	organizationId: sql`sr.organization_id`,
+	lat: sql`sr.lat`,
+	lng: sql`sr.lng`,
+	geojson: sql`sr.geojson`,
+	geomType: sql`sr.geom_type`,
+	sourceReductionMethodId: sql`sr.source_reduction_method_id`,
+	sourceReductionDate: sql`sr.source_reduction_date::text`,
+	sourcesEliminatedAmount: sql`sr.sources_eliminated_amount`,
+	sourcesEliminatedUnitId: sql`sr.sources_eliminated_unit_id`,
+	technicianProfileId: sql`sr.technician_profile_id`,
+	habitatId: sql`sr.habitat_id`,
+	inspectionId: sql`sr.inspection_id`,
+	createdAt: sql`sr.created_at`,
+	updatedAt: sql`sr.updated_at`,
+};
 
 const sourceReductionSurface = mapRecordSurface<
 	SourceReductionMapFilters,
@@ -354,6 +358,8 @@ export interface SafeBiocontrolDisplayRow {
 	readonly biocontrolDate: string;
 	readonly amountReleased: number;
 	readonly releaseUnitId: string;
+	/** Who did the release, when the organization records it. */
+	readonly technicianProfileId: string | null;
 	readonly habitatId: string | null;
 	readonly inspectionId: string | null;
 	readonly createdAt: Date;
@@ -362,23 +368,23 @@ export interface SafeBiocontrolDisplayRow {
 
 export type BiocontrolPageResult = MapPageResult<SafeBiocontrolDisplayRow>;
 
-const biocontrolDisplayColumns = sql`
-	ba.id,
-	ba.organization_id as "organizationId",
-	ba.lat,
-	ba.lng,
-	ba.geojson,
-	ba.geom_type as "geomType",
-	ba.biocontrol_method_id as "biocontrolMethodId",
-	ba.biocontrol_date::text as "biocontrolDate",
-	ba.amount_released as "amountReleased",
-	ba.release_unit_id as "releaseUnitId",
-	ba.technician_profile_id as "technicianProfileId",
-	ba.habitat_id as "habitatId",
-	ba.inspection_id as "inspectionId",
-	ba.created_at as "createdAt",
-	ba.updated_at as "updatedAt"
-`;
+const biocontrolDisplayColumns: MapDisplayColumns<SafeBiocontrolDisplayRow> = {
+	id: sql`ba.id`,
+	organizationId: sql`ba.organization_id`,
+	lat: sql`ba.lat`,
+	lng: sql`ba.lng`,
+	geojson: sql`ba.geojson`,
+	geomType: sql`ba.geom_type`,
+	biocontrolMethodId: sql`ba.biocontrol_method_id`,
+	biocontrolDate: sql`ba.biocontrol_date::text`,
+	amountReleased: sql`ba.amount_released`,
+	releaseUnitId: sql`ba.release_unit_id`,
+	technicianProfileId: sql`ba.technician_profile_id`,
+	habitatId: sql`ba.habitat_id`,
+	inspectionId: sql`ba.inspection_id`,
+	createdAt: sql`ba.created_at`,
+	updatedAt: sql`ba.updated_at`,
+};
 
 const biocontrolSurface = mapRecordSurface<BiocontrolMapFilters, SafeBiocontrolDisplayRow>({
 	layer: 'biocontrol',
@@ -501,23 +507,23 @@ export interface SafeOutreachDisplayRow {
 
 export type OutreachPageResult = MapPageResult<SafeOutreachDisplayRow>;
 
-const outreachDisplayColumns = sql`
-	oa.id,
-	oa.organization_id as "organizationId",
-	oa.lat,
-	oa.lng,
-	oa.geojson,
-	oa.geom_type as "geomType",
-	oa.outreach_method_id as "outreachMethodId",
-	oa.outreach_date::text as "outreachDate",
-	oa.reach,
-	oa.reach_description as "reachDescription",
-	oa.technician_profile_id as "technicianProfileId",
-	oa.address_id as "addressId",
-	oa.inspection_id as "inspectionId",
-	oa.created_at as "createdAt",
-	oa.updated_at as "updatedAt"
-`;
+const outreachDisplayColumns: MapDisplayColumns<SafeOutreachDisplayRow> = {
+	id: sql`oa.id`,
+	organizationId: sql`oa.organization_id`,
+	lat: sql`oa.lat`,
+	lng: sql`oa.lng`,
+	geojson: sql`oa.geojson`,
+	geomType: sql`oa.geom_type`,
+	outreachMethodId: sql`oa.outreach_method_id`,
+	outreachDate: sql`oa.outreach_date::text`,
+	reach: sql`oa.reach`,
+	reachDescription: sql`oa.reach_description`,
+	technicianProfileId: sql`oa.technician_profile_id`,
+	addressId: sql`oa.address_id`,
+	inspectionId: sql`oa.inspection_id`,
+	createdAt: sql`oa.created_at`,
+	updatedAt: sql`oa.updated_at`,
+};
 
 const outreachSurface = mapRecordSurface<OutreachMapFilters, SafeOutreachDisplayRow>({
 	layer: 'outreach',
@@ -613,19 +619,23 @@ export interface SafeRequestedControlActionDisplayRow {
 	readonly updatedAt: Date;
 }
 
+const requestedControlActionDisplayColumns: MapDisplayColumns<SafeRequestedControlActionDisplayRow> =
+	{
+		id: sql`rca.id`,
+		organizationId: sql`rca.organization_id`,
+		lat: sql`rca.lat`,
+		lng: sql`rca.lng`,
+		geojson: sql`rca.geojson`,
+		geomType: sql`rca.geom_type`,
+		updatedAt: sql`rca.updated_at`,
+	};
+
 export async function getRequestedControlActionDisplayRowById(
 	db: Kysely<SimmerDatabase>,
 	input: RequestedControlActionByIdInput,
 ): Promise<SafeRequestedControlActionDisplayRow | undefined> {
 	const result = await sql<SafeRequestedControlActionDisplayRow>`
-		select
-			rca.id,
-			rca.organization_id as "organizationId",
-			rca.lat,
-			rca.lng,
-			rca.geojson,
-			rca.geom_type as "geomType",
-			rca.updated_at as "updatedAt"
+		select ${mapDisplaySelectList(requestedControlActionDisplayColumns)}
 		from requested_control_actions rca
 		where rca.id = ${input.id}
 			and rca.organization_id = ${input.organizationId}

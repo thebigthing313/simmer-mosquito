@@ -7,6 +7,7 @@ import {
 	type MapBounds,
 	type MapBoundsPageInput,
 	type MapByIdInput,
+	type MapDisplayColumns,
 	type MapFilterInput,
 	type MapPageResult,
 	type MapTileInput,
@@ -52,27 +53,25 @@ export interface SafeHabitatDisplayRow {
 	readonly updatedAt: Date;
 }
 
-// Shared projection for the bbox list + by-id readers. Kept as one fragment so
-// the two paths can never drift in shape.
-const habitatDisplayColumns = sql`
-	h.id,
-	h.organization_id as "organizationId",
-	h.lat,
-	h.lng,
-	h.geojson,
-	h.geom_type as "geomType",
-	h.address_id as "addressId",
-	h.habitat_type_id as "habitatTypeId",
-	h.habitat_name as "habitatName",
-	h.description,
-	h.is_active as "isActive",
-	h.is_inaccessible as "isInaccessible",
-	h.metadata,
-	h.created_by_profile_id as "createdByProfileId",
-	h.updated_by_profile_id as "updatedByProfileId",
-	h.created_at as "createdAt",
-	h.updated_at as "updatedAt"
-`;
+const habitatDisplayColumns: MapDisplayColumns<SafeHabitatDisplayRow> = {
+	id: sql`h.id`,
+	organizationId: sql`h.organization_id`,
+	lat: sql`h.lat`,
+	lng: sql`h.lng`,
+	geojson: sql`h.geojson`,
+	geomType: sql`h.geom_type`,
+	addressId: sql`h.address_id`,
+	habitatTypeId: sql`h.habitat_type_id`,
+	habitatName: sql`h.habitat_name`,
+	description: sql`h.description`,
+	isActive: sql`h.is_active`,
+	isInaccessible: sql`h.is_inaccessible`,
+	metadata: sql`h.metadata`,
+	createdByProfileId: sql`h.created_by_profile_id`,
+	updatedByProfileId: sql`h.updated_by_profile_id`,
+	createdAt: sql`h.created_at`,
+	updatedAt: sql`h.updated_at`,
+};
 
 const habitatSurface = mapRecordSurface<HabitatMvtTileFilters, SafeHabitatDisplayRow>({
 	layer: 'habitats',
