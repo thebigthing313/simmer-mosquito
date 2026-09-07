@@ -10,7 +10,7 @@
  * This replaces fifty-five descriptor files that stated all three per table and
  * carried a fourth — a `syncMode` that was never a fact about a table at all.
  */
-import { shapePathFor, syncedColumnsOf, tableSchemas } from '@simmer-mosquito/sync';
+import { shapePathFor, syncedColumnsOf, tableSchemas } from '@simmer-mosquito/sync/contract';
 import type { Context, Hono, MiddlewareHandler } from 'hono';
 import { type AuthVariables, createGlobalReadMiddleware } from './auth-middleware.js';
 import { isServedScope, type SyncShapeScope, syncShapeScopes } from './shape-scopes.js';
