@@ -29,7 +29,7 @@ import { useAllWeatherSummaries } from '../../../hooks/queries/use-weather-summa
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { IMPORT_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { assessParsedRows, type FileAssessment } from './-import-assessment';
 import {
 	commitWeatherImport,
@@ -48,7 +48,7 @@ import { ImportPreview } from './-import-preview';
 
 export const Route = createFileRoute('/gis/weather/$id_/import')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/gis/weather/$id/import')) {
 			throw redirect({ params: { id: params.id }, replace: true, to: '/gis/weather/$id' });
 		}
 	},

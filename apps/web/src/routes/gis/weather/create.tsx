@@ -2,7 +2,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useState } from 'react';
 import { newRecordId } from '../../../hooks/mutations/shared';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	defaultWeatherStationFormValues,
@@ -14,7 +14,7 @@ import {
 
 export const Route = createFileRoute('/gis/weather/create')({
 	beforeLoad: async ({ context }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/gis/weather/create')) {
 			throw redirect({ replace: true, to: '/gis/weather' });
 		}
 	},

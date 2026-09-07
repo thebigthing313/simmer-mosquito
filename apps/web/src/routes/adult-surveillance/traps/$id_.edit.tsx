@@ -12,7 +12,7 @@ import {
 } from '../../../hooks/queries/use-catalog-rosters';
 import { type TrapRecord, useTrapRecord } from '../../../hooks/queries/use-trap-record';
 import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	TrapFormPage,
@@ -23,7 +23,7 @@ import {
 
 export const Route = createFileRoute('/adult-surveillance/traps/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/adult-surveillance/traps/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

@@ -19,7 +19,7 @@ import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/us
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { BIOCONTROL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	BiocontrolFormPage,
 	type BiocontrolFormValues,
@@ -32,7 +32,7 @@ const biocontrolGcTimeMs = 30_000;
 
 export const Route = createFileRoute('/control-operations/biocontrol/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/control-operations/biocontrol/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

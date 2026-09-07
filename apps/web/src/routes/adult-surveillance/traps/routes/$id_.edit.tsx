@@ -37,7 +37,7 @@ import {
 import { useRouteItemMutations } from '../../../../hooks/mutations/use-route-item-mutations';
 import { useRouteMutations } from '../../../../hooks/mutations/use-route-mutations';
 import { type TrapListing, useActiveTraps } from '../../../../hooks/queries/use-active-traps';
-import { isBelowRole } from '../../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../../lib/write-surfaces';
 import { TrapPicker } from '../../-adult-pickers';
 import { type RouteStopView, useRouteStops, useTrapRoutes } from './-trap-route-data';
 
@@ -48,7 +48,7 @@ const stopKey = (stop: RouteStopView) => stop.routeItemId;
 
 export const Route = createFileRoute('/adult-surveillance/traps/routes/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/adult-surveillance/traps/routes/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

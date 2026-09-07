@@ -5,7 +5,7 @@ import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import type { Contact } from '../../../hooks/queries/contact-view';
 import { useContact } from '../../../hooks/queries/use-contact-record';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type ContactFormValues,
 	contactFieldsFromValues,
@@ -15,7 +15,7 @@ import { ContactFormPage } from './-contact-form';
 
 export const Route = createFileRoute('/public-engagement/contacts/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/public-engagement/contacts/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

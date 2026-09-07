@@ -22,7 +22,7 @@ import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zo
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { todayInTimeZone } from '../-overview-data';
 import {
 	CollectionFormPage,
@@ -68,7 +68,7 @@ export const Route = createFileRoute('/adult-surveillance/collections/create')({
 	// schema is not known yet — which erases `trapId` from `Route.useSearch()`.
 	validateSearch: (search) => createCollectionSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/adult-surveillance/collections/create')) {
 			throw redirect({ replace: true, to: '/adult-surveillance/collections' });
 		}
 	},

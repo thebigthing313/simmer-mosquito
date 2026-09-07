@@ -8,7 +8,6 @@ import {
 	canWriteRecords,
 	hasAtLeastRole,
 	isBelowRole,
-	isWriteBlocked,
 	readOrgRole,
 } from '../../../lib/write-access';
 
@@ -137,9 +136,7 @@ describe('isBelowRole', () => {
 		expect(await isBelowRole(context, 'admin')).toBe(true);
 		expect(await isBelowRole(context, 'manager')).toBe(false);
 	});
-});
 
-describe('isWriteBlocked', () => {
 	it('awaits identity rather than reading a snapshot that may not exist yet', async () => {
 		// The guard runs on cold loads — a pasted URL, a bookmark, a refresh — where
 		// a synchronous snapshot read would be null and bounce everyone.
@@ -154,13 +151,13 @@ describe('isWriteBlocked', () => {
 			},
 		};
 
-		expect(await isWriteBlocked(context)).toBe(false);
+		expect(await isBelowRole(context, 'collector')).toBe(false);
 		expect(resolved).toBe(true);
 	});
 
-	it('blocks a viewer', async () => {
+	it('blocks a viewer from every floor', async () => {
 		const context = { auth: { load: () => Promise.resolve(authWithRole('viewer')) } };
-		expect(await isWriteBlocked(context)).toBe(true);
+		expect(await isBelowRole(context, 'collector')).toBe(true);
 	});
 });
 

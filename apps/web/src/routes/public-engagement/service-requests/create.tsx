@@ -10,7 +10,7 @@ import { useServiceRequestRecord } from '../../../hooks/queries/use-service-requ
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { contactFieldsFromValues } from '../-contact-fields';
 import {
 	defaultServiceRequestFormValues,
@@ -26,7 +26,7 @@ export const Route = createFileRoute('/public-engagement/service-requests/create
 	// yet — which erases lat/lng from `Route.useSearch()`.
 	validateSearch: (search) => mapPointSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/public-engagement/service-requests/create')) {
 			throw redirect({ replace: true, to: '/public-engagement/service-requests' });
 		}
 	},

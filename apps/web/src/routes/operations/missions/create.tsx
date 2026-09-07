@@ -6,7 +6,7 @@ import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutati
 import { useMission } from '../../../hooks/queries/use-mission';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	defaultMissionFormValues,
 	MISSION_FIELD_PATHS,
@@ -16,7 +16,7 @@ import {
 
 export const Route = createFileRoute('/operations/missions/create')({
 	beforeLoad: async ({ context }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/operations/missions/create')) {
 			throw redirect({ replace: true, to: '/operations/missions' });
 		}
 	},

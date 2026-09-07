@@ -8,7 +8,7 @@ import {
 } from '../../../hooks/mutations/use-address-mutations';
 import { type AddressRecord, useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedAddressGeometryCache, useAddressGeometry } from './-address-data';
 import {
 	AddressFormPage,
@@ -18,7 +18,7 @@ import {
 
 export const Route = createFileRoute('/gis/addresses/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/gis/addresses/$id/edit')) {
 			throw redirect({ params: { id: params.id }, replace: true, to: '/gis/addresses/$id' });
 		}
 	},

@@ -10,7 +10,7 @@ import {
 	useServiceRequestRecord,
 } from '../../../hooks/queries/use-service-request-record';
 import { SERVICE_REQUEST_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { serviceRequestTitle } from '../-public-engagement-display';
 import {
 	defaultServiceRequestFormValues,
@@ -22,7 +22,7 @@ import {
 
 export const Route = createFileRoute('/public-engagement/service-requests/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/public-engagement/service-requests/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

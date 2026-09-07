@@ -23,7 +23,7 @@ import { type TrapOption, useTrapOptions } from '../../../hooks/queries/use-trap
 import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	CollectionFormPage,
 	type CollectionFormValues,
@@ -36,7 +36,7 @@ import {
 
 export const Route = createFileRoute('/adult-surveillance/collections/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/adult-surveillance/collections/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

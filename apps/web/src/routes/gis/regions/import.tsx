@@ -39,13 +39,13 @@ import { newRecordId } from '../../../hooks/mutations/shared';
 import { useRegionMutations } from '../../../hooks/mutations/use-region-mutations';
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
 import { regions } from '../../../lib/collections/regions';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { RegionFolderDialog } from './-folder-dialog';
 import { MAX_REGIONS, parseRegionsFromFile, type RegionBoundary } from './-import-parse';
 
 export const Route = createFileRoute('/gis/regions/import')({
 	beforeLoad: async ({ context }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/gis/regions/import')) {
 			throw redirect({ replace: true, to: '/gis/regions' });
 		}
 	},

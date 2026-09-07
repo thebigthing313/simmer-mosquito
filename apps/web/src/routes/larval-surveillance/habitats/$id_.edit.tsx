@@ -16,7 +16,7 @@ import {
 	useHabitatTypeRoster,
 } from '../../../hooks/queries/use-catalog-rosters';
 import { type HabitatRecord, useHabitatRecord } from '../../../hooks/queries/use-habitat-record';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
 import {
 	type DrawGeometry,
@@ -27,7 +27,7 @@ import {
 
 export const Route = createFileRoute('/larval-surveillance/habitats/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/larval-surveillance/habitats/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

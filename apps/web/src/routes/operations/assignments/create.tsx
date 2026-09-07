@@ -11,7 +11,7 @@ import { useAssignmentMutations } from '../../../hooks/mutations/use-assignment-
 import { useRouteCatalog, useRouteStopCounts } from '../../../hooks/queries/use-routes';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { todayInTimeZone } from '../../../lib/local-date';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	useAssigneeOptions,
 	useAssignment,
@@ -30,7 +30,7 @@ import {
 
 export const Route = createFileRoute('/operations/assignments/create')({
 	beforeLoad: async ({ context }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/operations/assignments/create')) {
 			throw redirect({ replace: true, to: '/operations/assignments' });
 		}
 	},

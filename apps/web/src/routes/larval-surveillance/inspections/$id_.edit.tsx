@@ -27,7 +27,7 @@ import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/us
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	defaultInspectionFormValues,
@@ -40,7 +40,7 @@ import {
 
 export const Route = createFileRoute('/larval-surveillance/inspections/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/larval-surveillance/inspections/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

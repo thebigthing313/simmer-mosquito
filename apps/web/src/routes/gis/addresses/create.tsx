@@ -4,7 +4,7 @@ import { useCallback } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedAddressGeometryCache } from './-address-data';
 import {
 	AddressFormPage,
@@ -19,7 +19,7 @@ export const Route = createFileRoute('/gis/addresses/create')({
 	// yet — which erases lat/lng from `Route.useSearch()`.
 	validateSearch: (search) => mapPointSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/gis/addresses/create')) {
 			throw redirect({ replace: true, to: '/gis/addresses' });
 		}
 	},

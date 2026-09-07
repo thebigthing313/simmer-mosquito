@@ -11,7 +11,7 @@ import {
 	REQUESTED_CONTROL_ACTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	NO_METHOD,
 	RequestFormPage,
@@ -25,7 +25,7 @@ export const Route = createFileRoute('/operations/requests-for-control/$id_/edit
 		// The details and location commands are `OWN_REQUESTED_ACTION` — the author
 		// or a manager. The browser cannot tell authorship apart, so the guard is the
 		// read-only line and the server settles the rest.
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/operations/requests-for-control/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,
