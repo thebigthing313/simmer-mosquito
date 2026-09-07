@@ -34,6 +34,8 @@ import {
 import {
 	createOrganization,
 	createProfile,
+	createWeatherSource,
+	createWeatherSummary,
 	describeDbIntegration,
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
@@ -737,23 +739,16 @@ describeDbIntegration('weather commands against Postgres', () => {
 			// A provider-owned row: `organization_id` is null, which is the state the
 			// nullable column exists for and the one the hand-written predicates have
 			// to exclude. Null compares unequal to every id rather than matching.
-			const global = await db
-				.insertInto('weather_sources')
-				.values({
-					organization_id: null,
-					geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-					source_type: 'nws',
-					source_name: 'Regional Airport',
-				})
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			const globalStationId = await createWeatherSource(db, null, {
+				source_name: 'Regional Airport',
+			});
 
 			const answer = await writeStation(
 				db,
 				updateWeatherStationDetailsCommand({
 					organizationId,
 					actorProfileId,
-					weatherStationId: global.id,
+					weatherStationId: globalStationId,
 					stationName: 'Mine now',
 				}),
 			);
@@ -762,7 +757,7 @@ describeDbIntegration('weather commands against Postgres', () => {
 			const stored = await db
 				.selectFrom('weather_sources')
 				.select('source_name')
-				.where('id', '=', global.id)
+				.where('id', '=', globalStationId)
 				.executeTakeFirstOrThrow();
 			expect(stored.source_name).toBe('Regional Airport');
 		});
@@ -1157,48 +1152,25 @@ async function organization(
 	return { organizationId, actorProfileId: await createProfile(db, organizationId) };
 }
 
-async function seedStation(
-	db: Db,
-	organizationId: string,
-	actorProfileId: string,
-): Promise<string> {
-	const row = await db
-		.insertInto('weather_sources')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			source_type: 'organization',
-			source_name: 'North Gauge',
-			created_by_profile_id: actorProfileId,
-			updated_by_profile_id: actorProfileId,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+function seedStation(db: Db, organizationId: string, actorProfileId: string): Promise<string> {
+	return createWeatherSource(db, organizationId, {
+		created_by_profile_id: actorProfileId,
+		updated_by_profile_id: actorProfileId,
+	});
 }
 
 /** A bucket carrying rain and a temperature pair, so a patch has something to leave alone. */
-async function seedSummary(
+function seedSummary(
 	db: Db,
 	organizationId: string,
 	weatherStationId: string,
 	startDate: string,
 	endDate: string,
 ): Promise<string> {
-	const row = await db
-		.insertInto('weather_summaries')
-		.values({
-			organization_id: organizationId,
-			weather_source_id: weatherStationId,
-			start_date: sql`${startDate}::date`,
-			end_date: sql`${endDate}::date`,
-			precipitation_inches: 1.25,
-			temperature_min_f: 54,
-			temperature_max_f: 78,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return createWeatherSummary(db, organizationId, weatherStationId, {
+		start_date: sql`${startDate}::date`,
+		end_date: sql`${endDate}::date`,
+	});
 }
 
 function importRow(

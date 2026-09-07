@@ -357,6 +357,60 @@ export function createInsecticide(
 	});
 }
 
+/** A lot of one insecticide, which is what a mix and an application are drawn from. */
+export function createInsecticideBatch(
+	db: DbExecutor,
+	organizationId: string,
+	insecticideId: string,
+	overrides: Overrides<'insecticide_batches', 'organization_id' | 'insecticide_id'> = {},
+): Promise<string> {
+	return insertRow(db, 'insecticide_batches', {
+		organization_id: organizationId,
+		insecticide_id: insecticideId,
+		batch_name: 'Lot 2026-04',
+		...overrides,
+	});
+}
+
+/** A tank mix, whose size is what the insecticides under it are measured against. */
+export function createFormulation(
+	db: DbExecutor,
+	organizationId: string,
+	batchUnitId: string,
+	overrides: Overrides<'formulations', 'organization_id' | 'batch_unit_id'> = {},
+): Promise<string> {
+	return insertRow(db, 'formulations', {
+		organization_id: organizationId,
+		formulation_name: 'Tank mix',
+		batch_size: 100,
+		batch_unit_id: batchUnitId,
+		...overrides,
+	});
+}
+
+export function createFormulationInsecticide(
+	db: DbExecutor,
+	organizationId: string,
+	links: {
+		readonly formulationId: string;
+		readonly insecticideId: string;
+		readonly unitId: string;
+	},
+	overrides: Overrides<
+		'formulation_insecticides',
+		'organization_id' | 'formulation_id' | 'insecticide_id' | 'unit_id'
+	> = {},
+): Promise<string> {
+	return insertRow(db, 'formulation_insecticides', {
+		organization_id: organizationId,
+		formulation_id: links.formulationId,
+		insecticide_id: links.insecticideId,
+		amount: 5,
+		unit_id: links.unitId,
+		...overrides,
+	});
+}
+
 // Field work
 
 export function createRoute(
@@ -507,6 +561,69 @@ export function createSourceReduction(
 	});
 }
 
+/**
+ * An insecticide application, the control work the `application` control type names.
+ *
+ * The insecticide is the caller's because `trade_name` is unique per
+ * Organization, so two applications in one test need two products behind them.
+ */
+export function createApplication(
+	db: DbExecutor,
+	organizationId: string,
+	links: { readonly insecticideId: string; readonly unitId: string },
+	overrides: Overrides<
+		'applications',
+		'organization_id' | 'insecticide_id' | 'application_unit_id'
+	> = {},
+): Promise<string> {
+	return insertRow(db, 'applications', {
+		organization_id: organizationId,
+		insecticide_id: links.insecticideId,
+		application_date: sql`date '2026-08-01'`,
+		geom: fixturePoint(),
+		amount_applied: 2,
+		application_unit_id: links.unitId,
+		...overrides,
+	});
+}
+
+export function createBiocontrolAction(
+	db: DbExecutor,
+	organizationId: string,
+	links: { readonly methodId: string; readonly unitId: string },
+	overrides: Overrides<
+		'biocontrol_actions',
+		'organization_id' | 'biocontrol_method_id' | 'release_unit_id'
+	> = {},
+): Promise<string> {
+	return insertRow(db, 'biocontrol_actions', {
+		organization_id: organizationId,
+		biocontrol_method_id: links.methodId,
+		biocontrol_date: sql`date '2026-08-01'`,
+		geom: fixturePoint(),
+		amount_released: 40,
+		release_unit_id: links.unitId,
+		...overrides,
+	});
+}
+
+/** `reach` is how many people the outreach met, and the table refuses a zero. */
+export function createOutreachAction(
+	db: DbExecutor,
+	organizationId: string,
+	outreachMethodId: string,
+	overrides: Overrides<'outreach_actions', 'organization_id' | 'outreach_method_id'> = {},
+): Promise<string> {
+	return insertRow(db, 'outreach_actions', {
+		organization_id: organizationId,
+		outreach_method_id: outreachMethodId,
+		outreach_date: sql`date '2026-08-01'`,
+		geom: fixturePoint(),
+		reach: 25,
+		...overrides,
+	});
+}
+
 // Public engagement
 
 export function createNotificationType(
@@ -531,6 +648,24 @@ export function createNotificationRegistration(
 		organization_id: organizationId,
 		contact_id: contactId,
 		geom: fixturePoint(),
+		...overrides,
+	});
+}
+
+/** One notification type a registration is subscribed to, which is what makes it notifiable. */
+export function createNotificationRegistrationType(
+	db: DbExecutor,
+	organizationId: string,
+	links: { readonly registrationId: string; readonly notificationTypeId: string },
+	overrides: Overrides<
+		'notification_registration_types',
+		'organization_id' | 'notification_registration_id' | 'notification_type_id'
+	> = {},
+): Promise<string> {
+	return insertRow(db, 'notification_registration_types', {
+		organization_id: organizationId,
+		notification_registration_id: links.registrationId,
+		notification_type_id: links.notificationTypeId,
 		...overrides,
 	});
 }
@@ -586,6 +721,49 @@ export function createMissionNotification(
 		contact_id: links.contactId,
 		notification_type_id: links.notificationTypeId,
 		channel: 'email',
+		...overrides,
+	});
+}
+
+// Weather
+
+/**
+ * A weather station.
+ *
+ * `organization_id` is nullable here and nowhere else in this module: a null one
+ * is a provider-owned station that every Organization can read and none can
+ * write, which is the case the scope guards exist for. The default
+ * `source_type` follows it, because `nws` is what a station nobody owns is.
+ */
+export function createWeatherSource(
+	db: DbExecutor,
+	organizationId: string | null,
+	overrides: Overrides<'weather_sources', 'organization_id'> = {},
+): Promise<string> {
+	return insertRow(db, 'weather_sources', {
+		organization_id: organizationId,
+		geom: fixturePoint(),
+		source_type: organizationId === null ? 'nws' : 'organization',
+		source_name: 'North Gauge',
+		...overrides,
+	});
+}
+
+/** A week of readings from one station, with a rain figure and a temperature pair. */
+export function createWeatherSummary(
+	db: DbExecutor,
+	organizationId: string,
+	weatherSourceId: string,
+	overrides: Overrides<'weather_summaries', 'organization_id' | 'weather_source_id'> = {},
+): Promise<string> {
+	return insertRow(db, 'weather_summaries', {
+		organization_id: organizationId,
+		weather_source_id: weatherSourceId,
+		start_date: sql`date '2026-08-01'`,
+		end_date: sql`date '2026-08-07'`,
+		precipitation_inches: 1.25,
+		temperature_min_f: 54,
+		temperature_max_f: 78,
 		...overrides,
 	});
 }

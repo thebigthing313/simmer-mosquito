@@ -7,6 +7,7 @@ import {
 	createOrganization,
 	createRegion,
 	createTrap,
+	createWeatherSource,
 } from '../../test-support/row-fixtures.js';
 
 /**
@@ -566,24 +567,13 @@ async function seedTrap(
 }
 
 /** A null `organizationId` seeds a platform-owned station, which no product surface writes. */
-async function seedWeatherSource(
+function seedWeatherSource(
 	db: Kysely<SimmerDatabase>,
 	organizationId: string | null,
 	name: string,
 	code: string,
 ): Promise<string> {
-	const row = await db
-		.insertInto('weather_sources')
-		.values({
-			organization_id: organizationId,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			source_type: organizationId === null ? 'nws' : 'organization',
-			source_name: name,
-			source_code: code,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return createWeatherSource(db, organizationId, { source_name: name, source_code: code });
 }
 
 function seedRegion(

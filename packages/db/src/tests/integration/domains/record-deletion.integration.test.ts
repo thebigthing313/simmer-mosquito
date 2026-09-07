@@ -19,6 +19,7 @@ import {
 	createComment,
 	createContact,
 	createHabitat,
+	createInsecticide,
 	createInspection,
 	createMission,
 	createMissionItem,
@@ -30,7 +31,11 @@ import {
 	createSpecies,
 	createTrap,
 	createUnit,
+	createApplication as insertApplication,
+	createBiocontrolAction as insertBiocontrolAction,
 	createMissionNotification as insertMissionNotification,
+	createOutreachAction as insertOutreachAction,
+	createNotificationRegistrationType as insertRegistrationType,
 	createSourceReduction as insertSourceReduction,
 } from '../../../test-support/row-fixtures.js';
 
@@ -729,14 +734,7 @@ async function subscribeRegistration(
 	registrationId: string,
 	notificationTypeId: string,
 ): Promise<void> {
-	await db
-		.insertInto('notification_registration_types')
-		.values({
-			organization_id: organizationId,
-			notification_registration_id: registrationId,
-			notification_type_id: notificationTypeId,
-		})
-		.execute();
+	await insertRegistrationType(db, organizationId, { registrationId, notificationTypeId });
 }
 
 async function createMissionNotification(
@@ -772,34 +770,20 @@ async function createApplication(
 	links: ActionLinks,
 ): Promise<string> {
 	const suffix = nextInsecticide++;
-	const insecticide = await db
-		.insertInto('insecticides')
-		.values({
-			organization_id: organizationId,
-			trade_name: `Test larvicide ${suffix}`,
-			active_ingredient: 'Bti',
-			type: 'larvicide',
-			registration_number: `12345-${suffix}`,
-			default_unit_id: unitId,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	const row = await db
-		.insertInto('applications')
-		.values({
-			organization_id: organizationId,
-			insecticide_id: insecticide.id,
-			application_date: sql`date '2026-08-01'`,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			amount_applied: 2,
-			application_unit_id: unitId,
+	const insecticideId = await createInsecticide(db, organizationId, unitId, {
+		trade_name: `Test larvicide ${suffix}`,
+		registration_number: `12345-${suffix}`,
+	});
+	return insertApplication(
+		db,
+		organizationId,
+		{ insecticideId, unitId },
+		{
 			mission_item_id: links.missionItemId ?? null,
 			requested_control_action_id: links.requestId ?? null,
 			habitat_id: links.habitatId ?? null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+		},
+	);
 }
 
 async function createSourceReduction(
@@ -830,20 +814,10 @@ async function createOutreachAction(
 		.values({ organization_id: organizationId, name: 'Door hangers' })
 		.returning(['id'])
 		.executeTakeFirstOrThrow();
-	const row = await db
-		.insertInto('outreach_actions')
-		.values({
-			organization_id: organizationId,
-			outreach_method_id: method.id,
-			outreach_date: sql`date '2026-08-01'`,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			reach: 25,
-			mission_item_id: links.missionItemId ?? null,
-			requested_control_action_id: links.requestId ?? null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+	return insertOutreachAction(db, organizationId, method.id, {
+		mission_item_id: links.missionItemId ?? null,
+		requested_control_action_id: links.requestId ?? null,
+	});
 }
 
 async function createBiocontrolAction(
@@ -857,19 +831,13 @@ async function createBiocontrolAction(
 		.values({ organization_id: organizationId, name: 'Gambusia release' })
 		.returning(['id'])
 		.executeTakeFirstOrThrow();
-	const row = await db
-		.insertInto('biocontrol_actions')
-		.values({
-			organization_id: organizationId,
-			biocontrol_method_id: method.id,
-			biocontrol_date: sql`date '2026-08-01'`,
-			geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
-			amount_released: 40,
-			release_unit_id: unitId,
+	return insertBiocontrolAction(
+		db,
+		organizationId,
+		{ methodId: method.id, unitId },
+		{
 			mission_item_id: links.missionItemId ?? null,
 			requested_control_action_id: links.requestId ?? null,
-		})
-		.returning(['id'])
-		.executeTakeFirstOrThrow();
-	return row.id;
+		},
+	);
 }
