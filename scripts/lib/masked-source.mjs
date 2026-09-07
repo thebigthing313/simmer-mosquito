@@ -25,26 +25,29 @@
  *
  * A template literal's `${...}` is code, and code holds strings, comments and
  * regex literals of its own, so the scan runs the same step loop inside one and
- * masks and collects whatever it finds. Skipping it cost two things (#558). A
- * string in an interpolation stayed unmasked and uncollected, so the vocabulary
- * gate never read it and the join gate saw its separator as live punctuation.
+ * masks and collects whatever it finds. Skipping it cost two things (#558).
+ *
+ * A string in an interpolation stayed unmasked and uncollected. The vocabulary
+ * gate never read it, and the join gate saw its separator as live punctuation.
+ *
  * Worse, the brace match that found the end of the expression ran over the raw
- * source, so a `}` inside a string, a comment or a regex closed the expression
- * early and every character after it in the file was read in the wrong state,
- * with the tail swallowed into one bogus literal and nothing saying so. Nothing
- * in the workspace tripped that, which is why every gate was green. The reason
- * it is fixed rather than noted is that the failure is silent and file-wide.
+ * source. A `}` inside a string, a comment or a regex closed the expression
+ * early, and every character after it in the file was then read in the wrong
+ * state, with the tail swallowed into one bogus literal. Nothing in the
+ * workspace tripped that, which is why every gate was green. The reason it is
+ * fixed rather than noted is that the failure is silent and file-wide.
+ * `readExpression` below is where that now cannot happen.
  *
  * Measured on 2026-09-07, over the three copy roots `check-vocabulary.mjs`
- * reads: the literals collected go from 23,099 to 23,240, which is 121 quoted
+ * reads. The literals collected go from 23,099 to 23,240, which is 121 quoted
  * strings and 20 chunks of a nested template, and the pieces of copy that gate
  * scans go from 12,571 to 12,686. No comment or regex sits inside an
  * interpolation in those roots today, so `comments` does not move. Over
  * everything `sourceFiles` walks, `.join()` calls whose masked argument list
- * holds a top-level comma go from 118 to 102, and `check-join-types.mjs` still
- * reports 88 query-builder joins out of 257 calls: a separator is neither an
- * object literal first nor a function second, so none of the sixteen was ever
- * read as a builder join.
+ * holds a top-level comma go from 118 to 102. `check-join-types.mjs` still
+ * reports 88 query-builder joins out of 257 calls, because a separator is
+ * neither an object literal first nor a function second, so none of the sixteen
+ * was ever read as a builder join.
  */
 
 /** Characters after which a `/` opens a regex literal rather than dividing. */
@@ -61,6 +64,9 @@ const REGEX_BODY = /(?:[^/\\\n[]|\\.|\[(?:[^\]\\\n]|\\.)*\])*\//y;
 
 /** A template literal's fixed text, stopping at a `${` or the closing backtick. */
 const TEMPLATE_CHUNK = /(?:[^`\\$]|\\.|\$(?!\{))*/y;
+
+/** What a brace the step loop did not hand to a reader does to a `${` expression's depth. */
+const BRACE_DEPTH = { '{': 1, '}': -1 };
 
 /** Where a comment that opens with `/` and this character ends. */
 const COMMENT_END = {
@@ -150,6 +156,11 @@ function readQuoted(state, at) {
  * are the same kind of thing anywhere else in the file. So the expression is
  * handed to the same step loop the top level runs, which masks and collects
  * whatever it finds and reads a nested template on its own turn.
+ *
+ * A `${` nobody closed is why the reader ends at the further of the two. The
+ * expression has then run to the end of the file, and ending at the fixed chunk
+ * it started from would send the top-level loop back over text this already
+ * collected, so every literal in the tail would arrive twice.
  */
 function readTemplate(state, at) {
 	const { source } = state;
@@ -168,7 +179,7 @@ function readTemplate(state, at) {
 	}
 
 	state.lastCode = '`';
-	return Math.min(end + 1, source.length);
+	return Math.max(cursor, Math.min(end + 1, source.length));
 }
 
 /**
@@ -178,13 +189,10 @@ function readTemplate(state, at) {
  * Depth is counted on the characters the step loop did not hand to a reader,
  * which is the whole of why this walks rather than matching braces. A `}` inside
  * a string, a comment or a regex is consumed by that reader and never seen here,
- * so it cannot close the expression. Matching braces over the raw source counted
- * every one of them, and a hidden `}` ended the template early and left the rest
- * of the file read in the wrong state, with the tail swallowed into one bogus
- * literal and nothing saying so (#558).
+ * so it cannot close the expression. The header has what matching braces cost.
  *
  * The expression opens where a regex may begin, so `lastCode` is set to the `{`
- * the caller stepped past: `${/[}]/.test(x)}` divides nothing.
+ * the caller stepped past, and `${/[}]/.test(x)}` divides nothing.
  */
 function readExpression(state, from) {
 	state.lastCode = '{';
@@ -201,9 +209,6 @@ function readExpression(state, from) {
 	}
 	return state.source.length;
 }
-
-/** What a brace the step loop did not hand to a reader does to the expression's depth. */
-const BRACE_DEPTH = { '{': 1, '}': -1 };
 
 const READERS = {
 	'/': readSlash,
