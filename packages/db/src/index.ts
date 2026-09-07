@@ -14,6 +14,7 @@ export * from './domains/habitats.js';
 export * from './domains/identity.js';
 export * from './domains/larval-surveillance.js';
 export * from './domains/map-extent.js';
+export * from './domains/map-layers.js';
 export * from './domains/map-region-filter.js';
 export * from './domains/map-tile.js';
 export * from './domains/mission-dispatch-map.js';

@@ -1,28 +1,38 @@
 #!/usr/bin/env node
 /**
- * Holds the client's tileset names to the ones the server answers on.
+ * Holds the three registers of tileset names to each other.
  *
- * `/map/tiles/:tileset/{z}/{x}/{y}.mvt` is one endpoint with a name in the path.
- * The server's eleven names are the `key` of each `defineTileSet` in
- * `apps/server/src/map-tiles.ts`; the client's are the keys of
- * `TILE_LAYER_BINDINGS` in `apps/web/src/components/map/tile-layers.ts`, and the
- * `*_SOURCE_ID` constant each row names is the string that actually goes into
- * the URL.
+ * `/map/tiles/:tileset/{z}/{x}/{y}.mvt` is one endpoint with a name in the path,
+ * and that name is also the layer inside the vector tile the style draws. Three
+ * places spell those eleven strings:
  *
- * Nothing else checks that the three agree. A name that does not 404s every tile
- * and every extent request, and the map draws an empty basemap with no error on
- * screen and nothing in the console but a row of network failures. That is the
- * failure this catches, and it costs a regex.
+ * - `packages/db`, where each map surface declares the `layer` its tile is
+ *   written under, against the `MapTilesetLayer` register in
+ *   `packages/db/src/domains/map-layers.ts`.
+ * - `apps/server`, where `createTileSetRegistry` keys a tileset per layer.
+ * - `apps/web`, where `TILE_LAYER_BINDINGS` names what a `MapCanvas` draws, and
+ *   the `*_SOURCE_ID` constant each row names is the string that goes in the URL.
  *
- * Three assertions:
+ * `tsc` holds the first two: a surface cannot declare a layer the register does
+ * not name, and the server's registry is a `Record<MapTilesetLayer, ...>`. It
+ * reaches no further. `apps/web` is another app with no import of the register,
+ * and no compiler notices a surface whose layer is a real name belonging to a
+ * different surface. Either one answers 200 with a layer nothing draws, so the
+ * map is an empty basemap with no error on screen and nothing in the console but
+ * a row of network failures. That is the failure this catches, and it costs a
+ * regex.
  *
- * 1. Every registry key is a tileset the server serves, and every tileset the
- *    server serves has a registry key.
+ * Four assertions:
+ *
+ * 1. The layer beside each surface, the tilesets the server serves and the
+ *    client's registry keys are each exactly the register's set.
  * 2. A row's `sourceId` resolves to the same string as its key. The key is what
  *    a caller writes in a `layers` list; the source id is what the URL builder
  *    puts in the path, and they are only the same string by convention.
- * 3. The parse read the expected number of rows on both sides, so a refactor
- *    that moves the declarations fails loudly rather than checking nothing.
+ * 3. All four parses read the expected number of names, so a refactor that moves
+ *    a declaration fails loudly rather than checking nothing.
+ * 4. The surface scan still walks `packages/db`'s domain modules, so a walk that
+ *    has stopped finding them fails rather than reading zero layers out of them.
  *
  * Run it with `pnpm check:tileset-keys`.
  */
@@ -35,20 +45,46 @@ const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const CLIENT_REGISTRY = join(workspaceRoot, 'apps/web/src/components/map/tile-layers.ts');
 const CLIENT_TILES_DIR = join(workspaceRoot, 'apps/web/src/components/map');
 const SERVER_REGISTRY = join(workspaceRoot, 'apps/server/src/map-tiles.ts');
+const DB_REGISTER = join(workspaceRoot, 'packages/db/src/domains/map-layers.ts');
+const DB_SURFACE_DIR = join(workspaceRoot, 'packages/db/src/domains');
 
 /**
- * How many tilesets there are. Asserted rather than assumed: a parse that stops
- * matching must fail, not pass over nothing. Moving it is a deliberate edit.
+ * How many tilesets there are. Asserted rather than assumed on all four parses:
+ * one that stops matching must fail, not pass over nothing. Moving it is a
+ * deliberate edit.
  */
 const EXPECTED_TILESETS = 11;
 
+/**
+ * The floor under the surface scan, which is the one input that is a directory
+ * walk rather than a single declaration. Thirty-one modules sit there today; the
+ * floor sits under that rather than on it because a domain module is deleted now
+ * and then, while a walk finding a handful has lost the directory and would
+ * report zero layers under a passing summary line (#591, #599).
+ */
+const MINIMUM_SURFACE_MODULES = 25;
+
 function main() {
+	const register = readRegisterLayers();
+	const surfaces = readSurfaceLayers();
 	const client = readClientRegistry();
 	const server = readServerKeys();
 	const sourceIds = readSourceIds();
 
 	const failures = [
-		...checkKeysAgree(client, server),
+		...checkAgainstRegister(register, surfaces, {
+			spells: 'a map surface declares',
+			lacks: 'no map surface declares it',
+		}),
+		...checkAgainstRegister(register, server, {
+			spells: 'the server serves',
+			lacks: 'the server does not serve it',
+		}),
+		...checkAgainstRegister(
+			register,
+			client.map((row) => row.key),
+			{ spells: 'the client draws', lacks: 'no client row draws it' },
+		),
 		...checkSourceIdsMatchKeys(client, sourceIds),
 	];
 
@@ -57,14 +93,62 @@ function main() {
 		for (const failure of failures) {
 			console.error(`  - ${failure}`);
 		}
-		console.error('\nThe client rows are TILE_LAYER_BINDINGS (apps/web/src/components/map/');
-		console.error('tile-layers.ts) and the server rows are createTileSetRegistry');
-		console.error('(apps/server/src/map-tiles.ts). Both name the /map/tiles/:tileset segment.');
+		console.error('\nThe register is MapTilesetLayer (packages/db/src/domains/map-layers.ts),');
+		console.error('the surfaces declare a `layer` beside it, the server rows are');
+		console.error('createTileSetRegistry (apps/server/src/map-tiles.ts) and the client rows are');
+		console.error('TILE_LAYER_BINDINGS (apps/web/src/components/map/tile-layers.ts). All four');
+		console.error('name the /map/tiles/:tileset segment.');
 		process.exitCode = 1;
 		return;
 	}
 
-	console.log(`Tileset keys: ${server.length} tilesets, client and server agree.`);
+	console.log(`Tileset keys: ${register.length} layers, db, server and client all agree.`);
+}
+
+/** The members of the `MapTilesetLayer` union, in declaration order. */
+function readRegisterLayers() {
+	const source = readFileSync(DB_REGISTER, 'utf8');
+	const union = source.match(/export type MapTilesetLayer =([\s\S]*?);/);
+	if (union === null) {
+		throw new Error(`Could not find the MapTilesetLayer union in ${DB_REGISTER}.`);
+	}
+
+	const layers = [...union[1].matchAll(/'([a-z-]+)'/g)].map((match) => match[1]);
+	if (layers.length !== EXPECTED_TILESETS) {
+		throw new Error(
+			`Expected ${EXPECTED_TILESETS} members of MapTilesetLayer, read ${layers.length}. ` +
+				'Update EXPECTED_TILESETS if the register grew.',
+		);
+	}
+	return layers;
+}
+
+/** The db domain modules the surface scan reads, floor asserted. */
+function readSurfaceModules() {
+	const modules = readdirSync(DB_SURFACE_DIR).filter((file) => file.endsWith('.ts'));
+	if (modules.length < MINIMUM_SURFACE_MODULES) {
+		throw new Error(
+			`Read ${modules.length} modules under ${DB_SURFACE_DIR}, below the floor of ` +
+				`${MINIMUM_SURFACE_MODULES}. The surface scan has lost the directory.`,
+		);
+	}
+	return modules;
+}
+
+/** The `layer` each map surface declares, across the db domain modules. */
+function readSurfaceLayers() {
+	const layers = readSurfaceModules().flatMap((module) => {
+		const source = readFileSync(join(DB_SURFACE_DIR, module), 'utf8');
+		return [...source.matchAll(/^\t+layer: '([a-z-]+)',$/gm)].map((match) => match[1]);
+	});
+
+	if (layers.length !== EXPECTED_TILESETS) {
+		throw new Error(
+			`Expected ${EXPECTED_TILESETS} surfaces declaring a layer, read ${layers.length}. ` +
+				'Update EXPECTED_TILESETS if a surface was added.',
+		);
+	}
+	return layers;
 }
 
 /** The registry keys and the `*_SOURCE_ID` each row names, in declaration order. */
@@ -88,7 +172,7 @@ function readClientRegistry() {
 	return rows;
 }
 
-/** The `key` of every `defineTileSet` the server registers. */
+/** The key every tileset the server registers is declared under. */
 function readServerKeys() {
 	const source = readFileSync(SERVER_REGISTRY, 'utf8');
 	const registry = source.match(/function createTileSetRegistry\([\s\S]*?\n\}/);
@@ -96,7 +180,7 @@ function readServerKeys() {
 		throw new Error(`Could not find createTileSetRegistry in ${SERVER_REGISTRY}.`);
 	}
 
-	const keys = [...registry[0].matchAll(/defineTileSet\(\{\s*key: '([a-z-]+)'/g)].map(
+	const keys = [...registry[0].matchAll(/^\t\t'?([a-z-]+)'?: defineTileSet\(\{$/gm)].map(
 		(match) => match[1],
 	);
 
@@ -107,6 +191,26 @@ function readServerKeys() {
 		);
 	}
 	return keys;
+}
+
+/**
+ * Both directions between the register and one of the three lists that spell it.
+ *
+ * `spells` and `lacks` are the two halves of the same sentence, because a name
+ * on one side and not the other is two different failures: a tileset nothing
+ * registers, and a register entry nothing serves.
+ */
+function checkAgainstRegister(register, names, { spells, lacks }) {
+	const registered = new Set(register);
+	const spelled = new Set(names);
+	return [
+		...absent(
+			spelled,
+			registered,
+			(key) => `${spells} '${key}', which MapTilesetLayer does not name.`,
+		),
+		...absent(registered, spelled, (key) => `MapTilesetLayer names '${key}', but ${lacks}.`),
+	];
 }
 
 /** Every `export const *_SOURCE_ID = '...'` the tile modules declare. */
@@ -122,23 +226,6 @@ function readSourceIds() {
 		}
 	}
 	return ids;
-}
-
-function checkKeysAgree(client, server) {
-	const clientKeys = new Set(client.map((row) => row.key));
-	const serverKeys = new Set(server);
-	return [
-		...absent(
-			clientKeys,
-			serverKeys,
-			(key) => `the client draws '${key}', which the server does not serve.`,
-		),
-		...absent(
-			serverKeys,
-			clientKeys,
-			(key) => `the server serves '${key}', which no client row draws.`,
-		),
-	];
 }
 
 /** Describe each key of `keys` that `present` does not hold. */
