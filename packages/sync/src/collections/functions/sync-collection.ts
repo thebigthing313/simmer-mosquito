@@ -45,21 +45,6 @@ import { shapePathFor } from './routes.js';
 import { sessionFetch } from './session-fetch.js';
 
 /**
- * Raw geometry that must never stream through a shape.
- *
- * `geom` is binary and `geojson` runs to megabytes per row; both are served by
- * the `/map/*` endpoints instead. What may sync is the trigger-maintained
- * centroid (`lat`, `lng`, `geom_type`), which is why this names columns rather
- * than refusing spatial tables outright.
- *
- * Exported rather than checked here because columns now come from the schema, and
- * the schema is not visible to this function — see the module comment. The
- * invariant is asserted across every collection module in the unit tests, which
- * is already how the descriptors enforce it.
- */
-export const serverOnlyGeometryColumns: readonly string[] = ['geom', 'geojson'];
-
-/**
  * Re-exported from `synced-columns.ts`, where it moved so the contract entry can
  * name it without this module's write path coming too. See that file.
  */
