@@ -334,7 +334,11 @@ the same rows on a different sync policy without a second copy of the schema.
 - the write path in `src/collections/functions` (`mutate-collection.ts`,
   `command-request.ts`, and `command-transaction.ts`), which turns a mutation
   into a named domain command and settles the response;
-- shared helpers for Electric transaction-id mutation handling.
+- shared helpers for Electric transaction-id mutation handling;
+- one place to install the two things it needs from its host, in
+  `src/collections/functions/session-fetch.ts`: `setSessionFetcher`, which says
+  how a request carries the session, and `setSessionRecovery`, which says what
+  to do when one is refused.
 
 `apps/web` owns:
 
@@ -342,11 +346,18 @@ the same rows on a different sync policy without a second copy of the schema.
   table, each naming its own `syncMode`;
 - the read seam in `src/hooks/queries`, one hook per surface, joining
   collections and returning camelCase;
-- the explicit eager baseline preload bundle and route live-query preloads.
+- the explicit eager baseline preload bundle and route live-query preloads;
+- the transport, installed in `src/app-auth.ts`. `apps/web` and `apps/admin`
+  install the cookie fetcher from `@simmer-mosquito/auth/browser`; a token
+  client installs the `fetch` member of its own `AuthClient`, which attaches
+  the bearer and keeps every rotation (ADR 0016).
 
 What deliberately does **not** live in `packages/sync`: sync mode, preload
-policy, and retention windows. All three are app decisions, and a package that
-declared them would be making mobile's for it.
+policy, retention windows, and the credential. All four are app decisions, and a
+package that declared them would be making mobile's for it. The credential was
+the one it did declare: `credentials: 'include'` written into the shape path and
+the command path, which are every read and every write, and which a bearer
+client could therefore not use at all.
 
 The web eager baseline bundle must stay explicit. Components should subscribe to
 collection changes, but should not individually call `collection.preload()` as a

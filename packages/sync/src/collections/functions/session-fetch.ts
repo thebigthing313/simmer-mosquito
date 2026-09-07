@@ -1,22 +1,31 @@
 /**
- * Every request this package makes, and what it does when the server refuses.
+ * Every request this package makes: what carries its credential, and what it
+ * does when the server refuses.
  *
- * Shape streams and command writes both carry the session cookie and nothing
- * else. Since #298 the routes behind them verify the session rather than
+ * **Both are the app's, and neither is this package's.** Shape streams and
+ * command writes are every read and every write a client makes, and how a
+ * credential travels on them is a fact about the host rather than about the
+ * table. The two browser apps hold the sealed session in an httpOnly cookie;
+ * `apps/mobile` holds the same session in the device keystore, sends it as a
+ * bearer, and reads each rotation back out of a response header (ADR 0016).
+ * Writing either one here as a literal is what would keep the other out.
+ *
+ * Since #298 the routes behind those requests verify the session rather than
  * renewing it — a WorkOS refresh token is single use, and the browser runs too
  * many requests at once to let any of them spend it — so an access token that
  * ages out mid-session reaches this package as a 401. That is routine, and the
- * cure is to renew once through `/auth/me` and ask again.
+ * cure is to renew once through `/auth/me` and ask again. The renewal is the
+ * app's too: only the app has an auth controller, and only the app knows where
+ * to send a reader whose session is really gone.
  *
- * The renewal itself is the app's: only the app has an auth controller, and only
- * the app knows where to send a reader whose session is really gone. So an app
- * installs one {@link SessionRecovery} here at startup and every request in this
- * package answers a refusal the same way.
+ * So an app installs one {@link SessionFetcher} and one {@link SessionRecovery}
+ * here at startup, and every request in this package is sent and recovered the
+ * same way.
  *
- * One installed function rather than a per-collection option, because a session
- * is not a property of a collection. Fifty-four collections and every write
- * would each be carrying the same value, and the write paths would each have to
- * thread it down from wherever they were called.
+ * Installed functions rather than per-collection options, because neither is a
+ * property of a collection. Fifty-four collections and every write would each be
+ * carrying the same two values, and the write paths would each have to thread
+ * them down from wherever they were called.
  */
 
 /**
@@ -26,6 +35,15 @@
  * asking again. `false` means it is gone and the app has taken over.
  */
 export type SessionRecovery = () => Promise<boolean>;
+
+/**
+ * Send a request with this app's credential on it.
+ *
+ * `fetch`'s own shape, so an app installs whichever of the two transports it
+ * has: a cookie one from `@simmer-mosquito/auth/browser`, or the `fetch` member
+ * of a token client, which attaches the bearer and keeps every rotation.
+ */
+export type SessionFetcher = typeof fetch;
 
 /**
  * One per app, and it has to stay one.
@@ -59,7 +77,26 @@ export function setSessionRecovery(recovery: SessionRecovery | null): void {
 }
 
 /**
- * `fetch`, with one renewal and one retry on a refusal.
+ * One per app, for the same reason the recovery above is, and installed in the
+ * same place.
+ */
+let sendWithSession: SessionFetcher | null = null;
+
+/**
+ * Install this app's transport, once, before any collection is used.
+ *
+ * An app that installs none sends bare `fetch`, which on a browser omits the
+ * cookie cross-origin and therefore reaches the server unauthenticated. That is
+ * the right default for a package with no opinion about credentials, and it is
+ * why both shipping apps install one beside their recovery rather than relying
+ * on what this does without one.
+ */
+export function setSessionFetcher(fetcher: SessionFetcher | null): void {
+	sendWithSession = fetcher;
+}
+
+/**
+ * The app's transport, with one renewal and one retry on a refusal.
  *
  * **Once.** A second refusal is not an expiry, it is this caller being refused
  * this route, and asking again would be a loop against a server that has already
@@ -73,14 +110,20 @@ export function setSessionRecovery(recovery: SessionRecovery | null): void {
  * as a dead session, and bounce an operator to sign-in instead of explaining
  * what is wrong. An ended membership is a 403 too, and the route guard already
  * sends that reader to the front door on the next navigation.
+ *
+ * **Both attempts go through the installed fetcher.** A retry on bare `fetch`
+ * would carry no credential at all and be refused a second time, which reads as
+ * a renewal that worked and a request that never had a chance.
  */
 export const sessionFetch: typeof fetch = async (request, init) => {
+	const send = sendWithSession ?? fetch;
+
 	// Cloned before the first attempt, because a `Request` body can only be read
 	// once and subset requests are POSTs carrying one. Retrying the spent object
 	// throws rather than asking again, and a joined query would go quietly empty.
 	const retryable = request instanceof Request ? request.clone() : request;
 
-	const response = await fetch(request, init);
+	const response = await send(request, init);
 	if (recoverSession === null || response.status !== 401) {
 		return response;
 	}
@@ -90,5 +133,5 @@ export const sessionFetch: typeof fetch = async (request, init) => {
 		return response;
 	}
 
-	return fetch(retryable, init);
+	return send(retryable, init);
 };

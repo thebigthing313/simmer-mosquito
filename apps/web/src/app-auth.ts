@@ -1,9 +1,10 @@
 import {
+	cookieFetch,
 	createAppAuthController,
 	createSessionRecovery,
 	sessionLostDestination,
 } from '@simmer-mosquito/auth/browser';
-import { setSessionRecovery } from '@simmer-mosquito/sync/session-fetch';
+import { setSessionFetcher, setSessionRecovery } from '@simmer-mosquito/sync/session-fetch';
 import { getAuthMe } from './auth';
 
 /**
@@ -74,3 +75,10 @@ export const recoverSession = createSessionRecovery({
 // package barrel re-exports all fifty-four collection modules and their row
 // schemas, and `main.tsx` imports this module.
 setSessionRecovery(recoverSession);
+
+// How every shape stream and every command write carries the session, installed
+// beside the recovery because both are facts about this host rather than about a
+// table. This browser's is the httpOnly cookie it already holds, which is what
+// `packages/sync` used to write as a literal; `apps/mobile` will install the
+// bearer transport off its own auth client here instead (ADR 0016).
+setSessionFetcher(cookieFetch);

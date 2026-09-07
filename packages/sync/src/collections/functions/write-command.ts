@@ -72,7 +72,6 @@ export async function writeCommand(
 	// the command again.
 	const response = await sessionFetch(url, {
 		method,
-		credentials: 'include',
 		headers: {
 			accept: 'application/json',
 			...(body === undefined ? {} : { 'content-type': 'application/json' }),
