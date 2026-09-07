@@ -9,23 +9,22 @@ import {
 	upsertWorkOsIdentity,
 } from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
+import { createOrganization } from '../../test-support/row-fixtures.js';
 
 describeDbIntegration('identity profile invitation lifecycle', () => {
 	it('links an existing historical profile when the invited user signs in', async () => {
 		await withTestDb(async ({ db }) => {
-			const organization = await db
-				.insertInto('organizations')
-				.values({
-					workos_organization_id: 'workos_org_historical_profile',
-					name: 'Historical Profile District',
-				})
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			// The WorkOS id and name are named here because the sign-in below hands
+			// the same pair back, and provisioning matches an Organization on it.
+			const organizationId = await createOrganization(db, {
+				workos_organization_id: 'workos_org_historical_profile',
+				name: 'Historical Profile District',
+			});
 
 			const historicalProfile = await db
 				.insertInto('profiles')
 				.values({
-					organization_id: organization.id,
+					organization_id: organizationId,
 					user_id: null,
 					display_name: 'Casey Historical',
 					email: null,
@@ -34,7 +33,7 @@ describeDbIntegration('identity profile invitation lifecycle', () => {
 				.executeTakeFirstOrThrow();
 
 			const invitedMembership = await stageOrganizationInvitation(db, {
-				organizationId: organization.id,
+				organizationId,
 				profileId: historicalProfile.id,
 				email: 'casey.historical@example.test',
 				displayName: null,
@@ -43,7 +42,7 @@ describeDbIntegration('identity profile invitation lifecycle', () => {
 			});
 
 			expect(invitedMembership).toMatchObject({
-				organizationId: organization.id,
+				organizationId,
 				profileId: historicalProfile.id,
 				userId: null,
 				role: 'manager',
@@ -65,7 +64,7 @@ describeDbIntegration('identity profile invitation lifecycle', () => {
 			});
 
 			expect(localIdentity).toMatchObject({
-				organizationId: organization.id,
+				organizationId,
 				profileId: historicalProfile.id,
 				membershipId: invitedMembership.id,
 				role: 'manager',
@@ -110,14 +109,12 @@ describeDbIntegration('identity profile invitation lifecycle', () => {
 describeDbIntegration('ending an organization membership', () => {
 	it('revokes access, and does not hand it back at the next sign-in', async () => {
 		await withTestDb(async ({ db }) => {
-			const organization = await db
-				.insertInto('organizations')
-				.values({
-					workos_organization_id: 'workos_org_offboarding',
-					name: 'Offboarding District',
-				})
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			// Both sign-ins below name this pair, so provisioning finds this row
+			// rather than writing a second Organization beside it.
+			const organizationId = await createOrganization(db, {
+				workos_organization_id: 'workos_org_offboarding',
+				name: 'Offboarding District',
+			});
 
 			// The owner exists so the departing member is not the last active one;
 			// that refusal is asserted separately, as a pure rule.
@@ -134,7 +131,7 @@ describeDbIntegration('ending an organization membership', () => {
 			});
 
 			const staged = await stageOrganizationInvitation(db, {
-				organizationId: organization.id,
+				organizationId,
 				email: 'operator@simmer-data.test',
 				displayName: 'Sam Operator',
 				role: 'admin',
@@ -155,14 +152,14 @@ describeDbIntegration('ending an organization membership', () => {
 				});
 
 			const joined = await signIn();
-			expect(joined).toMatchObject({ organizationId: organization.id, role: 'admin' });
+			expect(joined).toMatchObject({ organizationId, role: 'admin' });
 
 			// The WorkOS id is the whole reason this read exists: WorkOS is where
 			// the grant actually lives, and the membership row is the only place
 			// the two systems are tied together.
 			const target = await readMembershipRemovalTarget(db, {
 				id: staged.id,
-				organizationId: organization.id,
+				organizationId,
 			});
 			expect(target.membership).toMatchObject({
 				role: 'admin',
@@ -173,7 +170,7 @@ describeDbIntegration('ending an organization membership', () => {
 
 			const ended = await deactivateOrganizationMembershipWithTxid(db, {
 				id: staged.id,
-				organizationId: organization.id,
+				organizationId,
 			});
 			expect(ended.row).toMatchObject({ status: 'inactive', isDefault: false });
 
@@ -214,19 +211,11 @@ describeDbIntegration('ending an organization membership', () => {
 
 	it('leaves another organization’s membership alone', async () => {
 		await withTestDb(async ({ db }) => {
-			const organization = await db
-				.insertInto('organizations')
-				.values({ workos_organization_id: 'workos_org_scope_a', name: 'Scope A' })
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
-			const other = await db
-				.insertInto('organizations')
-				.values({ workos_organization_id: 'workos_org_scope_b', name: 'Scope B' })
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			const organizationId = await createOrganization(db);
+			const otherOrganizationId = await createOrganization(db);
 
 			const staged = await stageOrganizationInvitation(db, {
-				organizationId: organization.id,
+				organizationId,
 				email: 'scoped@example.test',
 				displayName: 'Scoped Member',
 				role: 'viewer',
@@ -235,13 +224,13 @@ describeDbIntegration('ending an organization membership', () => {
 
 			const result = await deactivateOrganizationMembershipWithTxid(db, {
 				id: staged.id,
-				organizationId: other.id,
+				organizationId: otherOrganizationId,
 			});
 
 			expect(result.row).toBeNull();
 			const untouched = await readMembershipRemovalTarget(db, {
 				id: staged.id,
-				organizationId: organization.id,
+				organizationId,
 			});
 			expect(untouched.membership).toMatchObject({ status: 'invited' });
 		});
@@ -254,17 +243,10 @@ describeDbIntegration('ending an organization membership', () => {
 describeDbIntegration('staging and stamping an invitation', () => {
 	it('stamps a WorkOS invitation id onto a Membership staged without one', async () => {
 		await withTestDb(async ({ db }) => {
-			const organization = await db
-				.insertInto('organizations')
-				.values({
-					workos_organization_id: 'workos_org_stamp',
-					name: 'Stamp District',
-				})
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			const organizationId = await createOrganization(db);
 
 			const staged = await stageOrganizationInvitation(db, {
-				organizationId: organization.id,
+				organizationId,
 				email: 'stamp@example.test',
 				displayName: 'Stamp Invitee',
 				role: 'collector',
@@ -279,7 +261,7 @@ describeDbIntegration('staging and stamping an invitation', () => {
 
 			const stamped = await stampOrganizationInvitation(db, {
 				id: staged.id,
-				organizationId: organization.id,
+				organizationId,
 				workosInvitationId: 'inv_stamped',
 			});
 
@@ -295,14 +277,10 @@ describeDbIntegration('staging and stamping an invitation', () => {
 	// must stop naming the link WorkOS no longer holds.
 	it('clears the stamp of an invitation that was revoked', async () => {
 		await withTestDb(async ({ db }) => {
-			const organization = await db
-				.insertInto('organizations')
-				.values({ workos_organization_id: 'workos_org_unstamp', name: 'Unstamp District' })
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			const organizationId = await createOrganization(db);
 
 			const staged = await stageOrganizationInvitation(db, {
-				organizationId: organization.id,
+				organizationId,
 				email: 'unstamp@example.test',
 				displayName: 'Unstamp Invitee',
 				role: 'collector',
@@ -311,7 +289,7 @@ describeDbIntegration('staging and stamping an invitation', () => {
 
 			await clearOrganizationInvitationStamp(db, {
 				id: staged.id,
-				organizationId: organization.id,
+				organizationId,
 			});
 
 			const row = await db
@@ -325,19 +303,11 @@ describeDbIntegration('staging and stamping an invitation', () => {
 
 	it('refuses to clear the stamp of a Membership in another organization', async () => {
 		await withTestDb(async ({ db }) => {
-			const organization = await db
-				.insertInto('organizations')
-				.values({ workos_organization_id: 'workos_org_unstamp_owner', name: 'Unstamp Owner' })
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
-			const other = await db
-				.insertInto('organizations')
-				.values({ workos_organization_id: 'workos_org_unstamp_other', name: 'Unstamp Other' })
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			const organizationId = await createOrganization(db);
+			const otherOrganizationId = await createOrganization(db);
 
 			const staged = await stageOrganizationInvitation(db, {
-				organizationId: organization.id,
+				organizationId,
 				email: 'unstamp.scope@example.test',
 				displayName: 'Scoped Unstamp',
 				role: 'viewer',
@@ -345,7 +315,10 @@ describeDbIntegration('staging and stamping an invitation', () => {
 			});
 
 			await expect(
-				clearOrganizationInvitationStamp(db, { id: staged.id, organizationId: other.id }),
+				clearOrganizationInvitationStamp(db, {
+					id: staged.id,
+					organizationId: otherOrganizationId,
+				}),
 			).rejects.toThrow();
 
 			const untouched = await db
@@ -359,19 +332,11 @@ describeDbIntegration('staging and stamping an invitation', () => {
 
 	it('refuses to stamp a Membership in another organization', async () => {
 		await withTestDb(async ({ db }) => {
-			const organization = await db
-				.insertInto('organizations')
-				.values({ workos_organization_id: 'workos_org_stamp_owner', name: 'Stamp Owner' })
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
-			const other = await db
-				.insertInto('organizations')
-				.values({ workos_organization_id: 'workos_org_stamp_other', name: 'Stamp Other' })
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			const organizationId = await createOrganization(db);
+			const otherOrganizationId = await createOrganization(db);
 
 			const staged = await stageOrganizationInvitation(db, {
-				organizationId: organization.id,
+				organizationId,
 				email: 'stamp.scope@example.test',
 				displayName: 'Scoped Invitee',
 				role: 'viewer',
@@ -381,14 +346,14 @@ describeDbIntegration('staging and stamping an invitation', () => {
 			await expect(
 				stampOrganizationInvitation(db, {
 					id: staged.id,
-					organizationId: other.id,
+					organizationId: otherOrganizationId,
 					workosInvitationId: 'inv_wrong_org',
 				}),
 			).rejects.toThrow();
 
 			const untouched = await readMembershipRemovalTarget(db, {
 				id: staged.id,
-				organizationId: organization.id,
+				organizationId,
 			});
 			expect(untouched.membership).toMatchObject({ status: 'invited' });
 		});
@@ -399,14 +364,14 @@ describeDbIntegration('staging and stamping an invitation', () => {
 	// membership on every sign-in, so the invited row never leaves.
 	it('refuses an address that already has active access', async () => {
 		await withTestDb(async ({ db }) => {
-			const organization = await db
-				.insertInto('organizations')
-				.values({ workos_organization_id: 'workos_org_rejoin', name: 'Rejoin District' })
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			// The sign-in below names this pair, so it joins this Organization.
+			const organizationId = await createOrganization(db, {
+				workos_organization_id: 'workos_org_rejoin',
+				name: 'Rejoin District',
+			});
 
 			await stageOrganizationInvitation(db, {
-				organizationId: organization.id,
+				organizationId,
 				email: 'rejoin@example.test',
 				displayName: 'Robin Rejoin',
 				role: 'manager',
@@ -427,7 +392,7 @@ describeDbIntegration('staging and stamping an invitation', () => {
 
 			await expect(
 				stageOrganizationInvitation(db, {
-					organizationId: organization.id,
+					organizationId,
 					email: 'rejoin@example.test',
 					displayName: 'Robin Rejoin',
 					role: 'admin',
@@ -438,7 +403,7 @@ describeDbIntegration('staging and stamping an invitation', () => {
 			const profiles = await db
 				.selectFrom('profiles')
 				.select(['id'])
-				.where('organization_id', '=', organization.id)
+				.where('organization_id', '=', organizationId)
 				.execute();
 			expect(profiles).toHaveLength(1);
 		});

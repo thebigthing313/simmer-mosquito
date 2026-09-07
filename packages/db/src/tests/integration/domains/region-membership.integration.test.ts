@@ -15,6 +15,7 @@ import {
 import { readRecordRegions } from '../../../domains/region-membership.js';
 import type { DbExecutor } from '../../../index.js';
 import { describeDbIntegration, withTestDb } from '../../../test-support/db-integration.js';
+import { createOrganization } from '../../../test-support/row-fixtures.js';
 
 // --- the SQL half of the region-membership corpus ----------------------------
 //
@@ -94,16 +95,12 @@ function expectPerCase<Case extends { readonly id: string }>(
 }
 
 async function seedCorpus(db: DbExecutor): Promise<void> {
-	await db
-		.insertInto('organizations')
-		.values(
-			CORPUS_REGIONS.map((_region, index) => ({
-				id: orgId(index),
-				workos_organization_id: `org_region_membership_corpus_${index}`,
-				name: `Corpus District ${index}`,
-			})),
-		)
-		.execute();
+	// One Organization per distinct region, row at a time rather than in one
+	// insert, so the columns `organizations` requires are named in one place for
+	// every suite instead of here as well.
+	for (const [index] of CORPUS_REGIONS.entries()) {
+		await createOrganization(db, { id: orgId(index) });
+	}
 
 	await db
 		.insertInto('region_folders')
@@ -417,14 +414,7 @@ interface RingShapeRow {
 }
 
 async function seedInvalidRing(db: DbExecutor): Promise<void> {
-	await db
-		.insertInto('organizations')
-		.values({
-			id: invalidRingOrgId,
-			workos_organization_id: 'org_region_membership_invalid_ring',
-			name: 'Invalid Ring Organization',
-		})
-		.execute();
+	await createOrganization(db, { id: invalidRingOrgId });
 
 	await db
 		.insertInto('region_folders')

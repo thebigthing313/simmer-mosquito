@@ -1,5 +1,9 @@
 import { type DbExecutor, type RecordRegions, readRecordRegions, sql } from '@simmer-mosquito/db';
-import { describeDbIntegration, withTestDb } from '@simmer-mosquito/db/test-support';
+import {
+	createOrganization,
+	describeDbIntegration,
+	withTestDb,
+} from '@simmer-mosquito/db/test-support';
 import { expect, it } from 'vitest';
 
 /**
@@ -45,13 +49,10 @@ const around = (at: { lng: number; lat: number }) =>
 	sql<string>`st_makeenvelope(${at.lng - 0.5}, ${at.lat - 0.5}, ${at.lng + 0.5}, ${at.lat + 0.5}, 4326)`;
 
 async function seed(db: DbExecutor): Promise<void> {
-	await db
-		.insertInto('organizations')
-		.values([
-			{ id: own, workos_organization_id: 'org_region_read_own', name: 'Own District' },
-			{ id: other, workos_organization_id: 'org_region_read_other', name: 'Other District' },
-		])
-		.execute();
+	// The two Organizations go in row at a time rather than in one insert, so the
+	// columns `organizations` requires are named in the fixture and nowhere else.
+	await createOrganization(db, { id: own });
+	await createOrganization(db, { id: other });
 
 	await db
 		.insertInto('region_folders')

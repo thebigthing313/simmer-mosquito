@@ -21,9 +21,10 @@ import type { DbExecutor, SimmerDatabase } from '../index.js';
  * `profile-activity`, `seedCorpus` in `domains/region-membership`, `seedWorld`
  * in `domains/mission-notification-generation` and `seed` in `apps/server`'s
  * `region-membership` encode one test's own world rather than the schema, so
- * they stay in the suites that own them. They may call these, and three of the
- * four do; the fourth writes its whole map as four bulk inserts against ids it
- * asserts on, which is a shape a row-at-a-time builder cannot keep.
+ * they stay in the suites that own them. They may call these, and all four do.
+ * The ones that write their map as bulk inserts against ids they assert on keep
+ * that shape for the rest of their tables and take the Organization from here,
+ * because two Organizations are two rows either way.
  */
 
 /**
