@@ -3,6 +3,7 @@ import type {
 	SessionAuthenticationOptions,
 	SessionAuthenticationResult,
 } from '@simmer-mosquito/auth';
+import type { AuthenticatedMe } from '@simmer-mosquito/auth/browser';
 import type { ActiveLocalAuthIdentity, SimmerRole } from '@simmer-mosquito/db';
 import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
 
@@ -177,7 +178,44 @@ export function toAuthFailureBody(result: Extract<AuthContextResult, { ok: false
 	};
 }
 
-export function toAuthMeBody(authContext: AuthContext) {
+/**
+ * The `/auth/me` body with every field of it present.
+ *
+ * `LocalIdentity` in `packages/auth` makes `organizationName` and
+ * `organizationSlug` optional, so {@link AuthenticatedMe} on its own refuses a
+ * renamed field and accepts a deleted one. That is half of the case #615 opens
+ * on, and `Required` is what closes it.
+ *
+ * Tightened on the producer rather than on the client declaration, which stays
+ * as it is: a reader parses a body it did not build and has to tolerate one
+ * that omits them, while the one thing that builds the body is held to all
+ * seven. Derived from `AuthenticatedMe` rather than naming the fields, so this
+ * cannot become the third copy of the shape.
+ */
+type CompleteAuthMe = AuthenticatedMe & {
+	readonly localIdentity: Required<AuthenticatedMe['localIdentity']>;
+};
+
+/**
+ * The `/auth/me` body, whose type `packages/auth` owns.
+ *
+ * Annotated rather than inferred because this function is the only producer of
+ * a contract three front ends read: 72 non-test modules under `apps/web`,
+ * `apps/admin` and `apps/mobile` name `localIdentity`, one of them
+ * `readOrgRole` in `apps/web/src/lib/write-access.ts`, the gate deciding
+ * whether the UI offers a write action at all. While the type was inferred here
+ * and written out by hand in `packages/auth`, renaming a field on this side
+ * compiled on both, and the field arrived `undefined` at every read site.
+ *
+ * {@link AuthenticatedMe} comes from `@simmer-mosquito/auth/browser` because
+ * the client half already lived there and moving it would buy a nicer import
+ * name for real churn. Reaching that subpath from the server costs nothing: it
+ * resolves to source rather than `dist/`, so it owes no `fallow` condition,
+ * `apps/server` already depends on the package and references it in tsconfig,
+ * and the module touches no DOM. Its own docblock says the `browser` name is
+ * historical.
+ */
+export function toAuthMeBody(authContext: AuthContext): CompleteAuthMe {
 	return {
 		authenticated: true,
 		user: authContext.workosUser,
