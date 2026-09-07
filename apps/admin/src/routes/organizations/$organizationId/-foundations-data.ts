@@ -17,12 +17,18 @@ import {
  * the operator is merely looking at. It lives in `api.ts` with every other
  * `/admin/*` call, so a refusal arrives carrying the server's code.
  *
- * The **writes are organization writes** (ADR 0011). They go to the same
- * `/foundation/*` and `/adult-surveillance/*` endpoints `apps/web` posts to, as
- * a member of the organization, through the same domain command builders — so a
- * region created here and a region created there are validated by one set of
- * rules and attributed to a real person. They require the session to be inside
- * the organization; `OrganizationSessionGate` is what puts it there.
+ * The **writes are organization writes** (ADR 0011). They go to
+ * `/foundation/*` and `/adult-surveillance/traps` as a member of the
+ * organization, through the same domain command builders and the same writers
+ * `apps/web` reaches on `/commands/{table}`, so a region created here and a
+ * region created there are validated by one set of rules and attributed to a
+ * real person. They require the session to be inside the organization;
+ * `OrganizationSessionGate` is what puts it there.
+ *
+ * These six creates are the whole of the older per-domain write surface now.
+ * `apps/server/src/organization-seed-routes.ts` is the module that answers
+ * them, and it holds nothing else (#634). A seventh write from this console
+ * goes on `/commands/{table}` like every other write in the product.
  *
  * Commands carry client-generated ids, so every create mints one here rather
  * than reading one back.

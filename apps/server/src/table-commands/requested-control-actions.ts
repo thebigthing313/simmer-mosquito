@@ -51,8 +51,8 @@ import {
 } from '@simmer-mosquito/domain';
 import { type CommandPayload, readNullableText, readText } from '../command-payload.js';
 import { type CommandDb, readDate } from '../command-write.js';
-import { writeRequestedControlActionCommand } from '../control-operations-commands/requested-control-actions.js';
-import type { RequestedControlActionRow } from '../control-operations-commands/shared.js';
+import { writeRequestedControlActionCommand } from '../writers/control-operations/requested-control-actions.js';
+import type { RequestedControlActionRow } from '../writers/control-operations/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 

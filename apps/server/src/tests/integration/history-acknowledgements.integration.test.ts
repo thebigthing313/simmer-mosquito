@@ -39,13 +39,11 @@ import {
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { expect, it } from 'vitest';
-import { registerAdultSurveillanceCommandRoutes } from '../../adult-surveillance-commands/index.js';
 import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables, OperatorAuthContext } from '../../auth-middleware.js';
-import { registerFoundationCommandRoutes } from '../../foundation-commands/index.js';
-import { registerPublicEngagementCommandRoutes } from '../../public-engagement-commands.js';
 import { registerTableCommandRoutes } from '../../table-commands/dispatch.js';
 import { speciesTableCommands } from '../../table-commands/taxonomy.js';
+import { command, commandApp } from './support/command-app.js';
 
 describeDbIntegration('history and collision refusals', () => {
 	// -----------------------------------------------------------------------
@@ -67,16 +65,12 @@ describeDbIntegration('history and collision refusals', () => {
 				},
 			);
 
-			const response = await lookupApp(db, org, actor).request(
-				`/foundation/collection-methods/${methodId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						name: 'CDC light trap (rev 2)',
-						acknowledgedHistoricalLabelChange: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/collection_methods/${methodId}`,
+				command('PATCH', ['foundation.updateCollectionMethod'], {
+					name: 'CDC light trap (rev 2)',
+					acknowledgedHistoricalLabelChange: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -105,16 +99,12 @@ describeDbIntegration('history and collision refusals', () => {
 			const actor = await createProfile(db, org);
 			const methodId = await createCollectionMethod(db, org);
 
-			const response = await lookupApp(db, org, actor).request(
-				`/foundation/collection-methods/${methodId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						name: 'CDC light trap (rev 2)',
-						acknowledgedHistoricalLabelChange: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/collection_methods/${methodId}`,
+				command('PATCH', ['foundation.updateCollectionMethod'], {
+					name: 'CDC light trap (rev 2)',
+					acknowledgedHistoricalLabelChange: false,
+				}),
 			);
 
 			// Withheld and accepted anyway. Nothing reads under this name yet, so
@@ -144,16 +134,12 @@ describeDbIntegration('history and collision refusals', () => {
 				},
 			);
 
-			const response = await lookupApp(db, org, actor).request(
-				`/foundation/collection-methods/${methodId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						description: 'Runs on a six-volt battery.',
-						acknowledgedHistoricalLabelChange: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/collection_methods/${methodId}`,
+				command('PATCH', ['foundation.updateCollectionMethod'], {
+					description: 'Runs on a six-volt battery.',
+					acknowledgedHistoricalLabelChange: false,
+				}),
 			);
 
 			expect(response.status).toBe(200);
@@ -179,16 +165,12 @@ describeDbIntegration('history and collision refusals', () => {
 				},
 			);
 
-			const response = await trapApp(db, org, actor).request(
-				`/adult-surveillance/traps/${trapId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						trapCode: 'NG-2',
-						acknowledgedHistoricalLabelChange: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/traps/${trapId}`,
+				command('PATCH', ['adultSurveillance.updateTrapDetails'], {
+					trap_code: 'NG-2',
+					acknowledgedHistoricalLabelChange: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -223,16 +205,11 @@ describeDbIntegration('history and collision refusals', () => {
 			);
 			await createSubscription(db, org, registrationId, typeId);
 
-			const response = await notificationApp(db, org, actor).request(
-				`/public-engagement/notification-types/${typeId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						isActive: false,
-						acknowledgedActiveSubscriptionImpact: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/notification_types/${typeId}`,
+				command('PATCH', ['publicEngagement.deactivateNotificationType'], {
+					acknowledgedActiveSubscriptionImpact: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -309,20 +286,19 @@ describeDbIntegration('history and collision refusals', () => {
 			await createTrap(db, org, methodId, { trap_code: 'NG-1' });
 			const newTrapId = '00000000-0000-4000-8000-0000000003a1';
 
-			const response = await trapApp(db, org, actor).request('/adult-surveillance/traps', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/traps',
+				command('POST', ['adultSurveillance.createTrap'], {
 					id: newTrapId,
-					collectionMethodId: methodId,
-					trapCode: ' ng-1 ',
+					collection_method_id: methodId,
+					trap_code: ' ng-1 ',
 					locationSource: {
 						kind: 'geometry',
 						geometry: { type: 'Point', coordinates: [-90.4, 35.6] },
 					},
 					acknowledgedDuplicateTrapCode: false,
 				}),
-			});
+			);
 
 			// Case and spacing aside: the organization reads them as one code, so the
 			// question is asked on the reading rather than on the bytes.
@@ -349,20 +325,19 @@ describeDbIntegration('history and collision refusals', () => {
 			const methodId = await createCollectionMethod(db, org);
 			const newTrapId = '00000000-0000-4000-8000-0000000003a2';
 
-			const response = await trapApp(db, org, actor).request('/adult-surveillance/traps', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/traps',
+				command('POST', ['adultSurveillance.createTrap'], {
 					id: newTrapId,
-					collectionMethodId: methodId,
-					trapCode: 'NG-1',
+					collection_method_id: methodId,
+					trap_code: 'NG-1',
 					locationSource: {
 						kind: 'geometry',
 						geometry: { type: 'Point', coordinates: [-90.4, 35.6] },
 					},
 					acknowledgedDuplicateTrapCode: false,
 				}),
-			});
+			);
 
 			expect(response.status).toBe(201);
 		});
@@ -394,33 +369,6 @@ function operatorMiddleware(userId: string) {
 		} as OperatorAuthContext);
 		await next();
 	});
-}
-
-function lookupApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerFoundationCommandRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
-}
-
-function trapApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerAdultSurveillanceCommandRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
-}
-
-function notificationApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerPublicEngagementCommandRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
 }
 
 function speciesApp(db: Db, operatorUserId: string) {

@@ -20,11 +20,10 @@ import {
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { expect, it } from 'vitest';
-import { registerAdultSurveillanceCommandRoutes } from '../../adult-surveillance-commands/index.js';
 import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables } from '../../auth-middleware.js';
-import { registerNotificationRegistrationRoutes } from '../../public-engagement-records-commands/notification-registrations.js';
 import { registerRecordDeletionRoutes } from '../../record-deletion.js';
+import { command, commandApp } from './support/command-app.js';
 
 /**
  * The delete policy where it meets HTTP.
@@ -93,9 +92,9 @@ describeDbIntegration('record deletion at the HTTP boundary', () => {
 			await createCollectionSpecies(db, org, { collectionId: collectionId, speciesId: speciesId });
 			await createComment(db, org, { entityType: 'collection', entityId: collectionId });
 
-			const response = await collectionApp(db, org, actor).request(
-				`/adult-surveillance/collections/${collectionId}/cancel`,
-				{ method: 'POST' },
+			const response = await commandApp(db, org, actor).request(
+				`/commands/collections/${collectionId}`,
+				command('PATCH', ['adultSurveillance.cancelPendingCollection']),
 			);
 			expect(response.status).toBe(200);
 
@@ -151,9 +150,9 @@ describeDbIntegration('record deletion at the HTTP boundary', () => {
 				],
 			});
 
-			const response = await registrationApp(db, org, actor).request(
-				`/public-engagement/notification-registrations/${registrationId}`,
-				{ method: 'DELETE' },
+			const response = await commandApp(db, org, actor).request(
+				`/commands/notification_registrations/${registrationId}`,
+				command('DELETE', ['publicEngagement.deleteNotificationRegistration']),
 			);
 			expect(response.status).toBe(409);
 			await expect(response.json()).resolves.toMatchObject({
@@ -195,32 +194,6 @@ function impactApp(db: Db, organizationId: string): Hono<{ Variables: AuthVariab
 	registerRecordDeletionRoutes(app, {
 		db,
 		authContextMiddleware: authMiddleware(organizationId, NEVER_EXISTED),
-	});
-	return app;
-}
-
-function collectionApp(
-	db: Db,
-	organizationId: string,
-	profileId: string,
-): Hono<{ Variables: AuthVariables }> {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerAdultSurveillanceCommandRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
-}
-
-function registrationApp(
-	db: Db,
-	organizationId: string,
-	profileId: string,
-): Hono<{ Variables: AuthVariables }> {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerNotificationRegistrationRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
 	});
 	return app;
 }

@@ -257,7 +257,7 @@ The **server authorizes every sync shape** before Electric streams. Shape proxy 
 
 Writes go through domain commands (intent, not DB patches), applied as TanStack DB optimistic mutations, sent to a Hono command endpoint, committed in a Kysely transaction, then confirmed via Electric sync. Commands use client-generated UUIDs and carry domain actor ids and operational dates so they are replay-safe and audit-safe.
 
-The command endpoint is one per table, `POST|PATCH|DELETE /commands/{table}`, and the body's `intents` list names the commands the write means rather than letting the server infer them from which fields arrived. `apps/server/src/table-commands/` is 54 tables and 272 of the 281 names in the vocabulary. The nine that are not on it, the older per-domain endpoints, and the rules for adding a command are in `docs/domain-command-contract.md`.
+The command endpoint is one per table, `POST|PATCH|DELETE /commands/{table}`, and the body's `intents` list names the commands the write means rather than letting the server infer them from which fields arrived. `apps/server/src/table-commands/` is 54 tables and 272 of the 281 names in the vocabulary. The nine that are not on it, the six operator seed creates that are the last of the older per-domain surface, and the rules for adding a command are in `docs/domain-command-contract.md`. The domain writers those commands run live in `apps/server/src/writers/`, which registers no routes.
 
 ### Authorization and identity
 

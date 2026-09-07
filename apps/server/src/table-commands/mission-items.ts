@@ -61,8 +61,8 @@ import {
 import { type CommandPayload, readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate } from '../command-write.js';
-import { writeMissionItemCommand } from '../mission-dispatch-commands/mission-items.js';
-import type { MissionItemRow } from '../mission-dispatch-commands/shared.js';
+import { writeMissionItemCommand } from '../writers/mission-dispatch/mission-items.js';
+import type { MissionItemRow } from '../writers/mission-dispatch/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 

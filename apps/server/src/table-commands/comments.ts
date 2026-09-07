@@ -36,8 +36,8 @@ import {
 } from '@simmer-mosquito/domain';
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeCommentCommand } from '../field-work-commands/comments.js';
-import { type CommentRow, readDate } from '../field-work-commands/shared.js';
+import { writeCommentCommand } from '../writers/field-work/comments.js';
+import { type CommentRow, readDate } from '../writers/field-work/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 

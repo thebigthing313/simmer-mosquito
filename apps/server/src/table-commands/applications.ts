@@ -63,12 +63,12 @@ import {
 	readText,
 } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeApplicationBatchCommand } from '../control-operations-commands/chemical-application-batches.js';
+import { writeApplicationBatchCommand } from '../writers/control-operations/chemical-application-batches.js';
 import {
 	type ApplicationCommand,
 	writeApplicationCommand,
-} from '../control-operations-commands/chemical-applications.js';
-import type { ApplicationBatchRow, ApplicationRow } from '../control-operations-commands/shared.js';
+} from '../writers/control-operations/chemical-applications.js';
+import type { ApplicationBatchRow, ApplicationRow } from '../writers/control-operations/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, drawnGeometry } from './shared.js';
 

@@ -25,8 +25,8 @@ import {
 } from '@simmer-mosquito/domain';
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeAdditionalPersonnelCommand } from '../field-work-commands/additional-personnel.js';
-import type { AdditionalPersonnelRow } from '../field-work-commands/shared.js';
+import { writeAdditionalPersonnelCommand } from '../writers/field-work/additional-personnel.js';
+import type { AdditionalPersonnelRow } from '../writers/field-work/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 

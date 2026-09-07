@@ -62,8 +62,8 @@ import {
 import { readNullableText, readText } from '../command-payload.js';
 import type { OrganizationCommandType } from '../command-permissions.js';
 import { type CommandDb, readNumberOrNull } from '../command-write.js';
-import type { LookupCommand } from '../foundation-commands/shared.js';
-import { writeFoundationLookupCommand } from '../foundation-commands/tags.js';
+import type { LookupCommand } from '../writers/foundation/shared.js';
+import { writeFoundationLookupCommand } from '../writers/foundation/tags.js';
 import type { IntentBuilder, IntentMap, IntentRequest, TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 

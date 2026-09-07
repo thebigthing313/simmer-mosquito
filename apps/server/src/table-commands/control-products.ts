@@ -56,18 +56,18 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readNumber, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeFormulationInsecticideCommand } from '../control-operations-commands/formulation-insecticides.js';
-import { writeFormulationCommand } from '../control-operations-commands/formulations.js';
+import { writeFormulationInsecticideCommand } from '../writers/control-operations/formulation-insecticides.js';
+import { writeFormulationCommand } from '../writers/control-operations/formulations.js';
 import type {
 	FormulationInsecticideRow,
 	FormulationRow,
-} from '../control-operations-commands/shared.js';
+} from '../writers/control-operations/shared.js';
 import {
 	type InsecticideBatchCommand,
 	type InsecticideCommand,
 	writeInsecticideBatchCommand,
 	writeInsecticideCommand,
-} from '../control-product-commands.js';
+} from '../writers/control-products.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 

@@ -41,10 +41,10 @@ import {
 	updateTrapConfigurationCommand,
 	updateTrapDetailsCommand,
 } from '@simmer-mosquito/domain';
-import type { TrapRow } from '../adult-surveillance-commands/shared.js';
-import { writeTrapCommand } from '../adult-surveillance-commands/traps.js';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
+import type { TrapRow } from '../writers/adult-surveillance/shared.js';
+import { writeTrapCommand } from '../writers/adult-surveillance/traps.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 

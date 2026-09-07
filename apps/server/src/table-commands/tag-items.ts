@@ -25,8 +25,8 @@ import {
 } from '@simmer-mosquito/domain';
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import type { TagItemRow } from '../field-work-commands/shared.js';
-import { writeTagItemCommand } from '../field-work-commands/tag-items.js';
+import type { TagItemRow } from '../writers/field-work/shared.js';
+import { writeTagItemCommand } from '../writers/field-work/tag-items.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 

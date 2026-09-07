@@ -76,12 +76,12 @@ import {
 	writeBiocontrolActionCommand,
 	writeOutreachActionCommand,
 	writeSourceReductionCommand,
-} from '../control-operations-commands/performed-actions.js';
+} from '../writers/control-operations/performed-actions.js';
 import type {
 	BiocontrolActionRow,
 	OutreachActionRow,
 	SourceReductionRow,
-} from '../control-operations-commands/shared.js';
+} from '../writers/control-operations/shared.js';
 import type { IntentRequest, TableCommands } from './dispatch.js';
 import { acknowledged, drawnGeometry } from './shared.js';
 

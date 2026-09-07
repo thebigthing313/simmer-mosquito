@@ -76,15 +76,15 @@ const SKIP_DIRS = new Set(['tests', 'seeds', 'test-support', 'dist', 'node_modul
  */
 const SESSION_OWNED = new Map([
 	[
-		'apps/server/src/field-work-commands/assignment-lifecycle.ts',
+		'apps/server/src/writers/field-work/assignment-lifecycle.ts',
 		'the actor who completed or skipped the stop, from `AuthContext`',
 	],
 	[
-		'apps/server/src/mission-dispatch-commands/mission-execution.ts',
+		'apps/server/src/writers/mission-dispatch/mission-execution.ts',
 		'the actor who completed or skipped the stop, from `AuthContext`',
 	],
 	[
-		'apps/server/src/public-engagement-records-commands/mission-notifications.ts',
+		'apps/server/src/writers/public-engagement-records/mission-notifications.ts',
 		'the actor who changed the status, from `AuthContext`',
 	],
 	[

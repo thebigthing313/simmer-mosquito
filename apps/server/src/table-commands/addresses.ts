@@ -52,7 +52,7 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeAddressCommand } from '../foundation-commands/addresses.js';
+import { writeAddressCommand } from '../writers/foundation/addresses.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, readIdList } from './shared.js';
 

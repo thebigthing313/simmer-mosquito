@@ -40,8 +40,8 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeHabitatCommand } from '../larval-surveillance-commands/habitats.js';
-import type { HabitatRow } from '../larval-surveillance-commands/shared.js';
+import { writeHabitatCommand } from '../writers/larval-surveillance/habitats.js';
+import type { HabitatRow } from '../writers/larval-surveillance/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, readIdList } from './shared.js';
 

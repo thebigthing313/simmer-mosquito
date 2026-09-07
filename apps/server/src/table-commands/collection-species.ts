@@ -24,14 +24,14 @@ import {
 	deleteCollectionSpeciesCountCommand,
 	updateCollectionSpeciesCountCommand,
 } from '@simmer-mosquito/domain';
-import { writeCollectionSpeciesCommand } from '../adult-surveillance-commands/collection-species-counts.js';
+import { readNullableText, readNumber, readText } from '../command-payload.js';
+import type { CommandDb } from '../command-write.js';
+import { writeCollectionSpeciesCommand } from '../writers/adult-surveillance/collection-species-counts.js';
 import {
 	type CollectionSpeciesRow,
 	readSpeciesSex,
 	readSpeciesStatus,
-} from '../adult-surveillance-commands/shared.js';
-import { readNullableText, readNumber, readText } from '../command-payload.js';
-import type { CommandDb } from '../command-write.js';
+} from '../writers/adult-surveillance/shared.js';
 import type { TableCommands } from './dispatch.js';
 
 export function collectionSpeciesTableCommands(

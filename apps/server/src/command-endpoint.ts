@@ -222,39 +222,8 @@ export type CommandsResult<TCommand> =
 	| { readonly ok: true; readonly commands: readonly TCommand[] }
 	| { readonly ok: false; readonly body: InvalidCommandBody };
 
-/**
- * Run a domain builder and turn its rejection into a body rather than a throw.
- *
- * Domain builders signal a context-free violation — a missing field, an
- * out-of-range number — by throwing `DomainValidationError`. The endpoints want
- * that as a 400 with the issue list attached, and want anything else to keep
- * propagating.
- */
-export function createCommand<TCommand>(build: () => TCommand): CommandResult<TCommand> {
-	try {
-		return { ok: true, command: build() };
-	} catch (error) {
-		if (error instanceof DomainValidationError) {
-			return { ok: false, body: invalidCommandBody(error) };
-		}
-		throw error;
-	}
-}
-
 function invalidCommandBody(error: DomainValidationError): InvalidCommandBody {
 	return { error: 'invalid_command', message: error.message, issues: error.issues };
-}
-
-/** The refusal a PATCH gets when its payload changed nothing. */
-export function invalidUpdate(changeNoun: string): {
-	readonly ok: false;
-	readonly body: InvalidCommandBody;
-} {
-	const message = `At least one ${changeNoun} field must change.`;
-	return {
-		ok: false,
-		body: { error: 'invalid_command', message, issues: [{ path: 'changes', message }] },
-	};
 }
 
 /** The two fields every organization command carries, read off the resolved session. */

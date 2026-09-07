@@ -47,8 +47,8 @@ import { type CommandDb, readDate, readNumberOrNull } from '../command-write.js'
 import {
 	type InspectionCommand,
 	writeInspectionCommand,
-} from '../larval-surveillance-commands/inspections.js';
-import { type InspectionRow, readDensity } from '../larval-surveillance-commands/shared.js';
+} from '../writers/larval-surveillance/inspections.js';
+import { type InspectionRow, readDensity } from '../writers/larval-surveillance/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 

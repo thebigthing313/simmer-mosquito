@@ -120,23 +120,34 @@ The other two write more rows than one, and answer with more than one row:
 A command whose result is a set rather than a row gets its own route for the same
 reason.
 
-### Which surface a new command uses
+### Where a new command goes
 
 The per-table surface. Always, unless the command is one of the shapes above.
 
-The older per-domain endpoints are still registered, under
-`apps/server/src/*-commands/`, and still tested. `POST
-/larval-surveillance/habitats` is `createHabitat`, and a PATCH there decides
-between five commands by reading which fields arrived. That inference is what
-the per-table surface exists to remove: an extra key in a body becomes an extra
-command, so the payload's shape is load-bearing in a way nothing states. Both
-surfaces call the same writers, the same permission map, and the same
-transaction, so a table served by both cannot disagree with itself, but only one
-of them lets a client say what it meant.
+There is no second write surface to choose between any more. There used to be:
+twelve per-domain route families under `apps/server/src/*-commands/`, where
+`POST /larval-surveillance/habitats` was `createHabitat` and a PATCH beside it
+decided between five commands by reading which fields arrived. That inference is
+what the per-table surface exists to remove, because an extra key in a body
+became an extra command and the payload's shape was load-bearing in a way
+nothing stated. Both surfaces called the same writers, the same permission map
+and the same transaction, so neither could disagree with the other, and by the
+end 111 of the older surface's 120 registrations answered requests nothing in
+this monorepo made. #634 deleted those 111 and a 112th, the one PATCH `apps/web`
+still sent, whose two callers moved onto `/commands/habitats` with the commands
+they mean named. Every writer stayed. They live under
+`apps/server/src/writers/` now, named for what they are rather than for a route
+family, and nothing under that directory registers a route.
 
-`apps/web` posts nothing to the older surface. What remains on it is
-`apps/admin`, which seeds a new organization's geography and lookups through
-`/foundation/*` and `/adult-surveillance/traps`. Do not add to it.
+What is left outside the table surface, each saying why in its own module:
+
+- The six creates `apps/admin` seeds a new Organization with, in
+  `organization-seed-routes.ts`, over `/foundation/*` and
+  `/adult-surveillance/traps`. **Nothing else belongs there.** Moving them onto
+  the table surface is a change to `apps/admin` that nobody has made yet.
+- `GET /larval-surveillance/samples/awaiting` in `larval-surveillance-reads.ts`,
+  which is a read.
+- `POST /commands/mission_notifications/generate`, one of the nine above.
 
 ## Column names in a command body
 
@@ -248,10 +259,11 @@ resolved and never the one the caller sent.
 One column near that line stays. `id` is client-generated, which is what makes a
 create replay-safe.
 
-It reaches the typed surface and stops there. The older per-domain routes hold a
-`Record<string, unknown>`, so a key read off one of those is checked by nothing,
-which is the same limit this section's parent states for the `camelCase` half.
-Moving a route onto `/commands/{table}` is what brings it under the rule.
+It reaches the typed surface and stops there. The six operator seed creates in
+`organization-seed-routes.ts` hold a `Record<string, unknown>`, so a key read off
+one of those is checked by nothing, which is the same limit this section's parent
+states for the `camelCase` half. Moving them onto `/commands/{table}` is what
+would bring them under the rule.
 
 The set is generated, not hand-kept. `SERVER_OWNED` in
 `scripts/generate-table-types.mjs` is the rule and the reasons; the generator
@@ -387,11 +399,11 @@ issue unless the flag is `true` and so answers `400 invalid_command` naming the
 flag's path, and the weather import's own assessment, which counts the rows that
 would update or fail before it commits anything.
 
-A guard reads its flag at **every** door. The per-domain endpoints that predate
+A guard reads its flag at **every** door. The per-domain endpoints that predated
 `/commands/{table}` used to hard-code several of these to `true`, which is the
 two-doors-different-locks state #182 found: the refusal existed and one route
-could never reach it. Every door now passes the caller's answer through
-`acknowledged`.
+could never reach it. Those endpoints are gone (#634), and every door left passes
+the caller's answer through `acknowledged`.
 
 Which mechanism reads which flag is `ACKNOWLEDGEMENT_MECHANISMS` in
 `apps/server/src/acknowledgements.ts`, a total map over the vocabulary in

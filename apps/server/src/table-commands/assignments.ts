@@ -61,8 +61,8 @@ import {
 import { type CommandPayload, isRecord, readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate, readStringArray } from '../command-write.js';
-import { writeAssignmentCommand } from '../field-work-commands/assignments.js';
-import type { AssignmentRow } from '../field-work-commands/shared.js';
+import { writeAssignmentCommand } from '../writers/field-work/assignments.js';
+import type { AssignmentRow } from '../writers/field-work/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
