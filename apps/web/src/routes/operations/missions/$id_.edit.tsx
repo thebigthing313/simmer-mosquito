@@ -1,7 +1,7 @@
 import { createMissionCommand } from '@simmer-mosquito/domain';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback, useMemo } from 'react';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutations';
 import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
@@ -30,16 +30,17 @@ export const Route = createFileRoute('/operations/missions/$id_/edit')({
 
 function EditMissionRoute() {
 	const { id } = Route.useParams();
-	const { mission, isReady } = useMission(id);
+	const { mission, isReady, isError } = useMission(id);
 
-	if (mission === undefined) {
-		return isReady ? (
-			<RecordUnavailable layout="centered" noun="mission" reason="not-found" />
-		) : (
-			<EditFormSkeleton frame="pane" rows={['h-24', ['h-9', 'h-9'], 'h-24']} />
-		);
-	}
-	return <EditMissionForm mission={mission} />;
+	return (
+		<RecordEditFrame
+			noun="mission"
+			reading={{ isError, isReady, record: mission }}
+			skeleton={<EditFormSkeleton frame="pane" rows={['h-24', ['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => <EditMissionForm mission={record} />}
+		</RecordEditFrame>
+	);
 }
 
 function EditMissionForm({ mission }: { readonly mission: MissionRecord }) {

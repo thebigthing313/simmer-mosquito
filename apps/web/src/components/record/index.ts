@@ -18,4 +18,5 @@ export { RecordDetailHeader } from './record-detail-header';
 export type { RecordDetailLayout } from './record-detail-layout';
 export { RecordDetailPage, type RecordReading } from './record-detail-page';
 export { RecordDetailSkeleton } from './record-detail-skeleton';
+export { RecordEditFrame } from './record-edit-frame';
 export { RecordUnavailable } from './record-unavailable';

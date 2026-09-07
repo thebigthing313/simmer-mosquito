@@ -221,6 +221,11 @@ export function useAssignment(assignmentId: string | null): {
 	readonly assignment: AssignmentView | null;
 	readonly isLoading: boolean;
 	readonly isReady: boolean;
+	/**
+	 * The read failed. Distinct from a ready query holding no row: the edit page
+	 * offers a retry for one and "no such record" for the other.
+	 */
+	readonly isError: boolean;
 } {
 	const result = useLiveQuery(
 		{
@@ -250,6 +255,7 @@ export function useAssignment(assignmentId: string | null): {
 		assignment: row === undefined ? null : { ...row, status: assignmentStatus(row) },
 		isLoading: assignmentId !== null && result.isLoading,
 		isReady: result.isReady,
+		isError: result.isError,
 	};
 }
 

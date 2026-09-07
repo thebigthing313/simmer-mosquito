@@ -6,7 +6,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { getServerUrl } from '../../../auth';
 import { toDrawGeometry } from '../../../components/map/use-map-draw';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import {
 	type HabitatRedraw,
 	useHabitatMutations,
@@ -46,22 +46,20 @@ function EditHabitatRoute() {
 	const organizationId =
 		auth.snapshot?.authenticated === true ? (auth.snapshot.localIdentity.organizationId ?? '') : '';
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="habitat" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-32', 'h-24']} />;
-	}
-	if (habitat === undefined) {
-		return <RecordUnavailable layout="centered" noun="habitat" reason="not-found" />;
-	}
-
 	return (
-		<EditHabitatLoader
-			habitat={habitat}
-			habitatTypes={habitatTypes}
-			organizationId={organizationId}
-		/>
+		<RecordEditFrame
+			noun="habitat"
+			reading={{ isError, isReady, record: habitat }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-32', 'h-24']} />}
+		>
+			{(record) => (
+				<EditHabitatLoader
+					habitat={record}
+					habitatTypes={habitatTypes}
+					organizationId={organizationId}
+				/>
+			)}
+		</RecordEditFrame>
 	);
 }
 

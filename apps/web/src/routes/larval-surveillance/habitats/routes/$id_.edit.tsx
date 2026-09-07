@@ -16,13 +16,6 @@ import {
 	DropdownMenuItem,
 	DropdownMenuSeparator,
 } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import {
-	Empty,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
 	ArrowLeftIcon,
@@ -40,6 +33,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useBreadcrumbLabel } from '../../../../components/app-shell';
 import { MapSplitPage } from '../../../../components/app-shell/outlet/map-split-page';
 import type { RouteStopFeature } from '../../../../components/map';
+import { EditFormSkeleton, RecordEditFrame } from '../../../../components/record';
 import { RouteMap } from '../../../../components/route-planning';
 import {
 	InlineEditField,
@@ -95,7 +89,7 @@ function RouteEditRoute() {
 	const auth = useAuthSnapshot();
 	const identity = auth?.authenticated === true ? auth.localIdentity : null;
 
-	const { routes, isReady } = useHabitatRoutes();
+	const { routes, isReady, isError } = useHabitatRoutes();
 	const route = routes.find((candidate) => candidate.id === id) ?? null;
 	const { stops, itemCount, isLoading } = useRouteStops(id);
 
@@ -234,11 +228,7 @@ function RouteEditRoute() {
 		}
 	}, [id, navigate, removeRoute]);
 
-	if (isReady && route === null) {
-		return <RouteEditNotFound />;
-	}
-
-	return (
+	const body = (
 		<>
 			<MapSplitPage
 				map={
@@ -372,6 +362,16 @@ function RouteEditRoute() {
 				/>
 			) : null}
 		</>
+	);
+
+	return (
+		<RecordEditFrame
+			noun="route"
+			reading={{ isError, isReady, record: route }}
+			skeleton={<EditFormSkeleton rows={['h-9', 'h-16', 'h-16', 'h-16']} />}
+		>
+			{() => body}
+		</RecordEditFrame>
 	);
 }
 
@@ -677,29 +677,6 @@ function EditStopRow({
 				</div>
 			</div>
 		</li>
-	);
-}
-
-function RouteEditNotFound() {
-	return (
-		<div className="flex h-full items-center justify-center p-6">
-			<Empty>
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<RouteIcon aria-hidden="true" />
-					</EmptyMedia>
-					<EmptyTitle>Route Not Found</EmptyTitle>
-					<EmptyDescription>This route may have been deleted.</EmptyDescription>
-				</EmptyHeader>
-				<Link
-					className="mt-2 inline-flex items-center gap-1 text-primary text-sm hover:underline"
-					to="/larval-surveillance/habitats/routes"
-				>
-					<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
-					Back to routes
-				</Link>
-			</Empty>
-		</div>
 	);
 }
 

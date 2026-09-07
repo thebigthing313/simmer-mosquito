@@ -1,6 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useRequestedControlActionMutations } from '../../../hooks/mutations/use-requested-control-action-mutations';
 import {
 	type RequestRecord,
@@ -38,16 +38,17 @@ export const Route = createFileRoute('/operations/requests-for-control/$id_/edit
 
 function EditRequestRoute() {
 	const { id } = Route.useParams();
-	const { request, isReady } = useRequestedControlAction(id);
+	const { request, isReady, isError } = useRequestedControlAction(id);
 
-	if (request === undefined) {
-		return isReady ? (
-			<RecordUnavailable layout="centered" noun="request" reason="not-found" />
-		) : (
-			<EditFormSkeleton rows={['h-32', 'h-9', 'h-24']} />
-		);
-	}
-	return <EditRequestLoader request={request} />;
+	return (
+		<RecordEditFrame
+			noun="request"
+			reading={{ isError, isReady, record: request }}
+			skeleton={<EditFormSkeleton rows={['h-32', 'h-9', 'h-24']} />}
+		>
+			{(record) => <EditRequestLoader request={record} />}
+		</RecordEditFrame>
+	);
 }
 
 /**

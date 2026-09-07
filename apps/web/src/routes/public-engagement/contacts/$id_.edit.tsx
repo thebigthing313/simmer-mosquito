@@ -1,7 +1,7 @@
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useContactMutations } from '../../../hooks/mutations/use-contact-mutations';
 import type { Contact } from '../../../hooks/queries/contact-view';
 import { useContact } from '../../../hooks/queries/use-contact-record';
@@ -30,25 +30,23 @@ function EditContactRoute() {
 	const { id } = Route.useParams();
 	const { contact, isReady, isError } = useContact(id);
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="contact" reason="error" />;
-	}
-	if (!isReady) {
-		return (
-			<OutletSimpleLayout>
-				<EditFormSkeleton
-					className="max-w-[640px]"
-					frame="plain"
-					rows={['h-9', ['h-9', 'h-9'], 'h-9', 'h-24']}
-				/>
-			</OutletSimpleLayout>
-		);
-	}
-	if (contact === undefined) {
-		return <RecordUnavailable layout="centered" noun="contact" reason="not-found" />;
-	}
-
-	return <EditContactLoader contact={contact} />;
+	return (
+		<RecordEditFrame
+			noun="contact"
+			reading={{ isError, isReady, record: contact }}
+			skeleton={
+				<OutletSimpleLayout>
+					<EditFormSkeleton
+						className="max-w-[640px]"
+						frame="plain"
+						rows={['h-9', ['h-9', 'h-9'], 'h-9', 'h-24']}
+					/>
+				</OutletSimpleLayout>
+			}
+		>
+			{(record) => <EditContactLoader contact={record} />}
+		</RecordEditFrame>
+	);
 }
 
 function EditContactLoader({ contact }: { readonly contact: Contact }) {

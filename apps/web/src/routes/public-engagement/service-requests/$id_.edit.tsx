@@ -2,7 +2,7 @@ import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
 import { useAcknowledgedWrite } from '../../../components/acknowledged-write';
 import { useBreadcrumbLabel } from '../../../components/app-shell';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useServiceRequestMutations } from '../../../hooks/mutations/use-service-request-mutations';
 import { type ProfileListing, useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import {
@@ -38,17 +38,15 @@ function EditServiceRequestRoute() {
 	const profiles = useProfileRoster();
 	const { request, isReady, isError } = useServiceRequestRecord(id);
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="service request" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton rows={['h-9', 'h-24', ['h-9', 'h-9']]} />;
-	}
-	if (request === undefined) {
-		return <RecordUnavailable layout="centered" noun="service request" reason="not-found" />;
-	}
-
-	return <EditServiceRequestLoader profiles={profiles} request={request} />;
+	return (
+		<RecordEditFrame
+			noun="service request"
+			reading={{ isError, isReady, record: request }}
+			skeleton={<EditFormSkeleton rows={['h-9', 'h-24', ['h-9', 'h-9']]} />}
+		>
+			{(record) => <EditServiceRequestLoader profiles={profiles} request={record} />}
+		</RecordEditFrame>
+	);
 }
 
 function EditServiceRequestLoader({

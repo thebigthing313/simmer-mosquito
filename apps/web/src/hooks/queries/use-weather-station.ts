@@ -37,6 +37,12 @@ export interface WeatherStation {
 export function useWeatherStation(stationId: string | null): {
 	readonly station: WeatherStation | undefined;
 	readonly isReady: boolean;
+	/**
+	 * The read failed. Distinct from a ready query with no row: the edit page
+	 * offers a retry for one and "no such record" for the other, and a surface
+	 * that conflated them would tell a reader their station had been deleted.
+	 */
+	readonly isError: boolean;
 } {
 	const result = useLiveQuery(
 		{
@@ -62,5 +68,5 @@ export function useWeatherStation(stationId: string | null): {
 		[stationId],
 	);
 
-	return { station: result.data[0], isReady: result.isReady };
+	return { station: result.data[0], isReady: result.isReady, isError: result.isError };
 }

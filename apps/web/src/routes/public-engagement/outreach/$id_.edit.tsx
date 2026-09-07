@@ -2,7 +2,7 @@ import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useOutreachActionMutations } from '../../../hooks/mutations/use-outreach-action-mutations';
 import type { OutreachAction } from '../../../hooks/queries/outreach-view';
@@ -50,27 +50,25 @@ function EditOutreachActionRoute() {
 
 	const { action, isReady, isError } = useOutreachAction(id, { gcTime: outreachGcTimeMs });
 
-	if (isError) {
-		return <RecordUnavailable layout="centered" noun="outreach action" reason="error" />;
-	}
-	if (!isReady) {
-		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
-	}
-	if (action === undefined) {
-		return <RecordUnavailable layout="centered" noun="outreach action" reason="not-found" />;
-	}
-
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
 	return (
-		<EditOutreachActionLoader
-			action={action}
-			canSubmit={organization !== null && actorProfileId !== null}
-			organizationId={organization?.id ?? ''}
-			outreachMethods={methods}
-			profiles={profiles}
-		/>
+		<RecordEditFrame
+			noun="outreach action"
+			reading={{ isError, isReady, record: action }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+		>
+			{(record) => (
+				<EditOutreachActionLoader
+					action={record}
+					canSubmit={organization !== null && actorProfileId !== null}
+					organizationId={organization?.id ?? ''}
+					outreachMethods={methods}
+					profiles={profiles}
+				/>
+			)}
+		</RecordEditFrame>
 	);
 }
 

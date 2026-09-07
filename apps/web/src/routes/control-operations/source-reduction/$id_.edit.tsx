@@ -2,7 +2,7 @@ import { ownedCentroidFromGeoJson } from '@simmer-mosquito/mapping';
 import { asMetadataValue } from '@simmer-mosquito/ui-web/components/form';
 import { createFileRoute, redirect, useNavigate } from '@tanstack/react-router';
 import { useCallback } from 'react';
-import { EditFormSkeleton, RecordUnavailable } from '../../../components/record';
+import { EditFormSkeleton, RecordEditFrame, RecordUnavailable } from '../../../components/record';
 import { useAdditionalPersonnelMutations } from '../../../hooks/mutations/use-additional-personnel-mutations';
 import { useSourceReductionMutations } from '../../../hooks/mutations/use-source-reduction-mutations';
 import type { SourceReduction } from '../../../hooks/queries/control-action-view';
@@ -60,42 +60,27 @@ function EditSourceReductionRoute() {
 		isError,
 	} = useSourceReduction(id, { gcTime: sourceReductionGcTimeMs });
 
-	if (isError) {
-		return (
-			<RecordUnavailable
-				layout="centered"
-				noun="source reduction action"
-				reason="error"
-				title="Source Reduction Unavailable"
-			/>
-		);
-	}
-	if (!isReady) {
-		return <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
-	}
-	if (sourceReduction === undefined) {
-		return (
-			<RecordUnavailable
-				layout="centered"
-				noun="source reduction action"
-				reason="not-found"
-				title="Source Reduction Unavailable"
-			/>
-		);
-	}
-
 	const actorProfileId =
 		auth.snapshot?.authenticated === true ? auth.snapshot.localIdentity.profileId : null;
 
 	return (
-		<EditSourceReductionLoader
-			canSubmit={organization !== null && actorProfileId !== null}
-			methods={methods}
-			organizationId={organization?.id ?? ''}
-			profiles={profiles}
-			sourceReduction={sourceReduction}
-			units={units}
-		/>
+		<RecordEditFrame
+			noun="source reduction action"
+			reading={{ isError, isReady, record: sourceReduction }}
+			skeleton={<EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />}
+			unavailableTitle="Source Reduction Unavailable"
+		>
+			{(record) => (
+				<EditSourceReductionLoader
+					canSubmit={organization !== null && actorProfileId !== null}
+					methods={methods}
+					organizationId={organization?.id ?? ''}
+					profiles={profiles}
+					sourceReduction={record}
+					units={units}
+				/>
+			)}
+		</RecordEditFrame>
 	);
 }
 

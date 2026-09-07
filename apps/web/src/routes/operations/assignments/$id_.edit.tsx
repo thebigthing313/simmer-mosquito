@@ -11,14 +11,6 @@ import {
 } from '@simmer-mosquito/ui-web/components/ui/alert-dialog';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { DropdownMenuItem } from '@simmer-mosquito/ui-web/components/ui/dropdown-menu';
-import {
-	Empty,
-	EmptyContent,
-	EmptyDescription,
-	EmptyHeader,
-	EmptyMedia,
-	EmptyTitle,
-} from '@simmer-mosquito/ui-web/components/ui/empty';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { Spinner } from '@simmer-mosquito/ui-web/components/ui/spinner';
 import {
@@ -34,6 +26,7 @@ import { useBreadcrumbLabel } from '../../../components/app-shell';
 import { MapSplitPage } from '../../../components/app-shell/outlet/map-split-page';
 import { DangerZoneCard } from '../../../components/danger-zone-card';
 import type { RouteStopFeature } from '../../../components/map';
+import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import {
 	InlineEditField,
 	type MoveAction,
@@ -79,7 +72,6 @@ import {
 	type AssignmentTargetSelection,
 } from './-assignment-target-picker';
 
-const AssignmentIcon = iconRegistry.entities.vehicle.icon;
 const _MoreIcon = iconRegistry.arrows.moreHorizontal.icon;
 
 /** Module-level so the ordering hook's identity stays stable across renders. */
@@ -123,7 +115,7 @@ function AssignmentPlanRoute() {
 	});
 	const items = useAssignmentItemMutations();
 
-	const { assignment, isReady } = useAssignment(id);
+	const { assignment, isReady, isError } = useAssignment(id);
 	const { stops, isLoading } = useAssignmentStops(id);
 	const { options: assigneeOptions, nameById } = useAssigneeOptions();
 
@@ -268,16 +260,7 @@ function AssignmentPlanRoute() {
 		}
 	}, [removeTarget, items]);
 
-	if (isReady && assignment === null) {
-		return (
-			<>
-				<AssignmentNotFound />
-				{acknowledgementDialog}
-			</>
-		);
-	}
-
-	return (
+	const body = (
 		<>
 			<MapSplitPage
 				map={
@@ -415,7 +398,23 @@ function AssignmentPlanRoute() {
 					</AlertDialogFooter>
 				</AlertDialogContent>
 			</AlertDialog>
+		</>
+	);
 
+	// The dialog sits outside the frame, not inside the body. The delete is
+	// optimistic, so the assignment leaves its collection the moment the button
+	// is pressed and the frame swaps the body for "not found" before the
+	// registry's refusal lands; a dialog held in the body would unmount with it
+	// and the question would never be asked.
+	return (
+		<>
+			<RecordEditFrame
+				noun="assignment"
+				reading={{ isError, isReady, record: assignment }}
+				skeleton={<EditFormSkeleton rows={['h-9', 'h-16', 'h-16', 'h-16']} />}
+			>
+				{() => body}
+			</RecordEditFrame>
 			{acknowledgementDialog}
 		</>
 	);
@@ -582,31 +581,5 @@ function PlanStopRow({
 				</div>
 			</div>
 		</li>
-	);
-}
-
-function AssignmentNotFound() {
-	return (
-		<div className="flex h-full items-center justify-center p-6">
-			<Empty>
-				<EmptyHeader>
-					<EmptyMedia variant="icon">
-						<AssignmentIcon aria-hidden="true" />
-					</EmptyMedia>
-					<EmptyTitle>Assignment Not Found</EmptyTitle>
-					<EmptyDescription>
-						This assignment may have been deleted, or the link is out of date.
-					</EmptyDescription>
-				</EmptyHeader>
-				<EmptyContent>
-					<Button asChild variant="outline">
-						<Link to="/operations/assignments">
-							<ArrowLeftIcon aria-hidden="true" />
-							Back to assignments
-						</Link>
-					</Button>
-				</EmptyContent>
-			</Empty>
-		</div>
 	);
 }
