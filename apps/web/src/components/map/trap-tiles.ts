@@ -47,7 +47,6 @@ export const TRAP_STATUS_COLORS = {
 const colors = {
 	...TRAP_STATUS_COLORS,
 	pointStroke: mapInteraction.pointStroke,
-	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select a trap. Order = hit priority. */

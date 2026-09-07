@@ -35,7 +35,6 @@ const colors = {
 	base: mapDomain.sourceReduction,
 	line: mapDomain.sourceReductionLine,
 	pointStroke: mapInteraction.pointStroke,
-	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select a source-reduction activity. Order = hit priority. */

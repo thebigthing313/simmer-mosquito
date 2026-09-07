@@ -34,7 +34,6 @@ const colors = {
 	base: mapDomain.outreach,
 	line: mapDomain.outreachLine,
 	pointStroke: mapInteraction.pointStroke,
-	selected: mapInteraction.selected,
 } as const;
 
 /** Layers the user can click to select a outreach action. Order = hit priority. */

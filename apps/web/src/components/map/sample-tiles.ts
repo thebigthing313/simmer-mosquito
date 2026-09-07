@@ -46,7 +46,6 @@ const colors = {
 	zeroLarvae: mapStatus.neutral,
 	unidentifiable: mapStatus.problem,
 	pointStroke: mapInteraction.pointStroke,
-	selected: mapInteraction.selected,
 } as const;
 
 /**
