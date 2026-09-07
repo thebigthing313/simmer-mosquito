@@ -327,10 +327,32 @@ type _EveryMethodIsClassifiedOnce = Assert<
 	| Extract<WorkOsIdentityWriteMethod, WorkOsSessionAndReadMethod>
 >;
 
-export function createWorkOsAuth(config: WorkOsAuthConfig): WorkOsAuth {
-	const workos = new WorkOS(config.apiKey, {
-		clientId: config.clientId,
-	});
+/**
+ * The two halves of the WorkOS SDK this object calls.
+ *
+ * Narrowed off `WorkOS` rather than written out, so it cannot drift from the
+ * client the default below constructs, and so a third namespace has to be named
+ * here before a method can reach it.
+ *
+ * It exists to be passed. `createWorkOsAuth` used to construct the only client
+ * it would ever use, so a suite standing this object up over a double had to
+ * `vi.mock('@workos-inc/node')` and declare the SDK where it was mocked, which
+ * put the vendor dependency in `apps/server` for one test file and left "the
+ * stub is what the object called" as something that suite proved at runtime
+ * (#714).
+ */
+export type WorkOsClient = Pick<WorkOS, 'organizations' | 'userManagement'>;
+
+/**
+ * `client` is the WorkOS SDK client every method below calls. It is constructed
+ * from `config` when absent, which is every caller that is not a test.
+ */
+export function createWorkOsAuth(config: WorkOsAuthConfig, client?: WorkOsClient): WorkOsAuth {
+	const workos: WorkOsClient =
+		client ??
+		new WorkOS(config.apiKey, {
+			clientId: config.clientId,
+		});
 
 	const sessionSealOptions = {
 		sealSession: true,
@@ -971,28 +993,13 @@ function isSettledInvitationRefusal(error: unknown): boolean {
 	return status === 400 || status === 404;
 }
 
-interface WorkOsClientLike {
-	readonly userManagement: {
-		readonly listUsers: (options: {
-			readonly email: string;
-			readonly limit?: number;
-		}) => Promise<{ readonly data: readonly WorkOsListedUser[] }>;
-	};
-}
-
-interface WorkOsListedUser {
-	readonly id: string;
-	readonly email: string;
-	readonly lastSignInAt?: string | null;
-}
-
 /**
  * Looks up an existing WorkOS user by exact email. Returns `null` when none
  * matches. `lastSignInAt` distinguishes a real, previously-used account from an
  * invitation's provisional (never-signed-in) placeholder user.
  */
 async function findUserByEmail(
-	workos: WorkOsClientLike,
+	workos: WorkOsClient,
 	email: string,
 ): Promise<{ readonly id: string; readonly lastSignInAt: string | null } | null> {
 	const normalized = email.trim().toLowerCase();
