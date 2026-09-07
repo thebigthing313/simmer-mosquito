@@ -94,10 +94,11 @@ let sendWithSession: SessionFetcher | null = null;
  * package could guess in its place: a browser holds a cookie and `apps/mobile`
  * holds a bearer, and picking either would be wrong for the other host.
  *
- * The unreachable half of the same rule is `pnpm check:session-fetcher`, which
- * refuses an app that imports the collection barrel and calls this nowhere.
- * This one catches an installer that exists and has not run yet; that one
- * catches an app with none to run.
+ * The other half of the same rule is `pnpm check:session-fetcher`, which refuses
+ * an app that imports the collection barrel and calls this nowhere. The refusal
+ * below catches an installer that exists and has not run yet, which is a fact
+ * about the entry graph at runtime; the gate catches an app with none to run,
+ * which is readable off the source.
  */
 export function setSessionFetcher(fetcher: SessionFetcher | null): void {
 	sendWithSession = fetcher;
