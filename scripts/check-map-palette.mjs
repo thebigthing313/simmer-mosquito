@@ -83,8 +83,12 @@ const PALETTE_IMPORT = new RegExp(`from\\s+'${PALETTE_PACKAGE}(?:/[^']*)?'`);
  * Twenty-two importers and not twenty-six: four of the six modules holding a
  * private block were already reading the register for part of what they paint,
  * which is how a colour drifts in a file that looks consolidated.
+ *
+ * Sixty-one and not sixty-two since #640: `draw-vertex-edit.ts` moved to
+ * `packages/mapping`, where it paints nothing, so the module left the corpus
+ * rather than the walk losing it.
  */
-const MINIMUM_MAP_FILES = 62;
+const MINIMUM_MAP_FILES = 61;
 const MINIMUM_PALETTE_IMPORTERS = 22;
 
 /**
