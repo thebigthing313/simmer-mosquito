@@ -15,6 +15,7 @@ import { additionalPersonnelOptions } from '../../../components/additional-perso
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry } from '../../../components/map/use-map-draw';
 import {
@@ -278,7 +279,10 @@ export function OutreachFormPage({
 				</FormSection>
 
 				<LocationSection
-					description="The geometry is where the outreach happened. Use a point for a single stop, a line or area for a canvassed block. An address is optional reference."
+					description={locationDescription({
+						geometryKind: 'controlAction',
+						subject: 'The geometry is where the outreach happened.',
+					})}
 					error={location.locationError}
 				>
 					<form.AppField name="addressId">

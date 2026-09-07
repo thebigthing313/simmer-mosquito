@@ -260,6 +260,26 @@ export function formatMonthDay(date: string): string {
 }
 
 /**
+ * The active date-range chip's words, with either bound possibly open.
+ *
+ * Beside {@link formatMonthDay} because that is what it reads. The inspections
+ * filter bar and the samples explorer each held a copy, character for
+ * character, down to the unspaced en dash between the two bounds.
+ */
+export function dateRangeLabel(from: string, to: string): string {
+	if (from === '' && to === '') {
+		return 'All dates';
+	}
+	if (from === '') {
+		return `Until ${formatMonthDay(to)}`;
+	}
+	if (to === '') {
+		return `From ${formatMonthDay(from)}`;
+	}
+	return `${formatMonthDay(from)}–${formatMonthDay(to)}`;
+}
+
+/**
  * `Mar 4, 26` — the explorer list date.
  *
  * The year is not optional here. An explorer's window is whatever the operator

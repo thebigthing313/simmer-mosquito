@@ -15,6 +15,7 @@ import { useState } from 'react';
 import { getServerUrl } from '../../../auth';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
+import { locationDescription } from '../../../components/map/location-description';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
 import type { DrawGeometry, DrawGeometryType } from '../../../components/map/use-map-draw';
 import { AddressPicker } from '../../../components/pickers/address-picker';
@@ -214,7 +215,10 @@ export function HabitatFormPage({
 							    every other located record's form uses. */}
 				<WriteOnly minimum="manager">
 					<LocationSection
-						description="The geometry is the habitat itself. Use a point for a single one, a line or area for a stretch. An address is optional reference."
+						description={locationDescription({
+							geometryKind: 'habitat',
+							subject: 'The geometry is the habitat itself.',
+						})}
 						error={location.locationError}
 					>
 						<form.AppField name="addressId">
