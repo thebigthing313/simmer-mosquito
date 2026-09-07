@@ -185,7 +185,10 @@ to maps and field records without becoming decorative.
 - **Text / Muted / Quiet**: Primary copy, supporting copy, and metadata labels.
   Be aware there is almost no room left between Muted and Quiet at AA: a third
   *lighter* tier cannot really exist on surfaces this pale. Separate quiet
-  metadata by size, weight, or position instead of by going lighter.
+  metadata by size, weight, or position instead of by going lighter. Text is
+  `--foreground` in the stylesheet, and `text-foreground` is how you reach it. A
+  `--text` alias of the same value sat beside it unregistered until #632 deleted
+  it: two names for one colour, one of which worked.
 - **Attention / Warning**: Attention surface tint and warning text treatment.
   Attention is a fill, not the focus ring; the two were aliased until the ring
   had to darken for contrast.
@@ -223,6 +226,24 @@ palette, it goes in **both** places, and the check is empirical: build, then gre
 the emitted CSS for the class. A utility that generates no rule is invisible in
 the source and invisible on screen.
 
+Fifteen more roles were left behind in the same file and found again in #632:
+the surface and border neutrals, the type scale, the line heights, and three
+aliases of roles that were already registered under another name. Twelve were
+registered and three were deleted, and `pnpm check:registered-tokens` is what
+stops the file splitting a third time. It fails on a role declared in `:root`
+that no `@theme` entry names, and on a class that reaches for one.
+
+The rule is not "spell the name twice". A role is registered when an `@theme`
+entry **references** it, under the namespace for its kind: `--color-*` for a
+colour, `--text-*` for a font size, `--leading-*` for a line height,
+`--radius-*` for a corner. `--type-heading` is reached as `text-heading` for
+that reason. Two traps live in the namespaces. `--text-*` and `--color-*` share
+the `text-` utility prefix, so no colour may be named `caption`, `small`,
+`body`, `title` or `heading`. And a role registered under a name Tailwind
+already ships overrides the built-in silently: `--leading-tight` would have
+moved 42 call sites from 1.25 to 1.2 with nothing in the diff saying so, which
+is why the heading line height is `--leading-heading`.
+
 **The Solid Indicator Rule.** A focus ring is never drawn at partial alpha. An
 alpha ring composites toward the surface it is supposed to contrast against, so
 it gets *less* visible exactly where it needs to be more. SIMMER's ring sat at
@@ -248,6 +269,28 @@ strong weight contrast.
   prose. Cap line length at 65-75ch.
 - **Label** (800, 0.76rem, uppercase only when it improves scanning): Eyebrows,
   metadata labels, sidebar headings, table headers, and sync labels.
+
+### Registered scale
+
+The sizes and line heights the stylesheet declares, and the utility each one
+generates. These are what a screen can reach by name; the hierarchy above is
+what a screen is meant to look like.
+
+| Utility | Value | Role |
+| --- | --- | --- |
+| `text-caption` | 0.75rem | Metadata and captions |
+| `text-small` | 0.875rem | Dense rows, secondary copy |
+| `text-body` | 1rem | Readable prose |
+| `text-title` | 1.125rem | Panels, drawers, dialogs |
+| `text-heading` | 1.5rem | Page headings |
+| `leading-heading` | 1.2 | Headings, at any size |
+| `leading-body` | 1.55 | Prose |
+| `leading-compact` | 1.4 | Dense rows and controls |
+
+The scale and the hierarchy disagree on one number: `text-heading` is 1.5rem and
+Headline is 1.45rem. They have disagreed since both were written, and settling
+it is part of merging the three page-heading treatments the apps ship today,
+which is its own work now that `text-heading` exists to merge onto.
 
 ### Named rules
 

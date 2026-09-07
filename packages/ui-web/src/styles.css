@@ -84,7 +84,6 @@
 	--surface-muted: var(--muted);
 	--surface-strong: var(--simmer-field-paper-strong);
 	--border-strong: var(--simmer-field-border-strong);
-	--text: var(--foreground);
 	/*
 	 * The third text tier, below `--muted-foreground`. Admin uses it for 12px
 	 * caption metadata, which is normal-size text and therefore owes 4.5:1 — at
@@ -97,8 +96,6 @@
 	 * supporting copy by size, weight, or position instead of by going lighter.
 	 */
 	--quiet: oklch(51% 0.024 205);
-	--brand: var(--primary);
-	--brand-hover: var(--simmer-green-800);
 	/*
 	 * Attention tint, NOT the focus ring. These were aliased until the ring had
 	 * to darken for contrast; they are different jobs — this one fills a surface
@@ -121,9 +118,17 @@
 	--type-body: 1rem;
 	--type-title: 1.125rem;
 	--type-heading: 1.5rem;
-	--leading-tight: 1.2;
-	--leading-body: 1.55;
-	--leading-compact: 1.4;
+	/*
+	 * Line heights, named `--line-*` rather than `--leading-*` because `@theme`
+	 * below registers them under Tailwind's `--leading-*` namespace and a role
+	 * cannot alias itself. Registering `--leading-tight: 1.2` directly would
+	 * also have overridden Tailwind's built-in 1.25 under a name 42 call sites
+	 * already write, so the heading line height is `--leading-heading` and the
+	 * built-in `leading-tight` is left where it is.
+	 */
+	--line-heading: 1.2;
+	--line-body: 1.55;
+	--line-compact: 1.4;
 }
 
 @theme inline {
@@ -189,6 +194,42 @@
 	--color-danger: var(--danger);
 	--color-danger-bg: var(--danger-bg);
 	--color-quiet: var(--quiet);
+	/*
+	 * The neutral surface and border roles, registered for the same reason the
+	 * status palette above was. They sat in `:root` unregistered from the start,
+	 * so `bg-surface` and `border-border-strong` compiled to nothing, and the
+	 * swatch on the admin foundations screen drew its ring in the inherited
+	 * `--border` rather than the strong one nobody could reach by name (#632).
+	 *
+	 * Border and Border Strong are two jobs, not two weights of one. Border is a
+	 * decorative divider; Border Strong draws the boundary of a control, which
+	 * makes it a UI component under WCAG and puts it on a 3:1 floor. The floor is
+	 * asserted in `src/tests/unit/styles.contrast.test.ts`.
+	 */
+	--color-surface: var(--surface);
+	--color-surface-muted: var(--surface-muted);
+	--color-surface-strong: var(--surface-strong);
+	--color-border-strong: var(--border-strong);
+	/*
+	 * The type scale, under Tailwind's font-size namespace, so `text-heading`
+	 * and `text-caption` exist. `--text-*` and `--color-*` share the `text-`
+	 * utility prefix, so no colour role may be named `caption`, `small`, `body`,
+	 * `title` or `heading`: one would silently win over the other.
+	 */
+	--text-caption: var(--type-caption);
+	--text-small: var(--type-small);
+	--text-body: var(--type-body);
+	--text-title: var(--type-title);
+	--text-heading: var(--type-heading);
+	/*
+	 * The line heights. `--leading-heading` rather than `--leading-tight`,
+	 * because Tailwind ships `leading-tight` at 1.25 and 42 call sites write it;
+	 * registering 1.2 under that name would have moved every one of them without
+	 * a diff anywhere to say so.
+	 */
+	--leading-heading: var(--line-heading);
+	--leading-body: var(--line-body);
+	--leading-compact: var(--line-compact);
 	--radius-sm: calc(var(--radius) - 2px);
 	--radius-md: var(--radius);
 	--radius-lg: var(--radius);
