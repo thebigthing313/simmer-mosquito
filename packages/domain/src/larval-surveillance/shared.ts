@@ -1,8 +1,4 @@
-import {
-	createIssues,
-	requiredUuid as requireUuid,
-	validateOrganizationCommandContext,
-} from '../command-validation.js';
+import { createIssues, requiredUuid as requireUuid, validateBase } from '../command-validation.js';
 import {
 	type AdHocInspectionLocationSource,
 	type AdHocInspectionLocationSourceInput,
@@ -69,20 +65,6 @@ export interface SampleSpeciesIdLike extends LarvalCommandInput {
 	readonly sampleSpeciesId: DomainId;
 }
 
-export function validateBase(input: LarvalCommandInput, issues: DomainValidationIssue[]): void {
-	validateOrganizationCommandContext(input, issues);
-}
-
-export function validateIdCommand<T extends LarvalCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
-}
-
 export function validateSampleBase(input: {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
@@ -111,14 +93,6 @@ export function validatePositiveInteger(
 	if (typeof value !== 'number' || !Number.isInteger(value) || value <= 0) {
 		issues.push({ path, message: `${path} must be a positive integer.` });
 	}
-}
-
-export function normalizeNullableText(value: string | null | undefined): string | null {
-	if (value === undefined || value === null) {
-		return null;
-	}
-	const trimmed = value.trim();
-	return trimmed.length === 0 ? null : trimmed;
 }
 
 export function validateHabitatLocationSourceInput(
@@ -155,8 +129,4 @@ export function validateAdHocInspectionLocationSourceInput(
 		'locationSource',
 		issues,
 	);
-}
-
-export function basePayload(input: LarvalCommandInput): LarvalCommandPayload {
-	return validateOrganizationCommandContext(input, createIssues());
 }

@@ -1,12 +1,10 @@
 import {
-	createIssues,
-	isFutureBeyondClockSkew,
+	basePayload,
 	nullableText as normalizeNullableText,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
-	requiredUuid as requireUuid,
 	throwIfIssues,
-	validateOrganizationCommandContext,
+	validateIdCommand,
 } from '../command-validation.js';
 import {
 	type ControlActionLocationSource,
@@ -283,43 +281,6 @@ function validatePatchLocationSource(
 			);
 }
 
-export function validateBase(input: ControlCommandInput, issues: DomainValidationIssue[]): void {
-	validateOrganizationCommandContext(input, issues);
-}
-
-export function validateIdCommand<T extends ControlCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
-}
-
-export function basePayload(input: ControlCommandInput): ControlCommandPayload {
-	return validateOrganizationCommandContext(input, createIssues());
-}
-
-export function normalizeOptionalTimestamp(
-	value: Date | null | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-	allowFuture: boolean,
-): Date | null {
-	if (value === undefined || value === null) {
-		return null;
-	}
-	if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
-		issues.push({ path, message: `${path} must be a valid Date.` });
-		return null;
-	}
-	if (!allowFuture && isFutureBeyondClockSkew(value)) {
-		issues.push({ path, message: `${path} cannot be in the future.` });
-	}
-	return value;
-}
-
 export function normalizePositiveFiniteNumber(
 	value: number | undefined,
 	path: string,
@@ -358,19 +319,6 @@ export function normalizeNullableUrl(
 		return null;
 	}
 	return normalized;
-}
-
-export function normalizeStringUnion<TValue extends string>(
-	value: string | undefined,
-	allowedValues: readonly TValue[],
-	path: string,
-	issues: DomainValidationIssue[],
-): TValue {
-	if (value === undefined || !allowedValues.includes(value as TValue)) {
-		issues.push({ path, message: `${path} is not supported.` });
-		return (allowedValues[0] ?? '') as TValue;
-	}
-	return value as TValue;
 }
 
 function humanizeCommandType(type: string): string {

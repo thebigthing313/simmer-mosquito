@@ -1,19 +1,19 @@
 import {
+	basePayload,
 	createIssues,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import {
 	ADDITIONAL_PERSONNEL_TARGET_TYPES,
 	type AdditionalPersonnelTarget,
-	basePayload,
 	type FieldWorkCommandInput,
 	type FieldWorkCommandPayload,
 	type FieldWorkDomainCommand,
-	validateBase,
-	validateIdCommand,
 	validateTarget,
 } from './shared.js';
 
@@ -71,7 +71,7 @@ export function addAdditionalPersonnelCommand(
 export function removeAdditionalPersonnelCommand(
 	input: RemoveAdditionalPersonnelCommandInput,
 ): RemoveAdditionalPersonnelCommand {
-	const issues = validateIdCommand(input, 'additionalPersonnelId', requireUuid);
+	const issues = validateIdCommand(input, 'additionalPersonnelId');
 	throwIfIssues('Remove additional personnel command is invalid.', issues);
 	return {
 		type: 'fieldWork.removeAdditionalPersonnel',

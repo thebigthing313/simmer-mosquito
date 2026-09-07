@@ -1,4 +1,5 @@
 import {
+	basePayload,
 	actorDefaultProfileId as normalizeActorDefaultProfileId,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
@@ -8,7 +9,6 @@ import {
 } from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
 import {
-	basePayload,
 	type LarvalCommandInput,
 	type LarvalCommandPayload,
 	type LarvalDomainCommand,

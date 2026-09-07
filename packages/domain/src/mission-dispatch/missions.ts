@@ -1,16 +1,20 @@
 import { CONTROL_TYPES, type ControlType } from '../column-vocabularies.js';
 import {
+	basePayload,
 	createIssues,
 	nullableText as normalizeNullableText,
+	normalizeOptionalTimestamp,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
+	normalizeStringUnion,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 } from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
 import {
-	basePayload,
 	type MissionDispatchCommandInput,
 	type MissionDispatchCommandPayload,
 	type MissionDispatchDomainCommand,
@@ -18,11 +22,7 @@ import {
 	type MissionInitialItemInput,
 	type MissionLifecycleStatus,
 	normalizeOptionalLocalDate,
-	normalizeOptionalTimestamp,
-	normalizeStringUnion,
 	normalizeTimestamp,
-	validateBase,
-	validateIdCommand,
 	validateInitialItems,
 	validateTimestampOrder,
 } from './shared.js';

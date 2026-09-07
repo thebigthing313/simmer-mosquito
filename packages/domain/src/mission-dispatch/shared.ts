@@ -5,8 +5,8 @@ import {
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
+	validateBase,
 	validateLocalDate,
-	validateOrganizationCommandContext,
 } from '../command-validation.js';
 import {
 	type MissionItemLocationSource,
@@ -157,27 +157,6 @@ export type MissionExecutionPayload = {
 	readonly metadata: JsonObject | null;
 };
 
-export function validateBase(
-	input: MissionDispatchCommandInput,
-	issues: DomainValidationIssue[],
-): void {
-	validateOrganizationCommandContext(input, issues);
-}
-
-export function validateIdCommand<T extends MissionDispatchCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
-}
-
-export function basePayload(input: MissionDispatchCommandInput): MissionDispatchCommandPayload {
-	return validateOrganizationCommandContext(input, createIssues());
-}
-
 function validateLocatableGeometry(
 	kind: OwnedGeometryKind,
 	value: unknown,
@@ -234,31 +213,6 @@ export function normalizeTimestamp(
 	return value;
 }
 
-export function normalizeOptionalTimestamp(
-	value: Date | null | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-	allowFuture: boolean,
-): Date | null {
-	if (value === undefined || value === null) {
-		return null;
-	}
-	return normalizeTimestamp(value, path, issues, allowFuture);
-}
-
-export function normalizeStringUnion<TValue extends string>(
-	value: string | undefined,
-	allowedValues: readonly TValue[],
-	path: string,
-	issues: DomainValidationIssue[],
-): TValue {
-	if (value === undefined || !allowedValues.includes(value as TValue)) {
-		issues.push({ path, message: `${path} is not supported.` });
-		return (allowedValues[0] ?? '') as TValue;
-	}
-	return value as TValue;
-}
-
 export function validateMissionItemPlacement(
 	placement: MissionItemPlacement | undefined,
 	path: string,
@@ -273,27 +227,6 @@ export function validateMissionItemPlacement(
 		return { kind: placement.kind, missionItemId: normalizeRequiredId(placement.missionItemId) };
 	}
 	return { kind: placement.kind };
-}
-
-export function validateIdList(
-	values: readonly DomainId[],
-	path: string,
-	issues: DomainValidationIssue[],
-): readonly DomainId[] {
-	if (!Array.isArray(values) || values.length === 0) {
-		issues.push({ path, message: `${path} must include at least one id.` });
-		return [];
-	}
-	const seen = new Set<string>();
-	return values.map((value, index) => {
-		requireUuid(value, `${path}.${index}`, issues);
-		const normalized = normalizeRequiredId(value);
-		if (seen.has(normalized)) {
-			issues.push({ path: `${path}.${index}`, message: `${path} must not contain duplicates.` });
-		}
-		seen.add(normalized);
-		return normalized;
-	});
 }
 
 export function validateMissionItemLocationInput(

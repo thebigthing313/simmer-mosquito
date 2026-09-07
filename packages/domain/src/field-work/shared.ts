@@ -1,10 +1,8 @@
 import { ROUTE_TYPES, type RouteType } from '../column-vocabularies.js';
 import {
-	createIssues,
-	isFutureBeyondClockSkew,
 	nullableText as normalizeNullableText,
 	requiredId as normalizeRequiredId,
-	validateOrganizationCommandContext,
+	normalizeStringUnion,
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue } from '../shared.js';
 
@@ -205,57 +203,6 @@ export function fromDbEntityType(entityType: string): string {
 	return entityType.replace(/_([a-z])/g, (_match, char: string) => char.toUpperCase());
 }
 
-export function validateBase(input: FieldWorkCommandInput, issues: DomainValidationIssue[]): void {
-	validateOrganizationCommandContext(input, issues);
-}
-
-export function validateIdCommand<T extends FieldWorkCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-	requireUuid: (value: string | undefined, path: string, issues: DomainValidationIssue[]) => void,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateBase(input, issues);
-	requireUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
-}
-
-export function basePayload(input: FieldWorkCommandInput): FieldWorkCommandPayload {
-	return validateOrganizationCommandContext(input, createIssues());
-}
-
-export function normalizeOptionalTimestamp(
-	value: Date | null | undefined,
-	path: string,
-	issues: DomainValidationIssue[],
-	allowFuture: boolean,
-): Date | null {
-	if (value === undefined || value === null) {
-		return null;
-	}
-	if (!(value instanceof Date) || Number.isNaN(value.getTime())) {
-		issues.push({ path, message: `${path} must be a valid Date.` });
-		return null;
-	}
-	if (!allowFuture && isFutureBeyondClockSkew(value)) {
-		issues.push({ path, message: `${path} cannot be in the future.` });
-	}
-	return value;
-}
-
-export function normalizeStringUnion<TValue extends string>(
-	value: string | undefined,
-	allowedValues: readonly TValue[],
-	path: string,
-	issues: DomainValidationIssue[],
-): TValue {
-	if (value === undefined || !allowedValues.includes(value as TValue)) {
-		issues.push({ path, message: `${path} is not supported.` });
-		return (allowedValues[0] ?? '') as TValue;
-	}
-	return value as TValue;
-}
-
 export function normalizeHexColor(
 	value: string | null | undefined,
 	path: string,
@@ -270,28 +217,6 @@ export function normalizeHexColor(
 		return null;
 	}
 	return normalized.toLowerCase();
-}
-
-export function validateIdList(
-	values: readonly DomainId[],
-	path: string,
-	issues: DomainValidationIssue[],
-	requireUuid: (value: string | undefined, path: string, issues: DomainValidationIssue[]) => void,
-): readonly DomainId[] {
-	if (!Array.isArray(values) || values.length === 0) {
-		issues.push({ path, message: `${path} must include at least one id.` });
-		return [];
-	}
-	const seen = new Set<string>();
-	return values.map((value, index) => {
-		requireUuid(value, `${path}.${index}`, issues);
-		const normalized = normalizeRequiredId(value);
-		if (seen.has(normalized)) {
-			issues.push({ path: `${path}.${index}`, message: `${path} must not contain duplicates.` });
-		}
-		seen.add(normalized);
-		return normalized;
-	});
 }
 
 export function validateTarget<TType extends string>(

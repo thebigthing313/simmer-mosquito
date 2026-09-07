@@ -1,19 +1,19 @@
 import {
+	basePayload,
 	createIssues,
+	normalizeRequiredDomainId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
 	validateLocalDate,
 } from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
 import {
-	basePayload,
 	type ExpectedUpdatedAtInput,
 	type ExpectedUpdatedAtPayload,
 	normalizeExpectedUpdatedAt,
 	normalizeMetricPatch,
-	normalizeRequiredDomainId,
 	normalizeSummaryMetrics,
-	validateBase,
 	validateDateRange,
 	validateMetricPairOrdering,
 	validateMetricSet,

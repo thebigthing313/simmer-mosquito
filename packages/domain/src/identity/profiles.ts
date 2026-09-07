@@ -2,17 +2,17 @@ import {
 	createIssues,
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
+	organizationPayload,
 	requiredUuid as requireUuid,
 	throwIfIssues,
-} from '../command-validation.js';
-import type { DomainId } from '../shared.js';
-import {
-	type IdentityDomainCommand,
-	type OrganizationIdentityCommandInput,
-	type OrganizationIdentityCommandPayload,
-	organizationPayload,
 	validateOrganizationBase,
 	validateOrganizationIdCommand,
+} from '../command-validation.js';
+import type { DomainId } from '../shared.js';
+import type {
+	IdentityDomainCommand,
+	OrganizationIdentityCommandInput,
+	OrganizationIdentityCommandPayload,
 } from './shared.js';
 
 /**

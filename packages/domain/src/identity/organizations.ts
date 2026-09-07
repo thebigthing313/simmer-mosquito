@@ -2,14 +2,14 @@ import {
 	createIssues,
 	nullableText as normalizeNullableText,
 	requiredText as normalizeRequiredText,
-	throwIfIssues,
-} from '../command-validation.js';
-import {
-	type IdentityDomainCommand,
-	type OrganizationIdentityCommandInput,
-	type OrganizationIdentityCommandPayload,
 	organizationPayload,
+	throwIfIssues,
 	validateOrganizationBase,
+} from '../command-validation.js';
+import type {
+	IdentityDomainCommand,
+	OrganizationIdentityCommandInput,
+	OrganizationIdentityCommandPayload,
 } from './shared.js';
 
 /**

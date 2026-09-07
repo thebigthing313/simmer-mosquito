@@ -1,9 +1,4 @@
-import {
-	createIssues,
-	requiredUuid,
-	validateOrganizationCommandContext,
-} from '../command-validation.js';
-import type { DomainId, DomainValidationIssue } from '../shared.js';
+import type { DomainId } from '../shared.js';
 
 /**
  * The identity commands an organization can send.
@@ -39,27 +34,4 @@ export interface OrganizationIdentityCommandInput {
 export interface OrganizationIdentityCommandPayload {
 	readonly organizationId: DomainId;
 	readonly actorProfileId: DomainId;
-}
-
-export function organizationPayload(
-	input: OrganizationIdentityCommandInput,
-): OrganizationIdentityCommandPayload {
-	return { organizationId: input.organizationId, actorProfileId: input.actorProfileId };
-}
-
-export function validateOrganizationBase(
-	input: OrganizationIdentityCommandInput,
-	issues: DomainValidationIssue[],
-): void {
-	validateOrganizationCommandContext(input, issues);
-}
-
-export function validateOrganizationIdCommand<T extends OrganizationIdentityCommandInput>(
-	input: T,
-	idKey: keyof T & string,
-): DomainValidationIssue[] {
-	const issues = createIssues();
-	validateOrganizationBase(input, issues);
-	requiredUuid(input[idKey] as string | undefined, idKey, issues);
-	return issues;
 }

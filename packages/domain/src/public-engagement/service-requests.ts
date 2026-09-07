@@ -1,10 +1,15 @@
 import {
+	basePayload,
 	createIssues,
+	normalizeOptionalTimestamp,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
+	normalizeStringUnion,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 	validateLocalDate,
 } from '../command-validation.js';
 import type { DomainId, LocalDateString } from '../shared.js';
@@ -19,13 +24,8 @@ import type {
 	ServiceRequestLocationInput,
 } from './core.js';
 import {
-	basePayload,
-	normalizeOptionalTimestamp,
-	normalizeStringUnion,
 	REQUEST_INTAKE_TYPES,
-	validateBase,
 	validateContactReference,
-	validateIdCommand,
 	validateServiceRequestLocation,
 } from './core.js';
 export interface CreateServiceRequestCommandInput extends PublicEngagementCommandInput {
@@ -275,7 +275,7 @@ export function closeServiceRequestCommand(
 		issues,
 		10_000,
 	);
-	const closedAt = normalizeOptionalTimestamp(input.closedAt, 'closedAt', issues);
+	const closedAt = normalizeOptionalTimestamp(input.closedAt, 'closedAt', issues, false);
 	throwIfIssues('Close service request command is invalid.', issues);
 	return {
 		type: 'publicEngagement.closeServiceRequest',
@@ -295,7 +295,7 @@ export function reopenServiceRequestCommand(
 	const issues = validateIdCommand(input, 'serviceRequestId');
 	requireUuid(input.reopenCommentId, 'reopenCommentId', issues);
 	const reopenReason = normalizeRequiredText(input.reopenReason, 'reopenReason', issues, 10_000);
-	const reopenedAt = normalizeOptionalTimestamp(input.reopenedAt, 'reopenedAt', issues);
+	const reopenedAt = normalizeOptionalTimestamp(input.reopenedAt, 'reopenedAt', issues, false);
 	throwIfIssues('Reopen service request command is invalid.', issues);
 	return {
 		type: 'publicEngagement.reopenServiceRequest',

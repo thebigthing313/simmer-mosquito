@@ -1,20 +1,20 @@
 import {
+	basePayload,
 	createIssues,
+	normalizeNullableText,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 } from '../command-validation.js';
 import type { TrapLocationSource } from '../location-intent.js';
 import type { DomainId } from '../shared.js';
 import {
 	type AdultCommandInput,
 	type AdultCommandPayload,
-	basePayload,
 	type DomainCommand,
-	normalizeNullableText,
-	validateBase,
-	validateIdCommand,
 	validateTrapDisplay,
 	validateTrapLocationSourceInput,
 } from './shared.js';

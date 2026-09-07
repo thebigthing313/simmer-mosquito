@@ -1,11 +1,16 @@
 import {
+	basePayload,
 	createIssues,
 	actorDefaultProfileId as normalizeActorDefaultProfileId,
 	nullableText as normalizeNullableText,
+	normalizeOptionalTimestamp,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
+	normalizeStringUnion,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 } from '../command-validation.js';
 import type {
 	RequestedControlActionLocationSource,
@@ -23,14 +28,9 @@ import type {
 	ControlOperationsDomainCommand,
 } from './core.js';
 import {
-	basePayload,
 	CONTROL_TYPES,
 	idCommand,
 	locationContextChanges,
-	normalizeOptionalTimestamp,
-	normalizeStringUnion,
-	validateBase,
-	validateIdCommand,
 	validateLocationContextPatchBase,
 	validateRequestedControlActionLocationSourceInput,
 } from './core.js';

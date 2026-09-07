@@ -1,9 +1,13 @@
 import {
+	basePayload,
 	createIssues,
 	nullableText as normalizeNullableText,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
+	validateIdList,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import type {
@@ -14,13 +18,9 @@ import type {
 	PublicEngagementDomainCommand,
 } from './core.js';
 import {
-	basePayload,
 	normalizeCreateContactDetails,
 	normalizeEmail,
-	validateBase,
 	validateBoolean,
-	validateIdCommand,
-	validateIdList,
 	validatePhonePreferencePatch,
 } from './core.js';
 export interface CreateContactCommandInput

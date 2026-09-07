@@ -1,17 +1,17 @@
 import {
+	basePayload,
 	createIssues,
+	normalizeNullableText,
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
 	throwIfIssues,
+	validateIdCommand,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import {
-	basePayload,
 	type LarvalCommandInput,
 	type LarvalCommandPayload,
 	type LarvalDomainCommand,
-	normalizeNullableText,
-	validateIdCommand,
 	validateSampleBase,
 } from './shared.js';
 

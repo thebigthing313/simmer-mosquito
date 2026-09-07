@@ -1,21 +1,21 @@
 import {
+	basePayload,
 	createIssues,
+	normalizeOptionalTimestamp,
 	requiredId as normalizeRequiredId,
 	requiredText as normalizeRequiredText,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
+	validateIdCommand,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import {
-	basePayload,
 	COMMENT_TARGET_TYPES,
 	type CommentTarget,
 	type FieldWorkCommandInput,
 	type FieldWorkCommandPayload,
 	type FieldWorkDomainCommand,
-	normalizeOptionalTimestamp,
-	validateBase,
-	validateIdCommand,
 	validateTarget,
 } from './shared.js';
 
@@ -90,7 +90,7 @@ export function addCommentCommand(input: AddCommentCommandInput): AddCommentComm
 }
 
 export function updateCommentCommand(input: UpdateCommentCommandInput): UpdateCommentCommand {
-	const issues = validateIdCommand(input, 'commentId', requireUuid);
+	const issues = validateIdCommand(input, 'commentId');
 	const commentText = normalizeRequiredText(input.commentText, 'commentText', issues, 10_000);
 	throwIfIssues('Update comment command is invalid.', issues);
 
@@ -105,7 +105,7 @@ export function updateCommentCommand(input: UpdateCommentCommandInput): UpdateCo
 }
 
 export function deleteCommentCommand(input: CommentIdCommandInput): DeleteCommentCommand {
-	const issues = validateIdCommand(input, 'commentId', requireUuid);
+	const issues = validateIdCommand(input, 'commentId');
 	throwIfIssues('Delete comment command is invalid.', issues);
 	return {
 		type: 'fieldWork.deleteComment',
@@ -114,7 +114,7 @@ export function deleteCommentCommand(input: CommentIdCommandInput): DeleteCommen
 }
 
 export function pinCommentCommand(input: CommentIdCommandInput): PinCommentCommand {
-	const issues = validateIdCommand(input, 'commentId', requireUuid);
+	const issues = validateIdCommand(input, 'commentId');
 	throwIfIssues('Pin comment command is invalid.', issues);
 	return {
 		type: 'fieldWork.pinComment',
@@ -123,7 +123,7 @@ export function pinCommentCommand(input: CommentIdCommandInput): PinCommentComma
 }
 
 export function unpinCommentCommand(input: CommentIdCommandInput): UnpinCommentCommand {
-	const issues = validateIdCommand(input, 'commentId', requireUuid);
+	const issues = validateIdCommand(input, 'commentId');
 	throwIfIssues('Unpin comment command is invalid.', issues);
 	return {
 		type: 'fieldWork.unpinComment',

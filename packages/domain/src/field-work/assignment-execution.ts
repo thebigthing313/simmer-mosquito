@@ -1,11 +1,14 @@
 import {
+	basePayload,
 	createIssues,
 	actorDefaultProfileId as normalizeActorDefaultProfileId,
 	jsonObject as normalizeMetadata,
+	normalizeOptionalTimestamp,
 	optionalUuid as normalizeOptionalUuid,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateBase,
 	validateNotFutureLocalDate,
 } from '../command-validation.js';
 import type { DomainId, DomainValidationIssue, JsonObject, LocalDateString } from '../shared.js';
@@ -18,13 +21,10 @@ import {
 	validateCollectedTiming,
 	validateOperationalDate,
 } from '../surveillance-records.js';
-import {
-	basePayload,
-	type FieldWorkCommandInput,
-	type FieldWorkCommandPayload,
-	type FieldWorkDomainCommand,
-	normalizeOptionalTimestamp,
-	validateBase,
+import type {
+	FieldWorkCommandInput,
+	FieldWorkCommandPayload,
+	FieldWorkDomainCommand,
 } from './shared.js';
 
 /**

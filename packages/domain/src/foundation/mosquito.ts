@@ -2,24 +2,24 @@ import {
 	createIssues,
 	nullableText as normalizeNullableText,
 	optionalUuid as normalizeOptionalUuid,
+	normalizeRequiredDomainId,
 	requiredText as normalizeRequiredText,
+	organizationPayload,
 	requiredUuid as requireUuid,
 	throwIfIssues,
+	validateOrganizationBase,
+	validateOrganizationIdCommand,
 } from '../command-validation.js';
 import type { DomainId } from '../shared.js';
 import {
 	type FoundationDomainCommand,
-	normalizeRequiredDomainId,
 	type OperatorFoundationCommandInput,
 	type OperatorFoundationCommandPayload,
 	type OrganizationFoundationCommandInput,
 	type OrganizationFoundationCommandPayload,
 	operatorPayload,
-	organizationPayload,
 	validateOperatorBase,
 	validateOperatorIdCommand,
-	validateOrganizationBase,
-	validateOrganizationIdCommand,
 } from './shared.js';
 
 export interface CreateGenusCommandInput extends OperatorFoundationCommandInput {

@@ -1,5 +1,6 @@
 import type { SpeciesSex, SpeciesStatus } from '../column-vocabularies.js';
 import {
+	basePayload,
 	actorDefaultProfileId as normalizeActorDefaultProfileId,
 	requiredId as normalizeRequiredId,
 	requiredUuid as requireUuid,
@@ -10,7 +11,6 @@ import type { DomainId, LocalDateString } from '../shared.js';
 import {
 	type AdultCommandInput,
 	type AdultCommandPayload,
-	basePayload,
 	type DomainCommand,
 	validateSpeciesCount,
 	validateSpeciesCountBase,
