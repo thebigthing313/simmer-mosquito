@@ -10,7 +10,12 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { GeometryImportDialog } from '../../../../components/map/geometry-import-dialog';
-import { ImportNotes, importRowSummary } from '../../../../components/map/import-notes';
+import {
+	ImportNotes,
+	importRowSummary,
+	importSkippedCount,
+	importSkippedSentence,
+} from '../../../../components/map/import-notes';
 
 afterEach(cleanup);
 
@@ -78,6 +83,26 @@ describe('importRowSummary', () => {
 
 	it('spells one vertex singular', () => {
 		expect(importRowSummary({ type: 'Point', coordinates: [0, 0] }, null)).toBe('1 vertex');
+	});
+});
+
+describe('importSkippedCount', () => {
+	it('spells one skipped geometry singular', () => {
+		expect(importSkippedCount(1)).toBe('1 other geometry');
+	});
+
+	it('spells several plural', () => {
+		expect(importSkippedCount(4)).toBe('4 other geometries');
+	});
+});
+
+describe('importSkippedSentence', () => {
+	it('agrees the verb with one skipped geometry', () => {
+		expect(importSkippedSentence(1)).toBe('1 other geometry was ignored.');
+	});
+
+	it('agrees the verb with several', () => {
+		expect(importSkippedSentence(4)).toBe('4 other geometries were ignored.');
 	});
 });
 

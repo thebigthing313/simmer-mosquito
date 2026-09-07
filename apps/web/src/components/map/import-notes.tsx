@@ -87,6 +87,28 @@ export function importRowSummary(geometry: ImportGeometry, note: ImportNote | nu
 		.join(' · ');
 }
 
+/**
+ * "1 other geometry", "4 other geometries": what the file held that the shape
+ * list is not offering.
+ *
+ * The word is the general one rather than the surface's own noun, because what
+ * was ignored is everything this record cannot store. Both branches of the list
+ * say the count, so it is written once here: two copies of it are what #674
+ * cost, and both of them read "1 other geometries".
+ */
+export function importSkippedCount(skipped: number): string {
+	return `${skipped} other ${skipped === 1 ? GEOMETRY.one : GEOMETRY.many}`;
+}
+
+/**
+ * The same count as a sentence, for the branch with no list beside it. The verb
+ * agrees with the number the noun does because it is written against the same
+ * count, which is the whole of what #674 was.
+ */
+export function importSkippedSentence(skipped: number): string {
+	return `${importSkippedCount(skipped)} ${skipped === 1 ? 'was' : 'were'} ignored.`;
+}
+
 export interface ImportRefusalCounts {
 	/** Shapes whose coordinates are not WGS84 lng/lat. */
 	readonly projected: number;

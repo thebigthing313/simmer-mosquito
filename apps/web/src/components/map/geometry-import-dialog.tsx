@@ -28,6 +28,8 @@ import {
 	importNoun,
 	importNounTitle,
 	importRowSummary,
+	importSkippedCount,
+	importSkippedSentence,
 } from './import-notes';
 import type { DrawGeometry } from './use-map-draw';
 
@@ -228,7 +230,7 @@ function ImportShapeList({
 			<div className="grid gap-2">
 				<p className="m-0 rounded-md bg-muted/50 p-3 text-muted-foreground text-sm">
 					{parsed.fileName} holds no {noun.many}.
-					{parsed.skipped > 0 ? ` ${parsed.skipped} other geometries were ignored.` : ''}
+					{parsed.skipped > 0 ? ` ${importSkippedSentence(parsed.skipped)}` : ''}
 				</p>
 				<ImportNotes counts={parsed.refusals} noun={noun} />
 			</div>
@@ -240,7 +242,7 @@ function ImportShapeList({
 			<div className="flex items-center justify-between gap-2">
 				<span className="min-w-0 truncate text-muted-foreground text-xs">
 					{parsed.fileName}
-					{parsed.skipped > 0 ? ` · ${parsed.skipped} other geometries ignored` : ''}
+					{parsed.skipped > 0 ? ` · ${importSkippedCount(parsed.skipped)} ignored` : ''}
 				</span>
 				<Badge tone="neutral" variant="outline">
 					{count} {count === 1 ? noun.one : noun.many}
