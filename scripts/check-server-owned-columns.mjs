@@ -229,22 +229,23 @@ function checkStrippedNamesAreOwned(serverOwned, triggerMaintained, stripped) {
 		);
 }
 
+/** A server-side exception is spent once the name is owned, stripped or omitted as it should be. */
+function serverExceptionIsSpent(name, serverOwned, omitted, stripped) {
+	return !serverOwned.has(name) || stripped.has(name) || omitted.has(name);
+}
+
+/** A client-side exception is spent once the strip list and the two owning registers agree. */
+function clientExceptionIsSpent(name, serverOwned, triggerMaintained, stripped) {
+	return !stripped.has(name) || serverOwned.has(name) || triggerMaintained.has(name);
+}
+
 /** An exception that excuses nothing is headroom the next real difference lands in. */
 function checkNoStaleExceptions(serverOwned, triggerMaintained, omitted, stripped) {
-	return EXCEPTIONS.filter((exception) => {
-		if (exception.side === 'server') {
-			return (
-				!serverOwned.has(exception.name) ||
-				stripped.has(exception.name) ||
-				omitted.has(exception.name)
-			);
-		}
-		return (
-			!stripped.has(exception.name) ||
-			serverOwned.has(exception.name) ||
-			triggerMaintained.has(exception.name)
-		);
-	}).map(
+	return EXCEPTIONS.filter((exception) =>
+		exception.side === 'server'
+			? serverExceptionIsSpent(exception.name, serverOwned, omitted, stripped)
+			: clientExceptionIsSpent(exception.name, serverOwned, triggerMaintained, stripped),
+	).map(
 		(exception) =>
 			`the ${exception.side} exception for ${exception.name} excuses nothing: the two registers ` +
 			'already agree about it. Delete it.',
