@@ -16,6 +16,7 @@ import {
 	sql,
 } from '../../index.js';
 import { describeDbIntegration, withTestDb } from '../../test-support/db-integration.js';
+import { createOrganization } from '../../test-support/row-fixtures.js';
 
 /**
  * The GeoJSON name of each shape, keyed by the upper-cased form the DDL is read
@@ -140,17 +141,10 @@ const EVERY_SHAPE: readonly string[] = Object.values(SHAPE_BY_UPPER_NAME);
 describeDbIntegration('owned geometry columns', () => {
 	it('stores direct address geometry without spatial feature indirection', async () => {
 		await withTestDb(async ({ db }) => {
-			const organization = await db
-				.insertInto('organizations')
-				.values({
-					workos_organization_id: 'workos_org_owned_geometry',
-					name: 'Owned Geometry District',
-				})
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			const organizationId = await createOrganization(db);
 
 			const address = await createAddress(db, {
-				organizationId: organization.id,
+				organizationId,
 				geojson: { type: 'Point', coordinates: [-90.1234567, 35.7654321] },
 				displayName: 'Field Office',
 				country: 'US',
@@ -171,19 +165,12 @@ describeDbIntegration('owned geometry columns', () => {
 
 	it('recomputes centroid columns via trigger when geom changes', async () => {
 		await withTestDb(async ({ db }) => {
-			const organization = await db
-				.insertInto('organizations')
-				.values({
-					workos_organization_id: 'workos_org_centroid_trigger',
-					name: 'Centroid Trigger District',
-				})
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			const organizationId = await createOrganization(db);
 
 			const inserted = await db
 				.insertInto('habitats')
 				.values({
-					organization_id: organization.id,
+					organization_id: organizationId,
 					geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
 					habitat_name: null,
 					description: '',
@@ -215,19 +202,12 @@ describeDbIntegration('owned geometry columns', () => {
 
 	it('lists habitat display rows with unnamed habitats ordered by uuid fallback', async () => {
 		await withTestDb(async ({ db }) => {
-			const organization = await db
-				.insertInto('organizations')
-				.values({
-					workos_organization_id: 'workos_org_habitat_display',
-					name: 'Habitat Display District',
-				})
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			const organizationId = await createOrganization(db);
 
 			await db
 				.insertInto('habitats')
 				.values({
-					organization_id: organization.id,
+					organization_id: organizationId,
 					geom: sql`st_setsrid(st_makepoint(-90.5, 35.5), 4326)`,
 					habitat_name: null,
 					description: '',
@@ -236,7 +216,7 @@ describeDbIntegration('owned geometry columns', () => {
 				.execute();
 
 			const { rows } = await listHabitatDisplayRowsByBounds(db, {
-				organizationId: organization.id,
+				organizationId,
 				bounds: {
 					west: -91,
 					south: 35,
@@ -249,7 +229,7 @@ describeDbIntegration('owned geometry columns', () => {
 
 			expect(rows).toHaveLength(1);
 			expect(rows[0]).toMatchObject({
-				organizationId: organization.id,
+				organizationId,
 				habitatName: null,
 				geomType: 'st_point',
 			});
@@ -332,14 +312,7 @@ describeDbIntegration('owned geometry columns', () => {
 	 */
 	it('writes the two pieces a split leaves, sharing the line they were cut along', async () => {
 		await withTestDb(async ({ db }) => {
-			const organization = await db
-				.insertInto('organizations')
-				.values({
-					workos_organization_id: 'workos_org_split_geometry',
-					name: 'Split Geometry District',
-				})
-				.returning(['id'])
-				.executeTakeFirstOrThrow();
+			const organizationId = await createOrganization(db);
 
 			const cut = splitRings({
 				rings: [SPLIT_OUTLINE, SPLIT_POND],
@@ -357,7 +330,7 @@ describeDbIntegration('owned geometry columns', () => {
 			const habitat = await db
 				.insertInto('habitats')
 				.values({
-					organization_id: organization.id,
+					organization_id: organizationId,
 					geom: geojsonToGeom(geometry),
 					habitat_name: 'Split pond',
 					description: '',
