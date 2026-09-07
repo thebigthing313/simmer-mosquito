@@ -2,18 +2,37 @@
  * Pure reconciliation between an organization's custom schema (a lookup row's
  * `customSchema`) and a record's `metadata` column.
  *
- * Kept free of React so both the editor ({@link ../field-components/metadata-field})
- * and read-only surfaces (detail pages) share one interpretation of a schema —
- * including which shape it is written in and how orphaned values are treated.
+ * Kept free of React so that one interpretation of a schema serves all three
+ * readers: the schema editor ({@link ../field-components/json-schema-field}),
+ * the record editor ({@link ../field-components/metadata-field}) and the
+ * read-only detail pages. That covers which shape the document is written in,
+ * how orphaned values are treated, and where a field's answers are stored.
  */
 
 export type MetadataValue = Record<string, unknown> | null;
 
 export type MetadataValueType = 'text' | 'number' | 'integer' | 'boolean' | 'date';
 
-/** One field a custom schema declares, normalized across both schema shapes. */
+/**
+ * One field a custom schema declares, normalized across both schema shapes.
+ *
+ * `key` is where a record's answer is stored in `metadata`, so it is the part
+ * that has to survive everything else changing. Display order is the order of
+ * the list a reader is handed and is not a property of a field.
+ */
 export interface CustomFieldDescriptor {
 	readonly key: string;
+	readonly label: string;
+	readonly required: boolean;
+	readonly valueType: MetadataValueType;
+}
+
+/**
+ * A field on its way back into a schema. `key: null` is a field somebody has
+ * just added, which has never been stored and so has no key yet.
+ */
+export interface CustomFieldDraft {
+	readonly key: string | null;
 	readonly label: string;
 	readonly required: boolean;
 	readonly valueType: MetadataValueType;
@@ -39,30 +58,99 @@ export function customFieldDescriptors(schema: unknown): readonly CustomFieldDes
 		return [];
 	}
 
-	if (isPlainJsonObject(schema.properties)) {
-		const required = Array.isArray(schema.required)
-			? new Set(schema.required.filter((item): item is string => typeof item === 'string'))
-			: new Set<string>();
-		return Object.entries(schema.properties).map(([key, property]) => ({
-			key,
+	return isPlainJsonObject(schema.properties)
+		? descriptorsFromJsonSchema(schema)
+		: descriptorsFromFieldMap(schema);
+}
+
+/** The `{ properties, required }` shape, in the order the properties are written. */
+function descriptorsFromJsonSchema(
+	schema: Record<string, unknown>,
+): readonly CustomFieldDescriptor[] {
+	const properties = isPlainJsonObject(schema.properties) ? schema.properties : {};
+	const required = Array.isArray(schema.required)
+		? new Set(schema.required.filter((item): item is string => typeof item === 'string'))
+		: new Set<string>();
+
+	return Object.entries(properties).map(([key, property]) => ({
+		key,
+		label: labelFromFieldKey(key),
+		required: required.has(key),
+		valueType: metadataValueTypeFromProperty(property),
+	}));
+}
+
+/** The `{ key: { label, order, type, required } }` shape the editor writes. */
+function descriptorsFromFieldMap(
+	schema: Record<string, unknown>,
+): readonly CustomFieldDescriptor[] {
+	return Object.entries(schema)
+		.map(([key, config]) => ({ key, ...fieldMapEntry(key, config) }))
+		.sort((first, second) => first.order - second.order)
+		.map(({ key, label, required, valueType }) => ({ key, label, required, valueType }));
+}
+
+function fieldMapEntry(
+	key: string,
+	config: unknown,
+): { label: string; order: number; required: boolean; valueType: MetadataValueType } {
+	// A hand-written `{ count: 'number' }` names the type and nothing else.
+	if (!isPlainJsonObject(config)) {
+		return {
 			label: labelFromFieldKey(key),
-			required: required.has(key),
-			valueType: metadataValueTypeFromProperty(property),
-		}));
+			order: Number.MAX_SAFE_INTEGER,
+			required: false,
+			valueType: metadataValueTypeFromValue(config),
+		};
 	}
 
-	return Object.entries(schema)
-		.map(([key, config]) => {
-			const configObject = isPlainJsonObject(config) ? config : {};
-			return {
-				key,
-				label: typeof configObject.label === 'string' ? configObject.label : labelFromFieldKey(key),
-				order: numericOrder(configObject.order),
-				required: configObject.required === true,
-				valueType: metadataValueTypeFromValue(configObject.type),
-			};
-		})
-		.sort((first, second) => first.order - second.order);
+	return {
+		label: typeof config.label === 'string' ? config.label : labelFromFieldKey(key),
+		order: numericOrder(config.order),
+		required: config.required === true,
+		valueType: metadataValueTypeFromValue(config.type),
+	};
+}
+
+/**
+ * The schema document those fields describe, in the flat shape
+ * `{ key: { label, order, type, required } }`.
+ *
+ * A field that already has a key keeps it, so renaming one changes its label
+ * and leaves every record's stored answer where it is. Only a field with no key
+ * gets one derived from its label, and a derived key that collides with another
+ * field's is given a numeric suffix. A field with a blank label is dropped, and
+ * a document with no fields left is null.
+ */
+export function customSchemaFromFields(fields: readonly CustomFieldDraft[]): MetadataValue {
+	const namedFields = fields
+		.map((field) => ({ ...field, label: field.label.trim() }))
+		.filter((field) => field.label.length > 0);
+	if (namedFields.length === 0) {
+		return null;
+	}
+
+	const usedKeys = new Set(
+		namedFields
+			.map((field) => field.key)
+			.filter((key): key is string => key !== null && key.length > 0),
+	);
+
+	const schema: Record<string, unknown> = {};
+	namedFields.forEach((field, index) => {
+		const key =
+			field.key !== null && field.key.length > 0
+				? field.key
+				: reserveFieldKey(fieldKeyFromLabel(field.label), usedKeys);
+		schema[key] = {
+			label: field.label,
+			order: index,
+			type: field.valueType,
+			required: field.required,
+		};
+	});
+
+	return schema;
 }
 
 /**
@@ -164,6 +252,31 @@ function metadataValueTypeFromValue(value: unknown): MetadataValueType {
 	return value === 'number' || value === 'integer' || value === 'boolean' || value === 'date'
 		? value
 		: 'text';
+}
+
+/** The camelCase key a label suggests, for a field that has never had one. */
+function fieldKeyFromLabel(label: string): string {
+	const parts = label
+		.trim()
+		.split(/[^a-zA-Z0-9]+/g)
+		.filter((part) => part.length > 0);
+	const [first = 'field', ...rest] = parts;
+	const key = [
+		first.toLowerCase(),
+		...rest.map((part) => part.charAt(0).toUpperCase() + part.slice(1).toLowerCase()),
+	].join('');
+	return key.length === 0 ? 'field' : key;
+}
+
+function reserveFieldKey(baseKey: string, usedKeys: Set<string>): string {
+	let key = baseKey;
+	let suffix = 2;
+	while (usedKeys.has(key)) {
+		key = `${baseKey}${suffix}`;
+		suffix += 1;
+	}
+	usedKeys.add(key);
+	return key;
 }
 
 function numericOrder(value: unknown): number {
