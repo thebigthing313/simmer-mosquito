@@ -52,8 +52,18 @@
 	"ignoreFindings": ["packages/ui-web/src/components/ui/**"],
 
 	// The duplication ratchet. CI runs `fallow dupes` with no flags, so this is
-	// what makes it a gate: 5.3% is where the workspace sits, and 5.4 leaves a
+	// what makes it a gate: 5.2% is where the workspace sits, and 5.3 leaves a
 	// tenth of a point of slack so an ordinary change does not fail on rounding.
+	//
+	// It was 5.4 against 5.2% when #605 checked this number while re-saving the
+	// health baseline, and the tenth of a point it gives back is not a cleanup.
+	// Absolute duplication went the other way over the same stretch: 12,552
+	// lines when #555 set the threshold, 12,572 now, across 302 files in 363
+	// clone groups. The ratio fell because the workspace grew, which is the
+	// second half of the "did the branch make it worse" paragraph further down:
+	// a branch that adds non-duplicated code lowers the ratio on its own. So
+	// read this move as taking back allowance no branch was using, not as copies
+	// coming out.
 	//
 	// It was 9.1 against 5.3% when #555 collapsed twenty copies of the linked
 	// record-name class and sixteen of `DetailRow`, and that gap is the entry to
@@ -137,7 +147,7 @@
 	},
 
 	"duplicates": {
-		"threshold": 5.4
+		"threshold": 5.3
 	},
 
 	// `@tanstack/db` is a deliberate pin, not an import. `@tanstack/react-db` and
