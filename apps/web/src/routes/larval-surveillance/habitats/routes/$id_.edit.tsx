@@ -1,3 +1,4 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
@@ -638,7 +639,7 @@ function EditStopRow({
 						title={stop.addressLabel ?? undefined}
 					>
 						<HomeIcon aria-hidden="true" className="size-3.5 shrink-0" />
-						<span className="min-w-0 truncate">{stop.addressLabel ?? '—'}</span>
+						<span className="min-w-0 truncate">{stop.addressLabel ?? <AbsentValue />}</span>
 					</span>
 
 					<StopTagChips tags={tags} />

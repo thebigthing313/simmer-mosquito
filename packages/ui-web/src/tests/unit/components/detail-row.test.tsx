@@ -49,7 +49,7 @@ describe('DetailRow', () => {
 		expect(markup).not.toContain('Not recorded');
 	});
 
-	it('never writes an em dash, which docs/writing-style.md bans from screen copy', () => {
+	it('spells the absence out, because a row has room for words a column has not', () => {
 		expect(render(<DetailRow label="Lure">{null}</DetailRow>)).not.toContain('—');
 	});
 

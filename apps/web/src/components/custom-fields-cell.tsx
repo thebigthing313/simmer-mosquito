@@ -1,3 +1,4 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { customFieldDescriptors, RequiredMark } from '@simmer-mosquito/ui-web/components/form';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 
@@ -12,7 +13,7 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 export function CustomFieldsCell({ schema }: { readonly schema: unknown }) {
 	const descriptors = customFieldDescriptors(schema);
 	if (descriptors.length === 0) {
-		return <span className="text-muted-foreground">—</span>;
+		return <AbsentValue />;
 	}
 	return (
 		<span className="flex flex-wrap gap-1">

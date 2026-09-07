@@ -21,9 +21,16 @@ export function summaryPeriodLabel(summary: WeatherSummaryListing): string {
 	return `${start} – ${end}`;
 }
 
-export function formatRange(min: number | null, max: number | null, unit: string): string {
+/**
+ * A low-to-high reading, or `null` when the summary recorded neither end.
+ *
+ * The absence is `null` rather than a dash so that the caller draws it. A
+ * formatter that bakes in a display string is how these two drifted from the
+ * component every other column used.
+ */
+export function formatRange(min: number | null, max: number | null, unit: string): string | null {
 	if (min === null && max === null) {
-		return '—';
+		return null;
 	}
 	if (min !== null && max !== null) {
 		return min === max ? `${min}${unit}` : `${min}–${max}${unit}`;
@@ -31,8 +38,9 @@ export function formatRange(min: number | null, max: number | null, unit: string
 	return `${(min ?? max) as number}${unit}`;
 }
 
-export function formatMeasure(value: number | null, unit: string): string {
-	return value === null ? '—' : `${value}${unit}`;
+/** A single reading against its unit, or `null` when the summary has none. */
+export function formatMeasure(value: number | null, unit: string): string | null {
+	return value === null ? null : `${value}${unit}`;
 }
 
 function formatDate(value: string): string {

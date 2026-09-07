@@ -1,3 +1,4 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Skeleton } from '@simmer-mosquito/ui-web/components/ui/skeleton';
 import { MapPinnedIcon } from '@simmer-mosquito/ui-web/icons/registry';
@@ -10,7 +11,6 @@ import {
 	addressSecondaryLabel,
 	addressSecondaryLines,
 } from '../lib/address-format';
-import { EmptyValue } from './empty-value';
 import { MapCardDetail } from './map/map-card';
 
 /**
@@ -57,7 +57,7 @@ function LinkedAddressValue({
 	const address = linked === undefined ? undefined : resolveLinkedAddress(linked);
 
 	if (addressId === null) {
-		return <EmptyValue />;
+		return <AbsentValue />;
 	}
 	if (address === undefined) {
 		// A record that names an address the app cannot see — deleted, or out of

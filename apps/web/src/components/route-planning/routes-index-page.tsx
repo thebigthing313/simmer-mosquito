@@ -1,3 +1,4 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
@@ -308,7 +309,7 @@ function RouteListRow({
 						{route.routeName}
 					</Link>
 					<span className="block text-muted-foreground text-xs">
-						{stopCount === null ? '—' : stopCountLabel(stopCount)}
+						{stopCount === null ? <AbsentValue /> : stopCountLabel(stopCount)}
 					</span>
 				</span>
 				<Button

@@ -1,3 +1,4 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { ListEmpty, ListLoading, PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -21,7 +22,6 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import { OutletSimpleLayout } from '../../../components/app-shell';
 import { DateRangeFilter } from '../../../components/date-range-filter';
-import { EmptyValue } from '../../../components/empty-value';
 import {
 	MultiSelectFilter,
 	SegmentedFilter,
@@ -514,10 +514,10 @@ function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 				{site}
 			</TableCell>
 			<TableCell className="text-muted-foreground">
-				{inspectionTypeLabel(row) ?? <EmptyValue />}
+				{inspectionTypeLabel(row) ?? <AbsentValue />}
 			</TableCell>
 			<TableCell className="text-muted-foreground">
-				{row.inspectedByName ?? <EmptyValue />}
+				{row.inspectedByName ?? <AbsentValue />}
 			</TableCell>
 			<TableCell>
 				<WetnessBadge isWet={row.isWet} />
@@ -525,11 +525,13 @@ function InspectionRow({ row }: { readonly row: InspectionTableRow }) {
 			<TableCell>
 				<DensityBadge density={row.density} />
 			</TableCell>
-			<TableCell className="text-right tabular-nums">{row.dipCount ?? <EmptyValue />}</TableCell>
+			<TableCell className="text-right tabular-nums">{row.dipCount ?? <AbsentValue />}</TableCell>
 			<TableCell>
 				<LifeStageStrip size="sm" stages={row} />
 			</TableCell>
-			<TableCell className="text-right tabular-nums">{row.larvaeCount ?? <EmptyValue />}</TableCell>
+			<TableCell className="text-right tabular-nums">
+				{row.larvaeCount ?? <AbsentValue />}
+			</TableCell>
 			<TableCell className="text-right">
 				<Button
 					aria-label={`View the ${when} inspection of ${site}`}

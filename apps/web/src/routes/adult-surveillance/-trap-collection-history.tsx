@@ -1,3 +1,4 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -321,7 +322,7 @@ export function CollectionRow({
 						className="size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-data-[state=open]:rotate-90 motion-reduce:transition-none"
 					/>
 					<span className="w-24 shrink-0 font-medium text-foreground text-sm tabular-nums">
-						{date === null ? '—' : formatWeekdayMonthDay(date)}
+						{date === null ? <AbsentValue /> : formatWeekdayMonthDay(date)}
 					</span>
 					<CollectionFlagBadges
 						className="flex min-w-0 flex-wrap items-center gap-1.5"

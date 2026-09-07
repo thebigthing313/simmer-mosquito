@@ -1,3 +1,4 @@
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { ListLoading } from '@simmer-mosquito/ui-web/components/page';
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -156,7 +157,9 @@ function FactList({ facts }: { readonly facts: readonly Fact[] }) {
 									: 'text-foreground'
 						}`}
 					>
-						{fact.value === null || fact.value === '' ? (fact.missing ?? '—') : fact.value}
+						{fact.value === null || fact.value === ''
+							? (fact.missing ?? <AbsentValue />)
+							: fact.value}
 					</dd>
 				</div>
 			))}

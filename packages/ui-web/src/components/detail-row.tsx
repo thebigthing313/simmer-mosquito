@@ -21,13 +21,16 @@ import type { ReactNode } from 'react';
  * The copies also disagreed on what an absent value reads as. Five rows on the
  * address page said "—", three on the account page said "—" through a helper
  * called `orNotSet`, six on the contact page said "Not set" through a different
- * helper with the same name, and four more said "—" through `EmptyValue`. Same
- * absence, four spellings, two of them from functions named the same thing.
+ * helper with the same name, and four more said "—" through the component that
+ * is now {@link AbsentValue}. Same absence, four spellings, two of them from
+ * functions named the same thing.
  *
- * A row with no value now says so here, once, and says "Not recorded" rather
- * than an em dash: `docs/writing-style.md` bans the em dash from anything an
- * agent writes for a screen, and a dash also asks the reader to work out
- * whether the row is empty or still loading.
+ * A row with no value now says so here, once, and says "Not recorded" in words
+ * where a column shows a dash. The difference is room, not a rule about the
+ * glyph: a detail row is one label beside one value and a sentence fits, while
+ * a table column repeats down a long list and words there are noise. So a
+ * column draws {@link AbsentValue} and a row reads this. Both say "Not
+ * recorded", one aloud and one to assistive technology.
  *
  * `empty` is for the rows that mean something more specific than "nothing":
  * "Unassigned", "None", "Pending", "Unfiled". Those say why the value is

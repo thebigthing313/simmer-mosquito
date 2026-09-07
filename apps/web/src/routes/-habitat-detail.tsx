@@ -4,6 +4,7 @@ import {
 	formatGeometryTypeLabel,
 	type GeoJsonGeometry,
 } from '@simmer-mosquito/mapping';
+import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -51,7 +52,6 @@ import { useBreadcrumbLabel } from '../components/app-shell';
 import { CommentsSection } from '../components/comments-section';
 import { CustomFieldsList } from '../components/custom-fields-card';
 import { DangerZoneCard } from '../components/danger-zone-card';
-import { EmptyValue } from '../components/empty-value';
 import { ExplorerPagination } from '../components/explorer-pagination';
 import { DensityBadge, LifeStageStrip } from '../components/larval-display';
 import { LinkedAddressValueById } from '../components/linked-address';
@@ -681,7 +681,7 @@ function InspectionHistory({
 								</TableCell>
 								<TableCell className="whitespace-nowrap">
 									{inspection.inspectedByProfileId === null ? (
-										<span className="text-muted-foreground">—</span>
+										<AbsentValue />
 									) : (
 										<Suspense fallback={<span className="text-muted-foreground">…</span>}>
 											<ProfileName profileId={inspection.inspectedByProfileId} />
@@ -691,7 +691,7 @@ function InspectionHistory({
 								<TableCell>{inspection.isWet ? 'Yes' : 'No'}</TableCell>
 								{columns.dips ? (
 									<TableCell className="text-right tabular-nums">
-										{inspection.dipCount ?? '—'}
+										{inspection.dipCount ?? <AbsentValue />}
 									</TableCell>
 								) : null}
 								{columns.density ? (
@@ -701,7 +701,7 @@ function InspectionHistory({
 								) : null}
 								{columns.larvae ? (
 									<TableCell className="text-right tabular-nums">
-										{inspection.larvaeCount ?? '—'}
+										{inspection.larvaeCount ?? <AbsentValue />}
 									</TableCell>
 								) : null}
 								<TableCell>
@@ -829,7 +829,7 @@ function ApplicationHistory({
 								</TableCell>
 								<TableCell className="whitespace-nowrap">
 									{application.applicatorProfileId === null ? (
-										<span className="text-muted-foreground">—</span>
+										<AbsentValue />
 									) : (
 										<Suspense fallback={<span className="text-muted-foreground">…</span>}>
 											<ProfileName profileId={application.applicatorProfileId} />
@@ -919,7 +919,7 @@ function SourceReductionHistory({
 								</TableCell>
 								<TableCell className="whitespace-nowrap">
 									{reduction.technicianProfileId === null ? (
-										<EmptyValue />
+										<AbsentValue />
 									) : (
 										<Suspense fallback={<span className="text-muted-foreground">…</span>}>
 											<ProfileName profileId={reduction.technicianProfileId} />
@@ -1004,7 +1004,7 @@ function RequestHistory({ requests }: { readonly requests: readonly HabitatHisto
 								</TableCell>
 								<TableCell className="whitespace-nowrap">
 									{request.requestedByProfileId === null ? (
-										<EmptyValue />
+										<AbsentValue />
 									) : (
 										<Suspense fallback={<span className="text-muted-foreground">…</span>}>
 											<ProfileName profileId={request.requestedByProfileId} />
@@ -1014,7 +1014,7 @@ function RequestHistory({ requests }: { readonly requests: readonly HabitatHisto
 								<TableCell className="whitespace-nowrap">
 									{controlTypeLabel(request.controlType)}
 								</TableCell>
-								<TableCell>{requestSummary(request) ?? <EmptyValue />}</TableCell>
+								<TableCell>{requestSummary(request) ?? <AbsentValue />}</TableCell>
 								<TableCell>
 									<RequestStatusBadge status={requestStatus(request)} />
 								</TableCell>
@@ -1084,7 +1084,7 @@ function ApplicationMethodName({
 	const methods = useApplicationMethodRoster();
 
 	if (applicationMethodId === null) {
-		return <EmptyValue />;
+		return <AbsentValue />;
 	}
 
 	const match = methods.find((method) => method.id === applicationMethodId);
