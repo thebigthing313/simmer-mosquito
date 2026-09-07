@@ -1119,10 +1119,7 @@ async function fetchSampleGeoContext(
 	id: string,
 	signal: AbortSignal,
 ): Promise<SampleGeoRow | null> {
-	const response = await sessionFetch(new URL(`/map/samples/${id}`, getServerUrl()), {
-		credentials: 'include',
-		signal,
-	});
+	const response = await sessionFetch(new URL(`/map/samples/${id}`, getServerUrl()), { signal });
 	if (response.status === 404) {
 		return null;
 	}

@@ -62,7 +62,6 @@ function useHabitatTypeUsage(): { readonly usageById: UsageById; readonly isLoad
 
 async function fetchHabitatTypeUsage(signal: AbortSignal): Promise<UsageById> {
 	const response = await sessionFetch(new URL('/map/habitats/type-usage', getServerUrl()), {
-		credentials: 'include',
 		signal,
 	});
 	if (!response.ok) {

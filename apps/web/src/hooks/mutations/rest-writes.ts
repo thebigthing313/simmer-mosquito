@@ -179,7 +179,6 @@ async function sendRestWrite(
 ): Promise<RestRefusalBody> {
 	const response = await sessionFetch(input.url, {
 		method: input.method,
-		credentials: 'include',
 		headers: {
 			accept: 'application/json',
 			...(input.body === undefined ? {} : { 'content-type': 'application/json' }),

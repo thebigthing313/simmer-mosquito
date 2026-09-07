@@ -47,7 +47,6 @@ async function fetchAddressGeometry(
 	signal: AbortSignal,
 ): Promise<AddressGeometry | null> {
 	const response = await sessionFetch(new URL(`/map/addresses/${addressId}`, getServerUrl()), {
-		credentials: 'include',
 		signal,
 	});
 	if (response.status === 404) {

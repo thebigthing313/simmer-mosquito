@@ -64,7 +64,7 @@ export async function fetchHabitatGeometry(
 	signal: AbortSignal,
 ): Promise<HabitatGeometry | null> {
 	const url = new URL(`/map/habitats/${habitatId}`, getServerUrl());
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (response.status === 404) {
 		return null;
 	}

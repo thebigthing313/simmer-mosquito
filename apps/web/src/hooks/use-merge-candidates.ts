@@ -83,7 +83,7 @@ export function useDuplicateCandidates(recordType: DuplicateRecordType) {
 		queryFn: async ({ signal }) => {
 			const response = await sessionFetch(
 				new URL(`/records/${recordType}/duplicates`, getServerUrl()),
-				{ credentials: 'include', signal },
+				{ signal },
 			);
 			if (!response.ok) {
 				throw new Error(`Could not look for duplicates (${response.status}).`);
@@ -134,7 +134,7 @@ export function useNearbyHabitats(habitatId: string, radiusMetres: number) {
 		queryFn: async ({ signal }) => {
 			const url = new URL(`/records/habitat/${habitatId}/nearby`, getServerUrl());
 			url.searchParams.set('radiusMetres', String(Math.round(radiusMetres)));
-			const response = await sessionFetch(url, { credentials: 'include', signal });
+			const response = await sessionFetch(url, { signal });
 			if (!response.ok) {
 				throw new Error(`Could not look for nearby habitats (${response.status}).`);
 			}

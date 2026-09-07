@@ -114,6 +114,16 @@ export function setSessionFetcher(fetcher: SessionFetcher | null): void {
  * **Both attempts go through the installed fetcher.** A retry on bare `fetch`
  * would carry no credential at all and be refused a second time, which reads as
  * a renewal that worked and a request that never had a chance.
+ *
+ * **A caller passes no `credentials`.** The installed fetcher is the one answer
+ * to how a request carries its credential, and the cookie apps' answer is
+ * `credentials: 'include'` inside `cookieFetch`. Thirty call sites in `apps/web`
+ * and `apps/admin` wrote it again in their own `init`, which was redundant under
+ * a cookie transport and wrong under a token one: `apps/mobile` sends a bearer
+ * and has no cookie to include, so a shared helper carrying that literal would
+ * be asking for a credential the host does not have (#695). The one place the
+ * literal is still right is `use-mapbox-map.ts`, because Mapbox GL fetches its
+ * own tiles and never reaches this function.
  */
 export const sessionFetch: typeof fetch = async (request, init) => {
 	const send = sendWithSession ?? fetch;

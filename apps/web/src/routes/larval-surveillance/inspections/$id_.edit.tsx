@@ -320,7 +320,7 @@ async function fetchInspectionGeometry(
 	signal: AbortSignal,
 ): Promise<GeoJsonGeometry | null> {
 	const url = new URL(`/map/inspections/${inspectionId}`, getServerUrl());
-	const response = await sessionFetch(url, { credentials: 'include', signal });
+	const response = await sessionFetch(url, { signal });
 	if (response.status === 404) {
 		return null;
 	}

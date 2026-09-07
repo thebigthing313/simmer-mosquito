@@ -93,7 +93,7 @@ async function fetchRecordRegions(
 ): Promise<RecordRegions> {
 	const response = await sessionFetch(
 		new URL(`/records/${recordType}/${recordId}/regions`, getServerUrl()),
-		{ credentials: 'include', signal },
+		{ signal },
 	);
 	if (!response.ok) {
 		throw new Error(`Could not read which regions hold this record (${response.status}).`);

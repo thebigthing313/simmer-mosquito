@@ -107,7 +107,7 @@ async function fetchDeleteImpact(
 ): Promise<DeleteImpact> {
 	const response = await sessionFetch(
 		new URL(`/records/${recordType}/${recordId}/delete-impact`, getServerUrl()),
-		{ credentials: 'include', signal },
+		{ signal },
 	);
 	if (!response.ok) {
 		throw new Error(`Could not read what deleting this would affect (${response.status}).`);
