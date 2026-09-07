@@ -53,19 +53,15 @@ export interface NormalizedInspectionResult {
 }
 
 // ---------------------------------------------------------------------------
-// Geometry + policy resolution
-// ---------------------------------------------------------------------------
-
-// ---------------------------------------------------------------------------
 // Request payload helpers
 // ---------------------------------------------------------------------------
 
 /**
  * A density band, or nothing.
  *
- * Exported because `table-commands/inspections.ts` reads the same five values
- * off a column named `density` rather than `density`'s camelCase twin, and the
- * set of bands is not something two readers should each hold a copy of.
+ * Exported because `table-commands/inspections.ts` reads the same five bands
+ * off the `density` column, and the set is not something two readers should
+ * each hold a copy of.
  */
 export function readDensity(value: unknown): LarvalDensity | null {
 	return LARVAL_DENSITIES.includes(value as LarvalDensity) ? (value as LarvalDensity) : null;

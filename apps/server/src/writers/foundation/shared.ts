@@ -57,7 +57,14 @@ export type TagCommand =
 	| DeleteTagCommand;
 export type LookupCommand = CollectionMethodCommand | CollectionLureCommand | HabitatTypeCommand;
 
-export interface CollectionMethodCreatePayload {
+/**
+ * The create body all three seeded lookup catalogs share.
+ *
+ * `custom_schema` and `action_threshold` are collection-method columns and are
+ * null for the other two, which is the shape the older route carried when it
+ * was named for that one catalog.
+ */
+export interface LookupCreatePayload {
 	readonly id: string;
 	readonly name: string;
 	readonly description: string | null;
@@ -113,9 +120,9 @@ export function readAddressCreatePayload(
 	};
 }
 
-export function readCollectionMethodCreatePayload(
+export function readLookupCreatePayload(
 	raw: Record<string, unknown>,
-): PayloadResult<CollectionMethodCreatePayload> {
+): PayloadResult<LookupCreatePayload> {
 	const id = readRequiredText(raw.id);
 	const name = readRequiredText(raw.name);
 	const actionThreshold = readOptionalNonnegativeInteger(raw.actionThreshold);

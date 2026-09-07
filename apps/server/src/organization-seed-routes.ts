@@ -1,6 +1,9 @@
 /**
  * The six writes `apps/admin` makes while standing a new Organization up.
  *
+ * Six call sites over eight paths: the console reaches its three lookup
+ * catalogs through one templated call, so `registerLookupSeeds` is one loop.
+ *
  * Everything else an organization writes goes to `/commands/{table}`, where the
  * body names the commands it means. These six do not, and they are all that is
  * left of the older per-domain write surface (#634). The operator console seeds
@@ -40,10 +43,10 @@ import { type CommandDb, runCommands } from './command-write.js';
 import { writeTrapCommand } from './writers/adult-surveillance/traps.js';
 import {
 	type AddressCreatePayload,
-	type CollectionMethodCreatePayload,
 	type LookupCommand,
+	type LookupCreatePayload,
 	readAddressCreatePayload,
-	readCollectionMethodCreatePayload,
+	readLookupCreatePayload,
 	writeAddressWithTxid,
 } from './writers/foundation/shared.js';
 import { writeFoundationLookupCommand } from './writers/foundation/tags.js';
@@ -73,7 +76,7 @@ interface SeedLookupCatalog {
 	readonly notFound: string;
 	readonly create: (
 		organization: { readonly organizationId: string; readonly actorProfileId: string },
-		payload: CollectionMethodCreatePayload,
+		payload: LookupCreatePayload,
 	) => LookupCommand;
 }
 
@@ -174,7 +177,7 @@ function registerLookupSeeds(
 			`/foundation/${catalog.path}`,
 			options.authContextMiddleware,
 			commandEndpoint({
-				readPayload: readCollectionMethodCreatePayload,
+				readPayload: readLookupCreatePayload,
 				build: ({ payload, organization }) => catalog.create(organization, payload),
 				run: (context: CommandContext, commands: readonly LookupCommand[]) =>
 					runCommands(

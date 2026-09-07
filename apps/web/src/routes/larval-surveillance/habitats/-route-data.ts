@@ -359,6 +359,12 @@ export async function updateHabitatAddress(
  * habitat the route page reads through an on-demand subset it does not own. The
  * subset streams the change back, so there is no optimistic row to keep and
  * nothing to invalidate.
+ *
+ * Each caller names its own intent rather than calling `habitatUpdatePlan` in
+ * `hooks/mutations/use-habitat-mutations.ts`. That plan reads a whole form
+ * against the row it started from and answers with every command the save
+ * means; these two change one field from a dialog and already know which one
+ * that is. The server refuses an intent whatever either side says.
  */
 async function patchHabitat(
 	habitatId: string,
