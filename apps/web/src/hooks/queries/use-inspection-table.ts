@@ -173,8 +173,10 @@ export function inspectionWindowKey(sort: InspectionSort, filters: InspectionTab
 		filters.larvaeFound ? 'found' : 'any',
 		sortedMembers(filters.habitatTypeIds),
 		sortedMembers(filters.inspectedByProfileIds),
-		// A separator no id, date or enum member can contain.
-	].join(' ');
+		// A separator no id, date or enum member can contain. It stays written as
+		// an escape: a literal NUL byte in the source reads as binary to git, and
+		// the file loses blame and line-level merge with it.
+	].join('\u0000');
 }
 
 function sortedMembers(values: ReadonlySet<string>): string {
