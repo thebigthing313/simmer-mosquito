@@ -18,7 +18,6 @@ import {
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { useMemo, useState } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
@@ -284,7 +283,6 @@ export function CollectionFormPage({
 	const [selectedTrap, setSelectedTrap] = useState<TrapOption | null>(
 		() => traps.find((trap) => trap.id === defaultValues.trapId) ?? null,
 	);
-	const [saveError, setSaveError] = useState<string | null>(null);
 	// In trap mode the collection inherits the trap's point; in ad-hoc mode it
 	// carries its own drawn point (the address, if any, is reference only). Only
 	// the first value is read, so the trap the form opens on frames the map from
@@ -319,26 +317,20 @@ export function CollectionFormPage({
 				validateCollection(value, geometry),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			location.clearError();
 			const error = validate(value);
 			if (error !== null) {
-				setSaveError(error);
-				return;
+				throw new Error(error);
 			}
 			if (value.sourceMode === 'adhoc' && !location.requireGeometry()) {
 				return;
 			}
-			try {
-				await onSave({
-					values: value,
-					trap: value.sourceMode === 'trap' ? selectedTrap : null,
-					geometry: value.sourceMode === 'adhoc' ? geometry : null,
-					geometryChanged: location.geometryChanged,
-				});
-			} catch (thrown) {
-				setSaveError(thrown instanceof Error ? thrown.message : 'Unable to save collection.');
-			}
+			await onSave({
+				values: value,
+				trap: value.sourceMode === 'trap' ? selectedTrap : null,
+				geometry: value.sourceMode === 'adhoc' ? geometry : null,
+				geometryChanged: location.geometryChanged,
+			});
 		},
 	});
 
@@ -374,12 +366,6 @@ export function CollectionFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Collection" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Collection</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<TimingSection form={form} units={units} />
 

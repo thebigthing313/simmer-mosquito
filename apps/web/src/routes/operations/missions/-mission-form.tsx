@@ -5,7 +5,6 @@ import {
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { useMemo, useState } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { domainValidator } from '../../../forms/domain-validation';
@@ -212,7 +211,6 @@ export function MissionFormPage({
 	readonly onSave: (plan: MissionPlan) => Promise<void>;
 }) {
 	const timeZone = useOrganizationTimeZone();
-	const [saveError, setSaveError] = useState<string | null>(null);
 	const [controlType, setControlType] = useState<ControlType>(defaultValues.controlType);
 
 	const options = useMissionFormOptions(controlType);
@@ -223,17 +221,11 @@ export function MissionFormPage({
 			onSubmit: domainValidatorFor(validate, fieldPaths, timeZone),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			const plan = readMissionPlan(value, timeZone);
 			if (plan.startAt === null) {
-				setSaveError('Enter the date and time the mission is scheduled to start.');
-				return;
+				throw new Error('Enter the date and time the mission is scheduled to start.');
 			}
-			try {
-				await onSave(plan);
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save the mission.');
-			}
+			await onSave(plan);
 		},
 	});
 
@@ -253,12 +245,6 @@ export function MissionFormPage({
 				}}
 			>
 				<form.FormErrorAlert title={errorTitle} />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>{errorTitle}</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<FormSection title="Plan">
 					<form.AppField name="controlType">

@@ -5,8 +5,7 @@ import {
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
@@ -107,7 +106,6 @@ export function TrapFormPage({
 	submitLabel,
 	onSave,
 }: TrapFormPageProps) {
-	const [saveError, setSaveError] = useState<string | null>(null);
 	// The draw layer both renders the trap's point and edits it, so the map needs no
 	// separate preview feature.
 	const location = useDrawLocation({
@@ -149,20 +147,14 @@ export function TrapFormPage({
 			),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			location.clearError();
 			if (value.collectionMethodId === '') {
-				setSaveError('Select the collection method for this trap.');
-				return;
+				throw new Error('Select the collection method for this trap.');
 			}
 			if (!location.requireGeometry()) {
 				return;
 			}
-			try {
-				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save trap.');
-			}
+			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
 
@@ -192,12 +184,6 @@ export function TrapFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Trap" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Trap</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<LocationSection
 					description="The point is the trap’s exact location. An address is optional reference. Refine the point off it to the precise spot."

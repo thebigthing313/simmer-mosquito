@@ -1,7 +1,5 @@
 import { createContactCommand } from '@simmer-mosquito/domain';
 import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { useState } from 'react';
 import { domainValidator, FORM_VALIDATION_CONTEXT } from '../../../forms/domain-validation';
 import { type ContactFormValues, validateContactForm } from '../-contact-fields';
 import { ContactFieldsBlock } from '../-contact-fields-block';
@@ -40,8 +38,6 @@ export function ContactFormPage({
 	submitLabel,
 	onSave,
 }: ContactFormPageProps) {
-	const [saveError, setSaveError] = useState<string | null>(null);
-
 	const form = useAppForm({
 		defaultValues,
 		validators: {
@@ -65,17 +61,11 @@ export function ContactFormPage({
 			),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			const error = validateContactForm(value);
 			if (error !== null) {
-				setSaveError(error);
-				return;
+				throw new Error(error);
 			}
-			try {
-				await onSave(value);
-			} catch (thrown) {
-				setSaveError(thrown instanceof Error ? thrown.message : 'Unable to save contact.');
-			}
+			await onSave(value);
 		},
 	});
 
@@ -97,12 +87,6 @@ export function ContactFormPage({
 				    strand each label a screen away from its input. */}
 				<div className="grid max-w-[640px] gap-6">
 					<form.FormErrorAlert title="Unable to Save Contact" />
-					{saveError === null ? null : (
-						<Alert variant="destructive">
-							<AlertTitle>Unable to Save Contact</AlertTitle>
-							<AlertDescription>{saveError}</AlertDescription>
-						</Alert>
-					)}
 
 					<ContactFieldsBlock form={form} />
 				</div>

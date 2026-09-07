@@ -87,3 +87,51 @@ function carriesFieldMessages(fields: unknown): boolean {
 	}
 	return Object.values(fields).some((message) => typeof message === 'string' && message.length > 0);
 }
+
+/**
+ * A save that threw, recorded so the kit's one alert can render it.
+ *
+ * The kit catches a rejected `onSubmit` and writes this into the form's error
+ * map, which is what lets one alert say both a validation failure and a save
+ * failure. Every form used to hold a second piece of state, catch its own
+ * throw, coerce it to a string and paint a second alert under the same title,
+ * so the title rendered twice and two channels held two states with no rule
+ * saying which won.
+ *
+ * The message comes back through `errorMessagesFrom`, so the coercion each form
+ * was spelling out is written once and the fallback sentence is the same
+ * everywhere.
+ */
+export class SaveFailure extends Error {
+	constructor(cause: unknown) {
+		super(errorMessagesFrom([cause])[0]?.message ?? GENERIC_MESSAGE, { cause });
+		this.name = 'SaveFailure';
+	}
+}
+
+export function isSaveFailure(error: unknown): error is SaveFailure {
+	return error instanceof SaveFailure;
+}
+
+/**
+ * Whether a recorded save failure is the only thing holding the form invalid.
+ *
+ * The error map is what `canSubmit` reads, so recording a save failure there
+ * disables the save button until the user edits a field. That is right for a
+ * validation error and wrong for a save the server refused or the network
+ * dropped, where trying again is the whole of what the user wants to do. So the
+ * button asks this as well, and the kit drops the recorded failure when the next
+ * attempt arrives.
+ */
+export function saveFailureAloneBlocksSubmit(state: {
+	readonly errors: readonly unknown[];
+	readonly isFieldsValid: boolean;
+	readonly isFieldsValidating: boolean;
+}): boolean {
+	return (
+		state.isFieldsValid &&
+		!state.isFieldsValidating &&
+		state.errors.length > 0 &&
+		state.errors.every(isSaveFailure)
+	);
+}

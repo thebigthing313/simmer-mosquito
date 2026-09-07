@@ -6,8 +6,6 @@ import {
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
@@ -121,7 +119,6 @@ export function WeatherStationFormPage({
 	submitLabel,
 	onSave,
 }: WeatherStationFormPageProps) {
-	const [saveError, setSaveError] = useState<string | null>(null);
 	const location = useDrawLocation({
 		geometryKind: 'weatherStation',
 		initialGeometry,
@@ -152,15 +149,10 @@ export function WeatherStationFormPage({
 			),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			if (!location.requireGeometry() || geometry === null) {
 				return;
 			}
-			try {
-				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save weather station.');
-			}
+			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
 
@@ -190,12 +182,6 @@ export function WeatherStationFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Weather Station" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Weather Station</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<div className="grid gap-5 sm:grid-cols-2">
 					<form.AppField
