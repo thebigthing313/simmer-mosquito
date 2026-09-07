@@ -588,8 +588,9 @@ describe('registerSyncShapeRoutes', () => {
 			expect(response.status).toBe(200);
 			// Raw/heavy geometry (geom binary + derived geojson) stays server-only and
 			// must never sync. Centroid columns (lat, lng, geom_type) are trigger-
-			// maintained real columns that DO sync — see serverOnlyGeometryColumns in
-			// packages/sync descriptor-factory.
+			// maintained real columns that DO sync. `OMIT` in
+			// `scripts/generate-table-schemas.mjs` keeps the two off every schema, and
+			// this is what asserts the column list a shape actually requests.
 			expect(columns).not.toContain('geom');
 			expect(columns).not.toContain('geojson');
 		}

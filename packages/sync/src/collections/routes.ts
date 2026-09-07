@@ -9,7 +9,6 @@
 
 import { createCollection } from '@tanstack/db';
 import { electricCollectionOptions } from '@tanstack/electric-db-collection';
-import { shapePathFor } from './functions/routes.js';
 import {
 	type SyncCollectionClientOptions,
 	syncCollectionConfig,
@@ -21,9 +20,6 @@ import { type Route, routeSchema } from './tables/routes.js';
  * past the collection into the schema module for the type of what it holds.
  */
 export type { Route };
-
-/** Where this table's shape is served. Derived so client and server cannot drift. */
-export const routesShapePath = shapePathFor('routes');
 
 export function createRoutesCollection(options: SyncCollectionClientOptions) {
 	// The schema is passed here rather than through `syncCollectionConfig` because it
