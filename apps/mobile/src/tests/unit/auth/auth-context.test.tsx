@@ -43,7 +43,11 @@ const signedIn: AuthMe = {
 	},
 };
 
-const signedOut: AuthMe = { authenticated: false, reason: 'no_session' };
+const signedOut: AuthMe = {
+	authenticated: false,
+	error: 'unauthenticated',
+	reason: 'no_session',
+};
 
 /** A sign-in that is not finished: the caller still owes a code. */
 const verificationRequired: SignInOutcome = {

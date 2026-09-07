@@ -47,7 +47,9 @@ describe('readOrgRole', () => {
 		expect(readOrgRole(null)).toBe('viewer');
 		expect(readOrgRole(authWithRole(null))).toBe('viewer');
 		expect(readOrgRole(authWithRole('superuser'))).toBe('viewer');
-		expect(readOrgRole({ authenticated: false, reason: 'no session' })).toBe('viewer');
+		expect(
+			readOrgRole({ authenticated: false, error: 'unauthenticated', reason: 'no session' }),
+		).toBe('viewer');
 	});
 });
 
@@ -61,7 +63,9 @@ describe('canWriteRecords', () => {
 	it('refuses viewers, and anyone whose role could not be read', () => {
 		expect(canWriteRecords(authWithRole('viewer'))).toBe(false);
 		expect(canWriteRecords(null)).toBe(false);
-		expect(canWriteRecords({ authenticated: false, reason: 'no session' })).toBe(false);
+		expect(
+			canWriteRecords({ authenticated: false, error: 'unauthenticated', reason: 'no session' }),
+		).toBe(false);
 	});
 });
 
@@ -117,7 +121,12 @@ describe('the role ladder', () => {
 	it('denies every floor when identity cannot be read', () => {
 		for (const minimum of ['admin', 'manager', 'collector'] as const) {
 			expect(hasAtLeastRole(null, minimum)).toBe(false);
-			expect(hasAtLeastRole({ authenticated: false, reason: 'no session' }, minimum)).toBe(false);
+			expect(
+				hasAtLeastRole(
+					{ authenticated: false, error: 'unauthenticated', reason: 'no session' },
+					minimum,
+				),
+			).toBe(false);
 		}
 	});
 });

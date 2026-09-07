@@ -4,7 +4,7 @@ import type {
 	SessionAuthenticationResult,
 	WorkOsAuth,
 } from '@simmer-mosquito/auth';
-import type { AuthenticatedMe } from '@simmer-mosquito/auth/browser';
+import type { AuthenticatedMe, RefusedMeBody } from '@simmer-mosquito/auth/browser';
 import type { ActiveLocalAuthIdentity, SimmerRole } from '@simmer-mosquito/db';
 import { resolveOrganizationSettings } from '@simmer-mosquito/domain';
 
@@ -185,7 +185,22 @@ export async function resolveAuthContext(options: {
 	};
 }
 
-export function toAuthFailureBody(result: Extract<AuthContextResult, { ok: false }>) {
+/**
+ * The refusal body, whose type `packages/auth` owns.
+ *
+ * Annotated for the reason {@link toAuthMeBody} is, on the other arm of the
+ * same endpoint. Inferred, it put `error` on the wire while `UnauthenticatedMe`
+ * declared only `authenticated` and `reason`, so a rename on either side
+ * compiled on both and the field arrived `undefined` at every read site. That
+ * is the case #615 closed for the authenticated arm and left open here (#698).
+ *
+ * It also holds {@link AuthContextError} to the three refusals the clients
+ * name: a fourth kind, or a renamed one, fails here rather than reaching a
+ * client as a string nothing matches.
+ */
+export function toAuthFailureBody(
+	result: Extract<AuthContextResult, { ok: false }>,
+): RefusedMeBody {
 	return {
 		authenticated: false,
 		error: result.error.type,
