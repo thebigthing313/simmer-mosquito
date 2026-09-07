@@ -91,7 +91,7 @@ const measure = {
 	fill: mapInteraction.measure,
 	outline: mapInteraction.measureStroke,
 	vertex: mapInteraction.measureStroke,
-	vertexStroke: '#ffffff',
+	vertexStroke: mapInteraction.vertexStroke,
 } as const;
 
 const isPolygon: ExpressionSpecification = ['==', ['geometry-type'], 'Polygon'];

@@ -437,9 +437,9 @@ const draft = {
 	outline: mapInteraction.selectedStroke,
 	line: mapInteraction.selected,
 	vertex: mapInteraction.selected,
-	vertexStroke: '#ffffff',
+	vertexStroke: mapInteraction.vertexStroke,
 	point: mapInteraction.selected,
-	pointStroke: '#ffffff',
+	pointStroke: mapInteraction.pointStroke,
 	refused: mapInteraction.refused,
 	refusedStroke: mapInteraction.refusedStroke,
 } as const;

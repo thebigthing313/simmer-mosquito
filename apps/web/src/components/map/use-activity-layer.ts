@@ -39,7 +39,7 @@ const familyColor: ExpressionSpecification = [
 	mapFamily.control,
 	'publicEngagement',
 	mapFamily.publicEngagement,
-	'#6b7280',
+	mapInteraction.fallback,
 ];
 
 // `['get', 'id']` rather than `['id']`: the second reads a feature id, which a

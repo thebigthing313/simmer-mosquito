@@ -9,9 +9,25 @@ import { brand } from './colors.js';
  * and why the same semantic role drifted to different values across layers:
  * `selected` was amber on addresses and regions but green on the other seven.
  *
+ * Six modules stayed out of that first pass and kept their blocks, and by the
+ * time anyone counted, selection was painting three colours: amber on the tile
+ * layers, dark green on the record overlay, near-black on the service-request
+ * map. `pnpm check:map-palette` now refuses a hex literal anywhere under
+ * `apps/web/src/components/map`, so the next role that drifts has to drift
+ * here, in the open (#618).
+ *
  * Literals are unavoidable. Scattering them is not. Everything a map layer
  * paints with is named once here.
  */
+
+/**
+ * The off-white every casing on the map is cut from.
+ *
+ * Named once because two roles below need the same value and three modules
+ * reached for `#ffffff` instead, close enough to look right and far enough that
+ * a halo drawn beside one from the register was a different white.
+ */
+const casing = '#f9fdfb';
 
 /**
  * Roles that mean the same thing on every layer. These are the ones that were
@@ -36,7 +52,34 @@ export const mapInteraction = {
 	/** The casing that separates a selected mark from whatever is under it. */
 	selectedStroke: '#b45309',
 	/** The halo that keeps a point mark legible over dense basemap tiles. */
-	pointStroke: '#f9fdfb',
+	pointStroke: casing,
+
+	/**
+	 * The casing on a vertex handle, in a draft or a measurement.
+	 *
+	 * The same off-white as `pointStroke` and named apart from it because the
+	 * two separate different things. `pointStroke` lifts a record's mark off the
+	 * basemap; this lifts a draggable handle off the shape it belongs to, which
+	 * is already painted in amber draft or violet measurement. The basemap is
+	 * what would move `pointStroke`, and a handle sitting on a saturated fill
+	 * must not move with it.
+	 */
+	vertexStroke: casing,
+
+	/**
+	 * The trailing arm of a `match`.
+	 *
+	 * Grey, and deliberately no domain's hue. It paints a feature whose family
+	 * or category the layer does not recognise, which on a map drawing live
+	 * records means a value arrived that nothing has a mark for. Painting it in
+	 * some other role's colour would report the wrong thing confidently; grey
+	 * says "unclassified" and stays legible over every basemap.
+	 *
+	 * It is here rather than left to each caller because two layers had already
+	 * invented the same grey independently, one of them reading this register
+	 * for every other arm of the same expression.
+	 */
+	fallback: '#6b7280',
 
 	/**
 	 * Measurement shapes.
@@ -166,9 +209,10 @@ export const mapProgress = {
 } as const;
 
 /**
- * Surrounding context — the feature a record was worked against (today, the
- * habitat behind a control action), drawn beneath that record's own geometry on
- * detail maps.
+ * Surrounding context — the feature a record was worked against (the habitat
+ * behind a control action) and the ground a record is being read against (the
+ * radius the service-request map searches), drawn beneath that record's own
+ * mark on detail maps.
  *
  * Deliberately outside the domain hues and drawn dashed and near-unfilled:
  * context is not a record, and a second saturated shape on a one-record map
