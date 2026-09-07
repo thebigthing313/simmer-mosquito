@@ -9,6 +9,7 @@
  */
 
 import { describe, expect, it } from 'vitest';
+import type { MembershipCommandBody } from '../../../../hooks/mutations/use-membership-mutations';
 import { inviteCommandBody } from '../../../../hooks/mutations/use-membership-mutations';
 
 const PICKED_PROFILE = 'profile-7';
@@ -63,6 +64,27 @@ describe('an invitation body', () => {
 			'profile_id',
 			'role',
 		]);
+	});
+});
+
+/**
+ * The compile-time half, which no assertion can reach.
+ *
+ * These two writes take the REST path rather than a collection, so they miss
+ * `mutateCollection` and the check it applies. `MembershipCommandBody` is where
+ * they get it back: the line below each `@ts-expect-error` fails the build if the
+ * body stops naming a command the domain defines, which is what `identity.reinvit`
+ * used to be, a 400 nothing read until somebody clicked.
+ */
+describe('a command outside the identity vocabulary does not compile', () => {
+	it('refuses a misspelled name and a command from another domain', () => {
+		// @ts-expect-error a typo of `identity.reinvite`.
+		const misspelled: MembershipCommandBody = { intents: ['identity.reinvit'], role: 'viewer' };
+
+		// @ts-expect-error a real command, but not one `/commands/memberships` answers.
+		const foreign: MembershipCommandBody = { intents: ['foundation.createGenus'] };
+
+		expect([misspelled, foreign]).toHaveLength(2);
 	});
 });
 

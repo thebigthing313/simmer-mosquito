@@ -14,17 +14,19 @@
  *
  * An optimistic mutation on the collection, settled through `settleWrite`. The
  * collection's own handlers turn it into a command request, so nothing here names
- * a URL, a verb or an intent — `packages/sync` derives all three from the table.
- * The row is on screen before the round trip, and a txid confirmation that
- * arrives late is treated as pending rather than as failure.
+ * a URL or a verb; `packages/sync` derives both from the table. The row is on
+ * screen before the round trip, and a txid confirmation that arrives late is
+ * treated as pending rather than as failure.
  *
  * ## Every write names the command it means
  *
- * `metadata.intents` is required, and `requireIntents` throws without it — an
- * unnamed write is a malformed request rather than one with a missing option.
- * Naming the command is what stops the server inferring intent from which fields
- * arrived, which is the whole reason `/commands/{table}` exists. It is also the
- * only thing here a form could not have told us.
+ * The command is an argument to `mutateCollection` rather than a string in a
+ * metadata bag, so a name outside `SingleRowCommandType` fails `tsc`. Naming it
+ * is what stops the server inferring intent from which fields arrived, which is
+ * the whole reason `/commands/{table}` exists. It is also the only thing here a
+ * form could not have told us. `requireIntents` still throws on a write that
+ * names none, but it fires once the write is in flight; `mutate.ts` is the same
+ * rule expressed where it can be enforced.
  *
  * ## Two things the caller does not supply
  *
@@ -39,6 +41,7 @@
 
 import { type Genus, type Species, settleWrite, type Unit } from '@simmer-mosquito/sync';
 import { genera } from './genera';
+import { mutateCollection } from './mutate';
 import { species } from './species';
 import { units } from './units';
 
@@ -69,38 +72,48 @@ export interface UnitValues {
 export async function createGenus(values: GenusValues): Promise<void> {
 	const now = new Date();
 	await settleWrite(
-		genera.insert(
-			{
+		mutateCollection(genera, {
+			operation: 'insert',
+			intent: 'foundation.createGenus',
+			row: {
 				id: crypto.randomUUID(),
 				name: values.name,
 				abbreviation: values.abbreviation,
 				created_at: now,
 				updated_at: now,
 			} satisfies Genus,
-			{ metadata: { intents: ['foundation.createGenus'] } },
-		),
+		}),
 	);
 }
 
 export async function updateGenus(genusId: string, values: GenusValues): Promise<void> {
 	await settleWrite(
-		genera.update(genusId, { metadata: { intents: ['foundation.updateGenus'] } }, (draft) => {
-			const row = draft as { -readonly [K in keyof Genus]: Genus[K] };
-			row.name = values.name;
-			row.abbreviation = values.abbreviation;
+		mutateCollection(genera, {
+			operation: 'update',
+			intent: 'foundation.updateGenus',
+			key: genusId,
+			changes: { name: values.name, abbreviation: values.abbreviation },
 		}),
 	);
 }
 
 export async function deleteGenus(genusId: string): Promise<void> {
-	await settleWrite(genera.delete(genusId, { metadata: { intents: ['foundation.deleteGenus'] } }));
+	await settleWrite(
+		mutateCollection(genera, {
+			operation: 'delete',
+			intent: 'foundation.deleteGenus',
+			key: genusId,
+		}),
+	);
 }
 
 export async function createSpecies(values: SpeciesValues): Promise<void> {
 	const now = new Date();
 	await settleWrite(
-		species.insert(
-			{
+		mutateCollection(species, {
+			operation: 'insert',
+			intent: 'foundation.createSpecies',
+			row: {
 				id: crypto.randomUUID(),
 				genus_id: values.genusId,
 				epithet: values.epithet,
@@ -109,33 +122,42 @@ export async function createSpecies(values: SpeciesValues): Promise<void> {
 				created_at: now,
 				updated_at: now,
 			} satisfies Species,
-			{ metadata: { intents: ['foundation.createSpecies'] } },
-		),
+		}),
 	);
 }
 
 export async function updateSpecies(speciesId: string, values: SpeciesValues): Promise<void> {
 	await settleWrite(
-		species.update(speciesId, { metadata: { intents: ['foundation.updateSpecies'] } }, (draft) => {
-			const row = draft as { -readonly [K in keyof Species]: Species[K] };
-			row.genus_id = values.genusId;
-			row.epithet = values.epithet;
-			row.common_name = values.commonName;
-			row.display_name = values.displayName;
+		mutateCollection(species, {
+			operation: 'update',
+			intent: 'foundation.updateSpecies',
+			key: speciesId,
+			changes: {
+				genus_id: values.genusId,
+				epithet: values.epithet,
+				common_name: values.commonName,
+				display_name: values.displayName,
+			},
 		}),
 	);
 }
 
 export async function deleteSpecies(speciesId: string): Promise<void> {
 	await settleWrite(
-		species.delete(speciesId, { metadata: { intents: ['foundation.deleteSpecies'] } }),
+		mutateCollection(species, {
+			operation: 'delete',
+			intent: 'foundation.deleteSpecies',
+			key: speciesId,
+		}),
 	);
 }
 
 export async function createUnit(values: UnitValues): Promise<void> {
 	await settleWrite(
-		units.insert(
-			{
+		mutateCollection(units, {
+			operation: 'insert',
+			intent: 'foundation.createUnit',
+			row: {
 				id: crypto.randomUUID(),
 				code: values.code,
 				unit_name: values.unitName,
@@ -146,24 +168,33 @@ export async function createUnit(values: UnitValues): Promise<void> {
 				// record with a history, so the table has no such column.
 				created_at: new Date(),
 			} satisfies Unit,
-			{ metadata: { intents: ['foundation.createUnit'] } },
-		),
+		}),
 	);
 }
 
 export async function updateUnit(unitId: string, values: UnitValues): Promise<void> {
 	await settleWrite(
-		units.update(unitId, { metadata: { intents: ['foundation.updateUnit'] } }, (draft) => {
-			const row = draft as { -readonly [K in keyof Unit]: Unit[K] };
-			row.code = values.code;
-			row.unit_name = values.unitName;
-			row.abbreviation = values.abbreviation;
-			row.unit_type = values.unitType;
-			row.unit_system = values.unitSystem;
+		mutateCollection(units, {
+			operation: 'update',
+			intent: 'foundation.updateUnit',
+			key: unitId,
+			changes: {
+				code: values.code,
+				unit_name: values.unitName,
+				abbreviation: values.abbreviation,
+				unit_type: values.unitType,
+				unit_system: values.unitSystem,
+			},
 		}),
 	);
 }
 
 export async function deleteUnit(unitId: string): Promise<void> {
-	await settleWrite(units.delete(unitId, { metadata: { intents: ['foundation.deleteUnit'] } }));
+	await settleWrite(
+		mutateCollection(units, {
+			operation: 'delete',
+			intent: 'foundation.deleteUnit',
+			key: unitId,
+		}),
+	);
 }

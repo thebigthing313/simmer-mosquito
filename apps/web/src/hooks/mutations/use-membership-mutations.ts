@@ -27,7 +27,7 @@
  * discovers which of the two it is by looking.
  */
 
-import type { SimmerRole } from '@simmer-mosquito/domain';
+import type { IdentityCommandType, SimmerRole } from '@simmer-mosquito/domain';
 import type { Membership } from '@simmer-mosquito/sync';
 import {
 	commandPathFor,
@@ -42,6 +42,22 @@ import { mutateCollection } from '../../lib/collections/mutate';
 import { profiles } from '../../lib/collections/profiles';
 import { useAuthSnapshot } from '../use-auth-snapshot';
 import { newRecordId } from './shared';
+
+/**
+ * A body the two REST identity writes send.
+ *
+ * These two miss `mutateCollection` because neither has an optimistic row, so
+ * the command they name had nowhere to be checked and `identity.reinvit` was a
+ * 400 rather than a build failure. Naming the union here is the same rule
+ * `lib/collections/mutate.ts` binds for the collection path.
+ *
+ * The rest of the body is columns of the record being written, which the server
+ * reads and `check:command-columns` holds, so it stays open.
+ */
+export interface MembershipCommandBody {
+	readonly intents: readonly IdentityCommandType[];
+	readonly [column: string]: unknown;
+}
 
 /** What the invite dialog holds. */
 export interface InviteFields {
@@ -123,7 +139,7 @@ export function useMembershipMutations(): MembershipMutations {
 export function inviteCommandBody(
 	fields: InviteFields,
 	mintId: () => string,
-): Record<string, unknown> {
+): MembershipCommandBody {
 	return {
 		intents: ['identity.invite'],
 		id: mintId(),
@@ -150,11 +166,14 @@ export function inviteCommandBody(
 async function postMembershipCommand(
 	method: 'POST' | 'PATCH',
 	membershipId: string | null,
-	body: Record<string, unknown>,
+	body: MembershipCommandBody,
 ): Promise<void> {
 	const path = commandPathFor('memberships');
 	const url = `${getServerUrl()}${path}${membershipId === null ? '' : `/${membershipId}`}`;
-	const txid = await writeCommand(url, method, body, 'Unable to send the invitation.');
+	// Widened here rather than at the declaration: `writeCommand` takes any body,
+	// and the point of the narrower type is that these two call sites cannot name a
+	// command the domain does not define. The spread is what drops the `readonly`.
+	const txid = await writeCommand(url, method, { ...body }, 'Unable to send the invitation.');
 
 	await Promise.all([awaitTxIdOn(memberships(), txid), awaitTxIdOn(profiles(), txid)]);
 }
