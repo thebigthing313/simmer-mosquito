@@ -161,6 +161,18 @@ function readQuoted(state, at) {
  * expression has then run to the end of the file, and ending at the fixed chunk
  * it started from would send the top-level loop back over text this already
  * collected, so every literal in the tail would arrive twice.
+ *
+ * Every chunk is taken against the backtick, not against the `}` in front of it.
+ * The `before` a chunk carries is what a caller reads to tell wiring from words,
+ * and the question it asks is what this template is for, which only the opening
+ * answers. Taking each chunk against its own `}` asked the question of the
+ * expression instead: a chunk after `${from}` saw the identifier `from` at the
+ * end of its window and was dropped as a module specifier, and `from` and `to`
+ * are what half the date ranges here are called (#678). It reads the other way
+ * too, and that is the half the workspace had: 47 chunks of `key={...}`,
+ * `name={...}` and `` `${SOURCE_ID}-points` `` were scanned as copy because the
+ * attribute or the constant in front of the template was 40 characters and one
+ * interpolation away. One template is one decision.
  */
 function readTemplate(state, at) {
 	const { source } = state;
@@ -171,7 +183,7 @@ function readTemplate(state, at) {
 		TEMPLATE_CHUNK.lastIndex = cursor;
 		TEMPLATE_CHUNK.exec(source);
 		end = TEMPLATE_CHUNK.lastIndex;
-		take(state, cursor, end, cursor - 1);
+		take(state, cursor, end, at);
 		if (source[end] !== '$') {
 			break;
 		}
@@ -220,9 +232,13 @@ const READERS = {
 /**
  * Record a string literal and blank it out of the masked source.
  *
- * `opensAt` is the delimiter the body sits behind, not the body's own start, so
- * the text kept as `before` stops short of the quote. That is what lets a caller
- * see `className=` where a body-relative slice would see `className="`.
+ * `opensAt` is the delimiter the literal sits behind, not the body's own start,
+ * so the text kept as `before` stops short of the quote. That is what lets a
+ * caller see `className=` where a body-relative slice would see `className="`.
+ *
+ * The literal, not the chunk: every fixed chunk of a template is taken against
+ * the backtick that opened it, so all of them carry the same `before` and a
+ * caller decides about the template once. `readTemplate` has why.
  */
 function take(state, from, to, opensAt) {
 	state.literals.push({

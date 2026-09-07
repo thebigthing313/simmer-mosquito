@@ -137,6 +137,11 @@ export function commentsInJsxText(source) {
  * A literal is copy unless one of `WIRING` recognizes it. Everything else
  * counts, including a bare one-word label, because that is the shape a heading
  * takes.
+ *
+ * Three of the four read `before`, the source in front of the literal's opening
+ * delimiter. A template's fixed chunks all carry the same one, the text in front
+ * of the backtick, so a template is wiring or words as a whole rather than chunk
+ * by chunk (#678). `masked-source.mjs` has why.
  */
 const isCopy = (literal) => literal.text.length > 0 && !WIRING.some((is) => is(literal));
 
