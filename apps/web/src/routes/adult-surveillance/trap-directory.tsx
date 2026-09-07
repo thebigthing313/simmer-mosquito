@@ -1,5 +1,5 @@
 import { SplitPage } from '@simmer-mosquito/ui-web/components/app-shell/outlet/split-page';
-import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import {
 	Empty,
 	EmptyDescription,
@@ -94,9 +94,9 @@ function TrapDirectoryRoute() {
 					title="Trap Directory"
 					total={visibleTraps.length}
 				>
-					<SearchField
+					<SearchInput
 						label="Search traps by name or code"
-						onChange={setSearchInput}
+						onChange={(event) => setSearchInput(event.target.value)}
 						onClear={() => {
 							clearSearchInput();
 							commitSearch('');

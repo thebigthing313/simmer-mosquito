@@ -1,5 +1,5 @@
 import { boundsFromCoordinates } from '@simmer-mosquito/mapping';
-import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -335,9 +335,10 @@ function StationFilters({
 }: StationFilterState) {
 	return (
 		<>
-			<SearchField
+			<SearchInput
 				label="Search weather stations"
-				onChange={onChange}
+				onChange={(event) => onChange(event.target.value)}
+				onClear={onClearSearch}
 				placeholder="Search stations…"
 				value={value}
 			/>

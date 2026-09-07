@@ -1,5 +1,5 @@
-import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
+import { InputGroupButton } from '@simmer-mosquito/ui-web/components/ui/input-group';
 import {
 	Popover,
 	PopoverAnchor,
@@ -94,30 +94,30 @@ export function PickerFrame({
 			<span className="font-medium text-foreground text-sm">{label}</span>
 			<Popover onOpenChange={onOpenChange} open={open}>
 				<PopoverAnchor asChild>
-					<div className="relative" ref={anchorRef}>
-						<SearchIcon
-							aria-hidden="true"
-							className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-						/>
-						<Input
-							className="pr-10 pl-9"
+					<div ref={anchorRef}>
+						<SearchInput
+							/*
+							 * The trailing control clears the picked record, not the text, so
+							 * it is the caller's own addon and shows against the selection
+							 * rather than against what is typed.
+							 */
+							endAddon={
+								value === null ? null : (
+									<InputGroupButton
+										aria-label={`Clear ${label.toLowerCase()}`}
+										onClick={onClear}
+										size="icon-xs"
+									>
+										<XIcon aria-hidden="true" />
+									</InputGroupButton>
+								)
+							}
+							label={label}
 							onChange={(event) => onSearchChange(event.target.value)}
 							onFocus={onOpen}
 							placeholder={placeholder}
 							value={open ? search : selectedLabel}
 						/>
-						{value === null ? null : (
-							<Button
-								aria-label={`Clear ${label.toLowerCase()}`}
-								className="-translate-y-1/2 absolute top-1/2 right-1.5"
-								onClick={onClear}
-								size="icon-xs"
-								type="button"
-								variant="ghost"
-							>
-								<XIcon aria-hidden="true" />
-							</Button>
-						)}
 					</div>
 				</PopoverAnchor>
 				<PopoverContent

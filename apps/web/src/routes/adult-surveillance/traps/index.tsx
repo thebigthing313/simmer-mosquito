@@ -1,4 +1,4 @@
-import { SearchField } from '@simmer-mosquito/ui-web/components/search-field';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
 import type { Map as MapboxMap } from 'mapbox-gl';
@@ -193,9 +193,10 @@ function TrapsExplorerRoute() {
 			activeFilterCount={activeFilterCount}
 			filters={
 				<>
-					<SearchField
+					<SearchInput
 						label="Search traps by name or code"
-						onChange={setSearchInput}
+						onChange={(event) => setSearchInput(event.target.value)}
+						onClear={clearSearch}
 						placeholder="Search name or code…"
 						value={searchInput}
 					/>

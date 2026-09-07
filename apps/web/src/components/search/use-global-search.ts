@@ -1,7 +1,6 @@
 import type { SearchDocumentClass, SearchResponse } from '@simmer-mosquito/domain';
 import { sessionFetch } from '@simmer-mosquito/sync';
 import { type UseQueryResult, useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
 import { getServerUrl } from '../../auth';
 
 /**
@@ -104,20 +103,11 @@ async function refusalReason(response: Response): Promise<string> {
 }
 
 /**
- * The query, held back so a keystroke is not a request.
+ * How long a keystroke is held before it becomes a request.
  *
  * 200ms, and no client floor on length: the endpoint accepts one character and a
  * one-character record search is real in this domain, where handles are codes.
  * Routes and actions are matched against the *un-debounced* value, so the list
  * never goes empty while this catches up.
  */
-export function useDebouncedQuery(query: string, delayMs = 200): string {
-	const [debounced, setDebounced] = useState(query);
-
-	useEffect(() => {
-		const timer = setTimeout(() => setDebounced(query), delayMs);
-		return () => clearTimeout(timer);
-	}, [query, delayMs]);
-
-	return debounced;
-}
+export const SEARCH_QUERY_DEBOUNCE_MS = 200;

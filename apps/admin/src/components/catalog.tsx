@@ -129,9 +129,10 @@ function CatalogToolbar({
 				{search.trim() === '' ? `${total} ${noun}` : `${shown} of ${total} ${noun}`}
 			</Badge>
 			<SearchInput
-				aria-label={`Search ${noun}`}
 				className="h-9 w-full max-w-[260px]"
+				label={`Search ${noun}`}
 				onChange={(event) => onSearchChange(event.target.value)}
+				onClear={() => onSearchChange('')}
 				placeholder={`Search ${noun}…`}
 				value={search}
 			/>

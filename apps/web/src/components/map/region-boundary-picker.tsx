@@ -1,12 +1,12 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
+import { SearchInput } from '@simmer-mosquito/ui-web/components/search-input';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import {
 	Popover,
 	PopoverContent,
 	PopoverTrigger,
 } from '@simmer-mosquito/ui-web/components/ui/popover';
-import { iconRegistry, Loader2Icon, SearchIcon } from '@simmer-mosquito/ui-web/icons/registry';
+import { iconRegistry, Loader2Icon } from '@simmer-mosquito/ui-web/icons/registry';
 import { ilike, or, useLiveQuery } from '@tanstack/react-db';
 import { useQueryClient } from '@tanstack/react-query';
 import { useDeferredValue, useMemo, useState } from 'react';
@@ -115,18 +115,13 @@ export function RegionBoundaryPicker({
 				</Button>
 			</PopoverTrigger>
 			<PopoverContent align="start" className="grid w-80 gap-2 p-2">
-				<div className="relative">
-					<SearchIcon
-						aria-hidden="true"
-						className="-translate-y-1/2 pointer-events-none absolute top-1/2 left-3 size-4 text-muted-foreground"
-					/>
-					<Input
-						className="pl-9"
-						onChange={(event) => setSearch(event.target.value)}
-						placeholder="Search regions"
-						value={search}
-					/>
-				</div>
+				<SearchInput
+					label="Search regions"
+					onChange={(event) => setSearch(event.target.value)}
+					onClear={() => setSearch('')}
+					placeholder="Search regions"
+					value={search}
+				/>
 				<RegionResults
 					loadingId={loadingId}
 					onSelect={(region) => void adoptRegion(region)}
