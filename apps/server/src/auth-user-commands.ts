@@ -1,56 +1,29 @@
-import type {
-	AcceptInvitationInput,
-	AcceptInvitationResult,
-	AuthChallenge,
-	AuthenticatedSession,
-	InvitationSummary,
-	PasswordAuthResult,
-	PasswordSignInInput,
-	PasswordSignUpInput,
-	ResetPasswordResult,
-	SelectOrganizationResult,
-	SessionAuthenticationResult,
-	SignUpResult,
-	VerifyEmailResult,
-} from '@simmer-mosquito/auth';
+import type { AuthChallenge, AuthenticatedSession, WorkOsAuth } from '@simmer-mosquito/auth';
 import type { Context, Hono } from 'hono';
 import type { AuthMailer } from './auth-email.js';
 import type { AuthVariables } from './auth-middleware.js';
 import { readSealedSession } from './auth-session-transport.js';
 
 /**
- * The subset of `createWorkOsAuth` the in-app (bring-your-own-UI) auth pages
- * drive. Kept structural so tests can inject a fake without a WorkOS client.
+ * The subset of `WorkOsAuth` the in-app (bring-your-own-UI) auth pages drive.
+ *
+ * A `Pick` rather than a second description of the same nine methods, so a
+ * signature that changes in `packages/auth` changes here instead of being
+ * restated. A test still injects a fake without a WorkOS client; what it can no
+ * longer do is answer with less than the real method answers with.
  */
-export interface AuthUserFlows {
-	signInWithPassword(input: PasswordSignInInput): Promise<PasswordAuthResult>;
-	signUpWithPassword(input: PasswordSignUpInput): Promise<SignUpResult>;
-	verifyEmailCode(input: {
-		readonly code: string;
-		readonly pendingAuthenticationToken: string;
-		readonly ipAddress?: string;
-		readonly userAgent?: string;
-	}): Promise<VerifyEmailResult>;
-	requestPasswordReset(input: {
-		readonly email: string;
-	}): Promise<{ readonly passwordResetToken: string; readonly email: string } | null>;
-	resetPassword(input: {
-		readonly token: string;
-		readonly newPassword: string;
-	}): Promise<ResetPasswordResult>;
-	getInvitationByToken(token: string): Promise<InvitationSummary | null>;
-	acceptInvitationWithPassword(input: AcceptInvitationInput): Promise<AcceptInvitationResult>;
-	authenticateWithOrganizationSelection(input: {
-		readonly organizationId: string;
-		readonly pendingAuthenticationToken: string;
-		readonly ipAddress?: string;
-		readonly userAgent?: string;
-	}): Promise<SelectOrganizationResult>;
-	switchOrganization(input: {
-		readonly sealedSession: string | undefined;
-		readonly workosOrganizationId: string;
-	}): Promise<SessionAuthenticationResult>;
-}
+export type AuthUserFlows = Pick<
+	WorkOsAuth,
+	| 'signInWithPassword'
+	| 'signUpWithPassword'
+	| 'verifyEmailCode'
+	| 'requestPasswordReset'
+	| 'resetPassword'
+	| 'getInvitationByToken'
+	| 'acceptInvitationWithPassword'
+	| 'authenticateWithOrganizationSelection'
+	| 'switchOrganization'
+>;
 
 /**
  * Runs after any successful WorkOS authentication: upserts the local identity,

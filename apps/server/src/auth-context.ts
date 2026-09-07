@@ -2,6 +2,7 @@ import type {
 	AuthUser,
 	SessionAuthenticationOptions,
 	SessionAuthenticationResult,
+	WorkOsAuth,
 } from '@simmer-mosquito/auth';
 import type { AuthenticatedMe } from '@simmer-mosquito/auth/browser';
 import type { ActiveLocalAuthIdentity, SimmerRole } from '@simmer-mosquito/db';
@@ -75,12 +76,26 @@ export type AuthContextResult =
 			readonly sealedSession?: string;
 	  };
 
+/**
+ * The per-request session check, as a seam rather than as a view.
+ *
+ * Its own interface and not a `Pick<WorkOsAuth, 'authenticateSession'>`, because
+ * `dev-impersonation.ts` implements it without being a WorkOS client at all and
+ * `main.ts` threads it separately from `auth` for that reason. The assertion
+ * below is what keeps the two shapes in step anyway.
+ */
 export interface AuthSessionProvider {
 	authenticateSession(
 		sealedSession: string | undefined,
 		options: SessionAuthenticationOptions,
 	): Promise<SessionAuthenticationResult>;
 }
+
+/** Errors with the method name when the real WorkOS client stops fitting the seam. */
+type Assert<T extends never> = T;
+type _WorkOsAuthIsASessionProvider = Assert<
+	WorkOsAuth extends AuthSessionProvider ? never : 'authenticateSession'
+>;
 
 export interface LocalAuthIdentityResolver {
 	resolveActiveLocalAuthIdentity(input: {

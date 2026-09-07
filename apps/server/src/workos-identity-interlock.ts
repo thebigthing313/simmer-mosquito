@@ -1,3 +1,4 @@
+import { WORKOS_SESSION_AND_READ_METHODS } from '@simmer-mosquito/auth';
 import type { ErrorHandler } from 'hono';
 
 /**
@@ -26,39 +27,21 @@ import type { ErrorHandler } from 'hono';
 /**
  * The methods that still run with the interlock on.
  *
- * The line is durable identity state versus session state.
- * `signInWithPassword` and `revokeSession` both write, but what they write is a
- * session. `getOrganization`, `findOrganizationMember` and `listUsers` write
- * nothing at all.
+ * Read from `packages/auth`, where the line between a session and durable
+ * identity state is drawn beside the methods it sorts and `tsc` holds the two
+ * halves to `keyof WorkOsAuth`. Restated here as thirteen strings until #619,
+ * and the thirteenth was `listUsers`, which is a WorkOS SDK call rather than a
+ * method of this object: it allowed nothing, because nothing ever asked for it.
  *
- * `verifyEmailCode` is the one judgement call, and it is allowed. It marks an
- * address verified, which is durable, but it is reachable only as the second
- * step of a sign-in WorkOS itself asked for, and refusing it would strand a
- * signing-in user mid-flow. Nobody new can reach it on staging anyway, because
- * `signUpWithPassword` and `acceptInvitationWithPassword` are both refused.
- *
- * Everything else on the `auth` object refuses:
- * `signUpWithPassword`, `acceptInvitationWithPassword`, `requestPasswordReset`,
- * `resetPassword`, `createOrganization`, `sendOrganizationInvitation`,
- * `revokeInvitation` and `deactivateOrganizationMembership`. They are not listed
- * here, on purpose: the allowlist is the whole declaration, and a ninth write
- * added later is refused without anybody remembering to name it.
+ * Everything the classification does not name refuses, on purpose: the
+ * allowlist is still the whole declaration, so a ninth write added later is
+ * refused whether or not anybody remembered to classify it. What the imported
+ * list changes is when the omission is found. It is a `tsc` error in
+ * `packages/auth` rather than a 403 on staging, on a surface somebody was using.
  */
-const SESSION_AND_READ_METHODS: ReadonlySet<string> = new Set([
-	'getAuthorizationUrl',
-	'authenticateCode',
-	'authenticateSession',
-	'switchOrganization',
-	'signInWithPassword',
-	'verifyEmailCode',
-	'authenticateWithOrganizationSelection',
-	'getInvitationByToken',
-	'getLogoutUrl',
-	'revokeSession',
-	'getOrganization',
-	'findOrganizationMember',
-	'listUsers',
-]);
+const SESSION_AND_READ_METHODS: ReadonlySet<string> = new Set<string>(
+	WORKOS_SESSION_AND_READ_METHODS,
+);
 
 /** The one code every refused surface answers with. */
 export const WORKOS_IDENTITY_WRITES_DISABLED = 'workos_identity_writes_disabled';
