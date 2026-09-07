@@ -54,7 +54,7 @@ describe('a command payload names its table columns', () => {
 
 	/*
 	 * Same mutation check for the columns the server owns: dropping the
-	 * `Exclude` in `ColumnOf` turns these four green and the build red.
+	 * `Exclude` in `ColumnOf` turns these five green and the build red.
 	 */
 	it('refuses a column the server owns', () => {
 		// @ts-expect-error the organization comes from `AuthContext`, not a body
@@ -65,17 +65,17 @@ describe('a command payload names its table columns', () => {
 		expect(habitat.geom).toBeUndefined();
 		// @ts-expect-error the centroid trigger writes it
 		expect(habitat.lat).toBeUndefined();
+		// @ts-expect-error who last touched the row comes from `actorProfileId`
+		expect(habitat.updated_by_profile_id).toBeUndefined();
 	});
 
 	/*
-	 * The two near neighbours that stay. `id` is client-generated, which is what
-	 * makes a create replay-safe, and `updated_by_profile_id` arrives from the
-	 * client on some tables. Both would compile away silently if the rule in
-	 * `scripts/generate-table-types.mjs` grew to cover them.
+	 * The near neighbour that stays. `id` is client-generated, which is what
+	 * makes a create replay-safe, and it would compile away silently if the rule
+	 * in `scripts/generate-table-types.mjs` grew to cover it.
 	 */
-	it('keeps the columns a body does name', () => {
+	it('keeps the column a body does name', () => {
 		expect(habitat.id).toBeUndefined();
-		expect(habitat.updated_by_profile_id).toBeUndefined();
 	});
 
 	it('gives a shared factory the union of the tables it serves', () => {
