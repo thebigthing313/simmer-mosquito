@@ -42,39 +42,203 @@ const ENCODING_KNEE = 0.0031308;
 /** Six-digit hex, with or without the hash. */
 const HEX = /^#?([\da-f]{6})$/i;
 
-/** `oklch(L C H)`, lightness as a percentage or as a 0-1 decimal. */
-const OKLCH = /oklch\(\s*([\d.]+)%?\s+([\d.]+)\s+([\d.]+)(?:deg)?/i;
+/**
+ * `oklch(L C H)`, lightness as a percentage or as a 0-1 decimal.
+ *
+ * Anchored, and that is the point. Unanchored it matched the first `oklch()`
+ * anywhere in the string, so a `color-mix()` read as whichever colour was
+ * written first and nothing returned `null` to say so.
+ */
+const OKLCH = /^oklch\(\s*([\d.]+)%?\s+([\d.]+)\s+([\d.]+)(?:deg)?\s*\)$/i;
+
+/** `color-mix(in oklch, …)`, capturing the two colours and their shares. */
+const OKLCH_MIX = /^color-mix\(\s*in\s+oklch\s*,([\s\S]*)\)$/i;
+
+/** A share written after its colour, `oklch(…) 54%`. */
+const TRAILING_PERCENTAGE = /^([\s\S]*\S)\s+([\d.]+)%$/;
+
+/** A share written before it, `54% oklch(…)`, which CSS also allows. */
+const LEADING_PERCENTAGE = /^([\d.]+)%\s+([\s\S]*\S)$/;
+
+/** The whole of a mix, in the percentage points its shares are written in. */
+const WHOLE_SHARE = 100;
+
+/** Chroma below this reads as grey, and a grey converted from sRGB has no hue. */
+const ACHROMATIC = 1e-6;
 
 /**
- * Reads an `oklch()` function or a six-digit hex, and returns `null` for
- * anything else.
+ * Reads an `oklch()` function, a `color-mix(in oklch, …)` of two of them, or a
+ * six-digit hex, and returns `null` for anything else.
+ *
+ * The mix arm exists because `getComputedStyle` does not evaluate one. An
+ * unregistered custom property computes to its specified value with `var()`
+ * substituted and nothing else, so a caller reading `--background` off the live
+ * document gets the `color-mix()` text and has to do the interpolation itself.
  *
  * `null` rather than a throw because the caller that reads live CSS gets
  * whatever the browser resolved a variable to, including the empty string
  * before the effect that fills it has run.
  */
 export function parseCssColor(value: string): RgbColor | null {
-	const oklch = OKLCH.exec(value);
+	const hex = parseHex(value);
+	if (hex !== null) return hex;
+
+	const polar = parseCssOklch(value);
+	return polar === null ? null : oklchToRgb(polar.colour);
+}
+
+function parseHex(value: string): RgbColor | null {
+	const hex = HEX.exec(value.trim());
+	if (hex === null) return null;
+	const raw = hex[1] ?? '';
+	return {
+		r: Number.parseInt(raw.slice(0, 2), 16),
+		g: Number.parseInt(raw.slice(2, 4), 16),
+		b: Number.parseInt(raw.slice(4, 6), 16),
+	};
+}
+
+/**
+ * A colour on its way into a mix.
+ *
+ * `hueMissing` is the part a plain `OklchColor` cannot carry. A colour
+ * converted from sRGB with no chroma left has no hue to convert, so CSS calls
+ * its hue missing and a mix takes the other side's instead. A hue somebody
+ * wrote down is never missing, even at zero chroma, which is why this is a flag
+ * on the read rather than a test on the chroma.
+ */
+interface ParsedOklch {
+	readonly colour: OklchColor;
+	readonly hueMissing: boolean;
+}
+
+/**
+ * The same read as `parseCssColor`, stopping in polar OKLCH.
+ *
+ * A mix interpolates there, so each side is wanted in that space rather than
+ * rounded to eight-bit sRGB and converted back on the way in.
+ */
+function parseCssOklch(value: string): ParsedOklch | null {
+	const trimmed = value.trim();
+
+	const mix = OKLCH_MIX.exec(trimmed);
+	if (mix !== null) return mixOklch(mix[1] ?? '');
+
+	const oklch = OKLCH.exec(trimmed);
 	if (oklch !== null) {
 		const rawLightness = Number(oklch[1]);
-		return oklchToRgb({
-			lightness: rawLightness > 1 ? rawLightness / 100 : rawLightness,
-			chroma: Number(oklch[2]),
-			hue: Number(oklch[3]),
-		});
-	}
-
-	const hex = HEX.exec(value);
-	if (hex !== null) {
-		const raw = hex[1] ?? '';
 		return {
-			r: Number.parseInt(raw.slice(0, 2), 16),
-			g: Number.parseInt(raw.slice(2, 4), 16),
-			b: Number.parseInt(raw.slice(4, 6), 16),
+			colour: {
+				lightness: rawLightness > 1 ? rawLightness / 100 : rawLightness,
+				chroma: Number(oklch[2]),
+				hue: Number(oklch[3]),
+			},
+			hueMissing: false,
 		};
 	}
 
-	return null;
+	const hex = parseHex(trimmed);
+	if (hex === null) return null;
+	const colour = rgbToOklch(hex);
+	return { colour, hueMissing: colour.chroma < ACHROMATIC };
+}
+
+/** One side of a mix: the colour, and the share it was given if it was given one. */
+interface MixSide extends ParsedOklch {
+	readonly share: number | null;
+}
+
+/** Everything after `in oklch,`, back as one colour. */
+function mixOklch(argumentList: string): ParsedOklch | null {
+	const parts = splitTopLevel(argumentList);
+	if (parts.length !== 2) return null;
+
+	const first = parseMixSide(parts[0] ?? '');
+	const second = parseMixSide(parts[1] ?? '');
+	if (first === null || second === null) return null;
+
+	const weight = firstWeight(first.share, second.share);
+	if (weight === null) return null;
+
+	return {
+		colour: interpolateOklch(first, second, weight),
+		hueMissing: first.hueMissing && second.hueMissing,
+	};
+}
+
+function parseMixSide(input: string): MixSide | null {
+	const { colour, share } = splitShare(input.trim());
+	const parsed = parseCssOklch(colour);
+	return parsed === null ? null : { ...parsed, share };
+}
+
+/** A side's colour and its share, which CSS lets you write on either side of it. */
+function splitShare(input: string): { colour: string; share: number | null } {
+	const trailing = TRAILING_PERCENTAGE.exec(input);
+	if (trailing !== null) return { colour: trailing[1] ?? '', share: toShare(trailing[2]) };
+
+	const leading = LEADING_PERCENTAGE.exec(input);
+	if (leading !== null) return { colour: leading[2] ?? '', share: toShare(leading[1]) };
+
+	return { colour: input, share: null };
+}
+
+function toShare(text: string | undefined): number {
+	return Math.min(WHOLE_SHARE, Math.max(0, Number(text)));
+}
+
+/**
+ * The first colour's share of the mix, 0 to 1.
+ *
+ * A share nobody wrote is whatever the other one leaves. Two that add to more
+ * than 100 are normalized against their own total, and two that add to less
+ * make the result that much transparent, which is a colour this module has no
+ * way to answer with, so it answers `null` instead.
+ */
+function firstWeight(first: number | null, second: number | null): number | null {
+	if (first === null && second === null) return 0.5;
+	const a = first ?? Math.max(0, WHOLE_SHARE - (second ?? 0));
+	const b = second ?? Math.max(0, WHOLE_SHARE - (first ?? 0));
+	const total = a + b;
+	return total < WHOLE_SHARE ? null : a / total;
+}
+
+/**
+ * Interpolates in polar OKLCH the way `color-mix(in oklch, …)` does, taking the
+ * short way around the hue circle.
+ */
+function interpolateOklch(first: MixSide, second: MixSide, weight: number): OklchColor {
+	const firstHue = first.hueMissing ? second.colour.hue : first.colour.hue;
+	const secondHue = second.hueMissing ? first.colour.hue : second.colour.hue;
+
+	let arc = (((secondHue - firstHue) % 360) + 360) % 360;
+	if (arc > 180) arc -= 360;
+
+	const hue = firstHue + arc * (1 - weight);
+	return {
+		lightness: first.colour.lightness * weight + second.colour.lightness * (1 - weight),
+		chroma: first.colour.chroma * weight + second.colour.chroma * (1 - weight),
+		hue: ((hue % 360) + 360) % 360,
+	};
+}
+
+/** Splits on commas that are not inside a nested function. */
+function splitTopLevel(input: string): string[] {
+	const parts: string[] = [];
+	let depth = 0;
+	let current = '';
+	for (const character of input) {
+		if (character === '(') depth += 1;
+		else if (character === ')') depth -= 1;
+		if (character === ',' && depth === 0) {
+			parts.push(current);
+			current = '';
+			continue;
+		}
+		current += character;
+	}
+	parts.push(current);
+	return parts;
 }
 
 /** OKLCH to sRGB, clipping out-of-gamut channels the way a browser does. */

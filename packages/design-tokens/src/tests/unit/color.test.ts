@@ -115,6 +115,107 @@ describe('parseCssColor', () => {
 	});
 });
 
+/**
+ * `getComputedStyle` does not evaluate a `color-mix()`. An unregistered custom
+ * property computes to its specified value with `var()` substituted and nothing
+ * else, so the design-token screen reads this text off `--background` and has to
+ * do the interpolation itself.
+ *
+ * Every expectation below was read out of Chrome first, off a probe element and
+ * off a canvas pixel, rather than off this module. Three of them would have been
+ * written wrong otherwise: the mix is interpolated in polar OKLCH and not in
+ * rectangular coordinates, a hue somebody wrote down is used even at zero
+ * chroma, and two shares adding to less than 100 buy transparency rather than
+ * normalizing.
+ */
+describe('parseCssColor on a color-mix', () => {
+	/** `--simmer-field-paper`, which `--background` resolves to, as computed. */
+	const FIELD_PAPER = 'color-mix(in oklch, oklch(96.7% 0.025 156) 54%, oklch(99% 0.004 165))';
+
+	it('mixes the two colours rather than reading the first one', () => {
+		// Chrome paints this mix rgb(239 251 244) and the first colour alone
+		// rgb(231 250 237), which is the answer the unanchored match gave.
+		expect(formatRgb(hex(FIELD_PAPER))).toBe('rgb(239 251 244)');
+		expect(formatRgb(hex('oklch(96.7% 0.025 156)'))).toBe('rgb(231 250 237)');
+	});
+
+	it('gives an unnamed share whatever the other one leaves', () => {
+		expect(parseCssColor('color-mix(in oklch, #ffffff 25%, #000000)')).toEqual(
+			parseCssColor('color-mix(in oklch, #ffffff 25%, #000000 75%)'),
+		);
+	});
+
+	it('splits a mix that names no share at all in half', () => {
+		expect(parseCssColor('color-mix(in oklch, #ffffff, #000000)')).toEqual(
+			parseCssColor('color-mix(in oklch, #ffffff 50%, #000000 50%)'),
+		);
+	});
+
+	it('normalizes two shares that add to more than 100', () => {
+		// Chrome reads 60/60 as an even split, the same colour and no alpha.
+		expect(parseCssColor('color-mix(in oklch, #ffffff 60%, #000000 60%)')).toEqual(
+			parseCssColor('color-mix(in oklch, #ffffff 50%, #000000 50%)'),
+		);
+	});
+
+	it('reads a share written before its colour', () => {
+		expect(parseCssColor('color-mix(in oklch, 25% #ffffff, #000000)')).toEqual(
+			parseCssColor('color-mix(in oklch, #ffffff 25%, #000000)'),
+		);
+	});
+
+	it('reads a mix nested inside a mix', () => {
+		expect(
+			parseCssColor('color-mix(in oklch, color-mix(in oklch, #ffffff, #ffffff) 25%, #000000)'),
+		).toEqual(parseCssColor('color-mix(in oklch, #ffffff 25%, #000000)'));
+	});
+
+	it('takes the short way around the hue circle', () => {
+		// 350 to 10 is 20 degrees the short way and 340 the long way, so a
+		// midpoint at 0 says the arc was read the way CSS reads it. Chrome
+		// computes the mix as oklch(0.6 0.1 0) and paints it this.
+		expect(formatRgb(hex('color-mix(in oklch, oklch(60% 0.1 350), oklch(60% 0.1 10))'))).toBe(
+			'rgb(177 102 126)',
+		);
+	});
+
+	it('keeps a hue that was written down even where there is no chroma to show it', () => {
+		// Chrome computes this mix as oklch(0.6 0.05 115), the midpoint of 200
+		// and 30 the short way. The zero chroma does not make 200 powerless,
+		// because powerless is what a converted colour gets, not a specified one.
+		expect(formatRgb(hex('color-mix(in oklch, oklch(60% 0 200) 50%, oklch(60% 0.1 30))'))).toBe(
+			'rgb(127 132 98)',
+		);
+	});
+
+	it('takes the hue from the other side when a colour converted from sRGB has none', () => {
+		// White has no chroma once it is in OKLCH, so it has no hue to give and
+		// the mix keeps red's. Chrome paints this mix and `oklch(0.81398 0.128877
+		// 29.2346)`, red's own hue, the same colour.
+		expect(formatRgb(hex('color-mix(in oklch, #ffffff, #ff0000)'))).toBe('rgb(255 161 145)');
+	});
+
+	it.each([
+		{ label: 'a mixing space this module cannot do', value: 'color-mix(in srgb, #fff, #000)' },
+		{
+			label: 'a side it cannot read',
+			value: 'color-mix(in oklch, #ffffff 40%, transparent)',
+		},
+		{ label: 'a mix of three colours', value: 'color-mix(in oklch, #fff, #000, #f00)' },
+		// Chrome answers this one at 80% alpha, and an opaque colour is not it.
+		{
+			label: 'shares that leave the result transparent',
+			value: 'color-mix(in oklch, #ffffff 20%, #000000 60%)',
+		},
+	])('returns null for $label', ({ value }) => {
+		expect(parseCssColor(value)).toBeNull();
+	});
+
+	it('returns null for an oklch that is only part of the value', () => {
+		expect(parseCssColor('oklch(96.7% 0.025 156) 54%')).toBeNull();
+	});
+});
+
 describe('wcagLevel', () => {
 	it.each([
 		{ label: 'the AA floor itself', ratio: 4.5, level: 'AA' },
