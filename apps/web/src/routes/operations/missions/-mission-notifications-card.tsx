@@ -78,7 +78,7 @@ export function MissionNotificationsCard({ missionId }: { readonly missionId: st
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="flex flex-row items-center justify-between gap-3 px-4 py-4">
+			<CardHeader padding="compact" className="flex flex-row items-center justify-between gap-3">
 				<CardTitle>Notifications</CardTitle>
 				<WriteOnly minimum="manager">
 					<Button disabled={isGenerating} onClick={() => void run()} size="sm">

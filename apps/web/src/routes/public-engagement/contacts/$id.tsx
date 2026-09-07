@@ -117,7 +117,7 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 			layout={layout}
 		>
 			<Card variant="surface">
-				<CardHeader className="px-4 py-4">
+				<CardHeader padding="compact">
 					<CardTitle>Identity</CardTitle>
 				</CardHeader>
 				<CardContent padding="compact">
@@ -131,7 +131,7 @@ function ContactDetailContent({ contact }: { readonly contact: Contact }) {
 			</Card>
 
 			<Card variant="surface">
-				<CardHeader className="px-4 py-4">
+				<CardHeader padding="compact">
 					<CardTitle>Communication</CardTitle>
 				</CardHeader>
 				<CardContent className="grid gap-4" padding="compact">
@@ -167,7 +167,7 @@ function ContactServiceRequestsCard({ contactId }: { readonly contactId: string 
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Service Requests</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact">

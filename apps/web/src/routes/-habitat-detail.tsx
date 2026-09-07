@@ -344,7 +344,7 @@ function HabitatDetailsCard({
 }) {
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact" className="grid gap-4">
@@ -556,7 +556,7 @@ export function HabitatHistoryCard({ habitatId }: { readonly habitatId: string }
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>History</CardTitle>
 				<CardDescription>
 					Recent larval inspections, samples, applications, source reductions, and requests for

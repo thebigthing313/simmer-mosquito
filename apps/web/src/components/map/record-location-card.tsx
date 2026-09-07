@@ -141,7 +141,7 @@ export function RecordLocationCard({
 
 	return (
 		<Card className="overflow-hidden" variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>{title}</CardTitle>
 				<CardDescription>
 					{description ??

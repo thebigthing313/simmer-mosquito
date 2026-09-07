@@ -176,6 +176,25 @@ function KitchenSinkPage() {
 							</Button>
 						</CardFooter>
 					</Card>
+					<Card variant="surface">
+						<CardHeader padding="compact">
+							<CardTitle>Trap servicing</CardTitle>
+							<CardDescription>
+								A compact card. The header and the body take the same padding variant, so the
+								spacing above the title matches the spacing below the last row.
+							</CardDescription>
+						</CardHeader>
+						<CardContent padding="compact">
+							<div className="fact-row">
+								<span>Traps set</span>
+								<strong>12</strong>
+							</div>
+							<div className="fact-row">
+								<span>Awaiting pickup</span>
+								<strong>3</strong>
+							</div>
+						</CardContent>
+					</Card>
 					<div className="alert-stack">
 						<Alert>
 							<CheckCircle2Icon aria-hidden="true" />

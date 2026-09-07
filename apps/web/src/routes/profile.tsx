@@ -91,7 +91,7 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 
 			<div className="grid items-start gap-5 xl:grid-cols-2">
 				<Card variant="surface">
-					<CardHeader className="px-4 py-4">
+					<CardHeader padding="compact">
 						<CardTitle>Account</CardTitle>
 						<CardDescription>Your sign-in identity.</CardDescription>
 					</CardHeader>
@@ -115,7 +115,7 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 				</Card>
 
 				<Card variant="surface">
-					<CardHeader className="px-4 py-4">
+					<CardHeader padding="compact">
 						<CardTitle>Organization</CardTitle>
 						<CardDescription>How your work is attributed.</CardDescription>
 					</CardHeader>
@@ -143,7 +143,7 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 				</Card>
 
 				<Card variant="surface">
-					<CardHeader className="px-4 py-4">
+					<CardHeader padding="compact">
 						<CardTitle>Password</CardTitle>
 						<CardDescription>We email a reset link to {user.email}.</CardDescription>
 					</CardHeader>

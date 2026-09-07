@@ -16,7 +16,9 @@ const cardVariants = cva('flex flex-col text-card-foreground', {
 	},
 });
 
-const cardContentVariants = cva('', {
+// One register for both halves of a card. A compact card sets `padding="compact"`
+// on its header and its content, and the two agree because they read the same line.
+const cardPaddingVariants = cva('', {
 	variants: {
 		padding: {
 			default: 'px-6',
@@ -41,12 +43,17 @@ function Card({ className, variant, ...props }: CardProps) {
 	);
 }
 
-function CardHeader({ className, ...props }: React.ComponentProps<'div'>) {
+interface CardHeaderProps
+	extends React.ComponentProps<'div'>,
+		VariantProps<typeof cardPaddingVariants> {}
+
+function CardHeader({ className, padding, ...props }: CardHeaderProps) {
 	return (
 		<div
 			data-slot="card-header"
 			className={cn(
-				'@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 px-6 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6',
+				'@container/card-header grid auto-rows-min grid-rows-[auto_auto] items-start gap-2 has-data-[slot=card-action]:grid-cols-[1fr_auto] [.border-b]:pb-6',
+				cardPaddingVariants({ padding }),
 				className,
 			)}
 			{...props}
@@ -86,13 +93,13 @@ function CardAction({ className, ...props }: React.ComponentProps<'div'>) {
 
 interface CardContentProps
 	extends React.ComponentProps<'div'>,
-		VariantProps<typeof cardContentVariants> {}
+		VariantProps<typeof cardPaddingVariants> {}
 
 function CardContent({ className, padding, ...props }: CardContentProps) {
 	return (
 		<div
 			data-slot="card-content"
-			className={cn(cardContentVariants({ padding }), className)}
+			className={cn(cardPaddingVariants({ padding }), className)}
 			{...props}
 		/>
 	);

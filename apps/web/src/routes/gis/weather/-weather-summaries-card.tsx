@@ -99,7 +99,7 @@ export function WeatherSummariesCard({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
+			<CardHeader padding="compact" className="flex flex-wrap items-center justify-between gap-2">
 				<CardTitle>Summaries</CardTitle>
 				<SummaryActions
 					isStationActive={isStationActive}

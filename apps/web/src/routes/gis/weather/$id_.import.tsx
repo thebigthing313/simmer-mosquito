@@ -248,7 +248,7 @@ function FilePickerCard({
 }) {
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Choose a File</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-3" padding="compact">
@@ -353,7 +353,7 @@ function ParsedFileCard({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="flex flex-wrap items-center justify-between gap-2 px-4 py-4">
+			<CardHeader padding="compact" className="flex flex-wrap items-center justify-between gap-2">
 				<CardTitle>{fileName}</CardTitle>
 				<Button disabled={!canCommit} onClick={onCommit} type="button">
 					Import {assessment.attemptable.length.toLocaleString()} Rows
@@ -468,7 +468,7 @@ function ImportResultCard({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Imported</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-3" padding="compact">

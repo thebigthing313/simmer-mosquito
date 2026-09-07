@@ -281,7 +281,7 @@ function RequestMissionsCard({ requestId }: { readonly requestId: string }) {
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<div className="grid gap-1">
 					<CardTitle className="flex items-center gap-2">
 						<MissionIcon aria-hidden="true" className="size-4 text-muted-foreground" />
@@ -339,7 +339,7 @@ function RequestDetailsCard({
 }) {
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent padding="compact">

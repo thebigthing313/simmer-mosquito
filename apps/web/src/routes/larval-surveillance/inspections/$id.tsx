@@ -406,7 +406,7 @@ function ContextCard({ inspection }: { readonly inspection: InspectionDetailRow 
 	const timeZone = useOrganizationTimeZone();
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<CardTitle>Details</CardTitle>
 			</CardHeader>
 			<CardContent className="grid gap-4" padding="compact">
@@ -458,7 +458,7 @@ function InspectionSamplesCard({
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<div className="flex items-start justify-between gap-3">
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
@@ -576,7 +576,7 @@ function LinkedControlActionsCard({ inspectionId }: { readonly inspectionId: str
 
 	return (
 		<Card variant="surface">
-			<CardHeader className="px-4 py-4">
+			<CardHeader padding="compact">
 				<div className="flex items-start justify-between gap-3">
 					<div className="grid gap-1">
 						<CardTitle className="flex items-center gap-2">
