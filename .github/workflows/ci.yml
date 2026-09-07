@@ -162,6 +162,18 @@ jobs:
       - name: Colour maths
         run: pnpm check:color-maths
 
+      # `.fallowrc.jsonc` names every package barrel as an entry point, so a
+      # barrel is a graph root and everything it re-exports is reachable. That
+      # is right for `fallow` and it means a module can have no caller anywhere
+      # and still be reported as used: `features.ts`, `overlays.ts`, `tiles.ts`
+      # and `viewport.ts` in `packages/mapping` contributed 33 of the barrel's
+      # 115 names and not one was imported, and two of them had suites. This
+      # asks the question a barrel cannot, whether anything outside the package
+      # names what a module holds, and the barrel's own imports do not count.
+      # `packages/mapping` only, at zero with no allowance.
+      - name: Mapping callers
+        run: pnpm check:mapping-callers
+
       # `CONTEXT.md` names every domain term and, beside it, the words that are
       # not that term. Nothing read those Avoid lists until this, which is how
       # agency and organization ended up in one sentence on one screen. It reads

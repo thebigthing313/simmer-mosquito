@@ -129,8 +129,8 @@ Existing:
   surfaces, type, spacing, radius, motion, and CSS/TypeScript consumers.
 - `packages/domain`: framework-agnostic domain types, commands, validators, and
   aggregate helpers.
-- `packages/mapping`: provider-neutral geometry, GeoJSON, feature reference, and
-  viewport helpers.
+- `packages/mapping`: provider-neutral geometry, GeoJSON, sketch, import and
+  measurement helpers.
 - `packages/sync`: framework-agnostic TanStack DB collection factories, per-table
   row schemas generated from the database, and the optimistic command adapters.
 - `packages/ui-web`: shadcn-style web component source, shared styles, and the
