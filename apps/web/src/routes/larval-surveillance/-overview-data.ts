@@ -5,6 +5,8 @@ import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
 import { useSpeciesNames } from '../../hooks/queries/use-species-names';
 import { sample_species } from '../../lib/collections/sample_species';
+import { addCalendarDays, calendarDateParts, utcCalendarDay } from '../../lib/local-date';
+import { unreadable, warnUnreadable } from '../../lib/unreadable-input';
 
 /** How far back the recent-window queries (heavy list, open samples) reach. */
 export const ACTIVITY_WINDOW_DAYS = 14;
@@ -155,16 +157,39 @@ async function fetchSamplesAwaiting(
 // other three overview modules already re-export it from this one.
 export { todayInTimeZone } from '../../lib/local-date';
 
-/** Shift a `YYYY-MM-DD` string by whole days, staying in UTC to avoid DST drift. */
+/**
+ * Shift a `YYYY-MM-DD` string by whole days, staying in UTC to avoid DST drift.
+ *
+ * The arithmetic is `addCalendarDays`, which has been guarded all along; this had
+ * its own copy, which reached `toISOString` on an Invalid Date and threw
+ * `RangeError: Invalid time value` into the render tree (#609). The name stays
+ * because twenty-five call sites across seventeen files read it from here, three
+ * of them the other overview modules re-exporting it.
+ *
+ * What is added on top is the report. `addCalendarDays` echoes an unreadable
+ * date in silence, deliberately, because a sync bound built from one has a reader
+ * below it that refuses the value again. A day strip has no such reader: the
+ * string goes on screen, so somebody has to be told.
+ */
 export function addDaysToDateString(date: string, days: number): string {
-	const utc = parseDateString(date);
-	utc.setUTCDate(utc.getUTCDate() + days);
-	return utc.toISOString().slice(0, 10);
+	if (calendarDateParts(date) === undefined) {
+		return unreadable('addDaysToDateString', date);
+	}
+	return addCalendarDays(date, days);
 }
 
-/** The Sunday that starts the calendar week containing `date`. */
+/**
+ * The Sunday that starts the calendar week containing `date`.
+ *
+ * An unreadable date comes back untouched, so the week strip built from it draws
+ * seven copies of what arrived rather than throwing the page away.
+ */
 export function startOfWeek(date: string): string {
-	return addDaysToDateString(date, -parseDateString(date).getUTCDay());
+	const parts = calendarDateParts(date);
+	if (parts === undefined) {
+		return unreadable('startOfWeek', date);
+	}
+	return addCalendarDays(date, -utcCalendarDay(parts).getUTCDay());
 }
 
 /** The seven dates of the calendar week beginning at `weekStart`, Sunday first. */
@@ -172,15 +197,30 @@ export function buildWeek(weekStart: string): readonly string[] {
 	return Array.from({ length: WEEK_LENGTH }, (_, index) => addDaysToDateString(weekStart, index));
 }
 
+/** `Wed` — the weekday cell above a day in the week strip. */
 export function weekdayLabel(date: string): string {
-	return new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' }).format(
-		parseDateString(date),
-	);
+	return utcLabel('weekdayLabel', date, { weekday: 'short' });
 }
 
+/**
+ * The day number under that weekday.
+ *
+ * Zero for a date this cannot read, because the answer has to be a number and
+ * `NaN` was being handed downstream. No month has a day zero, so a strip showing
+ * one is visibly not showing a date; a 1 would read as the first of the month
+ * and could not be told from a real day.
+ */
 export function dayOfMonth(date: string): number {
-	return parseDateString(date).getUTCDate();
+	const parts = calendarDateParts(date);
+	if (parts === undefined) {
+		warnUnreadable('dayOfMonth', date);
+		return NO_DAY;
+	}
+	return utcCalendarDay(parts).getUTCDate();
 }
+
+/** The day number no month has, which is how an unreadable date reads on a strip. */
+const NO_DAY = 0;
 
 /**
  * A record's own date, with the weekday it fell on: `Wed, Aug 12`.
@@ -193,16 +233,11 @@ export function dayOfMonth(date: string): number {
  * one record.
  */
 export function formatWeekdayMonthDay(date: string): string {
-	const parsed = parseDateString(date);
-	if (Number.isNaN(parsed.getTime())) {
-		return '—';
-	}
-	return new Intl.DateTimeFormat('en-US', {
+	return utcLabel('formatWeekdayMonthDay', date, {
 		weekday: 'short',
 		month: 'short',
 		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
+	});
 }
 
 /**
@@ -212,29 +247,16 @@ export function formatWeekdayMonthDay(date: string): string {
  * {@link formatWeekdayMonthDay} alone would make two Augusts look like one.
  */
 export function formatWeekdayDate(date: string): string {
-	const parsed = parseDateString(date);
-	if (Number.isNaN(parsed.getTime())) {
-		return '—';
-	}
-	return new Intl.DateTimeFormat('en-US', {
+	return utcLabel('formatWeekdayDate', date, {
 		weekday: 'short',
 		year: 'numeric',
 		month: 'short',
 		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
+	});
 }
 
 export function formatMonthDay(date: string): string {
-	const parsed = parseDateString(date);
-	if (Number.isNaN(parsed.getTime())) {
-		return '—';
-	}
-	return new Intl.DateTimeFormat('en-US', {
-		month: 'short',
-		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
+	return utcLabel('formatMonthDay', date, { month: 'short', day: 'numeric' });
 }
 
 /**
@@ -247,41 +269,42 @@ export function formatMonthDay(date: string): string {
  * are dated evidence — the year should not need decoding.
  */
 export function formatListDate(date: string): string {
-	const parsed = parseDateString(date);
-	if (Number.isNaN(parsed.getTime())) {
-		return '—';
-	}
-	return new Intl.DateTimeFormat('en-US', {
+	return utcLabel('formatListDate', date, {
 		month: 'short',
 		day: 'numeric',
 		year: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
+	});
 }
 
 /** Full numeric date, `M/D/YYYY` (e.g. `7/10/2026`). */
 export function formatDate(date: string): string {
-	const parsed = parseDateString(date);
-	if (Number.isNaN(parsed.getTime())) {
-		return '—';
-	}
-	return new Intl.DateTimeFormat('en-US', {
+	return utcLabel('formatDate (larval overview)', date, {
 		year: 'numeric',
 		month: 'numeric',
 		day: 'numeric',
-		timeZone: 'UTC',
-	}).format(parsed);
+	});
 }
 
-// Tolerates a bare `YYYY-MM-DD` as well as a full ISO timestamp (e.g. a Postgres
-// date serialized through JSON) by reading only the leading date portion.
-function parseDateString(date: string): Date {
-	const parts = date.slice(0, 10).split('-');
-	const year = Number(parts[0]);
-	const month = Number(parts[1]);
-	const day = Number(parts[2]);
-	if (!(Number.isFinite(year) && Number.isFinite(month) && Number.isFinite(day))) {
-		return new Date(Number.NaN);
+/**
+ * The shape all six labels above share: read the calendar date, render it on the
+ * UTC clock, and hand it back untouched when it will not read.
+ *
+ * `en-US` and `timeZone: 'UTC'` are the parts that are not the caller's, and
+ * they are why this is one function. The zone is the whole point of the module:
+ * a calendar date is a day, and naming any other zone is what makes `Aug 12`
+ * render as the 11th west of Greenwich. The options each caller passes are the
+ * whole of what differs, so nothing here decides how a date looks.
+ *
+ * `formatter` is the name in the warning, so it is the caller's own rather than
+ * this one's. A console line saying `utcLabel` would name the shape and not the
+ * screen.
+ */
+function utcLabel(formatter: string, date: string, options: Intl.DateTimeFormatOptions): string {
+	const parts = calendarDateParts(date);
+	if (parts === undefined) {
+		return unreadable(formatter, date);
 	}
-	return new Date(Date.UTC(year, month - 1, day));
+	return new Intl.DateTimeFormat('en-US', { ...options, timeZone: 'UTC' }).format(
+		utcCalendarDay(parts),
+	);
 }

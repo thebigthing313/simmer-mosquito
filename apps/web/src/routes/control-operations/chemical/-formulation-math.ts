@@ -4,6 +4,7 @@ import {
 	type FormulationComponentAmount,
 } from '@simmer-mosquito/domain';
 import type { UnitLabel } from '../../../hooks/queries/use-unit-labels';
+import { unreadable } from '../../../lib/unreadable-input';
 
 /**
  * Reading a formulation: what one batch of a mix takes, and what an application
@@ -81,9 +82,19 @@ export function formatAmountWithUnit(value: number, unit: UnitLabel | undefined)
 	return unit === undefined ? amount : `${amount} ${unit.abbreviation}`;
 }
 
+/**
+ * The same shape as `formatAmount` in `lib/format-count`, and not the same
+ * function.
+ *
+ * `Intl.NumberFormat` puts a separator in a thousand, and a recipe amount is a
+ * measurement rather than a count: `1,000 mL` is a comma in a number somebody
+ * has to type back into a mix. So this stays a `toFixed` and a `parseFloat`,
+ * which trims the trailing zeros and separates nothing. What it adopted from
+ * #609 is the answer to a number it cannot render, which was the em dash.
+ */
 function trimNumber(value: number, maxDecimals: number): string {
 	if (!Number.isFinite(value)) {
-		return '—';
+		return unreadable('trimNumber', value);
 	}
 	return Number.parseFloat(value.toFixed(maxDecimals)).toString();
 }

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	addCalendarDays,
+	calendarDateParts,
 	formatLocalDate,
 	localDayStartAsTimestamp,
 	localTimeAsInstant,
@@ -8,6 +9,41 @@ import {
 	operationalDayAsInstant,
 	parseLocalDate,
 } from '../../../lib/local-date';
+
+describe('calendarDateParts', () => {
+	it('reads the year, month and day as numbers', () => {
+		expect(calendarDateParts('2026-08-04')).toEqual({ year: 2026, month: 8, day: 4 });
+	});
+
+	it('reads the day a timestamp begins on', () => {
+		expect(calendarDateParts('2026-08-04T17:30:00Z')).toEqual({ year: 2026, month: 8, day: 4 });
+	});
+
+	it('treats empty, null and undefined alike as no date', () => {
+		expect(calendarDateParts('')).toBeUndefined();
+		expect(calendarDateParts(null)).toBeUndefined();
+		expect(calendarDateParts(undefined)).toBeUndefined();
+	});
+
+	/**
+	 * This is where it is stricter than the nine `slice(0, 10).split('-')` copies
+	 * #609 replaced with it. Those took `2026-8-4` and this refuses it.
+	 *
+	 * Nothing produces that form: a Postgres `date` renders zero-padded, an
+	 * `<input type="date">` holds zero-padded, and a scan of every date literal
+	 * under `apps/web/src` found none written the loose way. So the strictness
+	 * costs nothing and the shape is the whole of what makes a value readable.
+	 */
+	it('refuses a date whose parts are not zero-padded', () => {
+		expect(calendarDateParts('2026-8-4')).toBeUndefined();
+	});
+
+	it('refuses a date that is not a date at all', () => {
+		expect(calendarDateParts('not-a-date')).toBeUndefined();
+		expect(calendarDateParts('2026-08')).toBeUndefined();
+		expect(calendarDateParts('04/08/2026')).toBeUndefined();
+	});
+});
 
 describe('parseLocalDate', () => {
 	it('reads a calendar date as that day in local time', () => {

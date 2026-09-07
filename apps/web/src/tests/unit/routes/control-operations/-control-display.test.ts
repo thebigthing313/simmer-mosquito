@@ -1,6 +1,10 @@
 import { DEFAULT_UNIT_DEFAULTS } from '@simmer-mosquito/domain';
-import { describe, expect, it } from 'vitest';
-import { usageTotal } from '../../../../routes/control-operations/-control-display';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import {
+	formatActionDate,
+	formatMeasure,
+	usageTotal,
+} from '../../../../routes/control-operations/-control-display';
 
 /**
  * What `usageTotal` actually reads off a unit: the conversion key and what gets
@@ -108,5 +112,72 @@ describe('usageTotal', () => {
 
 		expect(result.text).toBe('3 gal · 5');
 		expect(result.convertedFrom).toBeNull();
+	});
+});
+
+describe('formatMeasure', () => {
+	let warn: ReturnType<typeof vi.spyOn>;
+
+	beforeEach(() => {
+		warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		warn.mockRestore();
+	});
+
+	it('keeps a whole amount whole and takes a fraction to two places', () => {
+		expect(formatMeasure(12, 'gal')).toBe('12 gal');
+		expect(formatMeasure(1.5, 'gal')).toBe('1.50 gal');
+	});
+
+	it('writes the amount bare when the unit is not known', () => {
+		expect(formatMeasure(12, null)).toBe('12');
+	});
+
+	// It already read `NaN gal`, silently: neither is an integer and `toFixed`
+	// writes both out. #609 kept the string and added the line that says so.
+	it('keeps a non-finite amount on screen, and says it would not render', () => {
+		expect(formatMeasure(Number.NaN, 'gal')).toBe('NaN gal');
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(warn.mock.calls[0]?.[0]).toContain('formatMeasure');
+	});
+});
+
+/**
+ * A control action's date is a day, and this is one of the two formatters that
+ * builds a local `Date` on purpose: `toLocaleDateString` with no zone reads the
+ * local parts back, so the two cancel.
+ *
+ * The rendered label is the reader's locale, so what is asserted here is the day
+ * rather than the wording. Reading the string as an instant is what would move
+ * it, and that is the failure these cases are for.
+ */
+describe('formatActionDate', () => {
+	let warn: ReturnType<typeof vi.spyOn>;
+
+	beforeEach(() => {
+		warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		warn.mockRestore();
+	});
+
+	it('renders the day that was recorded, whatever zone the reader is in', () => {
+		const label = formatActionDate('2026-08-12');
+		expect(label).toContain('12');
+		expect(label).toContain('2026');
+		expect(label).not.toContain('11');
+	});
+
+	it('reads the day a timestamp begins on', () => {
+		expect(formatActionDate('2026-08-12T23:30:00Z')).toBe(formatActionDate('2026-08-12'));
+	});
+
+	it('hands back a date it cannot read, and says so', () => {
+		expect(formatActionDate('12 August')).toBe('12 August');
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(warn.mock.calls[0]?.[0]).toContain('formatActionDate');
 	});
 });

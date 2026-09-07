@@ -55,6 +55,12 @@ first paint".
   sentence. A standalone glyph picked as a UI symbol is not prose and is not in
   scope, which is what `AbsentValue` in `packages/ui-web` draws for a column
   whose record carries no value there.
+- That glyph marks absence and never a failed render. A value the record does
+  not carry is a fact; a value that arrived and would not format is a bug, and
+  spelling the second like the first makes a broken column look like an empty
+  one. A formatter handed input it cannot read hands the value back and warns.
+  `apps/web/src/lib/unreadable-input.ts` is that rule, and #609 is the eight
+  formatters that were drawing the dash for it.
 - Colons introduce a list or an example. They are not mid-sentence connectors.
 - Do not bold every proper noun.
 - No inline-header lists where the bold label restates the line

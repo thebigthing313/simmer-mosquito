@@ -11,6 +11,9 @@
  * resolves them, written once.
  */
 
+import { calendarDateParts } from '../../lib/local-date';
+import { unreadable } from '../../lib/unreadable-input';
+
 /** Where a worklist is in its life. Derived from timestamps — there is no column. */
 export type AssignmentStatus = 'notStarted' | 'inProgress' | 'completed' | 'cancelled';
 
@@ -78,15 +81,25 @@ export function assignmentDisplayName(
 	return assigneeName === null ? row.assignmentDate : `${row.assignmentDate}, ${assigneeName}`;
 }
 
+/**
+ * `Tue, Aug 4, 2026` — an assignment's day, on the reader's clock.
+ *
+ * `assignmentDate` is an organization-local calendar date, so the parts are read
+ * out and handed to the local constructor: `new Date('2026-08-04')` is UTC
+ * midnight and shifts a day west of it.
+ *
+ * This was an eleventh copy of that parse, spelled `split('-')` with no leading
+ * slice, which is how #609's search for the other ten missed it. Without the
+ * slice a timestamp read as `Invalid Date` on screen, because the third part was
+ * the whole of the time and `Number` made it `NaN` rather than `undefined`, so
+ * the guard below never fired.
+ */
 export function formatAssignmentDate(date: string): string {
-	// `assignmentDate` is an organization-local calendar date, so it is split
-	// rather than parsed — `new Date('2026-08-04')` is UTC midnight and shifts a
-	// day west of it.
-	const [year, month, day] = date.split('-').map(Number);
-	if (year === undefined || month === undefined || day === undefined) {
-		return date;
+	const parts = calendarDateParts(date);
+	if (parts === undefined) {
+		return unreadable('formatAssignmentDate', date);
 	}
-	return new Date(year, month - 1, day).toLocaleDateString(undefined, {
+	return new Date(parts.year, parts.month - 1, parts.day).toLocaleDateString(undefined, {
 		weekday: 'short',
 		month: 'short',
 		day: 'numeric',

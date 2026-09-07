@@ -41,7 +41,8 @@ export function parseLocalDate(value: string | null | undefined): Date | undefin
 	return Number.isNaN(date.getTime()) ? undefined : date;
 }
 
-interface CalendarDateParts {
+/** A calendar date read apart, before any zone decides what instant it names. */
+export interface CalendarDateParts {
 	readonly year: number;
 	readonly month: number;
 	readonly day: number;
@@ -64,13 +65,52 @@ const CALENDAR_DATE = /^(\d{4})-(\d{2})-(\d{2})/;
  * One match rather than a split and three range checks: every value that
  * reaches here is a date column, a date input, or something already rejected,
  * and the shape is the whole of what makes it readable.
+ *
+ * ## The only leading-`YYYY-MM-DD` parse in this app
+ *
+ * There were ten. Nine were a hand-rolled `slice(0, 10).split('-')` and three
+ * `Number` conversions, spread across a map card, two detail pages, four display
+ * modules and this file's own private copy, and they disagreed: four of the
+ * helpers built on one had no guard at all and reached `toISOString` on an
+ * Invalid Date, throwing `RangeError: Invalid time value` into the render tree
+ * (#609). Anything reading a calendar date out of a string comes here.
+ *
+ * It is stricter than the copies it replaced. The regex wants zero-padded
+ * parts, so `2026-8-4` reads as unreadable where a `split` took it. Nothing
+ * produces that form: a Postgres `date` renders zero-padded and an
+ * `<input type="date">` holds zero-padded, and no date literal written under
+ * `apps/web/src` is loose.
+ *
+ * ## What a formatter does when this returns undefined
+ *
+ * It hands the value back and warns, through `lib/unreadable-input`. It does not
+ * render the em dash. That glyph is absence, which is a value the record does
+ * not carry, and a failed read is a value that arrived and would not render. A
+ * formatter that spells the second like the first makes a broken column look
+ * like an empty one, which is what eight of them were doing.
  */
-function calendarDateParts(value: string | null | undefined): CalendarDateParts | undefined {
+export function calendarDateParts(value: string | null | undefined): CalendarDateParts | undefined {
 	const match = value === null || value === undefined ? null : CALENDAR_DATE.exec(value);
 	if (match === null) {
 		return undefined;
 	}
 	return { year: Number(match[1]), month: Number(match[2]), day: Number(match[3]) };
+}
+
+/**
+ * A calendar date as the instant that day began at UTC.
+ *
+ * The step every date label takes after {@link calendarDateParts}, because a
+ * label is rendered on the UTC clock: build the day there and format it there,
+ * and the two cancel, so no zone can move it. Five formatters were writing this
+ * `Date.UTC` line out in full, one per module (#609).
+ *
+ * It cannot be an Invalid Date. The parts are numbers by the time they arrive,
+ * and `Date.UTC` rolls a month of 13 into January rather than refusing it, which
+ * is what those five already did.
+ */
+export function utcCalendarDay(parts: CalendarDateParts): Date {
+	return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
 }
 
 /**
