@@ -27,6 +27,12 @@ const GEOJSON_SOURCE_ID = 'geojson-overlay';
  * green, and `selected` was that same lifecycle green while every tile layer
  * had moved to amber. One record therefore read as selected on the explorer and
  * as merely active on its own detail map (#618).
+ *
+ * `fill` and `outline` are now one hue rather than a light fill under a darker
+ * edge, because that is what the explorer draws: `geometryTileLayers` falls back
+ * to the fill for its outline, and an active habitat's fill is the same
+ * lifecycle green. The fill sits at a quarter opacity and the outline at full,
+ * so the edge still reads.
  */
 const colors = {
 	fill: mapLifecycle.active,

@@ -72,7 +72,6 @@ const colors = {
 	ringFill: mapContext.fill,
 	selected: mapInteraction.selected,
 	pointStroke: mapInteraction.pointStroke,
-	unknownFamily: mapInteraction.fallback,
 } as const;
 
 const NO_SELECTION = '__no-selection__';
@@ -90,7 +89,7 @@ const familyColor: ExpressionSpecification = [
 	NEARBY_FAMILY_COLORS.surveillance,
 	'control',
 	NEARBY_FAMILY_COLORS.control,
-	colors.unknownFamily,
+	mapInteraction.fallback,
 ];
 
 /**

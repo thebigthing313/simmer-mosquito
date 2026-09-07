@@ -209,10 +209,10 @@ export const mapProgress = {
 } as const;
 
 /**
- * Surrounding context — the feature a record was worked against (the habitat
- * behind a control action) and the ground a record is being read against (the
- * radius the service-request map searches), drawn beneath that record's own
- * mark on detail maps.
+ * Surrounding context, drawn beneath a record's own mark on a detail map. Two
+ * things wear it: the feature the record was worked against, which today is the
+ * habitat behind a control action, and the ground it is being read against,
+ * which is the radius the service-request map searches.
  *
  * Deliberately outside the domain hues and drawn dashed and near-unfilled:
  * context is not a record, and a second saturated shape on a one-record map

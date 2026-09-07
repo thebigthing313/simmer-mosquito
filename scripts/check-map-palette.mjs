@@ -49,12 +49,26 @@ import { readFileSync } from 'node:fs';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
+import { count, failure } from './lib/style-gate.mjs';
 
+const GATE = 'check-map-palette';
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
+const fail = failure(GATE);
+
 const MAP_DIRECTORY = join(workspaceRoot, 'apps/web/src/components/map');
 
 /** The package a map module reads its colours from. */
 const PALETTE_PACKAGE = '@simmer-mosquito/design-tokens';
+
+/**
+ * An import of that package, subpath or not.
+ *
+ * The specifier and not the bare name, so that a docblock naming the package
+ * does not count as a module reading it. The floor below exists to catch a scan
+ * that has stopped seeing imports, and a textual match would answer yes to the
+ * prose describing the very thing that broke.
+ */
+const PALETTE_IMPORT = new RegExp(`from\\s+'${PALETTE_PACKAGE}(?:/[^']*)?'`);
 
 /**
  * The floors under the scan, both of them #591's rule: a walk that has stopped
@@ -90,19 +104,26 @@ const HEX_COLOR = /#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6})\b/g;
 
 function main() {
 	const files = [...typeScriptFilesUnder(MAP_DIRECTORY)];
-	checkFloor(files.length, MINIMUM_MAP_FILES, `TypeScript modules under ${where(MAP_DIRECTORY)}`);
+	if (files.length < MINIMUM_MAP_FILES) {
+		fail(
+			`read ${count(files.length, 'module')} under ${where(MAP_DIRECTORY)}, fewer than the ${MINIMUM_MAP_FILES} this expects. The walk has stopped finding the map directory, so a hex literal in it now passes this. Fix MAP_DIRECTORY in scripts/check-map-palette.mjs, or lower MINIMUM_MAP_FILES if that many modules were genuinely deleted.`,
+		);
+	}
 
 	const { findings, importers } = scan(files);
 
 	if (findings.length > 0) {
 		report(findings);
-		process.exitCode = 1;
 		return;
 	}
 
-	// Only on a clean run: a report full of hex literals has already proved the
-	// walk is reading the tree, and this floor would bury it behind a throw.
-	checkFloor(importers, MINIMUM_PALETTE_IMPORTERS, `modules reading ${PALETTE_PACKAGE}`);
+	// Only on a clean run. A report full of hex literals has already proved the
+	// walk is reading the tree, and this floor would bury it under a refusal.
+	if (importers < MINIMUM_PALETTE_IMPORTERS) {
+		fail(
+			`${count(importers, 'module')} of ${files.length} import ${PALETTE_PACKAGE}, fewer than the ${MINIMUM_PALETTE_IMPORTERS} this expects. The modules are being found and their imports are not, so this run's clean zero is the scan failing rather than the directory being clean.`,
+		);
+	}
 
 	console.log(
 		`Map palette: ${files.length} modules, ${importers} reading the register, no hex literals.`,
@@ -116,7 +137,7 @@ function scan(files) {
 
 	for (const file of files) {
 		const source = readFileSync(file, 'utf8');
-		if (source.includes(PALETTE_PACKAGE)) {
+		if (PALETTE_IMPORT.test(source)) {
 			importers += 1;
 		}
 		for (const match of source.matchAll(HEX_COLOR)) {
@@ -128,7 +149,9 @@ function scan(files) {
 }
 
 function report(findings) {
-	console.error('Map palette check failed:\n');
+	console.error(
+		`${GATE}: ${count(findings.length, 'hex colour')} under ${where(MAP_DIRECTORY)}.\n`,
+	);
 	for (const finding of findings) {
 		console.error(`  - ${finding}`);
 	}
@@ -138,18 +161,7 @@ function report(findings) {
 			'than writing the value out here, and add a role with a docblock when there is ' +
 			'none that fits.',
 	);
-}
-
-/** A count below its floor means the scan has stopped reading the tree, not that it is clean. */
-function checkFloor(actual, minimum, subject) {
-	if (actual >= minimum) {
-		return;
-	}
-	throw new Error(
-		`Read ${actual} ${subject}, fewer than the ${minimum} this expects. The scan has stopped ` +
-			'finding what it checks, so a hex literal now passes it. Fix the walk, or lower the ' +
-			'floor in scripts/check-map-palette.mjs if the directory really did shrink.',
-	);
+	process.exitCode = 1;
 }
 
 function where(path) {
