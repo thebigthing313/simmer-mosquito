@@ -6,8 +6,7 @@ import {
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
 import { useDrawLocation } from '../../../components/map/use-draw-location';
@@ -116,7 +115,6 @@ export function RegionFormPage({
 	submitLabel,
 	onSave,
 }: RegionFormPageProps) {
-	const [saveError, setSaveError] = useState<string | null>(null);
 	const location = useDrawLocation({
 		geometryKind: 'region',
 		initialGeometry,
@@ -148,15 +146,10 @@ export function RegionFormPage({
 			),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			if (!location.requireGeometry() || geometry === null) {
 				return;
 			}
-			try {
-				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save region.');
-			}
+			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
 
@@ -182,12 +175,6 @@ export function RegionFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Region" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Region</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<div className="grid gap-5 sm:grid-cols-2">
 					<form.AppField

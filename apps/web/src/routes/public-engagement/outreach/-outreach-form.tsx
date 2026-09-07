@@ -9,8 +9,7 @@ import {
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
@@ -128,7 +127,6 @@ export function OutreachFormPage({
 	submitLabel,
 	onSave,
 }: OutreachFormPageProps) {
-	const [saveError, setSaveError] = useState<string | null>(null);
 	const location = useDrawLocation({
 		geometryKind: 'controlAction',
 		initialGeometry,
@@ -180,28 +178,20 @@ export function OutreachFormPage({
 			),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			location.clearError();
 			if (value.outreachMethodId === '') {
-				setSaveError('Select the outreach method that was used.');
-				return;
+				throw new Error('Select the outreach method that was used.');
 			}
 			if (value.reach === null || !(value.reach > 0)) {
-				setSaveError('Enter how many people were reached.');
-				return;
+				throw new Error('Enter how many people were reached.');
 			}
 			if (value.outreachDate === '') {
-				setSaveError('Enter the date the outreach happened.');
-				return;
+				throw new Error('Enter the date the outreach happened.');
 			}
 			if (!location.requireGeometry()) {
 				return;
 			}
-			try {
-				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save outreach action.');
-			}
+			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
 
@@ -230,12 +220,6 @@ export function OutreachFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Outreach Action" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Outreach Action</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<form.AppField name="outreachDate">
 					{(field) => (

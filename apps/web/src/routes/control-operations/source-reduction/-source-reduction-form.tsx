@@ -9,8 +9,7 @@ import {
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
@@ -139,7 +138,6 @@ export function SourceReductionFormPage({
 	submitLabel,
 	onSave,
 }: SourceReductionFormPageProps) {
-	const [saveError, setSaveError] = useState<string | null>(null);
 	// `referenceGeometry` is a habitat's shape, shown alongside the action's own
 	// geometry for context — never the action's geometry itself, which the draw
 	// layer renders.
@@ -185,23 +183,15 @@ export function SourceReductionFormPage({
 			),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			location.clearError();
 			const validationError = validate(value);
 			if (validationError !== null) {
-				setSaveError(validationError);
-				return;
+				throw new Error(validationError);
 			}
 			if (!location.requireGeometry()) {
 				return;
 			}
-			try {
-				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
-			} catch (error) {
-				setSaveError(
-					error instanceof Error ? error.message : 'Unable to save source reduction action.',
-				);
-			}
+			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
 
@@ -233,12 +223,6 @@ export function SourceReductionFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Source Reduction" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Source Reduction</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<form.AppField name="sourceReductionDate">
 					{(field) => (

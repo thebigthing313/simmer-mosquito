@@ -9,8 +9,7 @@ import {
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
@@ -134,7 +133,6 @@ export function BiocontrolFormPage({
 	submitLabel,
 	onSave,
 }: BiocontrolFormPageProps) {
-	const [saveError, setSaveError] = useState<string | null>(null);
 	// `referenceGeometry` is a habitat's shape, shown alongside the action's own
 	// geometry for context — never the action's geometry itself, which the draw
 	// layer renders.
@@ -192,32 +190,23 @@ export function BiocontrolFormPage({
 			),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			location.clearError();
 			if (value.biocontrolMethodId === '') {
-				setSaveError('Select the biocontrol method that was used.');
-				return;
+				throw new Error('Select the biocontrol method that was used.');
 			}
 			if (value.amountReleased === null || !(value.amountReleased > 0)) {
-				setSaveError('Enter how much was released.');
-				return;
+				throw new Error('Enter how much was released.');
 			}
 			if (value.releaseUnitId === '') {
-				setSaveError('Select the unit the release was measured in.');
-				return;
+				throw new Error('Select the unit the release was measured in.');
 			}
 			if (value.biocontrolDate === '') {
-				setSaveError('Enter the date the agents were released.');
-				return;
+				throw new Error('Enter the date the agents were released.');
 			}
 			if (!location.requireGeometry()) {
 				return;
 			}
-			try {
-				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save biocontrol action.');
-			}
+			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
 
@@ -249,12 +238,6 @@ export function BiocontrolFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Biocontrol Action" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Biocontrol Action</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<form.AppField name="biocontrolDate">
 					{(field) => (

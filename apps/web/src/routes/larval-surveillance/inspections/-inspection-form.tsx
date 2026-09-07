@@ -14,7 +14,6 @@ import {
 	RequiredMark,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -275,7 +274,6 @@ export function InspectionFormPage({
 	const entryMode = policy.mode;
 	const columns = resultColumnsForMode(entryMode);
 
-	const [saveError, setSaveError] = useState<string | null>(null);
 	// Habitat mode reports against the same band as the drawn location, but it is
 	// a missing pick rather than a missing shape, so the hook does not own it.
 	const [habitatError, setHabitatError] = useState<string | null>(null);
@@ -338,7 +336,6 @@ export function InspectionFormPage({
 			}, INSPECTION_FIELD_PATHS),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			location.clearError();
 			setHabitatError(null);
 			if (value.locationMode === 'habitat' && value.habitatId === null) {
@@ -348,15 +345,11 @@ export function InspectionFormPage({
 			if (value.locationMode === 'adhoc' && !location.requireGeometry()) {
 				return;
 			}
-			try {
-				await onSave({
-					values: value,
-					adhocGeometry: value.locationMode === 'adhoc' ? adhocGeometry : null,
-					habitatGeometry: value.locationMode === 'habitat' ? previewGeometry : null,
-				});
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save inspection.');
-			}
+			await onSave({
+				values: value,
+				adhocGeometry: value.locationMode === 'adhoc' ? adhocGeometry : null,
+				habitatGeometry: value.locationMode === 'habitat' ? previewGeometry : null,
+			});
 		},
 	});
 
@@ -414,12 +407,6 @@ export function InspectionFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Inspection" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Inspection</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<form.AppField name="inspectionDate">
 					{(field) => (

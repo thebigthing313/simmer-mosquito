@@ -10,9 +10,8 @@ import {
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar, GeometryControl } from '../../../components/map/geometry-control';
@@ -207,7 +206,6 @@ export function ServiceRequestFormPage({
 	submitLabel,
 	onSave,
 }: ServiceRequestFormPageProps) {
-	const [saveError, setSaveError] = useState<string | null>(null);
 	// The draw layer both renders the placed point and edits it, so the map needs no
 	// separate preview feature.
 	const location = useDrawLocation({
@@ -248,21 +246,15 @@ export function ServiceRequestFormPage({
 				hideLocation ? undefined : validateServiceRequest(input.value, geometry),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			location.clearError();
 			const error = validateServiceRequestForm(value, { hideLocation, disableNewContact });
 			if (error !== null) {
-				setSaveError(error);
-				return;
+				throw new Error(error);
 			}
 			if (!location.requireGeometry()) {
 				return;
 			}
-			try {
-				await onSave({ values: value, geometry: hideLocation ? null : geometry });
-			} catch (thrown) {
-				setSaveError(thrown instanceof Error ? thrown.message : 'Unable to save service request.');
-			}
+			await onSave({ values: value, geometry: hideLocation ? null : geometry });
 		},
 	});
 
@@ -292,12 +284,6 @@ export function ServiceRequestFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Service Request" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Service Request</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<ContactSection
 					disableNewContact={disableNewContact}

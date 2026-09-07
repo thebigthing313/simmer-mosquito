@@ -13,10 +13,9 @@ import {
 	useAppForm,
 	validateSchemaMetadata,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { ToggleGroup, ToggleGroupItem } from '@simmer-mosquito/ui-web/components/ui/toggle-group';
 import { eq, useLiveQuery } from '@tanstack/react-db';
-import { type ReactNode, useCallback, useMemo, useState } from 'react';
+import { type ReactNode, useCallback, useMemo } from 'react';
 import { additionalPersonnelOptions } from '../../../components/additional-personnel';
 import { DateControl } from '../../../components/date-control';
 import { MapCanvas } from '../../../components/map';
@@ -228,7 +227,6 @@ export function ApplicationFormPage({
 	submitLabel,
 	onSave,
 }: ApplicationFormPageProps) {
-	const [saveError, setSaveError] = useState<string | null>(null);
 	const location = useDrawLocation({
 		geometryKind: 'controlAction',
 		initialGeometry,
@@ -394,21 +392,15 @@ export function ApplicationFormPage({
 			},
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			location.clearError();
 			const invalid = validate(value, componentsFor(value.formulationId).length);
 			if (invalid !== null) {
-				setSaveError(invalid);
-				return;
+				throw new Error(invalid);
 			}
 			if (!location.requireGeometry()) {
 				return;
 			}
-			try {
-				await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save application.');
-			}
+			await onSave({ values: value, geometry, geometryChanged: location.geometryChanged });
 		},
 	});
 
@@ -437,12 +429,6 @@ export function ApplicationFormPage({
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Save Application" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Save Application</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<form.AppField name="applicationDate">
 					{(field) => (

@@ -6,7 +6,6 @@ import {
 	RecordFormPage,
 	useAppForm,
 } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { useMemo, useState } from 'react';
 import { MapCanvas } from '../../../components/map';
 import { DrawToolbar } from '../../../components/map/geometry-control';
@@ -99,7 +98,6 @@ export function RequestFormPage({
 	readonly errorTitle: string;
 	readonly onSave: (input: RequestSaveInput) => Promise<void>;
 }) {
-	const [saveError, setSaveError] = useState<string | null>(null);
 	const location = useDrawLocation({
 		geometryKind: 'requestedControlAction',
 		initialGeometry,
@@ -142,19 +140,14 @@ export function RequestFormPage({
 			),
 		},
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
 			if (!location.requireGeometry()) {
 				return;
 			}
-			try {
-				await onSave({
-					values: value,
-					geometry,
-					geometryChanged: location.geometryChanged,
-				});
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to save the request.');
-			}
+			await onSave({
+				values: value,
+				geometry,
+				geometryChanged: location.geometryChanged,
+			});
 		},
 	});
 
@@ -186,12 +179,6 @@ export function RequestFormPage({
 				}}
 			>
 				<form.FormErrorAlert title={errorTitle} />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>{errorTitle}</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<LocationSection
 					geometryKind="requestedControlAction"
