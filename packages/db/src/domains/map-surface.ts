@@ -99,14 +99,52 @@ export interface MapSurfaceDefinition<TFilters> {
 	readonly filterWhere?: (filters: TFilters | undefined) => RawBuilder<boolean>[];
 }
 
+/**
+ * The select list of a display projection: one expression per field of the row,
+ * keyed by the alias it is selected under.
+ *
+ * A record rather than one opaque fragment because the alias is the only part of
+ * the projection the row type can be held to. Written as SQL text it is a string
+ * inside a template literal and the `sql<TRow>` cast is an assertion nothing
+ * checks; written as a key it is `keyof TRow`, so a mapped type over the row
+ * makes the compiler demand every field and refuse every extra. Three of the
+ * nine surfaces had drifted by the time anyone counted (#620), all of them
+ * selecting a column the row type did not declare.
+ *
+ * The expression stays an expression. A `case`, a `coalesce` roll-up and a
+ * `::text` cast are all values here; only the alias moved into the type.
+ */
+export type MapDisplayColumns<TRow> = {
+	readonly [TAlias in keyof TRow & string]: RawBuilder<unknown>;
+};
+
 /** The projection the paged-list and by-id readers share. */
-export interface MapSurfaceDisplay {
-	/** The select list, as one fragment so the two readers cannot drift. */
-	readonly columns: RawBuilder<unknown>;
+export interface MapSurfaceDisplay<TRow> {
+	/** The select list, keyed by alias, so the row type and the SQL cannot drift. */
+	readonly columns: MapDisplayColumns<TRow>;
 	/** Joins the projection needs beyond the surface's own from-clause. */
 	readonly joins?: RawBuilder<unknown>;
 	/** The order the explorer's result rail reads in. */
 	readonly orderBy: RawBuilder<unknown>;
+}
+
+/**
+ * A declared projection as a select list.
+ *
+ * Every entry is emitted as `expression as "alias"`, quoted, including the ones
+ * whose expression is already the column of that name. Uniform rather than
+ * clever: the alias in the SQL is then the same string as the key in the type,
+ * with nothing inferring one from the other.
+ *
+ * The alias is raw for the reason {@link column} is: these are literals declared
+ * in this package, never caller input.
+ */
+export function mapDisplaySelectList<TRow>(columns: MapDisplayColumns<TRow>): RawBuilder<unknown> {
+	const entries = Object.entries(columns as Record<string, RawBuilder<unknown>>);
+	return sql.join(
+		entries.map(([alias, expression]) => sql`${expression} as ${sql.raw(`"${alias}"`)}`),
+		sql`, `,
+	);
 }
 
 /** The geometry reads every map surface offers. */
@@ -174,18 +212,24 @@ export function mapSurface<TFilters>(
  * and a record the list shows are the same set by construction.
  */
 export function mapRecordSurface<TFilters, TRow>(
-	definition: MapSurfaceDefinition<TFilters> & { readonly display: MapSurfaceDisplay },
+	definition: MapSurfaceDefinition<TFilters> & { readonly display: MapSurfaceDisplay<TRow> },
 ): MapRecordSurfaceReaders<TFilters, TRow> {
 	const { display } = definition;
 	const joins = display.joins ?? sql``;
+	const columns = mapDisplaySelectList(display.columns);
 
 	return {
 		...mapSurface(definition),
 
+		// `total` is the page's, not the row's, so it is not a display column: it
+		// is declared here, on the cast of the read that appends it, and the two
+		// paged readers are the only place it exists. Putting it in the
+		// projection would put it in `TRow`, where the by-id read that never
+		// selects it would then claim it.
 		async listPage(db, input) {
 			const result = await sql<TRow & { readonly total: number }>`
 				select
-					${display.columns},
+					${columns},
 					count(*) over()::int as "total"
 				from ${definition.from}
 				${joins}
@@ -210,7 +254,7 @@ export function mapRecordSurface<TFilters, TRow>(
 					) as geom_4326
 				)
 				select
-					${display.columns},
+					${columns},
 					count(*) over()::int as "total"
 				from ${definition.from}
 				${joins}
@@ -232,7 +276,7 @@ export function mapRecordSurface<TFilters, TRow>(
 
 		async getById(db, input) {
 			const result = await sql<TRow>`
-				select ${display.columns}
+				select ${columns}
 				from ${definition.from}
 				${joins}
 				where ${sql.join(
