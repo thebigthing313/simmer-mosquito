@@ -61,10 +61,11 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { maskedSource } from './lib/masked-source.mjs';
+import { pathFrom } from './lib/relative-path.mjs';
 import { sourceFiles } from './lib/source-files.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -121,7 +122,7 @@ function readCalls(path) {
 	const file = {
 		source,
 		masked: maskedSource(source),
-		where: relative(workspaceRoot, path).replaceAll('\\', '/'),
+		where: pathFrom(workspaceRoot, path),
 	};
 
 	JOIN_CALL.lastIndex = 0;

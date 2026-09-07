@@ -63,8 +63,9 @@
 
 import { spawnSync } from 'node:child_process';
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pathFrom } from './lib/relative-path.mjs';
 import { WITHHELD, withheldColumnsFor } from './withheld-columns.mjs';
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -633,12 +634,12 @@ artifacts.push(
 function formatted(source, path) {
 	const biome = spawnSync(
 		`"${join(ROOT, 'node_modules/.bin/biome')}"`,
-		['check', '--write', `--stdin-file-path=${relative(ROOT, path).replace(/\\/g, '/')}`],
+		['check', '--write', `--stdin-file-path=${pathFrom(ROOT, path)}`],
 		{ cwd: ROOT, input: source, encoding: 'utf8', shell: true },
 	);
 
 	if (biome.status !== 0) {
-		console.error(`Biome could not format ${relative(ROOT, path)}.`);
+		console.error(`Biome could not format ${pathFrom(ROOT, path)}.`);
 		console.error(biome.stderr || biome.error?.message);
 		process.exit(1);
 	}
@@ -756,7 +757,7 @@ if (WRITE) {
 			text = mergedSchema(current, source);
 			if (text === null) {
 				console.log(
-					`${relative(ROOT, path)} has no z.object to merge into, so it is scaffolded again.`,
+					`${pathFrom(ROOT, path)} has no z.object to merge into, so it is scaffolded again.`,
 				);
 				text = source;
 			}
@@ -779,7 +780,7 @@ if (!CHECK) process.exit(0);
 const findings = [];
 
 for (const { path, source, ownership } of artifacts) {
-	const name = relative(ROOT, path).replace(/\\/g, '/');
+	const name = pathFrom(ROOT, path);
 	let current;
 	try {
 		current = readFileSync(path, 'utf8').replace(/\r\n/g, '\n');

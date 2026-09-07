@@ -48,9 +48,9 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { dirname, join, relative } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-
+import { pathFrom } from './lib/relative-path.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -116,7 +116,7 @@ function names(text, hook) {
 	return new RegExp(`\\b${hook}\\b`).test(text);
 }
 
-const short = (path) => relative(workspaceRoot, path).replaceAll('\\', '/');
+const short = (path) => pathFrom(workspaceRoot, path);
 
 // ---------------------------------------------------------------------------
 // Reporting

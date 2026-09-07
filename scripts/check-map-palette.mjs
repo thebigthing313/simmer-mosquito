@@ -46,8 +46,9 @@
  */
 
 import { readFileSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pathFrom } from './lib/relative-path.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
 import { count, failure } from './lib/style-gate.mjs';
 
@@ -165,7 +166,7 @@ function report(findings) {
 }
 
 function where(path) {
-	return relative(workspaceRoot, path).split(sep).join('/');
+	return pathFrom(workspaceRoot, path);
 }
 
 function lineOf(source, index) {

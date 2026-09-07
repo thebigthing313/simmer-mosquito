@@ -49,8 +49,9 @@
  */
 
 import { readdirSync, readFileSync } from 'node:fs';
-import { dirname, join, relative, sep } from 'node:path';
+import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { pathFrom } from './lib/relative-path.mjs';
 import { sourceFiles } from './lib/source-files.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -288,7 +289,7 @@ function checkNoCopies({ entries }) {
 			continue;
 		}
 		const source = readFileSync(file, 'utf8').replace(/\r\n/g, '\n');
-		const where = relative(workspaceRoot, file).split(sep).join('/');
+		const where = pathFrom(workspaceRoot, file);
 
 		failures.push(...listCopies(source, where, byMembers));
 		failures.push(...interleavedCopies(source, where, entries));
