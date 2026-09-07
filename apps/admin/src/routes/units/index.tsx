@@ -7,7 +7,7 @@ import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { NativeSelect } from '@simmer-mosquito/ui-web/components/ui/native-select';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { AdminPage } from '../../components/admin-page';
 import {
@@ -64,6 +64,31 @@ const EMPTY_UNIT: UnitFormValues = {
 
 type UnitDialog = CatalogDialogState<UnitListing>;
 
+/** The fields the filter reads. The query arrives trimmed and lowercased. */
+function matchesUnit(unit: UnitListing, query: string): boolean {
+	return (
+		unit.unitName.toLowerCase().includes(query) ||
+		unit.code.toLowerCase().includes(query) ||
+		unit.abbreviation.toLowerCase().includes(query)
+	);
+}
+
+/**
+ * The surviving rows bucketed by what they measure, empty quantities dropped.
+ *
+ * The rows arrive sorted by name, so bucketing preserves that order. This is a
+ * display concern only: the counts the toolbar reports come from the frame,
+ * which sees the rows before they are split up.
+ */
+function groupByUnitType(
+	units: readonly UnitListing[],
+): readonly { readonly unitType: UnitType; readonly units: readonly UnitListing[] }[] {
+	return UNIT_TYPE_OPTIONS.map((unitType) => ({
+		unitType,
+		units: units.filter((unit) => unit.unitType === unitType),
+	})).filter((group) => group.units.length > 0);
+}
+
 /**
  * The global unit list, grouped by what it measures.
  *
@@ -78,27 +103,7 @@ type UnitDialog = CatalogDialogState<UnitListing>;
  */
 function UnitsRoute() {
 	const { units: all, isReady } = useUnitCatalog();
-	const [search, setSearch] = useState('');
 	const [dialog, setDialog] = useState<UnitDialog>(null);
-
-	// The rows arrive sorted by name from the query, so grouping preserves that
-	// order and this only filters and buckets.
-	const grouped = useMemo(() => {
-		const query = search.trim().toLowerCase();
-		const rows = all.filter(
-			(unit) =>
-				query === '' ||
-				unit.unitName.toLowerCase().includes(query) ||
-				unit.code.toLowerCase().includes(query) ||
-				unit.abbreviation.toLowerCase().includes(query),
-		);
-		return UNIT_TYPE_OPTIONS.map((unitType) => ({
-			unitType,
-			units: rows.filter((unit) => unit.unitType === unitType),
-		})).filter((group) => group.units.length > 0);
-	}, [all, search]);
-
-	const shown = grouped.reduce((sum, group) => sum + group.units.length, 0);
 
 	function trimmed(values: UnitFormValues) {
 		return {
@@ -158,23 +163,23 @@ function UnitsRoute() {
 					/>
 				}
 				isReady={isReady}
+				matches={matchesUnit}
 				noun="units"
-				onSearchChange={setSearch}
-				search={search}
-				shown={shown}
-				total={all.length}
+				rows={all}
 			>
-				<div className="grid gap-5">
-					{grouped.map((group) => (
-						<UnitTypeSection
-							key={group.unitType}
-							onDelete={removeUnit}
-							onEdit={setDialog}
-							unitType={group.unitType}
-							units={group.units}
-						/>
-					))}
-				</div>
+				{(units) => (
+					<div className="grid gap-5">
+						{groupByUnitType(units).map((group) => (
+							<UnitTypeSection
+								key={group.unitType}
+								onDelete={removeUnit}
+								onEdit={setDialog}
+								unitType={group.unitType}
+								units={group.units}
+							/>
+						))}
+					</div>
+				)}
 			</CatalogBody>
 
 			<CatalogDialog

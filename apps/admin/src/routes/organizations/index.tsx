@@ -3,7 +3,7 @@ import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import type { AdminOrganization } from '../../api';
 import { AdminError, AdminPage } from '../../components/admin-page';
 import { CatalogBody } from '../../components/catalog';
@@ -19,24 +19,19 @@ export const Route = createFileRoute('/organizations/')({
 	component: OrganizationDirectoryRoute,
 });
 
+/** The fields the filter reads. The query arrives trimmed and lowercased. */
+function matchesOrganization(organization: AdminOrganization, query: string): boolean {
+	return (
+		organization.name.toLowerCase().includes(query) ||
+		(organization.contact.mainContactEmail ?? '').toLowerCase().includes(query) ||
+		(organization.slug ?? '').toLowerCase().includes(query)
+	);
+}
+
 function OrganizationDirectoryRoute() {
 	const { data, isPending, error } = useOrganizations();
-	const [search, setSearch] = useState('');
 
 	const all = useMemo(() => [...(data ?? [])].sort((a, b) => a.name.localeCompare(b.name)), [data]);
-
-	const organizations = useMemo(() => {
-		const query = search.trim().toLowerCase();
-		if (query === '') {
-			return all;
-		}
-		return all.filter(
-			(organization) =>
-				organization.name.toLowerCase().includes(query) ||
-				(organization.contact.mainContactEmail ?? '').toLowerCase().includes(query) ||
-				(organization.slug ?? '').toLowerCase().includes(query),
-		);
-	}, [all, search]);
 
 	/*
 	 * Organizations nobody can sign in to. This is the only condition in the
@@ -90,17 +85,17 @@ function OrganizationDirectoryRoute() {
 						/>
 					}
 					isReady={!isPending}
+					matches={matchesOrganization}
 					noun="organizations"
-					onSearchChange={setSearch}
-					search={search}
-					shown={organizations.length}
-					total={all.length}
+					rows={all}
 				>
-					<ul className="m-0 grid list-none gap-px overflow-hidden rounded-md border border-border/50 bg-border/50 p-0">
-						{organizations.map((organization) => (
-							<OrganizationDirectoryRow organization={organization} key={organization.id} />
-						))}
-					</ul>
+					{(organizations) => (
+						<ul className="m-0 grid list-none gap-px overflow-hidden rounded-md border border-border/50 bg-border/50 p-0">
+							{organizations.map((organization) => (
+								<OrganizationDirectoryRow organization={organization} key={organization.id} />
+							))}
+						</ul>
+					)}
 				</CatalogBody>
 			)}
 		</AdminPage>
