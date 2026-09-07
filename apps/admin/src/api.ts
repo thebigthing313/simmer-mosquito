@@ -19,8 +19,11 @@ const DEFAULT_SERVER_URL = 'http://localhost:3000';
 export type { AuthMe, AuthOrganizationChoice } from '@simmer-mosquito/auth/browser';
 
 /**
- * A failed `/admin/*` request, carrying the server's machine-readable `error`
- * code alongside the human message.
+ * A failed request from the console, carrying the server's machine-readable
+ * `error` code alongside the human message.
+ *
+ * Every `/admin/*` call raises one, and so does a Foundations write, which
+ * reaches an organization endpoint through {@link postOrganizationCommand}.
  *
  * The code matters for two cases, and they are the ones that decide whether the
  * console works at all. Both are 403s from
@@ -294,16 +297,17 @@ export function adminLogoutUrl(serverUrl = getServerUrl()): string {
 export async function listAdminOrganizations(
 	serverUrl = getServerUrl(),
 ): Promise<AdminOrganization[]> {
+	const unreadable = 'Unable to load organizations.';
 	const { organizations } = await getJson<{ readonly organizations?: AdminOrganization[] }>(
 		'/admin/organizations',
-		'Unable to load organizations.',
+		unreadable,
 		serverUrl,
 	);
 	// A 200 carrying neither the list nor an `error` is a fault, not a refusal.
 	// Handing the directory `undefined` would draw the empty state, which reads
 	// as "the platform has no organizations on it".
 	if (organizations === undefined) {
-		throw new Error('Unable to load organizations.');
+		throw new Error(unreadable);
 	}
 
 	return organizations;
@@ -379,9 +383,14 @@ export async function inviteAdminUser(
  *
  * The Foundations page creates through `/foundation/*` and
  * `/adult-surveillance/*` as a member of the organization it entered (ADR
- * 0011), so those calls are not this module's to own and stay on that page.
- * What they cannot own is the refusal: one class carries the code, one function
- * writes the message, and this is how a call outside this module gets both.
+ * 0011), so what it posts and where is that page's to decide, and the bodies
+ * stay there. What it cannot decide on its own is the refusal, because a second
+ * reader is how the same 403 came to read two ways. So the path comes from the
+ * page and the answer is read here.
+ *
+ * A thin call onto the same {@link postJson} the two `/admin/*` writes use, and
+ * named rather than exported bare on purpose: the name is what keeps this from
+ * becoming a second door to `/admin/*`.
  */
 export async function postOrganizationCommand<T>(path: string, command: unknown): Promise<T> {
 	return postJson<T>(path, command, getServerUrl());

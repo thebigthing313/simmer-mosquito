@@ -127,15 +127,19 @@ describe('the Foundations read', () => {
 		expect(isOperatorNotConfiguredError(await refuse('operator_not_configured', 403))).toBe(true);
 	});
 
-	// The route answers this for an id that names no organization. Asking again
-	// cannot make one exist, so the query client must not spend three tries on it.
-	it('treats its own 404 as final rather than retrying it', async () => {
-		expect(isAdminRefusal(await refuse('organization_not_found', 404))).toBe(true);
+	// Both refusals this read can hit. The 403 is the middleware's; the 404 is
+	// the route's own, for an id that names no organization. Asking again cannot
+	// change either, so the query client must not spend three tries on them.
+	it('treats both of its refusals as final rather than retrying them', async () => {
+		expect({
+			refused: isAdminRefusal(await refuse('operator_not_configured', 403)),
+			notFound: isAdminRefusal(await refuse('organization_not_found', 404)),
+		}).toEqual({ refused: true, notFound: true });
 	});
 
 	// The page wrote its own message and swapped the underscores out, so one 403
 	// read as "operator required" there and "operator_required" everywhere else.
-	it('says of a payload what every other read says of it', async () => {
+	it('renders operator_required as the organizations list renders it', async () => {
 		const fromFoundations = await refuse('operator_required', 403);
 		const fromOrganizations = await listAdminOrganizations('https://api.simmer-data.com').catch(
 			(error: unknown) => error,

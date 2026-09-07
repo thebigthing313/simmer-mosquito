@@ -6,8 +6,8 @@ Fixed: a refused Foundations read now says what the console says everywhere
 else, and says it at once.
 
 The page reached the server on its own rather than through the console's one
-request path, so the server's refusal code was dropped on the floor and three
-things went wrong on that page and no other.
+request path, so the server's refusal code never arrived, and three things went
+wrong on that page and no other.
 
 An operator on a server with no SIMMER_OPERATOR_ORG_ID got a red "Could Not
 Load" box reading "operator not configured". That names nothing anyone can act
