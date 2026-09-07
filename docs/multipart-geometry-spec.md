@@ -751,9 +751,9 @@ MultiLineString built from its two halves.
 `CorpusGeomType` (`packages/mapping/src/test-corpus.ts:72`) opens to six names,
 `CorpusCase.record` gains the three multipart GeoJSON types, and
 `membershipBranchFor` (`:363-365`) widens to the two areal names.
-`REGION_MEMBERSHIP_CORPUS_SIZE` becomes 32, and 34 once #518 adds the split pair
-at the bottom of the table. Two assertions in `test-corpus.test.ts` hard-code
-three dimensions and need six.
+`REGION_MEMBERSHIP_CORPUS_SIZE` becomes 32 with the ten cases below, and 34 with
+the two #518 added beside them once Split shipped. Two assertions in
+`test-corpus.test.ts` hard-code three dimensions and need six.
 
 | Case | Arm | Expected |
 | --- | --- | --- |
@@ -786,10 +786,10 @@ them. A predicate that refused the shape outright and answered false would pass
 the touching case, so the case that straddles the edge is what separates
 answering the rule from refusing the shape.
 
-Deliberately excluded: a self-intersecting ring, where `ST_Relate` is undefined
-and no hand-written expectation can be right, a three-part case, because part
-count is not a variable the predicate reads, and a redundant MultiLineString
-crossing.
+Three shapes are deliberately excluded. A self-intersecting ring, because
+`ST_Relate` is undefined over one and no hand-written expectation can be right.
+A three-part case, because part count is not a variable the predicate reads. A
+redundant MultiLineString crossing.
 
 ### The corpus lands inside the migration slice
 

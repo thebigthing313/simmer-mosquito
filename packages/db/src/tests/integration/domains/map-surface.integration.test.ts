@@ -254,6 +254,15 @@ const page = { limit: 50, offset: 0 };
 // `MAP_TILE_ENCODING` so the question is asked at the values the map runs on
 // rather than at a copy of them. All three sit well inside the tile, so nothing
 // is clipped and the two areas are comparable.
+//
+// The call is written out here rather than reached through `getHabitatMvtTile`
+// because the questions are about the geometry `ST_AsMVTGeom` returns, and by
+// the time a tile comes back that geometry has been through `ST_AsMVT` and no
+// `st_isvalid` or `st_area` can be asked of it. The cost is that the transform
+// and the envelope around the call are a second copy of `readMapTile`'s. What
+// holds those to each other is `map-surface-sql.test.ts`, which pins the shipped
+// query text for all forty-one reads, so a changed SRID or envelope there is a
+// snapshot diff rather than a case that stays green while the map breaks.
 
 /** A lot inside `mapSurfacePlace.tile`, drawn in one piece. */
 const UNCUT_LOT = 'POLYGON((-90.51 35.49, -90.49 35.49, -90.49 35.51, -90.51 35.51, -90.51 35.49))';
@@ -269,8 +278,11 @@ const SPLIT_LOT_AND_ONE_MORE =
 	'((-90.5 35.49, -90.49 35.49, -90.49 35.51, -90.5 35.51, -90.5 35.49)),' +
 	'((-90.47 35.49, -90.46 35.49, -90.46 35.51, -90.47 35.51, -90.47 35.49)))';
 
+/** The three shapes the encoder is asked about. A typo fails `tsc` rather than at runtime. */
+type EncodedShapeName = 'uncut' | 'split' | 'split-and-disjoint';
+
 interface EncodedShapeRow {
-	readonly id: string;
+	readonly id: EncodedShapeName;
 	readonly stored_valid: boolean;
 	readonly encoded_null: boolean;
 	readonly encoded_type: string | null;
@@ -660,7 +672,7 @@ describeDbIntegration('map surfaces against Postgres', () => {
 });
 
 /** One encoded shape by name, throwing rather than letting a lost row read as null. */
-function encodedShape(rows: readonly EncodedShapeRow[], id: string): EncodedShapeRow {
+function encodedShape(rows: readonly EncodedShapeRow[], id: EncodedShapeName): EncodedShapeRow {
 	const row = rows.find((candidate) => candidate.id === id);
 	if (row === undefined) {
 		throw new Error(`The encoder answered nothing for ${id}.`);

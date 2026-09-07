@@ -70,17 +70,10 @@ describe('region membership corpus, against the jsts oracle', () => {
 	});
 
 	it('reads the shape Split writes, whose parts share the line they were cut along', () => {
-		// The pair the table above covers, asserted directly because between them
-		// they answer two different questions. The first is the branch tripwire: it
-		// answers false on the interior arm and true under plain intersection, so a
-		// MultiPolygon that lost the areal branch shows up here. The second is the
-		// refusal tripwire: a predicate that saw an invalid geometry and answered
-		// false without reading it would pass the first case and fail this one.
-		//
-		// No try/catch and no precision model. `RelateOp` is defined over a shared
-		// edge and returns the matrix PostGIS returns, which is what makes this a
-		// corpus case rather than an undefined one, and it is the whole reason a
-		// self-intersecting ring stays out.
+		// Asserted directly for the reason the two blocks above are, and as a pair
+		// because each half is a different tripwire. The corpus docblock has the
+		// argument. No try/catch and no precision model: `RelateOp` is defined over
+		// a shared edge and answers what PostGIS answers.
 		const touching = caseById('multipolygon-split-parts-touching-the-southern-edge');
 		const across = caseById('multipolygon-split-parts-across-the-southern-edge');
 

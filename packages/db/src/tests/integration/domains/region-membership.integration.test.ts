@@ -298,7 +298,7 @@ describeDbIntegration('region membership corpus, SQL half', () => {
 // both return the same matrix. The two kinds live apart on purpose.
 //
 // A second `withTestDb` is a second migration run. The corpus block argues
-// against that for thirty-two blocks; this is one, and it buys an invalid Region
+// against that for thirty-four blocks; this is one, and it buys an invalid Region
 // that no corpus case can be answered against by accident.
 
 const invalidRingOrgId = '00000000-0000-4000-8000-000000000700';
