@@ -15,8 +15,8 @@ manages catalogs".
 
 Two of them a listener could not hear. The readiness list on an organization's
 foundations page announces "Region is in place." to a screen reader, where it
-used to announce a dash. Two more that joined a pair of values now use the middle
-dot the rest of the line already uses, so a requested control action reads
+used to announce a dash. One that joined a pair of values now uses the middle dot
+the rest of the line already uses, so a requested control action reads
 "Application requested · Check the culvert · Open".
 
 Four date ranges lose the spaces around their en dash, so a filter chip reads

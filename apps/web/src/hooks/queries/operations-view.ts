@@ -207,8 +207,12 @@ export function missionDisplayName(
 		return name;
 	}
 	// An unnamed mission is named by when it runs, so the fallback carries the
-	// same zone the scheduled start is read in everywhere else.
-	return `${controlTypeLabel(row.controlType)} on ${formatScheduledStart(row.scheduledStartAt, timeZone)}`;
+	// same zone the scheduled start is read in everywhere else. A start that will
+	// not parse formats as '', and joining that leaves a dangling "on", so the
+	// half that survives is the whole name.
+	const label = controlTypeLabel(row.controlType);
+	const start = formatScheduledStart(row.scheduledStartAt, timeZone);
+	return start === '' ? label : `${label} on ${start}`;
 }
 
 /**

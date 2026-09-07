@@ -82,6 +82,16 @@ describe('missionDisplayName', () => {
 		// same way.
 		expect(name).toContain('11:00');
 	});
+
+	it('names an unnamed mission by what it is when the schedule will not parse', () => {
+		// `formatScheduledStart` answers '' for an unparseable Date, so the joined
+		// form would end on a dangling "on" with nothing after it.
+		const name = missionDisplayName(
+			{ missionName: null, controlType: 'application', scheduledStartAt: new Date('nonsense') },
+			'America/New_York',
+		);
+		expect(name).toBe('Application');
+	});
 });
 
 describe('formatScheduledStart', () => {

@@ -184,7 +184,7 @@ function FoundationPanels({
 				/>
 				<ChipSection
 					addLabel="Add lure"
-					emptyMessage="None yet. Traps can run unbaited, so a lure is optional."
+					emptyMessage="None yet. Lures are optional."
 					names={data.lookups.collectionLures.map(lookupName)}
 					onAdd={() => setDialog({ kind: 'lookup', lookupKind: 'collection_lures' })}
 					title="Collection lures"

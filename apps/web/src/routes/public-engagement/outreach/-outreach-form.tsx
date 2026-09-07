@@ -340,7 +340,7 @@ export function OutreachFormPage({
 						{(field) => (
 							<field.TextareaField
 								label="Who was reached"
-								placeholder="e.g. 12 households on Willow Ct, 3 asked for a follow-up inspection"
+								placeholder="e.g. Households on Willow Ct. 12 doors, 3 asked for a follow-up inspection"
 								rows={4}
 							/>
 						)}

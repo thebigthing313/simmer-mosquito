@@ -281,7 +281,7 @@ export function MissionFormPage({
 						{(field) => (
 							<field.TextField
 								label="Mission name"
-								placeholder="Optional. A name crews will recognise"
+								placeholder="Optional, a name crews will recognise"
 							/>
 						)}
 					</form.AppField>
