@@ -105,8 +105,7 @@ import {
 	failure,
 	markersAcross,
 	markersIn,
-	reasonOf,
-	reasonProblem,
+	readMarker,
 	report,
 	trim,
 } from './lib/style-gate.mjs';
@@ -155,9 +154,12 @@ const MARKER_WORD = 'hex-color-ignore';
  * - `MINIMUM_WEB_MODULES`, that the walk still reaches `apps/web/src` at all.
  *   869 modules today, suites included.
  * - `MINIMUM_MAP_MODULES`, that it still descends into the map directory. 63
- *   today. Sixty-one and not sixty-two since #640: `draw-vertex-edit.ts` moved
- *   to `packages/mapping`, where it paints nothing, so the module left the
- *   corpus rather than the walk losing it.
+ *   modules there today, against a floor of 61, which is where #640 put it when
+ *   `draw-vertex-edit.ts` moved to `packages/mapping` and took the count from
+ *   62 to 61. The two modules added since have not been used to raise it, so
+ *   the floor now sits two under the count. That headroom is deliberate: this
+ *   is a tripwire against a directory that has gone missing, not a ratchet on
+ *   how many modules it holds.
  * - `MINIMUM_PALETTE_IMPORTERS`, that the files are being read and not merely
  *   listed, measured inside the map directory where every module is a consumer
  *   of the register. Twenty-two and not twenty-six: four of the six modules
@@ -258,30 +260,7 @@ const markersOf = (lines, masked, where, isMap) =>
 const readerFor = (isMap, lines, masked) =>
 	isMap
 		? () => ({ problem: 'it is under the map directory, which takes no exemption' })
-		: (at) => read(lines[at], masked[at]);
-
-/**
- * One marker as `{ reason }`, or `{ problem }` saying what is wrong with it.
- *
- * The masked line is what says the word is in a comment. Masking leaves spaces
- * wherever a comment body or a string body was, so a line still carrying
- * letters there is code: the marker was typed inside a string literal, where it
- * exempts nothing.
- */
-function read(line, masked) {
-	if (/[A-Za-z0-9]/.test(masked)) {
-		return { problem: 'the word is in code or in a string rather than in a comment' };
-	}
-
-	const marker = line.match(new RegExp(`${MARKER_WORD}\\s*:\\s*(.*)$`));
-	if (marker === null) {
-		return { problem: `it does not read "${MARKER_WORD}: <reason>"` };
-	}
-
-	const reason = reasonOf(marker[1]);
-	const problem = reasonProblem(reason);
-	return problem === null ? { reason } : { problem };
-}
+		: (at) => readMarker(MARKER_WORD, lines[at], masked[at]);
 
 // ---------------------------------------------------------------------------
 // Reporting

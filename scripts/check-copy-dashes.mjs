@@ -103,7 +103,8 @@
  *
  * The dash, the sentence banning it and the message a reader gets are in
  * `lib/dash-rule.mjs`, shared with `check-prose.mjs`. The marker frame is in
- * `lib/style-gate.mjs` with `check-vocabulary`'s. What is left here is the
+ * `lib/style-gate.mjs` with `check-vocabulary`'s, and `readMarker` there is the
+ * parse of a `word: reason` marker, shared with `check-map-palette`. What is left here is the
  * copy: which roots, what the absence glyph is, and what makes a dash inside a
  * template chunk spaced.
  */
@@ -117,15 +118,7 @@ import { DASHES, EM_DASH, names, unmarkedMessage, unstatedRules } from './lib/da
 import { maskedSource } from './lib/masked-source.mjs';
 import { pathFrom } from './lib/relative-path.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
-import {
-	count,
-	failure,
-	markersAcross,
-	markersIn,
-	reasonOf,
-	reasonProblem,
-	report,
-} from './lib/style-gate.mjs';
+import { count, failure, markersAcross, markersIn, readMarker, report } from './lib/style-gate.mjs';
 
 const GATE = 'check-copy-dashes';
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -345,33 +338,12 @@ function isSpaced(text, at) {
 
 /** Every marker in one file, well formed or not, and the line each one is above. */
 const markersOf = (lines, masked, where) =>
-	markersIn(lines, MARKER_WORD, (at) => read(lines[at], masked[at])).map((marker) => ({
-		where,
-		...marker,
-	}));
-
-/**
- * One marker as `{ reason }`, or `{ problem }` saying what is wrong with it.
- *
- * The masked line is what says the word is in a comment. Masking leaves spaces
- * wherever a comment body or a string body was, so a line still carrying
- * letters there is code: the marker was typed inside a string literal, where it
- * exempts nothing and is itself copy.
- */
-function read(line, masked) {
-	if (/[A-Za-z0-9]/.test(masked)) {
-		return { problem: 'the word is in code or in a string rather than in a comment' };
-	}
-
-	const marker = line.match(new RegExp(`${MARKER_WORD}\\s*:\\s*(.*)$`));
-	if (marker === null) {
-		return { problem: `it does not read "${MARKER_WORD}: <reason>"` };
-	}
-
-	const reason = reasonOf(marker[1]);
-	const problem = reasonProblem(reason);
-	return problem === null ? { reason } : { problem };
-}
+	markersIn(lines, MARKER_WORD, (at) => readMarker(MARKER_WORD, lines[at], masked[at])).map(
+		(marker) => ({
+			where,
+			...marker,
+		}),
+	);
 
 // ---------------------------------------------------------------------------
 // Reporting

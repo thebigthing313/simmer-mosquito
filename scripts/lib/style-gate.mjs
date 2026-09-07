@@ -82,6 +82,40 @@ function targetOf(sweep, at, word) {
  */
 export const reasonOf = (text) => text.replace(/\*\/\s*\}?\s*$/, '').trim();
 
+/**
+ * One `word: reason` marker as `{ reason }`, or `{ problem }` saying what is
+ * wrong with it.
+ *
+ * Two of the gates take a marker of exactly this shape, `check-copy-dashes` and
+ * `check-map-palette`, and the second was a fourth copy of the parse until it
+ * moved here. `check-vocabulary` is not a caller: its marker names a refused
+ * word between the word and the colon, and it has to diagnose which of two ways
+ * a line missed, so it keeps its own.
+ *
+ * The masked line is what says the word is in a comment. Masking leaves spaces
+ * wherever a comment body or a string body was, so a line still carrying
+ * letters there is code: the marker was typed inside a string literal, where it
+ * exempts nothing.
+ *
+ * @param {string} word The word that opens a marker.
+ * @param {string} line The source line, as written.
+ * @param {string} masked The same line with comment, string and regex bodies blanked.
+ */
+export function readMarker(word, line, masked) {
+	if (/[A-Za-z0-9]/.test(masked)) {
+		return { problem: 'the word is in code or in a string rather than in a comment' };
+	}
+
+	const marker = line.match(new RegExp(`${word}\\s*:\\s*(.*)$`));
+	if (marker === null) {
+		return { problem: `it does not read "${word}: <reason>"` };
+	}
+
+	const reason = reasonOf(marker[1]);
+	const problem = reasonProblem(reason);
+	return problem === null ? { reason } : { problem };
+}
+
 /** What is wrong with a marker's reason, or `null` when nothing is. */
 export function reasonProblem(reason) {
 	if (reason.split(/\s+/).filter((word) => word.length > 0).length < 3) {
