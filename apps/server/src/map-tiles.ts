@@ -705,10 +705,9 @@ function registerByIdRoute<TRow>(
  *
  * Keyed by {@link MapTilesetLayer}, `packages/db`'s register of the layer names
  * its map surfaces declare, so the compiler refuses a key that is not one of
- * them and demands every one that is. What it cannot see is a key sitting over
- * another surface's readers, since both names are real. `pnpm check:tileset-keys`
- * reads the `layer` beside each surface for that, and for the client register,
- * which is another app and imports nothing from here.
+ * them and demands every one that is. The client register is the half it cannot
+ * reach, and `pnpm check:tileset-keys` is what holds that one; the register's
+ * own header is where the whole mechanism is written down.
  */
 function createTileSetRegistry(readers: MapReaders): ReadonlyMap<string, TileSetDefinition> {
 	const tileSets: Record<MapTilesetLayer, TileSetDefinition> = {

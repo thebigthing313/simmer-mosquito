@@ -1142,7 +1142,7 @@ const sampleInspectionRow = {
  * tilesets and nineteen of the twenty-seven routes were reached by no test at
  * all.
  *
- * The list below is a fourth spelling of those names, so it is held to
+ * The list below is another spelling of those names, so it is held to
  * `MapTilesetLayer`. A typo here already fails, as the `invalid_tileset` the
  * assertion is not expecting; `satisfies` moves that to `tsc`, where the
  * message names the register rather than a status code. Neither catches a name

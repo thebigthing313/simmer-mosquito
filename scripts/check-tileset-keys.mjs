@@ -1,26 +1,17 @@
 #!/usr/bin/env node
 /**
- * Holds the three registers of tileset names to each other.
+ * Holds one register of tileset names and the three lists that spell it.
  *
- * `/map/tiles/:tileset/{z}/{x}/{y}.mvt` is one endpoint with a name in the path,
- * and that name is also the layer inside the vector tile the style draws. Three
- * places spell those eleven strings:
+ * `MapTilesetLayer` in `packages/db/src/domains/map-layers.ts` is the register,
+ * and its header is where the mechanism is written down. The three lists are the
+ * `layer` beside each map surface in `packages/db`, the keys
+ * `createTileSetRegistry` registers in `apps/server`, and `TILE_LAYER_BINDINGS`
+ * in `apps/web`, whose `*_SOURCE_ID` is the string that goes in the URL.
  *
- * - `packages/db`, where each map surface declares the `layer` its tile is
- *   written under, against the `MapTilesetLayer` register in
- *   `packages/db/src/domains/map-layers.ts`.
- * - `apps/server`, where `createTileSetRegistry` keys a tileset per layer.
- * - `apps/web`, where `TILE_LAYER_BINDINGS` names what a `MapCanvas` draws, and
- *   the `*_SOURCE_ID` constant each row names is the string that goes in the URL.
- *
- * `tsc` holds the first two: a surface cannot declare a layer the register does
- * not name, and the server's registry is a `Record<MapTilesetLayer, ...>`. It
- * reaches no further. `apps/web` is another app with no import of the register,
- * and no compiler notices a surface whose layer is a real name belonging to a
- * different surface. Either one answers 200 with a layer nothing draws, so the
- * map is an empty basemap with no error on screen and nothing in the console but
- * a row of network failures. That is the failure this catches, and it costs a
- * regex.
+ * `tsc` holds the first two lists to the register, and only as membership: it
+ * cannot see `apps/web`, which has no dependency on `packages/db`, and it cannot
+ * see a name sitting over the wrong surface's readers, since both names are
+ * real. So this reads all four as text.
  *
  * Four assertions:
  *
@@ -33,6 +24,10 @@
  *    a declaration fails loudly rather than checking nothing.
  * 4. The surface scan still walks `packages/db`'s domain modules, so a walk that
  *    has stopped finding them fails rather than reading zero layers out of them.
+ *
+ * What it does not catch, since every comparison is between sets: two surfaces
+ * trading layers with each other. Both names are still spelled everywhere, and
+ * pairing a layer to the table behind it is a rule nothing in the source states.
  *
  * Run it with `pnpm check:tileset-keys`.
  */
@@ -57,7 +52,7 @@ const EXPECTED_TILESETS = 11;
 
 /**
  * The floor under the surface scan, which is the one input that is a directory
- * walk rather than a single declaration. Thirty-one modules sit there today; the
+ * walk rather than a single declaration. Thirty-two modules sit there today; the
  * floor sits under that rather than on it because a domain module is deleted now
  * and then, while a walk finding a handful has lost the directory and would
  * report zero layers under a passing summary line (#591, #599).
@@ -135,7 +130,13 @@ function readSurfaceModules() {
 	return modules;
 }
 
-/** The `layer` each map surface declares, across the db domain modules. */
+/**
+ * The `layer` each map surface declares, across the db domain modules.
+ *
+ * Read off the raw source rather than a masked copy, unlike `check:join-types`:
+ * a `layer:` line inside a comment would be counted, and would fail the count
+ * assertion below rather than passing quietly. Noise, not a hole.
+ */
 function readSurfaceLayers() {
 	const layers = readSurfaceModules().flatMap((module) => {
 		const source = readFileSync(join(DB_SURFACE_DIR, module), 'utf8');
