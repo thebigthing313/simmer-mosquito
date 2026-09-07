@@ -17,7 +17,7 @@ import { STOP_RECORD_REFUSALS } from '../../../lib/acknowledgement-copy';
 import { assignmentStopSearchSchema } from '../../../lib/assignment-stop-search';
 import { attachLinksBestEffort } from '../../../lib/attach-links';
 import { samples } from '../../../lib/collections/samples';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { todayInTimeZone } from '../-overview-data';
 import {
 	type DrawGeometry,
@@ -38,7 +38,7 @@ export const Route = createFileRoute('/larval-surveillance/inspections/create')(
 		...inspectionSeedSearchSchema.parse(search),
 	}),
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/larval-surveillance/inspections/create')) {
 			throw redirect({ replace: true, to: '/larval-surveillance/inspections' });
 		}
 	},

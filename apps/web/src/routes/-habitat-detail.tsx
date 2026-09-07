@@ -100,6 +100,7 @@ import { formatAmount } from '../lib/format-count';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
 import { calendarDateParts, utcCalendarDay } from '../lib/local-date';
 import { unreadable } from '../lib/unreadable-input';
+import { WRITE_SURFACE_FLOORS } from '../lib/write-surfaces';
 import type { HabitatGeometry } from './-habitat-geometry-cache';
 import { HabitatInspectionStats } from './-habitat-inspection-stats';
 
@@ -159,7 +160,7 @@ export function HabitatDetail({
 						 * looking at is the one that survives, which is the choice a
 						 * cleanup page has to make with a radio and get wrong in silence.
 						 */}
-						<WriteOnly minimum="manager">
+						<WriteOnly minimum={WRITE_SURFACE_FLOORS['/larval-surveillance/habitats/$id/merge']}>
 							<Button asChild size="sm" variant="outline">
 								<Link params={{ id: habitatId }} to="/larval-surveillance/habitats/$id/merge">
 									<MergeIcon aria-hidden="true" />

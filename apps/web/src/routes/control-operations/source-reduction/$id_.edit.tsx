@@ -22,7 +22,7 @@ import {
 	SOURCE_REDUCTION_GEOMETRY_SOURCE,
 	useOwnedGeometry,
 } from '../../../hooks/use-owned-geometry';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	noTechnicianValue,
 	SourceReductionFormPage,
@@ -35,7 +35,7 @@ const sourceReductionGcTimeMs = 30_000;
 
 export const Route = createFileRoute('/control-operations/source-reduction/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/control-operations/source-reduction/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

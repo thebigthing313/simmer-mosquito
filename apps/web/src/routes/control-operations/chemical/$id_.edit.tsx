@@ -32,7 +32,7 @@ import { type UnitLabel, useUnitLabels } from '../../../hooks/queries/use-unit-l
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { CHEMICAL_GEOMETRY_SOURCE, useOwnedGeometry } from '../../../hooks/use-owned-geometry';
 import { APPLICATION_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	ApplicationFormPage,
 	type ApplicationFormValues,
@@ -42,7 +42,7 @@ import {
 
 export const Route = createFileRoute('/control-operations/chemical/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/control-operations/chemical/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

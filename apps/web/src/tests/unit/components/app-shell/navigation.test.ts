@@ -8,6 +8,7 @@ import {
 	webShellDomains,
 	withDailyWorkGroup,
 } from '../../../../components/app-shell/navigation';
+import { writeSurfaceFloor } from '../../../../lib/write-surfaces';
 
 /**
  * The sidebar's half of the role ladder.
@@ -257,8 +258,8 @@ function formPaths(domains: ReturnType<typeof shellDomainsForRole>): readonly st
 	return domains
 		.flatMap((domain) => domain.groups)
 		.flatMap((group) => group.items)
-		.filter((item) => item.write !== undefined)
-		.map((item) => String(item.to));
+		.map((item) => String(item.to))
+		.filter((to) => writeSurfaceFloor(to) !== undefined);
 }
 
 function allPathsFor(role: string): readonly string[] {

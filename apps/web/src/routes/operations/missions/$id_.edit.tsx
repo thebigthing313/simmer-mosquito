@@ -7,7 +7,7 @@ import { useMissionMutations } from '../../../hooks/mutations/use-mission-mutati
 import { type MissionRecord, useMission } from '../../../hooks/queries/use-mission';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	MISSION_FIELD_PATHS,
 	MissionFormPage,
@@ -17,7 +17,7 @@ import {
 
 export const Route = createFileRoute('/operations/missions/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/operations/missions/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

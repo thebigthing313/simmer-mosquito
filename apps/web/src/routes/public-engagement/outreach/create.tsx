@@ -11,7 +11,7 @@ import { useProfileRoster } from '../../../hooks/queries/use-profile-roster';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	defaultOutreachFormValues,
@@ -29,7 +29,7 @@ export const Route = createFileRoute('/public-engagement/outreach/create')({
 		...missionStopSearchSchema.parse(search),
 	}),
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/public-engagement/outreach/create')) {
 			throw redirect({ replace: true, to: '/public-engagement/outreach' });
 		}
 	},

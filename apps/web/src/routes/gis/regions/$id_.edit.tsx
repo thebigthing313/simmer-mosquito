@@ -9,7 +9,7 @@ import {
 } from '../../../hooks/queries/use-region-folders';
 import { type RegionRecord, useRegionRecord } from '../../../hooks/queries/use-region-record';
 import { seedRegionGeometryCache, useRegionGeometry } from '../../../hooks/use-region-geometry';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	isRegionBoundary,
@@ -21,7 +21,7 @@ import {
 
 export const Route = createFileRoute('/gis/regions/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/gis/regions/$id/edit')) {
 			throw redirect({ params: { id: params.id }, replace: true, to: '/gis/regions/$id' });
 		}
 	},

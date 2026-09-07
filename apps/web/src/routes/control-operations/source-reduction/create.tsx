@@ -12,7 +12,7 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	defaultSourceReductionFormValues,
 	SourceReductionFormPage,
@@ -29,7 +29,7 @@ export const Route = createFileRoute('/control-operations/source-reduction/creat
 		...missionStopSearchSchema.parse(search),
 	}),
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/control-operations/source-reduction/create')) {
 			throw redirect({ replace: true, to: '/control-operations/source-reduction' });
 		}
 	},

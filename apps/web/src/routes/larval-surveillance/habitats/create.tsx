@@ -5,7 +5,7 @@ import { useCallback } from 'react';
 import { mapPointSearchSchema, pointFromSearch } from '../../../components/map';
 import { useHabitatMutations } from '../../../hooks/mutations/use-habitat-mutations';
 import { useHabitatTypeRoster } from '../../../hooks/queries/use-catalog-rosters';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { seedHabitatGeometryCache } from '../../-habitat-geometry-cache';
 import {
 	type DrawGeometry,
@@ -21,7 +21,7 @@ export const Route = createFileRoute('/larval-surveillance/habitats/create')({
 	// yet — which erases lat/lng from `Route.useSearch()`.
 	validateSearch: (search) => mapPointSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/larval-surveillance/habitats/create')) {
 			throw redirect({ replace: true, to: '/larval-surveillance/habitats' });
 		}
 	},

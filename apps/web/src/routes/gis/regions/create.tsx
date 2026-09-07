@@ -7,7 +7,7 @@ import { useRegionMutations } from '../../../hooks/mutations/use-region-mutation
 import { useRegionFolders } from '../../../hooks/queries/use-region-folders';
 import { useRegionRecord } from '../../../hooks/queries/use-region-record';
 import { seedRegionGeometryCache } from '../../../hooks/use-region-geometry';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	defaultRegionFormValues,
@@ -19,7 +19,7 @@ import {
 
 export const Route = createFileRoute('/gis/regions/create')({
 	beforeLoad: async ({ context }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/gis/regions/create')) {
 			throw redirect({ replace: true, to: '/gis/regions' });
 		}
 	},

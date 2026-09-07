@@ -64,6 +64,13 @@ jobs:
       - name: Write references
         run: pnpm check:write-references
 
+      # A route whose whole purpose is a write needs a role floor, or a Collector
+      # reaches it by URL, fills the form in and meets the refusal at the save.
+      # This asserts every one has an entry in `apps/web/src/lib/write-surfaces.ts`
+      # and guards itself against it.
+      - name: Write surfaces
+        run: pnpm check:write-surfaces
+
       # The search index is a second copy of the corpus tables' text, read back
       # over an endpoint with no column list of its own. This asserts every
       # indexed field is a real column, that none of them is a column sync

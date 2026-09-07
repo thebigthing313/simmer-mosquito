@@ -42,7 +42,7 @@ import { assignmentDisplayName } from '../../../hooks/queries/assignment-view';
 import { useAuthSnapshot } from '../../../hooks/use-auth-snapshot';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { ASSIGNMENT_DELETE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { WorklistMap } from '../-worklist-map';
 import {
 	type AssignmentStopView,
@@ -79,7 +79,7 @@ const stopKey = (stop: AssignmentStopView) => stop.assignmentItemId;
 
 export const Route = createFileRoute('/operations/assignments/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/operations/assignments/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

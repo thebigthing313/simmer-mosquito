@@ -48,7 +48,7 @@ import { useRouteItemMutations } from '../../../../hooks/mutations/use-route-ite
 import { useRouteMutations } from '../../../../hooks/mutations/use-route-mutations';
 import type { Tag } from '../../../../hooks/queries/tag-view';
 import { useAuthSnapshot } from '../../../../hooks/use-auth-snapshot';
-import { isBelowRole } from '../../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../../lib/write-surfaces';
 import { RouteStopAddressDialog } from '../-route-address-dialog';
 import {
 	type HabitatSite,
@@ -72,7 +72,7 @@ const stopKey = (stop: RouteStopView) => stop.routeItemId;
 
 export const Route = createFileRoute('/larval-surveillance/habitats/routes/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/larval-surveillance/habitats/routes/$id/edit')) {
 			throw redirect({
 				params: { id: params.id },
 				replace: true,

@@ -29,6 +29,7 @@
 		"check:tileset-keys": "node scripts/check-tileset-keys.mjs",
 		"check:vocabulary": "node scripts/check-vocabulary.mjs",
 		"check:write-references": "node scripts/check-write-references.mjs",
+		"check:write-surfaces": "node scripts/check-write-surfaces.mjs",
 		"check:write": "biome check --write .",
 		"db:migrate": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql up",
 		"db:rollback": "dbmate --migrations-dir packages/db/migrations --schema-file packages/db/schema.sql rollback",

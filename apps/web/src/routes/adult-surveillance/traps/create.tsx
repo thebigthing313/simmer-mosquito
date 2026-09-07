@@ -10,7 +10,7 @@ import {
 } from '../../../hooks/queries/use-catalog-rosters';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { TRAP_SAVE_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	type DrawGeometry,
 	defaultTrapFormValues,
@@ -25,7 +25,7 @@ export const Route = createFileRoute('/adult-surveillance/traps/create')({
 	// yet — which erases lat/lng from `Route.useSearch()`.
 	validateSearch: (search) => mapPointSearchSchema.parse(search),
 	beforeLoad: async ({ context }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/adult-surveillance/traps/create')) {
 			throw redirect({ replace: true, to: '/adult-surveillance/traps' });
 		}
 	},

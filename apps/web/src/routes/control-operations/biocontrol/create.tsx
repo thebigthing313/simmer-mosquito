@@ -12,7 +12,7 @@ import { useUnitLabels } from '../../../hooks/queries/use-unit-labels';
 import { useOrganizationTimeZone } from '../../../hooks/use-organization-time-zone';
 import { useOrganizationWorkspace } from '../../../hooks/use-organization-workspace';
 import { missionStopSearchSchema } from '../../../lib/mission-stop-search';
-import { isWriteBlocked } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import {
 	BiocontrolFormPage,
 	type BiocontrolFormValues,
@@ -30,7 +30,7 @@ export const Route = createFileRoute('/control-operations/biocontrol/create')({
 		...missionStopSearchSchema.parse(search),
 	}),
 	beforeLoad: async ({ context }) => {
-		if (await isWriteBlocked(context)) {
+		if (await isBelowWriteFloor(context, '/control-operations/biocontrol/create')) {
 			throw redirect({ replace: true, to: '/control-operations/biocontrol' });
 		}
 	},

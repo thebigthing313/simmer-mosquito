@@ -6,7 +6,7 @@ import { EditFormSkeleton, RecordEditFrame } from '../../../components/record';
 import { useWeatherStationMutations } from '../../../hooks/mutations/use-weather-station-mutations';
 import { useWeatherStation, type WeatherStation } from '../../../hooks/queries/use-weather-station';
 import { STATION_REFUSALS } from '../../../lib/acknowledgement-copy';
-import { isBelowRole } from '../../../lib/write-access';
+import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 
 import {
 	type DrawGeometry,
@@ -23,7 +23,7 @@ import {
  */
 export const Route = createFileRoute('/gis/weather/$id_/edit')({
 	beforeLoad: async ({ context, params }) => {
-		if (await isBelowRole(context, 'manager')) {
+		if (await isBelowWriteFloor(context, '/gis/weather/$id/edit')) {
 			throw redirect({ params: { id: params.id }, replace: true, to: '/gis/weather/$id' });
 		}
 	},
