@@ -168,6 +168,7 @@ export interface SessionTransport {
  * again. Reading the shapes off the function that is actually in scope is the
  * one spelling that holds in all three.
  */
+type FetchInput = Parameters<typeof fetch>[0];
 type FetchInit = NonNullable<Parameters<typeof fetch>[1]>;
 type FetchResponse = Awaited<ReturnType<typeof fetch>>;
 
@@ -176,8 +177,122 @@ const SESSION_CLIENT_HEADER = 'x-simmer-client';
 const TOKEN_CLIENT = 'token';
 const SESSION_RESPONSE_HEADER = 'x-simmer-session';
 
+/**
+ * The headers something already carries, as an object the credential ones can be
+ * layered over.
+ *
+ * `HeadersInit` is three shapes and only one of them survives a spread. A
+ * `Headers` instance or a list of pairs would arrive as `{}`, which does not
+ * fail — it silently drops whatever the caller set, and a POST that loses its
+ * content type is answered as an empty body rather than refused.
+ *
+ * Structural rather than `instanceof Headers`, for the reason the comment above
+ * {@link FetchInit} gives: three runtimes, three declarations of that global.
+ */
+function headerEntries(source: unknown): Record<string, string> {
+	if (Array.isArray(source)) {
+		return Object.fromEntries(source as readonly (readonly [string, string])[]);
+	}
+
+	if (typeof source !== 'object' || source === null) {
+		return {};
+	}
+
+	const headers = source as {
+		readonly forEach?: (fn: (value: string, key: string) => void) => void;
+	};
+	if (typeof headers.forEach !== 'function') {
+		return { ...(source as Record<string, string>) };
+	}
+
+	const entries: Record<string, string> = {};
+	headers.forEach((value, key) => {
+		entries[key] = value;
+	});
+
+	return entries;
+}
+
+/**
+ * Where a request is going: a string starting with `/` is a path on this
+ * client's server, and anything else is already addressed.
+ *
+ * The second case is what lets `packages/sync` install this client's `fetch`
+ * whole. It builds its own URLs from the app's `serverUrl` and passes Electric's
+ * `Request` objects straight through, so neither is a path and neither should be
+ * rewritten.
+ */
+function addressOn(serverUrl: string, input: FetchInput): FetchInput {
+	return typeof input === 'string' && input.startsWith('/') ? `${serverUrl}${input}` : input;
+}
+
+/** The headers an already-built `Request` brought with it, which are nobody's to drop. */
+function carriedHeaders(input: FetchInput): Record<string, string> {
+	return typeof input === 'object' && input !== null && 'headers' in input
+		? headerEntries(input.headers)
+		: {};
+}
+
+/**
+ * ADR 0016's two outgoing rules, or nothing at all.
+ *
+ * Nothing is the web apps: a browser holds the sealed session in an httpOnly
+ * cookie this client cannot read, so it has no credential to attach and no
+ * reason to declare itself. Declaring one anyway would ask the server to send
+ * the session back in a header any script could read.
+ */
+async function credentialHeaders(
+	session: SessionTransport | null,
+): Promise<Record<string, string>> {
+	if (session === null) {
+		return {};
+	}
+
+	const credential = await session.read();
+	return {
+		[SESSION_CLIENT_HEADER]: TOKEN_CLIENT,
+		...(credential === null ? {} : { authorization: `Bearer ${credential}` }),
+	};
+}
+
+/**
+ * `fetch`, with the session cookie the browser holds and nothing else.
+ *
+ * What `apps/web` and `apps/admin` install into `packages/sync`. The sealed
+ * session lives in an httpOnly cookie no script can read, so there is no
+ * credential to attach and no token client to declare — sending the cookie is
+ * the whole of it, and `credentials: 'include'` is what makes a cross-origin
+ * request send one at all.
+ *
+ * Here rather than in each app because it is one line both would otherwise
+ * write, and rather than in `packages/sync` because that package should hold no
+ * opinion about how its host authenticates: the token half of this pair is
+ * {@link AuthClient.fetch}, and both belong beside each other.
+ */
+export const cookieFetch: typeof fetch = (input, init) =>
+	fetch(input, { ...init, credentials: 'include' });
+
 /** Everything the client can do, bound to one server origin. */
 export interface AuthClient {
+	/**
+	 * Send a request with whatever credential this client carries.
+	 *
+	 * Every other member is an `/auth/*` operation, so until this was on the
+	 * interface the credential could reach nothing else — and ADR 0016's token
+	 * rules, implemented once behind it, were unreachable from the shape and
+	 * command paths that are every read and every write `apps/mobile` makes.
+	 *
+	 * A string beginning with `/` is a path on this client's `serverUrl`.
+	 * Anything else is left as the caller wrote it, which is what lets
+	 * `packages/sync` install this: it builds whole URLs from the app's own
+	 * `serverUrl` and hands Electric's `Request` objects straight through, so the
+	 * shape matches `fetch` and needs no adapter.
+	 *
+	 * Written as `typeof fetch` for that last reason: `packages/sync` types what
+	 * an app installs the same way, so this member goes in with no wrapper and no
+	 * cast at the one call site that matters.
+	 */
+	readonly fetch: typeof fetch;
 	readonly getAuthMe: () => Promise<AuthMe>;
 	readonly signIn: (input: {
 		readonly email: string;
@@ -231,7 +346,7 @@ export function createAuthClient(options: {
 	const session = options.session ?? null;
 
 	/**
-	 * Every `/auth/*` request, with whichever credential this client carries.
+	 * Every request, with whichever credential this client carries.
 	 *
 	 * The return trip matters as much as the outgoing one. WorkOS rotates sealed
 	 * sessions, and the server hands the new value back the same way it received
@@ -240,18 +355,19 @@ export function createAuthClient(options: {
 	 * at the sign-in call site — is what makes rotation invisible to callers,
 	 * and is the difference between a mobile session that lasts and one that
 	 * dies at its first refresh with nothing nearby to explain why.
+	 *
+	 * Returned as {@link AuthClient.fetch}, which is what lets a caller outside
+	 * `/auth/*` obey those rules without a second copy of them.
 	 */
-	async function authFetch(path: string, init: FetchInit = {}): Promise<FetchResponse> {
-		const credential = session === null ? null : await session.read();
-
-		const response = await fetch(`${serverUrl}${path}`, {
+	async function authFetch(input: FetchInput, init: FetchInit = {}): Promise<FetchResponse> {
+		const response = await fetch(addressOn(serverUrl, input), {
 			...init,
 			credentials: 'include',
 			headers: {
 				accept: 'application/json',
-				...init.headers,
-				...(session === null ? {} : { [SESSION_CLIENT_HEADER]: TOKEN_CLIENT }),
-				...(credential === null ? {} : { authorization: `Bearer ${credential}` }),
+				...carriedHeaders(input),
+				...headerEntries(init.headers),
+				...(await credentialHeaders(session)),
 			},
 		});
 
@@ -533,6 +649,7 @@ export function createAuthClient(options: {
 
 	return {
 		acceptInvitation,
+		fetch: authFetch,
 		fetchInvitation,
 		getAuthMe,
 		requestPasswordReset,

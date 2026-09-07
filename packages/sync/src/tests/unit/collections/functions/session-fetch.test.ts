@@ -10,6 +10,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
 	sessionFetch,
+	setSessionFetcher,
 	setSessionRecovery,
 } from '../../../../collections/functions/session-fetch.js';
 
@@ -26,6 +27,7 @@ describe('sessionFetch', () => {
 	afterEach(() => {
 		vi.unstubAllGlobals();
 		setSessionRecovery(null);
+		setSessionFetcher(null);
 	});
 
 	it('renews the session and retries once', async () => {
@@ -134,5 +136,41 @@ describe('sessionFetch', () => {
 		await expect(retried.text()).resolves.toBe(
 			JSON.stringify({ intents: ['larvalSurveillance.createHabitat'] }),
 		);
+	});
+
+	it('sends through the fetcher the app installed rather than the bare global', async () => {
+		// The whole of why this exists. A cookie is not the only credential a host
+		// can carry: `apps/mobile` holds the sealed session in the device keystore
+		// and sends it as a bearer (ADR 0016), and this package has no way to know
+		// which of the two it is running under.
+		const installed = vi.fn<typeof fetch>(async () => new Response(null, { status: 200 }));
+		setSessionFetcher(installed);
+		const globalFetch = stubResponses(200);
+
+		await sessionFetch('https://example.test/sync/shapes/units');
+
+		expect(installed).toHaveBeenCalledOnce();
+		expect(globalFetch).not.toHaveBeenCalled();
+	});
+
+	it('retries through the installed fetcher, so the second attempt carries the same credential', async () => {
+		// A retry on the bare global would go out with no credential at all and be
+		// refused a second time — a renewal that looks like it worked and a request
+		// that never had a chance.
+		const remaining = [401, 200];
+		const installed = vi.fn<typeof fetch>(
+			async () => new Response(null, { status: remaining.shift() ?? 200 }),
+		);
+		setSessionFetcher(installed);
+		setSessionRecovery(async () => true);
+		const globalFetch = stubResponses(200, 200);
+
+		const response = await sessionFetch('https://example.test/sync/shapes/units');
+
+		expect({ status: response.status, calls: installed.mock.calls.length }).toEqual({
+			status: 200,
+			calls: 2,
+		});
+		expect(globalFetch).not.toHaveBeenCalled();
 	});
 });

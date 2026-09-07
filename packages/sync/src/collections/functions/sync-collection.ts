@@ -7,9 +7,10 @@
  * difference is that a descriptor described a shape for something else to
  * assemble, and this returns the assembled thing.
  *
- * Deliberately not general beyond this repo: the shape route convention, the
- * cookie credential, and the two Postgres types SIMMER actually stores are all
- * fixed here, because each is a decision rather than a parameter.
+ * Deliberately not general beyond this repo: the shape route convention and the
+ * two Postgres types SIMMER actually stores are fixed here, because each is a
+ * decision rather than a parameter. The credential is not one of them — see
+ * `session-fetch.ts` for why the host installs that instead.
  *
  * ## Why this returns a config and not the collection
  *
@@ -98,21 +99,6 @@ export function syncedColumnsOf(schema: z.ZodObject<z.ZodRawShape>): readonly st
 const shapeParsers = {
 	timestamptz: (value: string) => new Date(value),
 };
-
-/**
- * The session cookie is the whole authorization story; nothing about the
- * organization travels in the request itself.
- *
- * Annotated `typeof fetch` rather than given parameter types of its own. Electric
- * declares `fetchClient?: typeof fetch`, whose first parameter is
- * `RequestInfo | URL` — writing `(request: Request, …)` narrows it, and
- * `strictFunctionTypes` rejects a narrowed parameter in a function-type position.
- * That rejection is not reported where it happens: it invalidates the whole
- * config object, so the schema overload is dropped and the error surfaces as the
- * schemaless overload complaining that a schema is not assignable to `never`.
- */
-const fetchWithSession: typeof fetch = (request, init) =>
-	sessionFetch(request, { ...init, credentials: 'include' });
 
 /**
  * How long a collection survives with no subscribers before it is collected.
@@ -319,7 +305,20 @@ export function syncCollectionConfig<TRow extends SyncedRow>(
 			// Electric 2.0 deprecates GET for subsets regardless.
 			subsetMethod: 'POST',
 
-			fetchClient: fetchWithSession,
+			// The credential is the app's, installed once through
+			// `setSessionFetcher`; nothing about the organization travels in the
+			// request itself either way.
+			//
+			// `sessionFetch` is annotated `typeof fetch` rather than given parameter
+			// types of its own, and has to be. Electric declares
+			// `fetchClient?: typeof fetch`, whose first parameter is
+			// `RequestInfo | URL` — writing `(request: Request, …)` narrows it, and
+			// `strictFunctionTypes` rejects a narrowed parameter in a function-type
+			// position. That rejection is not reported where it happens: it
+			// invalidates the whole config object, so the schema overload is dropped
+			// and the error surfaces as the schemaless overload complaining that a
+			// schema is not assignable to `never`.
+			fetchClient: sessionFetch,
 
 			parser: shapeParsers,
 
