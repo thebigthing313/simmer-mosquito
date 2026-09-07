@@ -1189,6 +1189,7 @@ export interface ServerOwnedColumns {
 	additional_personnel:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
@@ -1198,6 +1199,7 @@ export interface ServerOwnedColumns {
 		| 'updated_at'
 		| 'deleted_at'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'geom'
 		| 'lat'
 		| 'lng'
@@ -1205,6 +1207,7 @@ export interface ServerOwnedColumns {
 		| 'geom_type';
 	application_batches:
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1212,12 +1215,14 @@ export interface ServerOwnedColumns {
 	application_methods:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
 	applications:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1228,6 +1233,7 @@ export interface ServerOwnedColumns {
 		| 'geom_type';
 	assignment_items:
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1235,12 +1241,14 @@ export interface ServerOwnedColumns {
 	assignments:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
 	biocontrol_actions:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1252,6 +1260,7 @@ export interface ServerOwnedColumns {
 	biocontrol_methods:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
@@ -1260,15 +1269,18 @@ export interface ServerOwnedColumns {
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
-		| 'created_by_profile_id';
+		| 'created_by_profile_id'
+		| 'updated_by_profile_id';
 	collection_methods:
 		| 'organization_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
-		| 'created_by_profile_id';
+		| 'created_by_profile_id'
+		| 'updated_by_profile_id';
 	collection_species:
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1276,6 +1288,7 @@ export interface ServerOwnedColumns {
 	collections:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1287,23 +1300,27 @@ export interface ServerOwnedColumns {
 	comments:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
 	contacts:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
 	equipment:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
 	formulation_insecticides:
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1311,6 +1328,7 @@ export interface ServerOwnedColumns {
 	formulations:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
@@ -1320,10 +1338,12 @@ export interface ServerOwnedColumns {
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
-		| 'created_by_profile_id';
+		| 'created_by_profile_id'
+		| 'updated_by_profile_id';
 	habitats:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1334,6 +1354,7 @@ export interface ServerOwnedColumns {
 		| 'geom_type';
 	insecticide_batches:
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1341,12 +1362,14 @@ export interface ServerOwnedColumns {
 	insecticides:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
 	inspections:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1358,6 +1381,7 @@ export interface ServerOwnedColumns {
 	memberships: 'organization_id' | 'created_at' | 'updated_at';
 	mission_items:
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1369,6 +1393,7 @@ export interface ServerOwnedColumns {
 		| 'geom_type';
 	mission_notifications:
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1376,17 +1401,20 @@ export interface ServerOwnedColumns {
 	missions:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
 	notification_registration_types:
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
 		| 'organization_id';
 	notification_registrations:
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1399,6 +1427,7 @@ export interface ServerOwnedColumns {
 	notification_types:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
@@ -1407,11 +1436,13 @@ export interface ServerOwnedColumns {
 		| 'created_at'
 		| 'updated_at'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'deleted_at';
-	organizations: 'created_at' | 'updated_at' | 'deleted_at';
+	organizations: 'created_at' | 'updated_at' | 'deleted_at' | 'updated_by_profile_id';
 	outreach_actions:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1423,6 +1454,7 @@ export interface ServerOwnedColumns {
 	outreach_methods:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
@@ -1432,13 +1464,15 @@ export interface ServerOwnedColumns {
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
-		| 'created_by_profile_id';
+		| 'created_by_profile_id'
+		| 'updated_by_profile_id';
 	regions:
 		| 'organization_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'geom'
 		| 'lat'
 		| 'lng'
@@ -1447,6 +1481,7 @@ export interface ServerOwnedColumns {
 	requested_control_actions:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1457,21 +1492,36 @@ export interface ServerOwnedColumns {
 		| 'geom_type';
 	route_items:
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
 		| 'organization_id';
-	routes: 'organization_id' | 'created_by_profile_id' | 'created_at' | 'updated_at' | 'deleted_at';
+	routes:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
 	sample_species:
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
 		| 'organization_id';
-	samples: 'created_by_profile_id' | 'created_at' | 'updated_at' | 'deleted_at' | 'organization_id';
+	samples:
+		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at'
+		| 'organization_id';
 	service_requests:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1483,12 +1533,14 @@ export interface ServerOwnedColumns {
 	source_reduction_methods:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
 	source_reductions:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1500,14 +1552,22 @@ export interface ServerOwnedColumns {
 	species: 'created_at' | 'updated_at';
 	tag_items:
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
 		| 'organization_id';
-	tags: 'organization_id' | 'created_by_profile_id' | 'created_at' | 'updated_at' | 'deleted_at';
+	tags:
+		| 'organization_id'
+		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
+		| 'created_at'
+		| 'updated_at'
+		| 'deleted_at';
 	traps:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1521,18 +1581,21 @@ export interface ServerOwnedColumns {
 	vehicles:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
 	weather_source_subscriptions:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at';
 	weather_sources:
 		| 'organization_id'
 		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
 		| 'created_at'
 		| 'updated_at'
 		| 'deleted_at'
@@ -1541,5 +1604,10 @@ export interface ServerOwnedColumns {
 		| 'lng'
 		| 'geojson'
 		| 'geom_type';
-	weather_summaries: 'created_at' | 'updated_at' | 'created_by_profile_id' | 'organization_id';
+	weather_summaries:
+		| 'created_at'
+		| 'updated_at'
+		| 'created_by_profile_id'
+		| 'updated_by_profile_id'
+		| 'organization_id';
 }

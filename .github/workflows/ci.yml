@@ -211,6 +211,14 @@ jobs:
       - name: Collection schemas
         run: pnpm check:schemas
 
+      # Which columns the server owns is written down on both sides of the wire:
+      # the generator's rule, and the list `packages/sync` strips from every
+      # outgoing body. Nothing compared them and they had drifted both ways. The
+      # two differences that are deliberate are answered by a register rather
+      # than by prose, so this checks the answer instead of tolerating the gap.
+      - name: Server-owned columns
+        run: pnpm check:server-owned-columns
+
       - name: Typecheck
         run: pnpm typecheck
 

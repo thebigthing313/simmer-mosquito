@@ -238,15 +238,15 @@ resolved and never the one the caller sent.
   organization's id.
 - `created_at`, `updated_at` and `deleted_at` are the row's clock. A delete is a
   named command, not a timestamp arriving.
-- `created_by_profile_id` is who made the row, resolved from the session.
+- `created_by_profile_id` and `updated_by_profile_id` are who made the row and
+  who last touched it, both resolved from the session.
 - `geom` is geometry, snapshotted from a domain location source. A body carries
   `locationSource` or `geometry` instead.
 - Whatever the database fills: the `geojson` stored generated column, and the
   `lat`, `lng` and `geom_type` the `set_owned_centroid()` trigger owns.
 
-Two columns near that line stay. `id` is client-generated, which is what makes a
-create replay-safe, and `updated_by_profile_id` arrives from the client on some
-tables.
+One column near that line stays. `id` is client-generated, which is what makes a
+create replay-safe.
 
 It reaches the typed surface and stops there. The older per-domain routes hold a
 `Record<string, unknown>`, so a key read off one of those is checked by nothing,
@@ -260,6 +260,22 @@ check:table-types` covers it and a new table with an `organization_id` is
 subtracted the day its migration lands. A column added to the rule that a live
 handler reads is a build failure at that handler, which is the argument for
 leaving it out rather than a licence to carve an exception into the type.
+
+The client strips its own list on the way out, before a body is ever sent:
+`serverOwnedColumns` in
+`packages/sync/src/collections/functions/command-request.ts`, applied by both
+write paths. One list for every table, and deliberately wider than any one
+table's answer, because a name it strips that the table does not have costs
+nothing. Its reason is not the server's: the endpoints ignore what they do not
+read, so this is about keeping a no-op detectable. An edit form stamps
+`updated_at` and `updated_by_profile_id` on every save so the optimistic row
+looks right, and without the strip an edit that changed nothing would still be a
+request. `pnpm check:server-owned-columns` holds the two lists to each other:
+every name the server owns by name is stripped or kept off every client by `OMIT`
+in `scripts/generate-table-schemas.mjs`, and every name the client strips is one
+the server owns or one the centroid trigger writes. It runs in CI's `verify` job.
+Before it existed the two had drifted in both directions and nothing said so
+(#648).
 
 `ServerOwnedColumns` is not `scripts/withheld-columns.mjs`. That file names
 columns kept out of the Electric shape and the search index, a question about who

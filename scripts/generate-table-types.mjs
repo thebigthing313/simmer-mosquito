@@ -96,17 +96,29 @@ const CENTROID_FUNCTION = 'public.set_owned_centroid()';
  *   organization's id.
  * - `created_at`, `updated_at` and `deleted_at` are the row's own clock. A
  *   delete is a named command, not a timestamp arriving.
- * - `created_by_profile_id` is who made the row, resolved from the session.
+ * - `created_by_profile_id` and `updated_by_profile_id` are who made the row and
+ *   who last touched it, both resolved from the session. Every write that sets
+ *   the second takes it from `actorProfileId`, never off a body.
  * - `geom` is geometry, snapshotted from a domain location source. Geometry
  *   never syncs, so a body carries `locationSource` or `geometry` instead.
  *
- * Two near neighbours are deliberately not here. `id` is client-generated, so a
- * create names its own and the write is replay-safe. `updated_by_profile_id`
- * arrives from the client on some tables, so subtracting it would break a live
- * handler.
+ * One near neighbour is deliberately not here. `id` is client-generated, so a
+ * create names its own and the write is replay-safe.
+ *
+ * `updated_by_profile_id` used to sit beside it, kept out by a comment saying it
+ * arrived from the client on some tables and that subtracting it would break a
+ * live handler. No handler read it: every write that sets the column takes
+ * `actorProfileId`, and `packages/sync` had been stripping the name from every
+ * outgoing body since it was written, so no handler could have received one
+ * (#648).
  *
  * The columns the database fills are server-owned too, and those come out of the
  * dump rather than out of this list: see {@link isDatabaseFilled}.
+ *
+ * The client keeps its own list of names it strips on the way out,
+ * `serverOwnedColumns` in
+ * `packages/sync/src/collections/functions/command-request.ts`.
+ * `pnpm check:server-owned-columns` holds the two together.
  *
  * This is not `scripts/withheld-columns.mjs`. That file names columns kept out
  * of the Electric shape and the search index, which is a question about the
@@ -121,6 +133,7 @@ const SERVER_OWNED = new Set([
 	'geom',
 	'organization_id',
 	'updated_at',
+	'updated_by_profile_id',
 ]);
 
 /** The register `packages/domain` keeps every enum type in. */

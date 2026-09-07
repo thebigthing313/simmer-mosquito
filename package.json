@@ -22,6 +22,7 @@
 		"check:schema-drift": "node scripts/check-schema-drift.mjs",
 		"check:schemas": "node scripts/generate-table-schemas.mjs --check",
 		"check:search-corpus": "node scripts/check-search-corpus.mjs",
+		"check:server-owned-columns": "node scripts/check-server-owned-columns.mjs",
 		"check:table-types": "node scripts/generate-table-types.mjs --check",
 		"check:tileset-keys": "node scripts/check-tileset-keys.mjs",
 		"check:vocabulary": "node scripts/check-vocabulary.mjs",
