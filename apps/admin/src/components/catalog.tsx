@@ -41,7 +41,15 @@ import { type FormEvent, type ReactNode, useState } from 'react';
 const EditIcon = iconRegistry.actions.edit.icon;
 const DeleteIcon = iconRegistry.actions.delete.icon;
 
-/** Below this the filter is noise — you can see the whole list already. */
+/**
+ * Below this the filter is noise — you can see the whole list already.
+ *
+ * `apps/web` declares the same number in
+ * `src/components/catalog/catalog-search.ts`. That is a deliberate second copy,
+ * not a shared source. The two apps share no catalog component, and the hook
+ * there is built around an active-versus-inactive split the global catalogs
+ * have no concept of, so changing one number does not change the other.
+ */
 const SEARCH_THRESHOLD = 6;
 
 export function CatalogRow({
@@ -94,9 +102,8 @@ export function CatalogList({ children }: { readonly children: ReactNode }) {
 /**
  * Counts on the left, filter on the right.
  *
- * The filter only appears once the list is long enough to need one — the same
- * threshold the organization workspace uses. A search box above five rows is
- * chrome pretending to be a feature.
+ * The filter only appears once the list is long enough to need one. A search
+ * box above five rows is chrome pretending to be a feature.
  */
 function CatalogToolbar({
 	total,
@@ -140,38 +147,48 @@ function CatalogToolbar({
  * about whether an empty search result should look like an empty catalog (it
  * should not — one means "add something", the other means "type less") and four
  * route components carrying render branching on top of their data and their
- * writes. Owning the sequence here keeps each page to the part that differs: its
- * query, its rows, and its copy.
+ * writes.
+ *
+ * The search is part of that sequence, so the frame holds it: the state, the
+ * trimmed and lowercased query, both counts, and the threshold. A page hands in
+ * its rows and one `matches` function naming the fields it searches, and gets
+ * the surviving rows back through its child function. Owning all of it here
+ * keeps each page to the part that differs: its query, its rows, and its copy.
+ *
+ * `matches` is never asked about an empty query, since a blank filter returns
+ * every row untouched, and the query it is handed is already trimmed and
+ * lowercased.
  */
-export function CatalogBody({
+export function CatalogBody<TRow>({
 	isReady,
-	total,
-	shown,
+	rows,
+	matches,
 	noun,
-	search,
-	onSearchChange,
 	empty,
 	banner,
 	children,
 }: {
 	readonly isReady: boolean;
-	/** Rows before filtering — decides empty-catalog vs no-matches. */
-	readonly total: number;
-	readonly shown: number;
+	/** Every row, before filtering. Decides empty-catalog against no-matches. */
+	readonly rows: readonly TRow[];
+	readonly matches: (row: TRow, query: string) => boolean;
 	/** Plural, lowercase: "genera", "units", "organizations". */
 	readonly noun: string;
-	readonly search: string;
-	readonly onSearchChange: (next: string) => void;
 	readonly empty: ReactNode;
 	/** Rendered above the toolbar once there is data — a standing condition. */
 	readonly banner?: ReactNode | undefined;
-	readonly children: ReactNode;
+	/** Handed the rows that survived the filter, in the order they arrived. */
+	readonly children: (filtered: readonly TRow[]) => ReactNode;
 }) {
+	const [search, setSearch] = useState('');
+	const query = search.trim().toLowerCase();
+	const filtered = query === '' ? rows : rows.filter((row) => matches(row, query));
+
 	if (!isReady) {
 		return <ListLoading />;
 	}
 
-	if (total === 0) {
+	if (rows.length === 0) {
 		return <>{empty}</>;
 	}
 
@@ -180,12 +197,18 @@ export function CatalogBody({
 			{banner}
 			<CatalogToolbar
 				noun={noun}
-				onSearchChange={onSearchChange}
+				onSearchChange={setSearch}
 				search={search}
-				shown={shown}
-				total={total}
+				shown={filtered.length}
+				total={rows.length}
 			/>
-			{shown === 0 ? <ListNoMatches noun={noun} query={search.trim()} /> : children}
+			{/* The no-matches line quotes the trimmed query, not the lowercased one,
+			    so the reader is shown what they typed. */}
+			{filtered.length === 0 ? (
+				<ListNoMatches noun={noun} query={search.trim()} />
+			) : (
+				children(filtered)
+			)}
 		</div>
 	);
 }

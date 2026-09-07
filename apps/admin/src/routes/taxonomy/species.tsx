@@ -103,28 +103,24 @@ async function removeSpecies(row: SpeciesListing) {
 
 type SpeciesDialog = CatalogDialogState<SpeciesListing>;
 
+/** The fields the filter reads. The query arrives trimmed and lowercased. */
+function matchesSpecies(row: SpeciesListing, query: string): boolean {
+	return (
+		row.displayName.toLowerCase().includes(query) ||
+		row.epithet.toLowerCase().includes(query) ||
+		(row.commonName ?? '').toLowerCase().includes(query)
+	);
+}
+
 function SpeciesRoute() {
 	const { genera } = useGenusRoster();
 	const { species: all, isReady } = useSpeciesRoster();
-	const [search, setSearch] = useState('');
 	const [dialog, setDialog] = useState<SpeciesDialog>(null);
 
 	// The one `useMemo` the read seam does not remove: a query returns rows and
 	// cannot return a lookup of them. The form needs one to name a genus while the
 	// operator is still choosing.
 	const genusById = useMemo(() => new Map(genera.map((genus) => [genus.id, genus])), [genera]);
-
-	const species = useMemo(() => {
-		const query = search.trim().toLowerCase();
-		return query === ''
-			? all
-			: all.filter(
-					(row) =>
-						row.displayName.toLowerCase().includes(query) ||
-						row.epithet.toLowerCase().includes(query) ||
-						(row.commonName ?? '').toLowerCase().includes(query),
-				);
-	}, [all, search]);
 
 	const canAdd = genera.length > 0;
 
@@ -175,23 +171,23 @@ function SpeciesRoute() {
 					/>
 				}
 				isReady={isReady}
+				matches={matchesSpecies}
 				noun="species"
-				onSearchChange={setSearch}
-				search={search}
-				shown={species.length}
-				total={all.length}
+				rows={all}
 			>
-				<CatalogList>
-					{species.map((row) => (
-						<SpeciesListRow
-							genusName={row.genusName ?? ''}
-							key={row.id}
-							onDelete={() => void removeSpecies(row)}
-							onEdit={() => setDialog(row)}
-							row={row}
-						/>
-					))}
-				</CatalogList>
+				{(species) => (
+					<CatalogList>
+						{species.map((row) => (
+							<SpeciesListRow
+								genusName={row.genusName ?? ''}
+								key={row.id}
+								onDelete={() => void removeSpecies(row)}
+								onEdit={() => setDialog(row)}
+								row={row}
+							/>
+						))}
+					</CatalogList>
+				)}
 			</CatalogBody>
 
 			<CatalogDialog

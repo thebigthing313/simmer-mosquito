@@ -5,7 +5,7 @@ import { Field, FieldLabel } from '@simmer-mosquito/ui-web/components/ui/field';
 import { Input } from '@simmer-mosquito/ui-web/components/ui/input';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { toast } from 'sonner';
 import { AdminPage } from '../../components/admin-page';
 import {
@@ -61,6 +61,13 @@ async function removeGenus(genus: GenusListing) {
 /** `'new'` opens the create dialog; a row opens the same dialog to edit it. */
 type GenusDialog = CatalogDialogState<GenusListing>;
 
+/** The fields the filter reads. The query arrives trimmed and lowercased. */
+function matchesGenus(genus: GenusListing, query: string): boolean {
+	return (
+		genus.name.toLowerCase().includes(query) || genus.abbreviation.toLowerCase().includes(query)
+	);
+}
+
 /**
  * The global genus list.
  *
@@ -70,24 +77,13 @@ type GenusDialog = CatalogDialogState<GenusListing>;
  * so the row is on screen before the round trip and a txid confirmation that
  * arrives late is treated as pending rather than as failure.
  *
- * What is left here is search and the dialog — the two things that are genuinely
- * this component's state.
+ * What is left here is the dialog — the one thing that is genuinely this
+ * component's state. The filter belongs to `CatalogBody`, which is handed the
+ * rows and the one function naming the fields it reads.
  */
 function GeneraRoute() {
 	const { genera: all, speciesCountById, isReady } = useGenusRoster();
-	const [search, setSearch] = useState('');
 	const [dialog, setDialog] = useState<GenusDialog>(null);
-
-	const genera = useMemo(() => {
-		const query = search.trim().toLowerCase();
-		return query === ''
-			? all
-			: all.filter(
-					(genus) =>
-						genus.name.toLowerCase().includes(query) ||
-						genus.abbreviation.toLowerCase().includes(query),
-				);
-	}, [all, search]);
 
 	return (
 		<AdminPage
@@ -116,23 +112,23 @@ function GeneraRoute() {
 					/>
 				}
 				isReady={isReady}
+				matches={matchesGenus}
 				noun="genera"
-				onSearchChange={setSearch}
-				search={search}
-				shown={genera.length}
-				total={all.length}
+				rows={all}
 			>
-				<CatalogList>
-					{genera.map((genus) => (
-						<GenusListRow
-							genus={genus}
-							key={genus.id}
-							onDelete={() => void removeGenus(genus)}
-							onEdit={() => setDialog(genus)}
-							speciesCount={speciesCountById.get(genus.id) ?? 0}
-						/>
-					))}
-				</CatalogList>
+				{(genera) => (
+					<CatalogList>
+						{genera.map((genus) => (
+							<GenusListRow
+								genus={genus}
+								key={genus.id}
+								onDelete={() => void removeGenus(genus)}
+								onEdit={() => setDialog(genus)}
+								speciesCount={speciesCountById.get(genus.id) ?? 0}
+							/>
+						))}
+					</CatalogList>
+				)}
 			</CatalogBody>
 
 			<CatalogDialog
