@@ -1,3 +1,4 @@
+import { mapDomain, mapInteraction, mapLifecycle } from '@simmer-mosquito/design-tokens';
 import type {
 	CircleLayerSpecification,
 	ExpressionSpecification,
@@ -18,14 +19,28 @@ import { isMapLive } from './use-mapbox-map';
  */
 const GEOJSON_SOURCE_ID = 'geojson-overlay';
 
-/** Match the explorer's selected-habitat highlight so the same record reads alike. */
+/**
+ * What the overlay paints, read off the shared palette.
+ *
+ * The block used to say it matched the explorer's selected-habitat highlight,
+ * and it had stopped: a private green fill sat beside the explorer's lifecycle
+ * green, and `selected` was that same lifecycle green while every tile layer
+ * had moved to amber. One record therefore read as selected on the explorer and
+ * as merely active on its own detail map (#618).
+ *
+ * `fill` and `outline` are now one hue rather than a light fill under a darker
+ * edge, because that is what the explorer draws: `geometryTileLayers` falls back
+ * to the fill for its outline, and an active habitat's fill is the same
+ * lifecycle green. The fill sits at a quarter opacity and the outline at full,
+ * so the edge still reads.
+ */
 const colors = {
-	fill: '#16b364',
-	outline: '#0c5331',
-	line: '#2d46b6',
-	point: '#16b364',
-	pointStroke: '#f9fdfb',
-	selected: '#0c5331',
+	fill: mapLifecycle.active,
+	outline: mapLifecycle.active,
+	line: mapDomain.connector,
+	point: mapLifecycle.active,
+	pointStroke: mapInteraction.pointStroke,
+	selected: mapInteraction.selected,
 } as const;
 
 /**

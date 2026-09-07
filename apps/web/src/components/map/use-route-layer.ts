@@ -1,4 +1,4 @@
-import { mapProgress } from '@simmer-mosquito/design-tokens';
+import { mapInteraction, mapLifecycle, mapProgress } from '@simmer-mosquito/design-tokens';
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import type {
 	CircleLayerSpecification,
@@ -80,20 +80,32 @@ function shapeFeatureId(stopId: string): string {
 /** Layers a click or hover may land on, pins first so a pin inside its own area wins. */
 const INTERACTIVE_LAYER_IDS = [STOP_LAYER_ID, SHAPE_FILL_LAYER_ID, SHAPE_LINE_LAYER_ID] as const;
 
-/** Field-room palette; kept in hex because GL paint can't read CSS tokens. */
+/**
+ * What a route map paints, read off the shared palette.
+ *
+ * Four of these used to be local hexes under a comment saying they predated the
+ * register and were left alone. They were a second inactive grey, a second
+ * inaccessible red, a pale amber emphasis ring, and the off-white casing spelt
+ * out twice, so a stop retired on this map read as a different retirement from
+ * the same stop on the habitat explorer (#618).
+ *
+ * `path` and `stop` are one colour because the dashed connector is not a state
+ * of its own: it is the route drawn between its stops, so it takes the tone a
+ * stop with nothing wrong with it wears.
+ *
+ * `label` is the point casing rather than a colour of its own. The ordinal is
+ * knocked out of the pin it sits on, which is the same job a casing does.
+ */
 const colors = {
-	path: '#0c5331',
-	stop: '#0c5331',
-	stopInactive: '#8a9a93',
-	stopInaccessible: '#e5484d',
-	// The progress tones come from the shared palette rather than two more local
-	// hexes; the four above predate it and are left alone so restyling the route
-	// map stays its own change.
+	path: mapLifecycle.active,
+	stop: mapLifecycle.active,
+	stopInactive: mapLifecycle.inactive,
+	stopInaccessible: mapLifecycle.inaccessible,
 	stopDone: mapProgress.done,
 	stopSkipped: mapProgress.skipped,
-	stroke: '#f9fdfb',
-	ring: '#e4c04a',
-	label: '#f9fdfb',
+	stroke: mapInteraction.pointStroke,
+	ring: mapInteraction.selected,
+	label: mapInteraction.pointStroke,
 } as const;
 
 const emphasized: ExpressionSpecification = [

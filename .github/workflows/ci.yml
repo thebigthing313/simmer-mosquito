@@ -140,6 +140,18 @@ jobs:
       - name: Join types
         run: pnpm check:join-types
 
+      # Mapbox evaluates paint properties outside the CSS cascade, so a map
+      # layer cannot read a custom property and every colour it paints is a
+      # literal. Six of the 62 modules under the map directory kept a private
+      # block through the pass that wrote the register, and selection reached
+      # three colours: amber on the tile layers, dark green on the record
+      # overlay, near-black on the service-request map. Lifecycle drifted twice
+      # in one file, and `NEARBY_FAMILY_COLORS` restated `mapFamily` byte for
+      # byte under a comment calling the values approximations. This refuses a
+      # hex literal anywhere under that directory, at zero with no allowance.
+      - name: Map palette
+        run: pnpm check:map-palette
+
       # `CONTEXT.md` names every domain term and, beside it, the words that are
       # not that term. Nothing read those Avoid lists until this, which is how
       # agency and organization ended up in one sentence on one screen. It reads

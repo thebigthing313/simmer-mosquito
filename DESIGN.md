@@ -506,8 +506,8 @@ read custom properties and must be literals. That constraint is real; scattering
 the literals is not. Every colour a layer paints with is named once in
 `@simmer-mosquito/design-tokens/map-palette`, in four groups:
 
-- **Interaction**: `selected`, `selectedStroke`, `pointStroke`. Roles that mean
-  the same thing on every layer.
+- **Interaction**: `selected`, `selectedStroke`, `pointStroke`, `vertexStroke`,
+  `fallback`. Roles that mean the same thing on every layer.
 - **Lifecycle**: `active`, `inactive`, `inaccessible`. Shared by every locatable
   record type; composed from the brand scale so a brand change reaches the map.
 - **Domain**: the per-type hue that lets an operator tell a trap from a
@@ -521,6 +521,12 @@ matches what the draw tool paints. It drifted once, to amber on addresses and
 regions and green on seven other layers, which meant selection said something
 different depending on which record you clicked. Green is also already spoken
 for as a *domain* mark, so a green halo on an active trap says nothing.
+
+It drifted a second time in the six modules the first pass left holding their
+own colours, and reached three: amber on the tile layers, dark green on the
+record overlay, near-black on the service-request map. `pnpm check:map-palette`
+now refuses a hex literal anywhere under `apps/web/src/components/map`, so a
+fourth has to be written in the register, where a reader can see it (#618).
 
 **The Legend Truth Rule.** A map legend reads its swatches from the same
 constants the layers paint with. Never a literal. A hand-typed legend swatch
