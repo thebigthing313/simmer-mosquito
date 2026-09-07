@@ -10,7 +10,7 @@ import {
 } from '@simmer-mosquito/design-tokens/color';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { createFileRoute } from '@tanstack/react-router';
-import { useCssTokens } from '../useCssTokens';
+import { type CssToken, useCssTokens } from '../useCssTokens';
 
 export const Route = createFileRoute('/design-tokens')({
 	component: DesignTokensPage,
@@ -276,10 +276,7 @@ function ColorSwatch({ name, value }: { readonly name: string; readonly value: s
  * the first render has nothing to measure against and the badge is held back
  * rather than drawn at a ratio of zero.
  */
-function bestLevelAgainst(
-	colour: RgbColor,
-	surfaces: readonly { readonly value: string }[],
-): WcagLevel | null {
+function bestLevelAgainst(colour: RgbColor, surfaces: readonly CssToken[]): WcagLevel | null {
 	let best: number | null = null;
 	for (const surface of surfaces) {
 		const parsed = parseCssColor(surface.value);

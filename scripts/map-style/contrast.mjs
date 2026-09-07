@@ -51,14 +51,14 @@ const GROUPS = {
  * palette module, so anything else is a bug in the palette rather than a value
  * to skip past with a zero.
  */
-function rgb(hex) {
-	const parsed = parseCssColor(hex);
-	if (parsed === null) throw new Error(`not a colour: ${hex}`);
+function toRgb(value) {
+	const parsed = parseCssColor(value);
+	if (parsed === null) throw new Error(`not a colour: ${value}`);
 	return parsed;
 }
 
 function contrast(a, b) {
-	return contrastRatio(rgb(a), rgb(b));
+	return contrastRatio(toRgb(a), toRgb(b));
 }
 
 /**

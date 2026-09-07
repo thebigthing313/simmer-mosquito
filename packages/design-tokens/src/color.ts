@@ -6,8 +6,9 @@
  * the hex mirror guard beside this file, and the basemap contrast pass in
  * `scripts/map-style/contrast.mjs`. Three of the four carried the sRGB
  * luminance coefficients and three carried the OKLCH matrix, and they had
- * already drifted on the linearization knee: one wrote `0.03928`, from an
- * earlier revision of the same specification, and the rest wrote `0.04045`.
+ * already drifted on the linearization knee: one wrote the value from an
+ * earlier revision of the same specification, and the rest wrote the current
+ * one below.
  *
  * Nothing on screen was wrong because of it. Every caller feeds integer sRGB
  * channels and no integer channel falls between the two knees, so the drift
