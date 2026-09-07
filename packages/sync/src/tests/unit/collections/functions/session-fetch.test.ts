@@ -26,7 +26,7 @@ function respondingWith(...statuses: readonly number[]) {
  * throws rather than reaching the bare global. The case asserting that refusal
  * installs nothing, and it is the only one.
  */
-function stubResponses(...statuses: readonly number[]) {
+function installedTransport(...statuses: readonly number[]) {
 	const fetchMock = respondingWith(...statuses);
 	setSessionFetcher(fetchMock);
 	return fetchMock;
@@ -49,7 +49,7 @@ describe('sessionFetch', () => {
 	it('renews the session and retries once', async () => {
 		const recover = vi.fn(async () => true);
 		setSessionRecovery(recover);
-		const fetchMock = stubResponses(401, 200);
+		const fetchMock = installedTransport(401, 200);
 
 		const response = await sessionFetch('https://example.test/sync/shapes/units');
 
@@ -64,7 +64,7 @@ describe('sessionFetch', () => {
 		// The failure worth more than the retry: a route refusing this caller for a
 		// reason a session cannot fix, asked forever.
 		setSessionRecovery(async () => true);
-		const fetchMock = stubResponses(401, 401);
+		const fetchMock = installedTransport(401, 401);
 
 		const response = await sessionFetch('https://example.test/sync/shapes/units');
 
@@ -78,7 +78,7 @@ describe('sessionFetch', () => {
 		// The app is being told the session is gone. It signs the reader out from
 		// its own side; there is nothing left here to retry.
 		setSessionRecovery(async () => false);
-		const fetchMock = stubResponses(401, 200);
+		const fetchMock = installedTransport(401, 200);
 
 		const response = await sessionFetch('https://example.test/sync/shapes/units');
 
@@ -95,7 +95,7 @@ describe('sessionFetch', () => {
 		// telling them what is wrong.
 		const recover = vi.fn(async () => true);
 		setSessionRecovery(recover);
-		const fetchMock = stubResponses(403);
+		const fetchMock = installedTransport(403);
 
 		const response = await sessionFetch('https://example.test/admin/organizations');
 
@@ -109,7 +109,7 @@ describe('sessionFetch', () => {
 	it('leaves every other answer alone, so a 500 is not read as a session ending', async () => {
 		const recover = vi.fn(async () => true);
 		setSessionRecovery(recover);
-		const fetchMock = stubResponses(500);
+		const fetchMock = installedTransport(500);
 
 		const response = await sessionFetch('https://example.test/sync/shapes/units');
 
@@ -122,7 +122,7 @@ describe('sessionFetch', () => {
 
 	it('asks once and gives up when no app installed a renewal', async () => {
 		// What `apps/mobile` gets today, and what every client did before #298.
-		const fetchMock = stubResponses(401, 200);
+		const fetchMock = installedTransport(401, 200);
 
 		const response = await sessionFetch('https://example.test/sync/shapes/units');
 
@@ -152,7 +152,7 @@ describe('sessionFetch', () => {
 		// of asking again, which surfaces as a write that failed for the wrong
 		// reason.
 		setSessionRecovery(async () => true);
-		const fetchMock = stubResponses(401, 200);
+		const fetchMock = installedTransport(401, 200);
 
 		const response = await sessionFetch(
 			new Request('https://example.test/commands/habitats', {
@@ -173,7 +173,7 @@ describe('sessionFetch', () => {
 		// can carry: `apps/mobile` holds the sealed session in the device keystore
 		// and sends it as a bearer (ADR 0016), and this package has no way to know
 		// which of the two it is running under.
-		const installed = stubResponses(200);
+		const installed = installedTransport(200);
 		const globalFetch = stubGlobalFetch(200);
 
 		await sessionFetch('https://example.test/sync/shapes/units');
@@ -186,7 +186,7 @@ describe('sessionFetch', () => {
 		// A retry on the bare global would go out with no credential at all and be
 		// refused a second time — a renewal that looks like it worked and a request
 		// that never had a chance.
-		const installed = stubResponses(401, 200);
+		const installed = installedTransport(401, 200);
 		setSessionRecovery(async () => true);
 		const globalFetch = stubGlobalFetch(200, 200);
 

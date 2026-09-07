@@ -50,12 +50,12 @@
  * Run it with `pnpm check:session-fetcher`.
  */
 
-import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { maskedSource } from './lib/masked-source.mjs';
 import { pathFrom } from './lib/relative-path.mjs';
-import { typeScriptFilesUnder } from './lib/source-files.mjs';
+import { isDirectory, typeScriptFilesUnder } from './lib/source-files.mjs';
 import { count, failure } from './lib/style-gate.mjs';
 
 const GATE = 'check-session-fetcher';
@@ -63,7 +63,18 @@ const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const fail = failure(GATE);
 
 /** The barrel an app that makes requests imports. */
-const SYNC_BARREL = "from '@simmer-mosquito/sync'";
+const SYNC_BARREL = '@simmer-mosquito/sync';
+
+/**
+ * An import of it, static or dynamic.
+ *
+ * Both forms, because a route module reaching the collections through
+ * `import('@simmer-mosquito/sync')` makes the same requests as one naming it in
+ * a `from` clause. Not the bare specifier, which `apps/server` writes in a
+ * watch list its dev server reads, and which would make a Node process with no
+ * cookie to carry look like an app owing a transport.
+ */
+const SYNC_IMPORT = /(?:from\s+|import\s*\(\s*)'@simmer-mosquito\/sync'/;
 
 /** The call that installs one, with whatever it was passed. */
 const INSTALL_CALL = /\bsetSessionFetcher\s*\(\s*([A-Za-z0-9_$.]*)/g;
@@ -75,7 +86,7 @@ const INSTALL_CALL = /\bsetSessionFetcher\s*\(\s*([A-Za-z0-9_$.]*)/g;
  * Five apps, because `apps/` holds `web`, `admin`, `server`, `mobile` and
  * `preview` and each has a `src`. Two consumers, because `web` and `admin`
  * import the barrel and the other three do not. Without the second number a
- * broken import scan reads as three apps that need no transport, which is what
+ * broken import scan reads as five apps that need no transport, which is what
  * a green run looks like.
  */
 const MINIMUM_APPS = 5;
@@ -102,7 +113,7 @@ function main() {
 	// and this floor would bury it under a refusal.
 	if (consumers.length < MINIMUM_CONSUMERS) {
 		fail(
-			`${count(consumers.length, 'app')} of ${apps.length} import the ${SYNC_BARREL.slice(6)} barrel, fewer than the ${MINIMUM_CONSUMERS} this expects. The apps are being found and their imports are not, so this run's clean zero is the scan failing rather than every app installing a transport.`,
+			`${count(consumers.length, 'app')} of ${apps.length} import the ${SYNC_BARREL} barrel, fewer than the ${MINIMUM_CONSUMERS} this expects. The apps are being found and their imports are not, so this run's clean zero is the scan failing rather than every app installing a transport.`,
 		);
 	}
 
@@ -127,7 +138,7 @@ function scanApp(app) {
 
 	return {
 		...app,
-		consumer: modules.some(({ source }) => source.includes(SYNC_BARREL)),
+		consumer: modules.some(({ source }) => SYNC_IMPORT.test(source)),
 		installs: modules.flatMap(installsIn),
 	};
 }
@@ -166,14 +177,6 @@ function report(findings) {
 
 function lineOf(source, index) {
 	return source.slice(0, index).split('\n').length;
-}
-
-function isDirectory(path) {
-	try {
-		return statSync(path).isDirectory();
-	} catch {
-		return false;
-	}
 }
 
 main();

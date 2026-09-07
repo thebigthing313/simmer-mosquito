@@ -1,7 +1,7 @@
 import tailwindcss from '@tailwindcss/vite';
 import { TanStackRouterVite } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 import { version } from './package.json' with { type: 'json' };
 
 export default defineConfig({
@@ -14,6 +14,14 @@ export default defineConfig({
 	 */
 	define: {
 		__APP_VERSION__: JSON.stringify(version),
+	},
+	/*
+	 * A session transport for every suite, which `packages/sync` refuses to send
+	 * without (#694). Same setup file and same reason as apps/web, including why
+	 * `defineConfig` comes from `vitest/config`.
+	 */
+	test: {
+		setupFiles: ['./src/tests/session-transport.ts'],
 	},
 	build: {
 		outDir: 'dist',
