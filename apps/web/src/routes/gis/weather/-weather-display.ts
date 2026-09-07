@@ -57,7 +57,7 @@ export function formatDate(value: string): string {
 	const parts = calendarDateParts(value);
 	const monthName = parts === undefined ? undefined : MONTHS[parts.month - 1];
 	if (parts === undefined || monthName === undefined) {
-		return unreadable('formatDate', value);
+		return unreadable('formatDate (weather summary)', value);
 	}
 	return `${monthName} ${parts.day}, ${parts.year}`;
 }

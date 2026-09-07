@@ -5,7 +5,7 @@ import { useMemo } from 'react';
 import { getServerUrl } from '../../auth';
 import { useSpeciesNames } from '../../hooks/queries/use-species-names';
 import { sample_species } from '../../lib/collections/sample_species';
-import { addCalendarDays, type CalendarDateParts, calendarDateParts } from '../../lib/local-date';
+import { addCalendarDays, calendarDateParts, utcCalendarDay } from '../../lib/local-date';
 import { unreadable, warnUnreadable } from '../../lib/unreadable-input';
 
 /** How far back the recent-window queries (heavy list, open samples) reach. */
@@ -160,13 +160,21 @@ export { todayInTimeZone } from '../../lib/local-date';
 /**
  * Shift a `YYYY-MM-DD` string by whole days, staying in UTC to avoid DST drift.
  *
- * `addCalendarDays` is the same arithmetic and has been guarded all along; this
- * had its own copy, which reached `toISOString` on an Invalid Date and threw
+ * The arithmetic is `addCalendarDays`, which has been guarded all along; this had
+ * its own copy, which reached `toISOString` on an Invalid Date and threw
  * `RangeError: Invalid time value` into the render tree (#609). The name stays
- * because thirty-seven call sites and three other overview modules read it from
- * here.
+ * because twenty-five call sites across seventeen files read it from here, three
+ * of them the other overview modules re-exporting it.
+ *
+ * What is added on top is the report. `addCalendarDays` echoes an unreadable
+ * date in silence, deliberately, because a sync bound built from one has a reader
+ * below it that refuses the value again. A day strip has no such reader: the
+ * string goes on screen, so somebody has to be told.
  */
 export function addDaysToDateString(date: string, days: number): string {
+	if (calendarDateParts(date) === undefined) {
+		return unreadable('addDaysToDateString', date);
+	}
 	return addCalendarDays(date, days);
 }
 
@@ -181,7 +189,7 @@ export function startOfWeek(date: string): string {
 	if (parts === undefined) {
 		return unreadable('startOfWeek', date);
 	}
-	return addCalendarDays(date, -utcDay(parts).getUTCDay());
+	return addCalendarDays(date, -utcCalendarDay(parts).getUTCDay());
 }
 
 /** The seven dates of the calendar week beginning at `weekStart`, Sunday first. */
@@ -208,7 +216,7 @@ export function dayOfMonth(date: string): number {
 		warnUnreadable('dayOfMonth', date);
 		return NO_DAY;
 	}
-	return utcDay(parts).getUTCDate();
+	return utcCalendarDay(parts).getUTCDate();
 }
 
 /** The day number no month has, which is how an unreadable date reads on a strip. */
@@ -270,7 +278,7 @@ export function formatListDate(date: string): string {
 
 /** Full numeric date, `M/D/YYYY` (e.g. `7/10/2026`). */
 export function formatDate(date: string): string {
-	return utcLabel('formatDate', date, {
+	return utcLabel('formatDate (larval overview)', date, {
 		year: 'numeric',
 		month: 'numeric',
 		day: 'numeric',
@@ -296,16 +304,7 @@ function utcLabel(formatter: string, date: string, options: Intl.DateTimeFormatO
 	if (parts === undefined) {
 		return unreadable(formatter, date);
 	}
-	return new Intl.DateTimeFormat('en-US', { ...options, timeZone: 'UTC' }).format(utcDay(parts));
-}
-
-/**
- * A calendar date as the instant that day began at UTC.
- *
- * Every label here is rendered on the UTC clock, so this is the one place the
- * parts become a `Date`, and it cannot be `NaN`: the parts are numbers by the
- * time they arrive.
- */
-function utcDay(parts: CalendarDateParts): Date {
-	return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+	return new Intl.DateTimeFormat('en-US', { ...options, timeZone: 'UTC' }).format(
+		utcCalendarDay(parts),
+	);
 }

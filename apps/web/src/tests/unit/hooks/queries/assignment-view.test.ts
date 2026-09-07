@@ -1,7 +1,8 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	assignmentDisplayName,
 	assignmentStatus,
+	formatAssignmentDate,
 	formatDueAt,
 } from '../../../../hooks/queries/assignment-view';
 
@@ -88,5 +89,45 @@ describe('formatDueAt', () => {
 	it('shows nothing rather than an invalid date', () => {
 		expect(formatDueAt(null, 'America/New_York')).toBeNull();
 		expect(formatDueAt('not a time', 'America/New_York')).toBeNull();
+	});
+});
+
+/**
+ * The eleventh copy of the calendar-date parse #609 collapsed, and the one its
+ * search missed: it was spelled `split('-')` with no leading slice rather than
+ * `slice(0, 10).split('-')`.
+ *
+ * The missing slice is why the guard never fired on a timestamp. `Number` turned
+ * `04T00:00:00Z` into `NaN` rather than `undefined`, so the check passed and the
+ * page drew `Invalid Date`.
+ */
+describe('formatAssignmentDate', () => {
+	let warn: ReturnType<typeof vi.spyOn>;
+
+	beforeEach(() => {
+		warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+	});
+
+	afterEach(() => {
+		warn.mockRestore();
+	});
+
+	// The label is the reader's locale, so the day is what is asserted rather
+	// than the wording.
+	it("renders the assignment's day, whatever zone the reader is in", () => {
+		const label = formatAssignmentDate('2026-08-04');
+		expect(label).toContain('4');
+		expect(label).toContain('2026');
+		expect(label).not.toContain('3');
+	});
+
+	it('reads the day a timestamp begins on rather than drawing Invalid Date', () => {
+		expect(formatAssignmentDate('2026-08-04T00:00:00Z')).toBe(formatAssignmentDate('2026-08-04'));
+	});
+
+	it('hands back a date it cannot read, and says so', () => {
+		expect(formatAssignmentDate('4 August')).toBe('4 August');
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(warn.mock.calls[0]?.[0]).toContain('formatAssignmentDate');
 	});
 });

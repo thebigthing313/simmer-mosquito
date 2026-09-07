@@ -89,6 +89,15 @@ describe('addDaysToDateString', () => {
 		expect(() => addDaysToDateString(NOT_A_DATE, 1)).not.toThrow();
 		expect(addDaysToDateString(NOT_A_DATE, 1)).toBe(NOT_A_DATE);
 	});
+
+	// The arithmetic it delegates to echoes in silence, because a sync bound built
+	// from one is refused again downstream. A day strip is read off the screen.
+	it('says so, where the arithmetic underneath it would not', () => {
+		addDaysToDateString('no day in this', 1);
+
+		expect(warn).toHaveBeenCalledTimes(1);
+		expect(warn.mock.calls[0]?.[0]).toContain('addDaysToDateString');
+	});
 });
 
 describe('startOfWeek', () => {

@@ -98,6 +98,22 @@ export function calendarDateParts(value: string | null | undefined): CalendarDat
 }
 
 /**
+ * A calendar date as the instant that day began at UTC.
+ *
+ * The step every date label takes after {@link calendarDateParts}, because a
+ * label is rendered on the UTC clock: build the day there and format it there,
+ * and the two cancel, so no zone can move it. Five formatters were writing this
+ * `Date.UTC` line out in full, one per module (#609).
+ *
+ * It cannot be an Invalid Date. The parts are numbers by the time they arrive,
+ * and `Date.UTC` rolls a month of 13 into January rather than refusing it, which
+ * is what those five already did.
+ */
+export function utcCalendarDay(parts: CalendarDateParts): Date {
+	return new Date(Date.UTC(parts.year, parts.month - 1, parts.day));
+}
+
+/**
  * A `YYYY-MM-DD` plus a whole number of days.
  *
  * Done in UTC, where every day is 24 hours: adding a day in a zone that springs

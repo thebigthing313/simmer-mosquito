@@ -98,7 +98,7 @@ import { useOrganizationTimeZone } from '../hooks/use-organization-time-zone';
 import { HABITAT_DELETE_REFUSALS } from '../lib/acknowledgement-copy';
 import { formatAmount } from '../lib/format-count';
 import { hexWithAlpha, validHexColor } from '../lib/hex-color';
-import { calendarDateParts } from '../lib/local-date';
+import { calendarDateParts, utcCalendarDay } from '../lib/local-date';
 import { unreadable } from '../lib/unreadable-input';
 import type { HabitatGeometry } from './-habitat-geometry-cache';
 import { HabitatInspectionStats } from './-habitat-inspection-stats';
@@ -1289,7 +1289,7 @@ function formatSampleResult(sample: HabitatHistorySample): string {
 export function formatDate(value: string): string {
 	const parts = calendarDateParts(value);
 	if (parts === undefined) {
-		return unreadable('formatDate', value);
+		return unreadable('formatDate (habitat detail)', value);
 	}
 
 	return new Intl.DateTimeFormat(undefined, {
@@ -1297,7 +1297,7 @@ export function formatDate(value: string): string {
 		month: 'short',
 		year: 'numeric',
 		timeZone: 'UTC',
-	}).format(new Date(Date.UTC(parts.year, parts.month - 1, parts.day)));
+	}).format(utcCalendarDay(parts));
 }
 
 /**

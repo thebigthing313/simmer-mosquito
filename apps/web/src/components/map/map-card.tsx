@@ -9,7 +9,7 @@ import {
 } from '@simmer-mosquito/ui-web/icons/registry';
 import { cn } from '@simmer-mosquito/ui-web/lib/utils';
 import type { ReactNode } from 'react';
-import { calendarDateParts } from '../../lib/local-date';
+import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
 import { type MapInset, NO_MAP_INSET } from './map-inset';
 
@@ -266,5 +266,5 @@ export function formatMapCardDate(date: string): string {
 		month: 'long',
 		day: 'numeric',
 		timeZone: 'UTC',
-	}).format(new Date(Date.UTC(parts.year, parts.month - 1, parts.day)));
+	}).format(utcCalendarDay(parts));
 }

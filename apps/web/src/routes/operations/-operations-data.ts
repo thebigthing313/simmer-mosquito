@@ -19,7 +19,7 @@ import {
 } from '../../hooks/queries/use-catalog-rosters';
 import { useMissionStops } from '../../hooks/queries/use-mission-stops';
 import { addressPrimaryLabel } from '../../lib/address-format';
-import { calendarDateParts } from '../../lib/local-date';
+import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
 
 /**
@@ -215,7 +215,7 @@ export function formatOperationalDate(value: string): string {
 		month: 'short',
 		day: 'numeric',
 		timeZone: 'UTC',
-	}).format(new Date(Date.UTC(parts.year, parts.month - 1, parts.day)));
+	}).format(utcCalendarDay(parts));
 }
 
 // --- reads ------------------------------------------------------------------

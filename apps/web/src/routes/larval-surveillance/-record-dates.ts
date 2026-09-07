@@ -19,7 +19,7 @@
  * what the clock read where the work happened.
  */
 
-import { calendarDateParts } from '../../lib/local-date';
+import { calendarDateParts, utcCalendarDay } from '../../lib/local-date';
 import { unreadable } from '../../lib/unreadable-input';
 
 /** Long-form date from a `YYYY-MM-DD` string: `August 12, 2026`. */
@@ -53,7 +53,7 @@ function utcDate(
 		month: options.month,
 		day: 'numeric',
 		timeZone: 'UTC',
-	}).format(new Date(Date.UTC(parts.year, parts.month - 1, parts.day)));
+	}).format(utcCalendarDay(parts));
 }
 
 /**
