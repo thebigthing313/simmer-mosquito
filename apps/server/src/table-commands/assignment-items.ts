@@ -45,8 +45,8 @@ import {
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readDate } from '../command-write.js';
-import { writeAssignmentItemCommand } from '../field-work-commands/assignment-items.js';
-import type { AssignmentItemRow } from '../field-work-commands/shared.js';
+import { writeAssignmentItemCommand } from '../writers/field-work/assignment-items.js';
+import type { AssignmentItemRow } from '../writers/field-work/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 

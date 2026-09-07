@@ -13,8 +13,8 @@ import {
 	updateTrapConfigurationCommand,
 } from '@simmer-mosquito/domain';
 import { expect, it } from 'vitest';
-import { writeTrapCommand } from '../../adult-surveillance-commands/traps.js';
-import { writeInspectionCommand } from '../../larval-surveillance-commands/inspections.js';
+import { writeTrapCommand } from '../../writers/adult-surveillance/traps.js';
+import { writeInspectionCommand } from '../../writers/larval-surveillance/inspections.js';
 
 /**
  * A write may not name another organization's record (#200).

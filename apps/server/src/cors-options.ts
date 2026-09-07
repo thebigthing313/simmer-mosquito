@@ -105,23 +105,22 @@ export const CORS_SURFACES: readonly CorsSurface[] = [
 	// tables and operator tables alike — CORS is about which origin may ask, and
 	// the door a table sits behind is decided by its middleware, not by its path.
 	{ prefix: '/commands/*', methods: WRITE_METHODS },
-	{ prefix: '/foundation/*', methods: WRITE_METHODS },
-	{ prefix: '/control-methods/*', methods: WRITE_METHODS },
-	{ prefix: '/control-assets/*', methods: WRITE_METHODS },
-	{ prefix: '/control-products/*', methods: WRITE_METHODS },
 	{ prefix: '/organization-settings/*', methods: ['PATCH', 'OPTIONS'] },
-	{ prefix: '/public-engagement/*', methods: WRITE_METHODS },
-	// GET as well as the writes: `sample-reads.ts` registers
+	// The last three prefixes of the older per-domain write surface. Seven more
+	// went with the 112 routes nothing called (#634). What these still carry is
+	// `organization-seed-routes.ts`, the six creates the operator console makes
+	// while standing an Organization up, and the one read below. Creates only, so
+	// the method lists have narrowed with the routes.
+	{ prefix: '/foundation/*', methods: ['POST', 'OPTIONS'] },
+	// A read, and now the only thing under this prefix:
+	// `larval-surveillance-reads.ts` registers
 	// `/larval-surveillance/samples/awaiting`, a cross-habitat rollup the larval
-	// overview fetches. It is the only read under a command prefix, and the only
-	// reason it works today is that a credentialed `fetch` with no custom header
-	// is a *simple* request and skips the preflight entirely — one `accept`
-	// header away from a refusal nobody would connect to this table.
-	{ prefix: '/larval-surveillance/*', methods: ['GET', ...WRITE_METHODS] },
-	{ prefix: '/adult-surveillance/*', methods: WRITE_METHODS },
-	{ prefix: '/control-operations/*', methods: WRITE_METHODS },
-	{ prefix: '/field-work/*', methods: WRITE_METHODS },
-	{ prefix: '/mission-dispatch/*', methods: WRITE_METHODS },
+	// overview fetches. The only reason it works today is that a credentialed
+	// `fetch` with no custom header is a *simple* request and skips the preflight
+	// entirely, one `accept` header away from a refusal nobody would connect to
+	// this table.
+	{ prefix: '/larval-surveillance/*', methods: ['GET', 'OPTIONS'] },
+	{ prefix: '/adult-surveillance/*', methods: ['POST', 'OPTIONS'] },
 	// DELETE joined when a membership became endable (ADR 0011's offboarding
 	// lifecycle); it is the only delete under this prefix.
 	{ prefix: '/organization/*', methods: ['POST', 'PATCH', 'DELETE', 'OPTIONS'] },

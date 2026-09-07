@@ -37,8 +37,8 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import type { TagCommand } from '../foundation-commands/shared.js';
-import { writeFoundationTagCommand } from '../foundation-commands/tags.js';
+import type { TagCommand } from '../writers/foundation/shared.js';
+import { writeFoundationTagCommand } from '../writers/foundation/tags.js';
 import type { TableCommands } from './dispatch.js';
 
 export function tagTableCommands(db: CommandDb): TableCommands<'tags', TagCommand, TagRow> {

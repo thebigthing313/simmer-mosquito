@@ -32,7 +32,6 @@ import type { Kysely, SimmerDatabase } from '@simmer-mosquito/db';
 import type { Hono, MiddlewareHandler } from 'hono';
 import { registerAdminFoundationRoutes } from './admin-foundations.js';
 import { type AdminInvitationAuth, registerAdminInvitationRoutes } from './admin-invitations.js';
-import { registerAdultSurveillanceCommandRoutes } from './adult-surveillance-commands/index.js';
 import type { AuthMailer } from './auth-email.js';
 import type { AuthVariables } from './auth-middleware.js';
 import {
@@ -40,26 +39,18 @@ import {
 	type FinalizeWorkOsSession,
 	registerAuthUserRoutes,
 } from './auth-user-commands.js';
-import { registerControlAssetCommandRoutes } from './control-asset-commands.js';
-import { registerControlMethodCommandRoutes } from './control-method-commands.js';
-import { registerControlOperationsCommandRoutes } from './control-operations-commands/index.js';
-import { registerControlProductCommandRoutes } from './control-product-commands.js';
-import { registerFieldWorkCommandRoutes } from './field-work-commands/index.js';
-import { registerFoundationCommandRoutes } from './foundation-commands/index.js';
-import { registerFoundationGeographyCommandRoutes } from './foundation-geography-commands/index.js';
 import { registerGeocoderRoutes } from './geocoder.js';
-import { registerLarvalSurveillanceCommandRoutes } from './larval-surveillance-commands/index.js';
+import { registerSampleReadRoutes } from './larval-surveillance-reads.js';
 import { registerMapTileRoutes } from './map-tiles.js';
 import type { MembershipAuth } from './membership-commands.js';
-import { registerMissionDispatchCommandRoutes } from './mission-dispatch-commands/index.js';
+import { registerMissionNotificationGenerationRoute } from './mission-notification-generation.js';
 import {
 	type OperatorOrganizationAuth,
 	registerOperatorOrganizationRoutes,
 } from './operator-organization-routes.js';
+import { registerOrganizationSeedRoutes } from './organization-seed-routes.js';
 import { registerOrganizationSettingsCommandRoutes } from './organization-settings-commands.js';
 import { registerProfileCommandRoutes } from './profile-commands.js';
-import { registerPublicEngagementCommandRoutes } from './public-engagement-commands.js';
-import { registerPublicEngagementRecordRoutes } from './public-engagement-records-commands/index.js';
 import { registerRecordDeletionRoutes } from './record-deletion.js';
 import { registerRecordMergeReadRoutes } from './record-merge-reads.js';
 import { registerRegionMembershipRoutes } from './region-membership.js';
@@ -131,20 +122,14 @@ export function registerAllRoutes(app: Hono<{ Variables: AuthVariables }>, deps:
 	registerAdminInvitationRoutes(app, { db, auth, operatorAuthContextMiddleware });
 	registerAdminFoundationRoutes(app, { db, operatorAuthContextMiddleware });
 
-	registerFoundationCommandRoutes(app, { db, authContextMiddleware });
-	registerFoundationGeographyCommandRoutes(app, { db, authContextMiddleware });
-	registerControlMethodCommandRoutes(app, { db, authContextMiddleware });
-	registerControlAssetCommandRoutes(app, { db, authContextMiddleware });
-	registerControlProductCommandRoutes(app, { db, authContextMiddleware });
 	registerOrganizationSettingsCommandRoutes(app, { db, authContextMiddleware });
 	registerProfileCommandRoutes(app, { db, authContextMiddleware });
-	registerPublicEngagementCommandRoutes(app, { db, authContextMiddleware });
-	registerLarvalSurveillanceCommandRoutes(app, { db, authContextMiddleware });
-	registerAdultSurveillanceCommandRoutes(app, { db, authContextMiddleware });
-	registerControlOperationsCommandRoutes(app, { db, authContextMiddleware });
-	registerFieldWorkCommandRoutes(app, { db, authContextMiddleware });
-	registerMissionDispatchCommandRoutes(app, { db, authContextMiddleware });
-	registerPublicEngagementRecordRoutes(app, { db, authContextMiddleware });
+
+	// The six creates `apps/admin` seeds a new Organization with, and the one
+	// cross-habitat read the larval overview asks for. All that is left of the
+	// per-domain write surface; see each module for why it is still its own route.
+	registerOrganizationSeedRoutes(app, { db, authContextMiddleware });
+	registerSampleReadRoutes(app, { db, authContextMiddleware });
 
 	registerMapTileRoutes(app, { db, authContextMiddleware });
 	registerSearchRoutes(app, { db, authContextMiddleware });
@@ -155,8 +140,8 @@ export function registerAllRoutes(app: Hono<{ Variables: AuthVariables }>, deps:
 	registerGeocoderRoutes(app, { apiKey: deps.geocoderApiKey, authContextMiddleware });
 
 	// The `/commands/{table}` surface, which the sync collections write through.
-	// Additive: the domain-shaped endpoints above are untouched, and both reach
-	// the same commands, permissions and write transaction.
+	// Every organization write lands here bar the ones named above, and the three
+	// shapes `docs/domain-command-contract.md` says the dispatch cannot serve.
 	registerTableCommandSurface(app, {
 		db,
 		auth,
@@ -164,8 +149,9 @@ export function registerAllRoutes(app: Hono<{ Variables: AuthVariables }>, deps:
 		operatorAuthContextMiddleware,
 	});
 
-	// The one weather command the table surface has no shape for, see the module.
+	// The two commands the table surface has no shape for, see each module.
 	registerWeatherImportRoute(app, { db, authContextMiddleware });
+	registerMissionNotificationGenerationRoute(app, { db, authContextMiddleware });
 
 	registerSyncShapeRoutes(app, {
 		electricUrl: deps.electricUrl,

@@ -1,0 +1,218 @@
+import {
+	type CatalogReference,
+	geojsonToGeom,
+	localDateColumn,
+	type SelectedRow,
+	updateRow,
+} from '@simmer-mosquito/db';
+import { LARVAL_DENSITIES, type LarvalDensity } from '@simmer-mosquito/domain';
+import { CommandError } from '../../command-endpoint.js';
+import type { CommandTransaction } from '../../command-write.js';
+import { resolveLocationGeom } from '../../location-source.js';
+
+export type LarvalSurveillanceTransaction = CommandTransaction;
+export { geojsonToGeom, localDateColumn, resolveLocationGeom, updateRow };
+
+export async function loadHabitatSnapshot(
+	trx: LarvalSurveillanceTransaction,
+	organizationId: string,
+	habitatId: string,
+): Promise<{
+	readonly geojson: unknown;
+	readonly habitatTypeId: string | null;
+	readonly addressId: string | null;
+}> {
+	const row = await trx
+		.selectFrom('habitats')
+		.select(['geojson', 'habitat_type_id', 'address_id'])
+		.where('id', '=', habitatId)
+		.where('organization_id', '=', organizationId)
+		.where('deleted_at', 'is', null)
+		.executeTakeFirst();
+	if (row === undefined) {
+		throw new CommandError(404, { error: 'habitat_not_found' });
+	}
+	return {
+		geojson: row.geojson,
+		habitatTypeId: row.habitat_type_id,
+		addressId: row.address_id,
+	};
+}
+
+export interface NormalizedInspectionResult {
+	readonly isWet: boolean;
+	readonly dipCount: number | null;
+	readonly density: LarvalDensity | null;
+	readonly larvaeCount: number | null;
+	readonly hasFirstInstar: boolean;
+	readonly hasSecondInstar: boolean;
+	readonly hasThirdInstar: boolean;
+	readonly hasFourthInstar: boolean;
+	readonly hasPupae: boolean;
+	readonly hasEggs: boolean;
+}
+
+// ---------------------------------------------------------------------------
+// Request payload helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * A density band, or nothing.
+ *
+ * Exported because `table-commands/inspections.ts` reads the same five bands
+ * off the `density` column, and the set is not something two readers should
+ * each hold a copy of.
+ */
+export function readDensity(value: unknown): LarvalDensity | null {
+	return LARVAL_DENSITIES.includes(value as LarvalDensity) ? (value as LarvalDensity) : null;
+}
+
+// ---------------------------------------------------------------------------
+// Response shaping
+// ---------------------------------------------------------------------------
+
+export const habitatReturnColumns = [
+	'id',
+	'organization_id',
+	'address_id',
+	'habitat_type_id',
+	'habitat_name',
+	'description',
+	'is_active',
+	'is_inaccessible',
+	'metadata',
+	'created_by_profile_id',
+	'updated_by_profile_id',
+	'created_at',
+	'updated_at',
+] as const;
+
+export type HabitatRow = SelectedRow<'habitats', typeof habitatReturnColumns>;
+
+export const inspectionReturnColumns = [
+	'id',
+	'organization_id',
+	'habitat_id',
+	'habitat_type_id',
+	'address_id',
+	'inspected_by_profile_id',
+	'inspection_date',
+	'is_wet',
+	'dip_count',
+	'density',
+	'larvae_count',
+	'has_first_instar',
+	'has_second_instar',
+	'has_third_instar',
+	'has_fourth_instar',
+	'has_pupae',
+	'has_eggs',
+	'created_by_profile_id',
+	'updated_by_profile_id',
+	'created_at',
+	'updated_at',
+] as const;
+
+export type InspectionRow = SelectedRow<'inspections', typeof inspectionReturnColumns>;
+
+export const sampleReturnColumns = [
+	'id',
+	'organization_id',
+	'inspection_id',
+	'display_name',
+	'is_zero_larvae',
+	'has_non_mosquito',
+	'unidentifiable_reason',
+	'created_by_profile_id',
+	'updated_by_profile_id',
+	'created_at',
+	'updated_at',
+] as const;
+
+export type SampleRow = SelectedRow<'samples', typeof sampleReturnColumns>;
+
+export const sampleSpeciesReturnColumns = [
+	'id',
+	'organization_id',
+	'sample_id',
+	'species_id',
+	'identified_by_profile_id',
+	'identified_at',
+	'larvae_count',
+	'created_by_profile_id',
+	'updated_by_profile_id',
+	'created_at',
+	'updated_at',
+] as const;
+
+export type SampleSpeciesRow = SelectedRow<'sample_species', typeof sampleSpeciesReturnColumns>;
+
+// ---------------------------------------------------------------------------
+// Shared command + request helpers
+// ---------------------------------------------------------------------------
+
+export type HabitatUpdateColumns = {
+	geom?: ReturnType<typeof geojsonToGeom>;
+	address_id?: string | null;
+	habitat_type_id?: string | null;
+	habitat_name?: string | null;
+	description?: string;
+	metadata?: unknown | null;
+	is_active?: boolean;
+	is_inaccessible?: boolean;
+	updated_by_profile_id: string;
+};
+
+export type InspectionResultColumns = {
+	is_wet: boolean;
+	dip_count: number | null;
+	density: LarvalDensity | null;
+	larvae_count: number | null;
+	has_first_instar: boolean;
+	has_second_instar: boolean;
+	has_third_instar: boolean;
+	has_fourth_instar: boolean;
+	has_pupae: boolean;
+	has_eggs: boolean;
+};
+
+export type InspectionUpdateColumns = {
+	geom?: ReturnType<typeof geojsonToGeom>;
+	habitat_type_id?: string | null;
+	address_id?: string | null;
+	inspected_by_profile_id?: string | null;
+	inspection_date?: ReturnType<typeof localDateColumn>;
+	updated_by_profile_id: string;
+} & Partial<InspectionResultColumns>;
+
+export type SampleUpdateColumns = {
+	display_name?: string | null;
+	is_zero_larvae?: boolean;
+	has_non_mosquito?: boolean;
+	unidentifiable_reason?: string | null;
+	updated_by_profile_id: string;
+};
+
+/**
+ * The one catalog a Habitat and an Inspection both name.
+ *
+ * Only a key that is present is gated, so an edit that moves the inspection
+ * date asks nothing of the catalogs. Matches
+ * `adult-surveillance-commands/shared.ts`, which does the same for the two a
+ * Trap and a Collection name.
+ */
+export function habitatTypeReferences(source: {
+	readonly habitatTypeId?: string | null | undefined;
+}): CatalogReference[] {
+	if (!('habitatTypeId' in source)) {
+		return [];
+	}
+	return [
+		{
+			column: 'habitat_type_id',
+			catalog: 'habitatType',
+			id: source.habitatTypeId ?? null,
+			label: 'habitat type',
+		},
+	];
+}

@@ -15,12 +15,8 @@ import {
 	createSourceReduction as insertSourceReduction,
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
-import { Hono } from 'hono';
-import { createMiddleware } from 'hono/factory';
 import { expect, it } from 'vitest';
-import type { AuthContext } from '../../auth-context.js';
-import type { AuthVariables } from '../../auth-middleware.js';
-import { registerMissionDispatchCommandRoutes } from '../../mission-dispatch-commands/index.js';
+import { command, commandApp } from './support/command-app.js';
 
 /**
  * The mission acknowledgements that turn on state, refusing.
@@ -47,16 +43,15 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 
-			const response = await missionApp(db, org, actor).request('/mission-dispatch/mission-items', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/mission_items',
+				command('POST', ['missionDispatch.addMissionItem'], {
 					id: crypto.randomUUID(),
-					missionId,
+					mission_id: missionId,
 					geometry: { type: 'Point', coordinates: [-90.5, 35.5] },
 					acknowledgedInProgressMissionChange: false,
 				}),
-			});
+			);
 
 			await expectStateRefusal(response, 'acknowledgedInProgressMissionChange', 'in progress');
 			expect(await countStops(db, missionId)).toBe(0);
@@ -69,16 +64,15 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {});
 
-			const response = await missionApp(db, org, actor).request('/mission-dispatch/mission-items', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/mission_items',
+				command('POST', ['missionDispatch.addMissionItem'], {
 					id: crypto.randomUUID(),
-					missionId,
+					mission_id: missionId,
 					geometry: { type: 'Point', coordinates: [-90.5, 35.5] },
 					acknowledgedInProgressMissionChange: false,
 				}),
-			});
+			);
 
 			expect(response.status).toBe(201);
 			expect(await countStops(db, missionId)).toBe(1);
@@ -95,16 +89,12 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 				assignedToProfileId: crew,
 			});
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						assignedToProfileId: actor,
-						acknowledgedInProgressAssignmentChange: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.assignMission'], {
+					assigned_to_profile_id: actor,
+					acknowledgedInProgressAssignmentChange: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedInProgressAssignmentChange', 'in progress');
@@ -125,16 +115,12 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const stopId = await createStop(db, org, missionId, 0);
 			await createSourceReduction(db, org, stopId);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						scheduledStartAt: '2026-09-01T08:00:00.000Z',
-						acknowledgedWorkedMissionScheduleChange: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.updateMissionSchedule'], {
+					scheduled_start_at: '2026-09-01T08:00:00.000Z',
+					acknowledgedWorkedMissionScheduleChange: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedWorkedMissionScheduleChange', 'recorded');
@@ -150,16 +136,12 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createMission(db, org, {});
 			await createStop(db, org, missionId, 0);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						scheduledStartAt: '2026-09-01T08:00:00.000Z',
-						acknowledgedWorkedMissionScheduleChange: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.updateMissionSchedule'], {
+					scheduled_start_at: '2026-09-01T08:00:00.000Z',
+					acknowledgedWorkedMissionScheduleChange: false,
+				}),
 			);
 
 			expect(response.status).toBe(200);
@@ -177,16 +159,12 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			await createSourceReduction(db, org, stopId);
 			const methodId = await createSourceReductionMethod(db, org, { name: 'Culvert clearing' });
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						plannedMethodId: methodId,
-						acknowledgedWorkedMissionPlanChange: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.updateMissionPlan'], {
+					planned_method_id: methodId,
+					acknowledgedWorkedMissionPlanChange: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedWorkedMissionPlanChange', 'recorded');
@@ -206,17 +184,14 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			await createStop(db, org, missionId, 0, { completedAt: '2026-08-10 09:00:00+00' });
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						cancelledAt: '2026-08-11T08:00:00.000Z',
-						cancellationReason: 'Rained off',
-						acknowledgedProgressedMissionCancellation: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.cancelMission'], {
+					cancellationCommentId: crypto.randomUUID(),
+					cancelled_at: '2026-08-11T08:00:00.000Z',
+					cancellation_reason: 'Rained off',
+					acknowledgedProgressedMissionCancellation: false,
+				}),
 			);
 
 			await expectStateRefusal(
@@ -238,17 +213,14 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const stopId = await createStop(db, org, missionId, 0);
 			await createSourceReduction(db, org, stopId);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						cancelledAt: '2026-08-11T08:00:00.000Z',
-						cancellationReason: 'Rained off',
-						acknowledgedPartialWorkCancellation: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.cancelMission'], {
+					cancellationCommentId: crypto.randomUUID(),
+					cancelled_at: '2026-08-11T08:00:00.000Z',
+					cancellation_reason: 'Rained off',
+					acknowledgedPartialWorkCancellation: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedPartialWorkCancellation', 'carried out');
@@ -264,18 +236,15 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createMission(db, org, {});
 			await createStop(db, org, missionId, 0);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						cancelledAt: '2026-08-11T08:00:00.000Z',
-						cancellationReason: 'Rained off',
-						acknowledgedProgressedMissionCancellation: false,
-						acknowledgedPartialWorkCancellation: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.cancelMission'], {
+					cancellationCommentId: crypto.randomUUID(),
+					cancelled_at: '2026-08-11T08:00:00.000Z',
+					cancellation_reason: 'Rained off',
+					acknowledgedProgressedMissionCancellation: false,
+					acknowledgedPartialWorkCancellation: false,
+				}),
 			);
 
 			expect(response.status).toBe(200);
@@ -300,13 +269,11 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 				completedAt: '2026-08-10 09:00:00+00',
 			});
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedCompletedMissionDeletion: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('DELETE', ['missionDispatch.deleteMission'], {
+					acknowledgedCompletedMissionDeletion: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedCompletedMissionDeletion', 'completed');
@@ -323,13 +290,11 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const actor = await createProfile(db, org);
 			const missionId = await createMission(db, org, {});
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedCompletedMissionDeletion: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('DELETE', ['missionDispatch.deleteMission'], {
+					acknowledgedCompletedMissionDeletion: false,
+				}),
 			);
 
 			expect(response.status).toBe(200);
@@ -352,13 +317,12 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			});
 			const addressId = await createAddress(db, org);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/mission-items/${stopId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ addressId, acknowledgedProgressedItemLinkChange: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/mission_items/${stopId}`,
+				command('PATCH', ['missionDispatch.updateMissionItemLocationAndLink'], {
+					address_id: addressId,
+					acknowledgedProgressedItemLinkChange: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedProgressedItemLinkChange', 'completed');
@@ -377,17 +341,13 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 				skippedAt: '2026-08-10 09:00:00+00',
 			});
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}/move-items`,
-				{
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						missionItemIds: [second],
-						placement: { kind: 'start' },
-						acknowledgedProgressedItemReorder: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.moveMissionItems'], {
+					mission_item_ids: [second],
+					placement: { kind: 'start' },
+					acknowledgedProgressedItemReorder: false,
+				}),
 			);
 
 			await expectStateRefusal(
@@ -409,13 +369,11 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 				skippedAt: '2026-08-10 09:00:00+00',
 			});
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/mission-items/${stopId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedItemProgressDeletion: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/mission_items/${stopId}`,
+				command('DELETE', ['missionDispatch.removeMissionItem'], {
+					acknowledgedItemProgressDeletion: false,
+				}),
 			);
 
 			await expectStateRefusal(
@@ -436,13 +394,11 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const stopId = await createStop(db, org, missionId, 0);
 			await createSourceReduction(db, org, stopId);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/mission-items/${stopId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedActualActionDetach: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/mission_items/${stopId}`,
+				command('DELETE', ['missionDispatch.removeMissionItem'], {
+					acknowledgedActualActionDetach: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedActualActionDetach', 'recorded');
@@ -460,13 +416,12 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			await createSourceReduction(db, org, stopId);
 			const addressId = await createAddress(db, org);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/mission-items/${stopId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ addressId, acknowledgedActualActionContextChange: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/mission_items/${stopId}`,
+				command('PATCH', ['missionDispatch.updateMissionItemLocationAndLink'], {
+					address_id: addressId,
+					acknowledgedActualActionContextChange: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedActualActionContextChange', 'recorded');
@@ -482,13 +437,11 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createMission(db, org, { startedAt: '2026-08-10 08:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/mission-items/${stopId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedItemProgressDeletion: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/mission_items/${stopId}`,
+				command('DELETE', ['missionDispatch.removeMissionItem'], {
+					acknowledgedItemProgressDeletion: false,
+				}),
 			);
 
 			expect(response.status).toBe(200);
@@ -510,16 +463,15 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createMission(db, org, { plannedMethodId: planned });
 			const requestId = await createRequestedControlAction(db, org, recommended);
 
-			const response = await missionApp(db, org, actor).request('/mission-dispatch/mission-items', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/mission_items',
+				command('POST', ['missionDispatch.addMissionItemFromRequestedControlAction'], {
 					id: crypto.randomUUID(),
-					missionId,
-					requestedControlActionId: requestId,
+					mission_id: missionId,
+					requested_control_action_id: requestId,
 					acknowledgedMethodMismatch: false,
 				}),
-			});
+			);
 
 			await expectStateRefusal(response, 'acknowledgedMethodMismatch', 'different method');
 			expect(await countStops(db, missionId)).toBe(0);
@@ -534,17 +486,16 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createMission(db, org, { plannedMethodId: methodId });
 			const requestId = await createRequestedControlAction(db, org, methodId);
 
-			const response = await missionApp(db, org, actor).request('/mission-dispatch/mission-items', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/mission_items',
+				command('POST', ['missionDispatch.addMissionItemFromRequestedControlAction'], {
 					id: crypto.randomUUID(),
-					missionId,
-					requestedControlActionId: requestId,
+					mission_id: missionId,
+					requested_control_action_id: requestId,
 					acknowledgedMethodMismatch: false,
 					acknowledgedDuplicateRequestedActionMissioning: false,
 				}),
-			});
+			);
 
 			expect(response.status).toBe(201);
 			expect(await countStops(db, missionId)).toBe(1);
@@ -560,16 +511,15 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const requestId = await createRequestedControlAction(db, org, null);
 			await createStop(db, org, firstMission, 0, { requestedControlActionId: requestId });
 
-			const response = await missionApp(db, org, actor).request('/mission-dispatch/mission-items', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/mission_items',
+				command('POST', ['missionDispatch.addMissionItemFromRequestedControlAction'], {
 					id: crypto.randomUUID(),
-					missionId: secondMission,
-					requestedControlActionId: requestId,
+					mission_id: secondMission,
+					requested_control_action_id: requestId,
 					acknowledgedDuplicateRequestedActionMissioning: false,
 				}),
-			});
+			);
 
 			await expectStateRefusal(
 				response,
@@ -591,17 +541,13 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createMission(db, org, {});
 			await createStop(db, org, missionId, 0);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					// Scheduled for 2026-08-10 08:00Z, started a day and a half before.
-					body: JSON.stringify({
-						startedAt: '2026-08-08T20:00:00.000Z',
-						acknowledgedEarlyStart: false,
-					}),
-				},
+			// Scheduled for 2026-08-10 08:00Z, started a day and a half before.
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.startMission'], {
+					started_at: '2026-08-08T20:00:00.000Z',
+					acknowledgedEarlyStart: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedEarlyStart', 'twelve hours');
@@ -617,16 +563,12 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createMission(db, org, {});
 			await createStop(db, org, missionId, 0);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						startedAt: '2026-08-10T02:00:00.000Z',
-						acknowledgedEarlyStart: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.startMission'], {
+					started_at: '2026-08-10T02:00:00.000Z',
+					acknowledgedEarlyStart: false,
+				}),
 			);
 
 			expect(response.status).toBe(200);
@@ -642,16 +584,12 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createMission(db, org, { startedAt: '2026-08-08 19:00:00+00' });
 			const stopId = await createStop(db, org, missionId, 0);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/mission-items/${stopId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						completedAt: '2026-08-08T20:00:00.000Z',
-						acknowledgedEarlyStart: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/mission_items/${stopId}`,
+				command('PATCH', ['missionDispatch.completeMissionItem'], {
+					completed_at: '2026-08-08T20:00:00.000Z',
+					acknowledgedEarlyStart: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedEarlyStart', 'twelve hours');
@@ -673,16 +611,12 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const actor = await createProfile(db, org);
 			const missionId = await createNotifiedMission(db, org);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						scheduledStartAt: '2026-09-01T08:00:00.000Z',
-						acknowledgedNotificationTimingChange: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.updateMissionSchedule'], {
+					scheduled_start_at: '2026-09-01T08:00:00.000Z',
+					acknowledgedNotificationTimingChange: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedNotificationTimingChange', 'gone out');
@@ -698,16 +632,12 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createNotifiedMission(db, org);
 			const methodId = await createSourceReductionMethod(db, org, { name: 'Culvert clearing' });
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						plannedMethodId: methodId,
-						acknowledgedNotificationPlanChange: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.updateMissionPlan'], {
+					planned_method_id: methodId,
+					acknowledgedNotificationPlanChange: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedNotificationPlanChange', 'gone out');
@@ -722,16 +652,12 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const actor = await createProfile(db, org);
 			const missionId = await createNotifiedMission(db, org);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/missions/${missionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						notificationTypeId: null,
-						acknowledgedNotificationRegenerationImpact: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/missions/${missionId}`,
+				command('PATCH', ['missionDispatch.updateMissionNotificationType'], {
+					notification_type_id: null,
+					acknowledgedNotificationRegenerationImpact: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedNotificationRegenerationImpact', 'gone out');
@@ -746,16 +672,15 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const actor = await createProfile(db, org);
 			const missionId = await createNotifiedMission(db, org);
 
-			const response = await missionApp(db, org, actor).request('/mission-dispatch/mission-items', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await commandApp(db, org, actor).request(
+				'/commands/mission_items',
+				command('POST', ['missionDispatch.addMissionItem'], {
 					id: crypto.randomUUID(),
-					missionId,
+					mission_id: missionId,
 					geometry: { type: 'Point', coordinates: [-90.4, 35.6] },
 					acknowledgedNotificationGeometryChange: false,
 				}),
-			});
+			);
 
 			await expectStateRefusal(response, 'acknowledgedNotificationGeometryChange', 'gone out');
 			expect(await countStops(db, missionId)).toBe(1);
@@ -769,13 +694,11 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createNotifiedMission(db, org);
 			const stopId = await onlyStop(db, missionId);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/mission-items/${stopId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedNotificationGeometryChange: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/mission_items/${stopId}`,
+				command('DELETE', ['missionDispatch.removeMissionItem'], {
+					acknowledgedNotificationGeometryChange: false,
+				}),
 			);
 
 			await expectStateRefusal(response, 'acknowledgedNotificationGeometryChange', 'gone out');
@@ -791,13 +714,11 @@ describeDbIntegration('mission acknowledgement refusals', () => {
 			const missionId = await createMission(db, org, {});
 			const stopId = await createStop(db, org, missionId, 0);
 
-			const response = await missionApp(db, org, actor).request(
-				`/mission-dispatch/mission-items/${stopId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedNotificationGeometryChange: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/mission_items/${stopId}`,
+				command('DELETE', ['missionDispatch.removeMissionItem'], {
+					acknowledgedNotificationGeometryChange: false,
+				}),
 			);
 
 			expect(response.status).toBe(200);
@@ -833,27 +754,7 @@ async function expectStateRefusal(
 	expect(body.message).toContain(messageContains);
 }
 
-// ===========================================================================
-// App
-// ===========================================================================
-
 type Db = Kysely<SimmerDatabase>;
-
-function missionApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerMissionDispatchCommandRoutes(app, {
-		db,
-		authContextMiddleware: createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
-			context.set('authContext', {
-				organization: { id: organizationId },
-				profile: { id: profileId },
-				role: 'owner',
-			} as AuthContext);
-			await next();
-		}),
-	});
-	return app;
-}
 
 // ===========================================================================
 // Fixtures

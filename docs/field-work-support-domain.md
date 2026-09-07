@@ -991,12 +991,13 @@ through `packages/domain/src/surveillance-records.ts` so neither domain imports
 the other. It is the same seam `performed-control-actions.ts` provides for
 control actions.
 
-They are reached through the record's own endpoint (`POST
-/larval-surveillance/inspections`, `POST /adult-surveillance/collections`,
-`POST /adult-surveillance/collections/:id/collect`) by including
-`assignmentItemId` in the body. The endpoint follows the table; the command
-follows the unit of work. A body without `assignmentItemId` builds the ordinary
-surveillance command, unchanged.
+They are reached through the record's own table endpoint, `/commands/inspections`
+and `/commands/collections`, by naming one of them in `intents` and sending
+`assignment_item_id` in the body. The endpoint follows the table; the command
+follows the unit of work. Naming the ordinary `larvalSurveillance.*` or
+`adultSurveillance.*` command instead builds the ordinary surveillance record,
+unchanged. This used to be an inference off whether `assignmentItemId` was in the
+body, on per-domain routes that no longer exist (#634).
 
 Options, matching `MissionExecutionOptions`:
 
@@ -1028,7 +1029,7 @@ surface may be asked. The refusals with no flag
 (`assignment_item_wrong_target_type`, `assignment_item_skipped`) are absent from
 it on purpose.
 
-Server checks, in `apps/server/src/field-work-commands/assignment-lifecycle.ts`:
+Server checks, in `apps/server/src/writers/field-work/assignment-lifecycle.ts`:
 the assignment row is locked before it is read, so two devices cannot both
 decide it was unstarted and both stamp a start time. A skipped stop is refused,
 and has to be unskipped first. A `completedAt` before the assignment's `started_at` is refused

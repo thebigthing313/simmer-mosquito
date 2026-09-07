@@ -1,4 +1,4 @@
-import { sessionFetch } from '@simmer-mosquito/sync';
+import { commandPathFor, sessionFetch, writeCommand } from '@simmer-mosquito/sync';
 import { and, coalesce, concat, eq, useLiveQuery } from '@tanstack/react-db';
 import { useQuery } from '@tanstack/react-query';
 import { useMemo } from 'react';
@@ -329,7 +329,11 @@ export async function updateHabitatDescription(
 	habitatId: string,
 	description: string,
 ): Promise<void> {
-	await patchHabitat(habitatId, { description }, 'Unable to save the description.');
+	await patchHabitat(
+		habitatId,
+		{ intents: ['larvalSurveillance.updateHabitatDetails'], description },
+		'Unable to save the description.',
+	);
 }
 
 /**
@@ -341,29 +345,32 @@ export async function updateHabitatAddress(
 	habitatId: string,
 	addressId: string | null,
 ): Promise<void> {
-	await patchHabitat(habitatId, { addressId }, 'Unable to update the linked address.');
+	await patchHabitat(
+		habitatId,
+		{ intents: ['larvalSurveillance.updateHabitatConfiguration'], address_id: addressId },
+		'Unable to update the linked address.',
+	);
 }
 
+/**
+ * One PATCH on `/commands/habitats/{id}`, with the command it means named.
+ *
+ * A raw request rather than a collection mutation, because both callers edit a
+ * habitat the route page reads through an on-demand subset it does not own. The
+ * subset streams the change back, so there is no optimistic row to keep and
+ * nothing to invalidate.
+ *
+ * Each caller names its own intent rather than calling `habitatUpdatePlan` in
+ * `hooks/mutations/use-habitat-mutations.ts`. That plan reads a whole form
+ * against the row it started from and answers with every command the save
+ * means; these two change one field from a dialog and already know which one
+ * that is. The server refuses an intent whatever either side says.
+ */
 async function patchHabitat(
 	habitatId: string,
 	body: Record<string, unknown>,
 	fallbackError: string,
 ): Promise<void> {
-	const response = await sessionFetch(
-		new URL(`/larval-surveillance/habitats/${habitatId}`, getServerUrl()),
-		{
-			method: 'PATCH',
-			credentials: 'include',
-			headers: { accept: 'application/json', 'content-type': 'application/json' },
-			body: JSON.stringify(body),
-		},
-	);
-	const result = (await response.json().catch(() => ({}))) as {
-		readonly txid?: number;
-		readonly reason?: string;
-		readonly message?: string;
-	};
-	if (!response.ok || result.txid === undefined) {
-		throw new Error(result.reason ?? result.message ?? fallbackError);
-	}
+	const url = `${getServerUrl()}${commandPathFor('habitats')}/${habitatId}`;
+	await writeCommand(url, 'PATCH', body, fallbackError);
 }

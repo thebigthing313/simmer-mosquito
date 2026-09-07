@@ -436,7 +436,7 @@ The 32 `publicEngagement.*` command endpoints are built, in
 `apps/server/src/table-commands/contacts.ts` and `notifications.ts`.
 `generateMissionNotifications` is the exception to that pair: it derives rows
 rather than translating one, so it has its own route in
-`apps/server/src/public-engagement-records-commands/mission-notification-generation.ts`.
+`apps/server/src/mission-notification-generation.ts`.
 
 Still deferred:
 

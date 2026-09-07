@@ -25,17 +25,8 @@ import {
 	createFormulationInsecticide as insertFormulationInsecticide,
 	withTestDb,
 } from '@simmer-mosquito/db/test-support';
-import { Hono } from 'hono';
-import { createMiddleware } from 'hono/factory';
 import { expect, it } from 'vitest';
-import { registerAdultSurveillanceCommandRoutes } from '../../adult-surveillance-commands/index.js';
-import type { AuthContext } from '../../auth-context.js';
-import type { AuthVariables } from '../../auth-middleware.js';
-import { registerControlOperationsCommandRoutes } from '../../control-operations-commands/index.js';
-import { registerControlProductCommandRoutes } from '../../control-product-commands.js';
-import { registerFoundationGeographyCommandRoutes } from '../../foundation-geography-commands/index.js';
-import { registerLarvalSurveillanceCommandRoutes } from '../../larval-surveillance-commands/index.js';
-import { registerPublicEngagementRecordRoutes } from '../../public-engagement-records-commands/index.js';
+import { command, commandApp } from './support/command-app.js';
 
 /**
  * The three mechanisms outside the delete registry, refusing.
@@ -74,16 +65,11 @@ describeDbIntegration('acknowledgement refusals', () => {
 			const speciesId = await createSpecies(db);
 			await createCollectionSpecies(db, org, { collectionId: collectionId, speciesId: speciesId });
 
-			const response = await collectionApp(db, org, actor).request(
-				`/adult-surveillance/collections/${collectionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						isZeroResult: true,
-						acknowledgedSpeciesCountsClearance: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/collections/${collectionId}`,
+				command('PATCH', ['adultSurveillance.markCollectionZeroResult'], {
+					acknowledgedSpeciesCountsClearance: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -126,13 +112,9 @@ describeDbIntegration('acknowledgement refusals', () => {
 			const speciesId = await createSpecies(db);
 			await createCollectionSpecies(db, org, { collectionId: collectionId, speciesId: speciesId });
 
-			const response = await collectionApp(db, org, actor).request(
-				`/adult-surveillance/collections/${collectionId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ isZeroResult: true }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/collections/${collectionId}`,
+				command('PATCH', ['adultSurveillance.markCollectionZeroResult']),
 			);
 
 			expect(response.status).toBe(200);
@@ -157,13 +139,11 @@ describeDbIntegration('acknowledgement refusals', () => {
 				entityId: habitatId,
 			});
 
-			const response = await habitatApp(db, org, actor).request(
-				`/larval-surveillance/habitats/${habitatId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ isActive: false, acknowledgedRouteRemoval: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/habitats/${habitatId}`,
+				command('PATCH', ['larvalSurveillance.retireHabitat'], {
+					acknowledgedRouteRemoval: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -201,13 +181,9 @@ describeDbIntegration('acknowledgement refusals', () => {
 				entityId: habitatId,
 			});
 
-			const response = await habitatApp(db, org, actor).request(
-				`/larval-surveillance/habitats/${habitatId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ isActive: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/habitats/${habitatId}`,
+				command('PATCH', ['larvalSurveillance.retireHabitat']),
 			);
 
 			expect(response.status).toBe(200);
@@ -230,13 +206,11 @@ describeDbIntegration('acknowledgement refusals', () => {
 			const actor = await createProfile(db, org);
 			const serviceRequestId = await createClosedServiceRequest(db, org, actor);
 
-			const response = await serviceRequestApp(db, org, actor).request(
-				`/public-engagement/service-requests/${serviceRequestId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedClosedRequestDeletion: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/service_requests/${serviceRequestId}`,
+				command('DELETE', ['publicEngagement.deleteServiceRequest'], {
+					acknowledgedClosedRequestDeletion: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -269,13 +243,11 @@ describeDbIntegration('acknowledgement refusals', () => {
 			const actor = await createProfile(db, org);
 			const serviceRequestId = await createOpenServiceRequest(db, org);
 
-			const response = await serviceRequestApp(db, org, actor).request(
-				`/public-engagement/service-requests/${serviceRequestId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedClosedRequestDeletion: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/service_requests/${serviceRequestId}`,
+				command('DELETE', ['publicEngagement.deleteServiceRequest'], {
+					acknowledgedClosedRequestDeletion: false,
+				}),
 			);
 
 			expect(response.status).toBe(200);
@@ -297,33 +269,31 @@ describeDbIntegration('acknowledgement refusals', () => {
 				entityType: 'habitat',
 				entityId: habitatId,
 			});
-			const app = habitatApp(db, org, actor);
+			const app = commandApp(db, org, actor);
 
 			// The stop is completed the ordinary way: by recording the work it was
 			// created for. That is also what puts the first inspection on it.
-			const first = await app.request('/larval-surveillance/inspections', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const first = await app.request(
+				'/commands/inspections',
+				command('POST', ['fieldWork.recordHabitatInspectionForAssignmentItem'], {
 					id: crypto.randomUUID(),
-					assignmentItemId: stopId,
-					inspectionDate: '2026-08-05',
-					isWet: false,
+					assignment_item_id: stopId,
+					inspection_date: '2026-08-05',
+					is_wet: false,
 				}),
-			});
+			);
 			expect(first.status).toBe(201);
 
-			const response = await app.request('/larval-surveillance/inspections', {
-				method: 'POST',
-				headers: { 'content-type': 'application/json' },
-				body: JSON.stringify({
+			const response = await app.request(
+				'/commands/inspections',
+				command('POST', ['fieldWork.recordHabitatInspectionForAssignmentItem'], {
 					id: crypto.randomUUID(),
-					assignmentItemId: stopId,
-					inspectionDate: '2026-08-05',
-					isWet: false,
+					assignment_item_id: stopId,
+					inspection_date: '2026-08-05',
+					is_wet: false,
 					acknowledgedCompletedItemAdditionalRecord: false,
 				}),
-			});
+			);
 
 			expect(response.status).toBe(409);
 			await expect(response.json()).resolves.toMatchObject({
@@ -352,22 +322,21 @@ describeDbIntegration('acknowledgement refusals', () => {
 				entityType: 'habitat',
 				entityId: habitatId,
 			});
-			const app = habitatApp(db, org, actor);
+			const app = commandApp(db, org, actor);
 
 			for (const acknowledgedSecondRecord of [false, true]) {
-				const response = await app.request('/larval-surveillance/inspections', {
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
+				const response = await app.request(
+					'/commands/inspections',
+					command('POST', ['fieldWork.recordHabitatInspectionForAssignmentItem'], {
 						id: crypto.randomUUID(),
-						assignmentItemId: stopId,
-						inspectionDate: '2026-08-05',
-						isWet: false,
+						assignment_item_id: stopId,
+						inspection_date: '2026-08-05',
+						is_wet: false,
 						// The first of the two runs against a pending stop, where the
 						// question does not arise however the flag is set.
 						acknowledgedCompletedItemAdditionalRecord: acknowledgedSecondRecord,
 					}),
-				});
+				);
 				expect(response.status).toBe(201);
 			}
 
@@ -393,20 +362,16 @@ describeDbIntegration('acknowledgement refusals', () => {
 				entityId: stopHabitatId,
 			});
 
-			const response = await habitatApp(db, org, actor).request(
-				'/larval-surveillance/inspections',
-				{
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						id: crypto.randomUUID(),
-						assignmentItemId: stopId,
-						habitatId: otherHabitatId,
-						inspectionDate: '2026-08-05',
-						isWet: false,
-						acknowledgedTargetMismatch: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				'/commands/inspections',
+				command('POST', ['fieldWork.recordHabitatInspectionForAssignmentItem'], {
+					id: crypto.randomUUID(),
+					assignment_item_id: stopId,
+					habitat_id: otherHabitatId,
+					inspection_date: '2026-08-05',
+					is_wet: false,
+					acknowledgedTargetMismatch: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -455,20 +420,16 @@ describeDbIntegration('acknowledgement refusals', () => {
 				entityId: stopHabitatId,
 			});
 
-			const response = await habitatApp(db, org, actor).request(
-				'/larval-surveillance/inspections',
-				{
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						id: crypto.randomUUID(),
-						assignmentItemId: stopId,
-						habitatId: otherHabitatId,
-						inspectionDate: '2026-08-05',
-						isWet: false,
-						acknowledgedTargetMismatch: true,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				'/commands/inspections',
+				command('POST', ['fieldWork.recordHabitatInspectionForAssignmentItem'], {
+					id: crypto.randomUUID(),
+					assignment_item_id: stopId,
+					habitat_id: otherHabitatId,
+					inspection_date: '2026-08-05',
+					is_wet: false,
+					acknowledgedTargetMismatch: true,
+				}),
 			);
 
 			expect(response.status).toBe(201);
@@ -492,20 +453,16 @@ describeDbIntegration('acknowledgement refusals', () => {
 				entityId: habitatId,
 			});
 
-			const response = await habitatApp(db, org, actor).request(
-				'/larval-surveillance/inspections',
-				{
-					method: 'POST',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						id: crypto.randomUUID(),
-						assignmentItemId: stopId,
-						habitatId,
-						inspectionDate: '2026-08-05',
-						isWet: false,
-						acknowledgedTargetMismatch: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				'/commands/inspections',
+				command('POST', ['fieldWork.recordHabitatInspectionForAssignmentItem'], {
+					id: crypto.randomUUID(),
+					assignment_item_id: stopId,
+					habitat_id: habitatId,
+					inspection_date: '2026-08-05',
+					is_wet: false,
+					acknowledgedTargetMismatch: false,
+				}),
 			);
 
 			expect(response.status).toBe(201);
@@ -523,13 +480,11 @@ describeDbIntegration('acknowledgement refusals', () => {
 			const folderId = await createRegionFolder(db, org);
 			const regionId = await createRegion(db, org, { region_folder_id: folderId });
 
-			const response = await regionApp(db, org, actor).request(
-				`/foundation/region-folders/${folderId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedRegionDetach: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/region_folders/${folderId}`,
+				command('DELETE', ['foundation.deleteRegionFolder'], {
+					acknowledgedRegionDetach: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -562,9 +517,9 @@ describeDbIntegration('acknowledgement refusals', () => {
 			const folderId = await createRegionFolder(db, org);
 			const regionId = await createRegion(db, org, { region_folder_id: folderId });
 
-			const response = await regionApp(db, org, actor).request(
-				`/foundation/region-folders/${folderId}`,
-				{ method: 'DELETE' },
+			const response = await commandApp(db, org, actor).request(
+				`/commands/region_folders/${folderId}`,
+				command('DELETE', ['foundation.deleteRegionFolder']),
 			);
 
 			expect(response.status).toBe(200);
@@ -599,17 +554,11 @@ describeDbIntegration('acknowledgement refusals', () => {
 			const formulationId = await createFormulation(db, org, unitId);
 			await createFormulationInsecticide(db, org, formulationId, insecticideId, unitId);
 
-			const response = await controlProductApp(db, org, actor).request(
-				`/control-products/insecticides/${insecticideId}`,
-				{
-					method: 'PATCH',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({
-						id: insecticideId,
-						isActive: false,
-						acknowledgedDependentDeactivation: false,
-					}),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/insecticides/${insecticideId}`,
+				command('PATCH', ['controlOperations.deactivateInsecticide'], {
+					acknowledgedDependentDeactivation: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -653,13 +602,11 @@ describeDbIntegration('acknowledgement refusals', () => {
 				unitId,
 			);
 
-			const response = await formulationApp(db, org, actor).request(
-				`/control-operations/formulation-insecticides/${componentId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedDeactivateEmptyFormulation: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/formulation_insecticides/${componentId}`,
+				command('DELETE', ['controlOperations.removeFormulationInsecticide'], {
+					acknowledgedDeactivateEmptyFormulation: false,
+				}),
 			);
 
 			expect(response.status).toBe(409);
@@ -698,13 +645,11 @@ describeDbIntegration('acknowledgement refusals', () => {
 				unitId,
 			);
 
-			const response = await formulationApp(db, org, actor).request(
-				`/control-operations/formulation-insecticides/${componentId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedDeactivateEmptyFormulation: true }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/formulation_insecticides/${componentId}`,
+				command('DELETE', ['controlOperations.removeFormulationInsecticide'], {
+					acknowledgedDeactivateEmptyFormulation: true,
+				}),
 			);
 
 			expect(response.status).toBe(200);
@@ -744,9 +689,9 @@ describeDbIntegration('acknowledgement refusals', () => {
 				unitId,
 			);
 
-			const response = await formulationApp(db, org, actor).request(
-				`/control-operations/formulation-insecticides/${componentId}`,
-				{ method: 'DELETE' },
+			const response = await commandApp(db, org, actor).request(
+				`/commands/formulation_insecticides/${componentId}`,
+				command('DELETE', ['controlOperations.removeFormulationInsecticide']),
 			);
 
 			// A draft with zero components is a state the domain allows on purpose,
@@ -781,13 +726,11 @@ describeDbIntegration('acknowledgement refusals', () => {
 				.execute();
 			await createFormulationInsecticide(db, org, formulationId, retiredId, unitId);
 
-			const response = await formulationApp(db, org, actor).request(
-				`/control-operations/formulation-insecticides/${liveId}`,
-				{
-					method: 'DELETE',
-					headers: { 'content-type': 'application/json' },
-					body: JSON.stringify({ acknowledgedDeactivateEmptyFormulation: false }),
-				},
+			const response = await commandApp(db, org, actor).request(
+				`/commands/formulation_insecticides/${liveId}`,
+				command('DELETE', ['controlOperations.removeFormulationInsecticide'], {
+					acknowledgedDeactivateEmptyFormulation: false,
+				}),
 			);
 
 			// Two rows are left behind, and neither can be mixed. Counting rows
@@ -825,9 +768,9 @@ describeDbIntegration('acknowledgement refusals', () => {
 				unitId,
 			);
 
-			const response = await formulationApp(db, org, actor).request(
-				`/control-operations/formulation-insecticides/${firstId}`,
-				{ method: 'DELETE' },
+			const response = await commandApp(db, org, actor).request(
+				`/commands/formulation_insecticides/${firstId}`,
+				command('DELETE', ['controlOperations.removeFormulationInsecticide']),
 			);
 
 			expect(response.status).toBe(200);
@@ -841,58 +784,7 @@ describeDbIntegration('acknowledgement refusals', () => {
 	});
 });
 
-// ===========================================================================
-// Apps
-// ===========================================================================
-
 type Db = Kysely<SimmerDatabase>;
-
-function authMiddleware(organizationId: string, profileId: string) {
-	return createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
-		context.set('authContext', {
-			organization: { id: organizationId },
-			profile: { id: profileId },
-			role: 'owner',
-		} as AuthContext);
-		await next();
-	});
-}
-
-function collectionApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerAdultSurveillanceCommandRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
-}
-
-function habitatApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerLarvalSurveillanceCommandRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
-}
-
-function serviceRequestApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerPublicEngagementRecordRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
-}
-
-function regionApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerFoundationGeographyCommandRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
-}
 
 // ===========================================================================
 // Fixtures
@@ -920,24 +812,6 @@ async function createClosedServiceRequest(
 		.where('id', '=', serviceRequestId)
 		.execute();
 	return serviceRequestId;
-}
-
-function controlProductApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerControlProductCommandRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
-}
-
-function formulationApp(db: Db, organizationId: string, profileId: string) {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerControlOperationsCommandRoutes(app, {
-		db,
-		authContextMiddleware: authMiddleware(organizationId, profileId),
-	});
-	return app;
 }
 
 function createFormulationInsecticide(

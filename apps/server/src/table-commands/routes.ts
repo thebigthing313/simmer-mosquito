@@ -36,8 +36,8 @@ import {
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
 import { readStringArray } from '../command-write.js';
-import { writeRouteCommand } from '../field-work-commands/routes.js';
-import type { RouteRow } from '../field-work-commands/shared.js';
+import { writeRouteCommand } from '../writers/field-work/routes.js';
+import type { RouteRow } from '../writers/field-work/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 

@@ -52,9 +52,9 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeRegionFolderCommand } from '../foundation-geography-commands/region-folders.js';
-import { writeRegionCommand } from '../foundation-geography-commands/regions.js';
-import type { RegionFolderRow, RegionRow } from '../foundation-geography-commands/shared.js';
+import { writeRegionFolderCommand } from '../writers/foundation-geography/region-folders.js';
+import { writeRegionCommand } from '../writers/foundation-geography/regions.js';
+import type { RegionFolderRow, RegionRow } from '../writers/foundation-geography/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 

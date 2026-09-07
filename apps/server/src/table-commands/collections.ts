@@ -54,11 +54,6 @@ import {
 	updateCollectionFieldDetailsCommand,
 } from '@simmer-mosquito/domain';
 import {
-	type CollectionCommand,
-	writeCollectionCommand,
-} from '../adult-surveillance-commands/collections.js';
-import { type CollectionRow, pendingStartedAt } from '../adult-surveillance-commands/shared.js';
-import {
 	type CommandPayload,
 	readExecutionOptions,
 	readNullableText,
@@ -66,6 +61,11 @@ import {
 	readText,
 } from '../command-payload.js';
 import { type CommandDb, readDate } from '../command-write.js';
+import {
+	type CollectionCommand,
+	writeCollectionCommand,
+} from '../writers/adult-surveillance/collections.js';
+import { type CollectionRow, pendingStartedAt } from '../writers/adult-surveillance/shared.js';
 import type { IntentRequest, TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 

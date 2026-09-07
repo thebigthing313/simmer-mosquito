@@ -26,8 +26,8 @@ import {
 } from '@simmer-mosquito/domain';
 import { readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeOrganizationSpeciesCommand } from '../foundation-geography-commands/organization-species.js';
-import type { OrganizationSpeciesRow } from '../foundation-geography-commands/shared.js';
+import { writeOrganizationSpeciesCommand } from '../writers/foundation-geography/organization-species.js';
+import type { OrganizationSpeciesRow } from '../writers/foundation-geography/shared.js';
 import type { TableCommands } from './dispatch.js';
 
 export function organizationSpeciesTableCommands(

@@ -2,7 +2,6 @@ import type { SimmerRole } from '@simmer-mosquito/db';
 import { Hono } from 'hono';
 import { createMiddleware } from 'hono/factory';
 import { describe, expect, it } from 'vitest';
-import { registerAdultSurveillanceCommandRoutes } from '../../adult-surveillance-commands/index.js';
 import type { AuthContext } from '../../auth-context.js';
 import type { AuthVariables } from '../../auth-middleware.js';
 import {
@@ -13,11 +12,8 @@ import {
 	type OrganizationCommandType,
 	readCommandPermission,
 } from '../../command-permissions.js';
-import { registerFieldWorkCommandRoutes } from '../../field-work-commands/index.js';
-import { registerFoundationGeographyCommandRoutes } from '../../foundation-geography-commands/index.js';
-import { registerLarvalSurveillanceCommandRoutes } from '../../larval-surveillance-commands/index.js';
-import { registerPublicEngagementRecordRoutes } from '../../public-engagement-records-commands/index.js';
 import type { ForbiddenBody } from '../../roles.js';
+import { registerTableCommandSurface } from '../../table-commands/index.js';
 
 /**
  * The organization half of a scope, which is what almost every case here is
@@ -406,8 +402,9 @@ describe('field-work endpoints', () => {
 	// The reported bug: a signed-in Viewer reordered a habitat route's stops and
 	// the write went through, persisting across a hard reload.
 	it('refuses a viewer reordering route stops without touching the database', async () => {
-		const response = await request('viewer', `/field-work/routes/${routeId}/move-items`, {
-			routeItemIds: [routeItemId],
+		const response = await patch('viewer', `/commands/routes/${routeId}`, {
+			intents: ['fieldWork.moveRouteItems'],
+			route_item_ids: [routeItemId],
 			placement: { kind: 'start' },
 		});
 
@@ -416,8 +413,9 @@ describe('field-work endpoints', () => {
 	});
 
 	it('refuses a collector reordering route stops', async () => {
-		const response = await request('collector', `/field-work/routes/${routeId}/move-items`, {
-			routeItemIds: [routeItemId],
+		const response = await patch('collector', `/commands/routes/${routeId}`, {
+			intents: ['fieldWork.moveRouteItems'],
+			route_item_ids: [routeItemId],
 			placement: { kind: 'start' },
 		});
 
@@ -425,36 +423,40 @@ describe('field-work endpoints', () => {
 	});
 
 	it('refuses a viewer adding a comment', async () => {
-		const response = await request('viewer', '/field-work/comments', {
+		const response = await post('viewer', '/commands/comments', {
+			intents: ['fieldWork.addComment'],
 			id: commentId,
-			entityType: 'habitat',
-			entityId: habitatId,
-			commentText: 'Standing water at the north end.',
+			entity_type: 'habitat',
+			entity_id: habitatId,
+			comment_text: 'Standing water at the north end.',
 		});
 
 		expect(response.status).toBe(403);
 	});
 });
 
-// The gap #50 reported: these modules resolved `AuthContext` for organization
-// scoping and never looked at the role, so every one of them accepted a
-// viewer's write. `unusableDb` throws on `transaction()`, so each passing case
-// also proves the refusal happens before the database is opened.
+// The gap #50 reported: the modules behind these writes resolved `AuthContext`
+// for organization scoping and never looked at the role, so every one of them
+// accepted a viewer's write. `unusableDb` throws on `transaction()`, so each
+// passing case also proves the refusal happens before the database is opened.
 describe('organization endpoints outside field work', () => {
-	// Deletes, because they carry no body: the role check runs after the command
-	// is built, so a request that would have failed validation first would prove
-	// nothing about the role.
+	// Deletes, because authorization runs on the intents a body names, before any
+	// builder does. A delete carries a name and nothing else to get wrong.
 	it.each([
-		['viewer', `/larval-surveillance/habitats/${habitatId}`],
-		['collector', `/larval-surveillance/habitats/${habitatId}`],
-		['viewer', `/adult-surveillance/traps/${trapId}`],
-		['collector', `/adult-surveillance/traps/${trapId}`],
-		['viewer', `/foundation/regions/${regionId}`],
-		['collector', `/foundation/regions/${regionId}`],
-		['viewer', `/public-engagement/contacts/${contactId}`],
-		['collector', `/public-engagement/contacts/${contactId}`],
-	] as const)('refuses a %s deleting %s', async (role, path) => {
-		const response = await requestOrganization(role, path);
+		['viewer', `/commands/habitats/${habitatId}`, 'larvalSurveillance.deleteHabitat'],
+		['collector', `/commands/habitats/${habitatId}`, 'larvalSurveillance.deleteHabitat'],
+		['viewer', `/commands/traps/${trapId}`, 'adultSurveillance.deleteTrap'],
+		['collector', `/commands/traps/${trapId}`, 'adultSurveillance.deleteTrap'],
+		['viewer', `/commands/regions/${regionId}`, 'foundation.deleteRegion'],
+		['collector', `/commands/regions/${regionId}`, 'foundation.deleteRegion'],
+		['viewer', `/commands/contacts/${contactId}`, 'publicEngagement.deleteContact'],
+		['collector', `/commands/contacts/${contactId}`, 'publicEngagement.deleteContact'],
+	] as const)('refuses a %s deleting %s', async (role, path, intent) => {
+		const response = await commandApp(role).request(path, {
+			method: 'DELETE',
+			headers: { 'content-type': 'application/json' },
+			body: JSON.stringify({ intents: [intent] }),
+		});
 
 		expect(response.status).toBe(403);
 		await expect(response.json()).resolves.toMatchObject({ error: 'forbidden' });
@@ -469,42 +471,46 @@ const trapId = 'fb6c4e80-ad4c-4a7d-9b5c-ae8e8fb03b65';
 const regionId = '0c7d5f91-be5d-4b8e-8c6d-bf9f90c14c76';
 const contactId = '1d8e6a02-cf6e-4c9f-9d7e-c0a0a1d25d87';
 
-async function requestOrganization(role: SimmerRole, path: string): Promise<Response> {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	const options = {
-		db: unusableDb as never,
-		authContextMiddleware: createMiddleware<{ Variables: AuthVariables }>(async (context, next) => {
-			context.set('authContext', authContextFor(role));
-			await next();
-		}),
-	};
-	registerLarvalSurveillanceCommandRoutes(app, options);
-	registerAdultSurveillanceCommandRoutes(app, options);
-	registerFoundationGeographyCommandRoutes(app, options);
-	registerPublicEngagementRecordRoutes(app, options);
-
-	return app.request(path, { method: 'DELETE' });
+async function post(role: SimmerRole, path: string, body: unknown): Promise<Response> {
+	return send(role, path, 'POST', body);
 }
 
-/**
- * Registers the real routes against a database that would throw if touched, so
- * a passing test also proves the refusal happened before any write.
- */
-async function request(role: SimmerRole, path: string, body: unknown): Promise<Response> {
-	const app = new Hono<{ Variables: AuthVariables }>();
-	registerFieldWorkCommandRoutes(app, {
-		db: unusableDb as never,
-		authContextMiddleware: createMiddleware(async (context, next) => {
-			context.set('authContext', authContextFor(role));
-			await next();
-		}),
-	});
+async function patch(role: SimmerRole, path: string, body: unknown): Promise<Response> {
+	return send(role, path, 'PATCH', body);
+}
 
-	return app.request(path, {
-		method: 'POST',
+async function send(
+	role: SimmerRole,
+	path: string,
+	method: 'POST' | 'PATCH',
+	body: unknown,
+): Promise<Response> {
+	return commandApp(role).request(path, {
+		method,
 		headers: { 'content-type': 'application/json' },
 		body: JSON.stringify(body),
 	});
+}
+
+/**
+ * The real command surface against a database that would throw if touched, so a
+ * passing test also proves the refusal happened before any write.
+ */
+function commandApp(role: SimmerRole): Hono<{ Variables: AuthVariables }> {
+	const app = new Hono<{ Variables: AuthVariables }>();
+	const authContextMiddleware = createMiddleware<{ Variables: AuthVariables }>(
+		async (context, next) => {
+			context.set('authContext', authContextFor(role));
+			await next();
+		},
+	);
+	registerTableCommandSurface(app, {
+		db: unusableDb as never,
+		auth: {} as never,
+		authContextMiddleware,
+		operatorAuthContextMiddleware: authContextMiddleware,
+	});
+	return app;
 }
 
 const unusableDb = {

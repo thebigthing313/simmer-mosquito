@@ -27,7 +27,7 @@ import type { PerformedRecordRef } from '../../command-permissions.js';
 import {
 	loadAssignmentSnapshot,
 	readAssignmentItemState,
-} from '../../field-work-commands/assignment-lifecycle.js';
+} from '../../writers/field-work/assignment-lifecycle.js';
 
 /**
  * The reads that decide whether a write happens, against real Postgres.

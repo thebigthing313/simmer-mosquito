@@ -21,13 +21,13 @@ import {
 	type RouteItemPlacement,
 } from '@simmer-mosquito/domain';
 import { expect, it } from 'vitest';
-import { writeAssignmentItemCommand } from '../../field-work-commands/assignment-items.js';
-import { writeAssignmentCommand } from '../../field-work-commands/assignments.js';
-import { writeRouteItemCommand } from '../../field-work-commands/route-items.js';
-import { writeRouteCommand } from '../../field-work-commands/routes.js';
-import { writeMissionItemCommand } from '../../mission-dispatch-commands/mission-items.js';
-import { writeMissionCommand } from '../../mission-dispatch-commands/missions.js';
 import type { OrderedItemParentColumn, OrderedItemTable } from '../../ordered-items.js';
+import { writeAssignmentItemCommand } from '../../writers/field-work/assignment-items.js';
+import { writeAssignmentCommand } from '../../writers/field-work/assignments.js';
+import { writeRouteItemCommand } from '../../writers/field-work/route-items.js';
+import { writeRouteCommand } from '../../writers/field-work/routes.js';
+import { writeMissionItemCommand } from '../../writers/mission-dispatch/mission-items.js';
+import { writeMissionCommand } from '../../writers/mission-dispatch/missions.js';
 
 /**
  * What the four add commands and the three moves write, against real Postgres.

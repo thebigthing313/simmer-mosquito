@@ -51,12 +51,9 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import { type CommandDb, readDate } from '../command-write.js';
-import { writeContactCommand } from '../public-engagement-records-commands/contacts.js';
-import { writeServiceRequestCommand } from '../public-engagement-records-commands/service-requests.js';
-import type {
-	ContactRow,
-	ServiceRequestRow,
-} from '../public-engagement-records-commands/shared.js';
+import { writeContactCommand } from '../writers/public-engagement-records/contacts.js';
+import { writeServiceRequestCommand } from '../writers/public-engagement-records/service-requests.js';
+import type { ContactRow, ServiceRequestRow } from '../writers/public-engagement-records/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged, readIdList } from './shared.js';
 

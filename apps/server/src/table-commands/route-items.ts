@@ -33,8 +33,8 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeRouteItemCommand } from '../field-work-commands/route-items.js';
-import type { RouteItemRow } from '../field-work-commands/shared.js';
+import { writeRouteItemCommand } from '../writers/field-work/route-items.js';
+import type { RouteItemRow } from '../writers/field-work/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { readEntityTarget } from './shared.js';
 

@@ -61,7 +61,7 @@ import type { CommandDb } from '../command-write.js';
 import {
 	type ControlMethodCommand,
 	writeControlMethodCommand,
-} from '../control-method-commands.js';
+} from '../writers/control-methods.js';
 import type { IntentBuilder, IntentMap, IntentRequest, TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 

@@ -33,8 +33,8 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb } from '../command-write.js';
-import { writeSampleCommand } from '../larval-surveillance-commands/samples.js';
-import type { SampleRow } from '../larval-surveillance-commands/shared.js';
+import { writeSampleCommand } from '../writers/larval-surveillance/samples.js';
+import type { SampleRow } from '../writers/larval-surveillance/shared.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 

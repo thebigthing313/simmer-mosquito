@@ -32,7 +32,7 @@ import {
 } from '@simmer-mosquito/domain';
 import { readNullableText, readText } from '../command-payload.js';
 import type { CommandDb, RunCommandsConfig } from '../command-write.js';
-import { type ControlAssetCommand, writeControlAssetCommand } from '../control-asset-commands.js';
+import { type ControlAssetCommand, writeControlAssetCommand } from '../writers/control-assets.js';
 import type { TableCommands } from './dispatch.js';
 import { acknowledged } from './shared.js';
 
