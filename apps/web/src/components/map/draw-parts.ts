@@ -698,7 +698,7 @@ export function dedupeTrailing(vertices: readonly PlanarPosition[]): readonly Pl
  * the same answer read from the other end.
  */
 function editedPartsOf(mode: EditMode): readonly DrawPartGeometry[] | null {
-	const edited = editedParts(mode);
+	const edited = editedRings(mode);
 	if (edited === null || (mode.sketch?.tool === 'split' && !mode.allowsParts)) {
 		return null;
 	}
@@ -769,7 +769,7 @@ export function editProblem(mode: EditMode): DrawEditProblem | null {
 	if (mode.sketch?.tool === 'split' && !mode.allowsParts) {
 		return 'cannotHoldParts';
 	}
-	const parts = editedParts(mode);
+	const parts = editedRings(mode);
 	return parts === null ? sketchProblem(mode.sketch) : piecesProblem(mode, parts);
 }
 
@@ -810,8 +810,13 @@ export function piecesProblem(
 }
 
 /**
- * The pieces the sketch would leave, the rings themselves when there is no
- * sketch, or null when the sketch cannot do what its tool means.
+ * The pieces the sketch would leave as rings, the rings themselves when there is
+ * no sketch, or null when the sketch cannot do what its tool means.
+ *
+ * Rings and not geometries, which is the whole difference from
+ * {@link editedPartsOf}: this is what the map previews and what
+ * {@link piecesProblem} reads corner by corner, and that one turns the same
+ * pieces into the shapes Finish would commit.
  *
  * A reshape leaves one piece and a split two, which is the whole difference
  * between the tools once the crossings are read. Reshape touches only the
@@ -824,7 +829,7 @@ export function piecesProblem(
  * Everything that decides whether Finish may land reads the placed vertices
  * alone, which is how the draw path already separates the two.
  */
-export function editedParts(
+export function editedRings(
 	mode: EditMode,
 	trailing: PlanarPosition | null = null,
 ): readonly (readonly PlanarPath[])[] | null {
@@ -895,7 +900,7 @@ export function landedSketch(mode: Mode): Mode {
 	if (mode.kind !== 'edit' || mode.sketch === null) {
 		return mode;
 	}
-	const rings = editedParts(mode)?.[0];
+	const rings = editedRings(mode)?.[0];
 	return rings === undefined
 		? mode
 		: { ...mode, rings, history: [...mode.history, mode.rings], selected: null, sketch: null };

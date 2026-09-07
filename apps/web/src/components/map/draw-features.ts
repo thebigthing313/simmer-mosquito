@@ -25,7 +25,7 @@ import {
 	type DrawPartGeometry,
 	drawParts,
 	type EditMode,
-	editedParts,
+	editedRings,
 	editProblem,
 	holeDraftOf,
 	type Mode,
@@ -108,7 +108,7 @@ function editFeatures(
 		drag === null
 			? mode.rings
 			: (moveRingVertex(mode.rings, drag.vertex, drag.position) ?? mode.rings);
-	const parts = editedParts({ ...mode, rings: dragged }, cursor) ?? [dragged];
+	const parts = editedRings({ ...mode, rings: dragged }, cursor) ?? [dragged];
 	const refused = editProblem({ ...mode, rings: dragged }) !== null;
 	return [
 		...parts.flatMap((rings) => {
@@ -196,6 +196,11 @@ function draftFeatures(
 /**
  * What the placed vertices look like before they are a shape: an area once three
  * of them close a ring, a line before that, and nothing at all below two.
+ *
+ * Deliberately not `shapeFromVertices`, which the algebra commits with. That one
+ * refuses a polygon below three corners, because a shape with no area is not one
+ * the record can hold; this one draws the trail so far as a line, because the
+ * user is still placing it. Same shapes, opposite answer to "not enough yet".
  */
 function previewShape(
 	type: DrawGeometryType,

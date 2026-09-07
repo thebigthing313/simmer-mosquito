@@ -17,7 +17,7 @@ import {
 	draftProgress,
 	drawHoles,
 	drawParts,
-	editedParts,
+	editedRings,
 	editProblem,
 	finishedParts,
 	geometryFromParts,
@@ -418,15 +418,15 @@ describe('withParts', () => {
 	});
 });
 
-describe('editedParts', () => {
+describe('editedRings', () => {
 	it('hands the rings straight back when no line is open', () => {
 		const rings = [[...BLOCK]];
 
-		expect(editedParts(editing({ rings }))).toEqual([rings]);
+		expect(editedRings(editing({ rings }))).toEqual([rings]);
 	});
 
 	it('leaves two pieces where a split line divides the outline', () => {
-		const cut = editedParts(
+		const cut = editedRings(
 			editing({ rings: [[...BLOCK]], sketch: { tool: 'split', positions: [...ACROSS_BLOCK] } }),
 		);
 
@@ -435,7 +435,7 @@ describe('editedParts', () => {
 
 	it('leaves nothing where the line does not do what its tool means', () => {
 		expect(
-			editedParts(
+			editedRings(
 				editing({
 					rings: [[...BLOCK]],
 					sketch: {
