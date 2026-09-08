@@ -144,3 +144,17 @@ export function stopSummary(counts: MissionProgressCounts | null): string {
 	const stops = counts.total === 1 ? '1 stop' : `${counts.total} stops`;
 	return counts.handled === 0 ? stops : `${stops} · ${counts.handled} of ${counts.total} done`;
 }
+
+/**
+ * The add-stop screen's one-line description.
+ *
+ * The instruction stands on its own and the mission follows it, because
+ * `missionDisplayName` answers a phrase rather than a noun for a mission with
+ * no name of its own. Embedded in a sentence carrying its own preposition, that
+ * phrase read "Draw where the crew has to go on Source Reduction on Aug 4"
+ * (#676). Splitting the two reads the same either way, so nothing here has to
+ * ask which kind of name it was handed.
+ */
+export function addStopDescription(missionName: string): string {
+	return `Draw where the crew has to go. This stop is for ${missionName}.`;
+}
