@@ -227,6 +227,14 @@
 	// `@tanstack/react-query-devtools` is mounted ad hoc while debugging a query
 	// rather than imported, so it reads as unused and is deliberately kept.
 	//
+	// `babel-plugin-react-compiler` is the React Compiler itself, and it is named
+	// by string rather than imported: `reactCompilerPreset()` returns a preset
+	// whose plugin entry is the package name, which `@babel/core` resolves out of
+	// the app directory at build time. So the app that runs the compiler is the
+	// app that owes the dependency, and no source file will ever name it. Its
+	// version is pinned exactly for the reason `scripts/package.json` pins it,
+	// which the header of `scripts/check-compiler-bailouts.mjs` gives.
+	//
 	// The two React Native entries are the same category as `@tanstack/db` — a
 	// version pin rather than an import. `react-native-gesture-handler` is a peer
 	// of `expo-router` that the native navigators load themselves, and
@@ -237,6 +245,7 @@
 	"ignoreDependencies": [
 		"@tanstack/db",
 		"@tanstack/react-query-devtools",
+		"babel-plugin-react-compiler",
 		"fallow-type-aware",
 		"react-native-gesture-handler",
 		"react-native-worklets"
