@@ -282,6 +282,17 @@ jobs:
       - name: Session fetcher
         run: pnpm check:session-fetcher
 
+      # The third layer over the same rule, and the one neither of the other two
+      # reaches: an app that installs a transport correctly, with one call site
+      # inside it answering the credential question a second time. #695 swept
+      # thirty of those and left the rule in a docblock, so the next one could
+      # write `credentials: 'include'` back with every gate green. This refuses a
+      # `RequestCredentials` literal under `apps/` and `packages/`, at zero, with
+      # three markers standing over the two transports and the fetch Mapbox GL
+      # makes for itself.
+      - name: Session credentials
+        run: pnpm check:session-credentials
+
       - name: Typecheck
         run: pnpm typecheck
 

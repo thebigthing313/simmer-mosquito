@@ -358,6 +358,7 @@ async function credentialHeaders(
  * {@link AuthClient.fetch}, and both belong beside each other.
  */
 export const cookieFetch: typeof fetch = (input, init) =>
+	// session-credential-ignore: this is the transport an app installs, not a caller of one.
 	fetch(input, { ...init, credentials: 'include' });
 
 /** Everything the client can do, bound to one server origin. */
@@ -450,6 +451,7 @@ export function createAuthClient(options: {
 	async function authFetch(input: FetchInput, init: FetchInit = {}): Promise<FetchResponse> {
 		const response = await fetch(addressOn(serverUrl, input), {
 			...init,
+			// session-credential-ignore: this is the token transport itself, which every caller sends through.
 			credentials: 'include',
 			// Later wins, so the order is the override rule: the default first, then
 			// what the request carried, then what this caller wrote, and the
