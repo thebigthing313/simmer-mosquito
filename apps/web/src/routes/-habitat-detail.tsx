@@ -394,6 +394,11 @@ function HabitatDetailsCard({
  * The habitat's metadata, read through its type's custom schema so declared fields
  * get their configured label and order (and yes/no fields read as words). Values
  * the schema no longer declares still render, so history is never hidden.
+ *
+ * The habitat form is the only one that sets `allowExtra`, so a key its type
+ * never declared is a note somebody typed rather than a field that went away.
+ * That is what `allowsExtraKeys` tells the list, which otherwise badges every
+ * undeclared key Retired.
  */
 function HabitatMetadata({
 	habitatTypeId,
@@ -414,7 +419,7 @@ function HabitatMetadata({
 			{/* The same list every other record's custom fields render through, so an
 			    organization-authored label wraps here too rather than being clipped
 			    by the curated-label column `DetailRow` above is sized for. */}
-			<CustomFieldsList entries={entries} />
+			<CustomFieldsList allowsExtraKeys entries={entries} />
 		</div>
 	);
 }
