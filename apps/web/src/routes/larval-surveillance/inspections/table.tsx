@@ -62,7 +62,8 @@ import {
 	useInspectionFilterState,
 	WETNESS_OPTIONS,
 } from '../-inspection-filters';
-import { inspectionFilterCodecs } from '../-inspections-search';
+import { InspectionSurfaceSwitch } from '../-inspection-surface-switch';
+import { inspectionFilterCodecs, sharedInspectionSearch } from '../-inspections-search';
 import { formatListDate } from '../-overview-data';
 
 /**
@@ -168,6 +169,11 @@ function InspectionsTableRoute() {
 	}
 	const limit = isLoadedWindow ? loaded.limit : WINDOW_STEP;
 
+	// The switch to the map carries the filter contract and leaves the sort
+	// behind: the map has no sort, and its validator would drop the two params on
+	// arrival, which is a link that looks stateful and is not.
+	const carried = sharedInspectionSearch(Route.useSearch());
+
 	const { rows, isReady, isError } = useInspectionTable(sort, limit, filters);
 	const shown = useHeldRows(rows, isReady, windowKey);
 
@@ -186,6 +192,7 @@ function InspectionsTableRoute() {
 	return (
 		<OutletSimpleLayout className="grid content-start gap-5">
 			<PageHeader
+				actions={<InspectionSurfaceSwitch current="table" search={carried} />}
 				description="Every inspection your crews have recorded."
 				icon={InspectionIcon}
 				title="Inspections"
