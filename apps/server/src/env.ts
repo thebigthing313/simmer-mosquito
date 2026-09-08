@@ -1,6 +1,8 @@
 import {
+	parseOrigin,
 	readEnv,
 	readOptionalString,
+	readOptionalUrl,
 	readRequiredString,
 	readRequiredUrl,
 } from '@simmer-mosquito/config';
@@ -71,13 +73,12 @@ export function readServerEnv(source: NodeJS.ProcessEnv = process.env): ServerEn
 		resendApiKey: readOptionalString(source, 'RESEND_API_KEY') ?? null,
 		authEmailFrom:
 			readOptionalString(source, 'AUTH_EMAIL_FROM') ?? 'SIMMER <no-reply@simmer-data.com>',
-		simmerOperatorOrganizationId:
-			readOptionalString(source, 'SIMMER_OPERATOR_ORG_ID')?.trim() || null,
+		simmerOperatorOrganizationId: readOptionalString(source, 'SIMMER_OPERATOR_ORG_ID') ?? null,
 		workosApiKey: readRequiredString(source, 'WORKOS_API_KEY'),
 		workosClientId: readRequiredString(source, 'WORKOS_CLIENT_ID'),
 		workosCookiePassword: readRequiredString(source, 'WORKOS_COOKIE_PASSWORD'),
 		workosIdentityWritesDisabled:
-			readOptionalString(source, 'WORKOS_IDENTITY_WRITES_DISABLED')?.trim() === 'true',
+			readOptionalString(source, 'WORKOS_IDENTITY_WRITES_DISABLED') === 'true',
 		workosRedirectUri: readRequiredUrl(source, 'WORKOS_REDIRECT_URI'),
 	};
 }
@@ -151,55 +152,8 @@ function readElectricUrl(source: NodeJS.ProcessEnv): string | null {
 	return url.toString();
 }
 
-function readOptionalUrl(source: NodeJS.ProcessEnv, key: string): string | null {
-	const value = readOptionalString(source, key);
-	if (value === undefined) {
-		return null;
-	}
-
-	try {
-		return new URL(value).toString();
-	} catch {
-		throw new Error(`${key} must be a valid URL. Received: ${value}`);
-	}
-}
-
 function readRequiredOrigin(source: NodeJS.ProcessEnv, key: string): string {
 	const value = readRequiredString(source, key);
 
 	return parseOrigin(key, value);
-}
-
-const SCHEME_PREFIX = /^[a-z][a-z0-9+.-]*:\/\//i;
-
-/**
- * Origin env vars are typed by hand into a deploy UI, and a bare hostname is the
- * natural thing to put in a field called "origin". `readServerEnv` runs at module
- * load, so throwing here means the process never reaches `listen` — a missing
- * `https://` on the optional admin CORS origin crash-loops the entire API. A
- * schemeless value is therefore normalized to `https://<host>` rather than taken
- * as fatal; a deployed origin is unambiguously https, and localhost origins in
- * `.env.example` carry their scheme already.
- *
- * `localhost:3000` is deliberately in the schemeless bucket: `new URL` reads it as
- * the `localhost:` scheme and yields the origin `"null"`, which matches no browser
- * `Origin` header. Genuinely unparseable input still throws.
- */
-function parseOrigin(key: string, value: string): string {
-	const trimmed = value.trim();
-	const candidate = SCHEME_PREFIX.test(trimmed) ? trimmed : `https://${trimmed}`;
-
-	let origin: string;
-	try {
-		origin = new URL(candidate).origin;
-	} catch {
-		throw new Error(`${key} must be a valid URL. Received: ${value}`);
-	}
-
-	// Opaque origins (`file:`, and every non-special scheme) stringify to "null".
-	if (origin === 'null') {
-		throw new Error(`${key} must be an http(s) URL. Received: ${value}`);
-	}
-
-	return origin;
 }

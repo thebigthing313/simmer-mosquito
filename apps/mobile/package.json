@@ -13,6 +13,7 @@
 	},
 	"dependencies": {
 		"@simmer-mosquito/auth": "workspace:*",
+		"@simmer-mosquito/config": "workspace:*",
 		"@simmer-mosquito/design-tokens": "workspace:*",
 		"expo": "~57.0.12",
 		"expo-constants": "~57.0.10",

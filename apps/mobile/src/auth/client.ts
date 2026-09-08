@@ -1,4 +1,5 @@
 import { createAppAuthController, createAuthClient } from '@simmer-mosquito/auth/browser';
+import { configured, trimTrailingSlash } from '@simmer-mosquito/config';
 import * as SecureStore from 'expo-secure-store';
 import { createSessionStore } from './session-store';
 
@@ -18,21 +19,8 @@ import { createSessionStore } from './session-store';
 
 const DEFAULT_SERVER_URL = 'http://localhost:3000';
 
-/**
- * A build variable that is present but empty, read as absent.
- *
- * The same trap `apps/web` documents: `??` does not fall back on `''`, and an
- * EAS secret or `.env` line with nothing after the `=` arrives empty rather than
- * missing. On web that shipped once, as shape streams resolving against the
- * static site instead of the API.
- */
-function configured(value: string | undefined): string | undefined {
-	const trimmed = value?.trim();
-	return trimmed === undefined || trimmed === '' ? undefined : trimmed;
-}
-
 function getServerUrl(): string {
-	return (configured(process.env.EXPO_PUBLIC_SERVER_URL) ?? DEFAULT_SERVER_URL).replace(/\/+$/, '');
+	return trimTrailingSlash(configured(process.env.EXPO_PUBLIC_SERVER_URL) ?? DEFAULT_SERVER_URL);
 }
 
 export const authClient = createAuthClient({
