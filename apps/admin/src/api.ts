@@ -392,6 +392,16 @@ export async function inviteAdminUser(
  * A thin call onto the same {@link postJson} the two `/admin/*` writes use, and
  * named rather than exported bare on purpose: the name is what keeps this from
  * becoming a second door to `/admin/*`.
+ *
+ * `path` is a plain string, and that is deliberate rather than unfinished. One
+ * module calls this, `-foundations-data.ts`, so a union of the paths it posts
+ * would be a second copy of that file's list, stale the first time the page
+ * adds a create, and one of those paths is built from the lookup kind, so the
+ * union would have to enumerate those as well. A runtime refusal of a path
+ * starting `/admin/` would only ever fire on a mistake nobody has made. Narrow
+ * the type when a second module needs an organization write from the console:
+ * two callers is where the convention stops being readable from the call sites,
+ * and where the union stops being a union of one.
  */
 export async function postOrganizationCommand<T>(path: string, command: unknown): Promise<T> {
 	return postJson<T>(path, command, getServerUrl());
