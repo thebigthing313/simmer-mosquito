@@ -501,12 +501,7 @@ export function updateChemicalApplicationLocationAndContextCommand(
 		payload: {
 			...basePayload(input),
 			applicationId: normalizeRequiredId(input.applicationId),
-			changes: locationContextChanges(
-				input,
-				context,
-				issues,
-				'controlAction',
-			) as UpdateChemicalApplicationLocationAndContextCommand['payload']['changes'],
+			changes: locationContextChanges(input, context, issues, 'controlAction'),
 		},
 	};
 }
@@ -609,12 +604,7 @@ export function updateSourceReductionLocationAndContextCommand(
 		payload: {
 			...basePayload(input),
 			sourceReductionId: normalizeRequiredId(input.sourceReductionId),
-			changes: locationContextChanges(
-				input,
-				context,
-				issues,
-				'controlAction',
-			) as UpdateSourceReductionLocationAndContextCommand['payload']['changes'],
+			changes: locationContextChanges(input, context, issues, 'controlAction'),
 		},
 	};
 }
@@ -690,12 +680,7 @@ export function updateOutreachActionLocationAndContextCommand(
 		payload: {
 			...basePayload(input),
 			outreachActionId: normalizeRequiredId(input.outreachActionId),
-			changes: locationContextChanges(
-				input,
-				context,
-				issues,
-				'controlAction',
-			) as UpdateOutreachActionLocationAndContextCommand['payload']['changes'],
+			changes: locationContextChanges(input, context, issues, 'controlAction'),
 		},
 	};
 }
@@ -771,12 +756,7 @@ export function updateBiocontrolActionLocationAndContextCommand(
 		payload: {
 			...basePayload(input),
 			biocontrolActionId: normalizeRequiredId(input.biocontrolActionId),
-			changes: locationContextChanges(
-				input,
-				context,
-				issues,
-				'controlAction',
-			) as UpdateBiocontrolActionLocationAndContextCommand['payload']['changes'],
+			changes: locationContextChanges(input, context, issues, 'controlAction'),
 		},
 	};
 }

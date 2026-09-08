@@ -7,11 +7,9 @@ import {
 	validateIdCommand,
 } from '../command-validation.js';
 import {
-	type ControlActionLocationSource,
-	type ControlActionLocationSourceInput,
 	type LocationSourceFlowName,
-	type RequestedControlActionLocationSource,
-	type RequestedControlActionLocationSourceInput,
+	type LocationSourceFor,
+	type LocationSourceInputFor,
 	validateLocationSourceInput,
 } from '../location-intent.js';
 import type { ControlActionContext } from '../performed-control-actions.js';
@@ -149,11 +147,26 @@ export type LocationSourceFlow = Extract<
 	'controlAction' | 'requestedControlAction'
 >;
 
-export function validateLocationContextPatchBase<TInput extends ControlCommandInput>(
-	input: TInput,
-	idKey: keyof TInput & string,
-	flow: LocationSourceFlow,
-): DomainValidationIssue[] {
+/**
+ * The checks every location and context patch shares, held to one flow.
+ *
+ * `TFlow` is inferred from the `flow` argument alone, which is what relates the
+ * patch to its register row: `TInput`'s constraint names
+ * `LocationSourceInputFor<TFlow>`, so a patch carrying a source its flow does
+ * not list fails `tsc` here rather than at the run-time refusal below. The flow
+ * used to arrive as the `LocationSourceFlow` union, which widened the accepted
+ * input to both flows' sources and cost a cast on the way into
+ * {@link validateLocationSourceInput}.
+ *
+ * A constraint rather than a second parameter position, so nothing else can
+ * offer a candidate for `TFlow` and widen it back to the union.
+ */
+export function validateLocationContextPatchBase<
+	TFlow extends LocationSourceFlow,
+	TInput extends ControlCommandInput & {
+		readonly locationSource?: LocationSourceInputFor<TFlow>;
+	},
+>(input: TInput, idKey: keyof TInput & string, flow: TFlow): DomainValidationIssue[] {
 	const issues = validateIdCommand(input, idKey);
 	const hasLocation = 'locationSource' in input && input.locationSource !== undefined;
 	const hasAddress = 'addressId' in input && input.addressId !== undefined;
@@ -167,15 +180,7 @@ export function validateLocationContextPatchBase<TInput extends ControlCommandIn
 		});
 	}
 	if (hasLocation) {
-		validateLocationSourceInput(
-			input as {
-				readonly locationSource?:
-					| ControlActionLocationSourceInput
-					| RequestedControlActionLocationSourceInput;
-			},
-			flow,
-			issues,
-		);
+		validateLocationSourceInput(input, flow, issues);
 	}
 	if (hasAddress) {
 		normalizeOptionalUuid(input.addressId as string | null | undefined, 'addressId', issues);
@@ -190,19 +195,34 @@ export function validateLocationContextPatchBase<TInput extends ControlCommandIn
 	return issues;
 }
 
-export function locationContextChanges(
+/**
+ * The changed fields a location and context patch carries, held to one flow.
+ *
+ * `NoInfer` says that `flow` is the only place `TFlow` comes from. A generic
+ * inferred from two positions constrains neither: a second candidate off the
+ * input would widen `TFlow` back to the union of the two flows and take a source
+ * the row does not list, while the signature still read as if it checked. It
+ * costs nothing today, because `TFlow` sits inside an indexed access in
+ * `LocationSourceInputFor` and offers no candidate from there, but that is a
+ * property of how that type is written rather than of this signature, and the
+ * marker is what keeps the guarantee where a reader can see it. What proves the
+ * refusal either way is the compile-fail case in
+ * `tests/unit/control-operations.test.ts`.
+ *
+ * The return is read off the same row, which is what lets the five callers drop
+ * the cast they carried on this result.
+ */
+export function locationContextChanges<TFlow extends LocationSourceFlow>(
 	input: {
-		readonly locationSource?:
-			| ControlActionLocationSourceInput
-			| RequestedControlActionLocationSourceInput;
+		readonly locationSource?: NoInfer<LocationSourceInputFor<TFlow>>;
 		readonly addressId?: DomainId | null;
 		readonly requestedControlActionId?: DomainId | null;
 	},
 	context: ControlActionContext | undefined,
 	issues: DomainValidationIssue[],
-	flow: LocationSourceFlow,
+	flow: TFlow,
 ): Readonly<{
-	readonly locationSource?: ControlActionLocationSource | RequestedControlActionLocationSource;
+	readonly locationSource?: LocationSourceFor<TFlow>;
 	readonly addressId?: DomainId | null;
 	readonly context?: ControlActionContext;
 	readonly requestedControlActionId?: DomainId | null;
