@@ -78,6 +78,19 @@ describe('useAppForm save failures', () => {
 		expect(await screen.findByText('Unable to save changes.')).toBeDefined();
 	});
 
+	it('leaves Save pressable after a rejected save, with nothing edited', async () => {
+		render(<SaveForm onSave={() => Promise.reject(new Error(SERVER_REFUSAL))} />);
+		save();
+
+		expect(await screen.findByText(SERVER_REFUSAL)).toBeDefined();
+		// The failure sits in the error map, so `canSubmit` is false. The button
+		// asks `saveFailureAloneBlocksSubmit` as well, which is what leaves a
+		// dropped connection something to press.
+		expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(
+			false,
+		);
+	});
+
 	it('retries the save on the next attempt, with nothing edited in between', async () => {
 		const onSave = vi
 			.fn<() => Promise<void>>()

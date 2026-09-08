@@ -1,11 +1,9 @@
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { ListEmpty, ListLoading } from '@simmer-mosquito/ui-web/components/page';
 import { Panel } from '@simmer-mosquito/ui-web/components/panel';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
 import { iconRegistry } from '@simmer-mosquito/ui-web/icons/registry';
 import { createFileRoute } from '@tanstack/react-router';
-import { useState } from 'react';
 import { toast } from 'sonner';
 import {
 	type AdminMembership,
@@ -43,24 +41,23 @@ function OrganizationMembersRoute() {
 	const { organizationId } = Route.useParams();
 	const { data, isPending, error } = useOrganizationMemberships(organizationId);
 	const invalidateOrganizations = useInvalidateOrganizations();
-	const [inviteError, setInviteError] = useState<string | null>(null);
-
 	const form = useAppForm({
 		defaultValues: { email: '', displayName: '', role: 'viewer' } as InviteAdminUserInput,
+		/*
+		 * Nothing is caught here. `useAppForm` records a rejection as a
+		 * `SaveFailure` for the one alert below to render, and leaves Send
+		 * pressable so a dropped invitation can be tried again (#754). The reset
+		 * and the toast stay on the success path.
+		 */
 		onSubmit: async ({ value, formApi }) => {
-			setInviteError(null);
-			try {
-				const result = await inviteAdminUser(organizationId, {
-					email: value.email.trim(),
-					displayName: value.displayName.trim(),
-					role: value.role,
-				});
-				await invalidateOrganizations();
-				formApi.reset();
-				toast.success(inviteOutcome(result, value));
-			} catch (caught) {
-				setInviteError(caught instanceof Error ? caught.message : 'Unable to send the invitation.');
-			}
+			const result = await inviteAdminUser(organizationId, {
+				email: value.email.trim(),
+				displayName: value.displayName.trim(),
+				role: value.role,
+			});
+			await invalidateOrganizations();
+			formApi.reset();
+			toast.success(inviteOutcome(result, value));
 		},
 	});
 
@@ -113,12 +110,6 @@ function OrganizationMembersRoute() {
 								}}
 							>
 								<form.FormErrorAlert title="Unable to Send Invitation" />
-								{inviteError === null ? null : (
-									<Alert variant="destructive">
-										<AlertTitle>Unable to Send Invitation</AlertTitle>
-										<AlertDescription>{inviteError}</AlertDescription>
-									</Alert>
-								)}
 								<div className="grid gap-5 sm:grid-cols-2">
 									<form.AppField
 										name="email"

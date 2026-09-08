@@ -219,8 +219,8 @@ describe('what a refusal reads as', () => {
 	});
 
 	// A refused Foundations write is the case #689 was filed on: it reached the
-	// form alert as `operator_required` through `saveFailure`, which renders
-	// whatever `AdminApiError.message` holds.
+	// form alert as `operator_required` through the form kit's `SaveFailure`,
+	// which renders whatever `AdminApiError.message` holds.
 	it('reads a refused Foundations write as English', async () => {
 		expect(await writeMessage({ error: 'operator_required' }, 403)).toBe(
 			'This account is not a SIMMER operator. Sign out and sign in as one.',

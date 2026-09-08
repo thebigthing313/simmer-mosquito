@@ -75,4 +75,37 @@ describe('GenusForm', () => {
 
 		expect(await screen.findByText('A genus named Aedes already exists.')).toBeTruthy();
 	});
+
+	/*
+	 * #754. The form used to catch its own rejection and write a string into the
+	 * error map, which reads as a validation error, so Save was dead until the
+	 * operator edited a field they did not mean to change. The rejection escapes
+	 * now and the kit records it as a `SaveFailure`, which the button knows to
+	 * ignore.
+	 */
+	it('saves again on the next press when the write failed and nothing was edited', async () => {
+		const onSubmit = vi
+			.fn<(values: typeof EMPTY_GENUS) => Promise<void>>()
+			.mockRejectedValueOnce(new Error('The connection dropped.'))
+			.mockResolvedValueOnce(undefined);
+		renderForm(onSubmit);
+
+		type('Name', 'Aedes');
+		type('Abbreviation', 'Ae.');
+		save();
+
+		expect(await screen.findByText('The connection dropped.')).toBeTruthy();
+		expect((screen.getByRole('button', { name: 'Add Genus' }) as HTMLButtonElement).disabled).toBe(
+			false,
+		);
+
+		save();
+
+		await waitFor(() => {
+			expect(onSubmit).toHaveBeenCalledTimes(2);
+		});
+		await waitFor(() => {
+			expect(screen.queryByText('The connection dropped.')).toBeNull();
+		});
+	});
 });

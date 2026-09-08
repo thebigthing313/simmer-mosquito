@@ -1,7 +1,6 @@
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import type { GenusListing } from '../../hooks/queries/use-genus-roster';
-import { saveFailure } from '../../lib/save-error';
 
 /** Non-empty sentinel: an optional select cannot carry an empty option value. */
 export const NO_GENUS = 'none';
@@ -44,12 +43,13 @@ export function SpeciesForm({
 }) {
 	const form = useAppForm({
 		defaultValues: values,
-		onSubmit: async ({ value, formApi }) => {
-			try {
-				await onSubmit(value);
-			} catch (caught) {
-				formApi.setErrorMap(saveFailure(caught));
-			}
+		/*
+		 * The rejection is left to escape. `useAppForm` records it as a
+		 * `SaveFailure` and `form.FormErrorAlert` renders it, which is what keeps
+		 * Save pressable so a dropped write can be tried again (#754).
+		 */
+		onSubmit: async ({ value }) => {
+			await onSubmit(value);
 		},
 	});
 

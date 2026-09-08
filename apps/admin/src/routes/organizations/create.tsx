@@ -1,7 +1,5 @@
 import { RecordFormPage, useAppForm } from '@simmer-mosquito/ui-web/components/form';
-import { Alert, AlertDescription, AlertTitle } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
 import { toast } from 'sonner';
 import { type CreateAdminOrganizationInput, createAdminOrganization } from '../../api';
 import { useInvalidateOrganizations } from './-organization-data';
@@ -69,23 +67,21 @@ function trimmed(values: OrganizationFormValues): OrganizationFormValues {
 function CreateOrganizationRoute() {
 	const navigate = useNavigate();
 	const invalidateOrganizations = useInvalidateOrganizations();
-	const [saveError, setSaveError] = useState<string | null>(null);
-
 	const form = useAppForm({
 		defaultValues: emptyOrganization(),
+		/*
+		 * Nothing is caught here. `useAppForm` records a rejection as a
+		 * `SaveFailure` for the one alert below to render, and leaves Save
+		 * pressable so a dropped write can be tried again (#754).
+		 */
 		onSubmit: async ({ value }) => {
-			setSaveError(null);
-			try {
-				const organization = await createAdminOrganization(trimmed(value));
-				await invalidateOrganizations();
-				toast.success(`${organization.name} created.`);
-				await navigate({
-					to: '/organizations/$organizationId',
-					params: { organizationId: organization.id },
-				});
-			} catch (error) {
-				setSaveError(error instanceof Error ? error.message : 'Unable to create the organization.');
-			}
+			const organization = await createAdminOrganization(trimmed(value));
+			await invalidateOrganizations();
+			toast.success(`${organization.name} created.`);
+			await navigate({
+				to: '/organizations/$organizationId',
+				params: { organizationId: organization.id },
+			});
 		},
 	});
 
@@ -110,12 +106,6 @@ function CreateOrganizationRoute() {
 				}}
 			>
 				<form.FormErrorAlert title="Unable to Create Organization" />
-				{saveError === null ? null : (
-					<Alert variant="destructive">
-						<AlertTitle>Unable to Create Organization</AlertTitle>
-						<AlertDescription>{saveError}</AlertDescription>
-					</Alert>
-				)}
 
 				<section className="grid gap-5">
 					<h2 className="m-0 font-semibold text-foreground text-sm">Organization</h2>
