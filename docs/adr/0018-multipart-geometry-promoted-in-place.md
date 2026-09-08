@@ -115,3 +115,19 @@ so nothing is hit-tested to guess which part was meant.
   under the domain types, so the copy stays.
 - Mobile's region-membership corpus grows to 32 cases before mobile implements it.
   The gate rises ahead of the implementation.
+
+## Amendment, 2026-09-08: the corpus is 34 cases
+
+The Consequences bullet above says 32, which is what the corpus held when this
+ADR was accepted. #658 added two cases for the shape the Split gesture writes, so
+`REGION_MEMBERSHIP_CORPUS_SIZE` in `packages/mapping/src/test-corpus.ts` is 34,
+and 34 is the number a mobile implementer counts against.
+
+Nothing else changes. The gate still rises ahead of the implementation, and the
+two cases are the same kind of case as the ten multipart ones this ADR brought
+in.
+
+Two other documents say 32 and are right as they stand.
+`docs/research/multipart-region-membership.md` is the research behind this
+decision, and slice 3 of `docs/multipart-geometry-spec.md` records what that
+slice carried. Both are history rather than a live claim, so neither is amended.
