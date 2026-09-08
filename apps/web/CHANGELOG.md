@@ -1,5 +1,685 @@
 # @simmer-mosquito/web
 
+## 0.7.0 — 2026-09-08
+
+### Minor Changes
+
+- Added: the Adult Surveillance overview has an Over Action Threshold panel,
+  listing the collections from the last 14 days whose specimen total met or beat
+  the action threshold set on the collection method they were made by. Each row
+  shows the date, the trap, the method, and the total against the threshold, and
+  opens the collection. The panel says so when no collection method has a
+  threshold set yet.
+
+- Changed: a suggestion row on the contact and address cleanup pages now shows
+  every column the merge can carry, each under its own label: company, department,
+  title, email, preferred phone and alternate phone for a contact; the street
+  lines, locality, region, postal code and coordinates for an address. The value
+  the group matched on is repeated on each row, so you can confirm the match
+  instead of taking the heading's word for it. A column the record leaves empty is
+  left off. The row wraps a long value onto a second line rather than cutting its
+  end off.
+
+- Added: Daily Work at `/daily-work/<profile id>`, one person's field work for a single day, with a day picker, a map key to the record families that day put on screen, and an address you can send somebody.
+
+- Added: a Daily Work group in the Overview sidebar, listing everyone active in your Organization. Pick a name to open that person's day.
+
+- Added: carry on with a shape you have already finished. Continue puts the piece
+  back into draw mode with its vertices still on the map and the next click
+  adding to the end, so a boundary that stopped one vertex early no longer has to
+  be traced again. It sits on the location panel at one piece and on each piece's
+  row once there are more, beside Cut hole. A point has nothing to continue, so it
+  does not offer it.
+
+  Added: cancelling a continuation leaves the piece exactly as it was before you
+  pressed Continue, and Undo pops only the vertices you added during it. The
+  other pieces stay on the map and stay in the list throughout, and holes already
+  cut into the piece stay cut.
+
+  Added: a vertex that carves the outline past a hole cannot be finished. The
+  shape turns red as you draw and the map toolbar says the holes have to stay
+  inside the piece, the same way a hole cut outside its piece is refused.
+
+- Added: move, add and remove the vertices of a shape you have already finished.
+  Edit vertices opens the piece on the map with every vertex it has, its holes'
+  included. Drag one to move it, click an edge to put a new one between that
+  edge's two ends, and press Delete to drop the vertex you last clicked. Finish
+  puts the piece back where it was in the list, Cancel leaves it as it was, and
+  Undo takes back one gesture at a time without eating into the piece you opened.
+  It sits on the location panel at one piece and on each piece's row once there
+  are more, beside Continue and Cut hole. A point is one vertex, so editing it
+  moves that vertex.
+
+  Added: an edit that leaves a ring with fewer than three vertices, or a line with
+  fewer than two, cannot be finished. The shape turns red and the map toolbar asks
+  for a vertex back, which any edge click gives it. So does an edit that pulls the
+  outline in past a hole, which is refused the same way a redrawn outline already
+  was.
+
+- Added: cut a hole in an area you have drawn. Cut hole sits on the location panel
+  at one piece and on each piece's row once there are more, so the piece a hole
+  belongs to is the one you started from. A hole is a row under its piece and
+  comes out on its own, leaving the piece behind.
+
+  Added: a hole that runs outside the piece it is cut into cannot be finished. The
+  shape turns red as you draw and the map toolbar names the piece the hole has to
+  stay inside. So does a hole drawn out to the piece's own edge, which would leave
+  the record covering no ground.
+
+- Added: draw a record's geometry in several pieces. Add piece draws one more
+  piece of the shape you already have, and the shape you drew first stays on the
+  map while you place it. At two pieces the location panel lists them, and a row
+  hovers to pick its piece out, clicks to frame it, and removes it. Removing the
+  second-to-last piece puts the record back on a single shape. Redraw geometry
+  still takes every piece.
+
+  Changed: a form with nothing drawn yet opens on the area tool wherever the
+  record can hold an area. Habitats, Inspections, the four control actions,
+  Requested Control Actions and Mission Items opened on the point tool, so drawing
+  the area started with a tool change.
+
+  Changed: an edit form now opens a record whose geometry is already in several
+  pieces, instead of showing it as no geometry and keeping what was stored unless
+  you redrew the whole thing.
+
+- Added: reshape a piece by sketching a line across its edge. Open a piece for
+  editing, press Reshape, and click a line that crosses the edge at least twice.
+  The stretch of edge between the first crossing and the last is replaced by the
+  line, so a line drawn outside the piece pushes the edge out and one drawn inside
+  pulls it in. Nothing asks which you meant: where the line runs is the answer.
+  Double-click or Finish keeps the line, a second Finish puts the piece back at its
+  place in the list, and Cancel leaves it as it was. The holes the piece already
+  had ride through untouched. A line drawn on a line does the same thing to it.
+
+  Added: a reshape that cannot be kept says so and draws red rather than refusing
+  the gesture. A line that crosses the edge fewer than twice has no stretch to
+  replace, a line that leaves a hole outside the piece is refused the way a redrawn
+  outline already was, and a line that folds the edge back over itself leaves
+  nothing of the piece. Undo takes back the line one click at a time and closes an
+  empty one, so a Reshape pressed by mistake does not cost the edit.
+
+  Fixed: an edit that leaves three corners on one straight line now says it leaves
+  nothing of the piece. It could not be finished before either, and said nothing
+  about why.
+
+- Added: split a piece in two by sketching a line across it. Open a piece for
+  editing, press Split, and click a line that runs in one side and out the other.
+  The piece becomes two, divided along the line, and Finish puts both in the list
+  where the one they replace was. Cancel leaves the piece as it was. A line drawn
+  on a line cuts it into two lines.
+
+  Added: holes survive the cut. A hole the line misses goes to the side it sits
+  on. A hole the line crosses stops being a hole: each half of its ring becomes
+  part of the edge of one piece, so the water is still out of the shape and is now
+  a bay in each half rather than an island in one.
+
+  Added: a split that cannot be kept says so and draws red rather than refusing the
+  gesture. A line that stops inside the piece, or that would leave three pieces,
+  has not divided it. A record that stores one shape and no multi shape has nowhere
+  to put the second piece, and a Notification Registration says which shapes it
+  stores rather than leaving the tool to do nothing.
+
+- Added: a habitat's History card has a fourth tab, Requests, listing the requests
+  for control raised against that habitat. The request form has always said a
+  linked request shows on the habitat's history; now it does. Rows show when the
+  request was raised, who raised it, what kind of control it asks for, its summary
+  and whether it is still open. Resolved requests stay in the list, because the
+  card answers what has happened at the site rather than what is left to plan.
+
+- Added: a habitat's History card has a fifth tab, Source Reductions, listing the
+  source reductions carried out at that habitat. Rows show the date, the
+  technician, the method and how much was eliminated. Every one of them is listed:
+  a source reduction is a record that the work happened, so there is no open or
+  done state to filter on.
+
+  Changed: History rows now link to the record they name, on all five tabs. The
+  first cell of a row is the link, so a keyboard user gets one stop per row rather
+  than one per cell. The tab strip scrolls sideways where five tabs do not fit.
+
+- Added: fill a record's location from a file wherever that record holds a point.
+  A Trap, an Address, a Collection, a Service Request and a Weather Source each get
+  the File button beside the draw tool for the first time, and it reads a point out
+  of a KML, KMZ or GeoJSON file the way it already read an area or a line. The
+  dialog reads "Import a Point", and a file whose coordinates are not longitude and
+  latitude is withheld with the same note an area gets.
+
+  Added: a file holding several points under one feature comes in as one shape with
+  a piece per point, on a record that stores several pieces. A record that holds a
+  single point refuses it by name instead of leaving it out.
+
+  Changed: a KML placemark that carries a label point beside its polygon is refused
+  as mixed geometry, with a line saying so. It used to come in as the polygon alone.
+
+- Changed: importing a file now makes one record per feature. A park on three
+  separated lots comes in as one Region with three pieces, instead of three
+  Regions named "Park A (1)", "Park A (2)" and "Park A (3)". Each preview row says
+  how many pieces the feature holds and how many vertices, the preview map frames
+  a multipart feature rather than failing to fit, and the 1000-feature cap now
+  counts features, so the same number buys more file. A feature holding one lot
+  imports as a plain area, exactly as before.
+
+  Changed: the "Fill from File" shortcut on a record form now offers every shape
+  that record can store, rather than only the shape the type toggle is on, and
+  adopting one moves the toggle onto it. A record that takes areas and lines alike
+  reads "Import a Geometry"; a Region import still reads "Import a Polygon".
+
+  Changed: both import surfaces now say what they found and are not offering. A
+  feature whose pieces the record cannot store, and a feature mixing geometry
+  kinds, each get a line saying so instead of going missing without a word. A
+  GeoJSON GeometryCollection is refused by name rather than dissolved into
+  whichever shape came first.
+
+  Fixed: filling a record's area from a Region boundary no longer refuses a Region
+  drawn in separate pieces. It comes across whole wherever the record can store
+  it, and is refused by name on a Notification Registration, which holds one area.
+
+  Nothing is backfilled. An Organization that already imported a multi-lot file holds
+  one Region per lot, and re-importing that file now produces one Region per
+  feature beside them.
+
+- Added: the Inspections table filters on date range, water, density, larvae
+  found, habitat type and inspector. Each one narrows the query the server
+  answers rather than hiding rows already loaded, and setting one takes the window
+  back to its first page. The filters are the map explorer's, held in the same
+  address, so a filtered link opens the same set on either surface. Set filters
+  show as chips you can remove one at a time or clear together. The table offers
+  no Region filter: region membership is a spatial question the server resolves,
+  and the table's query can only ask about columns.
+
+- Added: Inspections now has a Table beside its Map, at Larval Surveillance >
+  Inspections > Table. It lists inspections newest first with the date, site,
+  habitat type, inspector, water, density, dips, life stages and larvae, and a
+  control on each row that opens the inspection. Load more extends the window;
+  there are no page numbers, because counting the whole set would mean pulling it
+  into the browser.
+
+- Added: the Inspections table sorts on Date, Water, Dips and Larvae. A header
+  reorders every inspection rather than the rows already loaded, and it takes the
+  window back to its first page. The sort is in the address, so a sorted table
+  survives a reload and is a link you can send. Site, Habitat type, Inspector and
+  Density carry no sort control.
+
+- Changed: a record's geometry can now be stored in several pieces. A Region takes
+  a MultiPolygon, and Habitats, Inspections, the four control actions, Requested
+  Control Actions and Mission Items take all six shapes, so a park on three
+  separated lots is one Region and a treated area split by a road is one record.
+  The Region filter reads a multipart record the way it reads a single one: two
+  areas have to overlap, not merely share an edge. Drawing pieces comes next; this
+  is the storage and the filter. A Notification Registration now takes a point or
+  an area only, because two places are two Registrations.
+
+- Changed: a person's name on the People page opens their Daily Work, so a row is a link as well as a Daily Work button.
+
+- Changed: the Activity Monitor is gone, and Daily Work is where one person's field work is now read. Pick a name under Daily Work in the Overview sidebar, or open somebody's day from their row on the People page. A day at a time replaces the date range, and the person is in the address rather than in a picker.
+
+- Added: the staging environment banner now sits above the signed-out pages too:
+  the landing page, sign in, sign up, forgot and reset password, accept
+  invitation, and the operations console's sign in. It says the deployment is a
+  copy of the production system that the next refresh erases, and expands to say
+  that sign-in details are the real production ones and that staging does not
+  allow changes to sign-in accounts, Memberships, roles, Organizations, or
+  invitations.
+  Four of those pages are ones staging refuses, so the rule is now readable before
+  the form is filled in. Production shows nothing.
+
+- Changed: a weather station's summaries are listed a year at a time, one tab per
+  year the station has readings in, newest first. A station logged daily for ten
+  years put 3,650 rows in one table. Recording or editing a reading dated in
+  another year moves the tabs to that year, so the reading you just saved is the
+  one on screen.
+
+  Added: the import screen names the column headings it reads before you choose a
+  file, and marks the date column as the one it cannot do without. The headings
+  come from the same list the parser matches against.
+
+  Changed: the weather explorer filters by status, opening on active stations, and
+  paints each station on the map by its status with a key beside it. The Active
+  and Inactive pill has gone from the rows; the dot is the status now. This is the
+  shape the Traps map already had.
+
+  Changed: the Weather group's map is labelled "Map", matching every other map in
+  the sidebar. The group heading above it already reads "Weather".
+
+- Changed: the app no longer calls your Organization an agency. Not every customer
+  is one: abatement districts, city and county programs, health departments,
+  universities and contractors all run mosquito control, and the settings page has
+  said Organization since it shipped while the copy around it said agency.
+
+  Most of the strings did not need the noun and lost it. A catalog with nothing in
+  it now reads "An owner or admin can add habitat types for you", the Outreach
+  Methods page asks you to "Add the outreach methods you use", and the Collection
+  Methods page describes "The trap types you run". Where the noun is the subject it
+  says Organization: the sign-in screen, the general settings section, your
+  profile's Organization card, and the conflict message when somebody else saves
+  the same settings while you have them open.
+
+  Two other fixes came with it. The four sheets on the settings page all say
+  "Organization details are still loading." now, where two of them said agency.
+  And the Contacts pages no longer call a member of the public an organization,
+  which is the word for the body you work for: creating one reads "Add a person to
+  the contact list", and the list describes "The people you engage with on service
+  requests and notifications".
+
+  Changed: the staging banner lists Organizations, not Agencies, among what
+  staging refuses to change. The operations console shows the same banner.
+
+### Patch Changes
+
+- Changed: the dash a table draws where a record carries no value now announces
+  itself as "Not recorded" to a screen reader. It used to name itself with a hover
+  tooltip on the sixteen columns that went through a component, and with nothing
+  at all on the twelve that wrote the character themselves, so the two apps read
+  the same absence three different ways and one of them read out the punctuation.
+
+  The twelve are four columns on a habitat's history, the inspector, applicator,
+  dip and larvae counts; the custom fields a catalog row declares; a density
+  badge with no reading; the route list's stop count; a route stop with no
+  address; a trap collection with no date; the two weather summary readings; and
+  the operator console's organization facts.
+
+  Nothing looks different. The dash is the same mark in the same place, and a
+  detail row still spells "Not recorded" out in words, because a row has room for
+  them and a column repeating down a long list does not.
+
+- Fixed: adding a stop to a mission with no name reads as a sentence again. A
+  mission you have not named is listed by what it is and when it runs, so the
+  add-stop screen was reading "Draw where the crew has to go on Source Reduction
+  on Aug 4, 2026, 11:00 AM", with the preposition twice.
+
+  The instruction and the mission are now two sentences. That screen reads "Draw
+  where the crew has to go. This stop is for Source Reduction on Aug 4, 2026,
+  11:00 AM", and a mission you have named reads "This stop is for Evening
+  Fogging". How a mission with no name is listed has not changed.
+
+- Fixed: the added date on a cleanup suggestion row is now the day the record was
+  added on your Organization's calendar, not on the calendar of whoever opened the
+  page. A contact added at 9pm read as the next day to a colleague a zone east,
+  which is a difference you cannot see and a date two rows of a group get compared
+  on. The same correction applies to the dates in the Service Request Activity
+  panel on the Public Engagement overview, which were read in UTC.
+
+- Fixed: clearing a search box now clears what it was narrowing. On the traps,
+  habitats, addresses, regions, weather station and service request lists, and on
+  the add-a-stop picker in the route editor, the X emptied the field and left the
+  list filtered on the text that had just gone from the screen until the pause
+  behind the field ran out.
+
+  Fixed: three search boxes that had no clear control have one. The lookup
+  catalogs, the contacts list, and the region picker that fills a shape from a
+  boundary could only be emptied by selecting the text.
+
+  Changed: every search box in the app draws the same way, and each one says what
+  it searches to a screen reader. There were two versions of the box in the shared
+  component library and six more copied by hand, and they had drifted in spacing,
+  in whether the magnifier sat inside the frame, and in whether the box was named
+  at all.
+
+- Fixed: closing or reopening a Service Request no longer fails because your
+  computer's clock is a little fast. The moment the browser stamps on the write
+  was compared against the server's own clock with nothing allowed either way, so
+  a machine running more than two seconds ahead had Close and Reopen refused as
+  being in the future, with a message that gave no hint the clock was the reason.
+  Marking a Mission Notification complete, failed, skipped or reopened refused for
+  the same reason.
+
+  Every other command in the product already allowed two minutes of ordinary
+  device drift. Public engagement was the one place still holding a second copy of
+  that rule, written before the allowance existed, and it now runs the same one.
+
+- Fixed: a compact card is the same height above its title as below its last row.
+  Forty-one cards drew 16px over the heading and 12px under the content, because
+  the header's padding was typed at the call site and the body's came from a
+  variant, and the two had drifted apart. Both halves now read one setting and
+  both draw 12px, so the panels on the record detail pages, the profile page and
+  the weather pages sit tighter and match top to bottom.
+
+- Changed: the operator console no longer calls a customer an agency. Not every
+  customer is one, and the console has always routed the directory at
+  `/organizations` while the button above it read Create Agency.
+
+  The section is Organizations now, from the sidebar label and the breadcrumb down
+  to the directory heading, the create form, and the Organization id on a
+  customer's detail page. The unlinked warning reads "1 organization is not linked
+  to WorkOS, so nobody there can sign in", which also stops the same sentence using
+  organization for two different things.
+
+  Where the noun was doing no work it is gone. The global taxonomy and units pages
+  say "Changes apply to everyone using this genus" and "will be removed for
+  everyone", the foundations page offers "The first traps" and "Load the district
+  boundaries from the KML, KMZ, or GeoJSON they sent", and the members list asks
+  you to "Invite the first owner or admin below".
+
+  Changed: deleting a species from the global taxonomy names what still cites it as
+  an organization species list, not an agency species list. That count is what the
+  refusal is counted from, so it is the sentence you read before confirming.
+
+- Changed: nothing in either app says login. What a person signs in with is an
+  Account, and two badges called it something else.
+
+  In People, the line under a name is that Profile's email address, so it reads
+  "No email" when there is none, which is what the operator console has said on
+  the same line all along. In the console's member list, somebody who has been
+  invited and has not arrived yet is "Never signed in" rather than "No login yet".
+
+  Two quieter strings came with them. The sidebar falls back to Account when
+  neither the Profile nor the Account carries a name, and the error you get when
+  your Account has no active organization says that rather than naming you a user.
+
+- Changed: no copy in either app joins a sentence with an em dash any more. It was
+  in 62 strings, and it read the way a machine writes rather than the way anyone
+  here talks.
+
+  Most of it is form and catalog blurbs. A geometry field now says "The geometry is
+  where the product was applied. Use a point for a spot treatment, a line or area
+  for a treated swath." The five method catalogs introduce their examples the way a
+  person would, and a role in the operator console reads "Manager, records and
+  manages catalogs".
+
+  Two of them a listener could not hear. The readiness list on an organization's
+  foundations page announces "Region is in place." to a screen reader, where it
+  used to announce a dash. One that joined a pair of values now uses the middle dot
+  the rest of the line already uses, so a requested control action reads
+  "Application requested · Check the culvert · Open".
+
+  Four date ranges lose the spaces around their en dash, so a filter chip reads
+  "Mar 3–Mar 9" the way a range is written.
+
+  The dash a table draws where a record carries no value is untouched. That is a
+  symbol, not a sentence.
+
+- Fixed: renaming a custom field no longer empties that field on every record that
+  already answered it.
+
+  The custom-field editor on the method and habitat-type catalogs, and on the two
+  My Organization pages, used to work out where a field's answers are stored from
+  the field's name. Rename "Wing condition" to "Wing state" and the answers stayed
+  where they were while the field went looking somewhere else, so every record read
+  as if it had never answered. It happened on each keystroke, so saving mid-rename
+  moved the field to a half-typed name.
+
+  A field now keeps the place it stores answers for its whole life. Renaming it
+  changes what it is called on screen and nothing else. A field somebody has just
+  added still takes its storage from its name, and two fields whose names would
+  agree still get separate places to store answers.
+
+  Nothing was deleted, and an answer written before this fix is still on the
+  record. Where a rename has already happened, that answer shows on the record's
+  detail page under the old field name, marked Retired.
+
+- Fixed: a date or an amount that will not render now shows the value that
+  arrived instead of a dash, an "Unknown", or a blank page.
+
+  Sixteen formatters answered a value they could not read in five different ways.
+  Eight drew the em dash, which is the mark a column uses for a value the record
+  does not carry, so a date column failing on every row read as a sparse record
+  with nothing to say otherwise. Three answered "Unknown", which names the
+  reader's problem rather than the record's. Four had no answer at all: the
+  weekly strip on the larval and control overviews threw a "RangeError: Invalid
+  time value" out of the render, which takes the page with it, and the day number
+  under each weekday came out as "NaN".
+
+  They all answer the same way now. The value goes on screen as it arrived, which
+  is at least a clue to what is wrong with it, and a line naming the formatter and
+  the value goes to the browser console for whoever is asked to fix it.
+
+  Nothing changes for a date that reads. Every screen renders a real date and a
+  real amount exactly as it did.
+
+- Changed: every date and count in the app now reads the same
+  whatever machine it is opened on. Fifty-six formatters named no locale, so each
+  one inherited whatever the browser happened to be set to. A record dated
+  "Aug 4, 2026" for one person read "4. Aug. 2026" for the person beside them with
+  a different setting, and a count of 14,245 larvae read 14.245, which is a
+  different number to anyone reading quickly. All of them now render as en-US,
+  which is what the rest of the product was already written in, and what the other
+  six formatters already pinned.
+
+  Nothing else moves. Which day a record belongs to is still your Organization's
+  zone, not the reader's, so a date is the day the work happened either way. The
+  two formatters that pick a tag for its shape rather than for a reader are
+  untouched: the one that writes a date column back as `YYYY-MM-DD`, and the one
+  that fills a time field with a 24-hour `HH:MM`.
+
+- Changed: a detail row with no value now reads "Not recorded" on every record
+  page. It read a dash on addresses and your account, "Not set" on contacts,
+  weather stations and traps, and a dash again on outreach, source reduction,
+  biocontrol and adult collections, so the same absence had four spellings and two
+  pages using the same word for different ones. Where a row means something more
+  than "nothing", it still says which: Unassigned, None, Pending, Unfiled.
+
+  Changed: a chemical application with no habitat reads "Standalone, no habitat"
+  and an adult collection with no trap reads "Ad-hoc, no trap".
+
+  Changed: labels on record detail pages sit in one column width. Sixteen pages had
+  grown eight different ones, so two cards side by side started their values at
+  different places.
+
+- Fixed: finishing a piece you changed nothing on no longer counts as redrawing
+  it, so Cancel is no longer the only exit that leaves the shape alone. Continue
+  followed by Finish with no corner placed put the same outline back and marked
+  the form as redrawn, which on a habitat asks for a permission collectors do not
+  have and refused the whole save. Editing a piece and finishing it where it was
+  did the same. What the shape becomes is compared against what it was, and the
+  save only carries a location change when the two differ.
+
+- Fixed: Enter typed into a field beside the map no longer finishes the shape you
+  are drawing. The panel stays live while a draw is open, so an Enter meant to end
+  a line in a description ended the outline instead, and put the half-drawn shape
+  on the form. Enter now finishes only when it was not aimed at a field, which is
+  the rule Delete already followed.
+
+- Fixed: an edit page whose read failed now says so and tells you to try again,
+  instead of saying the record could not be found. Six of them drew the "no such
+  record" state whatever had happened: weather stations, missions, requests for
+  control, assignments, trap routes and habitat routes. On those, a dropped
+  connection looked like a record somebody had deleted, so the answer was to stop
+  looking rather than to try again.
+
+  Changed: a trap route, a habitat route and an assignment stand behind a
+  placeholder while they load, rather than drawing an empty worklist, and say why
+  they are unavailable in the same words every other record page uses.
+
+- Fixed: picking a value from a dropdown beside the map no longer finishes the
+  shape you are drawing. Enter on an open list chose the value and ended the
+  outline in the same press, so every corner walked after it went nowhere. Enter
+  that opens a dropdown does the same and no longer does either. Enter with the
+  map itself in hand still finishes, on a draw, a hole, a continuation, an edit
+  and a reshape line alike.
+
+- Fixed: Escape no longer throws away an open boundary you are drawing when the
+  key was meant for something else. A press in a field beside the map, and a press
+  that closes a dropdown or a popover there, both leave the draft where it was.
+  Escape with the map itself in hand still cancels. It cost a whole walked
+  boundary in one press, on a draw, a hole, a continuation, an edit and a reshape
+  line alike.
+
+- Fixed: a record whose stored shape the map cannot draw now says so on its own
+  Location card, naming the shape it holds and the shapes that field takes. Until
+  now the geometry was handed to the map as-is, and the map dropped it without an
+  error, so the card read as a record that had never been located. The check runs
+  where the geometry is read, against the shapes the record's kind is allowed to
+  store, and it draws nothing rather than failing the page.
+
+- Fixed: editing a habitat without redrawing its shape no longer sends a location
+  change, so a collector can now save a correction to a habitat's name,
+  description, or metadata. The form decided the shape had moved by comparing two
+  serialised copies of it, and a difference in key order was enough to make the
+  save ask for a permission collectors do not have.
+
+- Fixed: a note typed onto a habitat no longer reads as Retired. The custom fields
+  list badges every key the schema does not declare, and on five of the six record
+  kinds that badge is right, because those forms write only what their schema
+  declares and a key outside it is a field that was dropped.
+
+  The habitat form is the exception, and the only form in the app that lets
+  somebody add a key its type never declared. Its own description says so: the
+  fields this habitat type collects, plus any notes of your own. So the habitat
+  detail page was badging each of those notes Retired, which tells a reader the
+  value is historical when it is the one somebody just wrote.
+
+  The list now takes the answer from the caller, because the entry cannot carry it:
+  both cases arrive the same way. The habitat detail says its surface accepts extra
+  keys and gets no badge; every other surface says nothing and is unchanged, badge
+  included. A declared field with no value still reads Not recorded everywhere.
+
+- Fixed: a KML placemark carrying a label point beside its shape imports again, as
+  that shape, with the row saying the label point was dropped. It was refused as
+  mixed geometry. A placemark mixing an area with a line, or holding several points
+  beside a shape, is still refused.
+
+- Fixed: importing a geometry from a file now counts one skipped shape in the
+  singular. A file holding a single geometry this record cannot store used to read
+  "1 other geometries were ignored", and it read that in both places the shape
+  list says it, the sentence shown when nothing in the file is usable and the line
+  beside the file name when something is. The badge next to that line had
+  pluralised its own noun all along, so the two disagreed on the same screen.
+
+- Fixed: moving between the Inspections Map and Table keeps the filters. Both
+  surfaces now draw a Map/Table switch, and it carries what you have narrowed to
+  with it. The switch carries the shared filters and not the table's sort, which
+  the map has nothing to sort by. The sidebar's Map and Table links are unchanged
+  and still open each surface on its own defaults.
+
+- Fixed: the marker on a drawn line no longer moves once the record saves. It was
+  placed at the average of the line's corners and stored at the middle of the
+  line's length, so it jumped as far as the spacing was uneven. Lines with one long
+  span, and multi-part lines with a short crowded part, moved the most.
+
+- Fixed: keys now reach the map only when the map is the thing you are working in.
+  Enter on a button beside the map finished the shape as well as pressing the
+  button, Escape on one threw the whole draft away, and Delete or Backspace with a
+  dropdown open took a corner off the shape being edited. The draw takes the map
+  in hand when it opens, so Enter still finishes, Escape still cancels and Delete
+  still removes the picked corner from the first press, on a draw, a hole, a
+  continuation, an edit and a reshape line alike. Arrow-key panning works from the
+  same moment, where it used to need a click on the map first.
+
+- Fixed: the measure tool now answers Enter and Escape only when the map is the
+  thing you are working in. Enter anywhere on the page finished the open
+  measurement and Escape threw it away, including the Escape that closes a
+  dropdown and the Enter that picks a value from one, so a measurement taken while
+  reading the panel beside the map rarely survived. A line, a box and a circle all
+  still finish on Enter and clear on Escape with the map in hand, and Finish and
+  Clear are on the measure panel as before.
+
+- Changed: the Location sentence on the biocontrol, chemical, source reduction, habitat and outreach forms is composed from the geometry register rather than written out five times. The shape it asks for now follows what the record may store, so a form for a record that keeps a point alone stops offering a line.
+
+- Fixed: a save that fails now says so once. Fifteen record forms drew a second
+  alert with the same heading as the first, so a refused save on a habitat, trap,
+  collection, region, weather station, inspection, application, biocontrol
+  release, source reduction, mission, request for control, contact, outreach
+  action, service request or notification registration read "Unable to Save"
+  twice, with the reason under the second copy.
+
+  The form kit now catches the failure itself and puts it where a validation
+  failure already goes, so both arrive in the one alert the form was drawing all
+  along. Saving again after a failure works without touching a field first, which
+  is what a save that failed on the network wants.
+
+- Changed: page headings are one size across both consoles. Three heading
+  treatments had grown at three declared sizes, so a catalog page, a record page
+  and a domain overview each opened at a different weight of the same idea, and
+  the catalog and cleanup pages, the inspections table and every console page sat
+  a size below the rest. They all draw at the larger size now, from one component,
+  and each carries the small label above the title that names the record type or
+  the domain area.
+
+- Fixed: a record page whose read failed now says so and tells you to try again,
+  instead of saying the record could not be found. Seven pages read that failure
+  and drew the "no such record" state anyway: contacts, addresses, source
+  reduction actions, requests for control, service requests, larval inspections
+  and samples. On those, a dropped connection looked like a record somebody had
+  deleted or you had no access to.
+
+  Fixed: the back link on a sample said "Back to samples()".
+
+  Changed: a weather station reads at the same width as every other record page,
+  and a habitat's placeholder now stands in the two columns the habitat actually
+  loads into.
+
+- Fixed: the bulk Region import now withholds shapes whose coordinates are not
+  longitude and latitude, and says how many it withheld and to re-export the file
+  as WGS84 (EPSG:4326). An export in State Plane feet or UTM metres parses as
+  valid GeoJSON, so every polygon was offered, the preview map showed nothing, and
+  pressing Import produced one failure line per region. This is the check the
+  "fill geometry from a file" dialog already applied.
+
+- Fixed: a Region drawn in more than one piece now saves. Create refused it with
+  "Draw the region boundary before saving." while the pieces were on the map in
+  front of you, and an edit that added a piece saved the name and the folder and
+  kept the boundary it loaded, with nothing on screen to say the redraw had been
+  dropped. Importing a multipart Region was already correct.
+
+- Fixed: raising, editing or closing out a request for control now needs your
+  profile in hand, so a request always names who asked and who settled it.
+
+- Fixed: selection is one colour on every map. A selected record wore an amber
+  halo on the explorer layers, dark green on a record's own detail map, and
+  near-black on the service-request map, so the same record read as a different
+  state depending on which map you clicked it from. It is amber everywhere now, as
+  it is on the shape you are drawing.
+
+  Four colours settled with it. A route stop that is retired paints the same grey
+  a retired habitat does, and an inaccessible stop the same red, instead of a
+  shade of each that only the route map used. A record's own geometry on its
+  detail map paints the green its explorer paints, so the shape does not change
+  colour when you open it. The service request at the centre of its nearby map now
+  wears its own outreach mark and the radius around it reads as ground rather than
+  as another amber thing on the map.
+
+- Changed: a Tag chip, a Route link and a species count now wait for the catalog row that names them instead of drawing "Unknown tag", an unnamed link, or "Unknown species" for the frame before it arrives.
+
+- Changed: the copy that said site now names the record or drops the noun. Site
+  reads as a habitat to one person and a trap to the next, and a column header is
+  the worst place for it, because a reader takes a header as the name of the thing
+  in the column.
+
+  The Inspections table's second column is headed Habitat, which is what the
+  inspection detail page already calls the same value. Habitat Types counts Active
+  Habitats, which is what the server aggregate behind it returns. The Habitat
+  Types page classifies habitats rather than larval sites, and a route stop's
+  description asks what crews should know about this habitat.
+
+  The form hints lost the word too. Drawing a habitat is a point for a single one,
+  a service request is a point for a single spot, a mission stop is a point for one
+  spot, and source reduction is a point for a single source. On the three control
+  forms the habitat is the one the release was performed against, the treatment was
+  applied to, or the work was done at.
+
+  "Site visits" on Outreach Methods and "No standing water found on site" on a
+  service request are ordinary English, not the term, and are untouched.
+
+- Fixed: the colour dot on an explorer row no longer paints a hover tooltip. On
+  the surfaces that dropped their status pill the dot is the only thing saying
+  whether a record is active or out of reach, and it carried both a label for a
+  screen reader and a `title` repeating the same word, so the dot announced
+  itself twice. The label stays and the tooltip is gone.
+
+- Fixed: clearing a trap's name on a trap that has no code is now refused, with a
+  message saying a trap needs a name or a code. The rule was read against the
+  fields an edit happened to name, and an edit that clears the name sends only
+  that column, so the check ran only on the edits that moved the name and the code
+  together. Clearing one at a time saved a trap carrying neither, which then drew
+  with nothing to read it back under.
+
+  The rule now runs against the trap as the edit will leave it, so a name can
+  still be cleared on a trap that keeps a code, and an edit to the description
+  alone is unaffected.
+
+- Changed: the upcoming pages name a habitat or a trap where they used to say
+  site. Site reads as a habitat to one person and a trap to the next, so the copy
+  now writes whichever record the surface actually holds.
+
+  The Habitats link says "The habitats you inspect, on the map" and the Traps link
+  says "Traps and their collection methods, on the map". Habitat Statistics asks
+  which habitats come back positive and counts coverage of the habitats nothing
+  has been logged against; Trap Statistics asks which traps are carrying the
+  program. Biocontrol is habitats on both surfaces: releases are logged by method,
+  amount and habitat, and the statistics page reads the method mix beside the
+  habitats released into.
+
+- Fixed: the two cleanup pages and the habitat merge now refuse a role below manager before the page loads, instead of letting one fill the whole merge in and be refused at the save. Every write surface reads its role floor from one register, so a form's floor is the same fact the sidebar filters on and the server enforces.
+
 ## 0.6.1 — 2026-09-01
 
 ## 0.6.0 — 2026-08-31
