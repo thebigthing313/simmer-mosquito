@@ -1,15 +1,12 @@
 import { type Kysely, type RawBuilder, sql } from 'kysely';
 
 import type { GeoJsonGeometry, SimmerDatabase } from '../index.js';
-import type { MapExtent } from './map-extent.js';
+import type { MapTilesetLayer } from './map-layers.js';
 import { regionMembershipClauses } from './map-region-filter.js';
 import {
 	type MapByIdInput,
 	type MapDisplayColumns,
-	type MapFilterInput,
-	type MapPageInput,
-	type MapPageResult,
-	type MapTileInput,
+	type MapRecordSurfaceReaders,
 	mapDisplaySelectList,
 	mapRecordSurface,
 } from './map-surface.js';
@@ -43,10 +40,6 @@ export interface ApplicationMapFilters {
 	readonly dateTo?: string;
 }
 
-export type ApplicationMvtTileInput = MapTileInput<ApplicationMapFilters>;
-export type ApplicationPageInput = MapPageInput<ApplicationMapFilters>;
-export type ApplicationByIdInput = MapByIdInput;
-
 /**
  * A server-safe application display row: the geometry projection plus the record
  * fields the explorer list and detail card read. Product, method, and unit names
@@ -74,8 +67,6 @@ export interface SafeApplicationDisplayRow {
 }
 
 /** A page of application rows plus the full count for the current filters. */
-export type ApplicationPageResult = MapPageResult<SafeApplicationDisplayRow>;
-
 // Applicator name + batch-name roll-up, kept as one fragment so the paged list
 // and by-id readers can never drift in their joins.
 const applicationDisplayJoins = sql`
@@ -110,19 +101,27 @@ const applicationDisplayColumns: MapDisplayColumns<SafeApplicationDisplayRow> = 
 	updatedAt: sql`a.updated_at`,
 };
 
-const applicationSurface = mapRecordSurface<ApplicationMapFilters, SafeApplicationDisplayRow>({
-	layer: 'chemical',
-	from: sql`applications a`,
-	alias: 'a',
-	geom: sql`a.geom`,
-	properties: [sql`a.id`],
-	filterWhere: applicationFilterWhere,
-	display: {
-		columns: applicationDisplayColumns,
-		joins: applicationDisplayJoins,
-		orderBy: sql`a.application_date desc, a.created_at desc, a.id`,
-	},
-});
+/**
+ * The applications map surface, with the layer it stamps into its tiles handed in by
+ * the register it is declared in.
+ */
+export function applicationSurface(
+	layer: MapTilesetLayer,
+): MapRecordSurfaceReaders<ApplicationMapFilters, SafeApplicationDisplayRow> {
+	return mapRecordSurface<ApplicationMapFilters, SafeApplicationDisplayRow>({
+		layer,
+		from: sql`applications a`,
+		alias: 'a',
+		geom: sql`a.geom`,
+		properties: [sql`a.id`],
+		filterWhere: applicationFilterWhere,
+		display: {
+			columns: applicationDisplayColumns,
+			joins: applicationDisplayJoins,
+			orderBy: sql`a.application_date desc, a.created_at desc, a.id`,
+		},
+	});
+}
 
 function applicationFilterWhere(filters: ApplicationMapFilters | undefined): RawBuilder<boolean>[] {
 	const clauses: RawBuilder<boolean>[] = [];
@@ -156,38 +155,6 @@ function applicationFilterWhere(filters: ApplicationMapFilters | undefined): Raw
 	return clauses;
 }
 
-export async function getApplicationMvtTile(
-	db: Kysely<SimmerDatabase>,
-	input: ApplicationMvtTileInput,
-): Promise<Uint8Array> {
-	return applicationSurface.getTile(db, input);
-}
-
-export async function listApplicationDisplayRowsPage(
-	db: Kysely<SimmerDatabase>,
-	input: ApplicationPageInput,
-): Promise<ApplicationPageResult> {
-	return applicationSurface.listPage(db, input);
-}
-
-export async function getApplicationDisplayRowById(
-	db: Kysely<SimmerDatabase>,
-	input: ApplicationByIdInput,
-): Promise<SafeApplicationDisplayRow | undefined> {
-	return applicationSurface.getById(db, input);
-}
-
-/**
- * Extent of every application matching the map filters, ignoring the viewport —
- * what the explorer map frames on load and after a filter change.
- */
-export async function getApplicationMapExtent(
-	db: Kysely<SimmerDatabase>,
-	input: MapFilterInput<ApplicationMapFilters>,
-): Promise<MapExtent | null> {
-	return applicationSurface.getExtent(db, input);
-}
-
 // --- source reduction -------------------------------------------------------
 
 export interface SourceReductionMapFilters {
@@ -201,10 +168,6 @@ export interface SourceReductionMapFilters {
 	/** Inclusive upper bound on `source_reduction_date` (`YYYY-MM-DD`). */
 	readonly dateTo?: string;
 }
-
-export type SourceReductionMvtTileInput = MapTileInput<SourceReductionMapFilters>;
-export type SourceReductionPageInput = MapPageInput<SourceReductionMapFilters>;
-export type SourceReductionByIdInput = MapByIdInput;
 
 export interface SafeSourceReductionDisplayRow {
 	readonly id: string;
@@ -225,8 +188,6 @@ export interface SafeSourceReductionDisplayRow {
 	readonly updatedAt: Date;
 }
 
-export type SourceReductionPageResult = MapPageResult<SafeSourceReductionDisplayRow>;
-
 const sourceReductionDisplayColumns: MapDisplayColumns<SafeSourceReductionDisplayRow> = {
 	id: sql`sr.id`,
 	organizationId: sql`sr.organization_id`,
@@ -245,21 +206,26 @@ const sourceReductionDisplayColumns: MapDisplayColumns<SafeSourceReductionDispla
 	updatedAt: sql`sr.updated_at`,
 };
 
-const sourceReductionSurface = mapRecordSurface<
-	SourceReductionMapFilters,
-	SafeSourceReductionDisplayRow
->({
-	layer: 'source-reduction',
-	from: sql`source_reductions sr`,
-	alias: 'sr',
-	geom: sql`sr.geom`,
-	properties: [sql`sr.id`],
-	filterWhere: sourceReductionFilterWhere,
-	display: {
-		columns: sourceReductionDisplayColumns,
-		orderBy: sql`sr.source_reduction_date desc, sr.created_at desc, sr.id`,
-	},
-});
+/**
+ * The source reductions map surface, with the layer it stamps into its tiles handed in by
+ * the register it is declared in.
+ */
+export function sourceReductionSurface(
+	layer: MapTilesetLayer,
+): MapRecordSurfaceReaders<SourceReductionMapFilters, SafeSourceReductionDisplayRow> {
+	return mapRecordSurface<SourceReductionMapFilters, SafeSourceReductionDisplayRow>({
+		layer,
+		from: sql`source_reductions sr`,
+		alias: 'sr',
+		geom: sql`sr.geom`,
+		properties: [sql`sr.id`],
+		filterWhere: sourceReductionFilterWhere,
+		display: {
+			columns: sourceReductionDisplayColumns,
+			orderBy: sql`sr.source_reduction_date desc, sr.created_at desc, sr.id`,
+		},
+	});
+}
 
 function sourceReductionFilterWhere(
 	filters: SourceReductionMapFilters | undefined,
@@ -295,38 +261,6 @@ function sourceReductionFilterWhere(
 	return clauses;
 }
 
-export async function getSourceReductionMvtTile(
-	db: Kysely<SimmerDatabase>,
-	input: SourceReductionMvtTileInput,
-): Promise<Uint8Array> {
-	return sourceReductionSurface.getTile(db, input);
-}
-
-export async function listSourceReductionDisplayRowsPage(
-	db: Kysely<SimmerDatabase>,
-	input: SourceReductionPageInput,
-): Promise<SourceReductionPageResult> {
-	return sourceReductionSurface.listPage(db, input);
-}
-
-export async function getSourceReductionDisplayRowById(
-	db: Kysely<SimmerDatabase>,
-	input: SourceReductionByIdInput,
-): Promise<SafeSourceReductionDisplayRow | undefined> {
-	return sourceReductionSurface.getById(db, input);
-}
-
-/**
- * Extent of every source reduction matching the map filters, ignoring the
- * viewport — what the explorer map frames on load and after a filter change.
- */
-export async function getSourceReductionMapExtent(
-	db: Kysely<SimmerDatabase>,
-	input: MapFilterInput<SourceReductionMapFilters>,
-): Promise<MapExtent | null> {
-	return sourceReductionSurface.getExtent(db, input);
-}
-
 // --- biocontrol -------------------------------------------------------------
 
 export interface BiocontrolMapFilters {
@@ -342,10 +276,6 @@ export interface BiocontrolMapFilters {
 	/** Inclusive upper bound on `biocontrol_date` (`YYYY-MM-DD`). */
 	readonly dateTo?: string;
 }
-
-export type BiocontrolMvtTileInput = MapTileInput<BiocontrolMapFilters>;
-export type BiocontrolPageInput = MapPageInput<BiocontrolMapFilters>;
-export type BiocontrolByIdInput = MapByIdInput;
 
 export interface SafeBiocontrolDisplayRow {
 	readonly id: string;
@@ -366,8 +296,6 @@ export interface SafeBiocontrolDisplayRow {
 	readonly updatedAt: Date;
 }
 
-export type BiocontrolPageResult = MapPageResult<SafeBiocontrolDisplayRow>;
-
 const biocontrolDisplayColumns: MapDisplayColumns<SafeBiocontrolDisplayRow> = {
 	id: sql`ba.id`,
 	organizationId: sql`ba.organization_id`,
@@ -386,18 +314,26 @@ const biocontrolDisplayColumns: MapDisplayColumns<SafeBiocontrolDisplayRow> = {
 	updatedAt: sql`ba.updated_at`,
 };
 
-const biocontrolSurface = mapRecordSurface<BiocontrolMapFilters, SafeBiocontrolDisplayRow>({
-	layer: 'biocontrol',
-	from: sql`biocontrol_actions ba`,
-	alias: 'ba',
-	geom: sql`ba.geom`,
-	properties: [sql`ba.id`],
-	filterWhere: biocontrolFilterWhere,
-	display: {
-		columns: biocontrolDisplayColumns,
-		orderBy: sql`ba.biocontrol_date desc, ba.created_at desc, ba.id`,
-	},
-});
+/**
+ * The biocontrol actions map surface, with the layer it stamps into its tiles handed in by
+ * the register it is declared in.
+ */
+export function biocontrolSurface(
+	layer: MapTilesetLayer,
+): MapRecordSurfaceReaders<BiocontrolMapFilters, SafeBiocontrolDisplayRow> {
+	return mapRecordSurface<BiocontrolMapFilters, SafeBiocontrolDisplayRow>({
+		layer,
+		from: sql`biocontrol_actions ba`,
+		alias: 'ba',
+		geom: sql`ba.geom`,
+		properties: [sql`ba.id`],
+		filterWhere: biocontrolFilterWhere,
+		display: {
+			columns: biocontrolDisplayColumns,
+			orderBy: sql`ba.biocontrol_date desc, ba.created_at desc, ba.id`,
+		},
+	});
+}
 
 function biocontrolFilterWhere(filters: BiocontrolMapFilters | undefined): RawBuilder<boolean>[] {
 	const clauses: RawBuilder<boolean>[] = [];
@@ -431,38 +367,6 @@ function biocontrolFilterWhere(filters: BiocontrolMapFilters | undefined): RawBu
 	return clauses;
 }
 
-export async function getBiocontrolMvtTile(
-	db: Kysely<SimmerDatabase>,
-	input: BiocontrolMvtTileInput,
-): Promise<Uint8Array> {
-	return biocontrolSurface.getTile(db, input);
-}
-
-export async function listBiocontrolDisplayRowsPage(
-	db: Kysely<SimmerDatabase>,
-	input: BiocontrolPageInput,
-): Promise<BiocontrolPageResult> {
-	return biocontrolSurface.listPage(db, input);
-}
-
-export async function getBiocontrolDisplayRowById(
-	db: Kysely<SimmerDatabase>,
-	input: BiocontrolByIdInput,
-): Promise<SafeBiocontrolDisplayRow | undefined> {
-	return biocontrolSurface.getById(db, input);
-}
-
-/**
- * Extent of every biocontrol action matching the map filters, ignoring the
- * viewport — what the explorer map frames on load and after a filter change.
- */
-export async function getBiocontrolMapExtent(
-	db: Kysely<SimmerDatabase>,
-	input: MapFilterInput<BiocontrolMapFilters>,
-): Promise<MapExtent | null> {
-	return biocontrolSurface.getExtent(db, input);
-}
-
 // --- outreach ---------------------------------------------------------------
 //
 // Outreach is performed control work that the public-engagement side of the app
@@ -483,10 +387,6 @@ export interface OutreachMapFilters {
 	readonly dateTo?: string;
 }
 
-export type OutreachMvtTileInput = MapTileInput<OutreachMapFilters>;
-export type OutreachPageInput = MapPageInput<OutreachMapFilters>;
-export type OutreachByIdInput = MapByIdInput;
-
 export interface SafeOutreachDisplayRow {
 	readonly id: string;
 	readonly organizationId: string;
@@ -504,8 +404,6 @@ export interface SafeOutreachDisplayRow {
 	readonly createdAt: Date;
 	readonly updatedAt: Date;
 }
-
-export type OutreachPageResult = MapPageResult<SafeOutreachDisplayRow>;
 
 const outreachDisplayColumns: MapDisplayColumns<SafeOutreachDisplayRow> = {
 	id: sql`oa.id`,
@@ -525,18 +423,26 @@ const outreachDisplayColumns: MapDisplayColumns<SafeOutreachDisplayRow> = {
 	updatedAt: sql`oa.updated_at`,
 };
 
-const outreachSurface = mapRecordSurface<OutreachMapFilters, SafeOutreachDisplayRow>({
-	layer: 'outreach',
-	from: sql`outreach_actions oa`,
-	alias: 'oa',
-	geom: sql`oa.geom`,
-	properties: [sql`oa.id`],
-	filterWhere: outreachFilterWhere,
-	display: {
-		columns: outreachDisplayColumns,
-		orderBy: sql`oa.outreach_date desc, oa.created_at desc, oa.id`,
-	},
-});
+/**
+ * The outreach actions map surface, with the layer it stamps into its tiles handed in by
+ * the register it is declared in.
+ */
+export function outreachSurface(
+	layer: MapTilesetLayer,
+): MapRecordSurfaceReaders<OutreachMapFilters, SafeOutreachDisplayRow> {
+	return mapRecordSurface<OutreachMapFilters, SafeOutreachDisplayRow>({
+		layer,
+		from: sql`outreach_actions oa`,
+		alias: 'oa',
+		geom: sql`oa.geom`,
+		properties: [sql`oa.id`],
+		filterWhere: outreachFilterWhere,
+		display: {
+			columns: outreachDisplayColumns,
+			orderBy: sql`oa.outreach_date desc, oa.created_at desc, oa.id`,
+		},
+	});
+}
 
 function outreachFilterWhere(filters: OutreachMapFilters | undefined): RawBuilder<boolean>[] {
 	const clauses: RawBuilder<boolean>[] = [];
@@ -567,38 +473,6 @@ function outreachFilterWhere(filters: OutreachMapFilters | undefined): RawBuilde
 	return clauses;
 }
 
-export async function getOutreachMvtTile(
-	db: Kysely<SimmerDatabase>,
-	input: OutreachMvtTileInput,
-): Promise<Uint8Array> {
-	return outreachSurface.getTile(db, input);
-}
-
-export async function listOutreachDisplayRowsPage(
-	db: Kysely<SimmerDatabase>,
-	input: OutreachPageInput,
-): Promise<OutreachPageResult> {
-	return outreachSurface.listPage(db, input);
-}
-
-export async function getOutreachDisplayRowById(
-	db: Kysely<SimmerDatabase>,
-	input: OutreachByIdInput,
-): Promise<SafeOutreachDisplayRow | undefined> {
-	return outreachSurface.getById(db, input);
-}
-
-/**
- * Extent of every outreach action matching the map filters, ignoring the
- * viewport — what the explorer map frames on load and after a filter change.
- */
-export async function getOutreachMapExtent(
-	db: Kysely<SimmerDatabase>,
-	input: MapFilterInput<OutreachMapFilters>,
-): Promise<MapExtent | null> {
-	return outreachSurface.getExtent(db, input);
-}
-
 // --- requested control actions ----------------------------------------------
 //
 // Requests carry owned geometry like the performed actions above, but no map
@@ -606,8 +480,6 @@ export async function getOutreachMapExtent(
 // streams the centroid and nothing else (ADR 0009). What is missing there is the
 // shape itself, so this is a by-id geometry read rather than the usual trio —
 // no tile, no paged list, and no filters to build them from.
-
-export type RequestedControlActionByIdInput = MapByIdInput;
 
 export interface SafeRequestedControlActionDisplayRow {
 	readonly id: string;
@@ -632,7 +504,7 @@ const requestedControlActionDisplayColumns: MapDisplayColumns<SafeRequestedContr
 
 export async function getRequestedControlActionDisplayRowById(
 	db: Kysely<SimmerDatabase>,
-	input: RequestedControlActionByIdInput,
+	input: MapByIdInput,
 ): Promise<SafeRequestedControlActionDisplayRow | undefined> {
 	const result = await sql<SafeRequestedControlActionDisplayRow>`
 		select ${mapDisplaySelectList(requestedControlActionDisplayColumns)}

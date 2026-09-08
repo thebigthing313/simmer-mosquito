@@ -4,9 +4,10 @@
  *
  * `MapTilesetLayer` in `packages/db/src/domains/map-layers.ts` is the register,
  * and its header is where the mechanism is written down. The three lists are the
- * `layer` beside each map surface in `packages/db`, the keys
- * `createTileSetRegistry` registers in `apps/server`, and `TILE_LAYER_BINDINGS`
- * in `apps/web`, whose `*_SOURCE_ID` is the string that goes in the URL.
+ * keys of `MAP_SURFACES` in `packages/db/src/domains/map-surface-register.ts`,
+ * the keys `createTileSetRegistry` registers in `apps/server`, and
+ * `TILE_LAYER_BINDINGS` in `apps/web`, whose `*_SOURCE_ID` is the string that
+ * goes in the URL.
  *
  * `tsc` holds the first two lists to the register, and only as membership: it
  * cannot see `apps/web`, which has no dependency on `packages/db`, and it cannot
@@ -15,18 +16,21 @@
  *
  * Four assertions:
  *
- * 1. The layer beside each surface, the tilesets the server serves and the
+ * 1. The surfaces' register keys, the tilesets the server serves and the
  *    client's registry keys are each exactly the register's set.
  * 2. A row's `sourceId` resolves to the same string as its key. The key is what
  *    a caller writes in a `layers` list; the source id is what the URL builder
  *    puts in the path, and they are only the same string by convention.
  * 3. All four parses read the expected number of names, so a refactor that moves
  *    a declaration fails loudly rather than checking nothing.
- * 4. The surface scan still walks `packages/db`'s domain modules, so a walk that
- *    has stopped finding them fails rather than reading zero layers out of them.
+ * 4. No map surface writes a `layer:` literal of its own. `MAP_SURFACES` hands
+ *    each surface the key it is registered under, which is #644's "declared in
+ *    exactly one place"; a literal back beside a surface is a second copy of the
+ *    name, and this is the walk over `packages/db`'s domain modules that refuses
+ *    one.
  *
  * What it does not catch, since every comparison is between sets: two surfaces
- * trading layers with each other. Both names are still spelled everywhere, and
+ * trading entries in the register. Both names are still spelled everywhere, and
  * pairing a layer to the table behind it is a rule nothing in the source states.
  *
  * Run it with `pnpm check:tileset-keys`.
@@ -41,6 +45,7 @@ const CLIENT_REGISTRY = join(workspaceRoot, 'apps/web/src/components/map/tile-la
 const CLIENT_TILES_DIR = join(workspaceRoot, 'apps/web/src/components/map');
 const SERVER_REGISTRY = join(workspaceRoot, 'apps/server/src/map-tiles.ts');
 const DB_REGISTER = join(workspaceRoot, 'packages/db/src/domains/map-layers.ts');
+const DB_SURFACES = join(workspaceRoot, 'packages/db/src/domains/map-surface-register.ts');
 const DB_SURFACE_DIR = join(workspaceRoot, 'packages/db/src/domains');
 
 /**
@@ -51,11 +56,12 @@ const DB_SURFACE_DIR = join(workspaceRoot, 'packages/db/src/domains');
 const EXPECTED_TILESETS = 11;
 
 /**
- * The floor under the surface scan, which is the one input that is a directory
- * walk rather than a single declaration. Thirty-two modules sit there today; the
- * floor sits under that rather than on it because a domain module is deleted now
- * and then, while a walk finding a handful has lost the directory and would
- * report zero layers under a passing summary line (#591, #599).
+ * The floor under the fourth assertion's walk, which is the one input that is a
+ * directory listing rather than a single declaration. Thirty-three modules sit
+ * there today; the floor sits under that rather than on it because a domain
+ * module is deleted now and then, while a walk finding a handful has lost the
+ * directory and would report no stray literal under a passing summary line
+ * (#591, #599).
  */
 const MINIMUM_SURFACE_MODULES = 25;
 
@@ -68,8 +74,8 @@ function main() {
 
 	const failures = [
 		...checkAgainstRegister(register, surfaces, {
-			spells: 'a map surface declares',
-			lacks: 'no map surface declares it',
+			spells: 'the surfaces are keyed by',
+			lacks: 'no map surface is registered under it',
 		}),
 		...checkAgainstRegister(register, server, {
 			spells: 'the server serves',
@@ -81,6 +87,7 @@ function main() {
 			{ spells: 'the client draws', lacks: 'no client row draws it' },
 		),
 		...checkSourceIdsMatchKeys(client, sourceIds),
+		...checkNoSurfaceLayerLiterals(),
 	];
 
 	if (failures.length > 0) {
@@ -89,7 +96,7 @@ function main() {
 			console.error(`  - ${failure}`);
 		}
 		console.error('\nThe register is MapTilesetLayer (packages/db/src/domains/map-layers.ts),');
-		console.error('the surfaces declare a `layer` beside it, the server rows are');
+		console.error('the surfaces are keyed by it in MAP_SURFACES, the server rows are');
 		console.error('createTileSetRegistry (apps/server/src/map-tiles.ts) and the client rows are');
 		console.error('TILE_LAYER_BINDINGS (apps/web/src/components/map/tile-layers.ts). All four');
 		console.error('name the /map/tiles/:tileset segment.');
@@ -118,7 +125,7 @@ function readRegisterLayers() {
 	return layers;
 }
 
-/** The db domain modules the surface scan reads, floor asserted. */
+/** The db domain modules the layer-literal walk reads, floor asserted. */
 function readSurfaceModules() {
 	const modules = readdirSync(DB_SURFACE_DIR).filter((file) => file.endsWith('.ts'));
 	if (modules.length < MINIMUM_SURFACE_MODULES) {
@@ -130,26 +137,39 @@ function readSurfaceModules() {
 	return modules;
 }
 
-/**
- * The `layer` each map surface declares, across the db domain modules.
- *
- * Read off the raw source rather than a masked copy, unlike `check:join-types`:
- * a `layer:` line inside a comment would be counted, and would fail the count
- * assertion below rather than passing quietly. Noise, not a hole.
- */
+/** The layer each map surface is registered under, in declaration order. */
 function readSurfaceLayers() {
-	const layers = readSurfaceModules().flatMap((module) => {
-		const source = readFileSync(join(DB_SURFACE_DIR, module), 'utf8');
-		return [...source.matchAll(/^\t+layer: '([a-z-]+)',$/gm)].map((match) => match[1]);
-	});
+	const source = readFileSync(DB_SURFACES, 'utf8');
+	const register = source.match(/buildMapSurfaces\(\{([\s\S]*?)\n\}\);/);
+	if (register === null) {
+		throw new Error(`Could not find the MAP_SURFACES register in ${DB_SURFACES}.`);
+	}
 
+	const layers = [...register[1].matchAll(/^\t'?([a-z-]+)'?: /gm)].map((match) => match[1]);
 	if (layers.length !== EXPECTED_TILESETS) {
 		throw new Error(
-			`Expected ${EXPECTED_TILESETS} surfaces declaring a layer, read ${layers.length}. ` +
+			`Expected ${EXPECTED_TILESETS} entries in MAP_SURFACES, read ${layers.length}. ` +
 				'Update EXPECTED_TILESETS if a surface was added.',
 		);
 	}
 	return layers;
+}
+
+/**
+ * Every `layer:` literal left beside a surface, which is one too many.
+ *
+ * Read off the raw source rather than a masked copy: a `layer:` line inside a
+ * comment is reported, which is noise rather than a hole, and the message says
+ * where to look.
+ */
+function* checkNoSurfaceLayerLiterals() {
+	for (const module of readSurfaceModules()) {
+		const source = readFileSync(join(DB_SURFACE_DIR, module), 'utf8');
+		for (const match of source.matchAll(/^\t+layer: '([a-z-]+)',$/gm)) {
+			yield `${module} writes \`layer: '${match[1]}'\` beside a surface. The layer is the key ` +
+				'the surface is registered under in MAP_SURFACES, which hands it in.';
+		}
+	}
 }
 
 /** The registry keys and the `*_SOURCE_ID` each row names, in declaration order. */

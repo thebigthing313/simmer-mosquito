@@ -32,36 +32,51 @@ export interface MapBounds {
 	readonly north: number;
 }
 
-export interface MapTileInput<TFilters> {
+/**
+ * What every map read is scoped and dated by, whatever it answers with.
+ *
+ * The zone is on all five inputs whether or not the surface reading one needs
+ * it, which is what lets one surface object serve every reader: the surfaces
+ * that need it are the ones dated by a `timestamptz`, and which those are is a
+ * fact about the schema rather than about this file. The collections surface is
+ * the one that reads it today, and it is built per zone because the zone decides
+ * both which rows fall in a window and the order the rail reads them in.
+ *
+ * A per-surface input shape was the alternative, and it cost a `Map` of surfaces
+ * keyed by zone plus a UTC default standing in for "no zone needed" on the one
+ * read that makes no zone-dependent decision.
+ */
+export interface MapReadContext {
+	readonly organizationId: string;
+	/** The organization's IANA timezone, from `AuthContext`. */
+	readonly timeZone: string;
+}
+
+export interface MapTileInput<TFilters> extends MapReadContext {
 	readonly z: number;
 	readonly x: number;
 	readonly y: number;
-	readonly organizationId: string;
 	readonly filters?: TFilters;
 }
 
-export interface MapFilterInput<TFilters> {
-	readonly organizationId: string;
+export interface MapFilterInput<TFilters> extends MapReadContext {
 	readonly filters?: TFilters;
 }
 
-export interface MapPageInput<TFilters> {
-	readonly organizationId: string;
+export interface MapPageInput<TFilters> extends MapReadContext {
 	readonly filters?: TFilters;
 	readonly limit: number;
 	readonly offset: number;
 }
 
-export interface MapBoundsPageInput<TFilters> {
-	readonly organizationId: string;
+export interface MapBoundsPageInput<TFilters> extends MapReadContext {
 	readonly bounds: MapBounds;
 	readonly filters?: TFilters;
 	readonly limit: number;
 	readonly offset: number;
 }
 
-export interface MapByIdInput {
-	readonly organizationId: string;
+export interface MapByIdInput extends MapReadContext {
 	readonly id: string;
 }
 
@@ -75,8 +90,13 @@ export interface MapPageResult<TRow> {
 export interface MapSurfaceDefinition<TFilters> {
 	/**
 	 * The layer name the client's map style binds to, and the `:tileset` segment
-	 * the server answers it on. Narrowed to {@link MapTilesetLayer} so a name the
-	 * server does not register fails `tsc` rather than serving an empty map.
+	 * the server answers it on.
+	 *
+	 * Not written beside a surface: `MAP_SURFACES` in `map-surface-register.ts`
+	 * hands each surface the key it is registered under, so the name a tile
+	 * carries and the path it is served on are one literal. Narrowed to
+	 * {@link MapTilesetLayer} on top of that, so nothing else can pass a string
+	 * the server does not register.
 	 */
 	readonly layer: MapTilesetLayer;
 	/** The from-clause: table + alias, plus any join the predicates reference. */

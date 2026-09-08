@@ -16,6 +16,8 @@ export * from './domains/larval-surveillance.js';
 export * from './domains/map-extent.js';
 export * from './domains/map-layers.js';
 export * from './domains/map-region-filter.js';
+export * from './domains/map-surface.js';
+export * from './domains/map-surface-register.js';
 export * from './domains/map-tile.js';
 export * from './domains/mission-dispatch-map.js';
 export * from './domains/mission-notification-generation.js';
