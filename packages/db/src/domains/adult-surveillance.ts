@@ -37,6 +37,21 @@ export interface CreateTrapInput {
 	readonly updatedByProfileId?: string | null;
 }
 
+/**
+ * A Trap as the operator console reads one over REST.
+ *
+ * This row is deliberately wider than the synced row, and `geojson` is where
+ * they differ: `OMIT` in `scripts/generate-table-schemas.mjs` keeps that column
+ * off the sync wire because geometry is served by `/map/*`, and the console has
+ * neither a shape stream nor a tile endpoint. So the select carries it, the
+ * mapper folds it into {@link OwnedGeometryInfo} with `lat`, `lng` and
+ * `geom_type`, and no caller ever sees a column by that name.
+ *
+ * The column list behind this is not the hand-written kind #635 collapsed. The
+ * mapper names every column it needs, so dropping one from the select fails
+ * `tsc` rather than answering with a column nobody reads. Measured and closed as
+ * #766.
+ */
 export interface SafeTrap {
 	readonly id: string;
 	readonly organizationId: string;
