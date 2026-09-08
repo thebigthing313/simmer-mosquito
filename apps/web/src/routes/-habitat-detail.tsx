@@ -1,9 +1,5 @@
 import type { LarvalInspectionEntryMode } from '@simmer-mosquito/domain';
-import {
-	countGeoJsonVertices,
-	formatGeometryTypeLabel,
-	type GeoJsonGeometry,
-} from '@simmer-mosquito/mapping';
+import { countGeoJsonVertices, formatGeometryTypeLabel } from '@simmer-mosquito/mapping';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customFieldEntries, customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
@@ -320,15 +316,15 @@ function HabitatLocationCard({
 	readonly geometry: HabitatGeometry | null;
 	readonly isPending: boolean;
 }) {
-	const geojson = (geometry?.geojson ?? null) as GeoJsonGeometry | null;
 	return (
 		<RecordLocationCard
 			description={locationSummary(geometry, isPending)}
 			emptyDescription="This habitat has no location to display."
-			geojson={geojson}
+			geojson={geometry?.geojson ?? null}
 			geomType={geometry?.geomType ?? null}
 			height="h-[380px]"
 			isPending={isPending}
+			unsupportedShape={geometry?.unsupportedShape ?? null}
 		/>
 	);
 }

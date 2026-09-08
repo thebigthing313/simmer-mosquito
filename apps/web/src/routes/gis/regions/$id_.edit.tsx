@@ -34,6 +34,11 @@ function EditRegionRoute() {
 	const { region, isReady, isError } = useRegionRecord(id);
 	const geometryQuery = useRegionGeometry(id);
 
+	// What reaches here is already one of the shapes a Region may store, checked in
+	// `useRegionGeometry`'s fetch (#761). The cast that is left is not a claim about
+	// the shape: `DrawGeometry` holds two-element positions and a stored geometry
+	// may carry an altitude, which is `toDrawGeometry`'s business and the draw
+	// flow's, not this seam's.
 	const initialGeometry = (geometryQuery.data?.geojson ?? null) as DrawGeometry | null;
 	const skeleton = <EditFormSkeleton rows={['h-9', ['h-9', 'h-9'], 'h-24']} />;
 

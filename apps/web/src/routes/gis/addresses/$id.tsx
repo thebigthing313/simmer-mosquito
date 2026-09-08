@@ -1,4 +1,3 @@
-import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -24,7 +23,7 @@ import { WriteOnly } from '../../../components/write-only';
 import { useAddressMutations } from '../../../hooks/mutations/use-address-mutations';
 import { type AddressRecord, useAddressRecord } from '../../../hooks/queries/use-address-record';
 import { formatAddressLines } from '../../../lib/address-format';
-import { useAddressGeometry } from './-address-data';
+import { type AddressGeometry, useAddressGeometry } from './-address-data';
 
 export const Route = createFileRoute('/gis/addresses/$id')({
 	component: RouteComponent,
@@ -114,10 +113,8 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 			layout={layout}
 		>
 			<AddressLocationCard
-				geojson={geometryQuery.data?.geojson ?? null}
+				geometry={geometryQuery.data ?? null}
 				isLoading={geometryQuery.isLoading}
-				lat={geometryQuery.data?.lat ?? null}
-				lng={geometryQuery.data?.lng ?? null}
 			/>
 			<RecordRegionsBand noun="address" recordId={address.id} recordType="addresses" />
 			<AddressSurveillanceCard addressId={address.id} />
@@ -126,16 +123,15 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 }
 
 function AddressLocationCard({
-	geojson,
-	lat,
-	lng,
+	geometry,
 	isLoading,
 }: {
-	readonly geojson: GeoJsonGeometry | null;
-	readonly lat: number | null;
-	readonly lng: number | null;
+	/** The whole query value: four reads at the call site put that route over the
+	 * complexity gate, and each of them was the same `?? null`. */
+	readonly geometry: AddressGeometry | null;
 	readonly isLoading: boolean;
 }) {
+	const { geojson = null, lat = null, lng = null, unsupportedShape = null } = geometry ?? {};
 	return (
 		<RecordLocationCard
 			description={
@@ -147,6 +143,7 @@ function AddressLocationCard({
 			geomType={geojson?.type ?? null}
 			height="h-[300px]"
 			isPending={isLoading}
+			unsupportedShape={unsupportedShape}
 		/>
 	);
 }

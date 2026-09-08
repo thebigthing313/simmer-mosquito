@@ -47,6 +47,12 @@ import type { MapCamera } from './map-styles';
  * only `lat`/`lng`/`geomType`. Callers fetch the full `geojson` from the record's
  * display endpoint (see `useOwnedGeometry`) and pass it here.
  *
+ * A geometry the map will not draw is reported here rather than over the map,
+ * because it is a fact about this record and a banner on the map would name a
+ * problem the reader cannot point at. The caller resolves that sentence once,
+ * where it read the geometry, and passes it as `unsupportedShape`. See
+ * `checkOwnedGeometry` in `geojson-adapter.ts` (#761).
+ *
  * A record worked *against* another feature — a control action performed at a
  * habitat — can pass that feature as `context`. It draws dashed and unfilled
  * beneath the record, is included in the framing, and is enough on its own to
@@ -65,6 +71,7 @@ export function RecordLocationCard({
 	emptyDescription,
 	height = 'h-[320px]',
 	context,
+	unsupportedShape = null,
 }: {
 	readonly geojson: GeoJsonGeometry | null;
 	readonly geomType: string | null;
@@ -82,6 +89,12 @@ export function RecordLocationCard({
 	readonly height?: string;
 	/** The surrounding feature this record was worked against, and its name. */
 	readonly context?: RecordLocationContext | undefined;
+	/**
+	 * Why the map is drawing nothing: the record stores a shape its kind may not
+	 * store. It replaces the summary line and the empty state's description, so it
+	 * is read whether or not a `context` geometry keeps the map on screen.
+	 */
+	readonly unsupportedShape?: string | null;
 }) {
 	const contextGeojson = context?.geojson ?? null;
 	const bounds = useMemo(() => unionBounds(geojson, contextGeojson), [geojson, contextGeojson]);
@@ -144,10 +157,9 @@ export function RecordLocationCard({
 			<CardHeader padding="compact">
 				<CardTitle>{title}</CardTitle>
 				<CardDescription>
-					{description ??
-						(geojson === null && context !== undefined && contextGeojson !== null
-							? `No geometry of its own, so it is shown at its ${context.kind.toLowerCase()}`
-							: geometrySummary(geojson, geomType, isPending, isError))}
+					{unsupportedShape ??
+						description ??
+						derivedDescription({ context, contextGeojson, geojson, geomType, isError, isPending })}
 				</CardDescription>
 				{hasMap ? (
 					<CardAction>
@@ -166,14 +178,12 @@ export function RecordLocationCard({
 				{isPending ? (
 					<Skeleton className={`w-full rounded-md ${height}`} />
 				) : focus === null ? (
-					<Empty className="min-h-[220px] border border-border/40 bg-muted/30">
-						<EmptyHeader>
-							<EmptyTitle>
-								{isError ? 'Geometry Unavailable' : (emptyTitle ?? 'No Geometry Recorded')}
-							</EmptyTitle>
-							<EmptyDescription>{emptyDescription}</EmptyDescription>
-						</EmptyHeader>
-					</Empty>
+					<NothingToDraw
+						emptyDescription={emptyDescription}
+						emptyTitle={emptyTitle}
+						isError={isError}
+						unsupportedShape={unsupportedShape}
+					/>
 				) : (
 					<div className="grid gap-2">
 						<div className={`overflow-hidden rounded-md border border-border/40 ${height}`}>
@@ -193,6 +203,81 @@ export function RecordLocationCard({
 			</CardContent>
 		</Card>
 	);
+}
+
+/**
+ * The line under the heading when the caller passes none.
+ *
+ * Out of the component because it is the third branch of a chain that already
+ * prefers `unsupportedShape` then `description`, and holding all three inline is
+ * what took this file over the complexity gate.
+ */
+function derivedDescription({
+	context,
+	contextGeojson,
+	geojson,
+	geomType,
+	isError,
+	isPending,
+}: {
+	readonly context: RecordLocationContext | undefined;
+	readonly contextGeojson: GeoJsonGeometry | null;
+	readonly geojson: GeoJsonGeometry | null;
+	readonly geomType: string | null;
+	readonly isError: boolean;
+	readonly isPending: boolean;
+}): string {
+	if (geojson === null && context !== undefined && contextGeojson !== null) {
+		return `No geometry of its own, so it is shown at its ${context.kind.toLowerCase()}`;
+	}
+	return geometrySummary(geojson, geomType, isPending, isError);
+}
+
+/**
+ * The well when there is no shape to put in it, which is three different states.
+ *
+ * A record that stores nothing is the ordinary one. A read that failed and a
+ * shape the map will not draw are each their own heading, because "no geometry
+ * recorded" is wrong about both and sends a reader looking for a record that
+ * plainly has one.
+ */
+function NothingToDraw({
+	emptyDescription,
+	emptyTitle,
+	isError,
+	unsupportedShape,
+}: {
+	readonly emptyDescription: string;
+	readonly emptyTitle: string | undefined;
+	readonly isError: boolean;
+	readonly unsupportedShape: string | null;
+}) {
+	return (
+		<Empty className="min-h-[220px] border border-border/40 bg-muted/30">
+			<EmptyHeader>
+				<EmptyTitle>{emptyHeading({ emptyTitle, isError, unsupportedShape })}</EmptyTitle>
+				<EmptyDescription>{unsupportedShape ?? emptyDescription}</EmptyDescription>
+			</EmptyHeader>
+		</Empty>
+	);
+}
+
+function emptyHeading({
+	emptyTitle,
+	isError,
+	unsupportedShape,
+}: {
+	readonly emptyTitle: string | undefined;
+	readonly isError: boolean;
+	readonly unsupportedShape: string | null;
+}): string {
+	if (isError) {
+		return 'Geometry Unavailable';
+	}
+	if (unsupportedShape !== null) {
+		return 'Geometry Not Drawn';
+	}
+	return emptyTitle ?? 'No Geometry Recorded';
 }
 
 /** The surrounding feature a record was worked against — today, its habitat. */

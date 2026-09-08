@@ -101,6 +101,7 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 			<RegionBoundaryCard
 				geojson={geometryQuery.data?.geojson ?? null}
 				isLoading={geometryQuery.isLoading}
+				unsupportedShape={geometryQuery.data?.unsupportedShape ?? null}
 			/>
 			<RecordRegionsBand noun="region" recordId={region.id} recordType="regions" />
 		</RecordDetailColumns>
@@ -110,9 +111,11 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 function RegionBoundaryCard({
 	geojson,
 	isLoading,
+	unsupportedShape,
 }: {
 	readonly geojson: GeoJsonGeometry | null;
 	readonly isLoading: boolean;
+	readonly unsupportedShape: string | null;
 }) {
 	return (
 		<RecordLocationCard
@@ -124,6 +127,7 @@ function RegionBoundaryCard({
 			height="h-[360px]"
 			isPending={isLoading}
 			title="Boundary"
+			unsupportedShape={unsupportedShape}
 		/>
 	);
 }
