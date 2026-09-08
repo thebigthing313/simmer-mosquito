@@ -235,6 +235,20 @@ const SESSION_RESPONSE_HEADER = 'x-simmer-session';
  *
  * Structural rather than `instanceof Headers`, for the reason the comment above
  * {@link FetchInit} gives: three runtimes, three declarations of that global.
+ *
+ * The merge is **last-wins by design**, and the spread in {@link createAuthClient}
+ * depends on it: three of these records go out in order, so a header the caller
+ * wrote beats one the request carried, which beats the default this module sets.
+ * Combining on collision instead of overwriting would undo the lowercasing right
+ * above, which exists to stop `Content-Type` from a record literal and
+ * `content-type` off a `Headers` arriving as one doubled value.
+ *
+ * One shape loses information, and it is the array of pairs: two entries for one
+ * name keep only the last, where `Headers` would have comma-joined them. A
+ * `Headers` instance is not that case, because it joins duplicates itself before
+ * `forEach` sees them, so the loop reads one value. No caller sends a repeated
+ * request header today, and the response-only names that repeat, `set-cookie`
+ * among them, never reach this function.
  */
 function headerEntries(source: unknown): Record<string, string> {
 	const entries: Record<string, string> = {};
@@ -437,6 +451,11 @@ export function createAuthClient(options: {
 		const response = await fetch(addressOn(serverUrl, input), {
 			...init,
 			credentials: 'include',
+			// Later wins, so the order is the override rule: the default first, then
+			// what the request carried, then what this caller wrote, and the
+			// credential headers last because no caller may forge them. Every source
+			// is lowercased by `headerEntries`, which is what makes a spread the
+			// override rather than two keys for one header.
 			headers: {
 				accept: 'application/json',
 				...carriedHeaders(input),
