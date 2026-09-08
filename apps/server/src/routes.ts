@@ -15,12 +15,13 @@
  * puts it in front of the checks; forgetting to add it here is a route the
  * server does not serve, which is not a silent failure.
  *
- * Two things stay in `main.ts`. The middleware loops (`CORS_SURFACES`,
- * `COMPRESSED_READ_PREFIXES`, `PRIVATE_READ_PREFIXES`) run before the routes and
- * have their own tests. And `/debug/auth-context`, which is registered only
- * outside production and mounts its own `cors()` block rather than sitting in
- * the table, so it is the one route the walk is not asked to admit. A route
- * that does not exist in production cannot ship a cross-origin refusal.
+ * One thing stays in `main.ts`: the middleware loops (`CORS_SURFACES`,
+ * `COMPRESSED_READ_PREFIXES`, `PRIVATE_READ_PREFIXES`), which run before the
+ * routes and have their own tests. `/debug/auth-context` used to be a second,
+ * registered only outside production and mounting its own `cors()` block rather
+ * than sitting in the table, so it was the one route the walk was not asked to
+ * admit. It is gone (#699): nothing in the workspace read it, and it never
+ * existed in production. Every route the server serves is now in this list.
  *
  * Everything `main.ts` used to write inline is a module now:
  * `session-routes.ts` has `/health` and the four WorkOS session routes,

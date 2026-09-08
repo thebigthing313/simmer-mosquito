@@ -261,20 +261,3 @@ export function toAuthMeBody(authContext: AuthContext): CompleteAuthMe {
 		},
 	};
 }
-
-export function toPublicAuthContext(authContext: AuthContext) {
-	return {
-		workos: {
-			user: authContext.workosUser,
-			organizationId: authContext.workosOrganizationId,
-			role: authContext.workosRole,
-		},
-		simmer: {
-			user: authContext.user,
-			organization: authContext.organization,
-			profile: authContext.profile,
-			membership: authContext.membership,
-			role: authContext.role,
-		},
-	};
-}
