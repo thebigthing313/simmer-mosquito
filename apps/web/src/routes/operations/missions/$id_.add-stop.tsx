@@ -24,6 +24,7 @@ import { isBelowWriteFloor } from '../../../lib/write-surfaces';
 import { useCommandRunner } from '../-command-runner';
 import { LocationSection } from '../-location-section';
 import { canEditMissionPlan, useMissionStopViews } from '../-operations-data';
+import { addStopDescription } from '../-operations-display';
 
 export const Route = createFileRoute('/operations/missions/$id_/add-stop')({
 	beforeLoad: async ({ context, params }) => {
@@ -124,7 +125,7 @@ function AddMissionStopForm({ mission }: { readonly mission: MissionRecord }) {
 			gap="tight"
 			header={{
 				title: 'Add a Stop',
-				description: `Draw where the crew has to go on ${missionDisplayName(mission, timeZone)}.`,
+				description: addStopDescription(missionDisplayName(mission, timeZone)),
 				backTo: '/operations/missions/$id',
 				backParams: { id: mission.id },
 				backLabel: 'Back to mission',
