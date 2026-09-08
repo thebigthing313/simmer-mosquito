@@ -135,6 +135,7 @@ import { commentsInJsxText, copyStrings } from './lib/copy-strings.mjs';
 import { maskedSource } from './lib/masked-source.mjs';
 import { pathFrom } from './lib/relative-path.mjs';
 import { typeScriptFilesUnder } from './lib/source-files.mjs';
+import { lineOf } from './lib/source-position.mjs';
 import {
 	count,
 	failure,
@@ -414,8 +415,6 @@ function avoidedIn(copy) {
 
 	return said;
 }
-
-const lineOf = (source, index) => source.slice(0, index).split('\n').length;
 
 // ---------------------------------------------------------------------------
 // The markers

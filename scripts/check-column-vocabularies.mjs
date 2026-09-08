@@ -53,6 +53,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathFrom } from './lib/relative-path.mjs';
 import { sourceFiles } from './lib/source-files.mjs';
+import { lineOf } from './lib/source-position.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 const REGISTER_SOURCE = join(workspaceRoot, 'packages/domain/src/column-vocabularies.ts');
@@ -425,10 +426,6 @@ function countBy(values) {
 		counts.set(value, (counts.get(value) ?? 0) + 1);
 	}
 	return counts;
-}
-
-function lineOf(source, index) {
-	return source.slice(0, index).split('\n').length;
 }
 
 main();
