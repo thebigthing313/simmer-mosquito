@@ -27,6 +27,7 @@
 		"check:schemas": "node scripts/generate-table-schemas.mjs --check",
 		"check:search-corpus": "node scripts/check-search-corpus.mjs",
 		"check:server-owned-columns": "node scripts/check-server-owned-columns.mjs",
+		"check:session-credentials": "node scripts/check-session-credentials.mjs",
 		"check:session-fetcher": "node scripts/check-session-fetcher.mjs",
 		"check:table-types": "node scripts/generate-table-types.mjs --check",
 		"check:tileset-keys": "node scripts/check-tileset-keys.mjs",
