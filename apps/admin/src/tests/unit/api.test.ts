@@ -6,6 +6,7 @@ import {
 	isOperatorNotConfiguredError,
 	isOperatorRequiredError,
 	listAdminOrganizations,
+	postOrganizationCommand,
 } from '../../api';
 
 /**
@@ -139,6 +140,8 @@ describe('the Foundations read', () => {
 
 	// The page wrote its own message and swapped the underscores out, so one 403
 	// read as "operator required" there and "operator_required" everywhere else.
+	// Both now read the register's sentence, and the read and the write reach it
+	// through the same `responseErrorMessage`.
 	it('renders operator_required as the organizations list renders it', async () => {
 		const fromFoundations = await refuse('operator_required', 403);
 		const fromOrganizations = await listAdminOrganizations('https://api.simmer-data.com').catch(
@@ -146,12 +149,119 @@ describe('the Foundations read', () => {
 		);
 
 		expect([messageOf(fromFoundations), messageOf(fromOrganizations)]).toEqual([
-			'operator_required',
-			'operator_required',
+			'This account is not a SIMMER operator. Sign out and sign in as one.',
+			'This account is not a SIMMER operator. Sign out and sign in as one.',
 		]);
 	});
 
 	function messageOf(error: unknown): string | null {
 		return error instanceof Error ? error.message : null;
 	}
+});
+
+/**
+ * The three branches of `responseErrorMessage`, over both doors: a read through
+ * `getJson` and a Foundations write through `postOrganizationCommand`.
+ *
+ * A code on screen is the failure this covers, so every case asserts the whole
+ * message rather than that it merely differs from the code. The unmapped case
+ * is the one that decides whether the register is a map or a fallthrough: a
+ * lookup that answered the code for anything it did not know would pass every
+ * other case here.
+ */
+describe('what a refusal reads as', () => {
+	const SERVER = 'https://api.simmer-data.com';
+
+	afterEach(() => {
+		vi.unstubAllGlobals();
+	});
+
+	function answer(body: unknown, status: number) {
+		vi.stubGlobal(
+			'fetch',
+			vi.fn(async () => new Response(JSON.stringify(body), { status })),
+		);
+	}
+
+	async function readMessage(body: unknown, status: number): Promise<string | null> {
+		answer(body, status);
+		const caught: unknown = await listAdminOrganizations(SERVER).catch((error: unknown) => error);
+		return caught instanceof Error ? caught.message : null;
+	}
+
+	async function writeMessage(body: unknown, status: number): Promise<string | null> {
+		answer(body, status);
+		const caught: unknown = await postOrganizationCommand('/foundation/regions', {}).catch(
+			(error: unknown) => error,
+		);
+		return caught instanceof Error ? caught.message : null;
+	}
+
+	it('prefers a mapped code over the code and over a reason that repeats it', async () => {
+		expect(
+			await readMessage({ error: 'organization_required', reason: 'organization_required' }, 403),
+		).toBe('This session has no organization selected. Enter the organization again.');
+	});
+
+	it("keeps the server's own sentence for a code the register does not carry", async () => {
+		expect(
+			await writeMessage({ error: 'invalid_payload', reason: 'Region name is required.' }, 400),
+		).toBe('Region name is required.');
+	});
+
+	// The register is a map. A code it has never heard of takes the caller's
+	// fallback sentence, and specifically not `snake_case_code_on_screen`.
+	it('falls back to the caller sentence for an unmapped code, never to the code', async () => {
+		expect({
+			read: await readMessage({ error: 'weather_station_inactive' }, 409),
+			write: await writeMessage({ error: 'weather_station_inactive' }, 409),
+		}).toEqual({ read: 'Unable to load organizations.', write: 'Request failed.' });
+	});
+
+	// A refused Foundations write is the case #689 was filed on: it reached the
+	// form alert as `operator_required` through `saveFailure`, which renders
+	// whatever `AdminApiError.message` holds.
+	it('reads a refused Foundations write as English', async () => {
+		expect(await writeMessage({ error: 'operator_required' }, 403)).toBe(
+			'This account is not a SIMMER operator. Sign out and sign in as one.',
+		);
+	});
+
+	/*
+	 * Every code the console can receive that sends no sentence of its own,
+	 * walked back from the six calls `api.ts` makes. Listed here rather than
+	 * read out of the register, because a test that imports the map asserts only
+	 * that a map is a map: this is the second copy on purpose, and a code
+	 * dropped from the register fails on the line that names it.
+	 */
+	const COVERED = [
+		'already_a_member',
+		'invalid_command',
+		'invited_email_already_used',
+		'membership_required',
+		'operator_not_configured',
+		'operator_required',
+		'organization_not_found',
+		'organization_required',
+		'profile_already_linked',
+		'profile_deleted',
+		'profile_not_found',
+		'unauthenticated',
+		'workos_organization_required',
+	];
+
+	it('has a sentence for every code it claims to cover', async () => {
+		// Three ways a code can fail to be covered, and the third is the one a
+		// removed entry looks like: the caller's fallback is a sentence too, so a
+		// check for "reads as English" passes over an entry that is gone.
+		const uncovered: string[] = [];
+		for (const code of COVERED) {
+			const message = await readMessage({ error: code }, 403);
+			if (message === null || message === code || message === 'Unable to load organizations.') {
+				uncovered.push(code);
+			}
+		}
+
+		expect(uncovered).toEqual([]);
+	});
 });

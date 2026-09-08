@@ -6,6 +6,7 @@ import type {
 	SimmerRole,
 } from '@simmer-mosquito/domain';
 import { sessionFetch } from '@simmer-mosquito/sync/session-fetch';
+import { refusalMessage } from './lib/refusal-messages';
 
 const DEFAULT_SERVER_URL = 'http://localhost:3000';
 
@@ -451,13 +452,26 @@ function adminApiError(response: Response, body: unknown, fallback: string): Adm
 	});
 }
 
+/**
+ * What a refusal reads as, in three steps and never as a code.
+ *
+ * The register is asked first, then the server's own `reason`, then the
+ * caller's fallback. `refusal-messages.ts` carries why the register comes
+ * before `reason` and what may be entered in it; the short version is that a
+ * code in it is a code no admin-reachable refusal writes a sentence for, and
+ * three of them send a `reason` that is a code.
+ *
+ * `body.error` is never returned. A code the register has not thought about
+ * takes the fallback, which is a sentence every caller already supplies.
+ */
 function responseErrorMessage(body: unknown, fallback: string): string {
 	if (isRecord(body)) {
+		const mapped = refusalMessage(typeof body.error === 'string' ? body.error : null);
+		if (mapped !== null) {
+			return mapped;
+		}
 		if (typeof body.reason === 'string' && body.reason.trim() !== '') {
 			return body.reason;
-		}
-		if (typeof body.error === 'string' && body.error.trim() !== '') {
-			return body.error;
 		}
 	}
 	return fallback;
