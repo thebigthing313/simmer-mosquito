@@ -50,9 +50,11 @@ import {
 	WETNESS_OPTIONS,
 } from '../-inspection-filters';
 import { InspectionMapCard } from '../-inspection-map-card';
+import { InspectionSurfaceSwitch } from '../-inspection-surface-switch';
 import {
 	type InspectionFilters as InspectionSearchFilters,
 	inspectionFilterCodecs,
+	sharedInspectionSearch,
 } from '../-inspections-search';
 import { formatListDate } from '../-overview-data';
 import { inspectionLegend } from './-legend';
@@ -211,6 +213,10 @@ function InspectionsExplorerRoute() {
 	const [selectedId, setSelectedId] = useState<string | null>(null);
 	const panel = useExplorerPanel();
 
+	// What a move to the Table takes with it: the params already on the address
+	// bar, which on this surface are only the shared filter contract.
+	const carried = sharedInspectionSearch(Route.useSearch());
+
 	const filterOptions = useInspectionFilterOptions();
 	const filters = useMemo(() => inspectionTileFilters(state), [state]);
 	const dateRange = useDateRangeFilters({ from: dateFrom, to: dateTo, today, setFilters });
@@ -239,6 +245,7 @@ function InspectionsExplorerRoute() {
 
 	return (
 		<ExplorerMapPage
+			actions={<InspectionSurfaceSwitch compact current="map" search={carried} />}
 			activeFilterCount={activeFilterCount}
 			filters={
 				<InspectionFilters

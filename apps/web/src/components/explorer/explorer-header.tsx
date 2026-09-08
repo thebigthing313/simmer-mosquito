@@ -63,6 +63,7 @@ export interface ExplorerFilterToggle {
  * each laid out for themselves.
  */
 export function ExplorerHeader({
+	actions,
 	title,
 	icon: Icon,
 	total,
@@ -77,6 +78,12 @@ export function ExplorerHeader({
 	surface = 'page',
 	showTotal = false,
 }: {
+	/**
+	 * Controls that belong to this surface rather than to its records, drawn at
+	 * the left of the action cluster. The Inspections pair puts its Map/Table
+	 * switch here; `surface-switch.tsx` says why the pair carries one.
+	 */
+	readonly actions?: ReactNode | undefined;
 	readonly title: string;
 	readonly icon?: RegistryIcon | undefined;
 	readonly total: number;
@@ -148,6 +155,7 @@ export function ExplorerHeader({
 						showTotal={showTotal}
 						total={total}
 					/>
+					{actions}
 					<CreateButton create={create} isChrome={isChrome} />
 					<FilterToggleButton toggle={filterToggle} />
 					{isChrome ? (

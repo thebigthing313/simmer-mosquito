@@ -31,6 +31,8 @@ import { sample_species } from '../../lib/collections/sample_species';
 import { samples } from '../../lib/collections/samples';
 import { source_reductions } from '../../lib/collections/source_reductions';
 import { HabitatHistoryCard } from '../../routes/-habitat-detail';
+import { InspectionSurfaceSwitch } from '../../routes/larval-surveillance/-inspection-surface-switch';
+import { sharedInspectionSearch } from '../../routes/larval-surveillance/-inspections-search';
 import { PeopleSection } from '../../routes/my-organization/-components/people';
 import { installMemoryCollections, seedRows } from './lib/collections/memory-collections';
 import { linkHref, linkHrefs, renderWithRouter } from './router-harness';
@@ -264,5 +266,74 @@ describe('the People roster', () => {
 		await openRoster();
 
 		expect(linkHref('Ray Alvarado')).toBe('/daily-work/profile-2');
+	});
+});
+
+/**
+ * The Inspections Map/Table switch, which is a destination that carries state.
+ *
+ * The two surfaces read the same filter params and the sidebar links between
+ * them carry none, so a reader who narrowed one arrived at the other unfiltered
+ * (#521). The control that fixes it is a `Link` naming its `search`, and `tsc`
+ * checks neither half of that: the search type both routes validate to is a
+ * plain record, so a switch carrying nothing, or carrying the table's sort to a
+ * map with no sort, compiles either way. Only the resolved href says which.
+ *
+ * The fixture sets five of the eight filters and both of the table's sort
+ * params, so a link that carried everything and a link that carried only the
+ * shared contract resolve to different addresses.
+ */
+describe('the Inspections Map/Table switch', () => {
+	const TABLE_ADDRESS = {
+		from: '2026-08-01',
+		to: '2026-08-31',
+		water: 'wet',
+		density: ['low'],
+		regions: ['region-1'],
+		sort: 'dips',
+		direction: 'asc',
+	} as const;
+
+	/**
+	 * The five filters as the router writes them: a string param as itself, an
+	 * array JSON-encoded and percent-escaped. Spelled out rather than built from
+	 * the fixture, so a case cannot agree with a mistake in the encoder.
+	 */
+	const CARRIED =
+		'from=2026-08-01&to=2026-08-31&water=wet&density=%5B%22low%22%5D&regions=%5B%22region-1%22%5D';
+
+	it('carries the filters from the Table to the Map, and leaves the sort behind', () => {
+		renderWithRouter(
+			<InspectionSurfaceSwitch current="table" search={sharedInspectionSearch(TABLE_ADDRESS)} />,
+		);
+
+		expect(linkHref('Map')).toBe(`/larval-surveillance/inspections?${CARRIED}`);
+	});
+
+	it('carries the filters from the Map to the Table', () => {
+		// The map's own validated search, which is the shared contract already: the
+		// sort has no codec here, so an address carrying one arrives without it.
+		const mapAddress = {
+			from: '2026-08-01',
+			to: '2026-08-31',
+			water: 'wet',
+			density: ['low'],
+			regions: ['region-1'],
+		};
+
+		renderWithRouter(
+			<InspectionSurfaceSwitch current="map" search={sharedInspectionSearch(mapAddress)} />,
+		);
+
+		expect(linkHref('Table')).toBe(`/larval-surveillance/inspections/table?${CARRIED}`);
+	});
+
+	it('offers the two surfaces and nothing else', () => {
+		renderWithRouter(<InspectionSurfaceSwitch current="map" search={{}} />);
+
+		expect(linkHrefs()).toEqual([
+			'/larval-surveillance/inspections',
+			'/larval-surveillance/inspections/table',
+		]);
 	});
 });

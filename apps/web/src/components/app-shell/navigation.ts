@@ -21,6 +21,14 @@ import type { SeedableTable } from '../search/search-seeds';
  * written down. An item used to carry its own `write` value beside the role the
  * route named inline, and the two agreed on every surface where both existed
  * and said nothing at all on the three where neither did (#623).
+ *
+ * An item carries no `search` either, and that is deliberate. TanStack Router
+ * drops the search params on a navigation that names none, so a click here lands
+ * on the destination's defaults, which is what a move to a surface should mean.
+ * Two surfaces over one record set that share a filter contract keep the filters
+ * through a switch drawn on both of them instead; `components/explorer/surface-switch.tsx`
+ * carries that rule, and the Inspections Map and Table are the pair it was
+ * written for (#521).
  */
 interface WebShellNavItem extends ShellNavItem {
 	/**

@@ -98,6 +98,7 @@ export type ExplorerResults<TRow> = ExplorerRowResults<TRow> | ExplorerBodyResul
  * round-trip of tiles to rebuild, and a panel toggle must not spend one.
  */
 export function ExplorerMapPage<TRow>({
+	actions,
 	panel,
 	heading,
 	filters,
@@ -108,6 +109,11 @@ export function ExplorerMapPage<TRow>({
 	menuItems,
 	onResetFilters,
 }: {
+	/**
+	 * Controls for the surface itself, drawn in the panel header beside the
+	 * filter toggle. The Inspections explorer puts its Map/Table switch here.
+	 */
+	readonly actions?: ReactNode | undefined;
 	readonly panel: ExplorerPanel;
 	readonly heading: ExplorerHeading;
 	/** The filter controls, stacked under the panel's title row. */
@@ -150,6 +156,7 @@ export function ExplorerMapPage<TRow>({
 				</div>
 			) : (
 				<OpenPanels
+					actions={actions}
 					activeFilterCount={activeFilterCount}
 					filters={filters}
 					footer={footer}
@@ -173,6 +180,7 @@ export function ExplorerMapPage<TRow>({
  * came for. On a narrow one the pair docks to the bottom as a sheet.
  */
 function OpenPanels<TRow>({
+	actions,
 	activeFilterCount,
 	filters,
 	footer,
@@ -182,6 +190,7 @@ function OpenPanels<TRow>({
 	panel,
 	results,
 }: {
+	readonly actions: ReactNode;
 	readonly activeFilterCount: number;
 	readonly filters: ReactNode;
 	readonly footer: ReactNode;
@@ -210,6 +219,7 @@ function OpenPanels<TRow>({
 				style={isNarrow ? undefined : { width: panel.width }}
 			>
 				<ResultsPanel
+					actions={actions}
 					activeFilterCount={activeFilterCount}
 					footer={footer}
 					heading={heading}
@@ -242,6 +252,7 @@ function OpenPanels<TRow>({
  * that would drift.
  */
 function ResultsPanel<TRow>({
+	actions,
 	heading,
 	results,
 	footer,
@@ -251,6 +262,7 @@ function ResultsPanel<TRow>({
 	menuItems,
 	onResetFilters,
 }: {
+	readonly actions: ReactNode;
 	readonly heading: ExplorerHeading;
 	readonly results: ExplorerResults<TRow>;
 	readonly footer: ReactNode;
@@ -267,6 +279,7 @@ function ResultsPanel<TRow>({
 	return (
 		<div className={cn(PANEL_SHELL, 'min-h-0 flex-1')}>
 			<ExplorerHeader
+				actions={actions}
 				collapse={{
 					onCollapse,
 					// The same X the filters panel above it closes with. Two panels in one
