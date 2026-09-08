@@ -447,6 +447,20 @@ export interface NearbyHabitatsResult {
  * merge form fills every field of the surviving record from these values, and a
  * page that built the target's half from a synced row instead would be a second
  * spelling of the same thing, free to drift.
+ *
+ * The self-join's `home.organization_id = near.organization_id` is deliberately
+ * uncovered, and no case can cover it. `readHabitatCandidate` runs first and
+ * answers undefined for a target this Organization does not own, and `id` is the
+ * habitats primary key, so `home` is that same row and holds the caller's
+ * organization. The `where` clause pins `near.organization_id` to the caller's
+ * separately. Both sides are therefore already the caller's before the join
+ * predicate is read, which makes it follow from the other two rather than decide
+ * anything. #616 found it survives being changed to `and true`, and #701 wrote
+ * the case the issue proposed, two organizations each holding a habitat near the
+ * other's, and measured it: 16 passed with the predicate and 16 passed without
+ * it. It stays so the join reads as scoped where it is written, and the scope
+ * itself is covered, because dropping the `where` clause's copy does fail a
+ * case.
  */
 export async function readNearbyHabitats(
 	db: DbExecutor,
