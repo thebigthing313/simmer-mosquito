@@ -626,6 +626,49 @@ function seedId(surface: number, row: number): string {
 	return `00000000-0000-4000-8000-${String(surface).padStart(6, '0')}${String(row).padStart(6, '0')}`;
 }
 
+/** The two multi-part habitats {@link seedSplitHabitats} writes, keyed by shape. */
+export const mapSurfaceSplitHabitatIds = {
+	split: seedId(0, 7),
+	splitAndDisjoint: seedId(0, 8),
+} as const;
+
+/** Which shape each seeded multi-part habitat carries. A typo fails `tsc`. */
+export type MapSurfaceSplitHabitatName = keyof typeof mapSurfaceSplitHabitatIds;
+
+/**
+ * Adds two live habitats on this organization carrying the geometry the Split
+ * gesture writes, one per shape.
+ *
+ * Kept out of {@link seedMapSurfaces} for the reason {@link seedLateCollection}
+ * is: every surface there has the same five rows and the shared assertions count
+ * them, so two more habitats would make that surface answer differently from its
+ * twelve peers over something none of those tests are about.
+ *
+ * The shapes arrive as WKT rather than living here so the case that decodes a
+ * tile and the case that asks `ST_AsMVTGeom` about the same geometry are talking
+ * about one shape, written once beside the two of them.
+ */
+export async function seedSplitHabitats(
+	db: DbExecutor,
+	shapes: Record<MapSurfaceSplitHabitatName, string>,
+): Promise<void> {
+	const refs = organizationRefs(mapSurfaceOrganizationIds.own);
+
+	await db
+		.insertInto('habitats')
+		.values(
+			Object.entries(shapes).map(([name, wkt]) => ({
+				id: mapSurfaceSplitHabitatIds[name as MapSurfaceSplitHabitatName],
+				organization_id: mapSurfaceOrganizationIds.own,
+				geom: sql<string>`st_setsrid(st_geomfromtext(${wkt}::text), 4326)`,
+				habitat_type_id: refs.habitatTypeId,
+				habitat_name: 'Split lot',
+				description: 'Cut in two and put back on the line it was cut along.',
+			})),
+		)
+		.execute();
+}
+
 /**
  * Adds the one collection whose calendar day depends on who is asking.
  *
