@@ -318,6 +318,21 @@ jobs:
       - name: Compiler bail-outs
         run: pnpm check:compiler-bailouts
 
+      # The other half of the same question, and the only thing here that reads
+      # a React rule at all: Biome's `react` domain is off, so 104 Rules of
+      # React violations had collected under a green `pnpm check` (#651). The
+      # compiler bails out on the code those rules name, which makes the backlog
+      # the work list for every phase of #649, and a phase that added to it
+      # would look exactly like one that did not. This holds it per file, in
+      # both directions.
+      #
+      # It is not a `check:*` script and `pnpm check:all` does not run it, which
+      # is why it has a step of its own here rather than a line in the gate
+      # list: `pnpm check` means Biome, and one script over two linters would
+      # read as the zero-warning rule covering both.
+      - name: React rules
+        run: pnpm lint:react
+
       - name: Typecheck
         run: pnpm typecheck
 

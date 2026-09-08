@@ -44,6 +44,16 @@
  * members and gained one between the published `1.0.0` and `main`, so a gate
  * that threw on an unknown kind would break on the next bump.
  *
+ * ## Its neighbour, which runs the same compiler and asks something else
+ *
+ * `scripts/check-react-rules.mjs` runs ESLint with
+ * `eslint-plugin-react-hooks`, whose compiler rules are the compiler itself,
+ * over almost this corpus. It asks whether the source breaks a Rule of React;
+ * this asks whether a function compiles. **The two run different builds of the
+ * compiler**, so their counts for one rule name are not expected to match and a
+ * gap is not a defect: it reports 56 `refs` findings where this reports 50
+ * `Refs`, and #779 eliminated every other candidate cause by measurement.
+ *
  * ## Two halves, because the rollout is phased
  *
  * #656 makes a phase an entry in a path allowlist at `compilationMode: 'infer'`.

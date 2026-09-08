@@ -5,3 +5,10 @@ packages:
   # of many. It is a workspace package so that `nx run-many -t test` finds the
   # suite over the static gates' shared source scanner (#665).
   - "scripts"
+  # Also a plain directory. It holds the ESLint config and the linter's own
+  # dependencies, and it is a package rather than a root file because
+  # `typescript-eslint` throws at config load on TypeScript 7 and pnpm gives a
+  # peer to the importer's copy: a second importer is what puts a private
+  # `typescript@6.0.3` in its resolution. It has no tsconfig.json, so
+  # `check:build-graph` reads it as no project.
+  - "tools/eslint-config"
