@@ -17,16 +17,18 @@
  *
  * What the build filters is a resolved absolute module id, and this is a
  * Windows checkout, so the separator is a backslash there and a forward slash
- * in CI. Every pattern therefore writes its separators as `[\/]` and anchors
+ * in CI. Every pattern therefore writes its separators as `[\\/]` and anchors
  * on nothing, which makes the same pattern true of an absolute id and of a
  * repo-relative POSIX path. The gate tests the second, the build tests the
  * first, and neither needs a translation step.
  *
- * ## It ships empty, and that is the truth today
+ * ## Adding a phase
  *
- * The gate lands before the first phase, so on the day this is written nothing
- * is opted in and every module is outside the allowlist. #657 is the phase that
- * wires the app configs to this file and adds the first entry.
+ * A phase is one entry here plus the `BAILING_FILES` deletions its paths cause,
+ * and nothing else. The app config already reads this file, so switching a
+ * surface on is a list edit rather than a config edit. What the gate then
+ * demands of those paths is a hard zero, so the entry lands in the same commit
+ * as the fixes and the directives that get it there.
  *
  * There is no floor under the length of this list, and an emptied one is not a
  * silent pass. The gate's two halves are complementary: a path that leaves the
@@ -39,16 +41,27 @@
  *
  * @type {ReadonlyArray<{ phase: number, name: string, issue: number, include: readonly RegExp[] }>}
  */
-const COMPILER_PHASES = [];
+const COMPILER_PHASES = [
+	{
+		phase: 1,
+		name: 'apps/admin',
+		issue: 657,
+		include: [/[\\/]apps[\\/]admin[\\/]src[\\/]/],
+	},
+];
 
 /**
  * Every pattern of every phase, which is what the build filter takes.
  *
- * Not exported yet, and `fallow dead-code` is why: it gates unused exports at
- * zero, and the app configs are #657's edit. That branch exports this and hands
- * it to the preset's `rolldown.filter.id`.
+ * An app config hands this straight to the preset's `rolldown.filter.id`, so
+ * every app is handed the whole allowlist rather than its own slice of it. That
+ * is deliberate: a module reaches the Babel pass through whichever app imports
+ * it, `packages/ui-web` reaches all three, and an app filtering to its own root
+ * would compile a shared component in one consumer and not in the next. The
+ * patterns are absolute-path shaped, so an app only ever matches the paths it
+ * actually imports.
  */
-const compilerIncludes = () => COMPILER_PHASES.flatMap((phase) => phase.include);
+export const compilerIncludes = () => COMPILER_PHASES.flatMap((phase) => phase.include);
 
 /**
  * Whether one module is inside the allowlist.
