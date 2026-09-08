@@ -1,6 +1,5 @@
 import { useAppForm } from '@simmer-mosquito/ui-web/components/form';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
-import { saveFailure } from '../../lib/save-error';
 
 export interface GenusFormValues {
 	readonly abbreviation: string;
@@ -34,12 +33,13 @@ export function GenusForm({
 }) {
 	const form = useAppForm({
 		defaultValues: values,
-		onSubmit: async ({ value, formApi }) => {
-			try {
-				await onSubmit(value);
-			} catch (caught) {
-				formApi.setErrorMap(saveFailure(caught));
-			}
+		/*
+		 * The rejection is left to escape. `useAppForm` records it as a
+		 * `SaveFailure` and `form.FormErrorAlert` renders it, which is what keeps
+		 * Save pressable so a dropped write can be tried again (#754).
+		 */
+		onSubmit: async ({ value }) => {
+			await onSubmit(value);
 		},
 	});
 

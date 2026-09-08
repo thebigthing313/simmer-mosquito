@@ -65,6 +65,16 @@ type FormKitOptions = Parameters<typeof useFormKit>[0];
  * happened to edit a field. So the next attempt drops the recorded failure and
  * runs the save again, and `SubmitButton` reads
  * `saveFailureAloneBlocksSubmit` so there is an attempt to make.
+ *
+ * This is the one answer both apps are on. `apps/admin` used to opt out of it,
+ * three forms writing a plain string into the error map through a helper of
+ * their own and two holding the failure in component state beside a second
+ * alert, and a string is not a `SaveFailure`, so Save stayed dead until the
+ * operator edited a field. Nothing records a save failure by hand now (#754).
+ *
+ * Re-enabling Save is deliberately not conditional on the failure being
+ * transient. A refusal keeps saying what was wrong in the alert, and pressing
+ * Save again costs nothing.
  */
 export const useAppForm = ((options: FormKitOptions) =>
 	useFormKit(withSaveFailureRecorded(options))) as unknown as typeof useFormKit;
