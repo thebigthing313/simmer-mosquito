@@ -229,7 +229,7 @@ function InspectionHeader({ inspection }: { readonly inspection: InspectionDetai
 					<InspectionIcon aria-hidden="true" className="size-3.5" />
 					Larval inspection
 				</span>
-				<h1 className="m-0 flex items-center gap-2 font-semibold text-[1.5rem] text-foreground leading-tight">
+				<h1 className="m-0 flex items-center gap-2 font-semibold text-foreground text-heading leading-heading">
 					<CalendarIcon aria-hidden="true" className="size-5 text-muted-foreground" />
 					{formatFullDate(inspection.inspectionDate)}
 				</h1>

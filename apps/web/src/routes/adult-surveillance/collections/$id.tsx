@@ -2,6 +2,7 @@ import type { SpeciesSex, SpeciesStatus } from '@simmer-mosquito/domain';
 import { AbsentValue } from '@simmer-mosquito/ui-web/components/absent-value';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor, useAppForm } from '@simmer-mosquito/ui-web/components/form';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Autocomplete } from '@simmer-mosquito/ui-web/components/ui/autocomplete';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -54,7 +55,6 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	RecordDetailColumns,
-	RecordDetailHeader,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -197,7 +197,7 @@ function CollectionDetailContent({
 				</>
 			}
 			header={
-				<RecordDetailHeader
+				<PageHeader
 					actions={
 						<>
 							<CollectionFlagBadges
@@ -226,7 +226,7 @@ function CollectionDetailContent({
 					}
 					eyebrow="Collection"
 					icon={CollectionIcon}
-					subtitle={`${collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} · ${methodName}`}
+					description={`${collection.trapId === null ? 'Ad-hoc collection' : trapDisplayName(collection)} · ${methodName}`}
 					title={title}
 				/>
 			}

@@ -1,5 +1,6 @@
 import type { GeoJsonGeometry } from '@simmer-mosquito/mapping';
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -15,7 +16,6 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	RecordDetailColumns,
-	RecordDetailHeader,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -79,7 +79,7 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 				</>
 			}
 			header={
-				<RecordDetailHeader
+				<PageHeader
 					actions={
 						<WriteOnly minimum="manager">
 							<Button asChild size="sm" variant="outline">
@@ -92,7 +92,7 @@ function RegionDetailContent({ region }: { readonly region: Region }) {
 					}
 					eyebrow="Region"
 					icon={RegionIcon}
-					subtitle={folderName ?? 'Unfiled'}
+					description={folderName ?? 'Unfiled'}
 					title={region.name}
 				/>
 			}

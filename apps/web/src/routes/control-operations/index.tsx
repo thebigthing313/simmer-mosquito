@@ -1,4 +1,5 @@
 import type { UnitDefaults } from '@simmer-mosquito/domain';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -73,21 +74,12 @@ function ControlOperationsOverviewRoute() {
 
 	return (
 		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
-			<header className="grid gap-1.5">
-				<div className="flex items-center gap-2 text-muted-foreground">
-					<ControlIcon aria-hidden="true" className="size-4" />
-					<span className="font-medium text-xs uppercase tracking-wide">
-						Larval &amp; adult management
-					</span>
-				</div>
-				<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-					Control Operations
-				</h1>
-				<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
-					The source reductions, biocontrol releases, and chemical applications your crews recorded
-					over the last {CONTROL_ACTIVITY_WINDOW_DAYS} days, and the catalogs behind them.
-				</p>
-			</header>
+			<PageHeader
+				description={`The source reductions, biocontrol releases, and chemical applications your crews recorded over the last ${CONTROL_ACTIVITY_WINDOW_DAYS} days, and the catalogs behind them.`}
+				eyebrow="Larval & adult management"
+				icon={ControlIcon}
+				title="Control Operations"
+			/>
 
 			<div className="grid gap-5 xl:grid-cols-12">
 				<div className="grid content-start gap-5 xl:col-span-7">

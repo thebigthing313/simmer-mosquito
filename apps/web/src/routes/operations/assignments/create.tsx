@@ -1,3 +1,4 @@
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { stickyHeader } from '@simmer-mosquito/ui-web/components/sticky-header';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
@@ -137,12 +138,10 @@ function AssignmentCreateRoute() {
 						<ArrowLeftIcon aria-hidden="true" className="size-3.5" />
 						Back to assignments
 					</Link>
-					<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-						New Assignment
-					</h1>
-					<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
-						Start empty and add stops, or snapshot the stops of an existing route.
-					</p>
+					<PageHeader
+						description="Start empty and add stops, or snapshot the stops of an existing route."
+						title="New Assignment"
+					/>
 				</div>
 
 				<form

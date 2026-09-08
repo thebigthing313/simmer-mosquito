@@ -33,7 +33,7 @@ typography:
     letterSpacing: "normal"
   headline:
     fontFamily: "Poppins, ui-sans-serif, system-ui, sans-serif"
-    fontSize: "1.45rem"
+    fontSize: "1.5rem"
     fontWeight: 700
     lineHeight: 1.2
     letterSpacing: "normal"
@@ -263,7 +263,7 @@ strong weight contrast.
 ### Hierarchy
 - **Display** (700, clamp(1.8rem, 4vw, 2.6rem), 1.1): Rare onboarding,
   empty-state, or route-level moments.
-- **Headline** (700, 1.45rem, 1.2): Page headings and workflow section leads.
+- **Headline** (700, 1.5rem, 1.2): Page headings and workflow section leads.
 - **Title** (700, 1.1rem, 1.25): Panels, drawers, record groups, and dialogs.
 - **Body** (400, 1rem, 1.55): Explanatory copy, record summaries, and readable
   prose. Cap line length at 65-75ch.
@@ -287,10 +287,17 @@ what a screen is meant to look like.
 | `leading-body` | 1.55 | Prose |
 | `leading-compact` | 1.4 | Dense rows and controls |
 
-The scale and the hierarchy disagree on one number: `text-heading` is 1.5rem and
-Headline is 1.45rem. They have disagreed since both were written, and settling
-it is part of merging the three page-heading treatments the apps ship today,
-which is its own work now that `text-heading` exists to merge onto.
+The scale and the hierarchy now agree on 1.5rem. They disagreed from the day
+both were written: Headline said 1.45rem, `text-heading` said 1.5rem, and no page
+heading in the product had ever been 1.45rem. Sixteen of the twenty-two headings
+were already at 1.5rem, written as `text-2xl` or as `text-[1.5rem]`, so the
+document moved to the size the product had settled on rather than moving
+twenty-two call sites for 0.05rem (#647). Page headings reach it as
+`text-heading` now, and `PageHeader` in `packages/ui-web` is the one component
+that draws them.
+
+The row's weight is a live disagreement and #647 did not settle it. Headline says
+700 and every page heading writes `font-semibold`, which is 600.
 
 ### Named rules
 

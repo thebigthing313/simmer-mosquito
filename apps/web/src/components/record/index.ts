@@ -14,7 +14,6 @@
 
 export { EditFormSkeleton } from './edit-form-skeleton';
 export { RecordDetailColumns } from './record-detail-columns';
-export { RecordDetailHeader } from './record-detail-header';
 export type { RecordDetailLayout } from './record-detail-layout';
 export { RecordDetailPage, type RecordReading } from './record-detail-page';
 export { RecordDetailSkeleton } from './record-detail-skeleton';

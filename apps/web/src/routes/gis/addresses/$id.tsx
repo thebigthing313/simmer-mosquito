@@ -1,4 +1,5 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
 	Card,
@@ -15,7 +16,6 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	RecordDetailColumns,
-	RecordDetailHeader,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -80,7 +80,7 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 				</>
 			}
 			header={
-				<RecordDetailHeader
+				<PageHeader
 					actions={
 						<WriteOnly minimum="manager">
 							<Button asChild size="sm" variant="outline">
@@ -93,15 +93,15 @@ function AddressDetailContent({ address }: { readonly address: AddressRecord }) 
 					}
 					eyebrow="Address"
 					icon={AddressIcon}
-					subtitle={
+					description={
 						/* Postal lines, as an envelope carries them — the header has the
 						   width, and a comma-run makes the reader find where the street
 						   ends before they can copy it. */
 						addressLines.length === 0 ? (
-							<p className="m-0 text-[0.95rem] text-muted-foreground">No street address</p>
+							<p className="m-0">No street address</p>
 						) : (
 							addressLines.map((line) => (
-								<p className="m-0 text-[0.95rem] text-muted-foreground" key={line}>
+								<p className="m-0" key={line}>
 									{line}
 								</p>
 							))

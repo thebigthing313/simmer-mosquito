@@ -1,5 +1,6 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
 import { customSchemaFor } from '@simmer-mosquito/ui-web/components/form';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
 import {
@@ -22,7 +23,6 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	RecordDetailColumns,
-	RecordDetailHeader,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -134,7 +134,7 @@ function SourceReductionDetailContent({
 				</>
 			}
 			header={
-				<RecordDetailHeader
+				<PageHeader
 					actions={
 						<WriteOnly>
 							<Button asChild size="sm" variant="outline">
@@ -150,7 +150,7 @@ function SourceReductionDetailContent({
 					}
 					eyebrow="Source reduction"
 					icon={SourceReductionIcon}
-					subtitle={`${amountLabel} eliminated · ${formatActionDate(sourceReduction.actionDate)}`}
+					description={`${amountLabel} eliminated · ${formatActionDate(sourceReduction.actionDate)}`}
 					title={methodName}
 				/>
 			}

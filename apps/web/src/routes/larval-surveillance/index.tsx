@@ -1,4 +1,5 @@
 import type { LarvalDensity } from '@simmer-mosquito/domain';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Panel, PanelMessage, RowSkeleton } from '@simmer-mosquito/ui-web/components/panel';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
@@ -86,21 +87,12 @@ export const Route = createFileRoute('/larval-surveillance/')({
 function LarvalSurveillanceOverviewRoute() {
 	return (
 		<div className={pageContainer({ gap: 'overview', padding: 'page' })}>
-			<header className="grid gap-1.5">
-				<div className="flex items-center gap-2 text-muted-foreground">
-					<LarvalIcon aria-hidden="true" className="size-4" />
-					<span className="font-medium text-xs uppercase tracking-wide">
-						Surveillance &amp; mapping
-					</span>
-				</div>
-				<h1 className="m-0 font-semibold text-2xl text-foreground leading-tight tracking-tight">
-					Larval Surveillance
-				</h1>
-				<p className="m-0 max-w-[68ch] text-muted-foreground text-sm">
-					Inspection activity across your habitats, the species your samples identified, and the
-					habitats where larval density came back heavy.
-				</p>
-			</header>
+			<PageHeader
+				description="Inspection activity across your habitats, the species your samples identified, and the habitats where larval density came back heavy."
+				eyebrow="Surveillance & mapping"
+				icon={LarvalIcon}
+				title="Larval Surveillance"
+			/>
 
 			<Suspense fallback={<OverviewSkeleton />}>
 				<OverviewBody />

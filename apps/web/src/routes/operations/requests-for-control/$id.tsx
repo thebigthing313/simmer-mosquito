@@ -1,4 +1,5 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { recordLink } from '@simmer-mosquito/ui-web/components/record-link';
 import { Alert, AlertDescription } from '@simmer-mosquito/ui-web/components/ui/alert';
 import { Button } from '@simmer-mosquito/ui-web/components/ui/button';
@@ -25,7 +26,6 @@ import { RecordLocationCard } from '../../../components/map/record-location-card
 import { RecordRegionsBand } from '../../../components/map/record-regions-band';
 import {
 	RecordDetailColumns,
-	RecordDetailHeader,
 	type RecordDetailLayout,
 	RecordDetailPage,
 } from '../../../components/record';
@@ -196,7 +196,7 @@ function RequestHeader({
 	const timeZone = useOrganizationTimeZone();
 
 	return (
-		<RecordDetailHeader
+		<PageHeader
 			actions={
 				<>
 					<RequestStatusBadge status={request.status} />
@@ -229,7 +229,7 @@ function RequestHeader({
 			}
 			eyebrow="Request for Control"
 			icon={RequestIcon}
-			subtitle={`${controlTypeLabel(request.controlType)} · raised ${formatScheduledStart(request.requestedAt, timeZone)}`}
+			description={`${controlTypeLabel(request.controlType)} · raised ${formatScheduledStart(request.requestedAt, timeZone)}`}
 			title={subject}
 		/>
 	);

@@ -1,4 +1,5 @@
 import { DetailList, DetailRow } from '@simmer-mosquito/ui-web/components/detail-row';
+import { PageHeader } from '@simmer-mosquito/ui-web/components/page';
 import { pageContainer } from '@simmer-mosquito/ui-web/components/page-container';
 import { Avatar, AvatarFallback, AvatarImage } from '@simmer-mosquito/ui-web/components/ui/avatar';
 import { Badge } from '@simmer-mosquito/ui-web/components/ui/badge';
@@ -77,16 +78,12 @@ function ProfileContent({ me }: { readonly me: AuthenticatedMe }) {
 						{initials(displayName)}
 					</AvatarFallback>
 				</Avatar>
-				<div className="grid gap-1.5">
-					<span className="inline-flex items-center gap-1.5 font-medium text-muted-foreground text-xs uppercase tracking-wide">
-						<ProfileIcon aria-hidden="true" className="size-3.5" />
-						Profile
-					</span>
-					<h1 className="m-0 font-semibold text-[1.5rem] text-foreground leading-tight">
-						{displayName}
-					</h1>
-					<p className="m-0 text-[0.95rem] text-muted-foreground">{user.email}</p>
-				</div>
+				<PageHeader
+					description={user.email}
+					eyebrow="Profile"
+					icon={ProfileIcon}
+					title={displayName}
+				/>
 			</div>
 
 			<div className="grid items-start gap-5 xl:grid-cols-2">
