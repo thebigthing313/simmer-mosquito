@@ -30,10 +30,14 @@ const TOKENS_CSS = fileURLToPath(new URL('../../tokens.css', import.meta.url));
  * aliases out. The `color-mix()` arguments are out for a different reason. A
  * token named inside a mix is not followed by a colon at all.
  */
-function hexFromStylesheet(): ReadonlyMap<string, string> {
-	const css = readFileSync(TOKENS_CSS, 'utf8').replace(/\/\*[\s\S]*?\*\//g, '');
+function hexFromCss(source: string): ReadonlyMap<string, string> {
+	const css = source.replace(/\/\*[\s\S]*?\*\//g, '');
+	// The lookbehind anchors the match to where a custom property starts, not to
+	// anywhere the prefix appears: unanchored, `--x--simmer-red: oklch(...)` would
+	// write the `red` key, overwrite the real declaration's value and leave the
+	// map size at 23, which is the silent substitution this suite exists to catch.
 	const declaration =
-		/--simmer-(green|yellow|purple|red|blue)(-\d{2,3})?\s*:\s*oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)\s*\)/g;
+		/(?<![-\w])--simmer-(green|yellow|purple|red|blue)(-\d{2,3})?\s*:\s*oklch\(\s*([\d.]+)(%?)\s+([\d.]+)\s+([\d.]+)\s*\)/g;
 	const out = new Map<string, string>();
 	let match = declaration.exec(css);
 	while (match !== null) {
@@ -52,6 +56,10 @@ function hexFromStylesheet(): ReadonlyMap<string, string> {
 		match = declaration.exec(css);
 	}
 	return out;
+}
+
+function hexFromStylesheet(): ReadonlyMap<string, string> {
+	return hexFromCss(readFileSync(TOKENS_CSS, 'utf8'));
 }
 
 const FROM_CSS = hexFromStylesheet();
@@ -88,5 +96,26 @@ describe('brand scale hex mirrors tokens.css', () => {
 		['blue', brand.blue],
 	])('%s matches its OKLCH source', (name, declared) => {
 		expect(declared).toBe(FROM_CSS.get(name));
+	});
+
+	// A property whose name ends in the prefix is a different property. Read
+	// unanchored it writes the same key, so the decoy's value lands under `red`
+	// and the size the suite leans on does not move to say so. Each fragment
+	// carries a second decoy on a family it does not declare for real, because
+	// a same-family decoy read before the real one is overwritten by it and
+	// would pass either way.
+	const real = '\t--simmer-red: oklch(0.4937 0.1424 25.5);\n';
+	const decoys = '\t--x--simmer-red: oklch(0.9 0.2 30);\n\t--x--simmer-blue: oklch(0.9 0.2 250);\n';
+
+	it.each([
+		['decoys first', `:root {\n${decoys}${real}}`],
+		['decoys second', `:root {\n${real}${decoys}}`],
+	])('ignores a property that only ends in the token prefix (%s)', (_label, css) => {
+		const parsed = hexFromCss(css);
+
+		expect([...parsed.keys()]).toEqual(['red']);
+		expect(parsed.get('red')).toBe(
+			formatHex(oklchToRgb({ lightness: 0.4937, chroma: 0.1424, hue: 25.5 })),
+		);
 	});
 });
