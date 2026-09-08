@@ -135,6 +135,7 @@ import { fileURLToPath } from 'node:url';
 import { maskedSource } from './lib/masked-source.mjs';
 import { pathFrom } from './lib/relative-path.mjs';
 import { sourceFiles } from './lib/source-files.mjs';
+import { lineOf } from './lib/source-position.mjs';
 import {
 	count,
 	failure,
@@ -321,11 +322,6 @@ function announce(files) {
 	console.log(
 		`${GATE}: ${count(files.length, 'module')} under apps/ and packages/, ${sites} of them calling ${SEND}, no hand-written credentials, ${count(markersAcross(files), 'line')} exempted by a marker.`,
 	);
-}
-
-/** The one-based line an offset sits on, which is what a marker's target counts in. */
-function lineOf(source, index) {
-	return source.slice(0, index).split('\n').length;
 }
 
 main();

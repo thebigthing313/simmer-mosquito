@@ -75,6 +75,7 @@ import { fileURLToPath } from 'node:url';
 import { maskedSource } from './lib/masked-source.mjs';
 import { pathFrom } from './lib/relative-path.mjs';
 import { sourceFiles } from './lib/source-files.mjs';
+import { lineOf } from './lib/source-position.mjs';
 import { count, failure, trim } from './lib/style-gate.mjs';
 
 const GATE = 'check-image-names';
@@ -272,10 +273,6 @@ function report(findings) {
 		console.error(`  ${finding.at}\n    ${finding.line}\n    ${finding.problem}.\n`);
 	}
 	process.exitCode = 1;
-}
-
-function lineOf(source, index) {
-	return source.slice(0, index).split('\n').length;
 }
 
 main();

@@ -46,6 +46,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pathFrom } from './lib/relative-path.mjs';
 import { sourceFiles } from './lib/source-files.mjs';
+import { lineOf } from './lib/source-position.mjs';
 import { readBlockDeclarations } from './lib/stylesheet-tokens.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
@@ -208,10 +209,6 @@ function checkNoUnusableClasses(unregistered) {
 		}
 	}
 	return failures;
-}
-
-function lineOf(source, index) {
-	return source.slice(0, index).split('\n').length;
 }
 
 main();

@@ -67,6 +67,7 @@ import { fileURLToPath } from 'node:url';
 import { maskedSource } from './lib/masked-source.mjs';
 import { pathFrom } from './lib/relative-path.mjs';
 import { sourceFiles } from './lib/source-files.mjs';
+import { lineOf } from './lib/source-position.mjs';
 
 const workspaceRoot = join(dirname(fileURLToPath(import.meta.url)), '..');
 
@@ -144,7 +145,7 @@ function readCall(file, found) {
 	const spans = found[1] === '<' ? null : argumentSpans(file.masked, JOIN_CALL.lastIndex - 1);
 	return {
 		where: file.where,
-		line: file.source.slice(0, found.index).split('\n').length,
+		line: lineOf(file.source, found.index),
 		text: callText(file.source, found.index, spans),
 		arguments: argumentsIn(file.source, spans),
 		masked: argumentsIn(file.masked, spans),
