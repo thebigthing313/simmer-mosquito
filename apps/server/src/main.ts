@@ -8,7 +8,6 @@ import {
 import { Hono } from 'hono';
 import type { setCookie } from 'hono/cookie';
 import { cors } from 'hono/cors';
-import { toPublicAuthContext } from './auth-context.js';
 import { createAuthMailer } from './auth-email.js';
 import {
 	type AuthVariables,
@@ -156,21 +155,6 @@ registerAllRoutes(app, {
 	authContextMiddleware,
 	operatorAuthContextMiddleware,
 });
-
-if (env.nodeEnv !== 'production') {
-	app.use(
-		'/debug/*',
-		cors({
-			origin: allowedCorsOrigins(),
-			credentials: true,
-			allowMethods: ['GET', 'OPTIONS'],
-		}),
-	);
-
-	app.get('/debug/auth-context', authContextMiddleware, (context) =>
-		context.json(toPublicAuthContext(context.get('authContext'))),
-	);
-}
 
 const server = serve(
 	{
