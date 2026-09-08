@@ -198,6 +198,22 @@ works. The `test` script is `vitest run src` with no `--passWithNoTests`, unlike
 every other project: this one exists for its suites, so a run that collects
 nothing is a failure rather than a pass (#665).
 
+### A hanging test file is bounded, loosely
+
+`vitest.shared.ts` carries a watchdog that fails a run when one file holds a
+worker for eight minutes without reporting, and the failure names the file. It is
+there because **none of vitest's timeouts bounds an import**: `testTimeout`
+bounds a test callback, `hookTimeout` a hook, `teardownTimeout` the wait for
+shutdown, and a module that awaits a promise which never settles hangs before
+any of the three exists. Before #663 such a file ran until CI killed the job and
+the report named nothing.
+
+The number is a tripwire, not a performance gate. #545 took a 60s budget off
+`import-side-effects.test.ts` because it was measuring machine load, and a bound
+a slow suite can trip is worse than no bound, because the next person deletes
+it. **Do not tighten it because a suite got slow.** The comment beside the
+constant says the same thing.
+
 ### Build toolchain
 
 The workspace is on **TypeScript 7** (`typescript@7.0.2`, the native compiler), and `tsc` is the only compiler: every project's `build` is `tsc -b` and every `typecheck` is `tsc -p tsconfig.json --noEmit --pretty false`. There are no per-compiler fallback targets. The old `:ts6` (TypeScript 6 `tsc`) and `:ts7` (`tsgo` from `@typescript/native-preview`) variants, and the `typcheck:ts6` typo alias, are gone. Don't reintroduce a second compiler path; if `tsc` misbehaves, fix it or pin the version at the root.
