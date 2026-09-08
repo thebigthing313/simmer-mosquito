@@ -1,4 +1,7 @@
 packages:
   - "apps/*"
   - "packages/*"
-
+  # A plain directory rather than a glob: `scripts` is one project, not a parent
+  # of many. It is a workspace package so that `nx run-many -t test` finds the
+  # suite over the static gates' shared source scanner (#665).
+  - "scripts"

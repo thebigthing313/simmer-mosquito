@@ -1,0 +1,14 @@
+{
+	"name": "@simmer-mosquito/scripts",
+	"version": "0.0.0",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"build": "tsc -b",
+		"test": "vitest run src",
+		"typecheck": "tsc -p tsconfig.json --noEmit --pretty false"
+	},
+	"dependencies": {
+		"pg": "^8.16.0"
+	}
+}
