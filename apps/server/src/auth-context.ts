@@ -91,7 +91,15 @@ export interface AuthSessionProvider {
 	): Promise<SessionAuthenticationResult>;
 }
 
-/** Errors with the method name when the real WorkOS client stops fitting the seam. */
+/**
+ * Errors with the method name when the real WorkOS client stops fitting the seam.
+ *
+ * Deliberately the same three lines as in `packages/auth/src/index.ts` and in the
+ * generated drift suite at
+ * `packages/sync/src/tests/unit/collections/tables/drift.test.ts`, because a shared
+ * export was considered and refused: the idiom has no runtime and exporting it would
+ * put a dependency edge between packages that need nothing else from each other (#716).
+ */
 type Assert<T extends never> = T;
 type _WorkOsAuthIsASessionProvider = Assert<
 	WorkOsAuth extends AuthSessionProvider ? never : 'authenticateSession'

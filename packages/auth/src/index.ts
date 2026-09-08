@@ -310,7 +310,15 @@ export const WORKOS_SESSION_AND_READ_METHODS = [
 export type WorkOsIdentityWriteMethod = (typeof WORKOS_IDENTITY_WRITE_METHODS)[number];
 export type WorkOsSessionAndReadMethod = (typeof WORKOS_SESSION_AND_READ_METHODS)[number];
 
-/** Errors with the offending method names when `T` is not `never`. */
+/**
+ * Errors with the offending method names when `T` is not `never`.
+ *
+ * Deliberately the same three lines as in `apps/server/src/auth-context.ts` and in the
+ * generated drift suite at
+ * `packages/sync/src/tests/unit/collections/tables/drift.test.ts`, because a shared
+ * export was considered and refused: the idiom has no runtime and exporting it would
+ * put a dependency edge between packages that need nothing else from each other (#716).
+ */
 type Assert<T extends never> = T;
 
 /**
