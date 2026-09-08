@@ -191,6 +191,17 @@ jobs:
       - name: Registered tokens
         run: pnpm check:registered-tokens
 
+      # `role="img"` tells assistive technology the element is an image, and an
+      # image needs an accessible name. `aria-label` gives it one and `title`
+      # does not: support varies by browser and screen reader, and it is
+      # invisible to a touch device. Six elements carry the role and the rule
+      # was written into two docblocks and enforced nowhere, which is what
+      # #606's swatch was written against. This refuses one with no `aria-label`
+      # and no `aria-labelledby`, and one whose only naming attribute is
+      # `title`, at zero with no allowance.
+      - name: Image names
+        run: pnpm check:image-names
+
       # `CONTEXT.md` names every domain term and, beside it, the words that are
       # not that term. Nothing read those Avoid lists until this, which is how
       # agency and organization ended up in one sentence on one screen. It reads
